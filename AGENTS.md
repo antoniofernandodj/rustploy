@@ -38,7 +38,7 @@ Rustploy é um daemon único que:
 - **Não é um substituto do Kubernetes** para workloads com centenas de containers
 - **Não gerencia clusters multi-host** — foco em single-node
 - **Não tem Web UI** no escopo inicial — o TUI é a interface primária
-- **Não suporta build de imagens** na v1 — trabalha com imagens já publicadas em registry
+- **Não suporta build de imagens arbitrárias** — apenas repositórios Git com Dockerfile; imagens pré-construídas em registry também são suportadas
 - **Não implementa service mesh** — isolamento de rede via bridge Docker é suficiente
 
 ---
@@ -156,214 +156,72 @@ O canal de comunicação entre `client` e `daemon` é um Unix Domain Socket em `
 
 O client lê o tamanho, aloca exatamente aquele buffer, desserializa. Isso evita parsing de linha e mantém CPU mínimo.
 
-### 3.2 Enum `Command` (client → daemon)
+### 3.2 Comandos (client → daemon)
 
-```rust
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum Command {
-    // Projetos
-    ProjectCreate { name: String, description: Option<String> },
-    ProjectDelete { id: ProjectId },
-    ProjectList,
+Os comandos são agrupados por domínio:
 
-    // Serviços
-    ServiceCreate(ServiceSpec),
-    ServiceUpdate { id: ServiceId, spec: ServiceSpec },
-    ServiceDelete { id: ServiceId },
-    ServiceList { project_id: ProjectId },
+**Projetos:** `ProjectCreate` (nome + descrição opcional), `ProjectDelete` (por id), `ProjectList`.
 
-    // Deployments
-    DeployStart { service_id: ServiceId },
-    DeployAbort { deployment_id: DeploymentId },
-    DeployRollback { service_id: ServiceId },
-    DeployHistory { service_id: ServiceId, limit: u32 },
+**Serviços:** `ServiceCreate` (recebe uma `ServiceSpec` completa), `ServiceUpdate` (id + nova spec), `ServiceDelete` (por id), `ServiceList` (filtrado por projeto).
 
-    // Observability
-    LogsSubscribe { service_id: ServiceId, lines_back: u32 },
-    LogsUnsubscribe { service_id: ServiceId },
-    MetricsSubscribe { service_id: ServiceId },
-    MetricsUnsubscribe { service_id: ServiceId },
+**Deployments:** `DeployStart` (por service_id), `DeployAbort` (por deployment_id), `DeployRollback` (por service_id, volta à versão anterior), `DeployHistory` (por service_id, com limite de resultados).
 
-    // Infra
-    Ping,
-    DaemonStatus,
-}
-```
+**Observabilidade:** `LogsSubscribe`/`LogsUnsubscribe` (por service_id, com quantidade de linhas retroativas), `MetricsSubscribe`/`MetricsUnsubscribe` (por service_id).
 
-### 3.3 Enum `Event` (daemon → client, stream)
+**Infraestrutura:** `Ping` (verifica se o daemon responde), `DaemonStatus` (informações gerais do daemon).
 
-```rust
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum Event {
-    // Estado de deploy
-    DeployStateChanged {
-        deployment_id: DeploymentId,
-        service_id: ServiceId,
-        state: DeployState,
-        timestamp: i64,
-        message: Option<String>,
-    },
-    DeployProgress {
-        deployment_id: DeploymentId,
-        phase: DeployPhase,
-        percent: u8,
-        detail: String,
-    },
+### 3.3 Eventos (daemon → client, stream)
 
-    // Logs
-    LogLine {
-        service_id: ServiceId,
-        container_id: String,
-        timestamp: i64,
-        stream: LogStream,  // Stdout | Stderr
-        line: String,
-    },
+**`DeployStateChanged`** — emitido a cada transição de estado; carrega o `deployment_id`, `service_id`, novo estado, timestamp e mensagem opcional.
 
-    // Métricas em tempo real
-    ContainerMetrics {
-        service_id: ServiceId,
-        container_id: String,
-        cpu_percent: f32,
-        mem_bytes: u64,
-        mem_limit_bytes: u64,
-        net_rx_bytes: u64,
-        net_tx_bytes: u64,
-        timestamp: i64,
-    },
+**`DeployProgress`** — granularidade fina dentro de estados longos (ex: progresso por camada durante `PullingImage`); carrega a fase, percentual (0–100) e descrição textual.
 
-    // Notificações gerais
-    ServiceStatusChanged { service_id: ServiceId, status: ServiceStatus },
-    DaemonReady { version: String },
-    Error { code: ErrorCode, message: String },
-}
-```
+**`LogLine`** — uma linha capturada do container (stdout ou stderr), com timestamp e identificação do serviço e container.
 
-### 3.4 Enum `Response` (daemon → client, request/response)
+**`ContainerMetrics`** — snapshot de CPU%, memória usada e limite, bytes de rede recebidos/transmitidos e timestamp; emitido a cada ciclo de coleta.
 
-```rust
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum Response {
-    Ok,
-    Project(Project),
-    Projects(Vec<Project>),
-    Service(Service),
-    Services(Vec<Service>),
-    Deployment(Deployment),
-    Deployments(Vec<Deployment>),
-    DaemonStatus(DaemonStatusInfo),
-    Pong { uptime_secs: u64 },
-    Err(ApiError),
-}
-```
+**`ServiceStatusChanged`** — mudança de alto nível no status de um serviço (Stopped, Deploying, Running, Degraded, Error).
+
+**`DaemonReady`** — emitido após o daemon inicializar completamente, com a versão do binário.
+
+**`Error`** — erros assíncronos com código estruturado e mensagem descritiva.
+
+### 3.4 Respostas (daemon → client, request/response)
+
+As respostas são um tipo union que cobre todos os casos possíveis: `Ok` (confirmação sem dado), `Project`, `Projects`, `Service`, `Services`, `Deployment`, `Deployments`, `DaemonStatus` (informações gerais), `Pong` (uptime em segundos) e `Err` (erro estruturado com código e mensagem).
 
 ### 3.5 Modelos de Dados
 
-```rust
-pub type ProjectId    = ulid::Ulid;
-pub type ServiceId    = ulid::Ulid;
-pub type DeploymentId = ulid::Ulid;
+Todos os identificadores são ULIDs — identificadores lexicograficamente ordenados que garantem unicidade sem coordenação central.
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Project {
-    pub id: ProjectId,
-    pub name: String,
-    pub description: Option<String>,
-    pub created_at: i64,
-}
+**Project** — campos: `id`, `name` (único), `description` (opcional), `created_at`.
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ServiceSpec {
-    pub name: String,
-    pub project_id: ProjectId,
-    pub image: String,           // ex: "ghcr.io/user/app:latest"
-    pub port: u16,               // porta interna do container
-    pub domain: String,          // ex: "app.example.com"
-    pub env_vars: Vec<EnvVar>,
-    pub volumes: Vec<VolumeMount>,
-    pub healthcheck: Healthcheck,
-    pub replicas: u8,            // sempre 1 na v1
-    pub resources: ResourceLimits,
-}
+**ServiceSpec** — especificação imutável de um serviço: `name`, `project_id`, `source` (origem da imagem — veja abaixo), `port` (porta interna do container), `domain` (domínio público), `env_vars`, `volumes`, `healthcheck`, `replicas` (fixo em 1 na v1), `resources`.
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Service {
-    pub id: ServiceId,
-    pub spec: ServiceSpec,
-    pub status: ServiceStatus,
-    pub live_container_id: Option<String>,
-    pub created_at: i64,
-    pub updated_at: i64,
-}
+**ServiceSource** — define como a imagem do serviço é obtida; duas variantes mutuamente exclusivas:
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum ServiceStatus {
-    Stopped,
-    Deploying,
-    Running,
-    Degraded,
-    Error(String),
-}
+- `Registry { image }` — imagem já publicada em um registry (ex: `ghcr.io/user/app:latest`); o daemon faz pull diretamente
+- `Git { url, branch, dockerfile_path, build_context, credentials }` — repositório Git com Dockerfile; o daemon clona o repositório, constrói a imagem localmente via API do Docker Engine e a usa para o deploy
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Deployment {
-    pub id: DeploymentId,
-    pub service_id: ServiceId,
-    pub image: String,
-    pub state: DeployState,
-    pub states_log: Vec<StateTransition>,  // histórico completo
-    pub started_at: i64,
-    pub finished_at: Option<i64>,
-}
+**GitSource** — campos de uma origem Git: `url` (HTTPS ou SSH), `branch` (ou commit SHA), `dockerfile_path` (caminho do Dockerfile dentro do repo, padrão `Dockerfile`), `build_context` (caminho do contexto de build dentro do repo, padrão `.`), `credentials` (referência a um secret do projeto com o token de acesso ou chave SSH, opcional para repositórios públicos).
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct StateTransition {
-    pub from: DeployState,
-    pub to: DeployState,
-    pub at: i64,
-    pub message: Option<String>,
-}
+**Service** — agrega uma `ServiceSpec` com estado operacional: `id`, `spec`, `status`, `live_container_id` (ID do container ativo no Docker), `created_at`, `updated_at`.
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct EnvVar {
-    pub key: String,
-    pub value: EnvVarValue,
-}
+**ServiceStatus** — enum de estado: `Stopped`, `Deploying`, `Running`, `Degraded`, `Error(mensagem)`.
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum EnvVarValue {
-    Plain(String),
-    Secret(String),  // referência a um secret, não o valor
-}
+**Deployment** — representa uma tentativa de deploy: `id`, `service_id`, `image`, `state` (estado atual na máquina de estados), `states_log` (histórico completo de transições com timestamps), `started_at`, `finished_at` (opcional).
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct VolumeMount {
-    pub host_path: String,
-    pub container_path: String,
-    pub read_only: bool,
-}
+**StateTransition** — um registro no log: `from`, `to`, `at` (timestamp), `message` (opcional).
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Healthcheck {
-    pub kind: HealthcheckKind,
-    pub interval_secs: u32,
-    pub timeout_secs: u32,
-    pub retries: u32,
-    pub start_period_secs: u32,
-}
+**EnvVar** — par chave + valor, onde o valor pode ser `Plain(texto)` ou `Secret(nome_do_secret)` — neste caso, o daemon resolve e decriptografa na hora de criar o container.
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum HealthcheckKind {
-    Http { path: String, expected_status: u16 },
-    Tcp,
-    DockerNative,  // usa o HEALTHCHECK da imagem
-}
+**VolumeMount** — `host_path`, `container_path`, `read_only`.
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ResourceLimits {
-    pub cpu_shares: u64,         // relativo, ex: 512 = metade de 1024
-    pub mem_limit_bytes: u64,    // 0 = sem limite
-}
-```
+**Healthcheck** — `kind` (HTTP, TCP ou DockerNative), `interval_secs`, `timeout_secs`, `retries`, `start_period_secs`.
+
+**HealthcheckKind** — `Http` (path + status HTTP esperado), `Tcp` (apenas verifica conexão na porta), `DockerNative` (delega ao HEALTHCHECK da imagem).
+
+**ResourceLimits** — `cpu_shares` (relativo; 1024 = 1 CPU inteiro), `mem_limit_bytes` (0 = sem limite).
 
 ---
 
@@ -372,146 +230,80 @@ pub struct ResourceLimits {
 ### 4.1 Estados e Transições
 
 ```
-                    ┌─────────┐
-               ─────► Pending │
-                    └────┬────┘
-                         │ dependências OK
-                    ┌────▼──────────────┐
-                    │ ResolvingDeps      │
-                    └────┬──────────────┘
-                         │ rede OK, secrets OK
-                    ┌────▼──────────────┐
-                    │ PullingImage       │◄── progresso via Event::DeployProgress
-                    └────┬──────────────┘
-                         │ imagem disponível localmente
-                    ┌────▼──────────────┐
-                    │ Staging            │  cria container N+1 (sem tráfego)
-                    └────┬──────────────┘
-                         │ container criado e iniciado
-                    ┌────▼──────────────┐
-                    │ HealthcheckPolling │  loop até pass ou timeout
-                    └────┬──────────────┘
-              pass │          │ fail / timeout
-         ┌─────────▼──┐   ┌──▼──────────┐
-         │ SwappingIn  │   │  RollingBack │
-         └─────────┬───┘   └──┬──────────┘
-                   │          │ tráfego devolvido ao container antigo
-         ┌─────────▼──┐   ┌──▼──────────┐
-         │  Draining   │   │   Failed    │◄── estado terminal
-         └─────────┬───┘   └─────────────┘
-                   │ drain_secs decorridos
-         ┌─────────▼──┐
-         │  Promoting  │  renomeia container, atualiza SurrealDB
-         └─────────┬───┘
-                   │
-         ┌─────────▼──┐
-         │    Live     │◄── estado terminal (sucesso)
-         └─────────────┘
-                   │ próximo deploy iniciado
-         ┌─────────▼──┐
-         │   Pruning   │  remove container antigo e imagens órfãs
-         └─────────────┘
+                         ┌─────────┐
+                    ─────► Pending │
+                         └────┬────┘
+                              │ dependências OK
+                    ┌─────────▼──────────┐
+                    │   ResolvingDeps    │
+                    └──┬────────────┬────┘
+                       │            │ rede OK, secrets OK
+             source=Registry   source=Git
+                       │            │
+              ┌────────▼───┐  ┌──────▼──────────┐
+              │PullingImage│  │  CloningRepo    │◄── progresso via DeployProgress
+              └────────┬───┘  └──────┬──────────┘
+                       │             │ repo clonado
+                       │     ┌───────▼──────────┐
+                       │     │  BuildingImage   │◄── log de build via LogLine
+                       │     └───────┬──────────┘
+                       │             │ imagem construída
+                       └───────┬─────┘
+                               │ imagem disponível localmente
+                    ┌──────────▼─────────┐
+                    │     Staging        │  cria container N+1 (sem tráfego)
+                    └─────────┬──────────┘
+                              │ container criado e iniciado
+                    ┌─────────▼──────────────┐
+                    │ HealthcheckPolling     │  loop até pass ou timeout
+                    └────┬───────────────────┘
+                    pass │          │ fail / timeout
+               ┌─────────▼───┐   ┌──▼──────────┐
+               │ SwappingIn  │   │ RollingBack │
+               └─────────┬───┘   └──┬──────────┘
+                         │          │ tráfego devolvido ao container antigo
+               ┌─────────▼───┐   ┌──▼──────────┐
+               │  Draining   │   │   Failed    │◄── estado terminal
+               └─────────┬───┘   └─────────────┘
+                         │ drain_secs decorridos
+               ┌─────────▼───┐
+               │  Promoting  │  renomeia container, atualiza SurrealDB
+               └─────────┬───┘
+                         │
+               ┌─────────▼──┐
+               │    Live    │◄── estado terminal (sucesso)
+               └────────────┘
+                         │ próximo deploy iniciado
+               ┌─────────▼───┐
+               │   Pruning   │  remove container antigo e imagens órfãs
+               └─────────────┘
 ```
 
 ### 4.2 Persistência de Estado
 
-Cada transição de estado é uma transação ACID no SurrealDB. O formato no banco:
+Cada transição de estado é uma transação ACID no SurrealDB. Ao criar um deployment, o banco registra `id`, `service_id`, `image`, estado inicial `Pending`, log de transições vazio e `started_at`. A cada transição, o campo `state` é atualizado e um objeto com `{from, to, at, message}` é anexado ao array `states_log`.
 
-```surql
-CREATE deployment SET
-    id = $id,
-    service_id = $service_id,
-    image = $image,
-    state = 'Pending',
-    states_log = [],
-    started_at = time::now();
+**Invariante de recuperação**: ao iniciar, o daemon executa uma query por todos os deployments cujo estado não seja `Live`, `Failed`, `Pruning`. Para cada um, a lógica de recovery é chamada e o deploy é retomado ou abortado com rollback, dependendo do estado encontrado.
 
--- Em cada transição:
-UPDATE deployment:$id SET
-    state = $new_state,
-    states_log += [{
-        from: $old_state,
-        to: $new_state,
-        at: time::now(),
-        message: $message
-    }];
-```
+### 4.3 Lógica do Executor
 
-**Invariante de recuperação**: ao iniciar, o daemon executa uma query por todos os deployments cujo estado não seja `Live`, `Failed`, `Pruning`. Para cada um, a função `recovery::resume()` é chamada e o deploy é retomado ou abortado com rollback, dependendo do estado encontrado.
+O executor de deploy opera em loop: lê o estado atual do deployment no banco, executa a ação correspondente ao estado, persiste a transição para o próximo estado e repete até atingir um estado terminal (`Live` ou `Failed`). Qualquer erro em qualquer step dispara automaticamente a transição para `RollingBack`.
 
-### 4.3 Implementação da State Machine
+O mapeamento de estado para ação é:
 
-```rust
-// crates/daemon/src/deploy/state.rs
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum DeployState {
-    Pending,
-    ResolvingDeps,
-    PullingImage { layer_count: u32, layers_done: u32 },
-    Staging,
-    HealthcheckPolling { attempt: u32, max_attempts: u32 },
-    SwappingIn,
-    Draining { deadline: i64 },
-    Promoting,
-    Live,
-    RollingBack { reason: String },
-    Failed { reason: String },
-    Pruning,
-}
-
-// crates/daemon/src/deploy/executor.rs
-
-pub struct DeployExecutor {
-    db: Arc<SurrealClient>,
-    docker: Arc<DockerClient>,
-    ingress: Arc<IngressController>,
-    event_bus: Arc<EventBus>,
-}
-
-impl DeployExecutor {
-    pub async fn run(&self, deployment_id: DeploymentId) -> Result<()> {
-        let mut deployment = self.db.get_deployment(deployment_id).await?;
-        let service = self.db.get_service(deployment.service_id).await?;
-
-        loop {
-            let next = self.step(&deployment, &service).await;
-            match next {
-                Ok(DeployState::Live) | Ok(DeployState::Failed { .. }) => {
-                    self.transition(&mut deployment, next?, None).await?;
-                    break;
-                }
-                Ok(next_state) => {
-                    self.transition(&mut deployment, next_state, None).await?;
-                }
-                Err(e) => {
-                    self.transition(
-                        &mut deployment,
-                        DeployState::RollingBack { reason: e.to_string() },
-                        Some(e.to_string()),
-                    ).await?;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    async fn step(&self, dep: &Deployment, svc: &Service) -> Result<DeployState> {
-        match &dep.state {
-            DeployState::Pending          => self.resolve_deps(svc).await,
-            DeployState::ResolvingDeps    => self.pull_image(dep, svc).await,
-            DeployState::PullingImage {..} => self.stage_container(dep, svc).await,
-            DeployState::Staging          => self.poll_healthcheck(dep, svc).await,
-            DeployState::HealthcheckPolling {..} => self.swap_in(dep, svc).await,
-            DeployState::SwappingIn       => self.drain(dep, svc).await,
-            DeployState::Draining {..}    => self.promote(dep, svc).await,
-            DeployState::Promoting        => Ok(DeployState::Live),
-            DeployState::RollingBack {..} => self.rollback(dep, svc).await,
-            _ => Err(anyhow!("estado terminal atingido inesperadamente")),
-        }
-    }
-}
-```
+| Estado atual         | Ação executada                                                        |
+|----------------------|-----------------------------------------------------------------------|
+| `Pending`            | Verificar dependências (rede, secrets, credenciais Git se aplicável)  |
+| `ResolvingDeps`      | Ramificar: `PullingImage` (Registry) ou `CloningRepo` (Git)          |
+| `PullingImage`       | Criar e iniciar container de staging                                  |
+| `CloningRepo`        | Iniciar build da imagem (`BuildingImage`)                             |
+| `BuildingImage`      | Criar e iniciar container de staging                                  |
+| `Staging`            | Iniciar loop de healthcheck                                           |
+| `HealthcheckPolling` | Sinalizar Pingora para iniciar o swap                                 |
+| `SwappingIn`         | Aguardar `drain_secs` com container antigo sem tráfego                |
+| `Draining`           | Renomear container e atualizar banco                                  |
+| `Promoting`          | Marcar como `Live`                                                    |
+| `RollingBack`        | Reverter tráfego e destruir container de staging                      |
 
 ---
 
@@ -519,31 +311,22 @@ impl DeployExecutor {
 
 ### 5.1 Subsistema Docker (`crates/daemon/src/docker/`)
 
-Wrapper sobre `bollard` que encapsula todas as interações com `dockerd`:
+Wrapper sobre a biblioteca de acesso à API do Docker Engine que encapsula todas as interações com o `dockerd`:
 
 #### 5.1.1 Gestão de Imagens
 
-```rust
-pub struct ImageManager { docker: Docker }
+O gerenciador de imagens expõe operações para os dois caminhos de deploy:
 
-impl ImageManager {
-    /// Faz pull emitindo progresso via event_bus
-    pub async fn pull(
-        &self,
-        image: &str,
-        event_bus: Arc<EventBus>,
-        deployment_id: DeploymentId,
-    ) -> Result<()>;
+**Caminho Registry:**
+- **pull** — faz o download da imagem em streaming, emitindo um evento de progresso por camada recebida via EventBus; permite ao TUI mostrar progresso real de download
+- **exists** — verifica se a imagem já está disponível localmente antes de tentar o pull
 
-    /// Verifica se a imagem já existe localmente
-    pub async fn exists(&self, image: &str) -> Result<bool>;
+**Caminho Git:**
+- **clone_repo** — clona o repositório Git no diretório temporário de trabalho do daemon; suporta HTTPS (com token) e SSH (com chave privada referenciada via secret); emite eventos de progresso via EventBus
+- **build_image** — invoca a API de build do Docker Engine apontando para o diretório clonado, usando o `dockerfile_path` e `build_context` configurados; a saída do build (stdout do `docker build`) é capturada linha a linha e emitida como eventos `LogLine` para o TUI em tempo real; ao terminar, a imagem é tagueada com `rp_{service_name}:{deployment_id_short}`
 
-    /// Remove imagens não referenciadas por nenhum container gerenciado
-    pub async fn prune_unused(&self, managed_images: &[String]) -> Result<()>;
-}
-```
-
-O pull usa `docker.create_image()` com `futures::Stream` para receber as camadas e emite `Event::DeployProgress` por chunk recebido. Isso permite ao TUI mostrar progresso real de download.
+**Compartilhadas:**
+- **prune_unused** — remove imagens que não são referenciadas por nenhum container gerenciado pelo Rustploy, respeitando a configuração de `image_cache` (número de versões antigas a manter)
 
 #### 5.1.2 Gestão de Containers
 
@@ -551,23 +334,7 @@ Convenção de nomenclatura:
 - Container ativo: `rp_{service_name}`
 - Container em staging: `rp_{service_name}_staging_{deployment_id_short}`
 
-```rust
-pub struct ContainerManager { docker: Docker }
-
-impl ContainerManager {
-    pub async fn create_staging(
-        &self,
-        svc: &Service,
-        dep: &Deployment,
-    ) -> Result<String>;  // retorna container_id
-
-    pub async fn start(&self, container_id: &str) -> Result<()>;
-    pub async fn stop_graceful(&self, container_id: &str, timeout_secs: u32) -> Result<()>;
-    pub async fn rename(&self, id: &str, new_name: &str) -> Result<()>;
-    pub async fn remove(&self, container_id: &str) -> Result<()>;
-    pub async fn inspect(&self, container_id: &str) -> Result<ContainerInfo>;
-}
-```
+O gerenciador de containers expõe: `create_staging` (cria o container N+1 com configurações completas e retorna o container_id), `start`, `stop_graceful` (SIGTERM com timeout antes de SIGKILL), `rename`, `remove` e `inspect`.
 
 A criação do container de staging sempre inclui:
 - `network_mode`: a rede bridge do projeto (`rp_net_{project_id_short}`)
@@ -580,16 +347,7 @@ A criação do container de staging sempre inclui:
 
 Cada projeto tem uma rede bridge isolada. Containers do mesmo projeto se veem pelo nome (`rp_{service_name}`), mas o mundo externo só os acessa via Pingora.
 
-```rust
-pub struct NetworkManager { docker: Docker }
-
-impl NetworkManager {
-    pub async fn ensure_project_network(&self, project_id: ProjectId) -> Result<String>;
-    pub async fn remove_project_network(&self, project_id: ProjectId) -> Result<()>;
-    pub async fn connect_container(&self, container_id: &str, network_id: &str) -> Result<()>;
-    pub async fn disconnect_container(&self, container_id: &str, network_id: &str) -> Result<()>;
-}
-```
+O gerenciador de redes expõe: `ensure_project_network` (cria a rede se não existir e retorna o network_id), `remove_project_network`, `connect_container` e `disconnect_container`.
 
 #### 5.1.4 Healthcheck Polling
 
@@ -598,129 +356,69 @@ O daemon implementa seu próprio healthcheck polling em vez de depender do healt
 1. O healthcheck do Docker tem resolução de intervalo grosseira
 2. Precisamos detectar o "ready" em tempo real para minimizar o downtime da janela de swap
 
-```rust
-pub async fn poll_healthcheck(
-    docker: &Docker,
-    svc: &Service,
-    container_id: &str,
-    network_id: &str,
-    max_attempts: u32,
-) -> Result<bool> {
-    for attempt in 0..max_attempts {
-        let info = docker.inspect_container(container_id, None).await?;
+O polling opera em loop até o número máximo de tentativas configurado. A cada tentativa:
 
-        if info.state.map(|s| s.running) != Some(Some(true)) {
-            return Err(anyhow!("container parou inesperadamente"));
-        }
+1. Inspeciona o estado do container no Docker Engine — se o container tiver parado, aborta imediatamente com erro
+2. Executa a verificação conforme o modo configurado:
+   - **HTTP**: resolve o IP do container na rede do projeto, faz uma requisição GET ao path configurado e compara o status HTTP retornado com o esperado
+   - **TCP**: tenta estabelecer uma conexão TCP no IP e porta do container
+   - **DockerNative**: lê o campo `health.status` da inspeção do container e verifica se é `"healthy"`
+3. Se passou, retorna sucesso; caso contrário, aguarda `interval_secs` e tenta novamente
 
-        let ok = match &svc.spec.healthcheck.kind {
-            HealthcheckKind::Http { path, expected_status } => {
-                let ip = get_container_ip(&info, network_id)?;
-                let url = format!("http://{}:{}{}", ip, svc.spec.port, path);
-                let resp = reqwest::get(&url).await;
-                resp.map(|r| r.status().as_u16() == *expected_status).unwrap_or(false)
-            }
-            HealthcheckKind::Tcp => {
-                let ip = get_container_ip(&info, network_id)?;
-                let addr = format!("{}:{}", ip, svc.spec.port);
-                tokio::net::TcpStream::connect(&addr).await.is_ok()
-            }
-            HealthcheckKind::DockerNative => {
-                info.state
-                    .and_then(|s| s.health)
-                    .and_then(|h| h.status)
-                    .map(|s| s == "healthy")
-                    .unwrap_or(false)
-            }
-        };
+### 5.2 Integração com Repositórios Git
 
-        if ok { return Ok(true); }
+#### 5.2.1 Provedores Suportados
 
-        tokio::time::sleep(Duration::from_secs(
-            svc.spec.healthcheck.interval_secs as u64
-        )).await;
-    }
-    Ok(false)
-}
+O daemon suporta qualquer repositório Git acessível via HTTPS ou SSH, o que inclui nativamente:
+
+| Provedor | HTTPS | SSH | Autenticação               |
+|----------|-------|-----|----------------------------|
+| GitHub   | Sim   | Sim | Personal Access Token / Deploy Key |
+| GitLab   | Sim   | Sim | Project Access Token / Deploy Key  |
+| Gitea    | Sim   | Sim | API Token / Deploy Key             |
+| Git puro | Sim   | Sim | Credencial HTTP / Chave SSH        |
+
+Para repositórios **públicos**, nenhuma credencial é necessária. Para repositórios **privados**, o usuário cadastra o token ou a chave SSH como um secret do projeto, e a `GitSource` referencia esse secret pelo nome.
+
+#### 5.2.2 Fluxo de Clone e Build
+
+1. **Clone** — o daemon cria um diretório temporário em `{db_path}/builds/{deployment_id}`, executa o clone do `url` no `branch` configurado e, em seguida, faz checkout do commit exato para garantir reprodutibilidade. Progresso (contagem de objetos, compressão, recebimento) é emitido como `DeployProgress`.
+
+2. **Build** — o daemon chama a API de build do Docker Engine apontando para `{clone_dir}/{build_context}` como contexto e `{clone_dir}/{dockerfile_path}` como Dockerfile. Cada linha de saída do build (`Step 1/8`, `RUN apt-get install`, etc.) é emitida como evento `LogLine` para o TUI exibir em tempo real.
+
+3. **Tag** — ao concluir o build, a imagem recebe a tag `rp_{service_name}:{deployment_id_short}` para rastreamento. O caminho segue então para `Staging` identicamente ao fluxo de registry.
+
+4. **Limpeza** — o diretório temporário de clone é removido após o build (com ou sem sucesso).
+
+#### 5.2.3 Auto-deploy por Webhook (v2)
+
+Na v2, o daemon poderá expor endpoints de webhook por serviço:
+
+```
+POST /webhooks/{service_id}/github
+POST /webhooks/{service_id}/gitlab
+POST /webhooks/{service_id}/gitea
 ```
 
-### 5.2 Subsistema de Ingress — Pingora (`crates/daemon/src/ingress/`)
+Ao receber um evento de push no branch configurado, o daemon dispara automaticamente um novo deploy. A verificação de assinatura HMAC do payload (com secret configurável) garante que apenas o provedor legítimo pode acionar o webhook. Na v1, re-deploy é sempre iniciado manualmente via TUI.
 
-#### 5.2.1 Tabela de Rotas
+### 5.3 Subsistema de Ingress — Pingora (`crates/daemon/src/ingress/`)
 
-O Pingora roda na mesma thread pool do tokio. A tabela de rotas é protegida por `arc_swap::ArcSwap` para leitura lock-free no hot path de cada request:
+#### 5.3.1 Tabela de Rotas
 
-```rust
-use arc_swap::ArcSwap;
+A tabela de rotas é um mapa de domínio para entrada de roteamento, mantida em memória com acesso de leitura lock-free via ponteiro atômico (`ArcSwap`). Isso garante que o hot path de cada requisição HTTP nunca bloqueia para adquirir um lock, independentemente da frequência de atualizações de deploy.
 
-#[derive(Debug, Clone)]
-pub struct RouteEntry {
-    pub domain: String,
-    pub backend_addr: String,   // "172.20.0.3:8080"
-    pub service_id: ServiceId,
-    pub tls_cert: Option<CertPair>,
-}
+Cada entrada de roteamento contém: `domain`, `backend_addr` (IP interno do container + porta, ex: `172.20.0.3:8080`), `service_id` e `tls_cert` (opcional).
 
-#[derive(Debug, Clone)]
-pub struct RouteTable {
-    routes: HashMap<String, RouteEntry>,
-}
+O `IngressController` expõe duas operações atômicas:
+- **upsert_route** — chamado pelo executor após o estado `Promoting`; substitui ou insere a entrada de roteamento para o domínio de forma imediatamente visível para novas requisições
+- **remove_route** — chamado ao remover um serviço
 
-pub struct IngressController {
-    table: ArcSwap<RouteTable>,
-}
+#### 5.3.2 Lógica de Proxy
 
-impl IngressController {
-    /// Chamado pelo DeployExecutor após Promoting
-    pub fn upsert_route(&self, entry: RouteEntry) {
-        let mut new_table = (**self.table.load()).clone();
-        new_table.routes.insert(entry.domain.clone(), entry);
-        self.table.store(Arc::new(new_table));
-    }
+A cada requisição recebida pelo Pingora, o proxy extrai o header `Host`, consulta a tabela de rotas pelo domínio e encaminha a requisição para o `backend_addr` correspondente. Se não houver rota para o domínio, retorna HTTP 404. Toda essa lógica é executada sem locks, usando apenas a leitura atômica do ponteiro da tabela.
 
-    pub fn remove_route(&self, domain: &str) {
-        let mut new_table = (**self.table.load()).clone();
-        new_table.routes.remove(domain);
-        self.table.store(Arc::new(new_table));
-    }
-}
-```
-
-#### 5.2.2 ProxyHttp Implementation
-
-```rust
-use pingora::prelude::*;
-
-pub struct RustployProxy {
-    ingress: Arc<IngressController>,
-}
-
-#[async_trait]
-impl ProxyHttp for RustployProxy {
-    type CTX = ();
-
-    fn new_ctx(&self) -> Self::CTX { () }
-
-    async fn upstream_peer(
-        &self,
-        session: &mut Session,
-        _ctx: &mut Self::CTX,
-    ) -> Result<Box<HttpPeer>> {
-        let host = session
-            .get_header(http::header::HOST)
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("");
-
-        let table = self.ingress.table.load();
-        let entry = table.routes.get(host)
-            .ok_or_else(|| Error::explain(HTTPStatus(404), "no route"))?;
-
-        Ok(Box::new(HttpPeer::new(&entry.backend_addr, false, host.to_string())))
-    }
-}
-```
-
-#### 5.2.3 TLS e ACME
+#### 5.3.3 TLS e ACME
 
 Pingora usa `rustls` nativamente. O gerenciamento de certificados segue este fluxo:
 
@@ -730,102 +428,25 @@ Pingora usa `rustls` nativamente. O gerenciamento de certificados segue este flu
 4. O `IngressController` carrega o certificado no `RouteEntry`
 5. Renovação automática via cron interno (verifica expiração a cada 12h, renova com > 30 dias de antecedência)
 
-```rust
-pub struct TlsManager {
-    db: Arc<SurrealClient>,
-    acme_account: AcmeAccount,
-    ingress: Arc<IngressController>,
-}
+O `TlsManager` expõe duas operações: `ensure_cert` (obtém certificado via ACME se não existir ou estiver expirado) e `renew_expiring` (varre o banco por certificados próximos do vencimento e os renova, retornando os domínios renovados).
 
-impl TlsManager {
-    pub async fn ensure_cert(&self, domain: &str) -> Result<CertPair>;
-    pub async fn renew_expiring(&self) -> Result<Vec<String>>;  // retorna domínios renovados
-}
-```
+### 5.4 EventBus — Canal de Eventos Internos
 
-### 5.3 EventBus — Canal de Eventos Internos
+O `EventBus` é o mecanismo de desacoplamento interno do daemon. Qualquer subsistema publica eventos sem saber quem os consumirá. Internamente usa um canal de broadcast: múltiplos subscribers (um por conexão de client TUI) recebem todos os eventos e filtram pelo `service_id` relevante antes de encaminhar.
 
-O `EventBus` é o coração da propagação de estado. Componentes internos publicam eventos; o handler de stream da API os encaminha para os clients conectados:
+As operações são: `publish` (envia um evento para todos os subscribers; se o canal estiver cheio, o evento é descartado silenciosamente — jamais bloqueia o produtor) e `subscribe` (retorna um receiver independente para um novo client).
 
-```rust
-pub struct EventBus {
-    sender: broadcast::Sender<Event>,
-}
+O handler de stream da API cria um subscriber por conexão, filtra eventos pelo `service_id` solicitado (ou encaminha todos se `service_id` for nulo) e serializa cada evento com o framing `[u32 LE tamanho][payload Bincode]` antes de escrever no socket.
 
-impl EventBus {
-    pub fn publish(&self, event: Event) {
-        let _ = self.sender.send(event);
-    }
+### 5.5 Coleta de Métricas
 
-    pub fn subscribe(&self) -> broadcast::Receiver<Event> {
-        self.sender.subscribe()
-    }
-}
-```
+Uma task assíncrona em background consulta a API de estatísticas do Docker Engine periodicamente (padrão: a cada 2 segundos) para cada container em estado `Running`. Para cada container, coleta:
 
-O handler de stream filtra por `service_id` para enviar apenas eventos relevantes ao client:
+- **CPU%** — calculado a partir dos contadores de ciclos do cgroup delta entre duas leituras consecutivas
+- **Memória** — bytes usados e limite configurado
+- **Rede** — bytes recebidos e transmitidos acumulados na interface de rede do container
 
-```rust
-// crates/daemon/src/api/stream.rs
-async fn stream_handler(
-    Query(params): Query<StreamParams>,
-    State(state): State<AppState>,
-) -> impl IntoResponse {
-    let mut rx = state.event_bus.subscribe();
-    let service_id = params.service_id;
-
-    Body::from_stream(async_stream::stream! {
-        while let Ok(event) = rx.recv().await {
-            if event.service_id() == Some(service_id) || service_id.is_nil() {
-                let bytes = bincode::serialize(&event).unwrap();
-                let len = (bytes.len() as u32).to_le_bytes();
-                let mut frame = Vec::with_capacity(4 + bytes.len());
-                frame.extend_from_slice(&len);
-                frame.extend_from_slice(&bytes);
-                yield Ok::<_, Infallible>(bytes::Bytes::from(frame));
-            }
-        }
-    })
-}
-```
-
-### 5.4 Coleta de Métricas
-
-O daemon tem uma task tokio dedicada que consulta `docker stats` (via bollard) para cada container vivo, com intervalo configurável (padrão: 2s):
-
-```rust
-// crates/daemon/src/metrics.rs
-
-pub async fn metrics_collector(
-    docker: Arc<DockerClient>,
-    db: Arc<SurrealClient>,
-    event_bus: Arc<EventBus>,
-    interval: Duration,
-) {
-    let mut ticker = tokio::time::interval(interval);
-    loop {
-        ticker.tick().await;
-        let services = db.list_running_services().await.unwrap_or_default();
-
-        for svc in services {
-            if let Some(container_id) = &svc.live_container_id {
-                if let Ok(stats) = docker.container_stats(container_id).await {
-                    event_bus.publish(Event::ContainerMetrics {
-                        service_id: svc.id,
-                        container_id: container_id.clone(),
-                        cpu_percent: calculate_cpu_percent(&stats),
-                        mem_bytes: stats.memory_stats.usage.unwrap_or(0),
-                        mem_limit_bytes: stats.memory_stats.limit.unwrap_or(0),
-                        net_rx_bytes: sum_net_rx(&stats),
-                        net_tx_bytes: sum_net_tx(&stats),
-                        timestamp: chrono::Utc::now().timestamp(),
-                    });
-                }
-            }
-        }
-    }
-}
-```
+Cada snapshot é publicado no EventBus como evento `ContainerMetrics` com o `service_id` e timestamp correspondentes.
 
 ---
 
@@ -833,101 +454,28 @@ pub async fn metrics_collector(
 
 ### 6.1 Modo de Operação
 
-SurrealDB é iniciado em modo `Db` (embarcado) com backend `RocksDB`. Isso significa zero processo externo, com o banco vivendo dentro do mesmo processo do daemon.
-
-```rust
-use surrealdb::engine::local::RocksDb;
-use surrealdb::Surreal;
-
-pub async fn connect_db(path: &str) -> Result<Surreal<surrealdb::engine::local::Db>> {
-    let db = Surreal::new::<RocksDb>(path).await?;
-    db.use_ns("rustploy").use_db("main").await?;
-    run_migrations(&db).await?;
-    Ok(db)
-}
-```
+SurrealDB é iniciado em modo embarcado com backend RocksDB. Isso significa zero processo externo — o banco vive dentro do mesmo processo do daemon, acessado diretamente pela memória. O namespace é `rustploy` e o banco é `main`. Um sistema de migrations garante que o schema evolui de forma controlada entre versões do daemon.
 
 ### 6.2 Schema Completo
 
-```surql
--- Tabelas
-DEFINE TABLE project SCHEMAFULL;
-DEFINE FIELD id          ON project TYPE string;
-DEFINE FIELD name        ON project TYPE string  ASSERT $value != NONE;
-DEFINE FIELD description ON project TYPE option<string>;
-DEFINE FIELD created_at  ON project TYPE datetime;
-DEFINE INDEX idx_project_name ON project FIELDS name UNIQUE;
+**Tabela `project`** — campos: `id` (string ULID), `name` (string, único), `description` (string opcional), `created_at` (datetime). Índice único em `name`.
 
-DEFINE TABLE service SCHEMAFULL;
-DEFINE FIELD id                ON service TYPE string;
-DEFINE FIELD name              ON service TYPE string;
-DEFINE FIELD project_id        ON service TYPE string;
-DEFINE FIELD image             ON service TYPE string;
-DEFINE FIELD port              ON service TYPE int;
-DEFINE FIELD domain            ON service TYPE string;
-DEFINE FIELD env_vars          ON service TYPE array;
-DEFINE FIELD volumes           ON service TYPE array;
-DEFINE FIELD healthcheck       ON service TYPE object;
-DEFINE FIELD resources         ON service TYPE object;
-DEFINE FIELD status            ON service TYPE string  DEFAULT 'Stopped';
-DEFINE FIELD live_container_id ON service TYPE option<string>;
-DEFINE FIELD created_at        ON service TYPE datetime;
-DEFINE FIELD updated_at        ON service TYPE datetime;
-DEFINE INDEX idx_service_domain ON service FIELDS domain UNIQUE;
+**Tabela `service`** — campos: `id`, `name`, `project_id`, `image`, `port` (inteiro), `domain` (string, único), `env_vars` (array), `volumes` (array), `healthcheck` (objeto), `resources` (objeto), `status` (string, default `'Stopped'`), `live_container_id` (string opcional), `created_at`, `updated_at`. Índice único em `domain`.
 
-DEFINE TABLE deployment SCHEMAFULL;
-DEFINE FIELD id          ON deployment TYPE string;
-DEFINE FIELD service_id  ON deployment TYPE string;
-DEFINE FIELD image       ON deployment TYPE string;
-DEFINE FIELD state       ON deployment TYPE string;
-DEFINE FIELD states_log  ON deployment TYPE array;
-DEFINE FIELD started_at  ON deployment TYPE datetime;
-DEFINE FIELD finished_at ON deployment TYPE option<datetime>;
+**Tabela `deployment`** — campos: `id`, `service_id`, `image`, `state` (string com o nome do estado atual), `states_log` (array de objetos `{from, to, at, message}`), `started_at`, `finished_at` (datetime opcional).
 
-DEFINE TABLE secret SCHEMAFULL;
-DEFINE FIELD id         ON secret TYPE string;
-DEFINE FIELD project_id ON secret TYPE string;
-DEFINE FIELD key        ON secret TYPE string;
-DEFINE FIELD value      ON secret TYPE string;  -- criptografado com age
-DEFINE INDEX idx_secret_project_key ON secret FIELDS project_id, key UNIQUE;
+**Tabela `secret`** — campos: `id`, `project_id`, `key`, `value` (string criptografada com age). Índice único em `(project_id, key)`.
 
-DEFINE TABLE tls_cert SCHEMAFULL;
-DEFINE FIELD id         ON tls_cert TYPE string;
-DEFINE FIELD domain     ON tls_cert TYPE string;
-DEFINE FIELD cert_pem   ON tls_cert TYPE string;
-DEFINE FIELD key_pem    ON tls_cert TYPE string;
-DEFINE FIELD expires_at ON tls_cert TYPE datetime;
-DEFINE INDEX idx_tls_domain ON tls_cert FIELDS domain UNIQUE;
+**Tabela `tls_cert`** — campos: `id`, `domain` (único), `cert_pem`, `key_pem`, `expires_at`. Índice único em `domain`.
 
--- Relações de grafo
-DEFINE TABLE has     SCHEMAFULL;  -- project -[has]->    service
-DEFINE TABLE deploys SCHEMAFULL;  -- service -[deploys]-> deployment
-```
+**Relações de grafo:** `has` (Project → Service) e `deploys` (Service → Deployment).
 
 ### 6.3 Queries Críticas
 
-```surql
--- Deployments em estado não-terminal (para recovery ao iniciar)
-SELECT * FROM deployment
-WHERE state NOT IN ['Live', 'Failed', 'Pruning'];
-
--- Serviços de um projeto (via grafo)
-SELECT *, ->has->service AS services
-FROM project WHERE id = $project_id
-FETCH services;
-
--- Último deployment de cada serviço
-SELECT service_id, state, started_at
-FROM deployment
-GROUP BY service_id
-ORDER BY started_at DESC
-LIMIT 1;
-
--- Serviços com domínios para carregar na tabela de rotas ao iniciar
-SELECT id, domain, live_container_id, port
-FROM service
-WHERE status = 'Running' AND live_container_id != NONE;
-```
+- **Recovery ao iniciar** — selecionar todos os deployments cujo `state` não pertença ao conjunto de estados terminais `['Live', 'Failed', 'Pruning']`
+- **Serviços de um projeto** — navegar a relação de grafo `project → [has] → service` a partir do `project_id`
+- **Último deployment de cada serviço** — agrupar por `service_id`, ordenar por `started_at` decrescente, retornar o primeiro de cada grupo
+- **Rotas iniciais do Pingora** — selecionar todos os serviços com `status = 'Running'` e `live_container_id` preenchido para reconstituir a tabela de rotas ao iniciar o daemon
 
 ---
 
@@ -1020,61 +568,27 @@ Para deploys remotos futuros (v2), o plano é expor uma API HTTPS com autentica�
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 8.2 Modelo de Estado do TUI
+### 8.2 Estado Global do TUI
 
-```rust
-// crates/client/src/app.rs
+O estado da aplicação TUI mantém em memória:
 
-pub struct App {
-    pub screen: Screen,
-    pub projects: Vec<Project>,
-    pub services: Vec<Service>,
-    pub selected_project: Option<usize>,
-    pub selected_service: Option<usize>,
-    pub deploy_progress: HashMap<DeploymentId, DeployProgress>,
-    pub logs: HashMap<ServiceId, VecDeque<LogLine>>,     // circular buffer, max 2000 linhas
-    pub metrics: HashMap<ServiceId, VecDeque<MetricPoint>>, // últimos 60 pontos
-    pub notification: Option<(String, NotificationKind, Instant)>,
-}
-
-pub enum Screen {
-    Dashboard,
-    ServiceDetail(ServiceId),
-    DeployProgress(DeploymentId),
-    Logs(ServiceId),
-    Metrics(ServiceId),
-    EnvVars(ServiceId),
-    Confirm(ConfirmDialog),
-}
-```
+- `screen` — a tela atualmente ativa (Dashboard, ServiceDetail, DeployProgress, Logs, Metrics, EnvVars, Confirm)
+- `projects` e `services` — listas obtidas do daemon ao iniciar e atualizadas por eventos
+- `selected_project` / `selected_service` — índices de navegação
+- `deploy_progress` — mapa de deployment_id para dados de progresso em curso
+- `logs` — mapa de service_id para buffer circular de linhas (máximo 2000 por serviço)
+- `metrics` — mapa de service_id para fila circular de pontos de métricas (últimos 60 pontos)
+- `notification` — mensagem de notificação temporária com tipo e timestamp de expiração
 
 ### 8.3 Loop de Eventos
 
-O client usa `tokio::select!` para multiplexar três fontes de eventos:
+O client multiplexa três fontes de eventos de forma assíncrona:
 
-1. **Keyboard**: crossterm `EventStream`
-2. **UDS stream**: eventos em tempo real do daemon
-3. **Tick**: timer a 100ms para redesenhar o TUI com animações suaves
+1. **Input do teclado** — eventos do terminal processados para navegação e ações
+2. **Stream do daemon** — eventos recebidos e aplicados ao estado local (progresso, logs, métricas)
+3. **Tick de animação** — dispara a cada 100ms para redesenhar a interface e processar timers internos (expiração de notificações, animações de loading)
 
-```rust
-loop {
-    terminal.draw(|f| ui::render(f, &app))?;
-
-    tokio::select! {
-        Some(key_event) = keyboard.next() => {
-            handle_key(&mut app, key_event?).await?;
-        }
-        Some(daemon_event) = event_rx.recv() => {
-            handle_daemon_event(&mut app, daemon_event);
-        }
-        _ = tick.tick() => {
-            app.tick();  // animações, expiração de notificações, etc.
-        }
-    }
-
-    if app.should_quit { break; }
-}
-```
+Em cada iteração do loop, a tela é redesenhada primeiro e depois o próximo evento de qualquer das três fontes é aguardado de forma concorrente sem bloquear as outras.
 
 ---
 
@@ -1084,36 +598,23 @@ loop {
 
 Localização padrão: `/etc/rustploy/config.toml` (ou `~/.config/rustploy/config.toml` para instalação de usuário).
 
-```toml
-[daemon]
-socket_path = "/run/rustploy/rustploy.sock"
-db_path     = "/var/lib/rustploy/db"
-log_level   = "info"
-
-[ingress]
-http_port    = 80
-https_port   = 443
-bind_address = "0.0.0.0"
-
-[ingress.acme]
-enabled   = true
-email     = "admin@example.com"
-directory = "https://acme-v02.api.letsencrypt.org/directory"
-
-[docker]
-socket_path = "/var/run/docker.sock"
-
-[deploy]
-drain_secs   = 10
-image_cache  = 2
-
-[metrics]
-interval_secs  = 2
-history_points = 60
-
-[secrets]
-master_key_path = "/etc/rustploy/master.key"
-```
+| Seção            | Chave              | Padrão                                     | Descrição                                              |
+|------------------|--------------------|--------------------------------------------|--------------------------------------------------------|
+| `[daemon]`       | `socket_path`      | `/run/rustploy/rustploy.sock`              | Caminho do Unix Domain Socket                          |
+| `[daemon]`       | `db_path`          | `/var/lib/rustploy/db`                     | Diretório dos dados do SurrealDB                       |
+| `[daemon]`       | `log_level`        | `info`                                     | Verbosidade dos logs (trace/debug/info/warn/error)     |
+| `[ingress]`      | `http_port`        | `80`                                       | Porta HTTP do Pingora                                  |
+| `[ingress]`      | `https_port`       | `443`                                      | Porta HTTPS do Pingora                                 |
+| `[ingress]`      | `bind_address`     | `0.0.0.0`                                  | Interface de rede para bind                            |
+| `[ingress.acme]` | `enabled`          | `true`                                     | Ativar/desativar ACME automático                       |
+| `[ingress.acme]` | `email`            | —                                          | E-mail para registro na autoridade certificadora       |
+| `[ingress.acme]` | `directory`        | URL de produção do Let's Encrypt           | URL do diretório ACME (trocar por staging para testes) |
+| `[docker]`       | `socket_path`      | `/var/run/docker.sock`                     | Caminho do socket do Docker Engine                     |
+| `[deploy]`       | `drain_secs`       | `10`                                       | Segundos de drenagem antes de destruir container antigo|
+| `[deploy]`       | `image_cache`      | `2`                                        | Versões de imagem antigas a manter por serviço         |
+| `[metrics]`      | `interval_secs`    | `2`                                        | Intervalo de coleta de métricas dos containers         |
+| `[metrics]`      | `history_points`   | `60`                                       | Pontos históricos em memória por serviço               |
+| `[secrets]`      | `master_key_path`  | `/etc/rustploy/master.key`                 | Caminho da chave mestra de criptografia                |
 
 ### 9.2 Variáveis de Ambiente
 
@@ -1139,7 +640,7 @@ Todas as configurações podem ser sobrescritas via env com prefixo `RUSTPLOY_`:
 Secrets são criptografados em repouso usando `age`:
 
 1. O daemon gera uma chave mestra `age` no primeiro start (ou lê de arquivo configurado)
-2. Ao criar um `EnvVarValue::Secret`, o daemon criptografa o valor e armazena o ciphertext no SurrealDB
+2. Ao criar um secret, o daemon criptografa o valor e armazena o ciphertext no SurrealDB
 3. Ao criar o container, os secrets são decriptografados em memória e injetados como variáveis de ambiente
 4. O valor plaintext **nunca** é gravado em disco nem transmitido via UDS
 
@@ -1155,25 +656,22 @@ Apenas membros do grupo `rustploy` podem conectar. Root sempre tem acesso.
 
 ## 11. Tratamento de Erros e Resiliência
 
-### 11.1 Hierarquia de Erros
+### 11.1 Categorias de Erro
 
-```rust
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum ErrorCode {
-    // Client errors
-    NotFound,
-    InvalidSpec,
-    DomainConflict,
-    ServiceAlreadyDeploying,
+**Erros do cliente (input inválido):**
+- `NotFound` — recurso não encontrado
+- `InvalidSpec` — especificação de serviço inválida
+- `DomainConflict` — outro serviço já usa o mesmo domínio
+- `ServiceAlreadyDeploying` — deploy já em andamento para este serviço
 
-    // Server errors
-    DockerUnreachable,
-    DatabaseError,
-    HealthcheckFailed,
-    ImagePullFailed,
-    IngressError,
-}
-```
+**Erros do servidor (falha interna):**
+- `DockerUnreachable` — não foi possível conectar ao Docker Engine
+- `DatabaseError` — falha de leitura ou escrita no SurrealDB
+- `HealthcheckFailed` — container não passou no healthcheck após esgotar tentativas
+- `ImagePullFailed` — falha no download da imagem do registry
+- `GitCloneFailed` — falha ao clonar o repositório (credenciais inválidas, repo não encontrado, timeout)
+- `ImageBuildFailed` — falha durante o `docker build` (erro no Dockerfile, dependência indisponível, etc.)
+- `IngressError` — erro ao atualizar rotas no Pingora
 
 ### 11.2 Estratégia de Retry
 
@@ -1187,46 +685,12 @@ pub enum ErrorCode {
 
 ### 11.3 Recovery ao Reiniciar o Daemon
 
-```rust
-// crates/daemon/src/deploy/recovery.rs
+Ao iniciar, o daemon consulta o banco por todos os deployments em estados não-terminais e os processa conforme o estado encontrado:
 
-pub async fn recover_in_flight_deployments(
-    db: &SurrealClient,
-    executor: &DeployExecutor,
-) {
-    let in_flight = db.list_non_terminal_deployments().await.unwrap_or_default();
-
-    for dep in in_flight {
-        match &dep.state {
-            // Pré-swap: rollback seguro (container antigo ainda vivo)
-            DeployState::Pending
-            | DeployState::ResolvingDeps
-            | DeployState::PullingImage { .. }
-            | DeployState::Staging
-            | DeployState::HealthcheckPolling { .. } => {
-                executor.abort_and_cleanup(&dep).await;
-            }
-
-            // Swap em progresso: verificar o que está vivo e decidir
-            DeployState::SwappingIn | DeployState::Draining { .. } => {
-                executor.evaluate_and_finish_swap(&dep).await;
-            }
-
-            // Quase done: completar o promote
-            DeployState::Promoting => {
-                executor.finish_promote(&dep).await;
-            }
-
-            // Rollback incompleto: continuar
-            DeployState::RollingBack { .. } => {
-                executor.finish_rollback(&dep).await;
-            }
-
-            _ => {}
-        }
-    }
-}
-```
+- **Estados pré-swap** (`Pending`, `ResolvingDeps`, `PullingImage`, `CloningRepo`, `BuildingImage`, `Staging`, `HealthcheckPolling`) — o container antigo ainda está vivo; rollback seguro: container de staging e diretório de clone são destruídos e deployment é marcado como `Failed`
+- **Swap em curso** (`SwappingIn`, `Draining`) — inspecionar quais containers existem no Docker Engine e decidir se promove ou reverte baseado no que está vivo
+- **`Promoting`** — concluir a renomeação do container e atualizar o banco
+- **`RollingBack`** — concluir o rollback e marcar como `Failed`
 
 ---
 
@@ -1234,20 +698,13 @@ pub async fn recover_in_flight_deployments(
 
 ### 12.1 Logs Estruturados
 
-O daemon usa `tracing` + `tracing-subscriber` com output JSON em produção:
+O daemon emite logs em formato JSON estruturado em produção. Cada entrada inclui `timestamp`, `level`, `target` (módulo de origem) e campos contextuais como `service_id` e `deployment_id` quando aplicável. Exemplo de entrada:
 
-```json
-{
-  "timestamp": "2025-05-14T22:14:01Z",
-  "level": "INFO",
-  "target": "daemon::deploy",
-  "service_id": "01HZ...",
-  "deployment_id": "01HZ...",
-  "message": "transitioning state",
-  "from": "Staging",
-  "to": "HealthcheckPolling"
-}
 ```
+{"timestamp":"2025-05-14T22:14:01Z","level":"INFO","target":"daemon::deploy","service_id":"01HZ...","deployment_id":"01HZ...","message":"transitioning state","from":"Staging","to":"HealthcheckPolling"}
+```
+
+Isso permite filtrar e agregar logs com qualquer ferramenta de análise (jq, Loki, etc.) sem parsing ad-hoc.
 
 ### 12.2 Métricas (v2: Prometheus)
 
@@ -1264,32 +721,30 @@ rustploy_deploy_duration_seconds{service="api"} 47.2
 
 ## 13. Dependências Principais
 
-```toml
-# [workspace.dependencies]
-tokio             = { version = "1", features = ["full"] }
-axum              = { version = "0.7", features = ["macros"] }
-hyper-util        = { version = "0.1", features = ["tokio", "server", "http1"] }
-serde             = { version = "1", features = ["derive"] }
-bincode           = "1"
-surrealdb         = { version = "2", features = ["kv-rocksdb"] }
-bollard           = { version = "0.17", features = ["ssl"] }
-pingora           = "0.4"
-pingora-proxy     = "0.4"
-ratatui           = "0.28"
-crossterm         = { version = "0.28", features = ["event-stream"] }
-instant-acme      = "0.7"
-rustls            = "0.23"
-age               = "0.10"
-ulid              = { version = "1", features = ["serde"] }
-arc-swap          = "1"
-anyhow            = "1"
-thiserror         = "2"
-tracing           = "0.1"
-tracing-subscriber = { version = "0.3", features = ["json"] }
-chrono            = { version = "0.4", features = ["serde"] }
-reqwest           = { version = "0.12", features = ["rustls-tls"], default-features = false }
-async-stream      = "0.3"
-```
+| Crate                | Versão | Finalidade                                              |
+|----------------------|--------|---------------------------------------------------------|
+| `tokio`              | 1      | Runtime assíncrono                                      |
+| `axum`               | 0.7    | Framework HTTP para a API sobre UDS                     |
+| `hyper-util`         | 0.1    | Utilitários HTTP/1.1 para UDS                           |
+| `serde` + `bincode`  | 1      | Serialização binária do protocolo                       |
+| `surrealdb`          | 2      | Banco de dados embarcado (feature `kv-rocksdb`)         |
+| `bollard`            | 0.17   | Cliente da API do Docker Engine                         |
+| `pingora`            | 0.4    | Biblioteca de proxy reverso HTTP                        |
+| `pingora-proxy`      | 0.4    | Trait `ProxyHttp` e peer management                     |
+| `ratatui`            | 0.28   | Framework de TUI                                        |
+| `crossterm`          | 0.28   | Backend de terminal e stream de eventos de teclado      |
+| `instant-acme`       | 0.7    | Protocolo ACME para obtenção de certificados TLS        |
+| `rustls`             | 0.23   | TLS puro em Rust (sem OpenSSL)                          |
+| `age`                | 0.10   | Criptografia de secrets em repouso                      |
+| `ulid`               | 1      | Geração de IDs ordenáveis                               |
+| `arc-swap`           | 1      | Ponteiro atômico para leitura lock-free da tabela de rotas |
+| `anyhow`             | 1      | Gestão de erros contextuais                             |
+| `thiserror`          | 2      | Derivação de tipos de erro estruturados                 |
+| `tracing`            | 0.1    | Instrumentação e logs estruturados                      |
+| `chrono`             | 0.4    | Timestamps e manipulação de datas                       |
+| `reqwest`            | 0.12   | Requisições HTTP para healthcheck (feature `rustls-tls`)|
+| `git2`               | 0.19   | Clone e checkout de repositórios Git (bindings libgit2) |
+| `async-stream`       | 0.3    | Macro para criar streams assíncronos (event stream)     |
 
 ---
 
@@ -1312,20 +767,15 @@ Pingora não foi projetada para rodar embutida dentro de outro servidor. Os desa
 
 ### 14.3 Detecção de IP do Container na Rede Correta
 
-Containers conectados a múltiplas redes têm múltiplos IPs. O healthcheck HTTP deve usar o IP na rede do projeto:
+Containers conectados a múltiplas redes têm múltiplos IPs. O healthcheck HTTP deve usar sempre o IP do container na rede isolada do projeto — não na rede padrão do Docker Engine. A lógica de lookup filtra explicitamente pelo `network_id` da rede do projeto na estrutura de inspeção do container retornada pelo Docker Engine.
 
-```rust
-fn get_container_ip(info: &ContainerInspectResponse, network_id: &str) -> Result<String> {
-    info.network_settings
-        .as_ref()
-        .and_then(|ns| ns.networks.as_ref())
-        .and_then(|nets| nets.values().find(|n| n.network_id.as_deref() == Some(network_id)))
-        .and_then(|n| n.ip_address.as_deref())
-        .filter(|ip| !ip.is_empty())
-        .map(str::to_string)
-        .ok_or_else(|| anyhow!("container não conectado à rede do projeto"))
-}
-```
+### 14.4 SurrealDB Embarcado com RocksDB
+
+O RocksDB em modo embarcado pode apresentar write amplification elevada sob escrita contínua. Mitigações:
+
+- Ajustar parâmetros de compaction conforme o padrão de escrita do daemon
+- Alternativa de fallback: SpeeDB (fork mais leve do RocksDB, também suportado pelo SurrealDB)
+- Implementar endpoint de backup que dispara um export do SurrealDB para arquivo
 
 ---
 
@@ -1337,41 +787,40 @@ fn get_container_ip(info: &ContainerInspectResponse, network_id: &str) -> Result
 - [x] TUI Ratatui com input e display de respostas
 
 ### Fase 1 — Core do Daemon
-- [ ] Definir todos os tipos em `shared` (Command, Event, Response, modelos)
-- [ ] Integrar SurrealDB embarcado + schema inicial + migrations
-- [ ] CRUD de projetos e serviços via API
-- [ ] Integração bollard: pull de imagem, criação de container, gestão de redes
-- [ ] EventBus funcional
+- [ ] Definir todos os tipos em `shared`: Command, Event, Response, modelos de domínio
+- [ ] Integrar SurrealDB embarcado com schema inicial e sistema de migrations
+- [ ] CRUD de projetos e serviços via API UDS
+- [ ] Integração com Docker Engine: pull de imagem, criação de container, gestão de redes
+- [ ] EventBus funcional com broadcast para múltiplos subscribers
 
-### Fase 2 — Máquina de Estados
-- [ ] `DeployState` enum completo
-- [ ] `DeployExecutor` com todas as transições
-- [ ] Healthcheck polling (HTTP + TCP + DockerNative)
-- [ ] Persistência de estado no SurrealDB
+### Fase 2 — Máquina de Estados de Deploy
+- [ ] Enum de estados completo com todos os dados por estado
+- [ ] Executor com lógica de transição para cada estado
+- [ ] Healthcheck polling nos três modos (HTTP, TCP, DockerNative)
+- [ ] Persistência de cada transição no SurrealDB
 - [ ] Recovery ao reiniciar o daemon
 
 ### Fase 3 — Ingress
-- [ ] Integrar Pingora como biblioteca
-- [ ] `IngressController` com `ArcSwap<RouteTable>`
-- [ ] Roteamento por Host header
-- [ ] Carregamento de rotas do SurrealDB ao iniciar
-- [ ] TLS com `rustls` (certificados manuais primeiro)
+- [ ] Integrar Pingora como biblioteca dentro do daemon
+- [ ] IngressController com tabela de rotas em leitura lock-free
+- [ ] Roteamento por Host header com lookup de domínio
+- [ ] Carregamento das rotas existentes do banco ao iniciar o daemon
+- [ ] TLS com certificados manuais (sem ACME ainda)
 
 ### Fase 4 — TUI Completo
 - [ ] Dashboard com lista de projetos/serviços e métricas inline
-- [ ] Tela de deploy progress com barra de progresso real por camada
-- [ ] Stream de logs em tempo real
-- [ ] Gráficos sparkline de CPU/RAM
-- [ ] Formulário de criação/edição de serviço
+- [ ] Tela de progresso de deploy com barra por camada de imagem
+- [ ] Streaming de logs em tempo real com buffer circular
+- [ ] Gráficos sparkline de CPU e memória
+- [ ] Formulário de criação e edição de serviço
 
 ### Fase 5 — ACME e Secrets
-- [ ] Integração `instant-acme` para Let's Encrypt HTTP-01
-- [ ] Renovação automática de certificados
-- [ ] Gestão de secrets com `age`
+- [ ] Integração com protocolo ACME para obtenção automática de certificados Let's Encrypt
+- [ ] Renovação automática em background
+- [ ] Gestão de secrets com criptografia em repouso
 
 ### Fase 6 — Produção
-- [ ] Testes de integração com Docker real
-- [ ] Systemd unit file
-- [ ] Script de instalação
+- [ ] Testes de integração com Docker Engine real
+- [ ] Systemd unit file e script de instalação
 - [ ] Documentação de usuário
-- [ ] Benchmark de footprint de memória (alvo: < 50 MB idle)
+- [ ] Benchmark de footprint de memória com alvo de menos de 50 MB em idle
