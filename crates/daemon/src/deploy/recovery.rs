@@ -1,0 +1,168 @@
+use crate::{
+    db::Db,
+    docker::{containers, DockerClient},
+    event_bus::EventBus,
+    ingress::IngressController,
+    secrets::SecretsManager,
+};
+use shared::{DeployState, ServiceStatus};
+use std::{path::PathBuf, sync::Arc};
+use tracing::{info, warn};
+
+pub async fn recover(
+    db: Arc<Db>,
+    docker: Arc<DockerClient>,
+    ingress: Arc<IngressController>,
+    bus: Arc<EventBus>,
+    secrets: Arc<SecretsManager>,
+    db_path: PathBuf,
+    drain_secs: u64,
+) {
+    let pending = match crate::db::deployments::get_non_terminal(&db).await {
+        Ok(v) => v,
+        Err(e) => {
+            warn!(error = %e, "failed to query non-terminal deployments");
+            return;
+        }
+    };
+
+    if pending.is_empty() {
+        info!("no deployments to recover");
+        return;
+    }
+
+    info!(count = pending.len(), "recovering deployments");
+
+    for dep in pending {
+        let svc = match crate::db::services::get(&db, &dep.service_id).await {
+            Ok(Some(s)) => s,
+            _ => {
+                warn!(deployment_id = dep.id, "service not found during recovery, marking failed");
+                let _ = crate::db::deployments::transition(
+                    &db,
+                    &dep.id,
+                    &dep.state,
+                    DeployState::Failed,
+                    Some("service not found during recovery".into()),
+                )
+                .await;
+                continue;
+            }
+        };
+
+        match &dep.state {
+            // Pre-swap states: safe to abort
+            DeployState::Pending
+            | DeployState::ResolvingDeps
+            | DeployState::PullingImage
+            | DeployState::CloningRepo
+            | DeployState::BuildingImage
+            | DeployState::Staging
+            | DeployState::HealthcheckPolling => {
+                info!(
+                    deployment_id = dep.id,
+                    state = dep.state.label(),
+                    "aborting pre-swap deployment"
+                );
+                // Remove staging container if it exists
+                let staging_name = containers::staging_name(
+                    &svc.spec.name,
+                    &dep.id[..8.min(dep.id.len())],
+                );
+                if let Ok(Some(id)) =
+                    containers::find_by_name(&docker.inner, &staging_name).await
+                {
+                    let _ = containers::remove(&docker.inner, &id).await;
+                }
+                let _ = crate::db::deployments::transition(
+                    &db,
+                    &dep.id,
+                    &dep.state,
+                    DeployState::Failed,
+                    Some("daemon restarted during deploy".into()),
+                )
+                .await;
+                let _ = crate::db::services::update_status(
+                    &db,
+                    &svc.id,
+                    &ServiceStatus::Error("deploy interrupted by restart".into()),
+                    None,
+                )
+                .await;
+            }
+
+            // Swap in progress: inspect actual containers to decide
+            DeployState::SwappingIn | DeployState::Draining => {
+                info!(
+                    deployment_id = dep.id,
+                    state = dep.state.label(),
+                    "resuming swap-in-progress deployment"
+                );
+                let executor = Arc::new(crate::deploy::executor::DeployExecutor {
+                    db: db.clone(),
+                    docker: docker.clone(),
+                    ingress: ingress.clone(),
+                    bus: bus.clone(),
+                    secrets: secrets.clone(),
+                    db_path: db_path.clone(),
+                    drain_secs,
+                });
+                let dep_id = dep.id.clone();
+                tokio::spawn(async move { executor.run(dep_id).await });
+            }
+
+            // Promoting: complete the rename
+            DeployState::Promoting => {
+                info!(deployment_id = dep.id, "completing promotion");
+                let executor = Arc::new(crate::deploy::executor::DeployExecutor {
+                    db: db.clone(),
+                    docker: docker.clone(),
+                    ingress: ingress.clone(),
+                    bus: bus.clone(),
+                    secrets: secrets.clone(),
+                    db_path: db_path.clone(),
+                    drain_secs,
+                });
+                let dep_id = dep.id.clone();
+                tokio::spawn(async move { executor.run(dep_id).await });
+            }
+
+            // Rolling back: complete the rollback
+            DeployState::RollingBack => {
+                info!(deployment_id = dep.id, "completing rollback");
+                let executor = Arc::new(crate::deploy::executor::DeployExecutor {
+                    db: db.clone(),
+                    docker: docker.clone(),
+                    ingress: ingress.clone(),
+                    bus: bus.clone(),
+                    secrets: secrets.clone(),
+                    db_path: db_path.clone(),
+                    drain_secs,
+                });
+                let dep_id = dep.id.clone();
+                tokio::spawn(async move { executor.run(dep_id).await });
+            }
+
+            DeployState::Live | DeployState::Failed | DeployState::Pruning => {}
+        }
+    }
+
+    // Restore Pingora routes for running services
+    restore_routes(&db, &ingress).await;
+}
+
+async fn restore_routes(db: &Db, _ingress: &IngressController) {
+    match crate::db::services::get_running(db).await {
+        Ok(services) => {
+            info!(count = services.len(), "restoring ingress routes");
+            for svc in services {
+                if let Some(_cid) = &svc.live_container_id {
+                    // We'd need to inspect the container to get its current IP.
+                    // For simplicity, log that manual restart may be needed.
+                    info!(service = svc.spec.name, "route restoration pending container inspection");
+                }
+            }
+        }
+        Err(e) => warn!(error = %e, "failed to restore routes"),
+    }
+}

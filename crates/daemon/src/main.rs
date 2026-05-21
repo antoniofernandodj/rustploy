@@ -1,88 +1,131 @@
-use axum::{
-    async_trait,
-    body::Bytes,
-    extract::FromRequest,
-    http::{header, StatusCode},
-    response::{IntoResponse, Response},
-    routing::post,
-    Router,
-};
+mod api;
+mod db;
+mod deploy;
+mod docker;
+mod event_bus;
+mod ingress;
+mod metrics;
+mod secrets;
+
+use api::AppState;
+use anyhow::Result;
+use event_bus::EventBus;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use hyper_util::server::conn::auto;
-use serde::{de::DeserializeOwned, Serialize};
-use shared::Message;
-use std::path::PathBuf;
+use hyper_util::service::TowerToHyperService;
+use ingress::IngressController;
+use shared::{Event, RustployConfig};
+use std::{path::PathBuf, sync::Arc, time::Instant};
 use tokio::net::UnixListener;
-
-// Wrapper Bincode para Axum
-pub struct Bincode<T>(pub T);
-
-impl<T> IntoResponse for Bincode<T> where T: Serialize {
-    fn into_response(self) -> Response {
-        match bincode::serialize(&self.0) {
-            Ok(bytes) => (
-                [(header::CONTENT_TYPE, "application/octet-stream")],
-                bytes,
-            ).into_response(),
-            Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-        }
-    }
-}
-
-#[async_trait]
-impl<S, T> FromRequest<S> for Bincode<T>
-where
-    T: DeserializeOwned,
-    S: Send + Sync,
-{
-    type Rejection = (StatusCode, String);
-
-    async fn from_request(req: axum::http::Request<axum::body::Body>, state: &S) -> Result<Self, Self::Rejection> {
-        let bytes = Bytes::from_request(req, state)
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-        let res = bincode::deserialize(&bytes)
-            .map_err(|e| (StatusCode::BAD_REQUEST, format!("Bincode error: {}", e)))?;
-
-        Ok(Bincode(res))
-    }
-}
-
-
-async fn echo_handler(Bincode(msg): Bincode<Message>) -> Bincode<Message> {
-    println!("Received: {:?}", msg);
-    Bincode(msg)
-}
-
+use tracing::{error, info, warn};
+use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let path = PathBuf::from("/tmp/rustploy_echo.sock");
-    
-    // Remove o socket antigo se existir
-    if path.exists() {
-        std::fs::remove_file(&path)?;
+async fn main() -> Result<()> {
+    let config = RustployConfig::load();
+    init_logging(&config.daemon.log_level);
+
+    info!(
+        version = env!("CARGO_PKG_VERSION"),
+        socket = config.daemon.socket_path,
+        "rustployd starting"
+    );
+
+    // Database
+    let db_path = PathBuf::from(&config.daemon.db_path);
+    let db = Arc::new(db::connect(&db_path).await?);
+    info!("database connected");
+
+    // Docker
+    let docker = Arc::new(docker::DockerClient::connect(&config.docker.socket_path)?);
+    if let Err(e) = docker.ping().await {
+        error!(error = %e, "docker engine unreachable");
+        std::process::exit(1);
+    }
+    info!("docker engine connected");
+
+    let bus = Arc::new(EventBus::new());
+    let ingress = Arc::new(IngressController::new());
+
+    let master_key = PathBuf::from(&config.secrets.master_key_path);
+    let secrets = Arc::new(secrets::SecretsManager::new(&master_key)?);
+
+    // Start ingress proxy (async task)
+    let routes = ingress.table_handle();
+    let http_port = config.ingress.http_port;
+    let https_port = config.ingress.https_port;
+    tokio::spawn(async move {
+        ingress::proxy::start_proxy(routes, http_port, https_port).await;
+    });
+
+    // Recovery
+    deploy::recovery::recover(
+        db.clone(),
+        docker.clone(),
+        ingress.clone(),
+        bus.clone(),
+        secrets.clone(),
+        db_path.clone(),
+        config.deploy.drain_secs,
+    )
+    .await;
+
+    // Metrics background task
+    {
+        let docker_inner = docker.inner.clone();
+        let db2 = db.clone();
+        let bus2 = bus.clone();
+        let interval = config.metrics.interval_secs;
+        tokio::spawn(async move {
+            metrics::collect_loop(Arc::new(docker_inner), db2, bus2, interval).await;
+        });
     }
 
-    let listener = UnixListener::bind(&path)?;
-    println!("Server listening on UDS: {:?}", path);
+    bus.publish(Event::DaemonReady {
+        version: env!("CARGO_PKG_VERSION").to_string(),
+    });
 
-    let app = Router::new()
-        .route("/", post(echo_handler));
+    let state = AppState {
+        db,
+        docker,
+        ingress,
+        bus,
+        secrets,
+        db_path,
+        drain_secs: config.deploy.drain_secs,
+        started_at: Instant::now(),
+    };
+    let app = api::router(state);
+
+    // Bind UDS
+    let socket_path = PathBuf::from(&config.daemon.socket_path);
+    if let Some(parent) = socket_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    if socket_path.exists() {
+        std::fs::remove_file(&socket_path)?;
+    }
+    let listener = UnixListener::bind(&socket_path)?;
+    info!(socket = ?socket_path, "listening");
 
     loop {
         let (stream, _) = listener.accept().await?;
-        let stream = TokioIo::new(stream);
-        let service = hyper_util::service::TowerToHyperService::new(app.clone());
+        let io = TokioIo::new(stream);
+        let svc = TowerToHyperService::new(app.clone());
 
         tokio::spawn(async move {
-            if let Err(err) = auto::Builder::new(TokioExecutor::new())
-                .serve_connection(stream, service)
+            if let Err(e) = auto::Builder::new(TokioExecutor::new())
+                .serve_connection(io, svc)
                 .await
             {
-                eprintln!("Error serving connection: {:?}", err);
+                warn!(error = %e, "connection error");
             }
         });
     }
+}
+
+fn init_logging(level: &str) {
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(level));
+    tracing_subscriber::fmt().with_env_filter(filter).json().init();
 }

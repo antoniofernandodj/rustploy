@@ -2,14 +2,74 @@
 name = "daemon"
 version = "0.1.0"
 edition = "2024"
+default-run = "rustployd"
+
+[[bin]]
+name = "rustployd"
+path = "src/main.rs"
 
 [dependencies]
-tokio = { version = "1", features = ["full"] }
-axum = "0.7"
-hyper-util = { version = "0.1", features = ["server-auto", "tokio"] }
-tower = "0.4"
-serde = { version = "1.0", features = ["derive"] }
-bincode = "1.3"
 shared = { path = "../shared" }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+async-stream = "0.3"
+futures = "0.3"
+
+# HTTP / API
+axum = { version = "0.7", features = ["macros"] }
+hyper = { version = "1", features = ["full"] }
+hyper-util = { version = "0.1", features = ["server-auto", "tokio", "client", "client-legacy"] }
+http-body-util = "0.1"
+tower = { version = "0.4", features = ["util"] }
+http = "1"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+bincode = "1.3"
+
+# Database
+surrealdb = { version = "2", features = ["kv-rocksdb"] }
+
+# Docker
+bollard = "0.17"
+
+# Reverse proxy (hyper-based; Pingora integration pending sfv upstream fix)
+arc-swap = "1"
+
+# TLS — Phase 5
+# rustls = "0.23"
+# instant-acme = "0.7"
+
+# Crypto / Secrets
+age = { version = "0.10", features = ["async"] }
+hex = "0.4"
+
+# IDs / Time
+ulid = { version = "1", features = ["serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# HTTP client (healthcheck)
+reqwest = { version = "0.12", features = ["rustls-tls"], default-features = false }
+
+# Git
+git2 = { version = "0.19", default-features = false, features = ["https"] }
+
+# Tar/Gzip for Docker build context
+tar = "0.4"
+flate2 = "1"
+
+# Errors / Logging
+anyhow = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 async-trait = "0.1"
-bytes = "1.0"
+
+# Config
+toml = "0.8"
+
+# Utilities
+bytes = "1"

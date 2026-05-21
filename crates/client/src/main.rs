@@ -1,66 +1,29 @@
-use shared::Message;
-use std::error::Error;
-use ratatui::{
-    backend::CrosstermBackend,
-    widgets::{Block, Borders, List, ListItem, Paragraph},
-    layout::{Layout, Constraint, Direction},
-    Terminal,
-    style::{Style, Color},
-};
+mod app;
+mod events;
+mod transport;
+mod ui;
+
+use app::App;
 use crossterm::{
-    event::{Event, EventStream, KeyCode, KeyEventKind},
+    event::{Event as TermEvent, EventStream, KeyCode, KeyEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::io;
-use std::path::Path;
+use events::handle_key;
 use futures::StreamExt;
-use tokio::sync::mpsc;
-use tokio::net::UnixStream;
-use hyper_util::rt::TokioIo;
-use hyper::Request;
-use http_body_util::{BodyExt, Full};
-use bytes::Bytes;
+use ratatui::{backend::CrosstermBackend, Terminal};
+use shared::{Command, Response};
+use std::{io, time::Duration};
+use tokio::{sync::mpsc, time::interval};
+use transport::DaemonClient;
 
-struct App {
-    input: String,
-    messages: Vec<String>,
-}
-
-/// Cliente minimalista para enviar Bincode via UDS usando Hyper
-async fn send_bincode_request(
-    socket_path: &Path,
-    msg: Message,
-) -> Result<Message, Box<dyn Error + Send + Sync>> {
-    let stream = UnixStream::connect(socket_path).await?;
-    let io = TokioIo::new(stream);
-
-    let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await?;
-
-    tokio::spawn(async move {
-        if let Err(err) = conn.await {
-            eprintln!("Connection failed: {:?}", err);
-        }
-    });
-
-    let bytes = bincode::serialize(&msg)?;
-    let body = Full::new(Bytes::from(bytes));
-    let req = Request::builder()
-        .method("POST")
-        .uri("http://localhost/")
-        .header("Content-Type", "application/octet-stream")
-        .body(body)?;
-
-    let res = sender.send_request(req).await?;
-    let body_bytes = res.collect().await?.to_bytes();
-    let resp_msg = bincode::deserialize::<Message>(&body_bytes)?;
-
-    Ok(resp_msg)
-}
+const TICK_MS: u64 = 100;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    let socket_path = std::path::PathBuf::from("/tmp/rustploy_echo.sock");
+async fn main() -> anyhow::Result<()> {
+    let socket_path = std::env::var("RUSTPLOY_SOCKET")
+        .unwrap_or_else(|_| "/run/rustploy/rustploy.sock".to_string());
+    let client = DaemonClient::new(&socket_path);
 
     // Setup terminal
     enable_raw_mode()?;
@@ -69,90 +32,88 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let mut app = App {
-        input: String::new(),
-        messages: Vec::new(),
-    };
+    let result = run(&mut terminal, client, socket_path.clone()).await;
 
-    let mut event_stream = EventStream::new();
-    let (tx, mut rx) = mpsc::channel::<String>(32);
+    // Restore terminal
+    disable_raw_mode()?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+    terminal.show_cursor()?;
+
+    result
+}
+
+async fn run(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    client: DaemonClient,
+    socket_path: String,
+) -> anyhow::Result<()> {
+    let mut app = App::new();
+
+    // Load initial data
+    load_initial_data(&client, &mut app).await;
+
+    let (event_tx, mut event_rx) = mpsc::channel::<shared::Event>(256);
+
+    // Background: daemon event stream
+    let tx = event_tx.clone();
+    let sock = socket_path.clone();
+    tokio::spawn(async move {
+        let client = DaemonClient::new(&sock);
+        let _ = client
+            .stream(None, move |ev| {
+                let _ = tx.blocking_send(ev);
+            })
+            .await;
+    });
+
+    let mut crossterm_events = EventStream::new();
+    let mut tick = interval(Duration::from_millis(TICK_MS));
 
     loop {
-        terminal.draw(|f| {
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .margin(2)
-                .constraints([
-                    Constraint::Length(3),
-                    Constraint::Min(1),
-                ].as_ref())
-                .split(f.size());
-
-            let input_widget = Paragraph::new(app.input.as_str())
-                .style(Style::default().fg(Color::Cyan))
-                .block(Block::default().borders(Borders::ALL).title("Input (Hyper-UDS + Bincode)"));
-            f.render_widget(input_widget, chunks[0]);
-
-            let messages: Vec<ListItem> = app.messages
-                .iter()
-                .rev()
-                .map(|m| ListItem::new(m.as_str()))
-                .collect();
-            let messages_widget = List::new(messages)
-                .block(Block::default().borders(Borders::ALL).title("Server Responses"));
-            f.render_widget(messages_widget, chunks[1]);
-        })?;
+        terminal.draw(|f| ui::render(f, &app))?;
 
         tokio::select! {
-            Some(event) = event_stream.next() => {
-                let event = event?;
-                if let Event::Key(key) = event {
-                    if key.kind == KeyEventKind::Press {
-                        match key.code {
-                            KeyCode::Enter => {
-                                let content = app.input.drain(..).collect::<String>();
-                                let msg = Message { content };
-                                let tx_clone = tx.clone();
-                                let path_clone = socket_path.clone();
-
-                                tokio::spawn(async move {
-                                    match send_bincode_request(&path_clone, msg).await {
-                                        Ok(resp) => {
-                                            let _ = tx_clone.send(resp.content).await;
-                                        }
-                                        Err(e) => {
-                                            let _ = tx_clone.send(format!("Error: {}", e)).await;
-                                        }
-                                    }
-                                });
-                            }
-                            KeyCode::Char(c) => {
-                                app.input.push(c);
-                            }
-                            KeyCode::Backspace => {
-                                app.input.pop();
-                            }
-                            KeyCode::Esc => {
-                                break;
-                            }
-                            _ => {}
-                        }
+            Some(term_ev) = crossterm_events.next() => {
+                let ev = term_ev?;
+                if let TermEvent::Key(key) = ev {
+                    if key.kind == KeyEventKind::Press
+                        && key.code == KeyCode::Char('q')
+                        && matches!(app.screen, app::Screen::Dashboard)
+                    {
+                        break;
                     }
+                    handle_key(&mut app, &client, key);
                 }
             }
-            Some(msg_content) = rx.recv() => {
-                app.messages.push(msg_content);
+            Some(daemon_ev) = event_rx.recv() => {
+                app.apply_event(daemon_ev);
+            }
+            _ = tick.tick() => {
+                app.tick();
             }
         }
     }
 
-    // Restore terminal
-    disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-    )?;
-    terminal.show_cursor()?;
-
     Ok(())
+}
+
+async fn load_initial_data(client: &DaemonClient, app: &mut App) {
+    match client.send(Command::ProjectList).await {
+        Ok(Response::Projects(projects)) => {
+            app.projects = projects;
+        }
+        _ => {}
+    }
+
+    if let Some(project) = app.projects.first() {
+        match client
+            .send(Command::ServiceList { project_id: project.id.clone() })
+            .await
+        {
+            Ok(Response::Services(services)) => {
+                app.services = services;
+            }
+            _ => {}
+        }
+    }
 }
