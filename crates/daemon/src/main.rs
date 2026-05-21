@@ -15,7 +15,7 @@ use hyper_util::server::conn::auto;
 use hyper_util::service::TowerToHyperService;
 use ingress::IngressController;
 use shared::{Event, RustployConfig};
-use std::{path::PathBuf, sync::Arc, time::Instant};
+use std::{path::PathBuf, sync::Arc};
 use tokio::net::UnixListener;
 use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
@@ -85,17 +85,8 @@ async fn main() -> Result<()> {
         version: env!("CARGO_PKG_VERSION").to_string(),
     });
 
-    let state = AppState {
-        db,
-        docker,
-        ingress,
-        bus,
-        secrets,
-        db_path,
-        drain_secs: config.deploy.drain_secs,
-        started_at: Instant::now(),
-    };
-    let app = api::router(state);
+    let state = AppState::new(db, docker, ingress, bus, secrets, db_path, config.deploy.drain_secs);
+    let app = api::routes::build(state);
 
     // Bind UDS
     let socket_path = PathBuf::from(&config.daemon.socket_path);
@@ -106,6 +97,13 @@ async fn main() -> Result<()> {
         std::fs::remove_file(&socket_path)?;
     }
     let listener = UnixListener::bind(&socket_path)?;
+    // Allow any local user to connect (group/world write).
+    // Production deployments should use 0o660 with a dedicated group.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&socket_path, std::fs::Permissions::from_mode(0o666))?;
+    }
     info!(socket = ?socket_path, "listening");
 
     loop {

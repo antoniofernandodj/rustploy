@@ -3,6 +3,7 @@ use anyhow::Result;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use shared::Project;
+use surrealdb::sql::Datetime as SdbDatetime;
 use ulid::Ulid;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -10,7 +11,7 @@ struct ProjectRecord {
     id: Option<surrealdb::sql::Thing>,
     name: String,
     description: Option<String>,
-    created_at: chrono::DateTime<Utc>,
+    created_at: SdbDatetime,
 }
 
 impl ProjectRecord {
@@ -19,7 +20,7 @@ impl ProjectRecord {
             id: self.id.as_ref().map(extract_id).unwrap_or_default(),
             name: self.name,
             description: self.description,
-            created_at: self.created_at,
+            created_at: self.created_at.0,
         }
     }
 }
@@ -30,7 +31,7 @@ pub async fn create(db: &Db, name: String, description: Option<String>) -> Resul
         id: None,
         name,
         description,
-        created_at: Utc::now(),
+        created_at: SdbDatetime::from(Utc::now()),
     };
     let created: Option<ProjectRecord> = db.create(("project", &id)).content(record).await?;
     Ok(created.unwrap().into_project())

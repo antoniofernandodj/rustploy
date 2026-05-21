@@ -4,6 +4,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use shared::{Service, ServiceSpec, ServiceStatus};
+use surrealdb::sql::Datetime as SdbDatetime;
 use ulid::Ulid;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -14,8 +15,8 @@ struct ServiceRecord {
     spec: Value,
     status: String,
     live_container_id: Option<String>,
-    created_at: chrono::DateTime<Utc>,
-    updated_at: chrono::DateTime<Utc>,
+    created_at: SdbDatetime,
+    updated_at: SdbDatetime,
 }
 
 impl ServiceRecord {
@@ -28,10 +29,25 @@ impl ServiceRecord {
             spec,
             status,
             live_container_id: self.live_container_id,
-            created_at: self.created_at,
-            updated_at: self.updated_at,
+            created_at: self.created_at.0,
+            updated_at: self.updated_at.0,
         }
     }
+}
+
+#[derive(Serialize)]
+struct SpecPatch {
+    spec: Value,
+    name: String,
+    updated_at: SdbDatetime,
+}
+
+#[derive(Serialize)]
+struct StatusPatch {
+    status: String,
+    updated_at: SdbDatetime,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    live_container_id: Option<String>,
 }
 
 fn parse_status(s: &str) -> ServiceStatus {
@@ -49,7 +65,7 @@ fn parse_status(s: &str) -> ServiceStatus {
 
 pub async fn create(db: &Db, spec: ServiceSpec) -> Result<Service> {
     let id = Ulid::new().to_string();
-    let now = Utc::now();
+    let now = SdbDatetime::from(Utc::now());
     let record = ServiceRecord {
         id: None,
         name: spec.name.clone(),
@@ -57,7 +73,7 @@ pub async fn create(db: &Db, spec: ServiceSpec) -> Result<Service> {
         spec: serde_json::to_value(&spec)?,
         status: "Stopped".into(),
         live_container_id: None,
-        created_at: now,
+        created_at: now.clone(),
         updated_at: now,
     };
     let created: Option<ServiceRecord> = db.create(("service", &id)).content(record).await?;
@@ -79,14 +95,12 @@ pub async fn get(db: &Db, id: &str) -> Result<Option<Service>> {
 }
 
 pub async fn update_spec(db: &Db, id: &str, spec: ServiceSpec) -> Result<Option<Service>> {
-    let updated: Option<ServiceRecord> = db
-        .update(("service", id))
-        .merge(serde_json::json!({
-            "spec": serde_json::to_value(&spec)?,
-            "name": spec.name,
-            "updated_at": Utc::now(),
-        }))
-        .await?;
+    let patch = SpecPatch {
+        spec: serde_json::to_value(&spec)?,
+        name: spec.name.clone(),
+        updated_at: SdbDatetime::from(Utc::now()),
+    };
+    let updated: Option<ServiceRecord> = db.update(("service", id)).merge(patch).await?;
     Ok(updated.map(|r| r.into_service()))
 }
 
@@ -96,14 +110,11 @@ pub async fn update_status(
     status: &ServiceStatus,
     container_id: Option<&str>,
 ) -> Result<()> {
-    let status_str = status.to_string();
-    let mut patch = serde_json::json!({
-        "status": status_str,
-        "updated_at": Utc::now(),
-    });
-    if let Some(cid) = container_id {
-        patch["live_container_id"] = serde_json::Value::String(cid.to_string());
-    }
+    let patch = StatusPatch {
+        status: status.to_string(),
+        updated_at: SdbDatetime::from(Utc::now()),
+        live_container_id: container_id.map(|s| s.to_string()),
+    };
     let _: Option<ServiceRecord> = db.update(("service", id)).merge(patch).await?;
     Ok(())
 }

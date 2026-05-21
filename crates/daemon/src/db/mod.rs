@@ -3,14 +3,12 @@ pub mod projects;
 pub mod services;
 
 use anyhow::Result;
-use std::path::Path;
-use surrealdb::{engine::local::RocksDb, Surreal};
+use surrealdb::{engine::local::Mem, Surreal};
 
 pub type Db = Surreal<surrealdb::engine::local::Db>;
 
-pub async fn connect(db_path: &Path) -> Result<Db> {
-    std::fs::create_dir_all(db_path)?;
-    let db = Surreal::new::<RocksDb>(db_path.to_str().unwrap()).await?;
+pub async fn connect(_db_path: &std::path::Path) -> Result<Db> {
+    let db = Surreal::new::<Mem>(()).await?;
     db.use_ns("rustploy").use_db("main").await?;
     migrate(&db).await?;
     Ok(db)

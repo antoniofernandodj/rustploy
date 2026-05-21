@@ -4,6 +4,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use shared::{DeployState, Deployment, StateTransition};
+use surrealdb::sql::Datetime as SdbDatetime;
 use ulid::Ulid;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -13,8 +14,8 @@ struct DeploymentRecord {
     image: String,
     state: String,
     states_log: Vec<Value>,
-    started_at: chrono::DateTime<Utc>,
-    finished_at: Option<chrono::DateTime<Utc>>,
+    started_at: SdbDatetime,
+    finished_at: Option<SdbDatetime>,
 }
 
 impl DeploymentRecord {
@@ -31,8 +32,8 @@ impl DeploymentRecord {
             image: self.image,
             state,
             states_log,
-            started_at: self.started_at,
-            finished_at: self.finished_at,
+            started_at: self.started_at.0,
+            finished_at: self.finished_at.map(|dt| dt.0),
         }
     }
 }
@@ -65,7 +66,7 @@ pub async fn create(db: &Db, service_id: &str, image: &str) -> Result<Deployment
         image: image.to_string(),
         state: "Pending".into(),
         states_log: vec![],
-        started_at: Utc::now(),
+        started_at: SdbDatetime::from(Utc::now()),
         finished_at: None,
     };
     let created: Option<DeploymentRecord> =
@@ -112,8 +113,8 @@ pub async fn transition(
     };
     let transition_json = serde_json::to_value(&transition)?;
 
-    let finished_at = if to.is_terminal() {
-        Some(Utc::now())
+    let finished_at: Option<SdbDatetime> = if to.is_terminal() {
+        Some(SdbDatetime::from(Utc::now()))
     } else {
         None
     };

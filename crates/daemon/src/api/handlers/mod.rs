@@ -1,0 +1,14 @@
+pub mod daemon_status;
+pub mod deploy_abort;
+pub mod deploy_history;
+pub mod deploy_rollback;
+pub mod deploy_start;
+pub mod ping;
+pub mod project_create;
+pub mod project_delete;
+pub mod project_list;
+pub mod service_create;
+pub mod service_delete;
+pub mod service_get;
+pub mod service_list;
+pub mod service_update;

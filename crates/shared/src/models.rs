@@ -24,7 +24,6 @@ pub struct ServiceSpec {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "kind")]
 pub enum ServiceSource {
     Registry { image: String },
     Git(GitSource),
@@ -34,8 +33,12 @@ pub enum ServiceSource {
 pub struct GitSource {
     pub url: String,
     pub branch: String,
+    pub root_path: String,
+    pub watch_paths: Vec<String>,
+    pub submodules: bool,
     pub dockerfile_path: String,
     pub build_context: String,
+    pub build_stage: Option<String>,
     pub credentials: Option<String>,
 }
 
@@ -44,8 +47,12 @@ impl Default for GitSource {
         Self {
             url: String::new(),
             branch: "main".into(),
+            root_path: ".".into(),
+            watch_paths: vec![],
+            submodules: false,
             dockerfile_path: "Dockerfile".into(),
             build_context: ".".into(),
+            build_stage: None,
             credentials: None,
         }
     }

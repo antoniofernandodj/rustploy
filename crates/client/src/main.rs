@@ -5,14 +5,14 @@ mod ui;
 
 use app::App;
 use crossterm::{
-    event::{Event as TermEvent, EventStream, KeyCode, KeyEventKind},
+    event::{Event as TermEvent, EventStream, KeyEventKind},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use events::handle_key;
 use futures::StreamExt;
 use ratatui::{backend::CrosstermBackend, Terminal};
-use shared::{Command, Response};
+use shared::Command;
 use std::{io, time::Duration};
 use tokio::{sync::mpsc, time::interval};
 use transport::DaemonClient;
@@ -25,7 +25,6 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or_else(|_| "/run/rustploy/rustploy.sock".to_string());
     let client = DaemonClient::new(&socket_path);
 
-    // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
@@ -34,7 +33,6 @@ async fn main() -> anyhow::Result<()> {
 
     let result = run(&mut terminal, client, socket_path.clone()).await;
 
-    // Restore terminal
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
@@ -49,12 +47,10 @@ async fn run(
 ) -> anyhow::Result<()> {
     let mut app = App::new();
 
-    // Load initial data
     load_initial_data(&client, &mut app).await;
 
     let (event_tx, mut event_rx) = mpsc::channel::<shared::Event>(256);
 
-    // Background: daemon event stream
     let tx = event_tx.clone();
     let sock = socket_path.clone();
     tokio::spawn(async move {
@@ -76,13 +72,13 @@ async fn run(
             Some(term_ev) = crossterm_events.next() => {
                 let ev = term_ev?;
                 if let TermEvent::Key(key) = ev {
-                    if key.kind == KeyEventKind::Press
-                        && key.code == KeyCode::Char('q')
-                        && matches!(app.screen, app::Screen::Dashboard)
+                    if key.kind == KeyEventKind::Press && app.can_quit()
+                        && key.code == crossterm::event::KeyCode::Char('q')
                     {
                         break;
                     }
-                    handle_key(&mut app, &client, key);
+                    handle_key(&mut app, key);
+                    process_pending(&client, &mut app).await;
                 }
             }
             Some(daemon_ev) = event_rx.recv() => {
@@ -97,23 +93,18 @@ async fn run(
     Ok(())
 }
 
-async fn load_initial_data(client: &DaemonClient, app: &mut App) {
-    match client.send(Command::ProjectList).await {
-        Ok(Response::Projects(projects)) => {
-            app.projects = projects;
+async fn process_pending(client: &DaemonClient, app: &mut App) {
+    let cmds: Vec<app::PendingCommand> = app.pending_commands.drain(..).collect();
+    for pc in cmds {
+        match client.send(pc.command).await {
+            Ok(resp) => app.handle_response(resp, pc.context),
+            Err(e) => app.set_notification(format!("Erro: {e}"), true),
         }
-        _ => {}
     }
+}
 
-    if let Some(project) = app.projects.first() {
-        match client
-            .send(Command::ServiceList { project_id: project.id.clone() })
-            .await
-        {
-            Ok(Response::Services(services)) => {
-                app.services = services;
-            }
-            _ => {}
-        }
+async fn load_initial_data(client: &DaemonClient, app: &mut App) {
+    if let Ok(shared::Response::Projects(projects)) = client.send(Command::ProjectList).await {
+        app.projects = projects;
     }
 }
