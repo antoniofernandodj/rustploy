@@ -1,6 +1,6 @@
 use crate::app::{
-    App, CmdContext, ConfirmAction, DbKind, EnvEditField, Focus, GeneralTabField,
-    NewServiceState, NewServiceStep, PendingCommand, View,
+    App, CmdContext, ConfirmAction, DbKind, EnvEditField, EnvTabState, Focus, GeneralTabField,
+    NewServiceState, NewServiceStep, PendingCommand, ProjectDetailTab, View,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use shared::{Command, EnvVar, EnvVarValue};
@@ -27,11 +27,17 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
 
     match key.code {
         KeyCode::Tab => {
-            app.focus = match app.focus {
-                Focus::Sidebar => Focus::Content,
-                Focus::Content => Focus::Sidebar,
-            };
-            return;
+            // Cede o Tab quando algum formulário de edição está aberto
+            // (env vars de serviço ou de projeto precisam de Tab para KEY→VALUE)
+            let editing = app.env_tab.editing || app.project_env_tab.editing;
+            if !editing {
+                app.focus = match app.focus {
+                    Focus::Sidebar => Focus::Content,
+                    Focus::Content => Focus::Sidebar,
+                };
+                return;
+            }
+            // cai no dispatch de view abaixo
         }
         KeyCode::Esc => {
             match &app.view {
@@ -76,7 +82,7 @@ fn handle_content(app: &mut App, key: KeyEvent) {
         View::HomeMonitoring
         | View::HomeDeployments
         | View::HomeSchedules
-        | View::HomePingoraFs
+        | View::HomeIngress
         | View::HomeDocker
         | View::HomeDeployEngine
         | View::HomeRequests => handle_home(app, key),
@@ -87,6 +93,35 @@ fn handle_content(app: &mut App, key: KeyEvent) {
 fn handle_home(app: &mut App, _key: KeyEvent) {}
 
 fn handle_project_detail(app: &mut App, key: KeyEvent) {
+    // ←/→ alternam entre abas (igual ao service detail); não conflita com o Tab global
+    if !app.service_filtering && !app.project_env_tab.editing {
+        match key.code {
+            KeyCode::Left | KeyCode::Right => {
+                app.project_detail_tab = match app.project_detail_tab {
+                    ProjectDetailTab::Services => ProjectDetailTab::Environment,
+                    ProjectDetailTab::Environment => ProjectDetailTab::Services,
+                };
+                return;
+            }
+            KeyCode::Char('1') => {
+                app.project_detail_tab = ProjectDetailTab::Services;
+                return;
+            }
+            KeyCode::Char('2') => {
+                app.project_detail_tab = ProjectDetailTab::Environment;
+                return;
+            }
+            _ => {}
+        }
+    }
+
+    match app.project_detail_tab.clone() {
+        ProjectDetailTab::Services => handle_project_services_tab(app, key),
+        ProjectDetailTab::Environment => handle_project_env_tab(app, key),
+    }
+}
+
+fn handle_project_services_tab(app: &mut App, key: KeyEvent) {
     if app.service_filtering {
         match key.code {
             KeyCode::Esc | KeyCode::Enter => {
@@ -140,6 +175,134 @@ fn handle_project_detail(app: &mut App, key: KeyEvent) {
                     message: format!("Remover serviço '{name}'?"),
                     action: ConfirmAction::DeleteService(id),
                 };
+            }
+        }
+        _ => {}
+    }
+}
+
+fn handle_project_env_tab(app: &mut App, key: KeyEvent) {
+    // ── Modo edição ───────────────────────────────────────────────────────────
+    if app.project_env_tab.editing {
+        match key.code {
+            KeyCode::Tab => {
+                app.project_env_tab.edit_field = match app.project_env_tab.edit_field {
+                    EnvEditField::Key => EnvEditField::Value,
+                    EnvEditField::Value => EnvEditField::Key,
+                };
+            }
+            KeyCode::Esc => {
+                app.project_env_tab.editing = false;
+            }
+            KeyCode::Enter => {
+                let k = app.project_env_tab.edit_key.clone();
+                let v = app.project_env_tab.edit_value.clone();
+                if !k.is_empty() {
+                    if let Some(pid) = app.active_project_id.clone() {
+                        if let Some(project) = app.projects.iter().find(|p| p.id == pid) {
+                            let mut env_vars = project.env_vars.clone();
+                            env_vars.retain(|e| e.key != k);
+                            env_vars.push(shared::EnvVar {
+                                key: k,
+                                value: shared::EnvVarValue::Plain(v),
+                            });
+                            app.pending_commands.push(PendingCommand {
+                                command: shared::Command::ProjectEnvSet {
+                                    project_id: pid,
+                                    env_vars,
+                                },
+                                context: CmdContext::UpdateProjectEnv,
+                            });
+                        }
+                    }
+                }
+                app.project_env_tab.editing = false;
+            }
+            KeyCode::Char(c) => match app.project_env_tab.edit_field {
+                EnvEditField::Key => app.project_env_tab.edit_key.push(c),
+                EnvEditField::Value => app.project_env_tab.edit_value.push(c),
+            },
+            KeyCode::Backspace => match app.project_env_tab.edit_field {
+                EnvEditField::Key => {
+                    app.project_env_tab.edit_key.pop();
+                }
+                EnvEditField::Value => {
+                    app.project_env_tab.edit_value.pop();
+                }
+            },
+            _ => {}
+        }
+        return;
+    }
+
+    // ── Navegação ─────────────────────────────────────────────────────────────
+    let env_len = app
+        .active_project_id
+        .as_deref()
+        .and_then(|pid| app.projects.iter().find(|p| p.id == pid))
+        .map(|p| p.env_vars.len())
+        .unwrap_or(0);
+
+    match key.code {
+        KeyCode::Up => {
+            if app.project_env_tab.cursor > 0 {
+                app.project_env_tab.cursor -= 1;
+            }
+        }
+        KeyCode::Down => {
+            if app.project_env_tab.cursor + 1 < env_len {
+                app.project_env_tab.cursor += 1;
+            }
+        }
+        KeyCode::Char('n') => {
+            app.project_env_tab = EnvTabState {
+                cursor: app.project_env_tab.cursor,
+                editing: true,
+                edit_key: String::new(),
+                edit_value: String::new(),
+                edit_field: EnvEditField::Key,
+            };
+        }
+        KeyCode::Char('e') => {
+            if let Some(project) = app
+                .active_project_id
+                .as_deref()
+                .and_then(|pid| app.projects.iter().find(|p| p.id == pid))
+            {
+                if let Some(ev) = project.env_vars.get(app.project_env_tab.cursor) {
+                    let edit_value = match &ev.value {
+                        shared::EnvVarValue::Plain(v) => v.clone(),
+                        shared::EnvVarValue::Secret(s) => format!("<secret:{s}>"),
+                    };
+                    app.project_env_tab = EnvTabState {
+                        cursor: app.project_env_tab.cursor,
+                        editing: true,
+                        edit_key: ev.key.clone(),
+                        edit_value,
+                        edit_field: EnvEditField::Key,
+                    };
+                }
+            }
+        }
+        KeyCode::Char('D') => {
+            if let Some(pid) = app.active_project_id.clone() {
+                if let Some(project) = app.projects.iter().find(|p| p.id == pid) {
+                    if let Some(ev) = project.env_vars.get(app.project_env_tab.cursor) {
+                        let key = ev.key.clone();
+                        let mut env_vars = project.env_vars.clone();
+                        env_vars.retain(|e| e.key != key);
+                        app.pending_commands.push(PendingCommand {
+                            command: shared::Command::ProjectEnvSet {
+                                project_id: pid,
+                                env_vars,
+                            },
+                            context: CmdContext::UpdateProjectEnv,
+                        });
+                        if app.project_env_tab.cursor > 0 {
+                            app.project_env_tab.cursor -= 1;
+                        }
+                    }
+                }
             }
         }
         _ => {}

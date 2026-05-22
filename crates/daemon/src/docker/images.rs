@@ -16,7 +16,7 @@ pub async fn pull(
     deployment_id: &str,
     bus: &EventBus,
 ) -> Result<()> {
-    info!(image, "pulling image");
+    info!(image = %image, deployment_id = %deployment_id, "images::pull: iniciando pull");
     let options = Some(CreateImageOptions {
         from_image: image,
         ..Default::default()
@@ -30,11 +30,20 @@ pub async fn pull(
         match item {
             Ok(info) => {
                 if let Some(status) = &info.status {
+                    let layer_id = info.id.as_deref().unwrap_or("-");
                     if status.contains("Pull complete") || status.contains("Already exists") {
                         layers_done += 1;
+                        debug!(
+                            image = %image,
+                            layer = %layer_id,
+                            status = %status,
+                            done = layers_done,
+                            "images::pull: layer concluída"
+                        );
                     }
                     if status.contains("Pulling from") {
                         layer_count += 1;
+                        info!(image = %image, "images::pull: baixando layers do registry");
                     }
                     let percent = if layer_count > 0 {
                         ((layers_done as f32 / layer_count as f32) * 100.0) as u8
@@ -46,15 +55,18 @@ pub async fn pull(
                         service_id: service_id.to_string(),
                         phase: "PullingImage".into(),
                         percent,
-                        description: status.clone(),
+                        description: format!("[{layer_id}] {status}"),
                     });
                 }
             }
-            Err(e) => return Err(anyhow!("image pull failed: {e}")),
+            Err(e) => {
+                tracing::error!(image = %image, error = %e, "images::pull: falhou");
+                return Err(anyhow!("image pull failed: {e}"));
+            }
         }
     }
 
-    info!(image, "image pull complete");
+    info!(image = %image, deployment_id = %deployment_id, layers_done = layers_done, "images::pull: pull concluído");
     Ok(())
 }
 
@@ -113,16 +125,43 @@ pub async fn build(
 }
 
 fn create_tar_gz(context_path: &Path, _dockerfile: &str) -> Result<Vec<u8>> {
-    
     let mut tar_data = Vec::new();
     {
         let enc = flate2::write::GzEncoder::new(&mut tar_data, flate2::Compression::default());
         let mut tar = tar::Builder::new(enc);
-        tar.append_dir_all(".", context_path)?;
+        // Adiciona recursivamente excluindo .git (que pode ser muito grande
+        // e não é necessário para o build da imagem Docker)
+        append_dir_filtered(&mut tar, context_path, std::path::Path::new("."))?;
         let enc = tar.into_inner()?;
         enc.finish()?;
     }
     Ok(tar_data)
+}
+
+/// Adiciona `src` ao tar sob `prefix`, pulando entradas cujo nome seja `.git`.
+fn append_dir_filtered(
+    tar: &mut tar::Builder<impl std::io::Write>,
+    src: &Path,
+    prefix: &Path,
+) -> Result<()> {
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let file_name = entry.file_name();
+        // Ignora .git e qualquer ponto de controle de versão indesejado
+        if file_name == ".git" {
+            continue;
+        }
+        let path = entry.path();
+        let archive_path = prefix.join(&file_name);
+        if path.is_dir() {
+            append_dir_filtered(tar, &path, &archive_path)?;
+        } else if path.is_file() {
+            tar.append_path_with_name(&path, &archive_path)
+                .map_err(|e| anyhow::anyhow!("tar: falha ao adicionar '{}': {e}", path.display()))?;
+        }
+        // symlinks são ignorados (seguro para contexto Docker)
+    }
+    Ok(())
 }
 
 pub async fn prune_unused(docker: &Docker, keep_tags: &[&str]) -> Result<()> {

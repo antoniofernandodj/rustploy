@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use shared::{DeployState, Deployment, StateTransition};
 use surrealdb::sql::Datetime as SdbDatetime;
+use tracing::info;
 use ulid::Ulid;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -60,6 +61,7 @@ fn parse_state(s: &str) -> DeployState {
 
 pub async fn create(db: &Db, service_id: &str, image: &str) -> Result<Deployment> {
     let id = Ulid::new().to_string();
+    info!(id = %id, service_id = %service_id, image = %image, "db::deployments::create: criando deployment");
     let record = DeploymentRecord {
         id: None,
         service_id: service_id.to_string(),
@@ -71,7 +73,9 @@ pub async fn create(db: &Db, service_id: &str, image: &str) -> Result<Deployment
     };
     let created: Option<DeploymentRecord> =
         db.create(("deployment", &id)).content(record).await?;
-    Ok(created.unwrap().into_deployment())
+    let dep = created.unwrap().into_deployment();
+    info!(deployment_id = %dep.id, service_id = %service_id, "db::deployments::create: deployment salvo");
+    Ok(dep)
 }
 
 pub async fn get(db: &Db, id: &str) -> Result<Option<Deployment>> {
@@ -105,6 +109,13 @@ pub async fn transition(
     to: DeployState,
     message: Option<String>,
 ) -> Result<Deployment> {
+    info!(
+        deployment_id = %id,
+        from = from.label(),
+        to = to.label(),
+        terminal = to.is_terminal(),
+        "db::deployments::transition: gravando transição"
+    );
     let transition = StateTransition {
         from: from.clone(),
         to: to.clone(),
@@ -119,16 +130,17 @@ pub async fn transition(
         None
     };
 
+    // IMPORTANTE: usar type::thing() em vez de WHERE id = $id
+    // porque $id é uma String mas o campo id é um Thing — a comparação falharia.
     let mut result = db
         .query(
-            "UPDATE deployment SET
+            "UPDATE type::thing('deployment', $id) SET
                 state = $state,
                 states_log += $transition,
                 finished_at = $finished_at
-             WHERE id = $id
              RETURN AFTER",
         )
-        .bind(("id", format!("deployment:{id}")))
+        .bind(("id", id.to_string()))
         .bind(("state", to.label()))
         .bind(("transition", transition_json))
         .bind(("finished_at", finished_at))

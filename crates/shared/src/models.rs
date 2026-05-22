@@ -6,6 +6,9 @@ pub struct Project {
     pub id: String,
     pub name: String,
     pub description: Option<String>,
+    /// Variáveis de ambiente herdadas por todos os serviços deste projeto no deploy.
+    #[serde(default)]
+    pub env_vars: Vec<EnvVar>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -15,7 +18,7 @@ pub struct ServiceSpec {
     pub project_id: String,
     pub source: ServiceSource,
     pub port: u16,
-    pub domain: String,
+    pub domain: Option<String>,
     pub env_vars: Vec<EnvVar>,
     pub volumes: Vec<VolumeMount>,
     pub healthcheck: Healthcheck,

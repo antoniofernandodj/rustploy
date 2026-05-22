@@ -18,7 +18,7 @@ Rustploy é um daemon único que:
 - Compila para um binário estático < 15 MB
 - Consome < 30 MB de RAM em idle
 - Gerencia o ciclo completo de deploy sem processos externos além do `dockerd`
-- Expõe um proxy reverso embutido (Pingora) que se atualiza em tempo real sem reload de arquivos
+- Expõe um proxy reverso embutido (hyper) que se atualiza em tempo real sem reload de arquivos
 - Persiste estado em SurrealDB embarcado (zero processo de banco separado)
 
 ### 1.3 Posicionamento
@@ -27,7 +27,7 @@ Rustploy é um daemon único que:
 |--------------------|------------------------|------------------------|
 | Runtime            | Node.js / PHP          | Rust (binário nativo)  |
 | Orquestrador       | Docker Swarm / K8s     | Daemon próprio         |
-| Proxy              | Traefik (processo Go)  | Pingora (lib Rust)     |
+| Proxy              | Traefik (processo Go)  | hyper embutido         |
 | Banco              | PostgreSQL separado    | SurrealDB embarcado    |
 | RAM em idle        | 200–600 MB             | < 50 MB (alvo)         |
 | TLS                | Let's Encrypt via API  | rustls + ACME embutido |
@@ -55,7 +55,7 @@ Rustploy é um daemon único que:
 │  │  rustployd  (binário único)                                 │    │
 │  │                                                             │    │
 │  │  ┌──────────────┐   ┌──────────────┐   ┌──────────────────┐ │    │
-│  │  │   Pingora    │   │    Daemon    │   │   SurrealDB      │ │    │
+│  │  │    hyper     │   │    Daemon    │   │   SurrealDB      │ │    │
 │  │  │   Ingress    │◄─►│    Core      │◄─►│   (embarcado)    │ │    │
 │  │  │  :80 / :443  │   │              │   │   RocksDB/SpeeDB │ │    │
 │  │  └──────────────┘   └──────┬───────┘   └──────────────────┘ │    │
@@ -118,7 +118,7 @@ rustploy/
 │   │       │   ├── state.rs    # enum DeployState
 │   │       │   ├── executor.rs # lógica de transições
 │   │       │   └── recovery.rs # recuperação após crash do daemon
-│   │       ├── ingress/        # integração Pingora
+│   │       ├── ingress/        # proxy reverso hyper (route table arc-swap)
 │   │       │   ├── mod.rs
 │   │       │   ├── router.rs   # tabela de rotas em memória
 │   │       │   ├── tls.rs      # gestão ACME / rustls
@@ -312,7 +312,7 @@ O mapeamento de estado para ação é:
 | `CloningRepo`        | Iniciar build da imagem (`BuildingImage`)                             |
 | `BuildingImage`      | Criar e iniciar container de staging                                  |
 | `Staging`            | Iniciar loop de healthcheck                                           |
-| `HealthcheckPolling` | Sinalizar Pingora para iniciar o swap                                 |
+| `HealthcheckPolling` | Atualizar rota no IngressController para iniciar o swap               |
 | `SwappingIn`         | Aguardar `drain_secs` com container antigo sem tráfego                |
 | `Draining`           | Renomear container e atualizar banco                                  |
 | `Promoting`          | Marcar como `Live`                                                    |
@@ -358,7 +358,7 @@ A criação do container de staging sempre inclui:
 
 #### 5.1.3 Gestão de Redes
 
-Cada projeto tem uma rede bridge isolada. Containers do mesmo projeto se veem pelo nome (`rp_{service_name}`), mas o mundo externo só os acessa via Pingora.
+Cada projeto tem uma rede bridge isolada. Containers do mesmo projeto se veem pelo nome (`rp_{service_name}`), mas o mundo externo só os acessa via o proxy hyper.
 
 O gerenciador de redes expõe: `ensure_project_network` (cria a rede se não existir e retorna o network_id), `remove_project_network`, `connect_container` e `disconnect_container`.
 
@@ -407,7 +407,7 @@ Para repositórios **públicos**, nenhuma credencial é necessária. Para reposi
 
 Na v2, o daemon poderá expor endpoints de webhook por serviço para os paths em `watch_paths` configurados no `GitSource`. Ao receber um evento de push no branch configurado, o daemon dispara automaticamente um novo deploy. A verificação de assinatura HMAC do payload garante que apenas o provedor legítimo pode acionar o webhook. Na v1, re-deploy é sempre iniciado manualmente via TUI.
 
-### 5.3 Subsistema de Ingress — Pingora (`crates/daemon/src/ingress/`)
+### 5.3 Subsistema de Ingress — hyper (`crates/daemon/src/ingress/`)
 
 #### 5.3.1 Tabela de Rotas
 
@@ -421,14 +421,14 @@ O `IngressController` expõe duas operações atômicas:
 
 #### 5.3.2 Lógica de Proxy
 
-A cada requisição recebida pelo Pingora, o proxy extrai o header `Host`, consulta a tabela de rotas pelo domínio e encaminha a requisição para o `backend_addr` correspondente. Se não houver rota para o domínio, retorna HTTP 404. Toda essa lógica é executada sem locks, usando apenas a leitura atômica do ponteiro da tabela.
+A cada requisição recebida pelo proxy hyper, ele extrai o header `Host`, consulta a tabela de rotas pelo domínio e encaminha a requisição para o `backend_addr` correspondente via HTTP/1.1. Se não houver rota para o domínio, retorna HTTP 404. Toda essa lógica é executada sem locks, usando apenas a leitura atômica do ponteiro da tabela.
 
 #### 5.3.3 TLS e ACME
 
-Pingora usa `rustls` nativamente. O gerenciamento de certificados segue este fluxo:
+O proxy usa `rustls` para TLS (integração pendente). O gerenciamento de certificados seguirá este fluxo:
 
 1. **Primeiro deploy de um domínio**: daemon inicia desafio ACME HTTP-01 via `instant-acme`
-2. O Pingora expõe o endpoint `/.well-known/acme-challenge/` temporariamente via rota especial
+2. O proxy expõe o endpoint `/.well-known/acme-challenge/` temporariamente via rota especial
 3. Após validação, o certificado é armazenado no SurrealDB (serializado como PEM)
 4. O `IngressController` carrega o certificado no `RouteEntry`
 5. Renovação automática via cron interno (verifica expiração a cada 12h, renova com > 30 dias de antecedência)
@@ -478,7 +478,7 @@ SurrealDB é iniciado em modo embarcado com backend RocksDB. Isso significa zero
 - **Recovery ao iniciar** — selecionar todos os deployments cujo `state` não pertença ao conjunto de estados terminais `['Live', 'Failed', 'Pruning']`
 - **Serviços de um projeto** — navegar a relação de grafo `project → [has] → service` a partir do `project_id`
 - **Último deployment de cada serviço** — agrupar por `service_id`, ordenar por `started_at` decrescente, retornar o primeiro de cada grupo
-- **Rotas iniciais do Pingora** — selecionar todos os serviços com `status = 'Running'` e `live_container_id` preenchido para reconstituir a tabela de rotas ao iniciar o daemon
+- **Rotas iniciais do ingress** — selecionar todos os serviços com `status = 'Running'` e `live_container_id` preenchido para reconstituir a tabela de rotas ao iniciar o daemon
 
 ---
 
@@ -527,7 +527,7 @@ O TUI é dividido em três áreas permanentes:
 │   Deployments      │                                               │
 │   Monitoring       │                                               │
 │   Schedules        │                                               │
-│   Pingora FS       │                                               │
+│   Ingress Routes   │                                               │
 │   Docker           │                                               │
 │   Deploy Engine    │                                               │
 │   Requests         │                                               │
@@ -727,8 +727,8 @@ Localização padrão: `/etc/rustploy/config.toml` (ou `~/.config/rustploy/confi
 | `[daemon]`       | `socket_path`      | `/run/rustploy/rustploy.sock`              | Caminho do Unix Domain Socket                          |
 | `[daemon]`       | `db_path`          | `/var/lib/rustploy/db`                     | Diretório dos dados do SurrealDB                       |
 | `[daemon]`       | `log_level`        | `info`                                     | Verbosidade dos logs (trace/debug/info/warn/error)     |
-| `[ingress]`      | `http_port`        | `80`                                       | Porta HTTP do Pingora                                  |
-| `[ingress]`      | `https_port`       | `443`                                      | Porta HTTPS do Pingora                                 |
+| `[ingress]`      | `http_port`        | `80`                                       | Porta HTTP do proxy hyper                              |
+| `[ingress]`      | `https_port`       | `443`                                      | Porta HTTPS do proxy hyper                             |
 | `[ingress]`      | `bind_address`     | `0.0.0.0`                                  | Interface de rede para bind                            |
 | `[ingress.acme]` | `enabled`          | `true`                                     | Ativar/desativar ACME automático                       |
 | `[ingress.acme]` | `email`            | —                                          | E-mail para registro na autoridade certificadora       |
@@ -756,7 +756,7 @@ Todas as configurações podem ser sobrescritas via env com prefixo `RUSTPLOY_`:
 
 - Cada projeto tem uma rede Docker bridge dedicada (`rp_net_{project_id_short}`)
 - Containers de projetos diferentes não se enxergam pela rede
-- O Pingora é o único ponto de entrada externo
+- O proxy hyper é o único ponto de entrada externo
 - Containers não têm `--privileged` nem capabilities extras por padrão
 
 ### 10.2 Gestão de Secrets
@@ -795,7 +795,7 @@ Apenas membros do grupo `rustploy` podem conectar. Root sempre tem acesso.
 - `ImagePullFailed` — falha no download da imagem do registry
 - `GitCloneFailed` — falha ao clonar o repositório (credenciais inválidas, repo não encontrado, timeout)
 - `ImageBuildFailed` — falha durante o `docker build` (erro no Dockerfile, dependência indisponível, etc.)
-- `IngressError` — erro ao atualizar rotas no Pingora
+- `IngressError` — erro ao atualizar rotas no IngressController
 
 ### 11.2 Estratégia de Retry
 
@@ -850,11 +850,10 @@ rustploy_deploy_duration_seconds{service="api"} 47.2
 | `tokio`              | 1      | Runtime assíncrono                                         |
 | `axum`               | 0.7    | Framework HTTP para a API sobre UDS                        |
 | `hyper-util`         | 0.1    | Utilitários HTTP/1.1 para UDS                              |
-| `serde` + `bincode`  | 1      | Serialização binária do protocolo                          |
+| `serde` + `postcard` | 1      | Serialização binária compacta do protocolo (varint)        |
 | `surrealdb`          | 2      | Banco de dados embarcado (feature `kv-rocksdb`)            |
 | `bollard`            | 0.17   | Cliente da API do Docker Engine                            |
-| `pingora`            | 0.4    | Biblioteca de proxy reverso HTTP                           |
-| `pingora-proxy`      | 0.4    | Trait `ProxyHttp` e peer management                        |
+| `hyper` + `arc-swap` | 1 / 1  | Proxy reverso HTTP/1.1 embutido com route table lock-free  |
 | `ratatui`            | 0.28   | Framework de TUI                                           |
 | `crossterm`          | 0.28   | Backend de terminal e stream de eventos de teclado         |
 | `instant-acme`       | 0.7    | Protocolo ACME para obtenção de certificados TLS           |
@@ -882,12 +881,12 @@ O maior desafio de zero-downtime com volumes é a janela de escrita dupla: duran
 - Para volumes de arquivo: documentar que é responsabilidade da aplicação tolerar acesso concorrente
 - Na v2: suporte opcional a snapshots de volume via LVM ou Btrfs antes de cada deploy
 
-### 14.2 Pingora como Biblioteca Embarcada
+### 14.2 Proxy hyper Embutido
 
-Pingora não foi projetada para rodar embutida dentro de outro servidor. Os desafios:
+O proxy reverso é implementado diretamente com hyper HTTP/1.1 sobre TCP. Características:
 
-- O Pingora tem seu próprio signal handling — integrar com cuidado com o signal handler do daemon
-- A solução é rodar o Pingora em uma thread OS separada (não tokio) e usar channels para comunicação com o daemon
+- Route table protegida por `arc-swap`: reads lock-free, writes fazem swap atômico do ponteiro
+- Proxy roda em task tokio normal, sem thread separada nem signal handling próprio
 
 ### 14.3 Detecção de IP do Container na Rede Correta
 
@@ -973,10 +972,10 @@ O RocksDB em modo embarcado pode apresentar write amplification elevada sob escr
 | Deployments | Ver todos os deploys ativos | Lista todos os deployments em andamento em todos os projetos |
 | Monitoring | Monitorar métricas globais | Exibe gráficos de CPU/RAM de todos os serviços em execução |
 | Schedules | Gerenciar agendamentos | Lista e configura auto-deploys agendados (v2) |
-| Pingora FS | Visualizar sistema de rotas | Mostra a tabela de rotas ativa no Pingora |
+| Ingress Routes | Visualizar sistema de rotas | Mostra a tabela de rotas ativa no proxy hyper |
 | Docker | Inspecionar Docker Engine | Exibe containers, redes e imagens gerenciadas |
 | Deploy Engine | Monitorar o executor | Exibe estado interno do motor de deploy |
-| Requests | Ver requisições recentes | Log de requisições recebidas pelo Pingora |
+| Requests | Ver requisições recentes | Log de requisições recebidas pelo proxy hyper |
 
 ### 16.3 Seção PROJECTS
 
@@ -1106,7 +1105,7 @@ Placeholder para histórico de patches de configuração (v2).
 
 | Item | Use Case | Descrição |
 |---|---|---|
-| Web Server | Configurar Pingora | Portas HTTP/HTTPS, bind address, cabeçalhos globais |
+| Web Server | Configurar proxy hyper | Portas HTTP/HTTPS, bind address, cabeçalhos globais |
 | Profile | Perfil do daemon | Informações da instalação, versão, uso de recursos |
 | Users | Gerenciar usuários | Controle de acesso ao UDS (v2) |
 | Audit Logs | Ver logs de auditoria | Histórico de ações administrativas |

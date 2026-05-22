@@ -70,10 +70,10 @@ fn render_content(f: &mut Frame, app: &App, area: Rect) {
         View::HomeDeployments => render_home_placeholder(f, area, "Deployments", "Ver todos os deploys ativos em todos os projetos."),
         View::HomeMonitoring => metrics::render_global(f, app, area),
         View::HomeSchedules => render_home_placeholder(f, area, "Schedules", "Agendamentos de auto-deploy (v2)."),
-        View::HomePingoraFs => render_home_placeholder(f, area, "Pingora File System", "Tabela de rotas ativa no Pingora."),
+        View::HomeIngress => render_home_placeholder(f, area, "Ingress Routes", "Tabela de rotas ativa no proxy hyper."),
         View::HomeDocker => render_home_placeholder(f, area, "Docker", "Containers, redes e imagens gerenciadas."),
         View::HomeDeployEngine => render_home_placeholder(f, area, "Deploy Engine", "Estado interno do motor de deploy."),
-        View::HomeRequests => render_home_placeholder(f, area, "Requests", "Log de requisições recebidas pelo Pingora."),
+        View::HomeRequests => render_home_placeholder(f, area, "Requests", "Log de requisições recebidas pelo proxy hyper."),
         View::SettingsWebServer
         | View::SettingsProfile
         | View::SettingsUsers
@@ -109,10 +109,16 @@ fn render_statusbar(f: &mut Frame, area: Rect, app: &App) {
     let hints = match (&app.focus, &app.view) {
         (Focus::Sidebar, _) => " [Tab] conteúdo  [↑↓] nav  [Enter] abrir  [q] quit",
         (Focus::Content, View::ProjectDetail) => {
+            use crate::app::ProjectDetailTab;
             if app.service_filtering {
                 " [Enter/Esc] sair do filtro  [Backspace] apagar"
+            } else if app.project_env_tab.editing {
+                " [Tab] KEY↔VALUE  [Enter] salvar  [Esc] cancelar"
             } else {
-                " [/] filtrar  [n] novo  [Enter] abrir  [D] deletar  [Tab] sidebar"
+                match app.project_detail_tab {
+                    ProjectDetailTab::Services => " [←→/1/2] abas  [n] novo serviço  [Enter] abrir  [D] deletar  [/] filtrar  [Tab] sidebar",
+                    ProjectDetailTab::Environment => " [←→/1/2] abas  [n] nova var  [e] editar  [D] remover  [Tab] sidebar",
+                }
             }
         }
         (Focus::Content, View::ServiceDetail) => {

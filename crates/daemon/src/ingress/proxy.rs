@@ -1,6 +1,6 @@
-//! Reverse proxy built on hyper.
-//! Pingora integration is deferred until pingora-core resolves the sfv-0.14
-//! incompatibility present in pingora-core 0.4.
+//! Proxy reverso HTTP/1.1 embutido, construído sobre hyper.
+//! Lê o header `Host`, consulta a tabela de rotas (arc-swap, lock-free) e
+//! encaminha a requisição para o backend correspondente via TCP.
 
 use crate::ingress::router::RouteHandle;
 use bytes::Bytes;

@@ -13,12 +13,13 @@ pub async fn ensure_project_network(docker: &Docker, project_id: &str) -> Result
     let short = &project_id[..8.min(project_id.len())];
     let name = project_network_name(short);
 
-    // Return existing network if it exists
     if let Ok(info) = docker.inspect_network::<String>(&name, None).await {
-        return Ok(info.id.unwrap_or(name));
+        let id = info.id.clone().unwrap_or_else(|| name.clone());
+        info!(network = %name, id = %id, "networks::ensure: rede já existe");
+        return Ok(id);
     }
 
-    info!(name, "creating project network");
+    info!(network = %name, driver = "bridge", "networks::ensure: criando nova rede");
     let options = CreateNetworkOptions {
         name: name.clone(),
         driver: "bridge".to_string(),
@@ -27,13 +28,17 @@ pub async fn ensure_project_network(docker: &Docker, project_id: &str) -> Result
         ..Default::default()
     };
     let resp = docker.create_network(options).await?;
-    Ok(resp.id.unwrap_or(name))
+    let id = resp.id.clone().unwrap_or_else(|| name.clone());
+    info!(network = %name, id = %id, "networks::ensure: rede criada");
+    Ok(id)
 }
 
 pub async fn remove_project_network(docker: &Docker, project_id: &str) -> Result<()> {
     let short = &project_id[..8.min(project_id.len())];
     let name = project_network_name(short);
+    info!(network = %name, "networks::remove: removendo rede do projeto");
     let _ = docker.remove_network(&name).await;
+    info!(network = %name, "networks::remove: rede removida");
     Ok(())
 }
 
@@ -42,11 +47,13 @@ pub async fn connect_container(
     network_name: &str,
     container_id: &str,
 ) -> Result<()> {
+    info!(network = %network_name, container_id = %container_id, "networks::connect: conectando container");
     let opts = ConnectNetworkOptions {
         container: container_id.to_string(),
         ..Default::default()
     };
     docker.connect_network(network_name, opts).await?;
+    info!(network = %network_name, container_id = %container_id, "networks::connect: container conectado");
     Ok(())
 }
 
@@ -55,10 +62,12 @@ pub async fn disconnect_container(
     network_name: &str,
     container_id: &str,
 ) -> Result<()> {
+    info!(network = %network_name, container_id = %container_id, "networks::disconnect: desconectando container");
     let opts = DisconnectNetworkOptions {
         container: container_id.to_string(),
         force: true,
     };
     docker.disconnect_network(network_name, opts).await?;
+    info!(network = %network_name, container_id = %container_id, "networks::disconnect: desconectado");
     Ok(())
 }

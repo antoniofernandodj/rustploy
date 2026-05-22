@@ -1,4 +1,5 @@
 use anyhow::Result;
+use postcard;
 use bytes::Bytes;
 use http_body_util::{BodyExt, Full};
 use hyper::Request;
@@ -28,7 +29,7 @@ impl DaemonClient {
         let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await?;
         tokio::spawn(async move { let _ = conn.await; });
 
-        let body_bytes = bincode::serialize(&cmd)?;
+        let body_bytes = postcard::to_allocvec(&cmd)?;
         let req = Request::builder()
             .method("POST")
             .uri("http://localhost/rpc")
@@ -37,7 +38,7 @@ impl DaemonClient {
 
         let resp = sender.send_request(req).await?;
         let body = resp.collect().await?.to_bytes();
-        Ok(bincode::deserialize(&body)?)
+        Ok(postcard::from_bytes(&body)?)
     }
 
     /// Connects to the daemon event stream and calls `on_event` for each event.
@@ -72,7 +73,7 @@ impl DaemonClient {
             }
         }
 
-        // Read framed events: [u32 LE len][bincode payload]
+        // Read framed events: [u32 LE len][postcard payload]
         loop {
             let mut len_buf = [0u8; 4];
             if stream.read_exact(&mut len_buf).await.is_err() {
@@ -86,7 +87,7 @@ impl DaemonClient {
             if stream.read_exact(&mut payload).await.is_err() {
                 break;
             }
-            if let Ok(event) = bincode::deserialize::<Event>(&payload) {
+            if let Ok(event) = postcard::from_bytes::<Event>(&payload) {
                 on_event(event);
             }
         }

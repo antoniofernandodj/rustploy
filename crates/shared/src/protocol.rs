@@ -7,6 +7,7 @@ pub enum Command {
     ProjectCreate { name: String, description: Option<String> },
     ProjectDelete { id: String },
     ProjectList,
+    ProjectEnvSet { project_id: String, env_vars: Vec<EnvVar> },
 
     // Services
     ServiceCreate(ServiceSpec),

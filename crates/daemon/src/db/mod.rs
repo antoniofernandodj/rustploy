@@ -3,12 +3,17 @@ pub mod projects;
 pub mod services;
 
 use anyhow::Result;
-use surrealdb::{engine::local::Mem, Surreal};
+use surrealdb::{engine::local::RocksDb, Surreal};
 
 pub type Db = Surreal<surrealdb::engine::local::Db>;
 
-pub async fn connect(_db_path: &std::path::Path) -> Result<Db> {
-    let db = Surreal::new::<Mem>(()).await?;
+/// Abre (ou cria) o banco RocksDB no diretório `db_path`.
+/// Os dados persistem entre reinicializações do daemon.
+pub async fn connect(db_path: &std::path::Path) -> Result<Db> {
+    // RocksDb espera um diretório; garantimos que ele exista.
+    std::fs::create_dir_all(db_path)?;
+
+    let db = Surreal::new::<RocksDb>(db_path).await?;
     db.use_ns("rustploy").use_db("main").await?;
     migrate(&db).await?;
     Ok(db)
@@ -20,6 +25,7 @@ async fn migrate(db: &Db) -> Result<()> {
         DEFINE TABLE IF NOT EXISTS project SCHEMAFULL;
         DEFINE FIELD IF NOT EXISTS name ON project TYPE string;
         DEFINE FIELD IF NOT EXISTS description ON project TYPE option<string>;
+        DEFINE FIELD IF NOT EXISTS env_vars ON project FLEXIBLE TYPE array DEFAULT [];
         DEFINE FIELD IF NOT EXISTS created_at ON project TYPE datetime;
         DEFINE INDEX IF NOT EXISTS project_name ON project COLUMNS name UNIQUE;
 

@@ -19,7 +19,7 @@ pub enum View {
     HomeDeployments,
     HomeMonitoring,
     HomeSchedules,
-    HomePingoraFs,
+    HomeIngress,
     HomeDocker,
     HomeDeployEngine,
     HomeRequests,
@@ -52,7 +52,7 @@ pub enum SidebarItem {
     HomeDeployments,
     HomeMonitoring,
     HomeSchedules,
-    HomePingoraFs,
+    HomeIngress,
     HomeDocker,
     HomeDeployEngine,
     HomeRequests,
@@ -78,7 +78,7 @@ impl SidebarItem {
             Self::HomeDeployments => "  Deployments".into(),
             Self::HomeMonitoring => "  Monitoring".into(),
             Self::HomeSchedules => "  Schedules".into(),
-            Self::HomePingoraFs => "  Pingora FS".into(),
+            Self::HomeIngress => "  Ingress".into(),
             Self::HomeDocker => "  Docker".into(),
             Self::HomeDeployEngine => "  Deploy Engine".into(),
             Self::HomeRequests => "  Requests".into(),
@@ -107,7 +107,7 @@ impl SidebarItem {
             Self::HomeDeployments => View::HomeDeployments,
             Self::HomeMonitoring => View::HomeMonitoring,
             Self::HomeSchedules => View::HomeSchedules,
-            Self::HomePingoraFs => View::HomePingoraFs,
+            Self::HomeIngress => View::HomeIngress,
             Self::HomeDocker => View::HomeDocker,
             Self::HomeDeployEngine => View::HomeDeployEngine,
             Self::HomeRequests => View::HomeRequests,
@@ -622,7 +622,7 @@ impl NewServiceState {
                 project_id: self.project_id.clone(),
                 source: ServiceSource::Registry { image: String::new() },
                 port: 80,
-                domain: String::new(),
+                domain: None,
                 env_vars: vec![],
                 volumes: vec![],
                 healthcheck: Healthcheck::default(),
@@ -634,7 +634,7 @@ impl NewServiceState {
                 project_id: self.project_id.clone(),
                 source: ServiceSource::Registry { image: self.docker_image.clone() },
                 port: self.db_kind.map(|d| d.default_port()).unwrap_or(5432),
-                domain: String::new(),
+                domain: None,
                 env_vars: self.db_env_vars(),
                 volumes: vec![],
                 healthcheck: Healthcheck::default(),
@@ -645,6 +645,26 @@ impl NewServiceState {
         }
     }
 }
+
+// ── Project detail tabs ──────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum ProjectDetailTab {
+    #[default]
+    Services,
+    Environment,
+}
+
+impl ProjectDetailTab {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Services => "Services",
+            Self::Environment => "Environment",
+        }
+    }
+}
+
+// ── Env tab (shared between service and project) ─────────────────────────────
 
 #[derive(Debug, Clone, Default)]
 pub struct EnvTabState {
@@ -675,6 +695,7 @@ pub enum CmdContext {
     LoadServices,
     CreateProject,
     DeleteProject,
+    UpdateProjectEnv,
     CreateService,
     UpdateService,
     DeleteService,
@@ -724,6 +745,9 @@ pub struct App {
     pub service_filter: String,
     pub service_filtering: bool,
 
+    pub project_detail_tab: ProjectDetailTab,
+    pub project_env_tab: EnvTabState,
+
     pub service_tab: ServiceTab,
     pub general_tab: GeneralTabState,
     pub env_tab: EnvTabState,
@@ -763,6 +787,9 @@ impl App {
             service_filter: String::new(),
             service_filtering: false,
 
+            project_detail_tab: ProjectDetailTab::default(),
+            project_env_tab: EnvTabState::default(),
+
             service_tab: ServiceTab::General,
             general_tab: GeneralTabState::default(),
             env_tab: EnvTabState::default(),
@@ -787,7 +814,7 @@ impl App {
             SidebarItem::HomeDeployments,
             SidebarItem::HomeMonitoring,
             SidebarItem::HomeSchedules,
-            SidebarItem::HomePingoraFs,
+            SidebarItem::HomeIngress,
             SidebarItem::HomeDocker,
             SidebarItem::HomeDeployEngine,
             SidebarItem::HomeRequests,
@@ -848,6 +875,8 @@ impl App {
                     let pid = project.id.clone();
                     self.active_project_id = Some(pid.clone());
                     self.view = View::ProjectDetail;
+                    self.project_detail_tab = ProjectDetailTab::Services;
+                    self.project_env_tab = EnvTabState::default();
                     self.service_cursor = 0;
                     self.service_filter = String::new();
                     self.service_filtering = false;
@@ -926,7 +955,15 @@ impl App {
                 }
             }
 
-            Event::DeployStateChanged { deployment_id, service_id, state, .. } => {
+            Event::DeployStateChanged { deployment_id, service_id, state, message, .. } => {
+                // Mostra notificação de erro quando o deploy entra em RollingBack
+                if matches!(state, DeployState::RollingBack) {
+                    let reason = message
+                        .as_deref()
+                        .unwrap_or("motivo desconhecido");
+                    self.set_notification(format!("Deploy falhou: {reason}"), true);
+                }
+
                 let entry = self
                     .deploy_progress
                     .entry(deployment_id.clone())
@@ -992,6 +1029,12 @@ impl App {
                 self.projects.push(p);
                 self.set_notification("Projeto criado", false);
             }
+            (Response::Project(p), CmdContext::UpdateProjectEnv) => {
+                if let Some(existing) = self.projects.iter_mut().find(|x| x.id == p.id) {
+                    *existing = p;
+                }
+                self.set_notification("Env vars do projeto atualizadas", false);
+            }
             (Response::Service(s), CmdContext::CreateService) => {
                 self.services.push(s);
                 self.view = View::ProjectDetail;
@@ -1023,6 +1066,10 @@ impl App {
                     self.view = View::ProjectDetail;
                 }
                 self.set_notification("Serviço removido", false);
+            }
+            (Response::Deployment(dep), CmdContext::Deploy) => {
+                self.last_deployment = Some(dep);
+                self.set_notification("Deploy iniciado ✓", false);
             }
             (Response::Ok, CmdContext::Deploy) => {
                 self.set_notification("Deploy iniciado", false);

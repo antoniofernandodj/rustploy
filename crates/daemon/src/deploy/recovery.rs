@@ -147,7 +147,7 @@ pub async fn recover(
         }
     }
 
-    // Restore Pingora routes for running services
+    // Restore ingress routes for running services
     restore_routes(&db, &ingress).await;
 }
 

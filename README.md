@@ -138,15 +138,15 @@ crates/
 └── client/   # rustploy — TUI Ratatui
 ```
 
-Comunicação: HTTP sobre Unix Domain Socket com payload bincode.  
+Comunicação: HTTP sobre Unix Domain Socket com payload postcard (serialização binária compacta via varint).  
 - `POST /rpc` — comandos imperativos (`Command` → `Response`)  
-- `GET /stream` — eventos push em tempo real (`Event`, chunked)
+- `GET /stream` — eventos push em tempo real (`Event`, chunked, framing `[u32 LE len][postcard bytes]`)
 
 ## Status
 
 | Fase | Descrição | Status |
 |------|-----------|--------|
-| 0 | Scaffold do workspace, UDS + Axum + Bincode, TUI base | Concluído |
+| 0 | Scaffold do workspace, UDS + Axum + Postcard, TUI base | Concluído |
 | 1 | CRUD de projetos/serviços, SurrealDB, Docker, EventBus | Concluído |
 | 2 | Máquina de estados de deploy, healthcheck, recovery | Concluído |
 | 3 | IngressController com roteamento por domínio | Concluído |

@@ -312,7 +312,12 @@ fn render_domains_tab(f: &mut Frame, app: &App, area: Rect) {
         None => return,
     };
 
-    let domain = &svc.spec.domain;
+    let domain_display = svc.spec.domain.as_deref().unwrap_or("— não configurado —");
+    let domain_style = if svc.spec.domain.is_some() {
+        Style::default().fg(Color::Cyan)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
     let source_info = match &svc.spec.source {
         ServiceSource::Git(g) => format!("Git: {} @ {}", g.url, g.branch),
         ServiceSource::Registry { image } => format!("Registry: {image}"),
@@ -327,7 +332,7 @@ fn render_domains_tab(f: &mut Frame, app: &App, area: Rect) {
         Line::from(""),
         Line::from(vec![
             Span::styled("  Domínio:  ", Style::default().fg(Color::DarkGray)),
-            Span::styled(domain.as_str(), Style::default().fg(Color::Cyan)),
+            Span::styled(domain_display, domain_style),
         ]),
         Line::from(vec![
             Span::styled("  TLS:      ", Style::default().fg(Color::DarkGray)),

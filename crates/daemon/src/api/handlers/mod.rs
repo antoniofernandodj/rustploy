@@ -6,6 +6,7 @@ pub mod deploy_start;
 pub mod ping;
 pub mod project_create;
 pub mod project_delete;
+pub mod project_env_set;
 pub mod project_list;
 pub mod service_create;
 pub mod service_delete;

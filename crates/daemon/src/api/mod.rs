@@ -15,6 +15,7 @@ use axum::{
     http::{header, StatusCode},
     response::{IntoResponse, Response},
 };
+use postcard;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{path::PathBuf, sync::Arc};
 
@@ -57,7 +58,7 @@ pub struct Bincode<T>(pub T);
 
 impl<T: Serialize> IntoResponse for Bincode<T> {
     fn into_response(self) -> Response {
-        match bincode::serialize(&self.0) {
+        match postcard::to_allocvec(&self.0) {
             Ok(bytes) => {
                 ([(header::CONTENT_TYPE, "application/octet-stream")], bytes).into_response()
             }
@@ -81,8 +82,8 @@ where
         let bytes = Bytes::from_request(req, state)
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-        let val = bincode::deserialize(&bytes)
-            .map_err(|e| (StatusCode::BAD_REQUEST, format!("bincode: {e}")))?;
+        let val = postcard::from_bytes(&bytes)
+            .map_err(|e| (StatusCode::BAD_REQUEST, format!("postcard: {e}")))?;
         Ok(Bincode(val))
     }
 }

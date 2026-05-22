@@ -9,7 +9,7 @@ use ratatui::{
 
 pub fn render(f: &mut Frame, app: &App, area: Rect) {
     let (title, desc) = match &app.view {
-        View::SettingsWebServer => ("Web Server", "Configurar Pingora: portas HTTP/HTTPS, bind address, cabeçalhos globais."),
+        View::SettingsWebServer => ("Web Server", "Configurar o proxy reverso hyper: portas HTTP/HTTPS, bind address, cabeçalhos globais."),
         View::SettingsProfile => ("Profile", "Informações da instalação, versão, uso de recursos do daemon."),
         View::SettingsUsers => ("Users", "Controle de acesso ao Unix Domain Socket (v2)."),
         View::SettingsAuditLogs => ("Audit Logs", "Histórico de ações administrativas no daemon."),

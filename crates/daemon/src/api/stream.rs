@@ -1,4 +1,5 @@
 use super::AppState;
+use postcard;
 use axum::{
     body::Body,
     extract::{Query, State},
@@ -27,7 +28,7 @@ pub async fn handler(State(state): State<AppState>, Query(q): Query<StreamQuery>
                             continue;
                         }
                     }
-                    if let Ok(payload) = bincode::serialize(&event) {
+                    if let Ok(payload) = postcard::to_allocvec(&event) {
                         let len = (payload.len() as u32).to_le_bytes();
                         let mut frame = Vec::with_capacity(4 + payload.len());
                         frame.extend_from_slice(&len);

@@ -50,8 +50,9 @@ Default master key: `/etc/rustploy/master.key`
 
 ### IPC protocol
 
-The client sends **bincode-encoded** `Command` values via HTTP POST to `/rpc` over the Unix Domain Socket, and receives bincode-encoded `Response` values. Real-time events (logs, metrics, deploy progress) come from `GET /stream` (SSE-style chunked response).  
-All three message types — `Command`, `Response`, `Event` — are defined in `crates/shared/src/protocol.rs`.
+The client sends **postcard-encoded** `Command` values via HTTP POST to `/rpc` over the Unix Domain Socket, and receives postcard-encoded `Response` values. Real-time events (logs, metrics, deploy progress) come from `GET /stream` (chunked response framed as `[u32 LE length][postcard bytes]`).  
+All three message types — `Command`, `Response`, `Event` — are defined in `crates/shared/src/protocol.rs`.  
+Postcard uses varint encoding: small integers and short strings produce fewer bytes than bincode, with no schema overhead.
 
 ### Daemon internals (`crates/daemon/src/`)
 
