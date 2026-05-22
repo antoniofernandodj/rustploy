@@ -41,7 +41,8 @@ Um único binário (`rustployd`) substitui o PaaS inteiro. O cliente TUI (`rustp
 
 - Linux com Docker Engine (`dockerd`) acessível em `/var/run/docker.sock`
 - Rust toolchain (edição 2024 — `rustup update stable`)
-- Permissão de escrita em `/run/rustploy/` e `/var/lib/rustploy/`
+
+Permissões de sistema não são obrigatórias para desenvolvimento. O daemon detecta se consegue escrever nos paths configurados e faz fallback automático para `~/.local/share/rustploy/` quando necessário. O cliente segue a mesma lógica ao localizar o socket.
 
 ## Build
 
@@ -55,15 +56,19 @@ Gera:
 
 ## Execução
 
+**Produção (com root ou permissões no socket/dir system):**
 ```bash
-# Iniciar o daemon (requer Docker e permissões nos paths padrão)
-./rustployd
-
-# Em outra sessão, abrir o TUI
-./rustploy
+./rustployd    # socket em /run/rustploy/rustploy.sock, db em /var/lib/rustploy/db
+./rustploy     # conecta automaticamente ao socket acima
 ```
 
-O daemon cria o socket em `/run/rustploy/rustploy.sock` e o banco em `/var/lib/rustploy/db`.
+**Desenvolvimento (sem root):**
+```bash
+./rustployd    # fallback automático para ~/.local/share/rustploy/
+./rustploy     # detecta o socket via ping, usa o mesmo fallback
+```
+
+O daemon tenta o path configurado primeiro; se não tiver permissão de escrita, avisa no log (`WARN socket path not writable, using fallback`) e usa `~/.local/share/rustploy/rustploy.sock`. O banco segue o mesmo critério.
 
 ## Configuração
 
@@ -145,6 +150,8 @@ Comunicação: HTTP sobre Unix Domain Socket com payload bincode.
 | 1 | CRUD de projetos/serviços, SurrealDB, Docker, EventBus | Concluído |
 | 2 | Máquina de estados de deploy, healthcheck, recovery | Concluído |
 | 3 | IngressController com roteamento por domínio | Concluído |
-| 4 | TUI completo (sidebar, formulários, abas de serviço) | Em andamento |
-| 5 | ACME/TLS automático, gestão de secrets | Pendente |
+| 4 | TUI completo (sidebar, projetos, detalhe de serviço, logs, métricas, settings, status do daemon) | Concluído |
+| 5 | ACME/TLS automático, gestão de secrets via protocolo | Em andamento¹ |
 | 6 | Testes de integração, systemd unit, benchmark de memória | Pendente |
+
+¹ Infraestrutura de criptografia (`age`) implementada em `secrets.rs`; comandos `SecretSet/Get` e integração ACME ainda não expostos no protocolo.
