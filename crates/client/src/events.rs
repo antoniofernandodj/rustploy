@@ -1,6 +1,6 @@
 use crate::app::{
-    App, CmdContext, ConfirmAction, EnvEditField, Focus, GeneralTabField, PendingCommand,
-    ServiceFormField, View,
+    App, CmdContext, ConfirmAction, DbKind, EnvEditField, Focus, GeneralTabField,
+    NewServiceState, NewServiceStep, PendingCommand, View,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use shared::{Command, EnvVar, EnvVarValue};
@@ -12,6 +12,11 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
 
     if app.creating_project {
         handle_new_project(app, key);
+        return;
+    }
+
+    if app.new_service.is_some() {
+        handle_new_service(app, key);
         return;
     }
 
@@ -33,10 +38,6 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
                 View::ServiceDetail => {
                     app.view = View::ProjectDetail;
                     app.active_service_id = None;
-                }
-                View::ServiceForm => {
-                    app.service_form = None;
-                    app.view = View::ProjectDetail;
                 }
                 _ => {
                     app.focus = Focus::Sidebar;
@@ -72,7 +73,6 @@ fn handle_content(app: &mut App, key: KeyEvent) {
     match app.view.clone() {
         View::ProjectDetail => handle_project_detail(app, key),
         View::ServiceDetail => handle_service_detail(app, key),
-        View::ServiceForm => handle_service_form(app, key),
         View::HomeMonitoring
         | View::HomeDeployments
         | View::HomeSchedules
@@ -129,8 +129,7 @@ fn handle_project_detail(app: &mut App, key: KeyEvent) {
         }
         KeyCode::Char('n') => {
             if let Some(pid) = app.active_project_id.clone() {
-                app.service_form = Some(crate::app::ServiceFormState::new(pid));
-                app.view = View::ServiceForm;
+                app.new_service = Some(NewServiceState::new(pid));
             }
         }
         KeyCode::Char('D') => {
@@ -431,54 +430,173 @@ fn handle_logs_tab(app: &mut App, key: KeyEvent) {
     }
 }
 
-fn handle_service_form(app: &mut App, key: KeyEvent) {
-    let form = match &mut app.service_form {
-        Some(f) => f,
+fn handle_new_service(app: &mut App, key: KeyEvent) {
+    let step = match &app.new_service {
+        Some(s) => s.step.clone(),
         None => return,
     };
+    match step {
+        NewServiceStep::PickType => handle_ns_pick_type(app, key),
+        NewServiceStep::PickDbType => handle_ns_pick_db(app, key),
+        NewServiceStep::ApplicationForm | NewServiceStep::DatabaseForm => {
+            handle_ns_form(app, key)
+        }
+    }
+}
 
+fn handle_ns_pick_type(app: &mut App, key: KeyEvent) {
     match key.code {
+        KeyCode::Esc => {
+            app.new_service = None;
+        }
+        KeyCode::Left => {
+            if let Some(s) = &mut app.new_service {
+                if s.type_cursor % 2 == 1 {
+                    s.type_cursor -= 1;
+                }
+            }
+        }
+        KeyCode::Right => {
+            if let Some(s) = &mut app.new_service {
+                if s.type_cursor % 2 == 0 {
+                    s.type_cursor += 1;
+                }
+            }
+        }
         KeyCode::Up => {
-            form.focused_field = form.focused_field.prev();
+            if let Some(s) = &mut app.new_service {
+                if s.type_cursor >= 2 {
+                    s.type_cursor -= 2;
+                }
+            }
         }
         KeyCode::Down => {
-            form.focused_field = form.focused_field.next();
+            if let Some(s) = &mut app.new_service {
+                if s.type_cursor < 2 {
+                    s.type_cursor += 2;
+                }
+            }
+        }
+        KeyCode::Enter => {
+            if let Some(s) = &mut app.new_service {
+                match s.type_cursor {
+                    0 => {
+                        s.step = NewServiceStep::ApplicationForm;
+                        s.focused_field = 0;
+                    }
+                    1 => {
+                        s.step = NewServiceStep::PickDbType;
+                        s.db_cursor = 0;
+                    }
+                    _ => {
+                        app.set_notification("Em breve: Compose e Template", false);
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn handle_ns_pick_db(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Esc => {
+            if let Some(s) = &mut app.new_service {
+                s.step = NewServiceStep::PickType;
+            }
+        }
+        KeyCode::Up => {
+            if let Some(s) = &mut app.new_service {
+                if s.db_cursor > 0 {
+                    s.db_cursor -= 1;
+                }
+            }
+        }
+        KeyCode::Down => {
+            if let Some(s) = &mut app.new_service {
+                if s.db_cursor + 1 < DbKind::ALL.len() {
+                    s.db_cursor += 1;
+                }
+            }
+        }
+        KeyCode::Enter => {
+            if let Some(s) = &mut app.new_service {
+                s.select_db_kind();
+            }
+        }
+        _ => {}
+    }
+}
+
+fn handle_ns_form(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Esc => {
+            if let Some(s) = &mut app.new_service {
+                match s.step {
+                    NewServiceStep::ApplicationForm => app.new_service = None,
+                    NewServiceStep::DatabaseForm => {
+                        s.step = NewServiceStep::PickDbType;
+                        s.focused_field = 0;
+                        s.form_scroll = 0;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        KeyCode::Up => {
+            if let Some(s) = &mut app.new_service {
+                s.prev_field();
+            }
+        }
+        KeyCode::Down | KeyCode::Tab => {
+            if let Some(s) = &mut app.new_service {
+                s.next_field();
+            }
+        }
+        KeyCode::Char(' ') => {
+            if let Some(s) = &mut app.new_service {
+                if s.is_checkbox() {
+                    s.use_replica_sets = !s.use_replica_sets;
+                } else if !s.is_button() {
+                    if let Some(f) = s.focused_text_mut() {
+                        f.push(' ');
+                    }
+                }
+            }
         }
         KeyCode::Char(c) => {
-            if c == ' ' && form.focused_field == ServiceFormField::Submodules {
-                form.submodules = !form.submodules;
-            } else if form.focused_field.is_text_field() {
-                if let Some(field) = form.focused_text_mut() {
-                    field.push(c);
+            if let Some(s) = &mut app.new_service {
+                if !s.is_button() && !s.is_checkbox() {
+                    if let Some(f) = s.focused_text_mut() {
+                        f.push(c);
+                    }
                 }
             }
         }
         KeyCode::Backspace => {
-            if form.focused_field.is_text_field() {
-                if let Some(field) = form.focused_text_mut() {
-                    field.pop();
+            if let Some(s) = &mut app.new_service {
+                if let Some(f) = s.focused_text_mut() {
+                    f.pop();
                 }
             }
         }
-        KeyCode::Enter => match form.focused_field {
-            ServiceFormField::BtnCancel => {
-                app.service_form = None;
-                app.view = View::ProjectDetail;
-            }
-            ServiceFormField::BtnCreate => {
-                let spec = app.service_form.as_ref().unwrap().to_spec();
+        KeyCode::Enter => {
+            let is_btn = app.new_service.as_ref().map(|s| s.is_button()).unwrap_or(false);
+            if is_btn {
+                let spec = app.new_service.as_ref().unwrap().to_service_spec();
+                if spec.name.is_empty() {
+                    app.set_notification("Nome é obrigatório", true);
+                    return;
+                }
                 app.pending_commands.push(PendingCommand {
                     command: Command::ServiceCreate(spec),
                     context: CmdContext::CreateService,
                 });
-                app.service_form = None;
+                app.new_service = None;
+            } else if let Some(s) = &mut app.new_service {
+                s.next_field();
             }
-            _ => {
-                if let Some(form) = &mut app.service_form {
-                    form.focused_field = form.focused_field.next();
-                }
-            }
-        },
+        }
         _ => {}
     }
 }

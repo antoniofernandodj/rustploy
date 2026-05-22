@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use shared::{
-    Command, ContainerMetricsPoint, Deployment, DeployState, Event, GitSource, Healthcheck,
-    Project, ResourceLimits, Response, Service, ServiceSource, ServiceSpec,
+    Command, ContainerMetricsPoint, Deployment, DeployState, EnvVar, EnvVarValue, Event,
+    GitSource, Healthcheck, Project, ResourceLimits, Response, Service, ServiceSource, ServiceSpec,
 };
 use std::collections::{HashMap, VecDeque};
 
@@ -25,7 +25,6 @@ pub enum View {
     HomeRequests,
     ProjectDetail,
     ServiceDetail,
-    ServiceForm,
     SettingsWebServer,
     SettingsProfile,
     SettingsUsers,
@@ -332,155 +331,317 @@ impl GeneralTabState {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub enum ServiceFormField {
-    #[default]
-    Name,
-    Port,
-    Domain,
-    RepoUrl,
-    Branch,
-    BuildPath,
-    WatchPaths,
-    Submodules,
-    DockerFile,
-    DockerContextPath,
-    DockerBuildStage,
-    BtnCreate,
-    BtnCancel,
+// ── New-service creation flow ────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum NewServiceStep {
+    PickType,
+    PickDbType,
+    ApplicationForm,
+    DatabaseForm,
 }
 
-impl ServiceFormField {
-    const COUNT: usize = 13;
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ServiceKind {
+    Application,
+    Database,
+    Compose,
+    Template,
+}
 
-    pub fn next(self) -> Self {
-        Self::from_idx((self as usize + 1) % Self::COUNT)
-    }
-
-    pub fn prev(self) -> Self {
-        let i = self as usize;
-        Self::from_idx(if i == 0 { Self::COUNT - 1 } else { i - 1 })
-    }
-
-    fn from_idx(i: usize) -> Self {
-        match i {
-            0 => Self::Name,
-            1 => Self::Port,
-            2 => Self::Domain,
-            3 => Self::RepoUrl,
-            4 => Self::Branch,
-            5 => Self::BuildPath,
-            6 => Self::WatchPaths,
-            7 => Self::Submodules,
-            8 => Self::DockerFile,
-            9 => Self::DockerContextPath,
-            10 => Self::DockerBuildStage,
-            11 => Self::BtnCreate,
-            _ => Self::BtnCancel,
+impl ServiceKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Application => "Application",
+            Self::Database => "Database",
+            Self::Compose => "Compose",
+            Self::Template => "Template",
         }
     }
 
-    pub fn is_text_field(self) -> bool {
-        matches!(
-            self,
-            Self::Name
-                | Self::Port
-                | Self::Domain
-                | Self::RepoUrl
-                | Self::Branch
-                | Self::BuildPath
-                | Self::WatchPaths
-                | Self::DockerFile
-                | Self::DockerContextPath
-                | Self::DockerBuildStage
-        )
+    pub fn description(self) -> &'static str {
+        match self {
+            Self::Application => "Web app via Git ou imagem",
+            Self::Database => "Banco de dados gerenciado",
+            Self::Compose => "Stack Docker Compose",
+            Self::Template => "A partir de um preset",
+        }
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ServiceFormState {
-    pub project_id: String,
-    pub name: String,
-    pub port: String,
-    pub domain: String,
-    pub repo_url: String,
-    pub branch: String,
-    pub build_path: String,
-    pub watch_paths: String,
-    pub submodules: bool,
-    pub dockerfile: String,
-    pub context_path: String,
-    pub build_stage: String,
-    pub focused_field: ServiceFormField,
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DbKind {
+    MongoDB,
+    Postgres,
+    MariaDB,
+    MySQL,
+    Redis,
 }
 
-impl ServiceFormState {
+impl DbKind {
+    pub const ALL: &'static [DbKind] =
+        &[DbKind::MongoDB, DbKind::Postgres, DbKind::MariaDB, DbKind::MySQL, DbKind::Redis];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::MongoDB => "MongoDB",
+            Self::Postgres => "PostgreSQL",
+            Self::MariaDB => "MariaDB",
+            Self::MySQL => "MySQL",
+            Self::Redis => "Redis",
+        }
+    }
+
+    pub fn default_image(self) -> &'static str {
+        match self {
+            Self::MongoDB => "mongo:8",
+            Self::Postgres => "postgres:18",
+            Self::MariaDB => "mariadb:11",
+            Self::MySQL => "mysql:8",
+            Self::Redis => "redis:7",
+        }
+    }
+
+    pub fn default_port(self) -> u16 {
+        match self {
+            Self::MongoDB => 27017,
+            Self::Postgres => 5432,
+            Self::MariaDB | Self::MySQL => 3306,
+            Self::Redis => 6379,
+        }
+    }
+
+    // Total fields including the BtnCreate at the end.
+    pub fn field_count(self) -> usize {
+        match self {
+            // Name, AppName, Desc, DBName, DBUser, DBPass, DockerImage, BtnCreate
+            Self::Postgres => 8,
+            // Name, AppName, Desc, DBUser, DBPass, DockerImage, UseReplica, BtnCreate
+            Self::MongoDB => 8,
+            // Name, AppName, Desc, DBName, DBUser, DBPass, DBRootPass, DockerImage, BtnCreate
+            Self::MariaDB | Self::MySQL => 9,
+            // Name, AppName, Desc, DBPass, DockerImage, BtnCreate
+            Self::Redis => 6,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct NewServiceState {
+    pub project_id: String,
+    pub step: NewServiceStep,
+    pub type_cursor: usize,
+    pub db_cursor: usize,
+    pub db_kind: Option<DbKind>,
+
+    // Common form fields
+    pub name: String,
+    pub app_name: String,
+    pub description: String,
+
+    // DB-specific fields
+    pub db_name: String,
+    pub db_user: String,
+    pub db_password: String,
+    pub db_root_password: String,
+    pub docker_image: String,
+    pub use_replica_sets: bool,
+
+    // Cursor inside form steps
+    pub focused_field: usize,
+    // Scroll offset for DB forms (how many fields scrolled past)
+    pub form_scroll: usize,
+}
+
+impl NewServiceState {
     pub fn new(project_id: String) -> Self {
         Self {
             project_id,
+            step: NewServiceStep::PickType,
+            type_cursor: 0,
+            db_cursor: 0,
+            db_kind: None,
             name: String::new(),
-            port: "8080".into(),
-            domain: String::new(),
-            repo_url: String::new(),
-            branch: "main".into(),
-            build_path: ".".into(),
-            watch_paths: String::new(),
-            submodules: false,
-            dockerfile: "Dockerfile".into(),
-            context_path: ".".into(),
-            build_stage: String::new(),
-            focused_field: ServiceFormField::Name,
+            app_name: String::new(),
+            description: String::new(),
+            db_name: String::new(),
+            db_user: String::new(),
+            db_password: String::new(),
+            db_root_password: String::new(),
+            docker_image: String::new(),
+            use_replica_sets: false,
+            focused_field: 0,
+            form_scroll: 0,
         }
     }
 
+    pub fn field_count(&self) -> usize {
+        match self.step {
+            // Name, AppName, Description, BtnCreate
+            NewServiceStep::ApplicationForm => 4,
+            NewServiceStep::DatabaseForm => {
+                self.db_kind.map(|d| d.field_count()).unwrap_or(0)
+            }
+            _ => 0,
+        }
+    }
+
+    pub fn next_field(&mut self) {
+        let max = self.field_count();
+        if max > 0 {
+            self.focused_field = (self.focused_field + 1) % max;
+            self.sync_scroll();
+        }
+    }
+
+    pub fn prev_field(&mut self) {
+        let max = self.field_count();
+        if max > 0 {
+            if self.focused_field == 0 {
+                self.focused_field = max - 1;
+            } else {
+                self.focused_field -= 1;
+            }
+            self.sync_scroll();
+        }
+    }
+
+    // Number of scrollable fields (excludes the button at the end).
+    fn scrollable_fields(&self) -> usize {
+        self.field_count().saturating_sub(1)
+    }
+
+    fn sync_scroll(&mut self) {
+        if !matches!(self.step, NewServiceStep::DatabaseForm) {
+            return;
+        }
+        const VISIBLE: usize = 4;
+        let scrollable = self.scrollable_fields();
+        let focused = self.focused_field.min(scrollable.saturating_sub(1));
+        if focused < self.form_scroll {
+            self.form_scroll = focused;
+        } else if self.form_scroll + VISIBLE <= focused {
+            self.form_scroll = focused + 1 - VISIBLE;
+        }
+        let max_scroll = scrollable.saturating_sub(VISIBLE);
+        self.form_scroll = self.form_scroll.min(max_scroll);
+    }
+
+    pub fn is_button(&self) -> bool {
+        let max = self.field_count();
+        max > 0 && self.focused_field == max - 1
+    }
+
+    pub fn is_checkbox(&self) -> bool {
+        self.step == NewServiceStep::DatabaseForm
+            && matches!(self.db_kind, Some(DbKind::MongoDB))
+            && self.focused_field == 6
+    }
+
     pub fn focused_text_mut(&mut self) -> Option<&mut String> {
-        match self.focused_field {
-            ServiceFormField::Name => Some(&mut self.name),
-            ServiceFormField::Port => Some(&mut self.port),
-            ServiceFormField::Domain => Some(&mut self.domain),
-            ServiceFormField::RepoUrl => Some(&mut self.repo_url),
-            ServiceFormField::Branch => Some(&mut self.branch),
-            ServiceFormField::BuildPath => Some(&mut self.build_path),
-            ServiceFormField::WatchPaths => Some(&mut self.watch_paths),
-            ServiceFormField::DockerFile => Some(&mut self.dockerfile),
-            ServiceFormField::DockerContextPath => Some(&mut self.context_path),
-            ServiceFormField::DockerBuildStage => Some(&mut self.build_stage),
+        let field = self.focused_field;
+        let step = self.step.clone();
+        let db = self.db_kind;
+        match step {
+            NewServiceStep::ApplicationForm => match field {
+                0 => Some(&mut self.name),
+                1 => Some(&mut self.app_name),
+                2 => Some(&mut self.description),
+                _ => None,
+            },
+            NewServiceStep::DatabaseForm => match (db?, field) {
+                (_, 0) => Some(&mut self.name),
+                (_, 1) => Some(&mut self.app_name),
+                (_, 2) => Some(&mut self.description),
+                (DbKind::Postgres, 3) | (DbKind::MariaDB | DbKind::MySQL, 3) => {
+                    Some(&mut self.db_name)
+                }
+                (DbKind::Postgres, 4) | (DbKind::MongoDB, 3) => Some(&mut self.db_user),
+                (DbKind::MariaDB | DbKind::MySQL, 4) => Some(&mut self.db_user),
+                (DbKind::Postgres, 5) | (DbKind::MongoDB, 4) => Some(&mut self.db_password),
+                (DbKind::MariaDB | DbKind::MySQL, 5) => Some(&mut self.db_password),
+                (DbKind::MariaDB | DbKind::MySQL, 6) => Some(&mut self.db_root_password),
+                (DbKind::Postgres, 6) | (DbKind::MongoDB, 5) => Some(&mut self.docker_image),
+                (DbKind::MariaDB | DbKind::MySQL, 7) => Some(&mut self.docker_image),
+                (DbKind::Redis, 3) => Some(&mut self.db_password),
+                (DbKind::Redis, 4) => Some(&mut self.docker_image),
+                _ => None,
+            },
             _ => None,
         }
     }
 
-    pub fn to_spec(&self) -> ServiceSpec {
-        let port = self.port.parse::<u16>().unwrap_or(8080);
-        ServiceSpec {
-            name: self.name.clone(),
-            project_id: self.project_id.clone(),
-            source: ServiceSource::Git(GitSource {
-                url: self.repo_url.clone(),
-                branch: self.branch.clone(),
-                root_path: self.build_path.clone(),
-                watch_paths: self
-                    .watch_paths
-                    .split(',')
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect(),
-                submodules: self.submodules,
-                dockerfile_path: self.dockerfile.clone(),
-                build_context: self.context_path.clone(),
-                build_stage: if self.build_stage.is_empty() {
-                    None
-                } else {
-                    Some(self.build_stage.clone())
-                },
-                credentials: None,
-            }),
-            port,
-            domain: self.domain.clone(),
-            env_vars: vec![],
-            volumes: vec![],
-            healthcheck: Healthcheck::default(),
-            replicas: 1,
-            resources: ResourceLimits::default(),
+    pub fn select_db_kind(&mut self) {
+        let db = DbKind::ALL[self.db_cursor];
+        self.db_kind = Some(db);
+        self.docker_image = db.default_image().to_string();
+        self.step = NewServiceStep::DatabaseForm;
+        self.focused_field = 0;
+    }
+
+    fn db_env_vars(&self) -> Vec<EnvVar> {
+        let plain = |k: &str, v: &str| EnvVar {
+            key: k.to_string(),
+            value: EnvVarValue::Plain(v.to_string()),
+        };
+        match self.db_kind {
+            Some(DbKind::Postgres) => vec![
+                plain("POSTGRES_DB", &self.db_name),
+                plain("POSTGRES_USER", &self.db_user),
+                plain("POSTGRES_PASSWORD", &self.db_password),
+            ],
+            Some(DbKind::MongoDB) => {
+                let mut vars = vec![
+                    plain("MONGO_INITDB_ROOT_USERNAME", &self.db_user),
+                    plain("MONGO_INITDB_ROOT_PASSWORD", &self.db_password),
+                ];
+                if self.use_replica_sets {
+                    vars.push(plain("MONGO_REPLICA_SET_NAME", "rs0"));
+                }
+                vars
+            }
+            Some(DbKind::MariaDB | DbKind::MySQL) => vec![
+                plain("MYSQL_DATABASE", &self.db_name),
+                plain("MYSQL_USER", &self.db_user),
+                plain("MYSQL_PASSWORD", &self.db_password),
+                plain("MYSQL_ROOT_PASSWORD", &self.db_root_password),
+            ],
+            Some(DbKind::Redis) if !self.db_password.is_empty() => {
+                vec![plain("REDIS_PASSWORD", &self.db_password)]
+            }
+            _ => vec![],
+        }
+    }
+
+    pub fn to_service_spec(&self) -> ServiceSpec {
+        let svc_name =
+            if !self.app_name.is_empty() { self.app_name.clone() } else { self.name.clone() };
+        match self.step {
+            NewServiceStep::ApplicationForm => ServiceSpec {
+                name: svc_name,
+                project_id: self.project_id.clone(),
+                source: ServiceSource::Registry { image: String::new() },
+                port: 80,
+                domain: String::new(),
+                env_vars: vec![],
+                volumes: vec![],
+                healthcheck: Healthcheck::default(),
+                replicas: 1,
+                resources: ResourceLimits::default(),
+            },
+            NewServiceStep::DatabaseForm => ServiceSpec {
+                name: svc_name,
+                project_id: self.project_id.clone(),
+                source: ServiceSource::Registry { image: self.docker_image.clone() },
+                port: self.db_kind.map(|d| d.default_port()).unwrap_or(5432),
+                domain: String::new(),
+                env_vars: self.db_env_vars(),
+                volumes: vec![],
+                healthcheck: Healthcheck::default(),
+                replicas: 1,
+                resources: ResourceLimits::default(),
+            },
+            _ => unreachable!(),
         }
     }
 }
@@ -569,7 +730,7 @@ pub struct App {
     pub deployment_cursor: usize,
     pub log_cursor: usize,
 
-    pub service_form: Option<ServiceFormState>,
+    pub new_service: Option<NewServiceState>,
 
     pub deploy_progress: HashMap<String, DeployProgressState>,
     pub logs: HashMap<String, VecDeque<LogLine>>,
@@ -608,7 +769,7 @@ impl App {
             deployment_cursor: 0,
             log_cursor: 0,
 
-            service_form: None,
+            new_service: None,
 
             deploy_progress: HashMap::new(),
             logs: HashMap::new(),
@@ -874,7 +1035,7 @@ impl App {
     }
 
     pub fn can_quit(&self) -> bool {
-        self.focus == Focus::Sidebar && !self.creating_project
+        self.focus == Focus::Sidebar && !self.creating_project && self.new_service.is_none()
     }
 }
 
