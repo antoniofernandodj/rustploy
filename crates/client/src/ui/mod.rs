@@ -126,51 +126,113 @@ fn render_statusbar(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_new_project_popup(f: &mut Frame, area: Rect, app: &App) {
-    let popup = centered_rect(50, 30, area);
+    let popup = centered_rect_h(56, 14, area);
     f.render_widget(Clear, popup);
-
-    let inner_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Length(1),
-        ])
-        .split(popup);
 
     let block = Block::default()
         .borders(Borders::ALL)
         .title(" Novo Projeto ")
         .border_style(Style::default().fg(Color::Cyan));
+    let inner = block.inner(popup);
     f.render_widget(block, popup);
 
-    let name_style = if app.new_proj_field == 0 {
-        Style::default().fg(Color::Cyan)
-    } else {
-        Style::default().fg(Color::White)
-    };
-    let name_field = Paragraph::new(Line::from(vec![
-        Span::styled(" Nome:  ", Style::default().fg(Color::DarkGray)),
-        Span::styled(format!("{}▌", app.new_proj_name), name_style),
-    ]));
-    f.render_widget(name_field, inner_chunks[0]);
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // padding
+            Constraint::Length(1), // label Nome
+            Constraint::Length(3), // input Nome
+            Constraint::Length(1), // label Descrição
+            Constraint::Length(3), // input Descrição
+            Constraint::Length(1), // padding
+            Constraint::Length(1), // hints
+        ])
+        .split(inner);
 
-    let desc_style = if app.new_proj_field == 1 {
-        Style::default().fg(Color::Cyan)
-    } else {
-        Style::default().fg(Color::White)
-    };
-    let desc_field = Paragraph::new(Line::from(vec![
-        Span::styled(" Desc:  ", Style::default().fg(Color::DarkGray)),
-        Span::styled(format!("{}▌", app.new_proj_desc), desc_style),
-    ]));
-    f.render_widget(desc_field, inner_chunks[1]);
+    // Name
+    let name_focused = app.new_proj_field == 0;
+    f.render_widget(
+        Paragraph::new(Span::styled(
+            "  Nome",
+            Style::default().fg(if name_focused { Color::Cyan } else { Color::DarkGray }),
+        )),
+        chunks[1],
+    );
+    let name_box = Block::default()
+        .borders(Borders::ALL)
+        .border_style(if name_focused {
+            Style::default().fg(Color::Cyan)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        });
+    let name_inner = name_box.inner(chunks[2]);
+    f.render_widget(name_box, chunks[2]);
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::raw(" "),
+            Span::styled(
+                if name_focused {
+                    format!("{}▌", app.new_proj_name)
+                } else {
+                    app.new_proj_name.clone()
+                },
+                Style::default().fg(Color::White),
+            ),
+        ])),
+        name_inner,
+    );
 
-    let hints = Paragraph::new(
-        " [Tab] alterna  [Enter] criar  [Esc] cancelar",
-    )
-    .style(Style::default().fg(Color::DarkGray));
-    f.render_widget(hints, inner_chunks[2]);
+    // Description
+    let desc_focused = app.new_proj_field == 1;
+    f.render_widget(
+        Paragraph::new(Span::styled(
+            "  Descrição  (opcional)",
+            Style::default().fg(if desc_focused { Color::Cyan } else { Color::DarkGray }),
+        )),
+        chunks[3],
+    );
+    let desc_box = Block::default()
+        .borders(Borders::ALL)
+        .border_style(if desc_focused {
+            Style::default().fg(Color::Cyan)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        });
+    let desc_inner = desc_box.inner(chunks[4]);
+    f.render_widget(desc_box, chunks[4]);
+    let desc_content = if desc_focused {
+        format!(" {}▌", app.new_proj_desc)
+    } else if app.new_proj_desc.is_empty() {
+        " opcional...".to_string()
+    } else {
+        format!(" {}", app.new_proj_desc)
+    };
+    f.render_widget(
+        Paragraph::new(Span::styled(
+            desc_content,
+            if desc_focused {
+                Style::default().fg(Color::White)
+            } else if app.new_proj_desc.is_empty() {
+                Style::default().fg(Color::DarkGray)
+            } else {
+                Style::default().fg(Color::White)
+            },
+        )),
+        desc_inner,
+    );
+
+    // Hints
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(" Tab", Style::default().fg(Color::Cyan)),
+            Span::styled(" alternar  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("Enter", Style::default().fg(Color::Cyan)),
+            Span::styled(" criar  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("Esc", Style::default().fg(Color::Cyan)),
+            Span::styled(" cancelar", Style::default().fg(Color::DarkGray)),
+        ])),
+        chunks[6],
+    );
 }
 
 fn render_confirm_overlay(f: &mut Frame, area: Rect, message: &str) {
@@ -208,6 +270,28 @@ fn render_notification(f: &mut Frame, area: Rect, message: &str, is_error: bool)
     let text = Paragraph::new(message).block(block).style(Style::default().fg(color));
     f.render_widget(Clear, notif_area);
     f.render_widget(text, notif_area);
+}
+
+/// Centers a popup with a fixed height and percentage width.
+fn centered_rect_h(percent_x: u16, height: u16, r: Rect) -> Rect {
+    let y_offset = r.height.saturating_sub(height) / 2;
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(y_offset),
+            Constraint::Length(height),
+            Constraint::Min(0),
+        ])
+        .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1])[1]
 }
 
 pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {

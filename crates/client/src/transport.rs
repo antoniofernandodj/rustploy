@@ -16,6 +16,11 @@ impl DaemonClient {
         Self { socket_path: socket_path.into() }
     }
 
+    /// Returns true if the daemon is reachable at this socket path.
+    pub async fn ping(&self) -> bool {
+        matches!(self.send(Command::Ping).await, Ok(Response::Pong { .. }))
+    }
+
     pub async fn send(&self, cmd: Command) -> Result<Response> {
         let stream = UnixStream::connect(&self.socket_path).await?;
         let io = hyper_util::rt::TokioIo::new(stream);

@@ -31,8 +31,8 @@ async fn main() -> Result<()> {
         "rustployd starting"
     );
 
-    // Database
-    let db_path = PathBuf::from(&config.daemon.db_path);
+    // Database — resolve path with fallback
+    let db_path = resolve_data_path(&config.daemon.db_path);
     let db = Arc::new(db::connect(&db_path).await?);
     info!("database connected");
 
@@ -49,14 +49,6 @@ async fn main() -> Result<()> {
 
     let master_key = PathBuf::from(&config.secrets.master_key_path);
     let secrets = Arc::new(secrets::SecretsManager::new(&master_key)?);
-
-    // Start ingress proxy (async task)
-    let routes = ingress.table_handle();
-    let http_port = config.ingress.http_port;
-    let https_port = config.ingress.https_port;
-    tokio::spawn(async move {
-        ingress::proxy::start_proxy(routes, http_port, https_port).await;
-    });
 
     // Recovery
     deploy::recovery::recover(
@@ -88,23 +80,15 @@ async fn main() -> Result<()> {
     let state = AppState::new(db, docker, ingress, bus, secrets, db_path, config.deploy.drain_secs);
     let app = api::routes::build(state);
 
-    // Bind UDS
-    let socket_path = PathBuf::from(&config.daemon.socket_path);
-    if let Some(parent) = socket_path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    if socket_path.exists() {
-        std::fs::remove_file(&socket_path)?;
-    }
+    // Bind UDS — try configured path, fall back to ~/.local/share/rustploy/
+    let socket_path = resolve_socket_path(&config.daemon.socket_path);
+    info!(socket = ?socket_path, "listening");
     let listener = UnixListener::bind(&socket_path)?;
-    // Allow any local user to connect (group/world write).
-    // Production deployments should use 0o660 with a dedicated group.
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&socket_path, std::fs::Permissions::from_mode(0o666))?;
     }
-    info!(socket = ?socket_path, "listening");
 
     loop {
         let (stream, _) = listener.accept().await?;
@@ -126,4 +110,71 @@ fn init_logging(level: &str) {
     let filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(level));
     tracing_subscriber::fmt().with_env_filter(filter).json().init();
+}
+
+fn fallback_dir() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+    PathBuf::from(home).join(".local").join("share").join("rustploy")
+}
+
+/// Tries to prepare `configured` for use as a Unix socket path.
+/// Falls back to `~/.local/share/rustploy/rustploy.sock` if the
+/// configured directory is not writable.
+fn resolve_socket_path(configured: &str) -> PathBuf {
+    let path = PathBuf::from(configured);
+    if can_prepare_socket(&path) {
+        return path;
+    }
+    let fallback = fallback_dir().join("rustploy.sock");
+    warn!(
+        primary = %path.display(),
+        fallback = %fallback.display(),
+        "socket path not writable, using fallback"
+    );
+    let _ = std::fs::create_dir_all(fallback.parent().unwrap());
+    if fallback.exists() {
+        let _ = std::fs::remove_file(&fallback);
+    }
+    fallback
+}
+
+fn can_prepare_socket(path: &PathBuf) -> bool {
+    let parent = match path.parent() {
+        Some(p) => p,
+        None => return false,
+    };
+    if std::fs::create_dir_all(parent).is_err() {
+        return false;
+    }
+    if path.exists() {
+        if std::fs::remove_file(path).is_err() {
+            return false;
+        }
+    } else {
+        // Probe write access by touching a temp file
+        let probe = parent.join(".rustploy_probe");
+        if std::fs::write(&probe, b"").is_err() {
+            return false;
+        }
+        let _ = std::fs::remove_file(probe);
+    }
+    true
+}
+
+/// Tries to use `configured` as the data directory.
+/// Falls back to `~/.local/share/rustploy/db` if the path is not writable.
+fn resolve_data_path(configured: &str) -> PathBuf {
+    let path = PathBuf::from(configured);
+    let dir = path.parent().unwrap_or(&path);
+    if std::fs::create_dir_all(dir).is_ok() {
+        return path;
+    }
+    let fallback = fallback_dir().join("db");
+    warn!(
+        primary = %path.display(),
+        fallback = %fallback.display(),
+        "db path not writable, using fallback"
+    );
+    let _ = std::fs::create_dir_all(&fallback);
+    fallback
 }

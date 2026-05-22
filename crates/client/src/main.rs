@@ -21,8 +21,12 @@ const TICK_MS: u64 = 100;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let socket_path = std::env::var("RUSTPLOY_SOCKET")
-        .unwrap_or_else(|_| "/run/rustploy/rustploy.sock".to_string());
+    let socket_path = resolve_socket(&[
+        std::env::var("RUSTPLOY_SOCKET").ok(),
+        Some("/run/rustploy/rustploy.sock".into()),
+        fallback_socket(),
+    ])
+    .await?;
     let client = DaemonClient::new(&socket_path);
 
     enable_raw_mode()?;
@@ -107,4 +111,30 @@ async fn load_initial_data(client: &DaemonClient, app: &mut App) {
     if let Ok(shared::Response::Projects(projects)) = client.send(Command::ProjectList).await {
         app.projects = projects;
     }
+}
+
+fn fallback_socket() -> Option<String> {
+    std::env::var("HOME").ok().map(|home| {
+        format!("{home}/.local/share/rustploy/rustploy.sock")
+    })
+}
+
+/// Tries each candidate socket path in order, returning the first one where
+/// the daemon responds to a ping.
+async fn resolve_socket(candidates: &[Option<String>]) -> anyhow::Result<String> {
+    for candidate in candidates.iter().flatten() {
+        let client = DaemonClient::new(candidate.as_str());
+        if client.ping().await {
+            return Ok(candidate.clone());
+        }
+    }
+    anyhow::bail!(
+        "daemon not reachable; tried: {}",
+        candidates
+            .iter()
+            .flatten()
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
 }
