@@ -1,7 +1,8 @@
 use chrono::{DateTime, Utc};
 use shared::{
     Command, ContainerMetricsPoint, Deployment, DeployState, EnvVar, EnvVarValue, Event,
-    GitSource, Healthcheck, Project, ResourceLimits, Response, Service, ServiceSource, ServiceSpec,
+    GitSource, Healthcheck, HealthcheckKind, Project, ResourceLimits, Response, Service,
+    ServiceSource, ServiceSpec,
 };
 use std::collections::{HashMap, VecDeque};
 
@@ -134,6 +135,7 @@ pub enum ServiceTab {
     Environment,
     Domains,
     Deployments,
+    Healthcheck,
     Logs,
     Patches,
 }
@@ -145,6 +147,7 @@ impl ServiceTab {
             ServiceTab::Environment,
             ServiceTab::Domains,
             ServiceTab::Deployments,
+            ServiceTab::Healthcheck,
             ServiceTab::Logs,
             ServiceTab::Patches,
         ]
@@ -156,6 +159,7 @@ impl ServiceTab {
             ServiceTab::Environment => "Environment",
             ServiceTab::Domains => "Domains",
             ServiceTab::Deployments => "Deployments",
+            ServiceTab::Healthcheck => "Healthcheck",
             ServiceTab::Logs => "Logs",
             ServiceTab::Patches => "Patches",
         }
@@ -327,6 +331,142 @@ impl GeneralTabState {
             build_context: self.context_path.clone(),
             build_stage: if self.build_stage.is_empty() { None } else { Some(self.build_stage.clone()) },
             credentials: existing.credentials.clone(),
+        }
+    }
+}
+
+// ── Healthcheck tab ──────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum HcField {
+    #[default]
+    Kind,
+    HttpPath,
+    ExpectedStatus,
+    Interval,
+    Timeout,
+    Retries,
+    StartPeriod,
+    Save,
+}
+
+impl HcField {
+    const COUNT: usize = 8;
+
+    pub fn next(self) -> Self {
+        Self::from_idx((self as usize + 1) % Self::COUNT)
+    }
+
+    pub fn prev(self) -> Self {
+        let i = self as usize;
+        Self::from_idx(if i == 0 { Self::COUNT - 1 } else { i - 1 })
+    }
+
+    fn from_idx(i: usize) -> Self {
+        match i {
+            0 => Self::Kind,
+            1 => Self::HttpPath,
+            2 => Self::ExpectedStatus,
+            3 => Self::Interval,
+            4 => Self::Timeout,
+            5 => Self::Retries,
+            6 => Self::StartPeriod,
+            _ => Self::Save,
+        }
+    }
+
+    pub fn is_text(self) -> bool {
+        matches!(
+            self,
+            Self::HttpPath | Self::ExpectedStatus | Self::Interval | Self::Timeout | Self::Retries | Self::StartPeriod
+        )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct HealthcheckTabState {
+    pub focused: HcField,
+    pub kind: String,          // "Tcp" | "Http" | "DockerNative"
+    pub http_path: String,
+    pub expected_status: String,
+    pub interval: String,
+    pub timeout: String,
+    pub retries: String,
+    pub start_period: String,
+}
+
+impl Default for HealthcheckTabState {
+    fn default() -> Self {
+        Self {
+            focused: HcField::Kind,
+            kind: "Tcp".into(),
+            http_path: String::new(),
+            expected_status: "200".into(),
+            interval: "5".into(),
+            timeout: "3".into(),
+            retries: "10".into(),
+            start_period: "5".into(),
+        }
+    }
+}
+
+impl HealthcheckTabState {
+    pub fn from_service(svc: &Service) -> Self {
+        let hc = &svc.spec.healthcheck;
+        let (kind, http_path, expected_status) = match &hc.kind {
+            HealthcheckKind::Tcp => ("Tcp".into(), String::new(), "200".into()),
+            HealthcheckKind::Http { path, expected_status } => {
+                ("Http".into(), path.clone(), expected_status.to_string())
+            }
+            HealthcheckKind::DockerNative => ("DockerNative".into(), String::new(), "200".into()),
+        };
+        Self {
+            focused: HcField::Kind,
+            kind,
+            http_path,
+            expected_status,
+            interval: hc.interval_secs.to_string(),
+            timeout: hc.timeout_secs.to_string(),
+            retries: hc.retries.to_string(),
+            start_period: hc.start_period_secs.to_string(),
+        }
+    }
+
+    pub fn cycle_kind(&mut self) {
+        self.kind = match self.kind.as_str() {
+            "Tcp" => "Http".into(),
+            "Http" => "DockerNative".into(),
+            _ => "Tcp".into(),
+        };
+    }
+
+    pub fn focused_text_mut(&mut self) -> Option<&mut String> {
+        match self.focused {
+            HcField::HttpPath => Some(&mut self.http_path),
+            HcField::ExpectedStatus => Some(&mut self.expected_status),
+            HcField::Interval => Some(&mut self.interval),
+            HcField::Timeout => Some(&mut self.timeout),
+            HcField::Retries => Some(&mut self.retries),
+            HcField::StartPeriod => Some(&mut self.start_period),
+            _ => None,
+        }
+    }
+
+    pub fn to_healthcheck(&self) -> Healthcheck {
+        let kind = match self.kind.as_str() {
+            "Http" => HealthcheckKind::Http {
+                path: if self.http_path.is_empty() { "/".into() } else { self.http_path.clone() },
+                expected_status: self.expected_status.parse().unwrap_or(200),
+            },
+            "DockerNative" => HealthcheckKind::DockerNative,
+            _ => HealthcheckKind::Tcp,
+        };
+        Healthcheck {
+            kind,
+            interval_secs: self.interval.parse().unwrap_or(5),
+            timeout_secs: self.timeout.parse().unwrap_or(3),
+            retries: self.retries.parse().unwrap_or(10),
+            start_period_secs: self.start_period.parse().unwrap_or(5),
         }
     }
 }
@@ -750,6 +890,7 @@ pub struct App {
 
     pub service_tab: ServiceTab,
     pub general_tab: GeneralTabState,
+    pub healthcheck_tab: HealthcheckTabState,
     pub env_tab: EnvTabState,
     pub deployment_cursor: usize,
     pub log_cursor: usize,
@@ -792,6 +933,7 @@ impl App {
 
             service_tab: ServiceTab::General,
             general_tab: GeneralTabState::default(),
+            healthcheck_tab: HealthcheckTabState::default(),
             env_tab: EnvTabState::default(),
             deployment_cursor: 0,
             log_cursor: 0,
@@ -924,6 +1066,7 @@ impl App {
         self.active_service_id = Some(svc.id.clone());
         self.service_tab = ServiceTab::General;
         self.general_tab = GeneralTabState::from_service(svc);
+        self.healthcheck_tab = HealthcheckTabState::from_service(svc);
         self.env_tab = EnvTabState::default();
         self.deployment_cursor = 0;
         self.log_cursor = 0;
@@ -1046,6 +1189,7 @@ impl App {
                 }
                 if self.active_service_id.as_deref() == Some(&s.id) {
                     self.general_tab = GeneralTabState::from_service(&s);
+                    self.healthcheck_tab = HealthcheckTabState::from_service(&s);
                 }
                 self.set_notification("Serviço atualizado", false);
             }

@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep *)",
+      "Bash(python3 *)",
+      "Bash(cargo check *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(cargo fix *)",
+      "Bash(git *)",
+      "Bash(docker info *)",
+      "Bash(cargo build *)",
+      "Bash(c++ --version)",
+      "Bash(g++ --version)",
+      "Bash(wait)",
+      "Bash(awk '{print $2}')",
+      "Bash(jq --version)",
+      "Read(//usr/bin/**)",
+      "Read(//usr/local/bin/**)",
+      "Bash(pkill -f 'cargo check')",
+      "Bash(pkill -f 'rust-analyzer')",
+      "Bash(awk '{print $1, $2, $11}')",
+      "Bash(ps *)",
+      "Read(//run/**)",
+      "Bash(cargo --version)",
+      "Bash(rustc --version)",
+      "WebFetch(domain:docs.rs)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(xargs ls)",
+      "Read(//usr/local/cargo/**)",
+      "Read(//root/.cargo/**)",
+      "Read(//usr/share/cargo/bin/**)",
+      "Bash(/usr/share/cargo/bin/cargo --version)",
+      "Read(//root/**)",
+      "Read(//opt/**)",
+      "Read(//home/**)",
+      "Bash(GIT_DIR=/workspace/rustploy/.git GIT_WORK_TREE=/workspace/rustploy git status)",
+      "Bash(GIT_CONFIG_NOSYSTEM=1 HOME=/tmp git -C /workspace/rustploy config --global --add safe.directory /workspace/rustploy)"
+    ]
+  }
+}

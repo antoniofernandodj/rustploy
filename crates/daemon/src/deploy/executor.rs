@@ -263,7 +263,17 @@ impl DeployExecutor {
                 info!(
                     deployment_id = %dep.id,
                     container_id = %id,
-                    "step[Staging]: container criado, dando start"
+                    network = %network,
+                    "step[Staging]: conectando container à rede do projeto"
+                );
+                // Conecta explicitamente via `network connect` ANTES do start.
+                // Usar network_mode=rede_user_defined no create não preenche
+                // IPAddress no inspect; o flow create→connect→start é confiável.
+                networks::connect_container(&self.docker.inner, &network, &id).await?;
+                info!(
+                    deployment_id = %dep.id,
+                    container_id = %id,
+                    "step[Staging]: container conectado, dando start"
                 );
                 containers::start(&self.docker.inner, &id).await?;
                 info!(
@@ -574,7 +584,14 @@ impl DeployExecutor {
                         .and_then(|s| s.health.as_ref())
                         .and_then(|h| h.status.as_ref());
                     debug!(deployment_id = %dep.id, health_status = ?status, "healthcheck: DockerNative check");
-                    status == Some(&HealthStatusEnum::HEALTHY)
+                    // None  → imagem sem HEALTHCHECK; container rodando = ok
+                    // HEALTHY → passou
+                    // STARTING → ainda aquecendo, aguardar
+                    // UNHEALTHY → falha explícita
+                    match status {
+                        None => true,
+                        Some(s) => *s == HealthStatusEnum::HEALTHY,
+                    }
                 }
             };
 
@@ -795,12 +812,79 @@ fn clone_repo_sync(
     let mut fo = FetchOptions::new();
     fo.remote_callbacks(callbacks);
 
-    let mut builder = RepoBuilder::new();
-    builder.branch(&git.branch);
-    builder.fetch_options(fo);
-    builder.clone(&git.url, dir)?;
+    // Para URLs file:// o git2 não cria refs/remotes/origin/* de forma confiável
+    // (usa clone local por hardlink, sem fetch normal). Convertemos para caminho
+    // absoluto para forçar o comportamento de clone local do git2.
+    let effective_url = if git.url.starts_with("file://") {
+        git.url
+            .strip_prefix("file://")
+            .unwrap_or(&git.url)
+            .to_owned()
+    } else {
+        git.url.clone()
+    };
 
-    info!(url = git.url, branch = git.branch, "clone_repo: clone concluído");
+    // NÃO usar builder.branch(): o git2 resolve o branch via
+    // refs/remotes/origin/<branch>, que pode não existir em clones locais ou
+    // em remotes que ainda não popularam esse ref. Fazemos o checkout
+    // manualmente após o clone.
+    let mut builder = RepoBuilder::new();
+    builder.fetch_options(fo);
+    let repo = builder.clone(&effective_url, dir)
+        .map_err(|e| anyhow::anyhow!("falha ao clonar '{}': {e}", git.url))?;
+
+    info!(url = git.url, branch = git.branch, "clone_repo: clone concluído, resolvendo branch");
+
+    // Coleta branches disponíveis para erro útil (ignora falhas de listagem)
+    let available_branches: Vec<String> = repo
+        .branches(None)
+        .map(|iter| {
+            iter.filter_map(|b| b.ok())
+                .filter_map(|(b, _)| b.name().ok().flatten().map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default();
+    info!(
+        url = git.url,
+        branch = git.branch,
+        available = ?available_branches,
+        "clone_repo: branches disponíveis no clone"
+    );
+
+    // Tenta resolver o branch:
+    //   1. origin/<branch>  — remote-tracking ref (clones de rede)
+    //   2. <branch>         — ref local ou tag (clones locais / file://)
+    let obj = repo
+        .revparse_single(&format!("origin/{}", git.branch))
+        .or_else(|_| repo.revparse_single(&git.branch))
+        .map_err(|_| {
+            let hint = if available_branches.is_empty() {
+                "nenhum branch encontrado no repositório".to_owned()
+            } else {
+                format!("branches disponíveis: {}", available_branches.join(", "))
+            };
+            anyhow::anyhow!(
+                "branch '{}' não encontrado no repositório — {}",
+                git.branch,
+                hint
+            )
+        })?;
+
+    let mut co_opts = git2::build::CheckoutBuilder::new();
+    co_opts.force();
+    repo.checkout_tree(&obj, Some(&mut co_opts))
+        .map_err(|e| anyhow::anyhow!("falha ao fazer checkout do branch '{}': {e}", git.branch))?;
+
+    // Aponta HEAD para o branch local
+    let commit = obj.peel_to_commit()
+        .map_err(|e| anyhow::anyhow!("falha ao resolver commit do branch '{}': {e}", git.branch))?;
+    let head_ref = format!("refs/heads/{}", git.branch);
+    repo.reference(&head_ref, commit.id(), true, &format!("checkout: {}", git.branch))
+        .map_err(|e| anyhow::anyhow!("falha ao criar ref local '{}': {e}", head_ref))?;
+    repo.set_head(&head_ref)
+        .map_err(|e| anyhow::anyhow!("falha ao definir HEAD para '{}': {e}", head_ref))?;
+
+    info!(url = git.url, branch = git.branch, commit = %commit.id(), "clone_repo: checkout concluído");
     Ok(())
 }
 

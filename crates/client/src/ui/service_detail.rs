@@ -1,4 +1,4 @@
-use crate::app::{App, EnvEditField, GeneralTabField, ServiceTab};
+use crate::app::{App, EnvEditField, GeneralTabField, HcField, ServiceTab};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -57,6 +57,7 @@ fn render_tab_content(f: &mut Frame, app: &App, area: Rect) {
         ServiceTab::Environment => render_env_tab(f, app, area),
         ServiceTab::Domains => render_domains_tab(f, app, area),
         ServiceTab::Deployments => render_deployments_tab(f, app, area),
+        ServiceTab::Healthcheck => render_healthcheck_tab(f, app, area),
         ServiceTab::Logs => render_logs_tab(f, app, area),
         ServiceTab::Patches => render_patches_tab(f, area),
     }
@@ -168,6 +169,129 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
             btn_span("[ Save ]", gt.focused_field == GeneralTabField::BuildSave),
         ])),
         chunks[17],
+    );
+}
+
+// ─── Healthcheck Tab ─────────────────────────────────────────────────────────
+
+fn render_healthcheck_tab(f: &mut Frame, app: &App, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // spacing          [0]
+            Constraint::Length(1), // header           [1]
+            Constraint::Length(1), // Kind             [2]
+            Constraint::Length(1), // spacing          [3]
+            Constraint::Length(1), // HTTP section hdr [4]
+            Constraint::Length(1), // HTTP Path        [5]
+            Constraint::Length(1), // Expected Status  [6]
+            Constraint::Length(1), // spacing          [7]
+            Constraint::Length(1), // Timing header    [8]
+            Constraint::Length(1), // Interval         [9]
+            Constraint::Length(1), // Timeout          [10]
+            Constraint::Length(1), // Retries          [11]
+            Constraint::Length(1), // Start Period     [12]
+            Constraint::Length(1), // spacing          [13]
+            Constraint::Length(1), // Save             [14]
+            Constraint::Min(0),    //                  [15]
+        ])
+        .split(area);
+
+    let hc = &app.healthcheck_tab;
+    let http_active = hc.kind == "Http";
+
+    // Kind toggle
+    let kind_display = match hc.kind.as_str() {
+        "Http" => "[ Http          ]",
+        "DockerNative" => "[ DockerNative  ]",
+        _ => "[ Tcp           ]",
+    };
+    let kind_val_style = if hc.focused == HcField::Kind {
+        Style::default().fg(Color::Cyan)
+    } else {
+        Style::default().fg(Color::White)
+    };
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(format!("  {:<22}", "Kind"), Style::default().fg(Color::DarkGray)),
+            Span::styled(kind_display, kind_val_style),
+            Span::styled("  [Space] to cycle", Style::default().fg(Color::DarkGray)),
+        ])),
+        chunks[2],
+    );
+
+    // HTTP sub-section header
+    let http_header_style = if http_active {
+        Style::default().fg(Color::Yellow)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+    f.render_widget(
+        Paragraph::new(Line::from(Span::styled(
+            "── HTTP options ───────────────────────────────────────────",
+            http_header_style,
+        ))),
+        chunks[4],
+    );
+
+    // HTTP-only fields (dimmed when kind != Http)
+    let dim = |focused: bool| {
+        if !http_active {
+            Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM)
+        } else if focused {
+            Style::default().fg(Color::Cyan)
+        } else {
+            Style::default().fg(Color::White)
+        }
+    };
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(
+                format!("  {:<22}", "HTTP Path"),
+                if http_active { Style::default().fg(Color::DarkGray) } else { Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM) },
+            ),
+            Span::styled(
+                format!("{}{}", hc.http_path, if hc.focused == HcField::HttpPath && http_active { "▌" } else { "" }),
+                dim(hc.focused == HcField::HttpPath),
+            ),
+        ])),
+        chunks[5],
+    );
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(
+                format!("  {:<22}", "Expected Status"),
+                if http_active { Style::default().fg(Color::DarkGray) } else { Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM) },
+            ),
+            Span::styled(
+                format!("{}{}", hc.expected_status, if hc.focused == HcField::ExpectedStatus && http_active { "▌" } else { "" }),
+                dim(hc.focused == HcField::ExpectedStatus),
+            ),
+        ])),
+        chunks[6],
+    );
+
+    // Timing section header
+    f.render_widget(
+        Paragraph::new(Line::from(Span::styled(
+            "── Timing ─────────────────────────────────────────────────",
+            Style::default().fg(Color::Yellow),
+        ))),
+        chunks[8],
+    );
+
+    render_form_row(f, chunks[9], "Interval (s)", &hc.interval, hc.focused == HcField::Interval);
+    render_form_row(f, chunks[10], "Timeout (s)", &hc.timeout, hc.focused == HcField::Timeout);
+    render_form_row(f, chunks[11], "Retries", &hc.retries, hc.focused == HcField::Retries);
+    render_form_row(f, chunks[12], "Start Period (s)", &hc.start_period, hc.focused == HcField::StartPeriod);
+
+    // Save button
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::raw("  "),
+            btn_span("[ Save ]", hc.focused == HcField::Save),
+        ])),
+        chunks[14],
     );
 }
 

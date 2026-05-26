@@ -1,6 +1,6 @@
 use crate::app::{
     App, CmdContext, ConfirmAction, DbKind, EnvEditField, EnvTabState, Focus, GeneralTabField,
-    NewServiceState, NewServiceStep, PendingCommand, ProjectDetailTab, View,
+    HcField, NewServiceState, NewServiceStep, PendingCommand, ProjectDetailTab, View,
 };
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use shared::{Command, EnvVar, EnvVarValue};
@@ -331,12 +331,13 @@ fn handle_service_detail(app: &mut App, key: KeyEvent) {
         KeyCode::Char('2') => app.service_tab = crate::app::ServiceTab::Environment,
         KeyCode::Char('3') => app.service_tab = crate::app::ServiceTab::Domains,
         KeyCode::Char('4') => app.service_tab = crate::app::ServiceTab::Deployments,
-        KeyCode::Char('5') => app.service_tab = crate::app::ServiceTab::Logs,
-        KeyCode::Char('6') => app.service_tab = crate::app::ServiceTab::Patches,
+        KeyCode::Char('5') => app.service_tab = crate::app::ServiceTab::Healthcheck,
+        KeyCode::Char('6') => app.service_tab = crate::app::ServiceTab::Logs,
         _ => match app.service_tab.clone() {
             crate::app::ServiceTab::General => handle_general_tab(app, key),
             crate::app::ServiceTab::Environment => handle_env_tab(app, key),
             crate::app::ServiceTab::Deployments => handle_deployments_tab(app, key),
+            crate::app::ServiceTab::Healthcheck => handle_healthcheck_tab(app, key),
             crate::app::ServiceTab::Logs => handle_logs_tab(app, key),
             _ => {}
         },
@@ -436,6 +437,65 @@ fn save_service_general(app: &mut App) {
         command: Command::ServiceUpdate { id: sid, spec: new_spec },
         context: CmdContext::UpdateService,
     });
+}
+
+fn handle_healthcheck_tab(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Up => {
+            app.healthcheck_tab.focused = app.healthcheck_tab.focused.prev();
+        }
+        KeyCode::Down | KeyCode::Enter => {
+            if app.healthcheck_tab.focused == HcField::Save {
+                save_healthcheck(app);
+            } else {
+                app.healthcheck_tab.focused = app.healthcheck_tab.focused.next();
+            }
+        }
+        KeyCode::Char(' ') => {
+            if app.healthcheck_tab.focused == HcField::Kind {
+                app.healthcheck_tab.cycle_kind();
+            } else if app.healthcheck_tab.focused == HcField::Save {
+                save_healthcheck(app);
+            }
+        }
+        KeyCode::Char(c) => {
+            if app.healthcheck_tab.focused.is_text() {
+                if let Some(field) = app.healthcheck_tab.focused_text_mut() {
+                    field.push(c);
+                }
+            }
+        }
+        KeyCode::Backspace => {
+            if app.healthcheck_tab.focused.is_text() {
+                if let Some(field) = app.healthcheck_tab.focused_text_mut() {
+                    field.pop();
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn save_healthcheck(app: &mut App) {
+    let sid = match app.active_service_id.clone() {
+        Some(s) => s,
+        None => return,
+    };
+    let svc = match app.services.iter().find(|s| s.id == sid) {
+        Some(s) => s.clone(),
+        None => return,
+    };
+
+    let new_spec = shared::ServiceSpec {
+        healthcheck: app.healthcheck_tab.to_healthcheck(),
+        ..svc.spec.clone()
+    };
+
+    app.pending_commands.push(PendingCommand {
+        command: Command::ServiceUpdate { id: sid, spec: new_spec },
+        context: CmdContext::UpdateService,
+    });
+    app.set_notification("Healthcheck atualizado.", false);
 }
 
 fn handle_env_tab(app: &mut App, key: KeyEvent) {

@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
     let bus = Arc::new(EventBus::new());
     let ingress = Arc::new(IngressController::new());
 
-    let master_key = PathBuf::from(&config.secrets.master_key_path);
+    let master_key = resolve_master_key_path(&config.secrets.master_key_path);
     let secrets = Arc::new(secrets::SecretsManager::new(&master_key)?);
 
     // Recovery
@@ -165,8 +165,7 @@ fn can_prepare_socket(path: &PathBuf) -> bool {
 /// Falls back to `~/.local/share/rustploy/db` if the path is not writable.
 fn resolve_data_path(configured: &str) -> PathBuf {
     let path = PathBuf::from(configured);
-    let dir = path.parent().unwrap_or(&path);
-    if std::fs::create_dir_all(dir).is_ok() {
+    if can_write_dir(&path) {
         return path;
     }
     let fallback = fallback_dir().join("db");
@@ -177,4 +176,43 @@ fn resolve_data_path(configured: &str) -> PathBuf {
     );
     let _ = std::fs::create_dir_all(&fallback);
     fallback
+}
+
+/// Tries to use `configured` as the master key path.
+/// Falls back to `~/.local/share/rustploy/master.key` if the directory is
+/// not writable (e.g. `/etc/rustploy/` requires root).
+fn resolve_master_key_path(configured: &str) -> PathBuf {
+    let path = PathBuf::from(configured);
+    // If the key already exists and is readable, use it as-is.
+    if path.exists() {
+        return path;
+    }
+    // Otherwise we need to be able to create it — check parent writability.
+    let parent = path.parent().unwrap_or(&path);
+    if can_write_dir(parent) {
+        return path;
+    }
+    let fallback = fallback_dir().join("master.key");
+    warn!(
+        primary = %path.display(),
+        fallback = %fallback.display(),
+        "master key directory not writable, using fallback"
+    );
+    let _ = std::fs::create_dir_all(fallback.parent().unwrap());
+    fallback
+}
+
+/// Returns true only when `dir` (or its path) is both creatable and writable.
+/// Unlike a bare `create_dir_all` check, this actually probes write access
+/// even when the directory already exists (e.g. created by a previous root run).
+fn can_write_dir(dir: &std::path::Path) -> bool {
+    if std::fs::create_dir_all(dir).is_err() {
+        return false;
+    }
+    let probe = dir.join(".rustploy_write_probe");
+    if std::fs::write(&probe, b"").is_err() {
+        return false;
+    }
+    let _ = std::fs::remove_file(probe);
+    true
 }
