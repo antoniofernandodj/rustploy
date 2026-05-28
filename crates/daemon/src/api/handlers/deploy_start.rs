@@ -1,12 +1,12 @@
-use crate::{api::AppState, deploy::executor::DeployExecutor};
-use shared::{Response as RpResponse, ServiceSource, ServiceStatus};
+use crate::{api::AppState, deploy::executor::DeployExecutor, db::services};
+use shared::{Response as RpResponse, ServiceSource, ServiceStatus, Event};
 use std::sync::Arc;
 use tracing::{error, info, warn};
 
 pub async fn handle(state: AppState, service_id: String) -> RpResponse {
     info!(service_id = %service_id, "deploy_start: solicitação recebida");
 
-    let svc = match crate::db::services::get(&state.db, &service_id).await {
+    let svc = match services::get(&state.db, &service_id).await {
         Ok(Some(s)) => s,
         Ok(None) => {
             warn!(service_id = %service_id, "deploy_start: serviço não encontrado");
@@ -91,7 +91,7 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
     )
     .await;
 
-    state.bus.publish(shared::Event::ServiceStatusChanged {
+    state.bus.publish(Event::ServiceStatusChanged {
         service_id: service_id.clone(),
         status: ServiceStatus::Deploying,
     });

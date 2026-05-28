@@ -9,8 +9,8 @@ use anyhow::{anyhow, Result};
 use bollard::models::HealthStatusEnum;
 use chrono::Utc;
 use shared::{
-    DeployState, Deployment, EnvVarValue, Event, GitSource, HealthcheckKind, Service,
-    ServiceSource, ServiceStatus,
+    DeployState, Deployment, EnvVarValue, Event, HealthcheckKind, Service, ServiceSource,
+    ServiceStatus,
 };
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tokio::time::sleep;
@@ -184,15 +184,28 @@ impl DeployExecutor {
                     dir = %dir.display(),
                     "step[CloningRepo]: clonando para diretório"
                 );
-                let git_clone = git.clone();
                 let bus = self.bus.clone();
                 let sid = svc.id.clone();
                 let did = dep.id.clone();
 
-                tokio::task::spawn_blocking(move || {
-                    clone_repo_sync(&dir, &git_clone, token.as_deref(), &bus, &sid, &did)
-                })
-                .await??;
+                super::git::clone(
+                    super::git::CloneOptions {
+                        url: &git.url,
+                        branch: &git.branch,
+                        token: token.as_deref(),
+                        dir: &dir,
+                    },
+                    |p| {
+                        bus.publish(Event::DeployProgress {
+                            deployment_id: did.clone(),
+                            service_id: sid.clone(),
+                            phase: "CloningRepo".into(),
+                            percent: p.percent,
+                            description: p.description,
+                        });
+                    },
+                )
+                .await?;
 
                 info!(deployment_id = %dep.id, "step[CloningRepo]: clone concluído");
                 Ok(DeployState::BuildingImage)
@@ -214,6 +227,7 @@ impl DeployExecutor {
                 );
                 images::build(
                     &self.docker.inner,
+                    &self.db,
                     &context,
                     &git.dockerfile_path,
                     &tag,
@@ -444,6 +458,28 @@ impl DeployExecutor {
                     let _ = std::fs::remove_dir_all(&build_dir);
                     debug!(deployment_id = %dep.id, dir = %build_dir.display(), "step[Promoting]: diretório de build removido");
                 }
+
+                // Transiciona qualquer deployment anterior em Live para Pruning
+                // para evitar múltiplos registros Live para o mesmo serviço.
+                if let Ok(history) = crate::db::deployments::list_for_service(&self.db, &svc.id, 20).await {
+                    for prev in history.iter().filter(|d| d.id != dep.id && d.state == DeployState::Live) {
+                        let _ = crate::db::deployments::transition(
+                            &self.db,
+                            &prev.id,
+                            &DeployState::Live,
+                            DeployState::Pruning,
+                            Some("superseded by newer deployment".into()),
+                        ).await;
+                        self.bus.publish(Event::DeployStateChanged {
+                            deployment_id: prev.id.clone(),
+                            service_id: svc.id.clone(),
+                            state: DeployState::Pruning,
+                            timestamp: Utc::now(),
+                            message: Some("superseded".into()),
+                        });
+                    }
+                }
+
                 Ok(DeployState::Live)
             }
 
@@ -750,159 +786,57 @@ impl DeployExecutor {
     }
 }
 
-/// Synchronous git clone — runs in spawn_blocking because git2 is !Send.
-fn clone_repo_sync(
-    dir: &PathBuf,
-    git: &GitSource,
-    token: Option<&str>,
-    bus: &Arc<EventBus>,
-    service_id: &str,
-    deployment_id: &str,
-) -> Result<()> {
-    use git2::{build::RepoBuilder, FetchOptions, RemoteCallbacks};
-
-    // Limpa diretório de clone anterior para evitar falha em retry
-    // (git2 recusa clonar em diretório não-vazio)
-    if dir.exists() {
-        std::fs::remove_dir_all(dir)
-            .map_err(|e| anyhow::anyhow!("falha ao limpar clone dir anterior '{}': {e}", dir.display()))?;
-    }
-    std::fs::create_dir_all(dir)?;
-    info!(url = git.url, branch = git.branch, dir = %dir.display(), "clone_repo: clonando repositório");
-
-    let mut callbacks = RemoteCallbacks::new();
-    if let Some(tok) = token {
-        let tok = tok.to_string();
-        info!("clone_repo: usando credenciais de token");
-        callbacks.credentials(move |_url, username, _allowed| {
-            git2::Cred::userpass_plaintext(username.unwrap_or("git"), &tok)
-        });
-    }
-
-    let sid = service_id.to_string();
-    let did = deployment_id.to_string();
-    let bus_clone = bus.clone();
-    callbacks.transfer_progress(move |stats| {
-        let pct = if stats.total_objects() > 0 {
-            (stats.received_objects() * 100 / stats.total_objects()) as u8
-        } else {
-            0
-        };
-        debug!(
-            deployment_id = %did,
-            received = stats.received_objects(),
-            total = stats.total_objects(),
-            pct = pct,
-            "clone_repo: progresso"
-        );
-        bus_clone.publish(Event::DeployProgress {
-            deployment_id: did.clone(),
-            service_id: sid.clone(),
-            phase: "CloningRepo".into(),
-            percent: pct,
-            description: format!(
-                "objects: {}/{}",
-                stats.received_objects(),
-                stats.total_objects()
-            ),
-        });
-        true
-    });
-
-    let mut fo = FetchOptions::new();
-    fo.remote_callbacks(callbacks);
-
-    // Para URLs file:// o git2 não cria refs/remotes/origin/* de forma confiável
-    // (usa clone local por hardlink, sem fetch normal). Convertemos para caminho
-    // absoluto para forçar o comportamento de clone local do git2.
-    let effective_url = if git.url.starts_with("file://") {
-        git.url
-            .strip_prefix("file://")
-            .unwrap_or(&git.url)
-            .to_owned()
-    } else {
-        git.url.clone()
-    };
-
-    // NÃO usar builder.branch(): o git2 resolve o branch via
-    // refs/remotes/origin/<branch>, que pode não existir em clones locais ou
-    // em remotes que ainda não popularam esse ref. Fazemos o checkout
-    // manualmente após o clone.
-    let mut builder = RepoBuilder::new();
-    builder.fetch_options(fo);
-    let repo = builder.clone(&effective_url, dir)
-        .map_err(|e| anyhow::anyhow!("falha ao clonar '{}': {e}", git.url))?;
-
-    info!(url = git.url, branch = git.branch, "clone_repo: clone concluído, resolvendo branch");
-
-    // Coleta branches disponíveis para erro útil (ignora falhas de listagem)
-    let available_branches: Vec<String> = repo
-        .branches(None)
-        .map(|iter| {
-            iter.filter_map(|b| b.ok())
-                .filter_map(|(b, _)| b.name().ok().flatten().map(str::to_owned))
-                .collect()
-        })
-        .unwrap_or_default();
-    info!(
-        url = git.url,
-        branch = git.branch,
-        available = ?available_branches,
-        "clone_repo: branches disponíveis no clone"
-    );
-
-    // Tenta resolver o branch:
-    //   1. origin/<branch>  — remote-tracking ref (clones de rede)
-    //   2. <branch>         — ref local ou tag (clones locais / file://)
-    let obj = repo
-        .revparse_single(&format!("origin/{}", git.branch))
-        .or_else(|_| repo.revparse_single(&git.branch))
-        .map_err(|_| {
-            let hint = if available_branches.is_empty() {
-                "nenhum branch encontrado no repositório".to_owned()
-            } else {
-                format!("branches disponíveis: {}", available_branches.join(", "))
-            };
-            anyhow::anyhow!(
-                "branch '{}' não encontrado no repositório — {}",
-                git.branch,
-                hint
-            )
-        })?;
-
-    let mut co_opts = git2::build::CheckoutBuilder::new();
-    co_opts.force();
-    repo.checkout_tree(&obj, Some(&mut co_opts))
-        .map_err(|e| anyhow::anyhow!("falha ao fazer checkout do branch '{}': {e}", git.branch))?;
-
-    // Aponta HEAD para o branch local
-    let commit = obj.peel_to_commit()
-        .map_err(|e| anyhow::anyhow!("falha ao resolver commit do branch '{}': {e}", git.branch))?;
-    let head_ref = format!("refs/heads/{}", git.branch);
-    repo.reference(&head_ref, commit.id(), true, &format!("checkout: {}", git.branch))
-        .map_err(|e| anyhow::anyhow!("falha ao criar ref local '{}': {e}", head_ref))?;
-    repo.set_head(&head_ref)
-        .map_err(|e| anyhow::anyhow!("falha ao definir HEAD para '{}': {e}", head_ref))?;
-
-    info!(url = git.url, branch = git.branch, commit = %commit.id(), "clone_repo: checkout concluído");
-    Ok(())
-}
 
 async fn check_http(url: &str, expected: u16, timeout: Duration) -> bool {
-    let Ok(client) = reqwest::Client::builder()
-        .timeout(timeout)
-        .danger_accept_invalid_certs(true)
-        .build()
-    else {
+    use http_body_util::Empty;
+    use hyper::Request;
+    use hyper_util::rt::TokioIo;
+    use tokio::net::TcpStream;
+
+    // Parse host:port and path from the URL (plain http:// only — healthchecks are internal).
+    let without_scheme = url.strip_prefix("http://").unwrap_or(url);
+    let (authority, path) = without_scheme
+        .split_once('/')
+        .map(|(h, p)| (h, format!("/{p}")))
+        .unwrap_or((without_scheme, "/".into()));
+
+    let connect = TcpStream::connect(authority);
+    let stream = match tokio::time::timeout(timeout, connect).await {
+        Ok(Ok(s)) => s,
+        Ok(Err(e)) => {
+            debug!(url = %url, error = %e, "check_http: conexão falhou");
+            return false;
+        }
+        Err(_) => {
+            debug!(url = %url, "check_http: timeout na conexão");
+            return false;
+        }
+    };
+
+    let io = TokioIo::new(stream);
+    let Ok((mut sender, conn)) = hyper::client::conn::http1::handshake(io).await else {
         return false;
     };
-    match client.get(url).send().await {
-        Ok(r) => {
-            let got = r.status().as_u16();
-            got == expected
-        }
-        Err(e) => {
+    tokio::spawn(async move { let _ = conn.await; });
+
+    let req = match Request::builder()
+        .method("GET")
+        .uri(format!("http://{authority}{path}"))
+        .header("host", authority)
+        .body(Empty::<bytes::Bytes>::new())
+    {
+        Ok(r) => r,
+        Err(_) => return false,
+    };
+
+    match tokio::time::timeout(timeout, sender.send_request(req)).await {
+        Ok(Ok(resp)) => resp.status().as_u16() == expected,
+        Ok(Err(e)) => {
             debug!(url = %url, error = %e, "check_http: falhou");
+            false
+        }
+        Err(_) => {
+            debug!(url = %url, "check_http: timeout na resposta");
             false
         }
     }

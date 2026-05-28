@@ -1,9 +1,10 @@
 mod app;
 mod events;
+mod models;
 mod transport;
 mod ui;
 
-use app::App;
+use app::{App, CmdContext, PendingCommand};
 use crossterm::{
     event::{Event as TermEvent, EventStream, KeyEventKind},
     execute,
@@ -12,7 +13,7 @@ use crossterm::{
 use events::handle_key;
 use futures::StreamExt;
 use ratatui::{backend::CrosstermBackend, Terminal};
-use shared::Command;
+use shared::{Command, Response};
 use std::{io, time::Duration};
 use tokio::{sync::mpsc, time::interval};
 use transport::DaemonClient;
@@ -35,36 +36,44 @@ async fn main() -> anyhow::Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let result = run(&mut terminal, client, socket_path.clone()).await;
+    let result = run(&mut terminal, socket_path.clone()).await;
 
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
+
+    // Ensure initial data load doesn't leave terminal in bad state on error
+    let _ = client;
 
     result
 }
 
 async fn run(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
-    client: DaemonClient,
     socket_path: String,
 ) -> anyhow::Result<()> {
     let mut app = App::new();
 
-    load_initial_data(&client, &mut app).await;
+    // Load initial data synchronously before entering the loop
+    let client = DaemonClient::new(&socket_path);
+    if let Ok(Response::Projects(projects)) = client.send(Command::ProjectList).await {
+        app.projects = projects;
+    }
 
+    // Channel for daemon stream events
     let (event_tx, mut event_rx) = mpsc::channel::<shared::Event>(256);
+    // Channel for RPC responses — commands are dispatched as background tasks
+    let (resp_tx, mut resp_rx) = mpsc::channel::<(Response, CmdContext)>(64);
 
-    let tx = event_tx.clone();
-    let sock = socket_path.clone();
-    tokio::spawn(async move {
-        let client = DaemonClient::new(&sock);
-        let _ = client
-            .stream(None, move |ev| {
-                let _ = tx.blocking_send(ev);
-            })
-            .await;
-    });
+    // Daemon event stream task
+    {
+        let sock = socket_path.clone();
+        let tx = event_tx.clone();
+        tokio::spawn(async move {
+            let client = DaemonClient::new(&sock);
+            let _ = client.stream(None, move |ev| { let _ = tx.try_send(ev); }).await;
+        });
+    }
 
     let mut crossterm_events = EventStream::new();
     let mut tick = interval(Duration::from_millis(TICK_MS));
@@ -76,17 +85,21 @@ async fn run(
             Some(term_ev) = crossterm_events.next() => {
                 let ev = term_ev?;
                 if let TermEvent::Key(key) = ev {
-                    if key.kind == KeyEventKind::Press && app.can_quit()
+                    if key.kind == KeyEventKind::Press
+                        && app.can_quit()
                         && key.code == crossterm::event::KeyCode::Char('q')
                     {
                         break;
                     }
                     handle_key(&mut app, key);
-                    process_pending(&client, &mut app).await;
+                    dispatch_pending(&socket_path, &mut app, resp_tx.clone());
                 }
             }
             Some(daemon_ev) = event_rx.recv() => {
                 app.apply_event(daemon_ev);
+            }
+            Some((resp, ctx)) = resp_rx.recv() => {
+                app.handle_response(resp, ctx);
             }
             _ = tick.tick() => {
                 app.tick();
@@ -97,44 +110,48 @@ async fn run(
     Ok(())
 }
 
-async fn process_pending(client: &DaemonClient, app: &mut App) {
-    let cmds: Vec<app::PendingCommand> = app.pending_commands.drain(..).collect();
+/// Drains pending commands and spawns each one as an independent background task.
+/// The main loop is never blocked — responses arrive via `resp_tx`.
+fn dispatch_pending(
+    socket_path: &str,
+    app: &mut App,
+    resp_tx: mpsc::Sender<(Response, CmdContext)>,
+) {
+    let cmds: Vec<PendingCommand> = app.pending_commands.drain(..).collect();
     for pc in cmds {
-        match client.send(pc.command).await {
-            Ok(resp) => app.handle_response(resp, pc.context),
-            Err(e) => app.set_notification(format!("Erro: {e}"), true),
-        }
-    }
-}
-
-async fn load_initial_data(client: &DaemonClient, app: &mut App) {
-    if let Ok(shared::Response::Projects(projects)) = client.send(Command::ProjectList).await {
-        app.projects = projects;
+        let sock = socket_path.to_string();
+        let tx = resp_tx.clone();
+        tokio::spawn(async move {
+            let client = DaemonClient::new(&sock);
+            let resp = match client.send(pc.command).await {
+                Ok(r) => r,
+                Err(e) => Response::err("RpcError", e.to_string()),
+            };
+            let _ = tx.send((resp, pc.context)).await;
+        });
     }
 }
 
 fn fallback_socket() -> Option<String> {
-    std::env::var("HOME").ok().map(|home| {
-        format!("{home}/.local/share/rustploy/rustploy.sock")
-    })
+    std::env::var("HOME")
+        .ok()
+        .map(|home| format!("{home}/.local/share/rustploy/rustploy.sock"))
 }
 
-/// Tries each candidate socket path in order, returning the first one where
-/// the daemon responds to a ping.
 async fn resolve_socket(candidates: &[Option<String>]) -> anyhow::Result<String> {
-    for candidate in candidates.iter().flatten() {
-        let client = DaemonClient::new(candidate.as_str());
+    let paths: Vec<&str> = candidates.iter().flatten().map(String::as_str).collect();
+
+    for path in &paths {
+        let client = DaemonClient::new(path);
         if client.ping().await {
-            return Ok(candidate.clone());
+            return Ok(path.to_string());
         }
     }
+
     anyhow::bail!(
-        "daemon not reachable; tried: {}",
-        candidates
-            .iter()
-            .flatten()
-            .cloned()
-            .collect::<Vec<_>>()
-            .join(", ")
+        "daemon não encontrado.\n\
+         Inicie o daemon primeiro: rustployd\n\
+         Caminhos tentados: {}",
+        paths.join(", ")
     )
 }

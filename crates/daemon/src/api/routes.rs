@@ -45,6 +45,11 @@ async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::DeployAbort { .. } => "DeployAbort",
         Command::DeployHistory { .. } => "DeployHistory",
         Command::DeployRollback { .. } => "DeployRollback",
+        Command::ServiceStop { .. } => "ServiceStop",
+        Command::ServiceReload { .. } => "ServiceReload",
+        Command::LogsGet { .. } => "LogsGet",
+        Command::RecentDeployments { .. } => "RecentDeployments",
+        Command::GetBuildLogs { .. } => "GetBuildLogs",
         _ => "Unknown",
     };
     info!(command = cmd_name, "→ RPC recebido");
@@ -65,6 +70,11 @@ async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::DeployAbort { deployment_id } => handlers::deploy_abort::handle(state, deployment_id).await,
         Command::DeployHistory { service_id, limit } => handlers::deploy_history::handle(state, service_id, limit).await,
         Command::DeployRollback { service_id } => handlers::deploy_rollback::handle(state, service_id).await,
+        Command::ServiceStop { service_id } => handlers::service_stop::handle(state, service_id).await,
+        Command::ServiceReload { service_id } => handlers::service_reload::handle(state, service_id).await,
+        Command::LogsGet { service_id, tail } => handlers::logs_get::handle(state, service_id, tail).await,
+        Command::RecentDeployments { limit } => handlers::recent_deployments::handle(state, limit).await,
+        Command::GetBuildLogs { deployment_id } => handlers::get_build_logs::handle(state, deployment_id).await,
         _ => RpResponse::err("NotImplemented", "command not yet implemented"),
     };
 

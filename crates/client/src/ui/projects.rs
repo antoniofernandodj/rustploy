@@ -89,18 +89,20 @@ fn render_services_tab(f: &mut Frame, app: &App, area: Rect) {
         .map(|(i, svc)| {
             let selected = focused && i == app.service_cursor;
             let status_color = match &svc.status {
-                ServiceStatus::Running => Color::Green,
-                ServiceStatus::Stopped => Color::DarkGray,
+                ServiceStatus::Running   => Color::Green,
+                ServiceStatus::Stopping  => Color::Yellow,
+                ServiceStatus::Stopped   => Color::DarkGray,
                 ServiceStatus::Deploying => Color::Yellow,
-                ServiceStatus::Degraded => Color::Magenta,
-                ServiceStatus::Error(_) => Color::Red,
+                ServiceStatus::Degraded  => Color::Magenta,
+                ServiceStatus::Error(_)  => Color::Red,
             };
             let status_label = match &svc.status {
-                ServiceStatus::Running => "RUNNING",
-                ServiceStatus::Stopped => "STOPPED",
+                ServiceStatus::Running   => "RUNNING",
+                ServiceStatus::Stopping  => "STOPPING",
+                ServiceStatus::Stopped   => "STOPPED",
                 ServiceStatus::Deploying => "DEPLOYING",
-                ServiceStatus::Degraded => "DEGRADED",
-                ServiceStatus::Error(_) => "ERROR",
+                ServiceStatus::Degraded  => "DEGRADED",
+                ServiceStatus::Error(_)  => "ERROR",
             };
 
             let metrics_str = app

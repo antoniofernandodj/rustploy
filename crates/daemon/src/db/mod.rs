@@ -1,19 +1,19 @@
+pub mod build_logs;
 pub mod deployments;
 pub mod projects;
 pub mod services;
 
 use anyhow::Result;
-use surrealdb::{engine::local::RocksDb, Surreal};
+use surrealdb::{engine::local::SurrealKV, Surreal};
 
 pub type Db = Surreal<surrealdb::engine::local::Db>;
 
-/// Abre (ou cria) o banco RocksDB no diretório `db_path`.
+/// Abre (ou cria) o banco SurrealKV no diretório `db_path`.
 /// Os dados persistem entre reinicializações do daemon.
 pub async fn connect(db_path: &std::path::Path) -> Result<Db> {
-    // RocksDb espera um diretório; garantimos que ele exista.
     std::fs::create_dir_all(db_path)?;
 
-    let db = Surreal::new::<RocksDb>(db_path).await?;
+    let db = Surreal::new::<SurrealKV>(db_path).await?;
     db.use_ns("rustploy").use_db("main").await?;
     migrate(&db).await?;
     Ok(db)
@@ -52,6 +52,12 @@ async fn migrate(db: &Db) -> Result<()> {
         DEFINE FIELD IF NOT EXISTS key ON secret TYPE string;
         DEFINE FIELD IF NOT EXISTS value ON secret TYPE string;
         DEFINE INDEX IF NOT EXISTS secret_project_key ON secret COLUMNS project_id, key UNIQUE;
+
+        DEFINE TABLE IF NOT EXISTS build_log SCHEMAFULL;
+        DEFINE FIELD IF NOT EXISTS deployment_id ON build_log TYPE string;
+        DEFINE FIELD IF NOT EXISTS line ON build_log TYPE string;
+        DEFINE FIELD IF NOT EXISTS ts ON build_log TYPE datetime;
+        DEFINE INDEX IF NOT EXISTS idx_build_log_dep ON build_log COLUMNS deployment_id;
 
         DEFINE TABLE IF NOT EXISTS tls_cert SCHEMAFULL;
         DEFINE FIELD IF NOT EXISTS domain ON tls_cert TYPE string;

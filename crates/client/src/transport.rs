@@ -1,11 +1,10 @@
 use anyhow::Result;
-use postcard;
 use bytes::Bytes;
-use http_body_util::{BodyExt, Full};
+use http_body_util::{BodyExt, Empty, Full};
 use hyper::Request;
+use postcard;
 use shared::{Command, Event, Response};
 use std::path::PathBuf;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;
 
 pub struct DaemonClient {
@@ -17,7 +16,6 @@ impl DaemonClient {
         Self { socket_path: socket_path.into() }
     }
 
-    /// Returns true if the daemon is reachable at this socket path.
     pub async fn ping(&self) -> bool {
         matches!(self.send(Command::Ping).await, Ok(Response::Pong { .. }))
     }
@@ -25,7 +23,6 @@ impl DaemonClient {
     pub async fn send(&self, cmd: Command) -> Result<Response> {
         let stream = UnixStream::connect(&self.socket_path).await?;
         let io = hyper_util::rt::TokioIo::new(stream);
-
         let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await?;
         tokio::spawn(async move { let _ = conn.await; });
 
@@ -41,7 +38,8 @@ impl DaemonClient {
         Ok(postcard::from_bytes(&body)?)
     }
 
-    /// Connects to the daemon event stream and calls `on_event` for each event.
+    /// Connects to the daemon event stream and calls `on_event` for each decoded event.
+    /// Uses the hyper HTTP/1 client so chunked transfer encoding is handled transparently.
     pub async fn stream<F>(&self, service_id: Option<&str>, mut on_event: F) -> Result<()>
     where
         F: FnMut(Event) + Send,
@@ -51,44 +49,40 @@ impl DaemonClient {
             None => "/stream".to_string(),
         };
 
-        let mut stream = UnixStream::connect(&self.socket_path).await?;
-        let req = format!(
-            "GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n"
-        );
-        stream.write_all(req.as_bytes()).await?;
+        let stream = UnixStream::connect(&self.socket_path).await?;
+        let io = hyper_util::rt::TokioIo::new(stream);
+        let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await?;
+        tokio::spawn(async move { let _ = conn.await; });
 
-        // Skip HTTP response headers
-        let mut buf = Vec::new();
-        let mut byte = [0u8; 1];
-        loop {
-            if stream.read_exact(&mut byte).await.is_err() {
-                return Ok(());
-            }
-            buf.push(byte[0]);
-            if buf.ends_with(b"\r\n\r\n") {
-                break;
-            }
-            if buf.len() > 16384 {
-                return Ok(());
-            }
-        }
+        let req = Request::builder()
+            .method("GET")
+            .uri(format!("http://localhost{path}"))
+            .body(Empty::<Bytes>::new())?;
 
-        // Read framed events: [u32 LE len][postcard payload]
+        let resp = sender.send_request(req).await?;
+        let mut body = resp.into_body();
+
+        // Buffer for partial [u32 LE len][postcard bytes] frames that span chunk boundaries.
+        let mut buf: Vec<u8> = Vec::new();
+
         loop {
-            let mut len_buf = [0u8; 4];
-            if stream.read_exact(&mut len_buf).await.is_err() {
-                break;
-            }
-            let len = u32::from_le_bytes(len_buf) as usize;
-            if len == 0 || len > 4 * 1024 * 1024 {
-                break;
-            }
-            let mut payload = vec![0u8; len];
-            if stream.read_exact(&mut payload).await.is_err() {
-                break;
-            }
-            if let Ok(event) = postcard::from_bytes::<Event>(&payload) {
-                on_event(event);
+            let Some(frame) = body.frame().await else { break };
+            let frame = frame?;
+            let Some(data) = frame.data_ref() else { continue };
+            buf.extend_from_slice(data);
+
+            while buf.len() >= 4 {
+                let len = u32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]]) as usize;
+                if len == 0 || len > 4 * 1024 * 1024 {
+                    return Ok(());
+                }
+                if buf.len() < 4 + len {
+                    break;
+                }
+                if let Ok(event) = postcard::from_bytes::<Event>(&buf[4..4 + len]) {
+                    on_event(event);
+                }
+                buf.drain(..4 + len);
             }
         }
 

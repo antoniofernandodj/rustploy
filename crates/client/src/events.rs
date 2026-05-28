@@ -398,10 +398,26 @@ fn activate_general_btn(app: &mut App, field: GeneralTabField) {
             }
         }
         GeneralTabField::BtnStop => {
-            app.set_notification("Stop não implementado via API ainda", true);
+            if let Some(sid) = app.active_service_id.clone() {
+                // Atualização otimista: mostra Stopping imediatamente.
+                if let Some(svc) = app.services.iter_mut().find(|s| s.id == sid) {
+                    svc.status = shared::ServiceStatus::Stopping;
+                }
+                app.pending_commands.push(PendingCommand {
+                    command: Command::ServiceStop { service_id: sid },
+                    context: CmdContext::ServiceStop,
+                });
+                app.set_notification("Parando serviço...", false);
+            }
         }
         GeneralTabField::BtnReload => {
-            app.set_notification("Reload não implementado via API ainda", true);
+            if let Some(sid) = app.active_service_id.clone() {
+                app.pending_commands.push(PendingCommand {
+                    command: Command::ServiceReload { service_id: sid },
+                    context: CmdContext::ServiceReload,
+                });
+                app.set_notification("Reiniciando container...", false);
+            }
         }
         GeneralTabField::ProviderSave | GeneralTabField::BuildSave => {
             save_service_general(app);
@@ -605,15 +621,49 @@ fn handle_env_tab(app: &mut App, key: KeyEvent) {
     }
 }
 
+fn request_build_logs(app: &mut App) {
+    let cursor = app.deployment_cursor.min(app.service_deployments.len().saturating_sub(1));
+    if let Some(dep) = app.service_deployments.get(cursor) {
+        let dep_id = dep.id.clone();
+        // Skip if already cached.
+        if !app.build_logs.contains_key(&dep_id) {
+            app.pending_commands.push(PendingCommand {
+                command: Command::GetBuildLogs { deployment_id: dep_id },
+                context: CmdContext::LoadBuildLogs,
+            });
+        }
+    }
+}
+
 fn handle_deployments_tab(app: &mut App, key: KeyEvent) {
     match key.code {
         KeyCode::Up => {
             if app.deployment_cursor > 0 {
                 app.deployment_cursor -= 1;
+                app.build_log_scroll = usize::MAX; // volta ao tail no novo deployment
+                request_build_logs(app);
             }
         }
         KeyCode::Down => {
-            app.deployment_cursor += 1;
+            let max = app.service_deployments.len().saturating_sub(1);
+            if app.deployment_cursor < max {
+                app.deployment_cursor += 1;
+                app.build_log_scroll = usize::MAX;
+                request_build_logs(app);
+            }
+        }
+        // Scroll no build log
+        KeyCode::Char('[') => {
+            app.build_log_scroll = app.build_log_scroll.saturating_sub(5);
+        }
+        KeyCode::Char(']') => {
+            app.build_log_scroll = app.build_log_scroll.saturating_add(5);
+        }
+        KeyCode::Char('g') => {
+            app.build_log_scroll = 0;
+        }
+        KeyCode::Char('G') => {
+            app.build_log_scroll = usize::MAX;
         }
         KeyCode::Char('r') => {
             if let Some(sid) = app.active_service_id.clone() {

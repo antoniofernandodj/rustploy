@@ -74,6 +74,7 @@ pub struct Service {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ServiceStatus {
     Stopped,
+    Stopping,
     Deploying,
     Running,
     Degraded,
@@ -84,6 +85,7 @@ impl std::fmt::Display for ServiceStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Stopped => write!(f, "Stopped"),
+            Self::Stopping => write!(f, "Stopping"),
             Self::Deploying => write!(f, "Deploying"),
             Self::Running => write!(f, "Running"),
             Self::Degraded => write!(f, "Degraded"),
@@ -116,6 +118,7 @@ pub enum DeployState {
     Draining,
     Promoting,
     Live,
+    Stopped,
     RollingBack,
     Failed,
     Pruning,
@@ -123,7 +126,7 @@ pub enum DeployState {
 
 impl DeployState {
     pub fn is_terminal(&self) -> bool {
-        matches!(self, Self::Live | Self::Failed | Self::Pruning)
+        matches!(self, Self::Live | Self::Stopped | Self::Failed | Self::Pruning)
     }
 
     pub fn label(&self) -> &'static str {
@@ -139,6 +142,7 @@ impl DeployState {
             Self::Draining => "Draining",
             Self::Promoting => "Promoting",
             Self::Live => "Live",
+            Self::Stopped => "Stopped",
             Self::RollingBack => "RollingBack",
             Self::Failed => "Failed",
             Self::Pruning => "Pruning",
@@ -199,6 +203,13 @@ pub enum HealthcheckKind {
     Http { path: String, expected_status: u16 },
     Tcp,
     DockerNative,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeploymentSummary {
+    pub deployment: Deployment,
+    pub service_name: String,
+    pub project_name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

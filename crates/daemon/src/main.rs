@@ -4,6 +4,7 @@ mod deploy;
 mod docker;
 mod event_bus;
 mod ingress;
+mod logs;
 mod metrics;
 mod secrets;
 
@@ -70,6 +71,16 @@ async fn main() -> Result<()> {
         let interval = config.metrics.interval_secs;
         tokio::spawn(async move {
             metrics::collect_loop(Arc::new(docker_inner), db2, bus2, interval).await;
+        });
+    }
+
+    // Container log streaming task
+    {
+        let docker_inner = Arc::new(docker.inner.clone());
+        let db2 = db.clone();
+        let bus2 = bus.clone();
+        tokio::spawn(async move {
+            logs::stream_loop(docker_inner, db2, bus2).await;
         });
     }
 

@@ -22,7 +22,16 @@ pub enum Command {
     DeployRollback { service_id: String },
     DeployHistory { service_id: String, limit: usize },
 
+    // Service lifecycle
+    ServiceStop { service_id: String },
+    ServiceReload { service_id: String },
+
+    // Global views
+    RecentDeployments { limit: usize },
+    GetBuildLogs { deployment_id: String },
+
     // Observability
+    LogsGet { service_id: String, tail: usize },
     LogsSubscribe { service_id: String, tail: usize },
     LogsUnsubscribe { service_id: String },
     MetricsSubscribe { service_id: String },
@@ -49,6 +58,14 @@ pub enum Event {
         percent: u8,
         description: String,
     },
+    /// Output from `docker build` — belongs to a specific deployment.
+    BuildLog {
+        deployment_id: String,
+        service_id: String,
+        line: String,
+        timestamp: chrono::DateTime<chrono::Utc>,
+    },
+    /// stdout/stderr of the running container — belongs to the service.
     LogLine {
         service_id: String,
         container_id: String,
@@ -77,6 +94,20 @@ pub enum LogStream {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogEntry {
+    pub stream: LogStream,
+    pub line: String,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BuildLogLine {
+    pub stream: LogStream,
+    pub line: String,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Response {
     Ok,
     Project(Project),
@@ -85,6 +116,9 @@ pub enum Response {
     Services(Vec<Service>),
     Deployment(Deployment),
     Deployments(Vec<Deployment>),
+    Logs(Vec<LogEntry>),
+    BuildLogs(Vec<BuildLogLine>),
+    DeploymentSummaries(Vec<DeploymentSummary>),
     DaemonStatus(DaemonStatus),
     Pong { uptime_secs: u64 },
     Err { code: String, message: String },

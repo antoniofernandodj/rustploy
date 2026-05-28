@@ -27,11 +27,37 @@ pub fn render(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_tab_bar(f: &mut Frame, app: &App, area: Rect, svc_name: &str) {
+    use shared::ServiceStatus;
+
+    let status_style = app.current_active_service().map(|s| match &s.status {
+        ServiceStatus::Running   => Style::default().fg(Color::Green),
+        ServiceStatus::Stopping  => Style::default().fg(Color::Yellow),
+        ServiceStatus::Stopped   => Style::default().fg(Color::DarkGray),
+        ServiceStatus::Deploying => Style::default().fg(Color::Yellow),
+        ServiceStatus::Degraded  => Style::default().fg(Color::Red),
+        ServiceStatus::Error(_)  => Style::default().fg(Color::Red),
+    });
+    let status_label = app.current_active_service().map(|s| match &s.status {
+        ServiceStatus::Running   => " ● Running ",
+        ServiceStatus::Stopping  => " ◌ Stopping ",
+        ServiceStatus::Stopped   => " ○ Stopped ",
+        ServiceStatus::Deploying => " ◌ Deploying ",
+        ServiceStatus::Degraded  => " ◐ Degraded ",
+        ServiceStatus::Error(_)  => " ✕ Error ",
+    });
+
     let tabs = ServiceTab::all();
-    let mut spans: Vec<Span> = vec![Span::styled(
-        format!(" {svc_name} "),
-        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
-    )];
+    let mut spans: Vec<Span> = vec![
+        Span::styled(
+            format!(" {svc_name} "),
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            status_label.unwrap_or(""),
+            status_style.unwrap_or_default(),
+        ),
+        Span::raw(" "),
+    ];
 
     for tab in tabs {
         let active = tab == &app.service_tab;
@@ -478,65 +504,165 @@ fn render_domains_tab(f: &mut Frame, app: &App, area: Rect) {
 // ─── Deployments Tab ──────────────────────────────────────────────────────────
 
 fn render_deployments_tab(f: &mut Frame, app: &App, area: Rect) {
-    let svc = match app.current_active_service() {
-        Some(s) => s,
-        None => return,
-    };
-
     let block = Block::default()
         .borders(Borders::ALL)
-        .title(" Deployments — [r] rollback  [a] abortar ")
+        .title(" Deployments — [↑↓] navegar  [[] rolar log ▲  []] rolar log ▼  [g/G] início/fim  [r] rollback ")
         .border_style(Style::default().fg(Color::DarkGray));
 
-    if let Some(dep) = &app.last_deployment {
-        if dep.service_id == svc.id {
-            let states: Vec<&str> = dep.states_log.iter().map(|t| t.to.label()).collect();
-            let chain = states.join(" → ");
+    let deps = &app.service_deployments;
+
+    if deps.is_empty() {
+        let p = Paragraph::new(vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                "  Nenhum deployment recente.",
+                Style::default().fg(Color::DarkGray),
+            )),
+            Line::from(""),
+            Line::from(Span::styled(
+                "  Pressione [d] na aba General para iniciar um deploy.",
+                Style::default().fg(Color::DarkGray),
+            )),
+        ])
+        .block(block);
+        f.render_widget(p, area);
+        return;
+    }
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(4),    // deployment list
+            Constraint::Length(5), // detail (border + 3 lines)
+            Constraint::Min(3),    // build logs
+        ])
+        .split(block.inner(area));
+    f.render_widget(block, area);
+
+    // ── Deployment list ───────────────────────────────────────────────────────
+
+    let cursor = app.deployment_cursor.min(deps.len().saturating_sub(1));
+    let items: Vec<ListItem> = deps
+        .iter()
+        .enumerate()
+        .map(|(i, dep)| {
             let duration = dep
                 .finished_at
                 .map(|fin| (fin - dep.started_at).num_seconds())
                 .map(|s| format!("{s}s"))
                 .unwrap_or_else(|| "em andamento".into());
+            let state_color = match dep.state {
+                shared::DeployState::Live => Color::Green,
+                shared::DeployState::Stopped => Color::DarkGray,
+                shared::DeployState::Failed | shared::DeployState::RollingBack => Color::Red,
+                _ => Color::Yellow,
+            };
+            let selected = i == cursor;
+            let line = Line::from(vec![
+                Span::raw(if selected { "▶ " } else { "  " }),
+                Span::styled(
+                    &dep.id[..dep.id.len().min(12)],
+                    Style::default().fg(Color::Cyan),
+                ),
+                Span::raw("  "),
+                Span::styled(dep.state.label(), Style::default().fg(state_color)),
+                Span::raw("  "),
+                Span::styled(duration, Style::default().fg(Color::DarkGray)),
+            ]);
+            ListItem::new(line).style(if selected {
+                Style::default().add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            })
+        })
+        .collect();
 
-            let text = Paragraph::new(vec![
-                Line::from(""),
-                Line::from(vec![
-                    Span::styled("  ID:       ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(&dep.id, Style::default().fg(Color::Cyan)),
-                ]),
-                Line::from(vec![
-                    Span::styled("  Estado:   ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(dep.state.label(), Style::default().fg(Color::Green)),
-                ]),
-                Line::from(vec![
-                    Span::styled("  Duração:  ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(duration, Style::default().fg(Color::White)),
-                ]),
-                Line::from(vec![
-                    Span::styled("  Caminho:  ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(chain, Style::default().fg(Color::DarkGray)),
-                ]),
-            ])
-            .block(block);
-            f.render_widget(text, area);
-            return;
-        }
-    }
+    let mut list_state = ListState::default();
+    list_state.select(Some(cursor));
+    f.render_stateful_widget(
+        List::new(items).highlight_style(Style::default().add_modifier(Modifier::BOLD)),
+        chunks[0],
+        &mut list_state,
+    );
 
-    let p = Paragraph::new(vec![
-        Line::from(""),
-        Line::from(Span::styled(
-            "  Nenhum deployment recente.",
-            Style::default().fg(Color::DarkGray),
-        )),
-        Line::from(""),
-        Line::from(Span::styled(
-            "  Pressione [d] na aba General para iniciar um deploy.",
-            Style::default().fg(Color::DarkGray),
-        )),
+    let Some(dep) = deps.get(cursor) else { return };
+
+    // ── Detail ────────────────────────────────────────────────────────────────
+
+    let chain = {
+        let states: Vec<&str> = dep.states_log.iter().map(|t| t.to.label()).collect();
+        if states.is_empty() { dep.state.label().to_string() } else { states.join(" → ") }
+    };
+    let detail = Paragraph::new(vec![
+        Line::from(vec![
+            Span::styled("  ID:      ", Style::default().fg(Color::DarkGray)),
+            Span::styled(&dep.id, Style::default().fg(Color::Cyan)),
+        ]),
+        Line::from(vec![
+            Span::styled("  Imagem:  ", Style::default().fg(Color::DarkGray)),
+            Span::styled(&dep.image, Style::default().fg(Color::White)),
+        ]),
+        Line::from(vec![
+            Span::styled("  Caminho: ", Style::default().fg(Color::DarkGray)),
+            Span::styled(chain, Style::default().fg(Color::DarkGray)),
+        ]),
     ])
-    .block(block);
-    f.render_widget(p, area);
+    .block(
+        Block::default()
+            .borders(Borders::TOP)
+            .border_style(Style::default().fg(Color::DarkGray)),
+    );
+    f.render_widget(detail, chunks[1]);
+
+    // ── Build logs ────────────────────────────────────────────────────────────
+
+    let area_h = chunks[2].height.saturating_sub(1) as usize; // minus border
+
+    let (log_lines, scroll_hint) = if let Some(buf) = app.build_logs.get(&dep.id) {
+        let total = buf.len();
+        // Clamp scroll: usize::MAX means follow tail
+        let max_skip = total.saturating_sub(area_h);
+        let skip = if app.build_log_scroll >= max_skip {
+            max_skip
+        } else {
+            app.build_log_scroll
+        };
+        let items: Vec<ListItem> = buf
+            .iter()
+            .skip(skip)
+            .take(area_h)
+            .map(|l| {
+                ListItem::new(Line::from(Span::styled(
+                    format!("  {}", l.text),
+                    Style::default().fg(Color::DarkGray),
+                )))
+            })
+            .collect();
+        let hint = if total == 0 {
+            " Build log ".to_string()
+        } else if total <= area_h {
+            format!(" Build log  {total} linhas ")
+        } else {
+            format!(
+                " Build log  {}/{total}  [[]] scroll  [g] início  [G] fim ",
+                skip + items.len().min(area_h)
+            )
+        };
+        (items, hint)
+    } else {
+        let items = vec![ListItem::new(Line::from(Span::styled(
+            "  Sem logs de build para este deployment.",
+            Style::default().fg(Color::DarkGray),
+        )))];
+        (items, " Build log ".to_string())
+    };
+
+    let build_block = Block::default()
+        .borders(Borders::TOP)
+        .title(scroll_hint)
+        .border_style(Style::default().fg(Color::DarkGray));
+
+    f.render_widget(List::new(log_lines).block(build_block), chunks[2]);
 }
 
 // ─── Logs Tab ─────────────────────────────────────────────────────────────────

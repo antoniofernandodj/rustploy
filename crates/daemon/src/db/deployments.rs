@@ -52,6 +52,7 @@ fn parse_state(s: &str) -> DeployState {
         "Draining" => DeployState::Draining,
         "Promoting" => DeployState::Promoting,
         "Live" => DeployState::Live,
+        "Stopped" => DeployState::Stopped,
         "RollingBack" => DeployState::RollingBack,
         "Failed" => DeployState::Failed,
         "Pruning" => DeployState::Pruning,
@@ -154,8 +155,17 @@ pub async fn transition(
         .ok_or_else(|| anyhow::anyhow!("deployment not found: {id}"))
 }
 
+pub async fn list_recent(db: &Db, limit: usize) -> Result<Vec<Deployment>> {
+    let mut result = db
+        .query("SELECT * FROM deployment ORDER BY started_at DESC LIMIT $lim")
+        .bind(("lim", limit as i64))
+        .await?;
+    let records: Vec<DeploymentRecord> = result.take(0)?;
+    Ok(records.into_iter().map(|r| r.into_deployment()).collect())
+}
+
 pub async fn get_non_terminal(db: &Db) -> Result<Vec<Deployment>> {
-    let terminal: Vec<String> = vec!["Live".into(), "Failed".into(), "Pruning".into()];
+    let terminal: Vec<String> = vec!["Live".into(), "Stopped".into(), "Failed".into(), "Pruning".into()];
     let mut result = db
         .query("SELECT * FROM deployment WHERE state NOT IN $terminal")
         .bind(("terminal", terminal))

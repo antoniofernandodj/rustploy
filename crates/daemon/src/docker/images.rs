@@ -1,4 +1,4 @@
-use crate::event_bus::EventBus;
+use crate::{db::Db, event_bus::EventBus};
 use anyhow::{anyhow, Result};
 use bollard::{
     image::{BuildImageOptions, CreateImageOptions, RemoveImageOptions},
@@ -6,8 +6,8 @@ use bollard::{
 };
 use futures::StreamExt;
 use shared::Event;
-use std::path::Path;
-use tracing::{debug, info};
+use std::{path::Path, sync::Arc};
+use tracing::{debug, info, warn};
 
 pub async fn pull(
     docker: &Docker,
@@ -76,6 +76,7 @@ pub async fn exists(docker: &Docker, image: &str) -> bool {
 
 pub async fn build(
     docker: &Docker,
+    db: &Arc<Db>,
     context_path: &Path,
     dockerfile: &str,
     tag: &str,
@@ -100,16 +101,19 @@ pub async fn build(
     while let Some(item) = stream.next().await {
         match item {
             Ok(output) => {
-                if let Some(stream) = output.stream {
-                    let line = stream.trim_end_matches('\n');
+                if let Some(output_stream) = output.stream {
+                    let line = output_stream.trim_end_matches('\n');
                     if !line.is_empty() {
-                        bus.publish(Event::LogLine {
+                        let now = Utc::now();
+                        bus.publish(Event::BuildLog {
+                            deployment_id: deployment_id.to_string(),
                             service_id: service_id.to_string(),
-                            container_id: format!("build:{deployment_id}"),
-                            stream: shared::protocol::LogStream::Stdout,
                             line: line.to_string(),
-                            timestamp: Utc::now(),
+                            timestamp: now,
                         });
+                        if let Err(e) = crate::db::build_logs::append(db, deployment_id, line, now).await {
+                            warn!(deployment_id, error = %e, "failed to persist build log line");
+                        }
                     }
                 }
                 if let Some(err) = output.error {

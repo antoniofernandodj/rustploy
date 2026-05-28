@@ -1,4 +1,5 @@
 pub mod deploy_log;
+pub mod home_deployments;
 pub mod metrics;
 pub mod projects;
 pub mod service_detail;
@@ -67,7 +68,7 @@ fn render_content(f: &mut Frame, app: &App, area: Rect) {
     match &app.view {
         View::ProjectDetail => projects::render_project_detail(f, app, area),
         View::ServiceDetail => service_detail::render(f, app, area),
-        View::HomeDeployments => render_home_placeholder(f, area, "Deployments", "Ver todos os deploys ativos em todos os projetos."),
+        View::HomeDeployments => home_deployments::render(f, app, area),
         View::HomeMonitoring => metrics::render_global(f, app, area),
         View::HomeSchedules => render_home_placeholder(f, area, "Schedules", "Agendamentos de auto-deploy (v2)."),
         View::HomeIngress => render_home_placeholder(f, area, "Ingress Routes", "Tabela de rotas ativa no proxy hyper."),

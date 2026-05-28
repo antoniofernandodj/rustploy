@@ -143,7 +143,7 @@ pub async fn recover(
                 tokio::spawn(async move { executor.run(dep_id).await });
             }
 
-            DeployState::Live | DeployState::Failed | DeployState::Pruning => {}
+            DeployState::Live | DeployState::Stopped | DeployState::Failed | DeployState::Pruning => {}
         }
     }
 

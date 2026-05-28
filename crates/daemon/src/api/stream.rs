@@ -52,6 +52,7 @@ fn event_matches(service_id: &str, event: &Event) -> bool {
     match event {
         Event::DeployStateChanged { service_id: sid, .. } => sid == service_id,
         Event::DeployProgress { service_id: sid, .. } => sid == service_id,
+        Event::BuildLog { service_id: sid, .. } => sid == service_id,
         Event::LogLine { service_id: sid, .. } => sid == service_id,
         Event::ContainerMetrics(m) => m.service_id == service_id,
         Event::ServiceStatusChanged { service_id: sid, .. } => sid == service_id,
