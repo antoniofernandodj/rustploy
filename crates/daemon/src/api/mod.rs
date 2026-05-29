@@ -1,6 +1,6 @@
 pub mod handlers;
 pub mod routes;
-pub mod stream;
+pub mod server;
 
 use crate::{
     db::Db,
@@ -9,14 +9,6 @@ use crate::{
     ingress::IngressController,
     secrets::SecretsManager,
 };
-use axum::{
-    body::Bytes,
-    extract::FromRequest,
-    http::{header, StatusCode},
-    response::{IntoResponse, Response},
-};
-use postcard;
-use serde::{de::DeserializeOwned, Serialize};
 use std::{path::PathBuf, sync::Arc};
 
 #[derive(Clone)]
@@ -51,39 +43,5 @@ impl AppState {
             drain_secs,
             started_at: std::time::Instant::now(),
         }
-    }
-}
-
-pub struct Bincode<T>(pub T);
-
-impl<T: Serialize> IntoResponse for Bincode<T> {
-    fn into_response(self) -> Response {
-        match postcard::to_allocvec(&self.0) {
-            Ok(bytes) => {
-                ([(header::CONTENT_TYPE, "application/octet-stream")], bytes).into_response()
-            }
-            Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-        }
-    }
-}
-
-#[axum::async_trait]
-impl<S, T> FromRequest<S> for Bincode<T>
-where
-    T: DeserializeOwned,
-    S: Send + Sync,
-{
-    type Rejection = (StatusCode, String);
-
-    async fn from_request(
-        req: axum::http::Request<axum::body::Body>,
-        state: &S,
-    ) -> Result<Self, Self::Rejection> {
-        let bytes = Bytes::from_request(req, state)
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-        let val = postcard::from_bytes(&bytes)
-            .map_err(|e| (StatusCode::BAD_REQUEST, format!("postcard: {e}")))?;
-        Ok(Bincode(val))
     }
 }

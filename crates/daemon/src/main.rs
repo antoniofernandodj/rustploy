@@ -16,9 +16,6 @@ static GLOBAL: MiMalloc = MiMalloc;
 use api::AppState;
 use anyhow::Result;
 use event_bus::EventBus;
-use hyper_util::rt::{TokioExecutor, TokioIo};
-use hyper_util::server::conn::auto;
-use hyper_util::service::TowerToHyperService;
 use ingress::IngressController;
 use shared::{Event, RustployConfig};
 use socket2::{Domain, Socket, Type};
@@ -95,7 +92,6 @@ async fn main() -> Result<()> {
     });
 
     let state = AppState::new(db, docker, ingress, bus, secrets, db_path, config.deploy.drain_secs);
-    let app = api::routes::build(state);
 
     // Bind UDS — try configured path, fall back to ~/.local/share/rustploy/
     let socket_path = resolve_socket_path(&config.daemon.socket_path);
@@ -121,14 +117,9 @@ async fn main() -> Result<()> {
 
     loop {
         let (stream, _) = listener.accept().await?;
-        let io = TokioIo::new(stream);
-        let svc = TowerToHyperService::new(app.clone());
-
+        let state = state.clone();
         tokio::spawn(async move {
-            if let Err(e) = auto::Builder::new(TokioExecutor::new())
-                .serve_connection(io, svc)
-                .await
-            {
+            if let Err(e) = api::server::handle_connection(stream, state).await {
                 warn!(error = %e, "connection error");
             }
         });

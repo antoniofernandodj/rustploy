@@ -1,6 +1,16 @@
 use crate::models::*;
 use serde::{Deserialize, Serialize};
 
+/// First frame sent by the client on every new connection.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ClientFrame {
+    /// Single RPC call: daemon replies with one `Response` frame then closes.
+    Rpc(Command),
+    /// Event stream: client sends this once, daemon replies with `Event`
+    /// frames indefinitely until the connection is dropped.
+    Subscribe { service_id: Option<String> },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Command {
     // Projects

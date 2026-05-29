@@ -13,16 +13,12 @@ shared = { path = "../shared" }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
-tokio-stream = { version = "0.1", features = ["sync"] }
-async-stream = "0.3"
 futures = "0.3"
 
-# HTTP / API
-axum = { version = "0.7", features = ["macros"] }
+# HTTP — used by ingress proxy and deploy healthchecks, NOT for IPC
 hyper = { version = "1", features = ["full"] }
-hyper-util = { version = "0.1", features = ["server-auto", "tokio", "client", "client-legacy"] }
+hyper-util = { version = "0.1", features = ["tokio", "client", "client-legacy"] }
 http-body-util = "0.1"
-tower = { version = "0.4", features = ["util"] }
 http = "1"
 
 # Serialization
