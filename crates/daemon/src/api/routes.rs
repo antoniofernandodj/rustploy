@@ -1,32 +1,8 @@
-use super::{AppState, Bincode};
-use axum::{
-    response::IntoResponse,
-    routing::{get, post},
-    Router,
-};
+use super::AppState;
 use shared::{Command, Response as RpResponse};
 use tracing::info;
 
-pub fn build(state: AppState) -> Router {
-    Router::new()
-        .route("/rpc", post(rpc_handler))
-        .route("/stream", get(super::stream::handler))
-        .route("/health", get(health))
-        .with_state(state)
-}
-
-async fn health() -> impl IntoResponse {
-    axum::Json(serde_json::json!({ "ok": true, "version": env!("CARGO_PKG_VERSION") }))
-}
-
-async fn rpc_handler(
-    axum::extract::State(state): axum::extract::State<AppState>,
-    Bincode(cmd): Bincode<Command>,
-) -> impl IntoResponse {
-    Bincode(dispatch(state, cmd).await)
-}
-
-async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
+pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
     use super::handlers;
 
     let cmd_name = match &cmd {

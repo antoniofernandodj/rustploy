@@ -19,13 +19,6 @@ futures = "0.3"
 ratatui = "0.28"
 crossterm = { version = "0.28", features = ["event-stream"] }
 
-# HTTP over UDS
-hyper = { version = "1", features = ["client", "http1"] }
-hyper-util = { version = "0.1", features = ["client", "client-legacy", "tokio"] }
-http-body-util = "0.1"
-http = "1"
-bytes = "1"
-tokio-util = { version = "0.7", features = ["codec"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }

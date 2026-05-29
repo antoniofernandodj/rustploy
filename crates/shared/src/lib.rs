@@ -4,4 +4,4 @@ pub mod protocol;
 
 pub use config::RustployConfig;
 pub use models::*;
-pub use protocol::{Command, Event, Response};
+pub use protocol::{ClientFrame, Command, Event, Response};
