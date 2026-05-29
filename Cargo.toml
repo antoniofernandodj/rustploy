@@ -5,3 +5,14 @@ members = [
     "crates/shared",
 ]
 resolver = "2"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+
+# Compile heavy dependencies at opt-level 2 even in debug builds so
+# that SurrealDB / bollard / ratatui don't dominate incremental rebuilds.
+[profile.dev.package."*"]
+opt-level = 2

@@ -8,6 +8,11 @@ mod logs;
 mod metrics;
 mod secrets;
 
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 use api::AppState;
 use anyhow::Result;
 use event_bus::EventBus;
@@ -16,7 +21,8 @@ use hyper_util::server::conn::auto;
 use hyper_util::service::TowerToHyperService;
 use ingress::IngressController;
 use shared::{Event, RustployConfig};
-use std::{path::PathBuf, sync::Arc};
+use socket2::{Domain, Socket, Type};
+use std::{os::unix::net::UnixListener as StdUnixListener, path::PathBuf, sync::Arc};
 use tokio::net::UnixListener;
 use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
@@ -94,7 +100,19 @@ async fn main() -> Result<()> {
     // Bind UDS — try configured path, fall back to ~/.local/share/rustploy/
     let socket_path = resolve_socket_path(&config.daemon.socket_path);
     info!(socket = ?socket_path, "listening");
-    let listener = UnixListener::bind(&socket_path)?;
+
+    // Use socket2 to tune UDS buffers before binding. 256 KiB is large enough
+    // to absorb a burst of streaming events without blocking the sender, while
+    // staying well within L2 cache on typical server hardware.
+    let socket = Socket::new(Domain::UNIX, Type::STREAM, None)?;
+    socket.set_recv_buffer_size(256 * 1024)?;
+    socket.set_send_buffer_size(256 * 1024)?;
+    socket.bind(&socket2::SockAddr::unix(&socket_path)?)?;
+    socket.listen(128)?;
+    let std_listener: StdUnixListener = socket.into();
+    std_listener.set_nonblocking(true)?;
+    let listener = UnixListener::from_std(std_listener)?;
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;

@@ -4,6 +4,11 @@ mod models;
 mod transport;
 mod ui;
 
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 use app::{App, CmdContext, PendingCommand};
 use crossterm::{
     event::{Event as TermEvent, EventStream, KeyEventKind},
