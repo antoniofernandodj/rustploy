@@ -34,5 +34,8 @@ postcard = { version = "1", features = ["alloc"] }
 # Errors
 anyhow = "1"
 
+# Performance
+mimalloc = { version = "0.1", default-features = false }
+
 # IDs / Time
 chrono = { version = "0.4", features = ["serde"] }
