@@ -1,52 +1,40 @@
-use super::{extract_id, Db};
+use super::Db;
 use anyhow::Result;
-use chrono::Utc;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use chrono::{DateTime, Utc};
 use shared::{Service, ServiceSpec, ServiceStatus};
-use surrealdb::sql::Datetime as SdbDatetime;
 use tracing::{debug, info};
 use ulid::Ulid;
 
-#[derive(Debug, Serialize, Deserialize)]
-struct ServiceRecord {
-    id: Option<surrealdb::sql::Thing>,
-    name: String,
-    project_id: String,
-    spec: Value,
-    status: String,
-    live_container_id: Option<String>,
-    created_at: SdbDatetime,
-    updated_at: SdbDatetime,
-}
+type ServiceRow = (
+    String,         // id
+    String,         // name
+    String,         // project_id
+    String,         // spec (JSON)
+    String,         // status
+    Option<String>, // live_container_id
+    DateTime<Utc>,  // created_at
+    DateTime<Utc>,  // updated_at
+);
 
-impl ServiceRecord {
-    fn into_service(self) -> Result<Service> {
-        let spec: ServiceSpec = serde_json::from_value(self.spec)
-            .map_err(|e| anyhow::anyhow!("falha ao deserializar spec do banco: {}", e))?;
-        let status = parse_status(&self.status);
-        Ok(Service {
-            id: self.id.as_ref().map(extract_id).unwrap_or_default(),
-            spec,
-            status,
-            live_container_id: self.live_container_id,
-            created_at: self.created_at.0,
-            updated_at: self.updated_at.0,
-        })
-    }
-}
-
-#[derive(Serialize)]
-struct StatusPatch {
-    status: String,
-    updated_at: SdbDatetime,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    live_container_id: Option<String>,
+fn row_to_service(row: ServiceRow) -> Result<Service> {
+    let (id, _name, _project_id, spec_json, status_str, live_container_id, created_at, updated_at) = row;
+    let spec: ServiceSpec = serde_json::from_str(&spec_json)
+        .map_err(|e| anyhow::anyhow!("falha ao deserializar spec do banco: {}", e))?;
+    let status = parse_status(&status_str);
+    Ok(Service {
+        id,
+        spec,
+        status,
+        live_container_id,
+        created_at,
+        updated_at,
+    })
 }
 
 fn parse_status(s: &str) -> ServiceStatus {
     match s {
         "Stopped" => ServiceStatus::Stopped,
+        "Stopping" => ServiceStatus::Stopping,
         "Deploying" => ServiceStatus::Deploying,
         "Running" => ServiceStatus::Running,
         "Degraded" => ServiceStatus::Degraded,
@@ -57,58 +45,75 @@ fn parse_status(s: &str) -> ServiceStatus {
     }
 }
 
+const SELECT_COLS: &str =
+    "id, name, project_id, spec, status, live_container_id, created_at, updated_at";
+
 pub async fn create(db: &Db, spec: ServiceSpec) -> Result<Service> {
     let id = Ulid::new().to_string();
-    info!(id = %id, name = %spec.name, project_id = %spec.project_id, "db::services::create: inserindo no banco");
-    let now = SdbDatetime::from(Utc::now());
-    let record = ServiceRecord {
-        id: None,
-        name: spec.name.clone(),
-        project_id: spec.project_id.clone(),
-        spec: serde_json::to_value(&spec)?,
-        status: "Stopped".into(),
+    info!(id = %id, name = %spec.name, project_id = %spec.project_id, "db::services::create");
+    let now = Utc::now();
+    let spec_json = serde_json::to_string(&spec)?;
+    sqlx::query(
+        "INSERT INTO service (id, name, project_id, spec, status, live_container_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'Stopped', NULL, ?, ?)",
+    )
+    .bind(&id)
+    .bind(&spec.name)
+    .bind(&spec.project_id)
+    .bind(&spec_json)
+    .bind(now)
+    .bind(now)
+    .execute(db)
+    .await?;
+    let svc = Service {
+        id: id.clone(),
+        spec,
+        status: ServiceStatus::Stopped,
         live_container_id: None,
-        created_at: now.clone(),
+        created_at: now,
         updated_at: now,
     };
-    let created: Option<ServiceRecord> = db.create(("service", &id)).content(record).await?;
-    let svc = created.unwrap().into_service()?;
-    info!(service_id = %svc.id, name = %svc.spec.name, "db::services::create: serviço salvo");
+    info!(service_id = %svc.id, name = %svc.spec.name, "db::services::create: salvo");
     Ok(svc)
 }
 
 pub async fn list(db: &Db, project_id: &str) -> Result<Vec<Service>> {
-    let mut result = db
-        .query("SELECT * FROM service WHERE project_id = $pid")
-        .bind(("pid", project_id.to_string()))
-        .await?;
-    let records: Vec<ServiceRecord> = result.take(0)?;
-    records.into_iter().map(|r| r.into_service()).collect()
+    let rows = sqlx::query_as::<_, ServiceRow>(
+        &format!("SELECT {SELECT_COLS} FROM service WHERE project_id = ? ORDER BY created_at ASC"),
+    )
+    .bind(project_id)
+    .fetch_all(db)
+    .await?;
+    rows.into_iter().map(row_to_service).collect()
 }
 
 pub async fn get(db: &Db, id: &str) -> Result<Option<Service>> {
-    let record: Option<ServiceRecord> = db.select(("service", id)).await?;
-    record.map(|r| r.into_service()).transpose()
+    let row = sqlx::query_as::<_, ServiceRow>(
+        &format!("SELECT {SELECT_COLS} FROM service WHERE id = ?"),
+    )
+    .bind(id)
+    .fetch_optional(db)
+    .await?;
+    row.map(row_to_service).transpose()
 }
 
 pub async fn update_spec(db: &Db, id: &str, spec: ServiceSpec) -> Result<Option<Service>> {
-    // IMPORTANTE: usar UPDATE ... SET em vez de .merge() porque .merge() faz deep-merge
-    // de objetos aninhados, corrompendo a serialização de enums Rust (ex.: ServiceSource).
-    // Com SET, o campo `spec` é substituído integralmente.
-    let spec_value = serde_json::to_value(&spec)?;
-    let name = spec.name.clone();
-    let now = SdbDatetime::from(Utc::now());
-
-    let mut result = db
-        .query("UPDATE type::thing('service', $id) SET spec = $spec, name = $name, updated_at = $updated_at")
-        .bind(("id", id.to_string()))
-        .bind(("spec", spec_value))
-        .bind(("name", name))
-        .bind(("updated_at", now))
-        .await?;
-
-    let updated: Option<ServiceRecord> = result.take(0)?;
-    updated.map(|r| r.into_service()).transpose()
+    let spec_json = serde_json::to_string(&spec)?;
+    let now = Utc::now();
+    let rows_affected = sqlx::query(
+        "UPDATE service SET spec = ?, name = ?, updated_at = ? WHERE id = ?",
+    )
+    .bind(&spec_json)
+    .bind(&spec.name)
+    .bind(now)
+    .bind(id)
+    .execute(db)
+    .await?
+    .rows_affected();
+    if rows_affected == 0 {
+        return Ok(None);
+    }
+    get(db, id).await
 }
 
 pub async fn update_status(
@@ -117,31 +122,35 @@ pub async fn update_status(
     status: &ServiceStatus,
     container_id: Option<&str>,
 ) -> Result<()> {
-    info!(
-        service_id = %id,
-        status = %status,
-        container_id = ?container_id,
-        "db::services::update_status: atualizando status"
-    );
-    let patch = StatusPatch {
-        status: status.to_string(),
-        updated_at: SdbDatetime::from(Utc::now()),
-        live_container_id: container_id.map(|s| s.to_string()),
-    };
-    let _: Option<ServiceRecord> = db.update(("service", id)).merge(patch).await?;
+    info!(service_id = %id, status = %status, container_id = ?container_id, "db::services::update_status");
+    let now = Utc::now();
+    sqlx::query(
+        "UPDATE service SET status = ?, live_container_id = ?, updated_at = ? WHERE id = ?",
+    )
+    .bind(status.to_string())
+    .bind(container_id)
+    .bind(now)
+    .bind(id)
+    .execute(db)
+    .await?;
     debug!(service_id = %id, status = %status, "db::services::update_status: atualizado");
     Ok(())
 }
 
 pub async fn delete(db: &Db, id: &str) -> Result<bool> {
-    let deleted: Option<ServiceRecord> = db.delete(("service", id)).await?;
-    Ok(deleted.is_some())
+    let rows_affected = sqlx::query("DELETE FROM service WHERE id = ?")
+        .bind(id)
+        .execute(db)
+        .await?
+        .rows_affected();
+    Ok(rows_affected > 0)
 }
 
 pub async fn get_running(db: &Db) -> Result<Vec<Service>> {
-    let mut result = db
-        .query("SELECT * FROM service WHERE status = 'Running'")
-        .await?;
-    let records: Vec<ServiceRecord> = result.take(0)?;
-    records.into_iter().map(|r| r.into_service()).collect()
+    let rows = sqlx::query_as::<_, ServiceRow>(
+        &format!("SELECT {SELECT_COLS} FROM service WHERE status = 'Running'"),
+    )
+    .fetch_all(db)
+    .await?;
+    rows.into_iter().map(row_to_service).collect()
 }

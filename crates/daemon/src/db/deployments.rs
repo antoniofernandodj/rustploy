@@ -1,41 +1,33 @@
-use super::{extract_id, Db};
+use super::Db;
 use anyhow::Result;
-use chrono::Utc;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use chrono::{DateTime, Utc};
 use shared::{DeployState, Deployment, StateTransition};
-use surrealdb::sql::Datetime as SdbDatetime;
 use tracing::info;
 use ulid::Ulid;
 
-#[derive(Debug, Serialize, Deserialize)]
-struct DeploymentRecord {
-    id: Option<surrealdb::sql::Thing>,
-    service_id: String,
-    image: String,
-    state: String,
-    states_log: Vec<Value>,
-    started_at: SdbDatetime,
-    finished_at: Option<SdbDatetime>,
-}
+type DeploymentRow = (
+    String,               // id
+    String,               // service_id
+    String,               // image
+    String,               // state
+    String,               // states_log (JSON)
+    DateTime<Utc>,        // started_at
+    Option<DateTime<Utc>>,// finished_at
+);
 
-impl DeploymentRecord {
-    fn into_deployment(self) -> Deployment {
-        let state = parse_state(&self.state);
-        let states_log = self
-            .states_log
-            .into_iter()
-            .filter_map(|v| serde_json::from_value(v).ok())
-            .collect();
-        Deployment {
-            id: self.id.as_ref().map(extract_id).unwrap_or_default(),
-            service_id: self.service_id,
-            image: self.image,
-            state,
-            states_log,
-            started_at: self.started_at.0,
-            finished_at: self.finished_at.map(|dt| dt.0),
-        }
+fn row_to_deployment(row: DeploymentRow) -> Deployment {
+    let (id, service_id, image, state_str, states_log_json, started_at, finished_at) = row;
+    let state = parse_state(&state_str);
+    let states_log: Vec<StateTransition> =
+        serde_json::from_str(&states_log_json).unwrap_or_default();
+    Deployment {
+        id,
+        service_id,
+        image,
+        state,
+        states_log,
+        started_at,
+        finished_at,
     }
 }
 
@@ -60,47 +52,65 @@ fn parse_state(s: &str) -> DeployState {
     }
 }
 
+const SELECT_COLS: &str =
+    "id, service_id, image, state, states_log, started_at, finished_at";
+
 pub async fn create(db: &Db, service_id: &str, image: &str) -> Result<Deployment> {
     let id = Ulid::new().to_string();
-    info!(id = %id, service_id = %service_id, image = %image, "db::deployments::create: criando deployment");
-    let record = DeploymentRecord {
-        id: None,
+    info!(id = %id, service_id = %service_id, image = %image, "db::deployments::create");
+    let now = Utc::now();
+    sqlx::query(
+        "INSERT INTO deployment (id, service_id, image, state, states_log, started_at, finished_at)
+         VALUES (?, ?, ?, 'Pending', '[]', ?, NULL)",
+    )
+    .bind(&id)
+    .bind(service_id)
+    .bind(image)
+    .bind(now)
+    .execute(db)
+    .await?;
+    let dep = Deployment {
+        id: id.clone(),
         service_id: service_id.to_string(),
         image: image.to_string(),
-        state: "Pending".into(),
+        state: DeployState::Pending,
         states_log: vec![],
-        started_at: SdbDatetime::from(Utc::now()),
+        started_at: now,
         finished_at: None,
     };
-    let created: Option<DeploymentRecord> =
-        db.create(("deployment", &id)).content(record).await?;
-    let dep = created.unwrap().into_deployment();
-    info!(deployment_id = %dep.id, service_id = %service_id, "db::deployments::create: deployment salvo");
+    info!(deployment_id = %dep.id, service_id = %service_id, "db::deployments::create: salvo");
     Ok(dep)
 }
 
 pub async fn get(db: &Db, id: &str) -> Result<Option<Deployment>> {
-    let record: Option<DeploymentRecord> = db.select(("deployment", id)).await?;
-    Ok(record.map(|r| r.into_deployment()))
+    let row = sqlx::query_as::<_, DeploymentRow>(
+        &format!("SELECT {SELECT_COLS} FROM deployment WHERE id = ?"),
+    )
+    .bind(id)
+    .fetch_optional(db)
+    .await?;
+    Ok(row.map(row_to_deployment))
 }
 
 pub async fn list_for_service(db: &Db, service_id: &str, limit: usize) -> Result<Vec<Deployment>> {
-    let mut result = db
-        .query("SELECT * FROM deployment WHERE service_id = $sid ORDER BY started_at DESC LIMIT $lim")
-        .bind(("sid", service_id.to_string()))
-        .bind(("lim", limit as i64))
-        .await?;
-    let records: Vec<DeploymentRecord> = result.take(0)?;
-    Ok(records.into_iter().map(|r| r.into_deployment()).collect())
+    let rows = sqlx::query_as::<_, DeploymentRow>(
+        &format!("SELECT {SELECT_COLS} FROM deployment WHERE service_id = ? ORDER BY started_at DESC LIMIT ?"),
+    )
+    .bind(service_id)
+    .bind(limit as i64)
+    .fetch_all(db)
+    .await?;
+    Ok(rows.into_iter().map(row_to_deployment).collect())
 }
 
 pub async fn latest_for_service(db: &Db, service_id: &str) -> Result<Option<Deployment>> {
-    let mut result = db
-        .query("SELECT * FROM deployment WHERE service_id = $sid ORDER BY started_at DESC LIMIT 1")
-        .bind(("sid", service_id.to_string()))
-        .await?;
-    let mut records: Vec<DeploymentRecord> = result.take(0)?;
-    Ok(records.pop().map(|r| r.into_deployment()))
+    let row = sqlx::query_as::<_, DeploymentRow>(
+        &format!("SELECT {SELECT_COLS} FROM deployment WHERE service_id = ? ORDER BY started_at DESC LIMIT 1"),
+    )
+    .bind(service_id)
+    .fetch_optional(db)
+    .await?;
+    Ok(row.map(row_to_deployment))
 }
 
 pub async fn transition(
@@ -115,7 +125,7 @@ pub async fn transition(
         from = from.label(),
         to = to.label(),
         terminal = to.is_terminal(),
-        "db::deployments::transition: gravando transição"
+        "db::deployments::transition"
     );
     let transition = StateTransition {
         from: from.clone(),
@@ -123,53 +133,59 @@ pub async fn transition(
         at: Utc::now(),
         message,
     };
-    let transition_json = serde_json::to_value(&transition)?;
 
-    let finished_at: Option<SdbDatetime> = if to.is_terminal() {
-        Some(SdbDatetime::from(Utc::now()))
+    // Fetch current states_log, append the new transition, write back atomically.
+    let row = sqlx::query_as::<_, (String,)>(
+        "SELECT states_log FROM deployment WHERE id = ?",
+    )
+    .bind(id)
+    .fetch_optional(db)
+    .await?
+    .ok_or_else(|| anyhow::anyhow!("deployment not found: {id}"))?;
+
+    let mut log: Vec<StateTransition> = serde_json::from_str(&row.0).unwrap_or_default();
+    log.push(transition);
+    let log_json = serde_json::to_string(&log)?;
+
+    let finished_at: Option<DateTime<Utc>> = if to.is_terminal() {
+        Some(Utc::now())
     } else {
         None
     };
 
-    // IMPORTANTE: usar type::thing() em vez de WHERE id = $id
-    // porque $id é uma String mas o campo id é um Thing — a comparação falharia.
-    let mut result = db
-        .query(
-            "UPDATE type::thing('deployment', $id) SET
-                state = $state,
-                states_log += $transition,
-                finished_at = $finished_at
-             RETURN AFTER",
-        )
-        .bind(("id", id.to_string()))
-        .bind(("state", to.label()))
-        .bind(("transition", transition_json))
-        .bind(("finished_at", finished_at))
-        .await?;
+    sqlx::query(
+        "UPDATE deployment SET state = ?, states_log = ?, finished_at = ? WHERE id = ?",
+    )
+    .bind(to.label())
+    .bind(&log_json)
+    .bind(finished_at)
+    .bind(id)
+    .execute(db)
+    .await?;
 
-    let records: Vec<DeploymentRecord> = result.take(0)?;
-    records
-        .into_iter()
-        .next()
-        .map(|r| r.into_deployment())
-        .ok_or_else(|| anyhow::anyhow!("deployment not found: {id}"))
+    get(db, id)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("deployment not found after update: {id}"))
 }
 
 pub async fn list_recent(db: &Db, limit: usize) -> Result<Vec<Deployment>> {
-    let mut result = db
-        .query("SELECT * FROM deployment ORDER BY started_at DESC LIMIT $lim")
-        .bind(("lim", limit as i64))
-        .await?;
-    let records: Vec<DeploymentRecord> = result.take(0)?;
-    Ok(records.into_iter().map(|r| r.into_deployment()).collect())
+    let rows = sqlx::query_as::<_, DeploymentRow>(
+        &format!("SELECT {SELECT_COLS} FROM deployment ORDER BY started_at DESC LIMIT ?"),
+    )
+    .bind(limit as i64)
+    .fetch_all(db)
+    .await?;
+    Ok(rows.into_iter().map(row_to_deployment).collect())
 }
 
 pub async fn get_non_terminal(db: &Db) -> Result<Vec<Deployment>> {
-    let terminal: Vec<String> = vec!["Live".into(), "Stopped".into(), "Failed".into(), "Pruning".into()];
-    let mut result = db
-        .query("SELECT * FROM deployment WHERE state NOT IN $terminal")
-        .bind(("terminal", terminal))
-        .await?;
-    let records: Vec<DeploymentRecord> = result.take(0)?;
-    Ok(records.into_iter().map(|r| r.into_deployment()).collect())
+    let rows = sqlx::query_as::<_, DeploymentRow>(
+        &format!(
+            "SELECT {SELECT_COLS} FROM deployment
+             WHERE state NOT IN ('Live', 'Stopped', 'Failed', 'Pruning')"
+        ),
+    )
+    .fetch_all(db)
+    .await?;
+    Ok(rows.into_iter().map(row_to_deployment).collect())
 }

@@ -4,80 +4,90 @@ pub mod projects;
 pub mod services;
 
 use anyhow::Result;
-use surrealdb::{engine::local::SurrealKV, Surreal};
+use sqlx::{
+    sqlite::{SqliteConnectOptions, SqliteJournalMode},
+    SqlitePool,
+};
+use std::str::FromStr;
 
-pub type Db = Surreal<surrealdb::engine::local::Db>;
+pub type Db = SqlitePool;
 
-/// Abre (ou cria) o banco SurrealKV no diretório `db_path`.
-/// Os dados persistem entre reinicializações do daemon.
 pub async fn connect(db_path: &std::path::Path) -> Result<Db> {
     std::fs::create_dir_all(db_path)?;
-
-    let db = Surreal::new::<SurrealKV>(db_path).await?;
-    db.use_ns("rustploy").use_db("main").await?;
-    migrate(&db).await?;
-    Ok(db)
+    let db_file = db_path.join("rustploy.db");
+    let opts = SqliteConnectOptions::from_str(&format!("sqlite:{}", db_file.display()))?
+        .create_if_missing(true)
+        .journal_mode(SqliteJournalMode::Wal)
+        .foreign_keys(true);
+    let pool = SqlitePool::connect_with(opts).await?;
+    migrate(&pool).await?;
+    Ok(pool)
 }
 
-async fn migrate(db: &Db) -> Result<()> {
-    db.query(
+async fn migrate(pool: &SqlitePool) -> Result<()> {
+    sqlx::query(
         "
-        DEFINE TABLE IF NOT EXISTS project SCHEMAFULL;
-        DEFINE FIELD IF NOT EXISTS name ON project TYPE string;
-        DEFINE FIELD IF NOT EXISTS description ON project TYPE option<string>;
-        DEFINE FIELD IF NOT EXISTS env_vars ON project FLEXIBLE TYPE array DEFAULT [];
-        DEFINE FIELD IF NOT EXISTS created_at ON project TYPE datetime;
-        DEFINE INDEX IF NOT EXISTS project_name ON project COLUMNS name UNIQUE;
+        CREATE TABLE IF NOT EXISTS project (
+            id          TEXT PRIMARY KEY,
+            name        TEXT NOT NULL UNIQUE,
+            description TEXT,
+            env_vars    TEXT NOT NULL DEFAULT '[]',
+            created_at  TEXT NOT NULL
+        );
 
-        DEFINE TABLE IF NOT EXISTS service SCHEMAFULL;
-        DEFINE FIELD IF NOT EXISTS name ON service TYPE string;
-        DEFINE FIELD IF NOT EXISTS project_id ON service TYPE string;
-        DEFINE FIELD IF NOT EXISTS spec ON service FLEXIBLE TYPE object;
-        DEFINE FIELD IF NOT EXISTS status ON service TYPE string;
-        DEFINE FIELD IF NOT EXISTS live_container_id ON service TYPE option<string>;
-        DEFINE FIELD IF NOT EXISTS created_at ON service TYPE datetime;
-        DEFINE FIELD IF NOT EXISTS updated_at ON service TYPE datetime;
-        DEFINE INDEX IF NOT EXISTS service_domain ON service COLUMNS spec.domain UNIQUE;
+        CREATE TABLE IF NOT EXISTS service (
+            id                 TEXT PRIMARY KEY,
+            name               TEXT NOT NULL,
+            project_id         TEXT NOT NULL,
+            spec               TEXT NOT NULL,
+            status             TEXT NOT NULL DEFAULT 'Stopped',
+            live_container_id  TEXT,
+            created_at         TEXT NOT NULL,
+            updated_at         TEXT NOT NULL
+        );
 
-        DEFINE TABLE IF NOT EXISTS deployment SCHEMAFULL;
-        DEFINE FIELD IF NOT EXISTS service_id ON deployment TYPE string;
-        DEFINE FIELD IF NOT EXISTS image ON deployment TYPE string;
-        DEFINE FIELD IF NOT EXISTS state ON deployment TYPE string;
-        DEFINE FIELD IF NOT EXISTS states_log ON deployment FLEXIBLE TYPE array;
-        DEFINE FIELD IF NOT EXISTS started_at ON deployment TYPE datetime;
-        DEFINE FIELD IF NOT EXISTS finished_at ON deployment TYPE option<datetime>;
+        CREATE INDEX IF NOT EXISTS idx_service_project ON service(project_id);
 
-        DEFINE TABLE IF NOT EXISTS secret SCHEMAFULL;
-        DEFINE FIELD IF NOT EXISTS project_id ON secret TYPE string;
-        DEFINE FIELD IF NOT EXISTS key ON secret TYPE string;
-        DEFINE FIELD IF NOT EXISTS value ON secret TYPE string;
-        DEFINE INDEX IF NOT EXISTS secret_project_key ON secret COLUMNS project_id, key UNIQUE;
+        CREATE TABLE IF NOT EXISTS deployment (
+            id          TEXT PRIMARY KEY,
+            service_id  TEXT NOT NULL,
+            image       TEXT NOT NULL,
+            state       TEXT NOT NULL DEFAULT 'Pending',
+            states_log  TEXT NOT NULL DEFAULT '[]',
+            started_at  TEXT NOT NULL,
+            finished_at TEXT
+        );
 
-        DEFINE TABLE IF NOT EXISTS build_log SCHEMAFULL;
-        DEFINE FIELD IF NOT EXISTS deployment_id ON build_log TYPE string;
-        DEFINE FIELD IF NOT EXISTS line ON build_log TYPE string;
-        DEFINE FIELD IF NOT EXISTS ts ON build_log TYPE datetime;
-        DEFINE INDEX IF NOT EXISTS idx_build_log_dep ON build_log COLUMNS deployment_id;
+        CREATE INDEX IF NOT EXISTS idx_deployment_service  ON deployment(service_id);
+        CREATE INDEX IF NOT EXISTS idx_deployment_started  ON deployment(started_at);
 
-        DEFINE TABLE IF NOT EXISTS tls_cert SCHEMAFULL;
-        DEFINE FIELD IF NOT EXISTS domain ON tls_cert TYPE string;
-        DEFINE FIELD IF NOT EXISTS cert_pem ON tls_cert TYPE string;
-        DEFINE FIELD IF NOT EXISTS key_pem ON tls_cert TYPE string;
-        DEFINE FIELD IF NOT EXISTS expires_at ON tls_cert TYPE datetime;
-        DEFINE INDEX IF NOT EXISTS tls_cert_domain ON tls_cert COLUMNS domain UNIQUE;
+        CREATE TABLE IF NOT EXISTS secret (
+            id         TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            key        TEXT NOT NULL,
+            value      TEXT NOT NULL,
+            UNIQUE(project_id, key)
+        );
+
+        CREATE TABLE IF NOT EXISTS build_log (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            deployment_id TEXT NOT NULL,
+            line          TEXT NOT NULL,
+            ts            TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_build_log_dep ON build_log(deployment_id);
+
+        CREATE TABLE IF NOT EXISTS tls_cert (
+            id         TEXT PRIMARY KEY,
+            domain     TEXT NOT NULL UNIQUE,
+            cert_pem   TEXT NOT NULL,
+            key_pem    TEXT NOT NULL,
+            expires_at TEXT NOT NULL
+        );
         ",
     )
+    .execute(pool)
     .await?;
     Ok(())
-}
-
-pub fn extract_id(thing: &surrealdb::sql::Thing) -> String {
-    match &thing.id {
-        surrealdb::sql::Id::String(s) => s.clone(),
-        surrealdb::sql::Id::Number(n) => n.to_string(),
-        other => {
-            let s = other.to_string();
-            s.trim_matches(['⟨', '⟩']).to_string()
-        }
-    }
 }

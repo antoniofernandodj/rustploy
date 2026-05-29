@@ -1,68 +1,99 @@
-use super::{extract_id, Db};
+use super::Db;
 use anyhow::Result;
-use chrono::Utc;
-use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Utc};
 use shared::{EnvVar, Project};
-use surrealdb::sql::Datetime as SdbDatetime;
 use ulid::Ulid;
 
-#[derive(Debug, Serialize, Deserialize)]
-struct ProjectRecord {
-    id: Option<surrealdb::sql::Thing>,
+struct ProjectRow {
+    id: String,
     name: String,
     description: Option<String>,
-    #[serde(default)]
-    env_vars: Vec<EnvVar>,
-    created_at: SdbDatetime,
+    env_vars: String,
+    created_at: DateTime<Utc>,
 }
 
-impl ProjectRecord {
-    fn into_project(self) -> Project {
-        Project {
-            id: self.id.as_ref().map(extract_id).unwrap_or_default(),
-            name: self.name,
-            description: self.description,
-            env_vars: self.env_vars,
-            created_at: self.created_at.0,
-        }
-    }
-}
-
-#[derive(Serialize)]
-struct EnvVarsPatch {
-    env_vars: Vec<EnvVar>,
+fn row_to_project(row: ProjectRow) -> Result<Project> {
+    let env_vars: Vec<EnvVar> = serde_json::from_str(&row.env_vars)?;
+    Ok(Project {
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        env_vars,
+        created_at: row.created_at,
+    })
 }
 
 pub async fn create(db: &Db, name: String, description: Option<String>) -> Result<Project> {
     let id = Ulid::new().to_string();
-    let record = ProjectRecord {
-        id: None,
+    let now = Utc::now();
+    let env_vars_json = "[]";
+    sqlx::query(
+        "INSERT INTO project (id, name, description, env_vars, created_at)
+         VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(&id)
+    .bind(&name)
+    .bind(&description)
+    .bind(env_vars_json)
+    .bind(now)
+    .execute(db)
+    .await?;
+    Ok(Project {
+        id,
         name,
         description,
         env_vars: vec![],
-        created_at: SdbDatetime::from(Utc::now()),
-    };
-    let created: Option<ProjectRecord> = db.create(("project", &id)).content(record).await?;
-    Ok(created.unwrap().into_project())
+        created_at: now,
+    })
 }
 
 pub async fn update_env_vars(db: &Db, id: &str, env_vars: Vec<EnvVar>) -> Result<Option<Project>> {
-    let patch = EnvVarsPatch { env_vars };
-    let updated: Option<ProjectRecord> = db.update(("project", id)).merge(patch).await?;
-    Ok(updated.map(|r| r.into_project()))
+    let env_vars_json = serde_json::to_string(&env_vars)?;
+    let rows_affected = sqlx::query(
+        "UPDATE project SET env_vars = ? WHERE id = ?",
+    )
+    .bind(&env_vars_json)
+    .bind(id)
+    .execute(db)
+    .await?
+    .rows_affected();
+    if rows_affected == 0 {
+        return Ok(None);
+    }
+    get(db, id).await
 }
 
 pub async fn list(db: &Db) -> Result<Vec<Project>> {
-    let records: Vec<ProjectRecord> = db.select("project").await?;
-    Ok(records.into_iter().map(|r| r.into_project()).collect())
+    let rows = sqlx::query_as::<_, (String, String, Option<String>, String, DateTime<Utc>)>(
+        "SELECT id, name, description, env_vars, created_at FROM project ORDER BY created_at ASC",
+    )
+    .fetch_all(db)
+    .await?;
+    rows.into_iter()
+        .map(|(id, name, description, env_vars, created_at)| {
+            row_to_project(ProjectRow { id, name, description, env_vars, created_at })
+        })
+        .collect()
 }
 
 pub async fn get(db: &Db, id: &str) -> Result<Option<Project>> {
-    let record: Option<ProjectRecord> = db.select(("project", id)).await?;
-    Ok(record.map(|r| r.into_project()))
+    let row = sqlx::query_as::<_, (String, String, Option<String>, String, DateTime<Utc>)>(
+        "SELECT id, name, description, env_vars, created_at FROM project WHERE id = ?",
+    )
+    .bind(id)
+    .fetch_optional(db)
+    .await?;
+    row.map(|(id, name, description, env_vars, created_at)| {
+        row_to_project(ProjectRow { id, name, description, env_vars, created_at })
+    })
+    .transpose()
 }
 
 pub async fn delete(db: &Db, id: &str) -> Result<bool> {
-    let deleted: Option<ProjectRecord> = db.delete(("project", id)).await?;
-    Ok(deleted.is_some())
+    let rows_affected = sqlx::query("DELETE FROM project WHERE id = ?")
+        .bind(id)
+        .execute(db)
+        .await?
+        .rows_affected();
+    Ok(rows_affected > 0)
 }
