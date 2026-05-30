@@ -31,6 +31,7 @@ pub struct App {
     pub service_tab: ServiceTab,
     pub general_tab: GeneralTabState,
     pub healthcheck_tab: HealthcheckTabState,
+    pub domains_tab: DomainsTabState,
     pub env_tab: EnvTabState,
     pub deployment_cursor: usize,
     pub build_log_scroll: usize, // offset from top; usize::MAX = follow tail
@@ -80,6 +81,7 @@ impl App {
             service_tab: ServiceTab::General,
             general_tab: GeneralTabState::default(),
             healthcheck_tab: HealthcheckTabState::default(),
+            domains_tab: DomainsTabState::default(),
             env_tab: EnvTabState::default(),
             deployment_cursor: 0,
             build_log_scroll: usize::MAX,
@@ -225,6 +227,7 @@ impl App {
         self.service_tab = ServiceTab::General;
         self.general_tab = GeneralTabState::from_service(svc);
         self.healthcheck_tab = HealthcheckTabState::from_service(svc);
+        self.domains_tab = DomainsTabState::from_service(svc);
         self.env_tab = EnvTabState::default();
         self.deployment_cursor = 0;
         self.build_log_scroll = usize::MAX;
@@ -385,6 +388,7 @@ impl App {
                 if self.active_service_id.as_deref() == Some(&s.id) {
                     self.general_tab = GeneralTabState::from_service(&s);
                     self.healthcheck_tab = HealthcheckTabState::from_service(&s);
+                    self.domains_tab = DomainsTabState::from_service(&s);
                 }
                 self.set_notification("Serviço atualizado", false);
             }

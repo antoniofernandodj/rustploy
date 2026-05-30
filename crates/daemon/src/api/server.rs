@@ -43,22 +43,20 @@ async fn write_frame(stream: &mut UnixStream, data: &[u8]) -> Result<()> {
 }
 
 async fn stream_events(mut stream: UnixStream, state: AppState, service_id: Option<String>) {
-    let mut rx = state.bus.subscribe();
+    let mut rx: tokio::sync::broadcast::Receiver<Event> = state.bus.subscribe();
     loop {
         match rx.recv().await {
             Ok(event) => {
                 if let Some(ref sid) = service_id {
-                    if !event_matches(sid, &event) {
-                        continue;
-                    }
+                    if event.matches(sid) { continue; }
                 }
                 match postcard::to_allocvec(&event) {
                     Ok(payload) => {
-                        let len = (payload.len() as u32).to_le_bytes();
-                        if stream.write_all(&len).await.is_err()
-                            || stream.write_all(&payload).await.is_err()
-                        {
-                            break;
+                        let len: [u8; 4] = (payload.len() as u32).to_le_bytes();
+                        if
+                            stream.write_all(&len).await.is_err() ||
+                            stream.write_all(&payload).await.is_err() {
+                                break;
                         }
                     }
                     Err(e) => warn!(error = %e, "failed to serialize event"),
@@ -67,17 +65,5 @@ async fn stream_events(mut stream: UnixStream, state: AppState, service_id: Opti
             Err(RecvError::Lagged(_)) => continue,
             Err(RecvError::Closed) => break,
         }
-    }
-}
-
-fn event_matches(service_id: &str, event: &Event) -> bool {
-    match event {
-        Event::DeployStateChanged { service_id: sid, .. } => sid == service_id,
-        Event::DeployProgress { service_id: sid, .. } => sid == service_id,
-        Event::BuildLog { service_id: sid, .. } => sid == service_id,
-        Event::LogLine { service_id: sid, .. } => sid == service_id,
-        Event::ContainerMetrics(m) => m.service_id == service_id,
-        Event::ServiceStatusChanged { service_id: sid, .. } => sid == service_id,
-        Event::DaemonReady { .. } | Event::Error { .. } => true,
     }
 }

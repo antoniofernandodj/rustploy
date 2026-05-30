@@ -18,6 +18,8 @@ pub struct ServiceSpec {
     pub project_id: String,
     pub source: ServiceSource,
     pub port: u16,
+    #[serde(default)]
+    pub host_port: Option<u16>,
     pub domain: Option<String>,
     pub env_vars: Vec<EnvVar>,
     pub volumes: Vec<VolumeMount>,

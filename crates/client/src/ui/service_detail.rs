@@ -95,24 +95,25 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1), // spacing
-            Constraint::Length(1), // action buttons
-            Constraint::Length(1), // spacing
-            Constraint::Length(1), // Provider header
-            Constraint::Length(1), // Repo URL
-            Constraint::Length(1), // Branch
-            Constraint::Length(1), // Build Path
-            Constraint::Length(1), // Watch Paths
-            Constraint::Length(1), // Submodules
-            Constraint::Length(1), // spacing
-            Constraint::Length(1), // SSH + Save buttons (provider)
-            Constraint::Length(1), // spacing
-            Constraint::Length(1), // Build Type header
-            Constraint::Length(1), // Docker File
-            Constraint::Length(1), // Context Path
-            Constraint::Length(1), // Build Stage
-            Constraint::Length(1), // spacing
-            Constraint::Length(1), // Build Save button
+            Constraint::Length(1), // spacing           [0]
+            Constraint::Length(1), // action buttons    [1]
+            Constraint::Length(1), // spacing           [2]
+            Constraint::Length(1), // Provider header   [3]
+            Constraint::Length(1), // Repo URL          [4]
+            Constraint::Length(1), // Branch            [5]
+            Constraint::Length(1), // Build Path        [6]
+            Constraint::Length(1), // Watch Paths       [7]
+            Constraint::Length(1), // Submodules        [8]
+            Constraint::Length(1), // Port              [9]
+            Constraint::Length(1), // spacing           [10]
+            Constraint::Length(1), // SSH + Save (prov) [11]
+            Constraint::Length(1), // spacing           [12]
+            Constraint::Length(1), // Build Type header [13]
+            Constraint::Length(1), // Docker File       [14]
+            Constraint::Length(1), // Context Path      [15]
+            Constraint::Length(1), // Build Stage       [16]
+            Constraint::Length(1), // spacing           [17]
+            Constraint::Length(1), // Build Save button [18]
             Constraint::Min(0),
         ])
         .split(area);
@@ -164,6 +165,8 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
         chunks[8],
     );
 
+    render_form_row(f, chunks[9], "Port", &gt.port, gt.focused_field == GeneralTabField::Port);
+
     // SSH Keys + Provider Save buttons
     f.render_widget(
         Paragraph::new(Line::from(vec![
@@ -172,7 +175,7 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
             Span::raw("   "),
             btn_span("[ Save ]", gt.focused_field == GeneralTabField::ProviderSave),
         ])),
-        chunks[10],
+        chunks[11],
     );
 
     // Build Type header
@@ -181,12 +184,12 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
             "── Build Type: Dockerfile ─────────────────────────────────",
             Style::default().fg(Color::Yellow),
         ))),
-        chunks[12],
+        chunks[13],
     );
 
-    render_form_row(f, chunks[13], "Docker File", &gt.dockerfile, gt.focused_field == GeneralTabField::DockerFile);
-    render_form_row(f, chunks[14], "Docker Context Path", &gt.context_path, gt.focused_field == GeneralTabField::DockerContextPath);
-    render_form_row(f, chunks[15], "Docker Build Stage", &gt.build_stage, gt.focused_field == GeneralTabField::DockerBuildStage);
+    render_form_row(f, chunks[14], "Docker File", &gt.dockerfile, gt.focused_field == GeneralTabField::DockerFile);
+    render_form_row(f, chunks[15], "Docker Context Path", &gt.context_path, gt.focused_field == GeneralTabField::DockerContextPath);
+    render_form_row(f, chunks[16], "Docker Build Stage", &gt.build_stage, gt.focused_field == GeneralTabField::DockerBuildStage);
 
     // Build Save button
     f.render_widget(
@@ -194,7 +197,7 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
             Span::raw("  "),
             btn_span("[ Save ]", gt.focused_field == GeneralTabField::BuildSave),
         ])),
-        chunks[17],
+        chunks[18],
     );
 }
 
@@ -457,48 +460,77 @@ fn render_env_edit_popup(f: &mut Frame, app: &App, area: Rect) {
 // ─── Domains Tab ──────────────────────────────────────────────────────────────
 
 fn render_domains_tab(f: &mut Frame, app: &App, area: Rect) {
-    let svc = match app.current_active_service() {
-        Some(s) => s,
-        None => return,
-    };
+    use crate::app::DomainsField;
 
-    let domain_display = svc.spec.domain.as_deref().unwrap_or("— não configurado —");
-    let domain_style = if svc.spec.domain.is_some() {
-        Style::default().fg(Color::Cyan)
-    } else {
-        Style::default().fg(Color::DarkGray)
-    };
-    let source_info = match &svc.spec.source {
-        ServiceSource::Git(g) => format!("Git: {} @ {}", g.url, g.branch),
-        ServiceSource::Registry { image } => format!("Registry: {image}"),
-    };
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // spacing            [0]
+            Constraint::Length(1), // header             [1]
+            Constraint::Length(1), // spacing            [2]
+            Constraint::Length(1), // Domain             [3]
+            Constraint::Length(1), // Host Port          [4]
+            Constraint::Length(1), // spacing            [5]
+            Constraint::Length(1), // Save               [6]
+            Constraint::Min(0),
+        ])
+        .split(area);
 
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .title(" Domains ")
-        .border_style(Style::default().fg(Color::DarkGray));
+    let dt = &app.domains_tab;
 
-    let text = Paragraph::new(vec![
-        Line::from(""),
-        Line::from(vec![
-            Span::styled("  Domínio:  ", Style::default().fg(Color::DarkGray)),
-            Span::styled(domain_display, domain_style),
-        ]),
-        Line::from(vec![
-            Span::styled("  TLS:      ", Style::default().fg(Color::DarkGray)),
-            Span::styled("Não configurado", Style::default().fg(Color::Yellow)),
-        ]),
-        Line::from(vec![
-            Span::styled("  Porta:    ", Style::default().fg(Color::DarkGray)),
-            Span::styled(svc.spec.port.to_string(), Style::default().fg(Color::White)),
-        ]),
-        Line::from(vec![
-            Span::styled("  Fonte:    ", Style::default().fg(Color::DarkGray)),
-            Span::styled(source_info, Style::default().fg(Color::White)),
-        ]),
-    ])
-    .block(block);
-    f.render_widget(text, area);
+    f.render_widget(
+        Paragraph::new(Line::from(Span::styled(
+            "── Roteamento ─────────────────────────────────────────────",
+            Style::default().fg(Color::Yellow),
+        ))),
+        chunks[1],
+    );
+
+    let domain_val = format!(
+        "{}{}",
+        dt.domain,
+        if dt.focused == DomainsField::Domain { "▌" } else { "" }
+    );
+    let hp_val = format!(
+        "{}{}",
+        dt.host_port,
+        if dt.focused == DomainsField::HostPort { "▌" } else { "" }
+    );
+
+    let focused_style = Style::default().fg(Color::Cyan);
+    let normal_style = Style::default().fg(Color::White);
+    let label_style = Style::default().fg(Color::DarkGray);
+
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(format!("  {:<22}", "Domínio"), label_style),
+            Span::styled(domain_val, if dt.focused == DomainsField::Domain { focused_style } else { normal_style }),
+        ])),
+        chunks[3],
+    );
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(format!("  {:<22}", "Porta externa"), label_style),
+            Span::styled(
+                if dt.host_port.is_empty() && dt.focused != DomainsField::HostPort {
+                    format!("(padrão: {})", app.current_active_service().map(|s| s.spec.port).unwrap_or(0))
+                } else {
+                    hp_val
+                },
+                if dt.focused == DomainsField::HostPort { focused_style } else {
+                    if dt.host_port.is_empty() { Style::default().fg(Color::DarkGray) } else { normal_style }
+                },
+            ),
+        ])),
+        chunks[4],
+    );
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::raw("  "),
+            btn_span("[ Save ]", dt.focused == DomainsField::Save),
+        ])),
+        chunks[6],
+    );
 }
 
 // ─── Deployments Tab ──────────────────────────────────────────────────────────

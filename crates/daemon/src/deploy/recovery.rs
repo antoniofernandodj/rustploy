@@ -148,21 +148,49 @@ pub async fn recover(
     }
 
     // Restore ingress routes for running services
-    restore_routes(&db, &ingress).await;
+    restore_routes(&db, &docker, &ingress).await;
 }
 
-async fn restore_routes(db: &Db, _ingress: &IngressController) {
-    match crate::db::services::get_running(db).await {
-        Ok(services) => {
-            info!(count = services.len(), "restoring ingress routes");
-            for svc in services {
-                if let Some(_cid) = &svc.live_container_id {
-                    // We'd need to inspect the container to get its current IP.
-                    // For simplicity, log that manual restart may be needed.
-                    info!(service = svc.spec.name, "route restoration pending container inspection");
-                }
-            }
+async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressController) {
+    let services = match crate::db::services::get_running(db).await {
+        Ok(v) => v,
+        Err(e) => {
+            warn!(error = %e, "failed to restore routes");
+            return;
         }
-        Err(e) => warn!(error = %e, "failed to restore routes"),
+    };
+
+    info!(count = services.len(), "restoring ingress routes for running services");
+
+    for svc in services {
+        let live_name = containers::live_name(&svc.spec.name);
+        let container_id = match containers::find_by_name(&docker.inner, &live_name).await {
+            Ok(Some(id)) => id,
+            _ => {
+                warn!(service = svc.spec.name, "live container not found, skipping route restore");
+                continue;
+            }
+        };
+
+        let net = format!("rp_net_{}", &svc.spec.project_id[..8.min(svc.spec.project_id.len())]);
+        let ip = match containers::get_container_ip(&docker.inner, &container_id, &net).await {
+            Ok(ip) => ip,
+            Err(e) => {
+                warn!(service = svc.spec.name, error = %e, "could not get container IP, skipping");
+                continue;
+            }
+        };
+
+        let backend = format!("{ip}:{}", svc.spec.port);
+
+        if let Some(domain) = &svc.spec.domain {
+            ingress.upsert_route(domain, &backend, &svc.id);
+            info!(service = svc.spec.name, domain, backend, "route restored");
+        }
+
+        if let Some(host_port) = svc.spec.host_port {
+            ingress.upsert_port_route(host_port, &backend);
+            info!(service = svc.spec.name, host_port, backend, "port route restored");
+        }
     }
 }

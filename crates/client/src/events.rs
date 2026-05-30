@@ -327,17 +327,12 @@ fn handle_service_detail(app: &mut App, key: KeyEvent) {
                 }
             }
         }
-        KeyCode::Char('1') => app.service_tab = crate::app::ServiceTab::General,
-        KeyCode::Char('2') => app.service_tab = crate::app::ServiceTab::Environment,
-        KeyCode::Char('3') => app.service_tab = crate::app::ServiceTab::Domains,
-        KeyCode::Char('4') => app.service_tab = crate::app::ServiceTab::Deployments,
-        KeyCode::Char('5') => app.service_tab = crate::app::ServiceTab::Healthcheck,
-        KeyCode::Char('6') => app.service_tab = crate::app::ServiceTab::Logs,
         _ => match app.service_tab.clone() {
             crate::app::ServiceTab::General => handle_general_tab(app, key),
             crate::app::ServiceTab::Environment => handle_env_tab(app, key),
             crate::app::ServiceTab::Deployments => handle_deployments_tab(app, key),
             crate::app::ServiceTab::Healthcheck => handle_healthcheck_tab(app, key),
+            crate::app::ServiceTab::Domains => handle_domains_tab(app, key),
             crate::app::ServiceTab::Logs => handle_logs_tab(app, key),
             _ => {}
         },
@@ -444,8 +439,11 @@ fn save_service_general(app: &mut App) {
         app.general_tab.to_git_source(&existing)
     };
 
+    let port = app.general_tab.port.parse::<u16>().unwrap_or(svc.spec.port);
+
     let new_spec = shared::ServiceSpec {
         source: shared::ServiceSource::Git(new_git),
+        port,
         ..svc.spec.clone()
     };
 
@@ -490,6 +488,65 @@ fn handle_healthcheck_tab(app: &mut App, key: KeyEvent) {
         }
         _ => {}
     }
+}
+
+fn handle_domains_tab(app: &mut App, key: KeyEvent) {
+    use crate::app::DomainsField;
+    match key.code {
+        KeyCode::Up => {
+            app.domains_tab.focused = app.domains_tab.focused.clone().prev();
+        }
+        KeyCode::Down | KeyCode::Enter => {
+            if app.domains_tab.focused == DomainsField::Save {
+                save_domains(app);
+            } else {
+                app.domains_tab.focused = app.domains_tab.focused.clone().next();
+            }
+        }
+        KeyCode::Char(' ') => {
+            if app.domains_tab.focused == DomainsField::Save {
+                save_domains(app);
+            }
+        }
+        KeyCode::Char(c) => {
+            if app.domains_tab.focused.clone().is_text() {
+                if let Some(field) = app.domains_tab.focused_text_mut() {
+                    field.push(c);
+                }
+            }
+        }
+        KeyCode::Backspace => {
+            if app.domains_tab.focused.clone().is_text() {
+                if let Some(field) = app.domains_tab.focused_text_mut() {
+                    field.pop();
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn save_domains(app: &mut App) {
+    let sid = match app.active_service_id.clone() {
+        Some(s) => s,
+        None => return,
+    };
+    let svc = match app.services.iter().find(|s| s.id == sid) {
+        Some(s) => s.clone(),
+        None => return,
+    };
+    let domain = if app.domains_tab.domain.trim().is_empty() {
+        None
+    } else {
+        Some(app.domains_tab.domain.trim().to_string())
+    };
+    let host_port = app.domains_tab.host_port.trim().parse::<u16>().ok();
+    let new_spec = shared::ServiceSpec { domain, host_port, ..svc.spec.clone() };
+    app.pending_commands.push(PendingCommand {
+        command: Command::ServiceUpdate { id: sid, spec: new_spec },
+        context: CmdContext::UpdateService,
+    });
+    app.set_notification("Domínio atualizado.", false);
 }
 
 fn save_healthcheck(app: &mut App) {

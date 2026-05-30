@@ -123,7 +123,7 @@ fn render_statusbar(f: &mut Frame, area: Rect, app: &App) {
             }
         }
         (Focus::Content, View::ServiceDetail) => {
-            " [←→] abas  [1-6] aba direta  [↑↓] nav campo  [Esc] voltar  [Tab] sidebar"
+            " [←→] abas  [↑↓] nav campo  [Esc] voltar  [Tab] sidebar"
         }
         _ => " [Tab] sidebar  [Esc] voltar",
     };

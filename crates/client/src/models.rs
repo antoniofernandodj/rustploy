@@ -199,6 +199,7 @@ pub enum GeneralTabField {
     BuildPath,
     WatchPaths,
     Submodules,
+    Port,
     AddSshKeys,
     ProviderSave,
     DockerFile,
@@ -208,7 +209,7 @@ pub enum GeneralTabField {
 }
 
 impl GeneralTabField {
-    const COUNT: usize = 15;
+    const COUNT: usize = 16;
 
     pub fn next(self) -> Self {
         Self::from_idx((self as usize + 1) % Self::COUNT)
@@ -230,11 +231,12 @@ impl GeneralTabField {
             6 => Self::BuildPath,
             7 => Self::WatchPaths,
             8 => Self::Submodules,
-            9 => Self::AddSshKeys,
-            10 => Self::ProviderSave,
-            11 => Self::DockerFile,
-            12 => Self::DockerContextPath,
-            13 => Self::DockerBuildStage,
+            9 => Self::Port,
+            10 => Self::AddSshKeys,
+            11 => Self::ProviderSave,
+            12 => Self::DockerFile,
+            13 => Self::DockerContextPath,
+            14 => Self::DockerBuildStage,
             _ => Self::BuildSave,
         }
     }
@@ -246,6 +248,7 @@ impl GeneralTabField {
                 | Self::Branch
                 | Self::BuildPath
                 | Self::WatchPaths
+                | Self::Port
                 | Self::DockerFile
                 | Self::DockerContextPath
                 | Self::DockerBuildStage
@@ -274,6 +277,7 @@ pub struct GeneralTabState {
     pub build_path: String,
     pub watch_paths: String,
     pub submodules: bool,
+    pub port: String,
     pub dockerfile: String,
     pub context_path: String,
     pub build_stage: String,
@@ -289,6 +293,7 @@ impl GeneralTabState {
                 build_path: g.root_path.clone(),
                 watch_paths: g.watch_paths.join(", "),
                 submodules: g.submodules,
+                port: svc.spec.port.to_string(),
                 dockerfile: g.dockerfile_path.clone(),
                 context_path: g.build_context.clone(),
                 build_stage: g.build_stage.clone().unwrap_or_default(),
@@ -300,6 +305,7 @@ impl GeneralTabState {
                 build_path: ".".into(),
                 watch_paths: String::new(),
                 submodules: false,
+                port: svc.spec.port.to_string(),
                 dockerfile: "Dockerfile".into(),
                 context_path: ".".into(),
                 build_stage: String::new(),
@@ -313,6 +319,7 @@ impl GeneralTabState {
             GeneralTabField::Branch => Some(&mut self.branch),
             GeneralTabField::BuildPath => Some(&mut self.build_path),
             GeneralTabField::WatchPaths => Some(&mut self.watch_paths),
+            GeneralTabField::Port => Some(&mut self.port),
             GeneralTabField::DockerFile => Some(&mut self.dockerfile),
             GeneralTabField::DockerContextPath => Some(&mut self.context_path),
             GeneralTabField::DockerBuildStage => Some(&mut self.build_stage),
@@ -394,6 +401,61 @@ impl HcField {
                 | Self::Retries
                 | Self::StartPeriod
         )
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub enum DomainsField {
+    #[default]
+    Domain,
+    HostPort,
+    Save,
+}
+
+impl DomainsField {
+    pub fn next(self) -> Self {
+        match self {
+            Self::Domain => Self::HostPort,
+            Self::HostPort => Self::Save,
+            Self::Save => Self::Domain,
+        }
+    }
+    pub fn prev(self) -> Self {
+        match self {
+            Self::Domain => Self::Save,
+            Self::HostPort => Self::Domain,
+            Self::Save => Self::HostPort,
+        }
+    }
+    pub fn is_text(self) -> bool {
+        matches!(self, Self::Domain | Self::HostPort)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct DomainsTabState {
+    pub focused: DomainsField,
+    pub domain: String,
+    pub host_port: String,
+}
+
+impl DomainsTabState {
+    pub fn from_service(svc: &Service) -> Self {
+        Self {
+            focused: DomainsField::Domain,
+            domain: svc.spec.domain.clone().unwrap_or_default(),
+            host_port: svc.spec.host_port
+                .map(|p| p.to_string())
+                .unwrap_or_default(),
+        }
+    }
+
+    pub fn focused_text_mut(&mut self) -> Option<&mut String> {
+        match self.focused {
+            DomainsField::Domain => Some(&mut self.domain),
+            DomainsField::HostPort => Some(&mut self.host_port),
+            _ => None,
+        }
     }
 }
 
@@ -765,6 +827,7 @@ impl NewServiceState {
                 project_id: self.project_id.clone(),
                 source: ServiceSource::Registry { image: String::new() },
                 port: 80,
+                host_port: None,
                 domain: None,
                 env_vars: vec![],
                 volumes: vec![],
@@ -777,6 +840,7 @@ impl NewServiceState {
                 project_id: self.project_id.clone(),
                 source: ServiceSource::Registry { image: self.docker_image.clone() },
                 port: self.db_kind.map(|d| d.default_port()).unwrap_or(5432),
+                host_port: None,
                 domain: None,
                 env_vars: self.db_env_vars(),
                 volumes: vec![],

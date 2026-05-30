@@ -346,23 +346,29 @@ impl DeployExecutor {
                 let net = self.network_name(&svc.spec.project_id);
                 let ip =
                     containers::get_container_ip(&self.docker.inner, &staging_id, &net).await?;
+                let backend = format!("{ip}:{}", svc.spec.port);
                 if let Some(domain) = &svc.spec.domain {
                     info!(
                         deployment_id = %dep.id,
-                        container_id = %staging_id,
-                        ip = %ip,
                         domain = %domain,
-                        upstream = format!("{ip}:{}", svc.spec.port),
-                        "step[SwappingIn]: atualizando rota no ingress"
+                        upstream = %backend,
+                        "step[SwappingIn]: atualizando rota de domínio no ingress"
                     );
-                    self.ingress
-                        .upsert_route(domain, &format!("{ip}:{}", svc.spec.port), &svc.id);
-                } else {
+                    self.ingress.upsert_route(domain, &backend, &svc.id);
+                }
+                if let Some(host_port) = svc.spec.host_port {
                     info!(
                         deployment_id = %dep.id,
-                        container_id = %staging_id,
-                        ip = %ip,
-                        "step[SwappingIn]: sem domínio configurado, ingress não atualizado"
+                        host_port,
+                        upstream = %backend,
+                        "step[SwappingIn]: atualizando rota de porta no ingress"
+                    );
+                    self.ingress.upsert_port_route(host_port, &backend);
+                }
+                if svc.spec.domain.is_none() && svc.spec.host_port.is_none() {
+                    info!(
+                        deployment_id = %dep.id,
+                        "step[SwappingIn]: sem domínio nem porta externa, ingress não atualizado"
                     );
                 }
 
@@ -504,23 +510,31 @@ impl DeployExecutor {
                         if let Ok(ip) =
                             containers::get_container_ip(&self.docker.inner, &old, &net).await
                         {
+                            let backend = format!("{ip}:{}", svc.spec.port);
                             if let Some(domain) = &svc.spec.domain {
                                 info!(
                                     deployment_id = %dep.id,
                                     old_live = %old,
                                     ip = %ip,
-                                    "step[RollingBack]: restaurando rota ingress para live anterior"
+                                    "step[RollingBack]: restaurando rota de domínio para live anterior"
                                 );
-                                self.ingress.upsert_route(
-                                    domain,
-                                    &format!("{ip}:{}", svc.spec.port),
-                                    &svc.id,
+                                self.ingress.upsert_route(domain, &backend, &svc.id);
+                            }
+                            if let Some(host_port) = svc.spec.host_port {
+                                info!(
+                                    deployment_id = %dep.id,
+                                    host_port,
+                                    "step[RollingBack]: restaurando rota de porta para live anterior"
                                 );
+                                self.ingress.upsert_port_route(host_port, &backend);
                             }
                         }
                     }
                     _ => {
                         info!(deployment_id = %dep.id, "step[RollingBack]: nenhum live anterior para restaurar");
+                        if let Some(host_port) = svc.spec.host_port {
+                            self.ingress.remove_port_route(host_port);
+                        }
                     }
                 }
 

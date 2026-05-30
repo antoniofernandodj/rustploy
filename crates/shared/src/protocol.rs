@@ -97,6 +97,22 @@ pub enum Event {
     },
 }
 
+impl Event {
+
+    pub fn matches(&self, service_id: &str) -> bool {
+        match self {
+            Event::DeployStateChanged { service_id: sid, .. } => sid == service_id,
+            Event::DeployProgress { service_id: sid, .. } => sid == service_id,
+            Event::BuildLog { service_id: sid, .. } => sid == service_id,
+            Event::LogLine { service_id: sid, .. } => sid == service_id,
+            Event::ContainerMetrics(m) => m.service_id == service_id,
+            Event::ServiceStatusChanged { service_id: sid, .. } => sid == service_id,
+            Event::DaemonReady { .. } | Event::Error { .. } => true,
+        }
+    }
+
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum LogStream {
     Stdout,

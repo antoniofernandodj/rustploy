@@ -51,6 +51,7 @@ async fn main() -> Result<()> {
     let bus = Arc::new(EventBus::new());
     let ingress = Arc::new(IngressController::new());
 
+
     let master_key = resolve_master_key_path(&config.secrets.master_key_path);
     let secrets = Arc::new(secrets::SecretsManager::new(&master_key)?);
 

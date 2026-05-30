@@ -63,7 +63,7 @@ impl Default for RustployConfig {
                 log_level: "info".into(),
             },
             ingress: IngressConfig {
-                http_port: 80,
+                http_port: 8080,
                 https_port: 443,
                 bind_address: "0.0.0.0".into(),
                 acme: AcmeConfig {
@@ -118,6 +118,11 @@ impl RustployConfig {
         }
         if let Ok(v) = std::env::var("RUSTPLOY_LOG_LEVEL") {
             cfg.daemon.log_level = v;
+        }
+        if let Ok(v) = std::env::var("RUSTPLOY_HTTP_PORT") {
+            if let Ok(p) = v.parse() {
+                cfg.ingress.http_port = p;
+            }
         }
         cfg
     }
