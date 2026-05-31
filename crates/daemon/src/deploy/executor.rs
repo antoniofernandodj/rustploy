@@ -620,12 +620,12 @@ impl DeployExecutor {
                 HealthcheckKind::Http { path, expected_status } => {
                     let url = format!("http://{ip}:{}{path}", svc.spec.port);
                     debug!(deployment_id = %dep.id, url = %url, expected = expected_status, "healthcheck: HTTP check");
-                    check_http(&url, *expected_status, timeout).await
+                    crate::health::check_http(&url, *expected_status, timeout).await
                 }
                 HealthcheckKind::Tcp => {
                     let addr = format!("{ip}:{}", svc.spec.port);
                     debug!(deployment_id = %dep.id, addr = %addr, "healthcheck: TCP check");
-                    check_tcp(&addr, timeout).await
+                    crate::health::check_tcp(&addr, timeout).await
                 }
                 HealthcheckKind::DockerNative => {
                     let status = inspect
@@ -801,71 +801,3 @@ impl DeployExecutor {
 }
 
 
-async fn check_http(url: &str, expected: u16, timeout: Duration) -> bool {
-    use http_body_util::Empty;
-    use hyper::Request;
-    use hyper_util::rt::TokioIo;
-    use tokio::net::TcpStream;
-
-    // Parse host:port and path from the URL (plain http:// only — healthchecks are internal).
-    let without_scheme = url.strip_prefix("http://").unwrap_or(url);
-    let (authority, path) = without_scheme
-        .split_once('/')
-        .map(|(h, p)| (h, format!("/{p}")))
-        .unwrap_or((without_scheme, "/".into()));
-
-    let connect = TcpStream::connect(authority);
-    let stream = match tokio::time::timeout(timeout, connect).await {
-        Ok(Ok(s)) => s,
-        Ok(Err(e)) => {
-            debug!(url = %url, error = %e, "check_http: conexão falhou");
-            return false;
-        }
-        Err(_) => {
-            debug!(url = %url, "check_http: timeout na conexão");
-            return false;
-        }
-    };
-
-    let io = TokioIo::new(stream);
-    let Ok((mut sender, conn)) = hyper::client::conn::http1::handshake(io).await else {
-        return false;
-    };
-    tokio::spawn(async move { let _ = conn.await; });
-
-    let req = match Request::builder()
-        .method("GET")
-        .uri(format!("http://{authority}{path}"))
-        .header("host", authority)
-        .body(Empty::<bytes::Bytes>::new())
-    {
-        Ok(r) => r,
-        Err(_) => return false,
-    };
-
-    match tokio::time::timeout(timeout, sender.send_request(req)).await {
-        Ok(Ok(resp)) => resp.status().as_u16() == expected,
-        Ok(Err(e)) => {
-            debug!(url = %url, error = %e, "check_http: falhou");
-            false
-        }
-        Err(_) => {
-            debug!(url = %url, "check_http: timeout na resposta");
-            false
-        }
-    }
-}
-
-async fn check_tcp(addr: &str, timeout: Duration) -> bool {
-    match tokio::time::timeout(timeout, tokio::net::TcpStream::connect(addr)).await {
-        Ok(Ok(_)) => true,
-        Ok(Err(e)) => {
-            debug!(addr = %addr, error = %e, "check_tcp: conexão recusada");
-            false
-        }
-        Err(_) => {
-            debug!(addr = %addr, "check_tcp: timeout");
-            false
-        }
-    }
-}

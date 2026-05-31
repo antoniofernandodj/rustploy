@@ -3,10 +3,12 @@ mod db;
 mod deploy;
 mod docker;
 mod event_bus;
+mod health;
 mod ingress;
 mod logs;
 mod metrics;
 mod secrets;
+mod watchdog;
 
 use mimalloc::MiMalloc;
 
@@ -93,6 +95,14 @@ async fn main() -> Result<()> {
     });
 
     let state = AppState::new(db, docker, ingress, bus, secrets, db_path, config.deploy.drain_secs);
+
+    // Watchdog: detecta containers parados/removidos, tenta restart e redeploy
+    {
+        let state2 = state.clone();
+        tokio::spawn(async move {
+            watchdog::watchdog_loop(state2).await;
+        });
+    }
 
     // Bind UDS — try configured path, fall back to ~/.local/share/rustploy/
     let socket_path = resolve_socket_path(&config.daemon.socket_path);

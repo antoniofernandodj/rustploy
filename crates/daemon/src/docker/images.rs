@@ -120,7 +120,10 @@ pub async fn build(
                     return Err(anyhow!("docker build error: {err}"));
                 }
             }
-            Err(e) => return Err(anyhow!("docker build stream error: {e}")),
+            Err(bollard::errors::Error::DockerStreamError { error }) => {
+                return Err(anyhow!("docker build failed: {error}"));
+            }
+            Err(e) => return Err(anyhow!("docker build stream error: {e:?}")),
         }
     }
 

@@ -436,14 +436,19 @@ impl App {
             }
             (Response::Logs(entries), CmdContext::LoadLogs) => {
                 if let Some(sid) = &self.active_service_id.clone() {
-                    let buf = self.logs.entry(sid.clone()).or_default();
-                    buf.clear();
-                    for e in entries {
-                        buf.push_back(LogLine {
-                            timestamp: e.timestamp,
-                            text: e.line,
-                            is_stderr: e.stream == shared::protocol::LogStream::Stderr,
-                        });
+                    // Só substitui o buffer se Docker retornou linhas.
+                    // Se vier vazio (ex: stdout buffered), mantém os logs
+                    // acumulados via Event::LogLine para não perder histórico.
+                    if !entries.is_empty() {
+                        let buf = self.logs.entry(sid.clone()).or_default();
+                        buf.clear();
+                        for e in entries {
+                            buf.push_back(LogLine {
+                                timestamp: e.timestamp,
+                                text: e.line,
+                                is_stderr: e.stream == shared::protocol::LogStream::Stderr,
+                            });
+                        }
                     }
                 }
             }

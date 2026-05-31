@@ -154,3 +154,12 @@ pub async fn get_running(db: &Db) -> Result<Vec<Service>> {
     .await?;
     rows.into_iter().map(row_to_service).collect()
 }
+
+pub async fn get_watchable(db: &Db) -> Result<Vec<Service>> {
+    let rows = sqlx::query_as::<_, ServiceRow>(
+        &format!("SELECT {SELECT_COLS} FROM service WHERE status IN ('Running', 'Degraded')"),
+    )
+    .fetch_all(db)
+    .await?;
+    rows.into_iter().map(row_to_service).collect()
+}
