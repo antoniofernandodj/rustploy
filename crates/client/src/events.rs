@@ -1200,11 +1200,51 @@ fn save_server_settings(app: &mut App) {
 }
 
 fn copy_to_clipboard(app: &mut App, text: &str) {
-    match arboard::Clipboard::new() {
-        Ok(mut cb) => match cb.set_text(text) {
-            Ok(_) => app.set_notification("URL copiada para a área de transferência", false),
-            Err(e) => app.set_notification(format!("Erro ao copiar: {e}"), true),
-        },
-        Err(e) => app.set_notification(format!("Clipboard indisponível: {e}"), true),
+    // wl-copy (Wayland) — fica em background como dono do clipboard
+    if std::process::Command::new("wl-copy")
+        .arg("--")
+        .arg(text)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .is_ok()
+    {
+        app.set_notification("URL copiada para a área de transferência", false);
+        return;
     }
+
+    // xclip (X11)
+    if let Ok(mut child) = std::process::Command::new("xclip")
+        .args(["-selection", "clipboard"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+    {
+        use std::io::Write;
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(text.as_bytes());
+        }
+        app.set_notification("URL copiada para a área de transferência", false);
+        return;
+    }
+
+    // xsel (X11 alternativo)
+    if let Ok(mut child) = std::process::Command::new("xsel")
+        .args(["--clipboard", "--input"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+    {
+        use std::io::Write;
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(text.as_bytes());
+        }
+        app.set_notification("URL copiada para a área de transferência", false);
+        return;
+    }
+
+    app.set_notification("Instale wl-copy (Wayland) ou xclip/xsel (X11) para copiar", true);
 }

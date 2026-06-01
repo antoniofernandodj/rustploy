@@ -33,6 +33,3 @@ mimalloc = { version = "0.1", default-features = false }
 
 # IDs / Time
 chrono = { version = "0.4", features = ["serde"] }
-
-# Clipboard
-arboard = "3"
