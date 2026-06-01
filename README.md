@@ -42,6 +42,14 @@ Um único binário (`rustployd`) substitui o PaaS inteiro. O cliente TUI (`rustp
 
 - Linux com Docker Engine (`dockerd`) acessível em `/var/run/docker.sock`
 - Rust toolchain (edição 2024 — `rustup update stable`)
+- Para copiar URLs de webhook no TUI: `wl-clipboard` (Wayland) ou `xclip`/`xsel` (X11)
+  ```bash
+  # Wayland (Ubuntu/Debian)
+  sudo apt install wl-clipboard
+
+  # X11 (Ubuntu/Debian)
+  sudo apt install xclip
+  ```
 
 Permissões de sistema não são obrigatórias para desenvolvimento. O daemon detecta se consegue escrever nos paths configurados e faz fallback automático para `~/.local/share/rustploy/` quando necessário. O cliente segue a mesma lógica ao localizar o socket.
 

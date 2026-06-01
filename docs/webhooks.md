@@ -225,6 +225,18 @@ O Docker Hub envia um POST quando uma nova imagem é publicada em um repositóri
 
 Útil para serviços do tipo **Registry**: quando você publica uma nova versão da imagem, o Rustploy faz pull automaticamente e reinicia o container.
 
+## Dependência para copiar a URL no TUI
+
+O atalho `[c]` na aba Deployments usa ferramentas externas para acessar o clipboard do sistema. Instale uma delas conforme seu ambiente:
+
+| Ambiente | Pacote | Comando |
+|----------|--------|---------|
+| Wayland (recomendado) | `wl-clipboard` | `sudo apt install wl-clipboard` |
+| X11 | `xclip` | `sudo apt install xclip` |
+| X11 (alternativo) | `xsel` | `sudo apt install xsel` |
+
+Se nenhuma ferramenta estiver presente, o TUI exibirá uma notificação informando o que instalar. A URL ainda pode ser copiada manualmente da tela.
+
 ## Segurança
 
 - O token tem 48 caracteres hexadecimais (192 bits de entropia), gerado via `/dev/urandom`
