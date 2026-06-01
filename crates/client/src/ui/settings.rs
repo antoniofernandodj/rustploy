@@ -1,15 +1,106 @@
-use crate::app::{App, View};
+use crate::app::{App, ServerSettingsField, View};
 use ratatui::{
-    layout::Rect,
-    style::{Color, Style},
+    layout::{Constraint, Direction, Layout, Rect},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
     Frame,
 };
 
 pub fn render(f: &mut Frame, app: &App, area: Rect) {
+    match &app.view {
+        View::SettingsWebServer => render_web_server(f, app, area),
+        _ => render_placeholder(f, app, area),
+    }
+}
+
+fn render_web_server(f: &mut Frame, app: &App, area: Rect) {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Web Server ")
+        .border_style(Style::default().fg(Color::DarkGray));
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // [0] espaço
+            Constraint::Length(1), // [1] header
+            Constraint::Length(1), // [2] espaço
+            Constraint::Length(1), // [3] campo domínio
+            Constraint::Length(1), // [4] dica
+            Constraint::Length(1), // [5] espaço
+            Constraint::Length(1), // [6] botão Save
+            Constraint::Length(1), // [7] espaço
+            Constraint::Length(1), // [8] header webhook
+            Constraint::Length(1), // [9] explicação webhook
+            Constraint::Min(0),
+        ])
+        .split(block.inner(area));
+    f.render_widget(block, area);
+
+    let ss = &app.server_settings;
+
+    f.render_widget(
+        Paragraph::new(Line::from(Span::styled(
+            "── Domínio do Servidor ─────────────────────────────────────",
+            Style::default().fg(Color::Yellow),
+        ))),
+        chunks[1],
+    );
+
+    let domain_val = format!(
+        "{}{}",
+        ss.server_domain,
+        if ss.focused == ServerSettingsField::ServerDomain { "▌" } else { "" }
+    );
+
+    let focused_style = Style::default().fg(Color::Cyan);
+    let normal_style = Style::default().fg(Color::White);
+    let label_style = Style::default().fg(Color::DarkGray);
+
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(format!("  {:<22}", "Domínio / URL base"), label_style),
+            Span::styled(
+                domain_val,
+                if ss.focused == ServerSettingsField::ServerDomain { focused_style } else { normal_style },
+            ),
+        ])),
+        chunks[3],
+    );
+    f.render_widget(
+        Paragraph::new(Line::from(Span::styled(
+            "  Ex: https://rustploy.meusite.com  ou  http://192.168.1.42:9001",
+            Style::default().fg(Color::DarkGray),
+        ))),
+        chunks[4],
+    );
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::raw("  "),
+            btn_span("[ Save ]", ss.focused == ServerSettingsField::Save),
+        ])),
+        chunks[6],
+    );
+
+    f.render_widget(
+        Paragraph::new(Line::from(Span::styled(
+            "── Webhooks ────────────────────────────────────────────────",
+            Style::default().fg(Color::Yellow),
+        ))),
+        chunks[8],
+    );
+    f.render_widget(
+        Paragraph::new(Line::from(Span::styled(
+            "  A URL de webhook de cada serviço é montada com este domínio como base.",
+            Style::default().fg(Color::DarkGray),
+        ))),
+        chunks[9],
+    );
+}
+
+fn render_placeholder(f: &mut Frame, app: &App, area: Rect) {
     let (title, desc) = match &app.view {
-        View::SettingsWebServer => ("Web Server", "Configurar o proxy reverso hyper: portas HTTP/HTTPS, bind address, cabeçalhos globais."),
         View::SettingsProfile => ("Profile", "Informações da instalação, versão, uso de recursos do daemon."),
         View::SettingsUsers => ("Users", "Controle de acesso ao Unix Domain Socket (v2)."),
         View::SettingsAuditLogs => ("Audit Logs", "Histórico de ações administrativas no daemon."),
@@ -63,4 +154,12 @@ pub fn render_account(f: &mut Frame, _app: &App, area: Rect) {
     .block(block);
 
     f.render_widget(text, area);
+}
+
+fn btn_span(label: &'static str, focused: bool) -> Span<'static> {
+    if focused {
+        Span::styled(label, Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD))
+    } else {
+        Span::styled(label, Style::default().fg(Color::DarkGray))
+    }
 }

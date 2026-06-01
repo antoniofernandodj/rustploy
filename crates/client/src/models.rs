@@ -954,6 +954,10 @@ pub enum CmdContext {
     Deploy,
     ServiceStop,
     ServiceReload,
+    LoadWebhookUrl,
+    RegenerateWebhook,
+    LoadServerSettings,
+    SaveServerSettings,
 }
 
 // ── Compose tab ───────────────────────────────────────────────────────────────
@@ -995,6 +999,37 @@ impl Default for ComposeTabState {
     fn default() -> Self {
         Self::new("")
     }
+}
+
+// ── Settings — Web Server ─────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum ServerSettingsField {
+    #[default]
+    ServerDomain,
+    Save,
+}
+
+impl ServerSettingsField {
+    pub fn next(self) -> Self {
+        match self {
+            Self::ServerDomain => Self::Save,
+            Self::Save => Self::ServerDomain,
+        }
+    }
+    pub fn prev(self) -> Self {
+        match self {
+            Self::ServerDomain => Self::Save,
+            Self::Save => Self::ServerDomain,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ServerSettingsState {
+    pub server_domain: String,
+    pub focused: ServerSettingsField,
+    pub loaded: bool,
 }
 
 // ── Runtime state ─────────────────────────────────────────────────────────────

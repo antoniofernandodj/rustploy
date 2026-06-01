@@ -94,13 +94,22 @@ async fn main() -> Result<()> {
         version: env!("CARGO_PKG_VERSION").to_string(),
     });
 
-    let state = AppState::new(db, docker, ingress, bus, secrets, db_path, config.deploy.drain_secs);
+    let state = AppState::new(db, docker, ingress, bus, secrets, db_path, config.deploy.drain_secs, config.daemon.webhook_port);
 
     // Watchdog: detecta containers parados/removidos, tenta restart e redeploy
     {
         let state2 = state.clone();
         tokio::spawn(async move {
             watchdog::watchdog_loop(state2).await;
+        });
+    }
+
+    // Servidor HTTP para receber webhooks de CI/CD
+    {
+        let state2 = state.clone();
+        let webhook_port = config.daemon.webhook_port;
+        tokio::spawn(async move {
+            api::webhook_server::run(state2, webhook_port).await;
         });
     }
 

@@ -26,6 +26,10 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::LogsGet { .. } => "LogsGet",
         Command::RecentDeployments { .. } => "RecentDeployments",
         Command::GetBuildLogs { .. } => "GetBuildLogs",
+        Command::GetWebhookUrl { .. } => "GetWebhookUrl",
+        Command::RegenerateWebhookToken { .. } => "RegenerateWebhookToken",
+        Command::GetDaemonSettings => "GetDaemonSettings",
+        Command::SetDaemonSettings { .. } => "SetDaemonSettings",
         _ => "Unknown",
     };
     info!(command = cmd_name, "→ RPC recebido");
@@ -51,6 +55,10 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::LogsGet { service_id, tail } => handlers::logs_get::handle(state, service_id, tail).await,
         Command::RecentDeployments { limit } => handlers::recent_deployments::handle(state, limit).await,
         Command::GetBuildLogs { deployment_id } => handlers::get_build_logs::handle(state, deployment_id).await,
+        Command::GetWebhookUrl { service_id } => handlers::get_webhook_url::handle(state, service_id).await,
+        Command::RegenerateWebhookToken { service_id } => handlers::regenerate_webhook_token::handle(state, service_id).await,
+        Command::GetDaemonSettings => handlers::get_daemon_settings::handle(state).await,
+        Command::SetDaemonSettings { webhook_base_url } => handlers::set_daemon_settings::handle(state, webhook_base_url).await,
         _ => RpResponse::err("NotImplemented", "command not yet implemented"),
     };
 

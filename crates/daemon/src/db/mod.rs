@@ -1,7 +1,9 @@
 pub mod build_logs;
+pub mod daemon_settings;
 pub mod deployments;
 pub mod projects;
 pub mod services;
+pub mod webhook_tokens;
 
 use anyhow::Result;
 use sqlx::{
@@ -84,6 +86,17 @@ async fn migrate(pool: &SqlitePool) -> Result<()> {
             cert_pem   TEXT NOT NULL,
             key_pem    TEXT NOT NULL,
             expires_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS webhook_token (
+            service_id TEXT PRIMARY KEY,
+            token      TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS daemon_settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
         );
         ",
     )

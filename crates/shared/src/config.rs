@@ -15,6 +15,7 @@ pub struct DaemonConfig {
     pub socket_path: String,
     pub db_path: String,
     pub log_level: String,
+    pub webhook_port: u16,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,6 +62,7 @@ impl Default for RustployConfig {
                 socket_path: "/run/rustploy/rustploy.sock".into(),
                 db_path: "/var/lib/rustploy/db".into(),
                 log_level: "info".into(),
+                webhook_port: 9001,
             },
             ingress: IngressConfig {
                 http_port: 8080,

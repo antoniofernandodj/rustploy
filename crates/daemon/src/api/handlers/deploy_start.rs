@@ -110,6 +110,14 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
     });
     info!(service_id = %service_id, "deploy_start: evento ServiceStatusChanged(Deploying) publicado");
 
+    // Auto-cria webhook token na primeira vez para serviços Application (não Compose)
+    if !matches!(svc.spec.source, ServiceSource::Compose(_)) {
+        if let Ok(None) = crate::db::webhook_tokens::get(&state.db, &service_id).await {
+            let token = crate::db::webhook_tokens::generate_token();
+            let _ = crate::db::webhook_tokens::upsert(&state.db, &service_id, &token).await;
+        }
+    }
+
     let executor = Arc::new(DeployExecutor {
         db: state.db.clone(),
         docker: state.docker.clone(),

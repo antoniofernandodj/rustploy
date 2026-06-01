@@ -615,9 +615,17 @@ fn render_domains_tab(f: &mut Frame, app: &App, area: Rect) {
 // ─── Deployments Tab ──────────────────────────────────────────────────────────
 
 fn render_deployments_tab(f: &mut Frame, app: &App, area: Rect) {
+    let has_webhook = app.webhook_url.is_some();
+    let webhook_hint = if has_webhook {
+        "  [c] copiar URL  [w] regenerar token"
+    } else {
+        ""
+    };
     let block = Block::default()
         .borders(Borders::ALL)
-        .title(" Deployments — [↑↓] navegar  [[] rolar log ▲  []] rolar log ▼  [g/G] início/fim  [r] rollback ")
+        .title(format!(
+            " Deployments — [↑↓] navegar  [[] log ▲  []] log ▼  [g/G] início/fim  [r] rollback{webhook_hint} "
+        ))
         .border_style(Style::default().fg(Color::DarkGray));
 
     let deps = &app.service_deployments;
@@ -640,12 +648,14 @@ fn render_deployments_tab(f: &mut Frame, app: &App, area: Rect) {
         return;
     }
 
+    let webhook_height = if has_webhook { 3u16 } else { 0u16 };
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(4),    // deployment list
-            Constraint::Length(5), // detail (border + 3 lines)
-            Constraint::Min(3),    // build logs
+            Constraint::Min(4),
+            Constraint::Length(5),
+            Constraint::Length(webhook_height),
+            Constraint::Min(3),
         ])
         .split(block.inner(area));
     f.render_widget(block, area);
@@ -725,19 +735,41 @@ fn render_deployments_tab(f: &mut Frame, app: &App, area: Rect) {
     );
     f.render_widget(detail, chunks[1]);
 
+    // ── Webhook URL ───────────────────────────────────────────────────────────
+
+    if let Some(url) = &app.webhook_url {
+        let webhook_block = Block::default()
+            .borders(Borders::TOP)
+            .border_style(Style::default().fg(Color::DarkGray));
+        let inner = webhook_block.inner(chunks[2]);
+        f.render_widget(webhook_block, chunks[2]);
+        f.render_widget(
+            Paragraph::new(vec![
+                Line::from(vec![
+                    Span::styled("  Webhook:  ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(url.as_str(), Style::default().fg(Color::Cyan)),
+                ]),
+                Line::from(vec![
+                    Span::styled("  ", Style::default()),
+                    Span::styled("[c]", Style::default().fg(Color::Yellow)),
+                    Span::styled(" copiar  ", Style::default().fg(Color::DarkGray)),
+                    Span::styled("[w]", Style::default().fg(Color::Yellow)),
+                    Span::styled(" regenerar token", Style::default().fg(Color::DarkGray)),
+                ]),
+            ]),
+            inner,
+        );
+    }
+
     // ── Build logs ────────────────────────────────────────────────────────────
 
-    let area_h = chunks[2].height.saturating_sub(1) as usize; // minus border
+    let area_h = chunks[3].height.saturating_sub(1) as usize; // minus border
 
     let (log_lines, scroll_hint) = if let Some(buf) = app.build_logs.get(&dep.id) {
         let total = buf.len();
         // Clamp scroll: usize::MAX means follow tail
         let max_skip = total.saturating_sub(area_h);
-        let skip = if app.build_log_scroll >= max_skip {
-            max_skip
-        } else {
-            app.build_log_scroll
-        };
+        let skip = if app.build_log_scroll >= max_skip { max_skip } else { app.build_log_scroll };
         let items: Vec<ListItem> = buf
             .iter()
             .skip(skip)
@@ -773,7 +805,7 @@ fn render_deployments_tab(f: &mut Frame, app: &App, area: Rect) {
         .title(scroll_hint)
         .border_style(Style::default().fg(Color::DarkGray));
 
-    f.render_widget(List::new(log_lines).block(build_block), chunks[2]);
+    f.render_widget(List::new(log_lines).block(build_block), chunks[3]);
 }
 
 // ─── Logs Tab ─────────────────────────────────────────────────────────────────

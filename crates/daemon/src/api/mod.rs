@@ -1,6 +1,7 @@
 pub mod handlers;
 pub mod routes;
 pub mod server;
+pub mod webhook_server;
 
 use crate::{
     db::Db,
@@ -20,6 +21,7 @@ pub struct AppState {
     pub secrets: Arc<SecretsManager>,
     pub db_path: PathBuf,
     pub drain_secs: u64,
+    pub webhook_port: u16,
     pub started_at: std::time::Instant,
 }
 
@@ -32,6 +34,7 @@ impl AppState {
         secrets: Arc<SecretsManager>,
         db_path: PathBuf,
         drain_secs: u64,
+        webhook_port: u16,
     ) -> Self {
         Self {
             db,
@@ -41,6 +44,7 @@ impl AppState {
             secrets,
             db_path,
             drain_secs,
+            webhook_port,
             started_at: std::time::Instant::now(),
         }
     }

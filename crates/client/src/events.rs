@@ -1,6 +1,7 @@
 use crate::app::{
     App, CmdContext, ConfirmAction, DbKind, EnvEditField, EnvTabState, Focus, GeneralTabField,
-    HcField, NewServiceState, NewServiceStep, PendingCommand, ProjectDetailTab, ServiceTab, View,
+    HcField, NewServiceState, NewServiceStep, PendingCommand, ProjectDetailTab, ServerSettingsField,
+    ServiceTab, View,
 };
 use crossterm::event::KeyModifiers;
 use shared::ServiceSource;
@@ -81,6 +82,7 @@ fn handle_content(app: &mut App, key: KeyEvent) {
     match app.view.clone() {
         View::ProjectDetail => handle_project_detail(app, key),
         View::ServiceDetail => handle_service_detail(app, key),
+        View::SettingsWebServer => handle_settings_web_server(app, key),
         View::HomeMonitoring
         | View::HomeDeployments
         | View::HomeSchedules
@@ -855,6 +857,19 @@ fn handle_deployments_tab(app: &mut App, key: KeyEvent) {
                 app.set_notification("Rollback iniciado", false);
             }
         }
+        KeyCode::Char('c') => {
+            if let Some(url) = app.webhook_url.clone() {
+                copy_to_clipboard(app, &url);
+            }
+        }
+        KeyCode::Char('w') => {
+            if let Some(sid) = app.active_service_id.clone() {
+                app.pending_commands.push(PendingCommand {
+                    command: Command::RegenerateWebhookToken { service_id: sid },
+                    context: CmdContext::RegenerateWebhook,
+                });
+            }
+        }
         _ => {}
     }
 }
@@ -1141,5 +1156,55 @@ fn handle_confirm(app: &mut App, key: KeyEvent) {
             app.view = View::ProjectDetail;
         }
         _ => {}
+    }
+}
+
+fn handle_settings_web_server(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Up => {
+            app.server_settings.focused = app.server_settings.focused.clone().prev();
+        }
+        KeyCode::Down | KeyCode::Enter => {
+            if app.server_settings.focused == ServerSettingsField::Save {
+                save_server_settings(app);
+            } else {
+                app.server_settings.focused = app.server_settings.focused.clone().next();
+            }
+        }
+        KeyCode::Char(' ') => {
+            if app.server_settings.focused == ServerSettingsField::Save {
+                save_server_settings(app);
+            }
+        }
+        KeyCode::Char(c) => {
+            if app.server_settings.focused == ServerSettingsField::ServerDomain {
+                app.server_settings.server_domain.push(c);
+            }
+        }
+        KeyCode::Backspace => {
+            if app.server_settings.focused == ServerSettingsField::ServerDomain {
+                app.server_settings.server_domain.pop();
+            }
+        }
+        _ => {}
+    }
+}
+
+fn save_server_settings(app: &mut App) {
+    let domain = app.server_settings.server_domain.trim().to_string();
+    let webhook_base_url = if domain.is_empty() { None } else { Some(domain) };
+    app.pending_commands.push(PendingCommand {
+        command: Command::SetDaemonSettings { webhook_base_url },
+        context: CmdContext::SaveServerSettings,
+    });
+}
+
+fn copy_to_clipboard(app: &mut App, text: &str) {
+    match arboard::Clipboard::new() {
+        Ok(mut cb) => match cb.set_text(text) {
+            Ok(_) => app.set_notification("URL copiada para a área de transferência", false),
+            Err(e) => app.set_notification(format!("Erro ao copiar: {e}"), true),
+        },
+        Err(e) => app.set_notification(format!("Clipboard indisponível: {e}"), true),
     }
 }

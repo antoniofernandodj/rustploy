@@ -47,6 +47,12 @@ pub enum Command {
     MetricsSubscribe { service_id: String },
     MetricsUnsubscribe { service_id: String },
 
+    // Webhooks
+    GetWebhookUrl { service_id: String },
+    RegenerateWebhookToken { service_id: String },
+    GetDaemonSettings,
+    SetDaemonSettings { webhook_base_url: Option<String> },
+
     // Infrastructure
     Ping,
     DaemonStatus,
@@ -147,6 +153,8 @@ pub enum Response {
     DeploymentSummaries(Vec<DeploymentSummary>),
     DaemonStatus(DaemonStatus),
     Pong { uptime_secs: u64 },
+    WebhookUrl(Option<String>),
+    DaemonSettings { webhook_base_url: Option<String> },
     Err { code: String, message: String },
 }
 

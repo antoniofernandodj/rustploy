@@ -55,6 +55,9 @@ pub struct App {
     pub pending_commands: Vec<PendingCommand>,
 
     pub log_refresh_ticks: u32,
+
+    pub webhook_url: Option<String>,
+    pub server_settings: ServerSettingsState,
 }
 
 impl App {
@@ -106,6 +109,9 @@ impl App {
             pending_commands: vec![],
 
             log_refresh_ticks: 0,
+
+            webhook_url: None,
+            server_settings: ServerSettingsState::default(),
         }
     }
 
@@ -196,6 +202,16 @@ impl App {
                 }
                 self.focus = Focus::Content;
             }
+            SidebarItem::SettingsWebServer => {
+                self.view = View::SettingsWebServer;
+                self.focus = Focus::Content;
+                if !self.server_settings.loaded {
+                    self.pending_commands.push(PendingCommand {
+                        command: Command::GetDaemonSettings,
+                        context: CmdContext::LoadServerSettings,
+                    });
+                }
+            }
             other => {
                 if let Some(view) = other.to_view() {
                     self.view = view;
@@ -254,6 +270,16 @@ impl App {
             command: Command::LogsGet { service_id: svc.id.clone(), tail: 500 },
             context: CmdContext::LoadLogs,
         });
+        // Busca webhook URL somente para serviços Application (não Compose)
+        if !matches!(svc.spec.source, shared::ServiceSource::Compose(_)) {
+            self.webhook_url = None;
+            self.pending_commands.push(PendingCommand {
+                command: Command::GetWebhookUrl { service_id: svc.id.clone() },
+                context: CmdContext::LoadWebhookUrl,
+            });
+        } else {
+            self.webhook_url = None;
+        }
     }
 
     pub fn set_notification(&mut self, msg: impl Into<String>, is_error: bool) {
@@ -548,6 +574,28 @@ impl App {
             }
             (Response::Ok, CmdContext::Deploy) => {
                 self.set_notification("Deploy iniciado", false);
+            }
+            (Response::WebhookUrl(url), CmdContext::LoadWebhookUrl) => {
+                self.webhook_url = url;
+            }
+            (Response::WebhookUrl(url), CmdContext::RegenerateWebhook) => {
+                self.webhook_url = url;
+                self.set_notification("Token de webhook regenerado", false);
+            }
+            (Response::DaemonSettings { webhook_base_url }, CmdContext::LoadServerSettings) => {
+                self.server_settings.server_domain = webhook_base_url.unwrap_or_default();
+                self.server_settings.loaded = true;
+            }
+            (Response::Ok, CmdContext::SaveServerSettings) => {
+                self.server_settings.loaded = false; // força reload na próxima visita
+                self.set_notification("Domínio do servidor salvo", false);
+                // Recarrega a URL do webhook do serviço atual, se houver
+                if let Some(sid) = self.active_service_id.clone() {
+                    self.pending_commands.push(PendingCommand {
+                        command: Command::GetWebhookUrl { service_id: sid },
+                        context: CmdContext::LoadWebhookUrl,
+                    });
+                }
             }
             (Response::Err { message, .. }, _) => {
                 self.set_notification(message, true);

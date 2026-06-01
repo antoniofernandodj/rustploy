@@ -29,6 +29,7 @@ Um único binário (`rustployd`) substitui o PaaS inteiro. O cliente TUI (`rustp
 - Logs em tempo real e gráficos de CPU/RAM por container no TUI
 - Secrets criptografados em repouso com `age`
 - Recovery automático de deploys interrompidos ao reiniciar o daemon
+- **Webhooks de CI/CD**: endpoint `POST /webhook/{service_id}/{token}` gerado automaticamente no primeiro deploy; compatível com GitHub, GitLab, Gitea e Docker Hub (veja [`docs/webhooks.md`](docs/webhooks.md))
 
 ## Não-objetivos
 
@@ -76,9 +77,10 @@ Arquivo TOML carregado de `$RUSTPLOY_CONFIG`, depois `/etc/rustploy/config.toml`
 
 ```toml
 [daemon]
-socket_path = "/run/rustploy/rustploy.sock"
-db_path     = "/var/lib/rustploy/db"
-log_level   = "info"
+socket_path  = "/run/rustploy/rustploy.sock"
+db_path      = "/var/lib/rustploy/db"
+log_level    = "info"
+webhook_port = 9001   # porta do servidor de webhook de CI/CD
 
 [ingress]
 http_port    = 80
