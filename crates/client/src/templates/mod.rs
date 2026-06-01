@@ -106,7 +106,7 @@ pub fn all() -> &'static [Template] {
 
 pub fn filtered(category: TemplateCategory, search: &str) -> Vec<&'static Template> {
     let search = search.to_lowercase();
-    catalog::TEMPLATES
+    let mut templates: Vec<_> = catalog::TEMPLATES
         .iter()
         .filter(|t| {
             let cat_ok = category == TemplateCategory::All || t.category == category;
@@ -115,7 +115,10 @@ pub fn filtered(category: TemplateCategory, search: &str) -> Vec<&'static Templa
                 || t.description.to_lowercase().contains(&search);
             cat_ok && search_ok
         })
-        .collect()
+        .collect();
+
+    templates.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    templates
 }
 
 /// Substitutes {{KEY}} placeholders in the compose template with user-provided values.
