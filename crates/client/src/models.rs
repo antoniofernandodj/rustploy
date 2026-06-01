@@ -587,6 +587,8 @@ pub enum NewServiceStep {
     ApplicationForm,
     DatabaseForm,
     ComposeForm,
+    PickTemplate,
+    TemplateVarForm,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -725,6 +727,13 @@ pub struct NewServiceState {
     pub use_replica_sets: bool,
     pub focused_field: usize,
     pub form_scroll: usize,
+    // Template-specific state
+    pub template_cat_cursor: usize,
+    pub template_cursor: usize,
+    pub template_search: String,
+    pub template_searching: bool,
+    pub selected_template: Option<&'static crate::templates::Template>,
+    pub template_var_values: Vec<String>,
 }
 
 impl NewServiceState {
@@ -747,6 +756,12 @@ impl NewServiceState {
             use_replica_sets: false,
             focused_field: 0,
             form_scroll: 0,
+            template_cat_cursor: 0,
+            template_cursor: 0,
+            template_search: String::new(),
+            template_searching: false,
+            selected_template: None,
+            template_var_values: vec![],
         }
     }
 
@@ -756,6 +771,10 @@ impl NewServiceState {
             NewServiceStep::ComposeForm => 3,
             NewServiceStep::DatabaseForm => {
                 self.db_kind.map(|d| d.field_count()).unwrap_or(0)
+            }
+            // name(1) + vars(n) + button(1)
+            NewServiceStep::TemplateVarForm => {
+                1 + self.selected_template.map(|t| t.variables.len()).unwrap_or(0) + 1
             }
             _ => 0,
         }
@@ -786,10 +805,7 @@ impl NewServiceState {
     }
 
     fn sync_scroll(&mut self) {
-        if !matches!(self.step, NewServiceStep::DatabaseForm | NewServiceStep::ComposeForm) {
-            return;
-        }
-        if matches!(self.step, NewServiceStep::ComposeForm) {
+        if !matches!(self.step, NewServiceStep::DatabaseForm | NewServiceStep::TemplateVarForm) {
             return;
         }
         const VISIBLE: usize = 4;
@@ -806,6 +822,20 @@ impl NewServiceState {
     pub fn is_button(&self) -> bool {
         let max = self.field_count();
         max > 0 && self.focused_field == max - 1
+    }
+
+    /// Selects a template, initialises var values with defaults and resets the form.
+    pub fn select_template(&mut self, t: &'static crate::templates::Template) {
+        self.selected_template = Some(t);
+        self.template_var_values = t
+            .variables
+            .iter()
+            .map(|v| v.default.unwrap_or("").to_string())
+            .collect();
+        self.name = t.name.to_lowercase().replace(' ', "-");
+        self.focused_field = 0;
+        self.form_scroll = 0;
+        self.step = NewServiceStep::TemplateVarForm;
     }
 
     pub fn is_checkbox(&self) -> bool {
@@ -829,6 +859,10 @@ impl NewServiceState {
                 0 => Some(&mut self.name),
                 1 => Some(&mut self.app_name),
                 _ => None,
+            },
+            NewServiceStep::TemplateVarForm => match field {
+                0 => Some(&mut self.name),
+                n => self.template_var_values.get_mut(n - 1),
             },
             NewServiceStep::DatabaseForm => match (db?, field) {
                 (_, 0) => Some(&mut self.name),
@@ -1000,6 +1034,27 @@ impl NewServiceState {
                 replicas: 1,
                 resources: ResourceLimits::default(),
             },
+            NewServiceStep::TemplateVarForm => {
+                let template = self.selected_template.expect("template selected");
+                let content = crate::templates::render_compose(template, &self.template_var_values);
+                ServiceSpec {
+                    name: if self.name.is_empty() {
+                        template.name.to_lowercase().replace(' ', "-")
+                    } else {
+                        self.name.clone()
+                    },
+                    project_id: self.project_id.clone(),
+                    source: ServiceSource::Compose(ComposeSource { content }),
+                    port: template.default_port,
+                    host_port: None,
+                    domain: None,
+                    env_vars: vec![],
+                    volumes: vec![],
+                    healthcheck: Healthcheck::default(),
+                    replicas: 1,
+                    resources: ResourceLimits::default(),
+                }
+            }
             _ => unreachable!(),
         }
     }

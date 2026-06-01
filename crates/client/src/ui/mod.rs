@@ -8,6 +8,7 @@ pub mod settings;
 pub mod sidebar;
 
 use crate::app::{App, DbKind, Focus, NewServiceStep, View};
+use crate::templates::{self, TemplateCategory};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -320,6 +321,8 @@ fn render_new_service_popup(f: &mut Frame, area: Rect, app: &App) {
         NewServiceStep::ApplicationForm => render_ns_app_form(f, area, app),
         NewServiceStep::DatabaseForm => render_ns_db_form(f, area, app),
         NewServiceStep::ComposeForm => render_ns_compose_form(f, area, app),
+        NewServiceStep::PickTemplate => render_ns_pick_template(f, area, app),
+        NewServiceStep::TemplateVarForm => render_ns_template_var_form(f, area, app),
     }
 }
 
@@ -783,6 +786,230 @@ fn render_ns_compose_form(f: &mut Frame, area: Rect, app: &App) {
     };
     f.render_widget(Paragraph::new(Line::from(vec![Span::raw("  "), btn])), chunks[8]);
     render_ns_hints(f, chunks[9]);
+}
+
+fn render_ns_pick_template(f: &mut Frame, area: Rect, app: &App) {
+    let state = app.new_service.as_ref().unwrap();
+    let popup = centered_rect_h(72, 24, area);
+    f.render_widget(Clear, popup);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Templates ")
+        .border_style(Style::default().fg(Color::Cyan));
+    let inner = block.inner(popup);
+    f.render_widget(block, popup);
+
+    // Layout: cats(1) + sep(1) + search(1) + list(Min) + hints(1)
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // category tabs
+            Constraint::Length(1), // separator
+            Constraint::Length(1), // search bar
+            Constraint::Min(0),    // list
+            Constraint::Length(1), // hints
+        ])
+        .split(inner);
+
+    // ── Category tabs ─────────────────────────────────────────────────────────
+    let cat_spans: Vec<Span> = TemplateCategory::FILTERS
+        .iter()
+        .enumerate()
+        .flat_map(|(i, cat)| {
+            let active = i == state.template_cat_cursor;
+            let s = if active {
+                Span::styled(
+                    format!(" {} ", cat.label()),
+                    Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD),
+                )
+            } else {
+                Span::styled(format!(" {} ", cat.label()), Style::default().fg(Color::DarkGray))
+            };
+            vec![s, Span::raw(" ")]
+        })
+        .collect();
+    f.render_widget(Paragraph::new(Line::from(cat_spans)), chunks[0]);
+
+    // ── Search bar ────────────────────────────────────────────────────────────
+    let search_style = if state.template_searching {
+        Style::default().fg(Color::Cyan)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+    let search_text = if state.template_searching || !state.template_search.is_empty() {
+        format!(" / {}▌", state.template_search)
+    } else {
+        " [/] buscar...".to_string()
+    };
+    f.render_widget(Paragraph::new(Span::styled(search_text, search_style)), chunks[2]);
+
+    // ── Template list ─────────────────────────────────────────────────────────
+    let cat = TemplateCategory::FILTERS[state.template_cat_cursor];
+    let list = templates::filtered(cat, &state.template_search);
+
+    const VISIBLE: usize = 14;
+    let total = list.len();
+    let cursor = state.template_cursor.min(total.saturating_sub(1));
+    let scroll = if cursor >= VISIBLE { cursor + 1 - VISIBLE } else { 0 };
+
+    if list.is_empty() {
+        f.render_widget(
+            Paragraph::new(Span::styled(
+                "  Nenhum template encontrado.",
+                Style::default().fg(Color::DarkGray),
+            )),
+            chunks[3],
+        );
+    } else {
+        let items: Vec<ratatui::widgets::ListItem> = list
+            .iter()
+            .enumerate()
+            .skip(scroll)
+            .take(VISIBLE)
+            .map(|(i, t)| {
+                let selected = i == cursor;
+                let marker = if selected { "▸ " } else { "  " };
+                let cat_tag = format!("[{}]", t.category.label());
+                let line = Line::from(vec![
+                    Span::styled(
+                        marker,
+                        if selected { Style::default().fg(Color::Cyan) } else { Style::default() },
+                    ),
+                    Span::styled(
+                        format!("{:<20}", t.name),
+                        if selected {
+                            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+                        } else {
+                            Style::default().fg(Color::White)
+                        },
+                    ),
+                    Span::styled(
+                        format!("{:<14}", cat_tag),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                    Span::styled(t.description, Style::default().fg(Color::DarkGray)),
+                ]);
+                ratatui::widgets::ListItem::new(line)
+            })
+            .collect();
+
+        use ratatui::widgets::{List, ListState};
+        let mut list_state = ListState::default();
+        list_state.select(Some(cursor.saturating_sub(scroll)));
+        f.render_stateful_widget(List::new(items), chunks[3], &mut list_state);
+    }
+
+    // ── Hints ─────────────────────────────────────────────────────────────────
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(" ↑↓", Style::default().fg(Color::Cyan)),
+            Span::styled(" nav  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("←→", Style::default().fg(Color::Cyan)),
+            Span::styled(" categoria  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("/", Style::default().fg(Color::Cyan)),
+            Span::styled(" buscar  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("Enter", Style::default().fg(Color::Cyan)),
+            Span::styled(" selecionar  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("Esc", Style::default().fg(Color::Cyan)),
+            Span::styled(" voltar", Style::default().fg(Color::DarkGray)),
+        ])),
+        chunks[4],
+    );
+}
+
+fn render_ns_template_var_form(f: &mut Frame, area: Rect, app: &App) {
+    let state = app.new_service.as_ref().unwrap();
+    let template = match state.selected_template {
+        Some(t) => t,
+        None => return,
+    };
+
+    let var_count = template.variables.len();
+    // name(1) + vars(n) but show at most 4 at a time; +1 sep +1 btn +1 hints +2 border +1 pad = 7 overhead
+    const VISIBLE: usize = 4;
+    let visible_slots = (var_count + 1).min(VISIBLE); // +1 for name field
+    let popup_h = (visible_slots as u16 * 3 + 7).min(area.height);
+    let popup = centered_rect_h(64, popup_h, area);
+    f.render_widget(Clear, popup);
+
+    let title = format!(" {} — Configurar ", template.name);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(title)
+        .border_style(Style::default().fg(Color::Cyan));
+    let inner = block.inner(popup);
+    f.render_widget(block, popup);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1),                       // padding
+            Constraint::Length(visible_slots as u16 * 3), // fields
+            Constraint::Length(1),                       // scroll hint
+            Constraint::Length(1),                       // button
+            Constraint::Length(1),                       // hints
+        ])
+        .split(inner);
+
+    // All fields: [0] = service name, [1..n] = template vars
+    let all_fields: Vec<(&str, &str, usize)> = {
+        let mut v = vec![("Nome do serviço", state.name.as_str(), 0)];
+        for (i, var) in template.variables.iter().enumerate() {
+            let val = state.template_var_values.get(i).map(String::as_str).unwrap_or("");
+            v.push((var.label, val, i + 1));
+        }
+        v
+    };
+
+    let total = all_fields.len();
+    let scroll = state.form_scroll;
+    let visible_slice = &all_fields[scroll..total.min(scroll + VISIBLE)];
+
+    let mut row_constraints: Vec<Constraint> =
+        visible_slice.iter().map(|_| Constraint::Length(3)).collect();
+    row_constraints.push(Constraint::Min(0));
+    let field_rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(row_constraints)
+        .split(chunks[1]);
+
+    for (slot, (label, value, field_idx)) in visible_slice.iter().enumerate() {
+        render_ns_field_box(f, field_rows[slot], label, value, state.focused_field == *field_idx);
+    }
+
+    // Scroll indicator
+    let scroll_text = if total > VISIBLE {
+        let above = scroll > 0;
+        let below = scroll + VISIBLE < total;
+        format!(
+            " {} campo {}/{}  {}",
+            if above { "▲" } else { " " },
+            state.focused_field + 1,
+            total + 1,
+            if below { "▼ mais ↓" } else { "" }
+        )
+    } else {
+        String::new()
+    };
+    f.render_widget(
+        Paragraph::new(Span::styled(scroll_text, Style::default().fg(Color::DarkGray))),
+        chunks[2],
+    );
+
+    // Button
+    let btn_label = format!(" [ Criar {} ] ", template.name);
+    let btn = if state.is_button() {
+        Span::styled(
+            btn_label,
+            Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD),
+        )
+    } else {
+        Span::styled(btn_label, Style::default().fg(Color::White))
+    };
+    f.render_widget(Paragraph::new(Line::from(vec![Span::raw("  "), btn])), chunks[3]);
+
+    render_ns_hints(f, chunks[4]);
 }
 
 fn render_ns_hints(f: &mut Frame, area: Rect) {

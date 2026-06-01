@@ -930,6 +930,8 @@ fn handle_new_service(app: &mut App, key: KeyEvent) {
         NewServiceStep::ApplicationForm
         | NewServiceStep::DatabaseForm
         | NewServiceStep::ComposeForm => handle_ns_form(app, key),
+        NewServiceStep::PickTemplate => handle_ns_pick_template(app, key),
+        NewServiceStep::TemplateVarForm => handle_ns_template_vars(app, key),
     }
 }
 
@@ -982,7 +984,10 @@ fn handle_ns_pick_type(app: &mut App, key: KeyEvent) {
                         s.focused_field = 0;
                     }
                     _ => {
-                        app.set_notification("Em breve: Template", false);
+                        s.step = NewServiceStep::PickTemplate;
+                        s.template_cat_cursor = 0;
+                        s.template_cursor = 0;
+                        s.template_search.clear();
                     }
                 }
             }
@@ -1089,6 +1094,135 @@ fn handle_ns_form(app: &mut App, key: KeyEvent) {
                 });
                 app.new_service = None;
             } else if let Some(s) = &mut app.new_service {
+                s.next_field();
+            }
+        }
+        _ => {}
+    }
+}
+
+fn handle_ns_pick_template(app: &mut App, key: KeyEvent) {
+    use crate::templates::{self, TemplateCategory};
+
+    let s = match app.new_service.as_mut() {
+        Some(s) => s,
+        None => return,
+    };
+
+    if s.template_searching {
+        match key.code {
+            KeyCode::Esc | KeyCode::Enter => {
+                s.template_searching = false;
+                s.template_cursor = 0;
+            }
+            KeyCode::Char(c) => {
+                s.template_search.push(c);
+                s.template_cursor = 0;
+            }
+            KeyCode::Backspace => {
+                s.template_search.pop();
+                s.template_cursor = 0;
+            }
+            _ => {}
+        }
+        return;
+    }
+
+    match key.code {
+        KeyCode::Esc => {
+            s.step = NewServiceStep::PickType;
+            s.template_search.clear();
+            s.template_cursor = 0;
+        }
+        KeyCode::Left => {
+            if s.template_cat_cursor > 0 {
+                s.template_cat_cursor -= 1;
+                s.template_cursor = 0;
+            }
+        }
+        KeyCode::Right => {
+            if s.template_cat_cursor + 1 < TemplateCategory::FILTERS.len() {
+                s.template_cat_cursor += 1;
+                s.template_cursor = 0;
+            }
+        }
+        KeyCode::Up => {
+            if s.template_cursor > 0 {
+                s.template_cursor -= 1;
+            }
+        }
+        KeyCode::Down => {
+            let cat = TemplateCategory::FILTERS[s.template_cat_cursor];
+            let count = templates::filtered(cat, &s.template_search.clone()).len();
+            if s.template_cursor + 1 < count {
+                s.template_cursor += 1;
+            }
+        }
+        KeyCode::Char('/') => {
+            s.template_searching = true;
+            s.template_search.clear();
+        }
+        KeyCode::Enter => {
+            let cat = TemplateCategory::FILTERS[s.template_cat_cursor];
+            let search = s.template_search.clone();
+            let list = templates::filtered(cat, &search);
+            if let Some(&t) = list.get(s.template_cursor) {
+                let s2 = app.new_service.as_mut().unwrap();
+                s2.select_template(t);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn handle_ns_template_vars(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Esc => {
+            if let Some(s) = app.new_service.as_mut() {
+                s.step = NewServiceStep::PickTemplate;
+                s.focused_field = 0;
+            }
+        }
+        KeyCode::Up => {
+            if let Some(s) = app.new_service.as_mut() {
+                s.prev_field();
+            }
+        }
+        KeyCode::Down | KeyCode::Tab => {
+            if let Some(s) = app.new_service.as_mut() {
+                s.next_field();
+            }
+        }
+        KeyCode::Char(c) => {
+            if let Some(s) = app.new_service.as_mut() {
+                if !s.is_button() {
+                    if let Some(f) = s.focused_text_mut() {
+                        f.push(c);
+                    }
+                }
+            }
+        }
+        KeyCode::Backspace => {
+            if let Some(s) = app.new_service.as_mut() {
+                if let Some(f) = s.focused_text_mut() {
+                    f.pop();
+                }
+            }
+        }
+        KeyCode::Enter => {
+            let is_btn = app.new_service.as_ref().map(|s| s.is_button()).unwrap_or(false);
+            if is_btn {
+                let spec = app.new_service.as_ref().unwrap().to_service_spec();
+                if spec.name.is_empty() {
+                    app.set_notification("Nome é obrigatório", true);
+                    return;
+                }
+                app.pending_commands.push(PendingCommand {
+                    command: Command::ServiceCreate(spec),
+                    context: CmdContext::CreateService,
+                });
+                app.new_service = None;
+            } else if let Some(s) = app.new_service.as_mut() {
                 s.next_field();
             }
         }

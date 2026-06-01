@@ -1,6 +1,7 @@
 mod app;
 mod events;
 mod models;
+pub(crate) mod templates;
 mod transport;
 mod ui;
 
