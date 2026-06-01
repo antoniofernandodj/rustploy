@@ -1,4 +1,4 @@
-use crate::templates::{Template, TemplateCategory, TemplateVar};
+use crate::templates::{Template, TemplateCategory};
 
 pub const TEMPLATE: Template = Template {
     id: "trilium",

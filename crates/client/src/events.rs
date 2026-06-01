@@ -94,7 +94,7 @@ fn handle_content(app: &mut App, key: KeyEvent) {
     }
 }
 
-fn handle_home(app: &mut App, _key: KeyEvent) {}
+fn handle_home(_app: &mut App, _key: KeyEvent) {}
 
 fn handle_home_deploy_engine(app: &mut App, key: KeyEvent) {
     if key.code == KeyCode::Char('r') {

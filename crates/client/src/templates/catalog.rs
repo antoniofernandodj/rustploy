@@ -1,7 +1,7 @@
 // Auto-generated registry — edit individual files in entries/ to change templates
 
 use super::entries;
-use super::{Template, TemplateCategory, TemplateVar};
+use super::Template;
 
 pub static TEMPLATES: &[Template] = &[
     entries::wordpress::TEMPLATE,
