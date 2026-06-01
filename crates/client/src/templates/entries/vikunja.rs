@@ -20,7 +20,7 @@ services:
   vikunja:
     image: vikunja/vikunja:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3456"
     environment:
       DATABASE_URL: postgresql://vikunja:{{DB_PASSWORD}}@db:5432/vikunja

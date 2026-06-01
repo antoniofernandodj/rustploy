@@ -20,7 +20,7 @@ services:
   kaneo:
     image: kaneo/kaneo:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       DATABASE_URL: postgresql://kaneo:{{DB_PASSWORD}}@db:5432/kaneo

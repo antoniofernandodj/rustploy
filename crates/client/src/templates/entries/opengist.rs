@@ -11,7 +11,7 @@ services:
   opengist:
     image: ghcr.io/thomiceli/opengist:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "6157"
     volumes:
       - data:/opengist

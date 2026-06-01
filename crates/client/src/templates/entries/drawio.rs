@@ -11,7 +11,7 @@ services:
   drawio:
     image: jgraph/drawio:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
 "#,
     variables: &[],

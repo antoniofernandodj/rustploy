@@ -11,7 +11,7 @@ services:
   ezbookkeeping:
     image: mayswind/ezbookkeeping:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
     environment:
       EZB_SECRET_KEY: {{EZB_SECRET_KEY}}

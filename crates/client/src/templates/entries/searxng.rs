@@ -11,7 +11,7 @@ services:
   searxng:
     image: searxng/searxng:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
     volumes:
       - config:/etc/searxng

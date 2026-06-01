@@ -11,7 +11,7 @@ services:
   lobechat:
     image: lobehub/lobe-chat:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3210"
     environment:
       OPENAI_API_KEY: {{OPENAI_API_KEY}}

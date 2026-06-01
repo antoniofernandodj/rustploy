@@ -21,7 +21,7 @@ services:
   passbolt:
     image: passbolt/passbolt:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       DB_HOST: db

@@ -11,7 +11,7 @@ services:
   forgejo:
     image: codeberg.org/forgejo/forgejo:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     volumes:
       - data:/data

@@ -11,7 +11,7 @@ services:
   freshrss:
     image: freshrss/freshrss:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       ADMIN_PASSWORD: {{ADMIN_PASSWORD}}

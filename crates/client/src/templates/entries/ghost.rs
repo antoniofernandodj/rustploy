@@ -20,7 +20,7 @@ services:
   ghost:
     image: ghost:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "2368"
     environment:
       database__client: mysql

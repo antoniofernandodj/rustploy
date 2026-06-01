@@ -26,6 +26,9 @@ pub async fn recover(
         }
     };
 
+    // Restore ingress routes for running services
+    restore_routes(&db, &docker, &ingress).await;
+
     if pending.is_empty() {
         info!("no deployments to recover");
         return;
@@ -149,9 +152,6 @@ pub async fn recover(
             | DeployState::Pruning => {}
         }
     }
-
-    // Restore ingress routes for running services
-    restore_routes(&db, &docker, &ingress).await;
 }
 
 async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressController) {
@@ -170,15 +170,21 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
 
     for svc in services {
         let live_name = containers::live_name(&svc.spec.name);
+        // Tenta nome exato (Git/Registry) ou prefixo (Compose)
         let container_id = match containers::find_by_name(&docker.inner, &live_name).await {
-            Ok(Some(id)) => id,
+            Ok(Some(id)) => Some(id),
             _ => {
-                warn!(
-                    service = svc.spec.name,
-                    "live container not found, skipping route restore"
-                );
-                continue;
+                let compose_prefix = format!("rp_{}-{}", svc.spec.name, svc.spec.name);
+                containers::find_by_prefix(&docker.inner, &compose_prefix).await.ok().flatten()
             }
+        };
+
+        let Some(container_id) = container_id else {
+            warn!(
+                service = svc.spec.name,
+                "live container not found, skipping route restore"
+            );
+            continue;
         };
 
         let net = format!(

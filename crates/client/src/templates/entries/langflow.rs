@@ -11,7 +11,7 @@ services:
   langflow:
     image: langflowai/langflow:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "7860"
     environment:
       LANGFLOW_SECRET_KEY: {{LANGFLOW_SECRET_KEY}}

@@ -20,7 +20,7 @@ services:
   logto:
     image: svhd/logto:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3001"
     environment:
       DATABASE_URL: postgresql://logto:{{DB_PASSWORD}}@db:5432/logto

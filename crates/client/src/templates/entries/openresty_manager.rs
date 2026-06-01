@@ -21,7 +21,7 @@ services:
   openresty-manager:
     image: jc21/nginx-proxy-manager:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "81"
     environment:
       DB_HOST: db

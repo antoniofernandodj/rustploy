@@ -11,7 +11,7 @@ services:
   browserless:
     image: browserless/chrome:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       TOKEN: {{TOKEN}}

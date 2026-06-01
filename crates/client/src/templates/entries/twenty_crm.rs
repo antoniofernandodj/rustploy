@@ -20,7 +20,7 @@ services:
   twenty-crm:
     image: twentyhq/twenty-front:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       DATABASE_URL: postgresql://twenty_crm:{{DB_PASSWORD}}@db:5432/twenty_crm

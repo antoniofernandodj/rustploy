@@ -11,7 +11,7 @@ services:
   portainer:
     image: portainer/portainer-ce:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "9000"
       - "9443"
     volumes:

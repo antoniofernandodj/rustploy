@@ -11,7 +11,7 @@ services:
   vault:
     image: hashicorp/vault:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8200"
     environment:
       VAULT_DEV_ROOT_TOKEN_ID: {{VAULT_DEV_ROOT_TOKEN_ID}}

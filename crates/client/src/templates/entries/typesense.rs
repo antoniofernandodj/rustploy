@@ -11,7 +11,7 @@ services:
   typesense:
     image: typesense/typesense:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8108"
     environment:
       TYPESENSE_API_KEY: {{TYPESENSE_API_KEY}}

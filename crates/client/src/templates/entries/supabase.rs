@@ -20,7 +20,7 @@ services:
   supabase:
     image: supabase/supabase-studio:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8000"
     environment:
       DATABASE_URL: postgresql://supabase:{{DB_PASSWORD}}@db:5432/supabase

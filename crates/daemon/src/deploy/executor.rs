@@ -618,6 +618,23 @@ impl DeployExecutor {
                     &self.db,
                 )
                 .await?;
+
+                // Compose ingress: tenta encontrar o container principal para roteamento
+                let main_container = format!("{}-{}", project_name, svc.spec.name);
+                if let Ok(Some(cid)) = containers::find_by_prefix(&self.docker.inner, &main_container).await {
+                    if let Ok(ip) = containers::get_container_ip(&self.docker.inner, &cid, &network_name).await {
+                        let backend = format!("{ip}:{}", svc.spec.port);
+                        if let Some(domain) = &svc.spec.domain {
+                            info!(deployment_id = %dep.id, domain, backend, "ComposingUp: registrando rota de domínio");
+                            self.ingress.upsert_route(domain, &backend, &svc.id);
+                        }
+                        if let Some(host_port) = svc.spec.host_port {
+                            info!(deployment_id = %dep.id, host_port, backend, "ComposingUp: registrando rota de porta");
+                            self.ingress.upsert_port_route(host_port, &backend);
+                        }
+                    }
+                }
+
                 info!(
                     deployment_id = %dep.id,
                     project = %project_name,

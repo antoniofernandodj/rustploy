@@ -26,7 +26,7 @@ services:
   plausible:
     image: ghcr.io/plausible/community-edition:v2
     restart: unless-stopped
-    ports:
+    expose:
       - "8000"
     environment:
       BASE_URL: http://{{DOMAIN}}

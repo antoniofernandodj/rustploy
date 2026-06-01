@@ -11,7 +11,7 @@ services:
   gitlab-ce:
     image: gitlab/gitlab-ce:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       GITLAB_ROOT_PASSWORD: {{GITLAB_ROOT_PASSWORD}}

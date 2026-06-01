@@ -11,7 +11,7 @@ services:
   hoarder:
     image: ghcr.io/hoarder-app/hoarder:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       NEXTAUTH_SECRET: {{NEXTAUTH_SECRET}}

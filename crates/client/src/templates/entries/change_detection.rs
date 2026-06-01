@@ -11,7 +11,7 @@ services:
   change-detection:
     image: ghcr.io/dgtlmoon/changedetection.io:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "5000"
     volumes:
       - datastore:/datastore

@@ -20,7 +20,7 @@ services:
   zabbix:
     image: zabbix/zabbix-web-nginx-pgsql:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
     environment:
       DATABASE_URL: postgresql://zabbix:{{DB_PASSWORD}}@db:5432/zabbix

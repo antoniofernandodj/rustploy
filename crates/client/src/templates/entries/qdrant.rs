@@ -11,7 +11,7 @@ services:
   qdrant:
     image: qdrant/qdrant:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "6333"
     volumes:
       - data:/qdrant/storage

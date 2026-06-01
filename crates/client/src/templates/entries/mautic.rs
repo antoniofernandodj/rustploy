@@ -21,7 +21,7 @@ services:
   mautic:
     image: mautic/mautic:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       DB_HOST: db

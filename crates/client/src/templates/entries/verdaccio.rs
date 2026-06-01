@@ -11,7 +11,7 @@ services:
   verdaccio:
     image: verdaccio/verdaccio:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "4873"
     volumes:
       - storage:/verdaccio/storage

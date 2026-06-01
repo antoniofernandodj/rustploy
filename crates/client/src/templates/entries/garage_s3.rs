@@ -11,7 +11,7 @@ services:
   garage-s3:
     image: dxflrs/garage:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3900"
     volumes:
       - data:/var/lib/garage/data

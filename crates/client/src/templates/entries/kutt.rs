@@ -20,7 +20,7 @@ services:
   kutt:
     image: kutt/kutt:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       DATABASE_URL: postgresql://kutt:{{DB_PASSWORD}}@db:5432/kutt

@@ -16,7 +16,7 @@ services:
   librechat:
     image: ghcr.io/danny-avila/librechat:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3080"
     environment:
       MONGO_URL: mongodb://db:27017/librechat

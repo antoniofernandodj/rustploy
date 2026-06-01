@@ -21,7 +21,7 @@ services:
   pterodactyl:
     image: ghcr.io/pterodactyl/panel:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       DB_HOST: db

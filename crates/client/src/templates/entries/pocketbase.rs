@@ -11,7 +11,7 @@ services:
   pocketbase:
     image: ghcr.io/muchobien/pocketbase:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8090"
     volumes:
       - pb_data:/pb_data

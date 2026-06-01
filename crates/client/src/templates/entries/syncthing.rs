@@ -11,7 +11,7 @@ services:
   syncthing:
     image: syncthing/syncthing:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8384"
     volumes:
       - data:/var/syncthing

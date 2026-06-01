@@ -11,7 +11,7 @@ services:
   linkstack:
     image: linkstackorg/linkstack:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       ADMIN_PASSWORD: {{ADMIN_PASSWORD}}

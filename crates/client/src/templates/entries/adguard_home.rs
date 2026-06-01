@@ -11,7 +11,7 @@ services:
   adguard-home:
     image: adguard/adguardhome:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     volumes:
       - workdir:/opt/adguardhome/work

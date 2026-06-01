@@ -20,7 +20,7 @@ services:
   unleash:
     image: unleashorg/unleash-server:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "4242"
     environment:
       DATABASE_URL: postgresql://unleash:{{DB_PASSWORD}}@db:5432/unleash

@@ -11,7 +11,7 @@ services:
   memos:
     image: neosmemo/memos:stable
     restart: unless-stopped
-    ports:
+    expose:
       - "5230"
     volumes:
       - data:/.memos

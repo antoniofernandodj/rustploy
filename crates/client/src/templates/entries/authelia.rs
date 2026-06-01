@@ -11,7 +11,7 @@ services:
   authelia:
     image: authelia/authelia:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "9091"
     volumes:
       - config:/config

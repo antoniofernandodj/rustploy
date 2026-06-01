@@ -22,7 +22,7 @@ services:
   classicpress:
     image: wordpress:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       WORDPRESS_DB_HOST: db

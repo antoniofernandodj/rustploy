@@ -11,7 +11,7 @@ services:
   navidrome:
     image: deluan/navidrome:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "4533"
     volumes:
       - data:/data

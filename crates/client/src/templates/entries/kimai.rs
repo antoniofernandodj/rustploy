@@ -21,7 +21,7 @@ services:
   kimai:
     image: kimai/kimai2:apache
     restart: unless-stopped
-    ports:
+    expose:
       - "8001"
     environment:
       DB_HOST: db

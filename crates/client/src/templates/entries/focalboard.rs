@@ -20,7 +20,7 @@ services:
   focalboard:
     image: mattermost/focalboard:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8000"
     environment:
       DATABASE_URL: postgresql://focalboard:{{DB_PASSWORD}}@db:5432/focalboard

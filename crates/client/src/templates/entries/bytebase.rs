@@ -11,7 +11,7 @@ services:
   bytebase:
     image: bytebase/bytebase:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "5678"
     volumes:
       - data:/var/opt/bytebase

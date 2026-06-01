@@ -11,7 +11,7 @@ services:
   baikal:
     image: ckulka/baikal:nginx
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     volumes:
       - config:/var/www/html/config

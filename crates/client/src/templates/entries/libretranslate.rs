@@ -11,7 +11,7 @@ services:
   libretranslate:
     image: libretranslate/libretranslate:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "5000"
     volumes:
       - data:/home/libretranslate/.local/share

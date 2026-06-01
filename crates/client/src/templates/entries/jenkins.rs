@@ -11,7 +11,7 @@ services:
   jenkins:
     image: jenkins/jenkins:lts
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
     volumes:
       - data:/var/jenkins_home

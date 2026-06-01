@@ -11,7 +11,7 @@ services:
   calibre:
     image: lscr.io/linuxserver/calibre:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
     environment:
       PASSWORD: {{PASSWORD}}

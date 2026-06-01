@@ -20,7 +20,7 @@ services:
   outline:
     image: outlinewiki/outline:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       DATABASE_URL: postgresql://outline:{{DB_PASSWORD}}@db:5432/outline

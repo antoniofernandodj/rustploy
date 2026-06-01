@@ -11,7 +11,7 @@ services:
   emqx:
     image: emqx:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "1883"
     volumes:
       - data:/opt/emqx/data

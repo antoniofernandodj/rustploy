@@ -11,7 +11,7 @@ services:
   adminer:
     image: adminer:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
 "#,
     variables: &[],

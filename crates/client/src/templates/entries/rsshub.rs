@@ -11,7 +11,7 @@ services:
   rsshub:
     image: diygod/rsshub:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "1200"
 "#,
     variables: &[],

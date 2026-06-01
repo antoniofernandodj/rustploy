@@ -20,7 +20,7 @@ services:
   xsshunter:
     image: thehackerish/xsshunter-client:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
     environment:
       DATABASE_URL: postgresql://xsshunter:{{DB_PASSWORD}}@db:5432/xsshunter

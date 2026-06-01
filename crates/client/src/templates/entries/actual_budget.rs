@@ -11,7 +11,7 @@ services:
   actual-budget:
     image: actualbudget/actual-server:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "5006"
     volumes:
       - data:/data

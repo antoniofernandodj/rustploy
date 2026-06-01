@@ -11,7 +11,7 @@ services:
   mumble:
     image: mumble/mumble-server:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "64738"
     environment:
       MUMBLE_SUPERUSER_PASSWORD: {{MUMBLE_SUPERUSER_PASSWORD}}

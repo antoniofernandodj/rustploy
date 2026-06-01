@@ -11,7 +11,7 @@ services:
   appwrite:
     image: appwrite/appwrite:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       _APP_ENV: {{_APP_ENV}}

@@ -20,7 +20,7 @@ services:
   strapi:
     image: strapi/strapi:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "1337"
     environment:
       DATABASE_URL: postgresql://strapi:{{DB_PASSWORD}}@db:5432/strapi

@@ -21,7 +21,7 @@ services:
   seafile:
     image: seafileltd/seafile-mc:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       DB_HOST: db

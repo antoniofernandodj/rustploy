@@ -11,7 +11,7 @@ services:
   soketi:
     image: quay.io/soketi/soketi:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "6001"
     environment:
       SOKETI_DEFAULT_APP_ID: {{SOKETI_DEFAULT_APP_ID}}

@@ -17,16 +17,27 @@ services:
       POSTGRES_PASSWORD: {{DB_PASSWORD}}
     volumes:
       - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hoppscotch"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   hoppscotch:
     image: hoppscotch/hoppscotch:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
+    command: sh -c "cd /dist/backend && npx prisma migrate deploy && exec node /usr/src/app/aio_run.mjs"
     environment:
+      PORT: 3000
       DATABASE_URL: postgresql://hoppscotch:{{DB_PASSWORD}}@db:5432/hoppscotch
       JWT_SECRET: {{JWT_SECRET}}
+      WHITELISTED_ORIGINS: "*"
+      VITE_ALLOWED_HOSTS: "*"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
 volumes:
   db_data:

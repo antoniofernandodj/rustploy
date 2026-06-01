@@ -11,7 +11,7 @@ services:
   cyberchef:
     image: mpepping/cyberchef:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
 "#,
     variables: &[],

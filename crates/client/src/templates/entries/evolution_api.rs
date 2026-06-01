@@ -20,7 +20,7 @@ services:
   evolution-api:
     image: atendai/evolution-api:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
     environment:
       DATABASE_URL: postgresql://evolution_api:{{DB_PASSWORD}}@db:5432/evolution_api

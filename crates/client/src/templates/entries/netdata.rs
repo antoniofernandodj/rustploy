@@ -11,7 +11,7 @@ services:
   netdata:
     image: netdata/netdata:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "19999"
     volumes:
       - netdataconfig:/etc/netdata

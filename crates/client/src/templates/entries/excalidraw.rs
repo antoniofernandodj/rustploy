@@ -11,7 +11,7 @@ services:
   excalidraw:
     image: excalidraw/excalidraw:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
 "#,
     variables: &[],

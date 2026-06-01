@@ -11,7 +11,7 @@ services:
   jellyfin:
     image: jellyfin/jellyfin:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8096"
     volumes:
       - config:/config

@@ -11,7 +11,7 @@ services:
   vaultwarden:
     image: vaultwarden/server:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       ADMIN_TOKEN: {{ADMIN_TOKEN}}

@@ -11,7 +11,7 @@ services:
   anythingllm:
     image: mintplexlabs/anythingllm:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3001"
     volumes:
       - storage:/app/server/storage

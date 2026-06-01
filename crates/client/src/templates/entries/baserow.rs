@@ -20,7 +20,7 @@ services:
   baserow:
     image: baserow/baserow:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       DATABASE_URL: postgresql://baserow:{{DB_PASSWORD}}@db:5432/baserow

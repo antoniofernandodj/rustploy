@@ -11,7 +11,7 @@ services:
   gitea:
     image: gitea/gitea:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
       - "22"
     environment:

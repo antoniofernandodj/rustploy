@@ -11,7 +11,7 @@ services:
   upsnap:
     image: ghcr.io/seriousm4x/upsnap:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8090"
     volumes:
       - data:/data

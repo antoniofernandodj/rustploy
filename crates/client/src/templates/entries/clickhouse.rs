@@ -11,7 +11,7 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8123"
     volumes:
       - data:/var/lib/clickhouse

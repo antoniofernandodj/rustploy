@@ -20,7 +20,7 @@ services:
   odoo:
     image: odoo:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8069"
     environment:
       DATABASE_URL: postgresql://odoo:{{DB_PASSWORD}}@db:5432/odoo

@@ -26,7 +26,7 @@ services:
     image: ghcr.io/goauthentik/server:latest
     restart: unless-stopped
     command: server
-    ports:
+    expose:
       - "9000"
       - "9443"
     environment:

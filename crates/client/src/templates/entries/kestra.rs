@@ -20,7 +20,7 @@ services:
   kestra:
     image: kestra/kestra:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
     environment:
       DATABASE_URL: postgresql://kestra:{{DB_PASSWORD}}@db:5432/kestra

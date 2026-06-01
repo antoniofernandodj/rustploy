@@ -21,7 +21,7 @@ services:
   n8n:
     image: n8nio/n8n:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "5678"
     environment:
       DB_TYPE: postgresdb

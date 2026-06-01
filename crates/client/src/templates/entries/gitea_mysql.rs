@@ -21,7 +21,7 @@ services:
   gitea-mysql:
     image: gitea/gitea:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       DB_HOST: db

@@ -11,7 +11,7 @@ services:
   calibre-web:
     image: lscr.io/linuxserver/calibre-web:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8083"
     volumes:
       - config:/config

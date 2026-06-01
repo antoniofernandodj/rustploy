@@ -20,7 +20,7 @@ services:
   docmost:
     image: docmost/docmost:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       DATABASE_URL: postgresql://docmost:{{DB_PASSWORD}}@db:5432/docmost

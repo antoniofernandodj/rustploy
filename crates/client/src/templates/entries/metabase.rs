@@ -20,7 +20,7 @@ services:
   metabase:
     image: metabase/metabase:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       DATABASE_URL: postgresql://metabase:{{DB_PASSWORD}}@db:5432/metabase

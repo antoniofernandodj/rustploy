@@ -21,7 +21,7 @@ services:
   mattermost:
     image: mattermost/mattermost-team-edition:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8065"
     environment:
       MM_SQLSETTINGS_DRIVERNAME: postgres

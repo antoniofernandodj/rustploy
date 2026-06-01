@@ -11,7 +11,7 @@ services:
   homeassistant:
     image: homeassistant/home-assistant:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8123"
     volumes:
       - config:/config

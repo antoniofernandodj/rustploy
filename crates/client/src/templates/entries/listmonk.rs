@@ -21,7 +21,7 @@ services:
   listmonk:
     image: listmonk/listmonk:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "9000"
     environment:
       LISTMONK_db__host: db

@@ -20,7 +20,7 @@ services:
   budibase:
     image: budibase/budibase:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       DATABASE_URL: postgresql://budibase:{{DB_PASSWORD}}@db:5432/budibase

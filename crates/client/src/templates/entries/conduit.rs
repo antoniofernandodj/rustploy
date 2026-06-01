@@ -11,7 +11,7 @@ services:
   conduit:
     image: registry.gitlab.com/famedly/conduit:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "6167"
     environment:
       CONDUIT_SERVER_NAME: {{CONDUIT_SERVER_NAME}}

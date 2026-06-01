@@ -11,7 +11,7 @@ services:
   grist:
     image: gristlabs/grist:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8484"
     environment:
       GRIST_SESSION_SECRET: {{GRIST_SESSION_SECRET}}

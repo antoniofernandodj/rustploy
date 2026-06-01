@@ -11,7 +11,7 @@ services:
   botpress:
     image: botpress/server:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     volumes:
       - data:/botpress/data

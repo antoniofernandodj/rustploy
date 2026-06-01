@@ -11,7 +11,7 @@ services:
   couchdb:
     image: couchdb:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "5984"
     environment:
       COUCHDB_USER: {{COUCHDB_USER}}

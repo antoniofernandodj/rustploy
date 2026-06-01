@@ -11,7 +11,7 @@ services:
   it-tools:
     image: corentinth/it-tools:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
 "#,
     variables: &[],

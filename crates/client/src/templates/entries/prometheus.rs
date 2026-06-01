@@ -11,7 +11,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "9090"
     volumes:
       - data:/prometheus

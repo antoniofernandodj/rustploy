@@ -11,7 +11,7 @@ services:
   rustdesk:
     image: rustdesk/rustdesk-server:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "21115"
     volumes:
       - data:/root

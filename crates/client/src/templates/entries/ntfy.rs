@@ -11,7 +11,7 @@ services:
   ntfy:
     image: binwiederhier/ntfy:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     volumes:
       - cache:/var/cache/ntfy

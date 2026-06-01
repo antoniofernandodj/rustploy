@@ -11,7 +11,7 @@ services:
   nginx:
     image: nginx:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     volumes:
       - html:/usr/share/nginx/html

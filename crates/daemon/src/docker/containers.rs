@@ -286,3 +286,19 @@ pub async fn find_by_name(docker: &Docker, name: &str) -> Result<Option<String>>
     }
     Ok(found)
 }
+
+pub async fn find_by_prefix(docker: &Docker, prefix: &str) -> Result<Option<String>> {
+    use bollard::container::ListContainersOptions;
+    debug!(prefix = %prefix, "containers::find_by_prefix: buscando container");
+    let mut filters = HashMap::new();
+    filters.insert("name".to_string(), vec![format!("^/{prefix}")]);
+    let opts = ListContainersOptions {
+        all: true,
+        filters,
+        ..Default::default()
+    };
+    let containers = docker.list_containers(Some(opts)).await?;
+    // Pega o primeiro que encontrar
+    let found = containers.into_iter().next().and_then(|c| c.id);
+    Ok(found)
+}

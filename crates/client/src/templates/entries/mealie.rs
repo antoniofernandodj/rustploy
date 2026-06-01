@@ -11,7 +11,7 @@ services:
   mealie:
     image: ghcr.io/mealie-recipes/mealie:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "9000"
     environment:
       DEFAULT_EMAIL: {{DEFAULT_EMAIL}}

@@ -11,7 +11,7 @@ services:
   homarr:
     image: ghcr.io/ajnart/homarr:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "7575"
     volumes:
       - configs:/app/data/configs

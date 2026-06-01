@@ -11,7 +11,7 @@ services:
   influxdb:
     image: influxdb:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8086"
     environment:
       DOCKER_INFLUXDB_INIT_USERNAME: {{DOCKER_INFLUXDB_INIT_USERNAME}}

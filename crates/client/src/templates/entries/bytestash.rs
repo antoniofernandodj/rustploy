@@ -11,7 +11,7 @@ services:
   bytestash:
     image: ghcr.io/codeharbour/bytestash:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "5000"
     environment:
       JWT_SECRET: {{JWT_SECRET}}

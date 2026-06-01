@@ -20,7 +20,7 @@ services:
   typebot:
     image: baptistearno/typebot-builder:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       DATABASE_URL: postgresql://typebot:{{DB_PASSWORD}}@db:5432/typebot

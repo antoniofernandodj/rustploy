@@ -11,7 +11,7 @@ services:
   valkey:
     image: valkey/valkey:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "6379"
     volumes:
       - data:/data

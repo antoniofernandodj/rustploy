@@ -11,7 +11,7 @@ services:
   grafana:
     image: grafana/grafana:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       GF_SECURITY_ADMIN_PASSWORD: {{ADMIN_PASSWORD}}

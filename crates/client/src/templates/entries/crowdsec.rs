@@ -11,7 +11,7 @@ services:
   crowdsec:
     image: crowdsecurity/crowdsec:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
     volumes:
       - config:/etc/crowdsec

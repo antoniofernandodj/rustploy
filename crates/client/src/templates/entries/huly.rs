@@ -20,7 +20,7 @@ services:
   huly:
     image: hardcoreeng/huly:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8083"
     environment:
       DATABASE_URL: postgresql://huly:{{DB_PASSWORD}}@db:5432/huly

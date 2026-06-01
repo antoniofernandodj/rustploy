@@ -11,7 +11,7 @@ services:
   docker-registry:
     image: registry:2
     restart: unless-stopped
-    ports:
+    expose:
       - "5000"
     volumes:
       - data:/var/lib/registry

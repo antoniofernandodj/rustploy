@@ -11,7 +11,7 @@ services:
   onedev:
     image: 1dev/server:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "6610"
     volumes:
       - data:/opt/onedev

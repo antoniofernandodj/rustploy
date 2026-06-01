@@ -20,7 +20,7 @@ services:
   activepieces:
     image: activepieces/activepieces:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
     environment:
       DATABASE_URL: postgresql://activepieces:{{DB_PASSWORD}}@db:5432/activepieces

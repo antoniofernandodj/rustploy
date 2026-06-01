@@ -11,7 +11,7 @@ services:
   dashy:
     image: lissy93/dashy:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
     volumes:
       - conf.yml:/app/public/conf.yml

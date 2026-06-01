@@ -96,7 +96,7 @@ async fn main() -> Result<()> {
     let state = AppState::new(
         db,
         docker,
-        ingress,
+        ingress.clone(),
         bus,
         secrets,
         db_path,
@@ -109,6 +109,16 @@ async fn main() -> Result<()> {
         let state2 = state.clone();
         tokio::spawn(async move {
             watchdog::watchdog_loop(state2).await;
+        });
+    }
+
+    // Ingress Proxy: roteamento de domínios e portas
+    {
+        let routes = ingress.table_handle();
+        let http_port = config.ingress.http_port;
+        let https_port = config.ingress.https_port;
+        tokio::spawn(async move {
+            ingress::proxy::start_proxy(routes, http_port, https_port).await;
         });
     }
 

@@ -20,7 +20,7 @@ services:
   windmill:
     image: ghcr.io/windmill-labs/windmill:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8000"
     environment:
       DATABASE_URL: postgresql://windmill:{{DB_PASSWORD}}@db:5432/windmill

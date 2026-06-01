@@ -11,7 +11,7 @@ services:
   minio:
     image: minio/minio:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "9000"
       - "9001"
     environment:

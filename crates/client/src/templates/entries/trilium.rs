@@ -11,7 +11,7 @@ services:
   trilium:
     image: zadam/trilium:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
     volumes:
       - data:/root/trilium-data

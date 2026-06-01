@@ -20,7 +20,7 @@ services:
   zipline:
     image: ghcr.io/diced/zipline:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       DATABASE_URL: postgresql://zipline:{{DB_PASSWORD}}@db:5432/zipline

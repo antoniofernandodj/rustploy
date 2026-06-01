@@ -21,7 +21,7 @@ services:
   nextcloud:
     image: nextcloud:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       POSTGRES_HOST: db

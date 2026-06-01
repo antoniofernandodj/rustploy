@@ -11,7 +11,7 @@ services:
   litellm:
     image: ghcr.io/berriai/litellm:main-latest
     restart: unless-stopped
-    ports:
+    expose:
       - "4000"
     environment:
       LITELLM_MASTER_KEY: {{LITELLM_MASTER_KEY}}

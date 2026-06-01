@@ -11,7 +11,7 @@ services:
   kener:
     image: rajnandan1/kener:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     volumes:
       - data:/app/db

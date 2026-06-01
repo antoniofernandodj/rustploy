@@ -11,7 +11,7 @@ services:
   flowise:
     image: flowiseai/flowise:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       FLOWISE_USERNAME: {{FLOWISE_USERNAME}}

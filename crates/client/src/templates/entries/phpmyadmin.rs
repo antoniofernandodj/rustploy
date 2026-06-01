@@ -11,7 +11,7 @@ services:
   phpmyadmin:
     image: phpmyadmin:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       PMA_HOST: {{PMA_HOST}}

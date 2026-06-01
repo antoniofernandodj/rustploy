@@ -11,7 +11,7 @@ services:
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
     environment:
       WEBUI_PORT: {{WEBUI_PORT}}

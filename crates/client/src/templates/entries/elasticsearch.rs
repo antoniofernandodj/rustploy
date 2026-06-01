@@ -11,7 +11,7 @@ services:
   elasticsearch:
     image: elasticsearch:8.11.1
     restart: unless-stopped
-    ports:
+    expose:
       - "9200"
     environment:
       ELASTIC_PASSWORD: {{ELASTIC_PASSWORD}}

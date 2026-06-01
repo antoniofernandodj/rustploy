@@ -21,7 +21,7 @@ services:
   dolibarr:
     image: dolibarr/dolibarr:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       DB_HOST: db

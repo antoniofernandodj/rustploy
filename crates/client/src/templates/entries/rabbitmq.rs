@@ -11,7 +11,7 @@ services:
   rabbitmq:
     image: rabbitmq:management
     restart: unless-stopped
-    ports:
+    expose:
       - "5672"
     environment:
       RABBITMQ_DEFAULT_USER: {{RABBITMQ_DEFAULT_USER}}

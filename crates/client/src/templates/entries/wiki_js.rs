@@ -20,7 +20,7 @@ services:
   wiki-js:
     image: ghcr.io/requarks/wiki:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       DATABASE_URL: postgresql://wiki_js:{{DB_PASSWORD}}@db:5432/wiki_js

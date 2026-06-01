@@ -20,7 +20,7 @@ services:
   etherpad:
     image: etherpad/etherpad:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "9001"
     environment:
       DATABASE_URL: postgresql://etherpad:{{DB_PASSWORD}}@db:5432/etherpad

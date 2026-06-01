@@ -20,7 +20,7 @@ services:
   directus:
     image: directus/directus:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8055"
     environment:
       DATABASE_URL: postgresql://directus:{{DB_PASSWORD}}@db:5432/directus

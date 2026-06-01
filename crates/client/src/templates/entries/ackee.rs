@@ -17,7 +17,7 @@ services:
   ackee:
     image: electerious/ackee:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       MONGODB: mongodb://db:27017/ackee

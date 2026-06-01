@@ -25,7 +25,7 @@ services:
   rocketchat:
     image: registry.rocket.chat/rocketchat/rocket.chat:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       MONGO_URL: mongodb://mongo:27017/rocketchat?replicaSet=rs0

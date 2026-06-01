@@ -11,7 +11,7 @@ services:
   linkding:
     image: sissbruecker/linkding:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "9090"
     environment:
       LD_SUPERUSER_NAME: {{ADMIN_USER}}

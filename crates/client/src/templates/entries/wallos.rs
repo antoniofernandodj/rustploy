@@ -11,7 +11,7 @@ services:
   wallos:
     image: bellamy9/wallos:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8282"
     volumes:
       - db:/var/www/html/db

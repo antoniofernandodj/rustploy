@@ -11,7 +11,7 @@ services:
   dozzle:
     image: amir20/dozzle:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

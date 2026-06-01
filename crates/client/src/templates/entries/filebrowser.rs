@@ -11,7 +11,7 @@ services:
   filebrowser:
     image: filebrowser/filebrowser:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     volumes:
       - fb_data:/database

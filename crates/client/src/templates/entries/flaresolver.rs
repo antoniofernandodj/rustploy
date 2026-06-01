@@ -11,7 +11,7 @@ services:
   flaresolver:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8191"
 "#,
     variables: &[],

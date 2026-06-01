@@ -16,7 +16,7 @@ services:
   one-time-secret:
     image: onetimesecret/onetimesecret:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "7143"
     environment:
       REDIS_URL: redis://redis:6379

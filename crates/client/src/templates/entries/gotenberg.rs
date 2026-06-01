@@ -11,7 +11,7 @@ services:
   gotenberg:
     image: gotenberg/gotenberg:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
 "#,
     variables: &[],

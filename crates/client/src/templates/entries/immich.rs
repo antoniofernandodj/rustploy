@@ -11,7 +11,7 @@ services:
   immich-server:
     image: ghcr.io/immich-app/immich-server:release
     restart: unless-stopped
-    ports:
+    expose:
       - "2283"
     environment:
       DB_HOSTNAME: database

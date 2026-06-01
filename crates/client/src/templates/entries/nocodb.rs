@@ -20,7 +20,7 @@ services:
   nocodb:
     image: nocodb/nocodb:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8080"
     environment:
       DATABASE_URL: postgresql://nocodb:{{DB_PASSWORD}}@db:5432/nocodb

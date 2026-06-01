@@ -11,7 +11,7 @@ services:
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       WEBUI_SECRET_KEY: {{WEBUI_SECRET_KEY}}

@@ -11,7 +11,7 @@ services:
   surrealdb:
     image: surrealdb/surrealdb:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8000"
     environment:
       SURREAL_USER: {{SURREAL_USER}}

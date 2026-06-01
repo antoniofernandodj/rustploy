@@ -11,7 +11,7 @@ services:
   uptime-kuma:
     image: louislam/uptime-kuma:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3001"
     volumes:
       - uptime_data:/app/data

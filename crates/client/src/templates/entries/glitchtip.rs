@@ -20,7 +20,7 @@ services:
   glitchtip:
     image: glitchtip/glitchtip:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8000"
     environment:
       DATABASE_URL: postgresql://glitchtip:{{DB_PASSWORD}}@db:5432/glitchtip

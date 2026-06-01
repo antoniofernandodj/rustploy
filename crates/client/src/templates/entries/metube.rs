@@ -11,7 +11,7 @@ services:
   metube:
     image: ghcr.io/alexta69/metube:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8081"
     volumes:
       - downloads:/downloads

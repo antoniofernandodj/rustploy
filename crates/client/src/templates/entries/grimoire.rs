@@ -20,7 +20,7 @@ services:
   grimoire:
     image: ghcr.io/goniszewski/grimoire:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       DATABASE_URL: postgresql://grimoire:{{DB_PASSWORD}}@db:5432/grimoire

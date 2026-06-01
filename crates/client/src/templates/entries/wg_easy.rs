@@ -11,7 +11,7 @@ services:
   wg-easy:
     image: ghcr.io/wg-easy/wg-easy:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "51821"
     environment:
       WG_HOST: {{WG_HOST}}

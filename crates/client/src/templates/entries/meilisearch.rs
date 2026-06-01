@@ -11,7 +11,7 @@ services:
   meilisearch:
     image: getmeili/meilisearch:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "7700"
     environment:
       MEILI_MASTER_KEY: {{MASTER_KEY}}

@@ -11,7 +11,7 @@ services:
   backrest:
     image: garethgeorge/backrest:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "9898"
     volumes:
       - data:/data

@@ -11,7 +11,7 @@ services:
   emby:
     image: emby/embyserver:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8096"
     volumes:
       - config:/config

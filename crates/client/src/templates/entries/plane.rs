@@ -20,7 +20,7 @@ services:
   plane:
     image: makeplane/plane-space:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       DATABASE_URL: postgresql://plane:{{DB_PASSWORD}}@db:5432/plane

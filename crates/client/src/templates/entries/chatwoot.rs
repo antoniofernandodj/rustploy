@@ -20,7 +20,7 @@ services:
   chatwoot:
     image: chatwoot/chatwoot:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3000"
     environment:
       DATABASE_URL: postgresql://chatwoot:{{DB_PASSWORD}}@db:5432/chatwoot

@@ -11,7 +11,7 @@ services:
   kitchenowl:
     image: tombursch/kitchenowl:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       JWT_SECRET_KEY: {{JWT_SECRET_KEY}}

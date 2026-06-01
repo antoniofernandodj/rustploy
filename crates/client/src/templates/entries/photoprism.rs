@@ -21,7 +21,7 @@ services:
   photoprism:
     image: photoprism/photoprism:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "2342"
     environment:
       DB_HOST: db

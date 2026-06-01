@@ -11,7 +11,7 @@ services:
   dragonfly:
     image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "6379"
     volumes:
       - data:/data

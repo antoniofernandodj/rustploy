@@ -11,7 +11,7 @@ services:
   mailpit:
     image: axllent/mailpit:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8025"
     volumes:
       - data:/data

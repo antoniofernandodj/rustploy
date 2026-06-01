@@ -11,7 +11,7 @@ services:
   audiobookshelf:
     image: ghcr.io/advplyr/audiobookshelf:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "13378"
     volumes:
       - config:/config

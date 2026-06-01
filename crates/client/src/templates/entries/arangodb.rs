@@ -11,7 +11,7 @@ services:
   arangodb:
     image: arangodb:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8529"
     environment:
       ARANGO_ROOT_PASSWORD: {{ARANGO_ROOT_PASSWORD}}

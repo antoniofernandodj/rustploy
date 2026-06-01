@@ -11,7 +11,7 @@ services:
   pgadmin:
     image: dpage/pgadmin4:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "80"
     environment:
       PGADMIN_DEFAULT_EMAIL: {{PGADMIN_DEFAULT_EMAIL}}

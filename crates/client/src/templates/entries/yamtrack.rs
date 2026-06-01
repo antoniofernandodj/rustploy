@@ -11,7 +11,7 @@ services:
   yamtrack:
     image: ghcr.io/fcrozetta/yamtrack:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "8000"
     environment:
       SECRET_KEY: {{SECRET_KEY}}

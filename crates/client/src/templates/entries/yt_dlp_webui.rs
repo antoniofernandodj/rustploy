@@ -11,7 +11,7 @@ services:
   yt-dlp-webui:
     image: ghcr.io/marcopiovanello/yt-dlp-web-ui:latest
     restart: unless-stopped
-    ports:
+    expose:
       - "3033"
     volumes:
       - downloads:/downloads
