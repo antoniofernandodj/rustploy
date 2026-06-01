@@ -1,8 +1,11 @@
 use crate::{db::Db, event_bus::EventBus};
-use bollard::{container::{LogOutput, LogsOptions}, Docker};
+use bollard::{
+    Docker,
+    container::{LogOutput, LogsOptions},
+};
 use chrono::Utc;
 use futures::StreamExt;
-use shared::{protocol::LogStream, Event};
+use shared::{Event, protocol::LogStream};
 use std::{collections::HashSet, sync::Arc, time::Duration};
 use tokio::{sync::Mutex, time::interval};
 use tracing::{debug, warn};
@@ -99,7 +102,10 @@ async fn stream_container(
             // Verifica se o container ainda está rodando.
             Err(_) => {
                 let running = docker
-                    .inspect_container(&container_id, None::<bollard::container::InspectContainerOptions>)
+                    .inspect_container(
+                        &container_id,
+                        None::<bollard::container::InspectContainerOptions>,
+                    )
                     .await
                     .ok()
                     .and_then(|info| info.state?.running)
@@ -115,7 +121,13 @@ async fn stream_container(
     }
 }
 
-fn publish_log(bus: &EventBus, service_id: &str, container_id: &str, is_stderr: bool, bytes: &[u8]) {
+fn publish_log(
+    bus: &EventBus,
+    service_id: &str,
+    container_id: &str,
+    is_stderr: bool,
+    bytes: &[u8],
+) {
     let text = String::from_utf8_lossy(bytes)
         .trim_end_matches('\n')
         .to_string();
@@ -125,7 +137,11 @@ fn publish_log(bus: &EventBus, service_id: &str, container_id: &str, is_stderr: 
     bus.publish(Event::LogLine {
         service_id: service_id.to_string(),
         container_id: container_id.to_string(),
-        stream: if is_stderr { LogStream::Stderr } else { LogStream::Stdout },
+        stream: if is_stderr {
+            LogStream::Stderr
+        } else {
+            LogStream::Stdout
+        },
         line: text,
         timestamp: Utc::now(),
     });

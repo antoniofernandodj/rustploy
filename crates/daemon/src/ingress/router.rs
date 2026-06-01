@@ -1,5 +1,8 @@
 use arc_swap::ArcSwap;
-use std::{collections::HashMap, sync::{Arc, Mutex}};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 #[derive(Debug, Clone)]
 pub struct RouteEntry {

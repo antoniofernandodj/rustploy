@@ -10,11 +10,11 @@ pub mod sidebar;
 use crate::app::{App, DbKind, Focus, NewServiceStep, View};
 use crate::templates::{self, TemplateCategory};
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
-    Frame,
 };
 
 const SIDEBAR_WIDTH: u16 = 26;
@@ -24,7 +24,11 @@ pub fn render(f: &mut Frame, app: &App) {
 
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(1), Constraint::Min(0), Constraint::Length(1)])
+        .constraints([
+            Constraint::Length(1),
+            Constraint::Min(0),
+            Constraint::Length(1),
+        ])
         .split(area);
 
     render_titlebar(f, main_chunks[0], app);
@@ -72,11 +76,28 @@ fn render_content(f: &mut Frame, app: &App, area: Rect) {
         View::ServiceDetail => service_detail::render(f, app, area),
         View::HomeDeployments => home_deployments::render(f, app, area),
         View::HomeMonitoring => metrics::render_global(f, app, area),
-        View::HomeSchedules => render_home_placeholder(f, area, "Schedules", "Agendamentos de auto-deploy (v2)."),
-        View::HomeIngress => render_home_placeholder(f, area, "Ingress Routes", "Tabela de rotas ativa no proxy hyper."),
-        View::HomeDocker => render_home_placeholder(f, area, "Docker", "Containers, redes e imagens gerenciadas."),
+        View::HomeSchedules => {
+            render_home_placeholder(f, area, "Schedules", "Agendamentos de auto-deploy (v2).")
+        }
+        View::HomeIngress => render_home_placeholder(
+            f,
+            area,
+            "Ingress Routes",
+            "Tabela de rotas ativa no proxy hyper.",
+        ),
+        View::HomeDocker => render_home_placeholder(
+            f,
+            area,
+            "Docker",
+            "Containers, redes e imagens gerenciadas.",
+        ),
         View::HomeDeployEngine => deploy_engine::render(f, app, area),
-        View::HomeRequests => render_home_placeholder(f, area, "Requests", "Log de requisições recebidas pelo proxy hyper."),
+        View::HomeRequests => render_home_placeholder(
+            f,
+            area,
+            "Requests",
+            "Log de requisições recebidas pelo proxy hyper.",
+        ),
         View::SettingsWebServer
         | View::SettingsProfile
         | View::SettingsUsers
@@ -102,7 +123,10 @@ fn render_home_placeholder(f: &mut Frame, area: Rect, title: &str, desc: &str) {
         Line::from(""),
         Line::from(Span::styled(desc, Style::default().fg(Color::DarkGray))),
         Line::from(""),
-        Line::from(Span::styled("Em construção.", Style::default().fg(Color::Yellow))),
+        Line::from(Span::styled(
+            "Em construção.",
+            Style::default().fg(Color::Yellow),
+        )),
     ])
     .block(block);
     f.render_widget(text, area);
@@ -119,8 +143,12 @@ fn render_statusbar(f: &mut Frame, area: Rect, app: &App) {
                 " [Tab] KEY↔VALUE  [Enter] salvar  [Esc] cancelar"
             } else {
                 match app.project_detail_tab {
-                    ProjectDetailTab::Services => " [←→/1/2] abas  [n] novo serviço  [Enter] abrir  [D] deletar  [/] filtrar  [Tab] sidebar",
-                    ProjectDetailTab::Environment => " [←→/1/2] abas  [n] nova var  [e] editar  [D] remover  [Tab] sidebar",
+                    ProjectDetailTab::Services => {
+                        " [←→/1/2] abas  [n] novo serviço  [Enter] abrir  [D] deletar  [/] filtrar  [Tab] sidebar"
+                    }
+                    ProjectDetailTab::Environment => {
+                        " [←→/1/2] abas  [n] nova var  [e] editar  [D] remover  [Tab] sidebar"
+                    }
                 }
             }
         }
@@ -164,7 +192,11 @@ fn render_new_project_popup(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(
         Paragraph::new(Span::styled(
             "  Nome",
-            Style::default().fg(if name_focused { Color::Cyan } else { Color::DarkGray }),
+            Style::default().fg(if name_focused {
+                Color::Cyan
+            } else {
+                Color::DarkGray
+            }),
         )),
         chunks[1],
     );
@@ -197,7 +229,11 @@ fn render_new_project_popup(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(
         Paragraph::new(Span::styled(
             "  Descrição  (opcional)",
-            Style::default().fg(if desc_focused { Color::Cyan } else { Color::DarkGray }),
+            Style::default().fg(if desc_focused {
+                Color::Cyan
+            } else {
+                Color::DarkGray
+            }),
         )),
         chunks[3],
     );
@@ -281,7 +317,9 @@ fn render_notification(f: &mut Frame, area: Rect, message: &str, is_error: bool)
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(color));
-    let text = Paragraph::new(message).block(block).style(Style::default().fg(color));
+    let text = Paragraph::new(message)
+        .block(block)
+        .style(Style::default().fg(color));
     f.render_widget(Clear, notif_area);
     f.render_widget(text, notif_area);
 }
@@ -387,17 +425,19 @@ fn render_ns_pick_type(f: &mut Frame, area: Rect, app: &App) {
             let card = Block::default()
                 .borders(Borders::ALL)
                 .title(format!(" {} ", kinds[idx].1))
-                .title_style(
-                    Style::default().fg(title_color).add_modifier(if selected {
-                        Modifier::BOLD
-                    } else {
-                        Modifier::empty()
-                    }),
-                )
+                .title_style(Style::default().fg(title_color).add_modifier(if selected {
+                    Modifier::BOLD
+                } else {
+                    Modifier::empty()
+                }))
                 .border_style(Style::default().fg(border_color));
             let card_inner = card.inner(cols[1 + col * 2]);
             f.render_widget(card, cols[1 + col * 2]);
-            let desc_color = if selected { Color::White } else { Color::DarkGray };
+            let desc_color = if selected {
+                Color::White
+            } else {
+                Color::DarkGray
+            };
             f.render_widget(
                 Paragraph::new(Line::from(Span::styled(
                     format!(" {}", descriptions[idx]),
@@ -517,20 +557,47 @@ fn render_ns_app_form(f: &mut Frame, area: Rect, app: &App) {
         ])
         .split(inner);
 
-    render_ns_labeled_box(f, chunks[1], chunks[2], "  Nome", &state.name, state.focused_field == 0);
-    render_ns_labeled_box(f, chunks[3], chunks[4], "  App Name", &state.app_name, state.focused_field == 1);
-    render_ns_labeled_box(f, chunks[5], chunks[6], "  Descrição  (opcional)", &state.description, state.focused_field == 2);
+    render_ns_labeled_box(
+        f,
+        chunks[1],
+        chunks[2],
+        "  Nome",
+        &state.name,
+        state.focused_field == 0,
+    );
+    render_ns_labeled_box(
+        f,
+        chunks[3],
+        chunks[4],
+        "  App Name",
+        &state.app_name,
+        state.focused_field == 1,
+    );
+    render_ns_labeled_box(
+        f,
+        chunks[5],
+        chunks[6],
+        "  Descrição  (opcional)",
+        &state.description,
+        state.focused_field == 2,
+    );
 
     let btn_focused = state.is_button();
     let btn = if btn_focused {
         Span::styled(
             " [ Criar Application ] ",
-            Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
         )
     } else {
         Span::styled(" [ Criar Application ] ", Style::default().fg(Color::White))
     };
-    f.render_widget(Paragraph::new(Line::from(vec![Span::raw("  "), btn])), chunks[8]);
+    f.render_widget(
+        Paragraph::new(Line::from(vec![Span::raw("  "), btn])),
+        chunks[8],
+    );
     render_ns_hints(f, chunks[9]);
 }
 
@@ -613,8 +680,10 @@ fn render_ns_db_form(f: &mut Frame, area: Rect, app: &App) {
 
     // Each field slot: 3 rows
     let visible_slice = &all_fields[scroll..total.min(scroll + VISIBLE)];
-    let mut field_chunks_constraints: Vec<Constraint> =
-        visible_slice.iter().map(|_| Constraint::Length(3)).collect();
+    let mut field_chunks_constraints: Vec<Constraint> = visible_slice
+        .iter()
+        .map(|_| Constraint::Length(3))
+        .collect();
     // Fill remaining space if fewer than VISIBLE fields
     field_chunks_constraints.push(Constraint::Min(0));
     let field_rows = Layout::default()
@@ -653,7 +722,10 @@ fn render_ns_db_form(f: &mut Frame, area: Rect, app: &App) {
         String::new()
     };
     f.render_widget(
-        Paragraph::new(Span::styled(scroll_text, Style::default().fg(Color::DarkGray))),
+        Paragraph::new(Span::styled(
+            scroll_text,
+            Style::default().fg(Color::DarkGray),
+        )),
         chunks[2],
     );
 
@@ -663,12 +735,18 @@ fn render_ns_db_form(f: &mut Frame, area: Rect, app: &App) {
     let btn = if btn_focused {
         Span::styled(
             btn_label,
-            Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
         )
     } else {
         Span::styled(btn_label, Style::default().fg(Color::White))
     };
-    f.render_widget(Paragraph::new(Line::from(vec![Span::raw("  "), btn])), chunks[3]);
+    f.render_widget(
+        Paragraph::new(Line::from(vec![Span::raw("  "), btn])),
+        chunks[3],
+    );
 
     render_ns_hints(f, chunks[4]);
 }
@@ -713,7 +791,11 @@ fn render_ns_labeled_box(
     f.render_widget(
         Paragraph::new(Span::styled(
             label,
-            Style::default().fg(if focused { Color::Cyan } else { Color::DarkGray }),
+            Style::default().fg(if focused {
+                Color::Cyan
+            } else {
+                Color::DarkGray
+            }),
         )),
         label_area,
     );
@@ -722,14 +804,19 @@ fn render_ns_labeled_box(
     } else {
         Style::default().fg(Color::DarkGray)
     };
-    let input_block = Block::default().borders(Borders::ALL).border_style(border_style);
+    let input_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(border_style);
     let input_inner = input_block.inner(box_area);
     f.render_widget(input_block, box_area);
     let cursor = if focused { "▌" } else { "" };
     let display = if !focused && value.is_empty() && label.contains("opcional") {
         Span::styled(" opcional...", Style::default().fg(Color::DarkGray))
     } else {
-        Span::styled(format!(" {value}{cursor}"), Style::default().fg(Color::White))
+        Span::styled(
+            format!(" {value}{cursor}"),
+            Style::default().fg(Color::White),
+        )
     };
     f.render_widget(Paragraph::new(display), input_inner);
 }
@@ -764,8 +851,22 @@ fn render_ns_compose_form(f: &mut Frame, area: Rect, app: &App) {
         ])
         .split(inner);
 
-    render_ns_labeled_box(f, chunks[1], chunks[2], "  Nome", &state.name, state.focused_field == 0);
-    render_ns_labeled_box(f, chunks[3], chunks[4], "  App Name", &state.app_name, state.focused_field == 1);
+    render_ns_labeled_box(
+        f,
+        chunks[1],
+        chunks[2],
+        "  Nome",
+        &state.name,
+        state.focused_field == 0,
+    );
+    render_ns_labeled_box(
+        f,
+        chunks[3],
+        chunks[4],
+        "  App Name",
+        &state.app_name,
+        state.focused_field == 1,
+    );
 
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(
@@ -779,12 +880,21 @@ fn render_ns_compose_form(f: &mut Frame, area: Rect, app: &App) {
     let btn = if btn_focused {
         Span::styled(
             " [ Criar Compose Stack ] ",
-            Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
         )
     } else {
-        Span::styled(" [ Criar Compose Stack ] ", Style::default().fg(Color::White))
+        Span::styled(
+            " [ Criar Compose Stack ] ",
+            Style::default().fg(Color::White),
+        )
     };
-    f.render_widget(Paragraph::new(Line::from(vec![Span::raw("  "), btn])), chunks[8]);
+    f.render_widget(
+        Paragraph::new(Line::from(vec![Span::raw("  "), btn])),
+        chunks[8],
+    );
     render_ns_hints(f, chunks[9]);
 }
 
@@ -821,10 +931,16 @@ fn render_ns_pick_template(f: &mut Frame, area: Rect, app: &App) {
             let s = if active {
                 Span::styled(
                     format!(" {} ", cat.label()),
-                    Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(Color::Black)
+                        .bg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
                 )
             } else {
-                Span::styled(format!(" {} ", cat.label()), Style::default().fg(Color::DarkGray))
+                Span::styled(
+                    format!(" {} ", cat.label()),
+                    Style::default().fg(Color::DarkGray),
+                )
             };
             vec![s, Span::raw(" ")]
         })
@@ -842,7 +958,10 @@ fn render_ns_pick_template(f: &mut Frame, area: Rect, app: &App) {
     } else {
         " [/] buscar...".to_string()
     };
-    f.render_widget(Paragraph::new(Span::styled(search_text, search_style)), chunks[2]);
+    f.render_widget(
+        Paragraph::new(Span::styled(search_text, search_style)),
+        chunks[2],
+    );
 
     // ── Template list ─────────────────────────────────────────────────────────
     let cat = TemplateCategory::FILTERS[state.template_cat_cursor];
@@ -851,7 +970,11 @@ fn render_ns_pick_template(f: &mut Frame, area: Rect, app: &App) {
     const VISIBLE: usize = 14;
     let total = list.len();
     let cursor = state.template_cursor.min(total.saturating_sub(1));
-    let scroll = if cursor >= VISIBLE { cursor + 1 - VISIBLE } else { 0 };
+    let scroll = if cursor >= VISIBLE {
+        cursor + 1 - VISIBLE
+    } else {
+        0
+    };
 
     if list.is_empty() {
         f.render_widget(
@@ -874,12 +997,18 @@ fn render_ns_pick_template(f: &mut Frame, area: Rect, app: &App) {
                 let line = Line::from(vec![
                     Span::styled(
                         marker,
-                        if selected { Style::default().fg(Color::Cyan) } else { Style::default() },
+                        if selected {
+                            Style::default().fg(Color::Cyan)
+                        } else {
+                            Style::default()
+                        },
                     ),
                     Span::styled(
                         format!("{:<20}", t.name),
                         if selected {
-                            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+                            Style::default()
+                                .fg(Color::Cyan)
+                                .add_modifier(Modifier::BOLD)
                         } else {
                             Style::default().fg(Color::White)
                         },
@@ -944,11 +1073,11 @@ fn render_ns_template_var_form(f: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1),                       // padding
+            Constraint::Length(1),                        // padding
             Constraint::Length(visible_slots as u16 * 3), // fields
-            Constraint::Length(1),                       // scroll hint
-            Constraint::Length(1),                       // button
-            Constraint::Length(1),                       // hints
+            Constraint::Length(1),                        // scroll hint
+            Constraint::Length(1),                        // button
+            Constraint::Length(1),                        // hints
         ])
         .split(inner);
 
@@ -956,7 +1085,11 @@ fn render_ns_template_var_form(f: &mut Frame, area: Rect, app: &App) {
     let all_fields: Vec<(&str, &str, usize)> = {
         let mut v = vec![("Nome do serviço", state.name.as_str(), 0)];
         for (i, var) in template.variables.iter().enumerate() {
-            let val = state.template_var_values.get(i).map(String::as_str).unwrap_or("");
+            let val = state
+                .template_var_values
+                .get(i)
+                .map(String::as_str)
+                .unwrap_or("");
             v.push((var.label, val, i + 1));
         }
         v
@@ -966,8 +1099,10 @@ fn render_ns_template_var_form(f: &mut Frame, area: Rect, app: &App) {
     let scroll = state.form_scroll;
     let visible_slice = &all_fields[scroll..total.min(scroll + VISIBLE)];
 
-    let mut row_constraints: Vec<Constraint> =
-        visible_slice.iter().map(|_| Constraint::Length(3)).collect();
+    let mut row_constraints: Vec<Constraint> = visible_slice
+        .iter()
+        .map(|_| Constraint::Length(3))
+        .collect();
     row_constraints.push(Constraint::Min(0));
     let field_rows = Layout::default()
         .direction(Direction::Vertical)
@@ -975,7 +1110,13 @@ fn render_ns_template_var_form(f: &mut Frame, area: Rect, app: &App) {
         .split(chunks[1]);
 
     for (slot, (label, value, field_idx)) in visible_slice.iter().enumerate() {
-        render_ns_field_box(f, field_rows[slot], label, value, state.focused_field == *field_idx);
+        render_ns_field_box(
+            f,
+            field_rows[slot],
+            label,
+            value,
+            state.focused_field == *field_idx,
+        );
     }
 
     // Scroll indicator
@@ -993,7 +1134,10 @@ fn render_ns_template_var_form(f: &mut Frame, area: Rect, app: &App) {
         String::new()
     };
     f.render_widget(
-        Paragraph::new(Span::styled(scroll_text, Style::default().fg(Color::DarkGray))),
+        Paragraph::new(Span::styled(
+            scroll_text,
+            Style::default().fg(Color::DarkGray),
+        )),
         chunks[2],
     );
 
@@ -1002,12 +1146,18 @@ fn render_ns_template_var_form(f: &mut Frame, area: Rect, app: &App) {
     let btn = if state.is_button() {
         Span::styled(
             btn_label,
-            Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
         )
     } else {
         Span::styled(btn_label, Style::default().fg(Color::White))
     };
-    f.render_widget(Paragraph::new(Line::from(vec![Span::raw("  "), btn])), chunks[3]);
+    f.render_widget(
+        Paragraph::new(Line::from(vec![Span::raw("  "), btn])),
+        chunks[3],
+    );
 
     render_ns_hints(f, chunks[4]);
 }

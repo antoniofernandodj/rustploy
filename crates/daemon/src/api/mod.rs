@@ -4,10 +4,7 @@ pub mod server;
 pub mod webhook_server;
 
 use crate::{
-    db::Db,
-    docker::DockerClient,
-    event_bus::EventBus,
-    ingress::IngressController,
+    db::Db, docker::DockerClient, event_bus::EventBus, ingress::IngressController,
     secrets::SecretsManager,
 };
 use std::{path::PathBuf, sync::Arc};

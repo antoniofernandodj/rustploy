@@ -1,6 +1,6 @@
 use crate::{
     db::Db,
-    docker::{containers, DockerClient},
+    docker::{DockerClient, containers},
     event_bus::EventBus,
     ingress::IngressController,
     secrets::SecretsManager,
@@ -37,7 +37,10 @@ pub async fn recover(
         let svc = match crate::db::services::get(&db, &dep.service_id).await {
             Ok(Some(s)) => s,
             _ => {
-                warn!(deployment_id = dep.id, "service not found during recovery, marking failed");
+                warn!(
+                    deployment_id = dep.id,
+                    "service not found during recovery, marking failed"
+                );
                 let _ = crate::db::deployments::transition(
                     &db,
                     &dep.id,
@@ -66,13 +69,9 @@ pub async fn recover(
                     "aborting pre-swap deployment"
                 );
                 // Remove staging container if it exists
-                let staging_name = containers::staging_name(
-                    &svc.spec.name,
-                    &dep.id[..8.min(dep.id.len())],
-                );
-                if let Ok(Some(id)) =
-                    containers::find_by_name(&docker.inner, &staging_name).await
-                {
+                let staging_name =
+                    containers::staging_name(&svc.spec.name, &dep.id[..8.min(dep.id.len())]);
+                if let Ok(Some(id)) = containers::find_by_name(&docker.inner, &staging_name).await {
                     let _ = containers::remove(&docker.inner, &id).await;
                 }
                 let _ = crate::db::deployments::transition(
@@ -144,7 +143,10 @@ pub async fn recover(
                 tokio::spawn(async move { executor.run(dep_id).await });
             }
 
-            DeployState::Live | DeployState::Stopped | DeployState::Failed | DeployState::Pruning => {}
+            DeployState::Live
+            | DeployState::Stopped
+            | DeployState::Failed
+            | DeployState::Pruning => {}
         }
     }
 
@@ -161,19 +163,28 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
         }
     };
 
-    info!(count = services.len(), "restoring ingress routes for running services");
+    info!(
+        count = services.len(),
+        "restoring ingress routes for running services"
+    );
 
     for svc in services {
         let live_name = containers::live_name(&svc.spec.name);
         let container_id = match containers::find_by_name(&docker.inner, &live_name).await {
             Ok(Some(id)) => id,
             _ => {
-                warn!(service = svc.spec.name, "live container not found, skipping route restore");
+                warn!(
+                    service = svc.spec.name,
+                    "live container not found, skipping route restore"
+                );
                 continue;
             }
         };
 
-        let net = format!("rp_net_{}", &svc.spec.project_id[..8.min(svc.spec.project_id.len())]);
+        let net = format!(
+            "rp_net_{}",
+            &svc.spec.project_id[..8.min(svc.spec.project_id.len())]
+        );
         let ip = match containers::get_container_ip(&docker.inner, &container_id, &net).await {
             Ok(ip) => ip,
             Err(e) => {
@@ -191,7 +202,10 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
 
         if let Some(host_port) = svc.spec.host_port {
             ingress.upsert_port_route(host_port, &backend);
-            info!(service = svc.spec.name, host_port, backend, "port route restored");
+            info!(
+                service = svc.spec.name,
+                host_port, backend, "port route restored"
+            );
         }
     }
 }

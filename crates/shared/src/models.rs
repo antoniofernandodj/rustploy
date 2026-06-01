@@ -43,7 +43,9 @@ pub struct ComposeSource {
 
 impl Default for ComposeSource {
     fn default() -> Self {
-        Self { content: String::new() }
+        Self {
+            content: String::new(),
+        }
     }
 }
 
@@ -142,7 +144,10 @@ pub enum DeployState {
 
 impl DeployState {
     pub fn is_terminal(&self) -> bool {
-        matches!(self, Self::Live | Self::Stopped | Self::Failed | Self::Pruning)
+        matches!(
+            self,
+            Self::Live | Self::Stopped | Self::Failed | Self::Pruning
+        )
     }
 
     pub fn to_percent(&self) -> u8 {
@@ -259,6 +264,30 @@ pub struct DaemonStatus {
     pub uptime_secs: u64,
     pub services_running: usize,
     pub services_total: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActiveDeployInfo {
+    pub deployment_id: String,
+    pub service_id: String,
+    pub service_name: String,
+    pub project_name: String,
+    pub state: DeployState,
+    pub percent: u8,
+    pub started_at: DateTime<Utc>,
+    pub elapsed_secs: u64,
+    pub current_state_secs: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeployEngineSummary {
+    pub version: String,
+    pub uptime_secs: u64,
+    pub active: Vec<ActiveDeployInfo>,
+    pub recent: Vec<ActiveDeployInfo>,
+    pub total_24h: u64,
+    pub successful_24h: u64,
+    pub failed_24h: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

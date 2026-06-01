@@ -33,7 +33,13 @@ pub async fn fix_stale_live(state: &AppState, deployments: Vec<Deployment>) -> V
                 service_id = %dep.service_id,
                 "reconcile: deployment Live duplicado para o mesmo serviço — corrigindo para Pruning"
             );
-            transition_deployment(state, &mut dep, DeployState::Pruning, "superseded by newer deployment").await;
+            transition_deployment(
+                state,
+                &mut dep,
+                DeployState::Pruning,
+                "superseded by newer deployment",
+            )
+            .await;
             out.push(dep);
             continue;
         }
@@ -45,7 +51,13 @@ pub async fn fix_stale_live(state: &AppState, deployments: Vec<Deployment>) -> V
                 service_id = %dep.service_id,
                 "reconcile: deployment Live mas container não está rodando — corrigindo para Stopped"
             );
-            transition_deployment(state, &mut dep, DeployState::Stopped, "container not running at read time").await;
+            transition_deployment(
+                state,
+                &mut dep,
+                DeployState::Stopped,
+                "container not running at read time",
+            )
+            .await;
             let _ = crate::db::services::update_status(
                 &state.db,
                 &dep.service_id,
@@ -102,11 +114,7 @@ async fn is_container_running(state: &AppState, service_id: &str) -> bool {
     };
 
     match crate::docker::containers::inspect(&state.docker.inner, &container_id).await {
-        Ok(info) => info
-            .state
-            .as_ref()
-            .and_then(|s| s.running)
-            .unwrap_or(false),
+        Ok(info) => info.state.as_ref().and_then(|s| s.running).unwrap_or(false),
         Err(_) => false,
     }
 }

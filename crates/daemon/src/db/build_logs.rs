@@ -3,15 +3,18 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use shared::protocol::{BuildLogLine, LogStream};
 
-pub async fn append(db: &Db, deployment_id: &str, line: &str, timestamp: DateTime<Utc>) -> Result<()> {
-    sqlx::query(
-        "INSERT INTO build_log (deployment_id, line, ts) VALUES (?, ?, ?)",
-    )
-    .bind(deployment_id)
-    .bind(line)
-    .bind(timestamp)
-    .execute(db)
-    .await?;
+pub async fn append(
+    db: &Db,
+    deployment_id: &str,
+    line: &str,
+    timestamp: DateTime<Utc>,
+) -> Result<()> {
+    sqlx::query("INSERT INTO build_log (deployment_id, line, ts) VALUES (?, ?, ?)")
+        .bind(deployment_id)
+        .bind(line)
+        .bind(timestamp)
+        .execute(db)
+        .await?;
     Ok(())
 }
 

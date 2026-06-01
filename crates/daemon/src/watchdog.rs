@@ -1,12 +1,11 @@
-use crate::{
-    api::AppState,
-    db::Db,
-    deploy::executor::DeployExecutor,
-    event_bus::EventBus,
-};
+use crate::{api::AppState, db::Db, deploy::executor::DeployExecutor, event_bus::EventBus};
 use bollard::Docker;
 use shared::{Event, Healthcheck, HealthcheckKind, ServiceSource, ServiceStatus};
-use std::{collections::HashMap, sync::Arc, time::{Duration, Instant}};
+use std::{
+    collections::HashMap,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
@@ -49,11 +48,13 @@ pub async fn watchdog_loop(state: AppState) {
             let interval = Duration::from_secs(hc.interval_secs as u64);
             let timeout = Duration::from_secs(hc.timeout_secs as u64);
 
-            let svc_state = states.entry(svc.id.clone()).or_insert_with(|| ServiceState {
-                last_check: now - interval,
-                consecutive_failures: 0,
-                restart_attempts: 0,
-            });
+            let svc_state = states
+                .entry(svc.id.clone())
+                .or_insert_with(|| ServiceState {
+                    last_check: now - interval,
+                    consecutive_failures: 0,
+                    restart_attempts: 0,
+                });
 
             if now.duration_since(svc_state.last_check) < interval {
                 continue;
@@ -70,7 +71,14 @@ pub async fn watchdog_loop(state: AppState) {
             svc_state.restart_attempts = 0;
 
             // 2. Healthcheck funcional (HTTP / TCP / DockerNative)
-            let ok = run_healthcheck(hc, container_id, &state.docker.inner, svc.spec.port, timeout).await;
+            let ok = run_healthcheck(
+                hc,
+                container_id,
+                &state.docker.inner,
+                svc.spec.port,
+                timeout,
+            )
+            .await;
 
             if ok {
                 if svc_state.consecutive_failures > 0 {
@@ -79,7 +87,14 @@ pub async fn watchdog_loop(state: AppState) {
                         prev_failures = svc_state.consecutive_failures,
                         "watchdog: healthcheck voltou a passar, restaurando Running"
                     );
-                    mark_service(&state.db, &state.bus, &svc.id, &ServiceStatus::Running, Some(container_id)).await;
+                    mark_service(
+                        &state.db,
+                        &state.bus,
+                        &svc.id,
+                        &ServiceStatus::Running,
+                        Some(container_id),
+                    )
+                    .await;
                 } else {
                     debug!(service = %svc.spec.name, "watchdog: healthcheck OK");
                 }
@@ -96,12 +111,20 @@ pub async fn watchdog_loop(state: AppState) {
                         retries,
                         "watchdog: healthcheck falhou {failures}x, marcando como Error"
                     );
-                    let new_status = ServiceStatus::Error(format!("healthcheck falhou {failures}x"));
+                    let new_status =
+                        ServiceStatus::Error(format!("healthcheck falhou {failures}x"));
                     mark_service(&state.db, &state.bus, &svc.id, &new_status, None).await;
                     states.remove(&svc.id);
                 } else if failures == 1 {
                     warn!(service = %svc.spec.name, failures, retries, "watchdog: Degraded");
-                    mark_service(&state.db, &state.bus, &svc.id, &ServiceStatus::Degraded, Some(container_id)).await;
+                    mark_service(
+                        &state.db,
+                        &state.bus,
+                        &svc.id,
+                        &ServiceStatus::Degraded,
+                        Some(container_id),
+                    )
+                    .await;
                 } else {
                     warn!(service = %svc.spec.name, failures, retries, "watchdog: healthcheck falhando ({failures}/{retries})");
                 }
@@ -136,10 +159,19 @@ async fn try_restart(
         "watchdog: container parou, tentando restart ({attempt}/{MAX_RESTART_ATTEMPTS})"
     );
 
-    mark_service(&state.db, &state.bus, &svc.id, &ServiceStatus::Degraded, Some(container_id)).await;
+    mark_service(
+        &state.db,
+        &state.bus,
+        &svc.id,
+        &ServiceStatus::Degraded,
+        Some(container_id),
+    )
+    .await;
 
     use bollard::container::StartContainerOptions;
-    let start_result = state.docker.inner
+    let start_result = state
+        .docker
+        .inner
         .start_container(container_id, None::<StartContainerOptions<String>>)
         .await;
 
@@ -180,7 +212,14 @@ async fn try_restart(
             attempt,
             "watchdog: container reiniciado com sucesso"
         );
-        mark_service(&state.db, &state.bus, &svc.id, &ServiceStatus::Running, Some(container_id)).await;
+        mark_service(
+            &state.db,
+            &state.bus,
+            &svc.id,
+            &ServiceStatus::Running,
+            Some(container_id),
+        )
+        .await;
         svc_state.consecutive_failures = 0;
     } else {
         warn!(
@@ -213,12 +252,20 @@ async fn trigger_redeploy(state: &AppState, svc: &shared::Service) {
         Ok(d) => d,
         Err(e) => {
             warn!(service = %svc.spec.name, error = %e, "watchdog: falha ao criar deployment para redeploy");
-            mark_service(&state.db, &state.bus, &svc.id, &ServiceStatus::Error("redeploy falhou: não foi possível criar deployment".into()), None).await;
+            mark_service(
+                &state.db,
+                &state.bus,
+                &svc.id,
+                &ServiceStatus::Error("redeploy falhou: não foi possível criar deployment".into()),
+                None,
+            )
+            .await;
             return;
         }
     };
 
-    let _ = crate::db::services::update_status(&state.db, &svc.id, &ServiceStatus::Deploying, None).await;
+    let _ = crate::db::services::update_status(&state.db, &svc.id, &ServiceStatus::Deploying, None)
+        .await;
     state.bus.publish(Event::ServiceStatusChanged {
         service_id: svc.id.clone(),
         status: ServiceStatus::Deploying,
@@ -247,11 +294,15 @@ async fn run_healthcheck(
     match &hc.kind {
         HealthcheckKind::DockerNative => {
             use bollard::container::InspectContainerOptions;
-            match docker.inspect_container(container_id, None::<InspectContainerOptions>).await {
+            match docker
+                .inspect_container(container_id, None::<InspectContainerOptions>)
+                .await
+            {
                 Ok(info) => {
                     use bollard::models::HealthStatusEnum;
                     let status = info
-                        .state.as_ref()
+                        .state
+                        .as_ref()
                         .and_then(|s| s.health.as_ref())
                         .and_then(|h| h.status.as_ref());
                     match status {
@@ -262,24 +313,23 @@ async fn run_healthcheck(
                 Err(_) => false,
             }
         }
-        HealthcheckKind::Http { path, expected_status } => {
-            match get_container_ip(docker, container_id).await {
-                Some(ip) => {
-                    let url = format!("http://{ip}:{port}{path}");
-                    crate::health::check_http(&url, *expected_status, timeout).await
-                }
-                None => false,
+        HealthcheckKind::Http {
+            path,
+            expected_status,
+        } => match get_container_ip(docker, container_id).await {
+            Some(ip) => {
+                let url = format!("http://{ip}:{port}{path}");
+                crate::health::check_http(&url, *expected_status, timeout).await
             }
-        }
-        HealthcheckKind::Tcp => {
-            match get_container_ip(docker, container_id).await {
-                Some(ip) => {
-                    let addr = format!("{ip}:{port}");
-                    crate::health::check_tcp(&addr, timeout).await
-                }
-                None => false,
+            None => false,
+        },
+        HealthcheckKind::Tcp => match get_container_ip(docker, container_id).await {
+            Some(ip) => {
+                let addr = format!("{ip}:{port}");
+                crate::health::check_tcp(&addr, timeout).await
             }
-        }
+            None => false,
+        },
     }
 }
 
@@ -287,15 +337,20 @@ async fn get_container_ip(docker: &Docker, container_id: &str) -> Option<String>
     use bollard::container::InspectContainerOptions;
     let info = docker
         .inspect_container(container_id, None::<InspectContainerOptions>)
-        .await.ok()?;
-    info.network_settings?.networks?
+        .await
+        .ok()?;
+    info.network_settings?
+        .networks?
         .values()
         .find_map(|net| net.ip_address.clone().filter(|ip| !ip.is_empty()))
 }
 
 async fn container_is_running(docker: &Docker, container_id: &str) -> bool {
     use bollard::container::InspectContainerOptions;
-    match docker.inspect_container(container_id, None::<InspectContainerOptions>).await {
+    match docker
+        .inspect_container(container_id, None::<InspectContainerOptions>)
+        .await
+    {
         Ok(info) => info.state.as_ref().and_then(|s| s.running).unwrap_or(false),
         Err(_) => false,
     }
@@ -313,6 +368,8 @@ async fn mark_service(
             service_id: service_id.to_string(),
             status: status.clone(),
         }),
-        Err(e) => warn!(error = %e, service_id = %service_id, "watchdog: falha ao atualizar status"),
+        Err(e) => {
+            warn!(error = %e, service_id = %service_id, "watchdog: falha ao atualizar status")
+        }
     }
 }

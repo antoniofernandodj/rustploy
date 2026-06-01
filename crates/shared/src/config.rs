@@ -95,7 +95,9 @@ impl Default for RustployConfig {
 impl RustployConfig {
     pub fn load() -> Self {
         let paths = [
-            std::env::var("RUSTPLOY_CONFIG").ok().map(std::path::PathBuf::from),
+            std::env::var("RUSTPLOY_CONFIG")
+                .ok()
+                .map(std::path::PathBuf::from),
             Some(std::path::PathBuf::from("/etc/rustploy/config.toml")),
             dirs_config_path(),
         ];

@@ -1,4 +1,7 @@
-use crate::{api::AppState, db::{daemon_settings, webhook_tokens}};
+use crate::{
+    api::AppState,
+    db::{daemon_settings, webhook_tokens},
+};
 use shared::Response as RpResponse;
 
 pub async fn handle(state: AppState, service_id: String) -> RpResponse {
@@ -25,7 +28,10 @@ pub async fn build_url(state: &AppState, service_id: &str, token: &str) -> Strin
         }
         None => {
             let ip = outbound_ip();
-            format!("http://{}:{}/webhook/{}/{}", ip, state.webhook_port, service_id, token)
+            format!(
+                "http://{}:{}/webhook/{}/{}",
+                ip, state.webhook_port, service_id, token
+            )
         }
     }
 }

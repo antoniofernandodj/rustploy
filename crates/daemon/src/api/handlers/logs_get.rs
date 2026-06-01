@@ -3,8 +3,8 @@ use bollard::container::{LogOutput, LogsOptions};
 use chrono::Utc;
 use futures::StreamExt;
 use shared::{
-    protocol::{LogEntry, LogStream},
     Response as RpResponse, ServiceSource,
+    protocol::{LogEntry, LogStream},
 };
 use tokio::io::AsyncWriteExt;
 
@@ -42,10 +42,16 @@ pub async fn handle(state: AppState, service_id: String, tail: usize) -> RpRespo
             Ok(_) => continue,
             Err(_) => break,
         };
-        let line = String::from_utf8_lossy(&bytes).trim_end_matches('\n').to_string();
+        let line = String::from_utf8_lossy(&bytes)
+            .trim_end_matches('\n')
+            .to_string();
         if !line.is_empty() {
             entries.push(LogEntry {
-                stream: if is_stderr { LogStream::Stderr } else { LogStream::Stdout },
+                stream: if is_stderr {
+                    LogStream::Stderr
+                } else {
+                    LogStream::Stdout
+                },
                 line,
                 timestamp: Utc::now(),
             });
@@ -62,11 +68,15 @@ async fn compose_logs(service_name: &str, content: &str, tail: usize) -> RpRespo
 
     let mut child = match Command::new("docker")
         .args([
-            "compose", "-p", &project_name,
-            "-f", "-",
+            "compose",
+            "-p",
+            &project_name,
+            "-f",
+            "-",
             "logs",
             "--no-color",
-            "--tail", &tail.to_string(),
+            "--tail",
+            &tail.to_string(),
         ])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())

@@ -3,12 +3,10 @@ use anyhow::Result;
 use super::Db;
 
 pub async fn get(db: &Db, key: &str) -> Result<Option<String>> {
-    let row = sqlx::query_scalar::<_, String>(
-        "SELECT value FROM daemon_settings WHERE key = ?",
-    )
-    .bind(key)
-    .fetch_optional(db)
-    .await?;
+    let row = sqlx::query_scalar::<_, String>("SELECT value FROM daemon_settings WHERE key = ?")
+        .bind(key)
+        .fetch_optional(db)
+        .await?;
     Ok(row)
 }
 

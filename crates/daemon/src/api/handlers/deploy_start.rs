@@ -96,13 +96,9 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
     };
 
     info!(service_id = %service_id, "deploy_start: atualizando status para Deploying");
-    let _ = crate::db::services::update_status(
-        &state.db,
-        &service_id,
-        &ServiceStatus::Deploying,
-        None,
-    )
-    .await;
+    let _ =
+        crate::db::services::update_status(&state.db, &service_id, &ServiceStatus::Deploying, None)
+            .await;
 
     state.bus.publish(Event::ServiceStatusChanged {
         service_id: service_id.clone(),

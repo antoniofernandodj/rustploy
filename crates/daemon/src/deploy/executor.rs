@@ -1,11 +1,11 @@
 use crate::{
     db::Db,
-    docker::{containers, images, networks, DockerClient},
+    docker::{DockerClient, containers, images, networks},
     event_bus::EventBus,
     ingress::IngressController,
     secrets::SecretsManager,
 };
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use bollard::models::HealthStatusEnum;
 use chrono::Utc;
 use shared::{
@@ -35,7 +35,10 @@ impl DeployExecutor {
             // ex.: falha ao ler do banco — distintos das falhas de step que já fazem rollback)
             self.bus.publish(Event::Error {
                 code: "ExecutorFatal".into(),
-                message: format!("Falha crítica no deploy {}: {e}", &deployment_id[..8.min(deployment_id.len())]),
+                message: format!(
+                    "Falha crítica no deploy {}: {e}",
+                    &deployment_id[..8.min(deployment_id.len())]
+                ),
             });
         }
         info!(deployment_id = %deployment_id, "executor: encerrado");
@@ -475,15 +478,21 @@ impl DeployExecutor {
 
                 // Transiciona qualquer deployment anterior em Live para Pruning
                 // para evitar múltiplos registros Live para o mesmo serviço.
-                if let Ok(history) = crate::db::deployments::list_for_service(&self.db, &svc.id, 20).await {
-                    for prev in history.iter().filter(|d| d.id != dep.id && d.state == DeployState::Live) {
+                if let Ok(history) =
+                    crate::db::deployments::list_for_service(&self.db, &svc.id, 20).await
+                {
+                    for prev in history
+                        .iter()
+                        .filter(|d| d.id != dep.id && d.state == DeployState::Live)
+                    {
                         let _ = crate::db::deployments::transition(
                             &self.db,
                             &prev.id,
                             &DeployState::Live,
                             DeployState::Pruning,
                             Some("superseded by newer deployment".into()),
-                        ).await;
+                        )
+                        .await;
                         self.bus.publish(Event::DeployStateChanged {
                             deployment_id: prev.id.clone(),
                             service_id: svc.id.clone(),
@@ -513,9 +522,9 @@ impl DeployExecutor {
                     )
                     .await;
                     let err_status = ServiceStatus::Error("deploy failed".into());
-                    let _ = crate::db::services::update_status(
-                        &self.db, &svc.id, &err_status, None,
-                    ).await;
+                    let _ =
+                        crate::db::services::update_status(&self.db, &svc.id, &err_status, None)
+                            .await;
                     self.bus.publish(Event::ServiceStatusChanged {
                         service_id: svc.id.clone(),
                         status: err_status,
@@ -577,13 +586,7 @@ impl DeployExecutor {
                     service_id = %svc.id,
                     "step[RollingBack]: atualizando serviço para Error"
                 );
-                crate::db::services::update_status(
-                    &self.db,
-                    &svc.id,
-                    &err_status,
-                    None,
-                )
-                .await?;
+                crate::db::services::update_status(&self.db, &svc.id, &err_status, None).await?;
                 self.bus.publish(Event::ServiceStatusChanged {
                     service_id: svc.id.clone(),
                     status: err_status,
@@ -677,10 +680,7 @@ impl DeployExecutor {
                 .unwrap_or(false);
 
             if !running {
-                let exit_code = inspect
-                    .state
-                    .as_ref()
-                    .and_then(|s| s.exit_code);
+                let exit_code = inspect.state.as_ref().and_then(|s| s.exit_code);
                 error!(
                     deployment_id = %dep.id,
                     container_id = %container_id,
@@ -691,7 +691,10 @@ impl DeployExecutor {
             }
 
             let ok = match &hc.kind {
-                HealthcheckKind::Http { path, expected_status } => {
+                HealthcheckKind::Http {
+                    path,
+                    expected_status,
+                } => {
                     let url = format!("http://{ip}:{}{path}", svc.spec.port);
                     debug!(deployment_id = %dep.id, url = %url, expected = expected_status, "healthcheck: HTTP check");
                     crate::health::check_http(&url, *expected_status, timeout).await
@@ -874,5 +877,3 @@ impl DeployExecutor {
         Ok(())
     }
 }
-
-

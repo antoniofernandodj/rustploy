@@ -1,10 +1,10 @@
 use crate::app::App;
 use ratatui::{
+    Frame,
     layout::{Constraint, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Cell, Row, Table},
-    Frame,
 };
 use shared::DeployState;
 
@@ -34,11 +34,31 @@ pub fn render(f: &mut Frame, app: &App, area: Rect) {
     }
 
     let header = Row::new(vec![
-        Cell::from("  Serviço").style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD)),
-        Cell::from("Projeto").style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD)),
-        Cell::from("Estado").style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD)),
-        Cell::from("Duração").style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD)),
-        Cell::from("Início").style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD)),
+        Cell::from("  Serviço").style(
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Cell::from("Projeto").style(
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Cell::from("Estado").style(
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Cell::from("Duração").style(
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Cell::from("Início").style(
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        ),
     ])
     .height(1)
     .bottom_margin(0);
@@ -58,10 +78,8 @@ pub fn render(f: &mut Frame, app: &App, area: Rect) {
             let started = dep.started_at.format("%H:%M:%S").to_string();
 
             Row::new(vec![
-                Cell::from(format!("  {}", s.service_name))
-                    .style(Style::default().fg(Color::Cyan)),
-                Cell::from(s.project_name.as_str())
-                    .style(Style::default().fg(Color::White)),
+                Cell::from(format!("  {}", s.service_name)).style(Style::default().fg(Color::Cyan)),
+                Cell::from(s.project_name.as_str()).style(Style::default().fg(Color::White)),
                 Cell::from(state_label).style(Style::default().fg(state_color)),
                 Cell::from(duration).style(Style::default().fg(Color::DarkGray)),
                 Cell::from(started).style(Style::default().fg(Color::DarkGray)),
@@ -77,31 +95,29 @@ pub fn render(f: &mut Frame, app: &App, area: Rect) {
         Constraint::Percentage(12),
     ];
 
-    let table = Table::new(rows, widths)
-        .header(header)
-        .block(block);
+    let table = Table::new(rows, widths).header(header).block(block);
 
     f.render_widget(table, area);
 }
 
 fn state_display(state: &DeployState) -> (&'static str, Color) {
     match state {
-        DeployState::Live             => ("● Live",             Color::Green),
-        DeployState::Stopped          => ("○ Stopped",          Color::DarkGray),
-        DeployState::Failed           => ("✕ Failed",           Color::Red),
-        DeployState::RollingBack      => ("↩ Rolling back",     Color::Red),
-        DeployState::Pending          => ("◌ Pending",          Color::Yellow),
-        DeployState::ResolvingDeps    => ("◌ Resolving",        Color::Yellow),
-        DeployState::PullingImage     => ("◌ Pulling",          Color::Yellow),
-        DeployState::CloningRepo      => ("◌ Cloning",          Color::Yellow),
-        DeployState::BuildingImage    => ("◌ Building",         Color::Yellow),
-        DeployState::Staging          => ("◌ Staging",          Color::Yellow),
-        DeployState::HealthcheckPolling => ("◌ Healthcheck",    Color::Yellow),
-        DeployState::SwappingIn       => ("◌ Swapping",         Color::Yellow),
-        DeployState::Draining         => ("◌ Draining",         Color::Yellow),
-        DeployState::Promoting        => ("◌ Promoting",        Color::Yellow),
-        DeployState::Pruning          => ("◌ Pruning",          Color::DarkGray),
-        DeployState::ComposingUp      => ("◌ Composing",         Color::Yellow),
+        DeployState::Live => ("● Live", Color::Green),
+        DeployState::Stopped => ("○ Stopped", Color::DarkGray),
+        DeployState::Failed => ("✕ Failed", Color::Red),
+        DeployState::RollingBack => ("↩ Rolling back", Color::Red),
+        DeployState::Pending => ("◌ Pending", Color::Yellow),
+        DeployState::ResolvingDeps => ("◌ Resolving", Color::Yellow),
+        DeployState::PullingImage => ("◌ Pulling", Color::Yellow),
+        DeployState::CloningRepo => ("◌ Cloning", Color::Yellow),
+        DeployState::BuildingImage => ("◌ Building", Color::Yellow),
+        DeployState::Staging => ("◌ Staging", Color::Yellow),
+        DeployState::HealthcheckPolling => ("◌ Healthcheck", Color::Yellow),
+        DeployState::SwappingIn => ("◌ Swapping", Color::Yellow),
+        DeployState::Draining => ("◌ Draining", Color::Yellow),
+        DeployState::Promoting => ("◌ Promoting", Color::Yellow),
+        DeployState::Pruning => ("◌ Pruning", Color::DarkGray),
+        DeployState::ComposingUp => ("◌ Composing", Color::Yellow),
     }
 }
 

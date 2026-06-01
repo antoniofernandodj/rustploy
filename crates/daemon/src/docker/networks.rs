@@ -1,7 +1,7 @@
 use anyhow::Result;
 use bollard::{
-    network::{ConnectNetworkOptions, CreateNetworkOptions, DisconnectNetworkOptions},
     Docker,
+    network::{ConnectNetworkOptions, CreateNetworkOptions, DisconnectNetworkOptions},
 };
 use tracing::info;
 

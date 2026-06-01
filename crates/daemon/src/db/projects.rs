@@ -49,14 +49,12 @@ pub async fn create(db: &Db, name: String, description: Option<String>) -> Resul
 
 pub async fn update_env_vars(db: &Db, id: &str, env_vars: Vec<EnvVar>) -> Result<Option<Project>> {
     let env_vars_json = serde_json::to_string(&env_vars)?;
-    let rows_affected = sqlx::query(
-        "UPDATE project SET env_vars = ? WHERE id = ?",
-    )
-    .bind(&env_vars_json)
-    .bind(id)
-    .execute(db)
-    .await?
-    .rows_affected();
+    let rows_affected = sqlx::query("UPDATE project SET env_vars = ? WHERE id = ?")
+        .bind(&env_vars_json)
+        .bind(id)
+        .execute(db)
+        .await?
+        .rows_affected();
     if rows_affected == 0 {
         return Ok(None);
     }
@@ -71,7 +69,13 @@ pub async fn list(db: &Db) -> Result<Vec<Project>> {
     .await?;
     rows.into_iter()
         .map(|(id, name, description, env_vars, created_at)| {
-            row_to_project(ProjectRow { id, name, description, env_vars, created_at })
+            row_to_project(ProjectRow {
+                id,
+                name,
+                description,
+                env_vars,
+                created_at,
+            })
         })
         .collect()
 }
@@ -84,7 +88,13 @@ pub async fn get(db: &Db, id: &str) -> Result<Option<Project>> {
     .fetch_optional(db)
     .await?;
     row.map(|(id, name, description, env_vars, created_at)| {
-        row_to_project(ProjectRow { id, name, description, env_vars, created_at })
+        row_to_project(ProjectRow {
+            id,
+            name,
+            description,
+            env_vars,
+            created_at,
+        })
     })
     .transpose()
 }

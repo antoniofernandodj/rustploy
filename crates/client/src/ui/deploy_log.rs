@@ -1,10 +1,10 @@
 use crate::app::App;
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Gauge, List, ListItem, Paragraph},
-    Frame,
 };
 
 /// Standalone deploy progress view (accessible via Home > Deployments).
@@ -24,7 +24,11 @@ pub fn render_progress(f: &mut Frame, app: &App, area: Rect, deployment_id: &str
     let percent = prog.map(|p| p.percent).unwrap_or(0);
 
     let title = Paragraph::new(format!(" Deploy em andamento — {state_label} "))
-        .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .style(
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
         .block(Block::default().borders(Borders::ALL).title(" DEPLOY "));
     f.render_widget(title, chunks[0]);
 
@@ -49,11 +53,10 @@ pub fn render_progress(f: &mut Frame, app: &App, area: Rect, deployment_id: &str
         })
         .unwrap_or_default();
 
-    let event_list = List::new(events)
-        .block(Block::default().borders(Borders::ALL).title(" Eventos "));
+    let event_list =
+        List::new(events).block(Block::default().borders(Borders::ALL).title(" Eventos "));
     f.render_widget(event_list, chunks[2]);
 
-    let help =
-        Paragraph::new(" [Esc] voltar").style(Style::default().fg(Color::DarkGray));
+    let help = Paragraph::new(" [Esc] voltar").style(Style::default().fg(Color::DarkGray));
     f.render_widget(help, chunks[3]);
 }

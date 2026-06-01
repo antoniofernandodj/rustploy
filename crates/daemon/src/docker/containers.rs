@@ -1,11 +1,11 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use bollard::{
+    Docker,
     container::{
-        Config, CreateContainerOptions, InspectContainerOptions,
-        RemoveContainerOptions, RenameContainerOptions, StartContainerOptions, StopContainerOptions,
+        Config, CreateContainerOptions, InspectContainerOptions, RemoveContainerOptions,
+        RenameContainerOptions, StartContainerOptions, StopContainerOptions,
     },
     models::{HostConfig, Mount, MountTypeEnum, RestartPolicy, RestartPolicyNameEnum},
-    Docker,
 };
 use shared::ServiceSpec;
 use std::collections::HashMap;
@@ -75,7 +75,10 @@ pub async fn create_staging(
     let mut labels = HashMap::new();
     labels.insert("rustploy.managed".to_string(), "true".to_string());
     labels.insert("rustploy.service_id".to_string(), service_id.to_string());
-    labels.insert("rustploy.deployment_id".to_string(), deployment_id.to_string());
+    labels.insert(
+        "rustploy.deployment_id".to_string(),
+        deployment_id.to_string(),
+    );
 
     let mem_limit = if spec.resources.mem_limit_bytes > 0 {
         Some(spec.resources.mem_limit_bytes as i64)
@@ -126,7 +129,10 @@ pub async fn create_staging(
         ..Default::default()
     };
 
-    let opts = CreateContainerOptions { name: name.clone(), platform: None };
+    let opts = CreateContainerOptions {
+        name: name.clone(),
+        platform: None,
+    };
     let response = docker.create_container(Some(opts), config).await?;
     info!(
         name = %name,
@@ -158,7 +164,9 @@ pub async fn stop_graceful(docker: &Docker, container_id: &str, timeout: i64) ->
 
 pub async fn rename(docker: &Docker, container_id: &str, new_name: &str) -> Result<()> {
     info!(container_id = %container_id, new_name = %new_name, "containers::rename: renomeando container");
-    let opts = RenameContainerOptions { name: new_name.to_string() };
+    let opts = RenameContainerOptions {
+        name: new_name.to_string(),
+    };
     docker.rename_container(container_id, opts).await?;
     info!(container_id = %container_id, new_name = %new_name, "containers::rename: renomeado");
     Ok(())
@@ -166,7 +174,11 @@ pub async fn rename(docker: &Docker, container_id: &str, new_name: &str) -> Resu
 
 pub async fn remove(docker: &Docker, container_id: &str) -> Result<()> {
     info!(container_id = %container_id, "containers::remove: removendo container");
-    let opts = RemoveContainerOptions { force: true, v: true, ..Default::default() };
+    let opts = RemoveContainerOptions {
+        force: true,
+        v: true,
+        ..Default::default()
+    };
     docker.remove_container(container_id, Some(opts)).await?;
     info!(container_id = %container_id, "containers::remove: removido");
     Ok(())
@@ -227,7 +239,10 @@ pub async fn get_container_ip(
                 .map(|(_, v)| v)
         })
         .ok_or_else(|| {
-            let ids: Vec<String> = net_containers.keys().map(|k| k[..k.len().min(12)].to_string()).collect();
+            let ids: Vec<String> = net_containers
+                .keys()
+                .map(|k| k[..k.len().min(12)].to_string())
+                .collect();
             anyhow!("container não encontrado na rede {network_name} (presentes: {ids:?})")
         })?;
 
@@ -264,7 +279,9 @@ pub async fn find_by_name(docker: &Docker, name: &str) -> Result<Option<String>>
     let containers = docker.list_containers(Some(opts)).await?;
     let found = containers.into_iter().next().and_then(|c| c.id);
     match &found {
-        Some(id) => debug!(name = %name, container_id = %id, "containers::find_by_name: encontrado"),
+        Some(id) => {
+            debug!(name = %name, container_id = %id, "containers::find_by_name: encontrado")
+        }
         None => debug!(name = %name, "containers::find_by_name: não encontrado"),
     }
     Ok(found)

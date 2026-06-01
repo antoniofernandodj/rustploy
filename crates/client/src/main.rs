@@ -14,11 +14,11 @@ use app::{App, CmdContext, PendingCommand};
 use crossterm::{
     event::{Event as TermEvent, EventStream, KeyEventKind},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use events::handle_key;
 use futures::StreamExt;
-use ratatui::{backend::CrosstermBackend, Terminal};
+use ratatui::{Terminal, backend::CrosstermBackend};
 use shared::{Command, Response};
 use std::{io, time::Duration};
 use tokio::{sync::mpsc, time::interval};
@@ -77,7 +77,11 @@ async fn run(
         let tx = event_tx.clone();
         tokio::spawn(async move {
             let client = DaemonClient::new(&sock);
-            let _ = client.stream(None, move |ev| { let _ = tx.try_send(ev); }).await;
+            let _ = client
+                .stream(None, move |ev| {
+                    let _ = tx.try_send(ev);
+                })
+                .await;
         });
     }
 

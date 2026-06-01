@@ -2,8 +2,8 @@ use std::convert::Infallible;
 
 use bytes::Bytes;
 use http_body_util::Full;
-use hyper::{Method, Request, Response, StatusCode, body::Incoming};
 use hyper::service::service_fn;
+use hyper::{Method, Request, Response, StatusCode, body::Incoming};
 use hyper_util::rt::TokioIo;
 use tracing::{error, info, warn};
 
@@ -33,10 +33,7 @@ pub async fn run(state: AppState, port: u16) {
         tokio::spawn(async move {
             let io = TokioIo::new(stream);
             if let Err(e) = hyper::server::conn::http1::Builder::new()
-                .serve_connection(
-                    io,
-                    service_fn(move |req| handle(req, state.clone())),
-                )
+                .serve_connection(io, service_fn(move |req| handle(req, state.clone())))
                 .await
             {
                 warn!(peer = %peer, error = %e, "webhook server: connection error");
@@ -45,7 +42,10 @@ pub async fn run(state: AppState, port: u16) {
     }
 }
 
-async fn handle(req: Request<Incoming>, state: AppState) -> Result<Response<Full<Bytes>>, Infallible> {
+async fn handle(
+    req: Request<Incoming>,
+    state: AppState,
+) -> Result<Response<Full<Bytes>>, Infallible> {
     // Aceita apenas POST /webhook/{service_id}/{token}
     if req.method() != Method::POST {
         return Ok(resp(StatusCode::METHOD_NOT_ALLOWED, "method not allowed"));

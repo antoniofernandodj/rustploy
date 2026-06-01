@@ -1,4 +1,4 @@
-use super::{routes::dispatch, AppState};
+use super::{AppState, routes::dispatch};
 use anyhow::Result;
 use shared::{ClientFrame, Event};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -48,15 +48,17 @@ async fn stream_events(mut stream: UnixStream, state: AppState, service_id: Opti
         match rx.recv().await {
             Ok(event) => {
                 if let Some(ref sid) = service_id {
-                    if event.matches(sid) { continue; }
+                    if event.matches(sid) {
+                        continue;
+                    }
                 }
                 match postcard::to_allocvec(&event) {
                     Ok(payload) => {
                         let len: [u8; 4] = (payload.len() as u32).to_le_bytes();
-                        if
-                            stream.write_all(&len).await.is_err() ||
-                            stream.write_all(&payload).await.is_err() {
-                                break;
+                        if stream.write_all(&len).await.is_err()
+                            || stream.write_all(&payload).await.is_err()
+                        {
+                            break;
                         }
                     }
                     Err(e) => warn!(error = %e, "failed to serialize event"),

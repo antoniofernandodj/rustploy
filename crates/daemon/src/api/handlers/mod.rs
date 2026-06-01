@@ -1,5 +1,6 @@
 pub mod daemon_status;
 pub mod deploy_abort;
+pub mod deploy_engine_status;
 pub mod deploy_history;
 pub mod deploy_rollback;
 pub mod deploy_start;

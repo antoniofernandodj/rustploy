@@ -15,8 +15,8 @@ use mimalloc::MiMalloc;
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
-use api::AppState;
 use anyhow::Result;
+use api::AppState;
 use event_bus::EventBus;
 use ingress::IngressController;
 use shared::{Event, RustployConfig};
@@ -52,7 +52,6 @@ async fn main() -> Result<()> {
 
     let bus = Arc::new(EventBus::new());
     let ingress = Arc::new(IngressController::new());
-
 
     let master_key = resolve_master_key_path(&config.secrets.master_key_path);
     let secrets = Arc::new(secrets::SecretsManager::new(&master_key)?);
@@ -94,7 +93,16 @@ async fn main() -> Result<()> {
         version: env!("CARGO_PKG_VERSION").to_string(),
     });
 
-    let state = AppState::new(db, docker, ingress, bus, secrets, db_path, config.deploy.drain_secs, config.daemon.webhook_port);
+    let state = AppState::new(
+        db,
+        docker,
+        ingress,
+        bus,
+        secrets,
+        db_path,
+        config.deploy.drain_secs,
+        config.daemon.webhook_port,
+    );
 
     // Watchdog: detecta containers parados/removidos, tenta restart e redeploy
     {
@@ -147,14 +155,19 @@ async fn main() -> Result<()> {
 }
 
 fn init_logging(level: &str) {
-    let filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(level));
-    tracing_subscriber::fmt().with_env_filter(filter).json().init();
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(level));
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .json()
+        .init();
 }
 
 fn fallback_dir() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
-    PathBuf::from(home).join(".local").join("share").join("rustploy")
+    PathBuf::from(home)
+        .join(".local")
+        .join("share")
+        .join("rustploy")
 }
 
 /// Tries to prepare `configured` for use as a Unix socket path.

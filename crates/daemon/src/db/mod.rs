@@ -7,8 +7,8 @@ pub mod webhook_tokens;
 
 use anyhow::Result;
 use sqlx::{
-    sqlite::{SqliteConnectOptions, SqliteJournalMode},
     SqlitePool,
+    sqlite::{SqliteConnectOptions, SqliteJournalMode},
 };
 use std::str::FromStr;
 

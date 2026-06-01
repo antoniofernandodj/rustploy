@@ -12,6 +12,7 @@ O serviço Compose do Postgres declarava um alias `db` na rede `default` do Comp
 
 ```yaml
 services:
+
   postgres:
     networks:
       default:

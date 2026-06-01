@@ -1,10 +1,10 @@
 use crate::app::{App, ServerSettingsField, View};
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
-    Frame,
 };
 
 pub fn render(f: &mut Frame, app: &App, area: Rect) {
@@ -51,7 +51,11 @@ fn render_web_server(f: &mut Frame, app: &App, area: Rect) {
     let domain_val = format!(
         "{}{}",
         ss.server_domain,
-        if ss.focused == ServerSettingsField::ServerDomain { "▌" } else { "" }
+        if ss.focused == ServerSettingsField::ServerDomain {
+            "▌"
+        } else {
+            ""
+        }
     );
 
     let focused_style = Style::default().fg(Color::Cyan);
@@ -63,7 +67,11 @@ fn render_web_server(f: &mut Frame, app: &App, area: Rect) {
             Span::styled(format!("  {:<22}", "Domínio / URL base"), label_style),
             Span::styled(
                 domain_val,
-                if ss.focused == ServerSettingsField::ServerDomain { focused_style } else { normal_style },
+                if ss.focused == ServerSettingsField::ServerDomain {
+                    focused_style
+                } else {
+                    normal_style
+                },
             ),
         ])),
         chunks[3],
@@ -101,15 +109,30 @@ fn render_web_server(f: &mut Frame, app: &App, area: Rect) {
 
 fn render_placeholder(f: &mut Frame, app: &App, area: Rect) {
     let (title, desc) = match &app.view {
-        View::SettingsProfile => ("Profile", "Informações da instalação, versão, uso de recursos do daemon."),
+        View::SettingsProfile => (
+            "Profile",
+            "Informações da instalação, versão, uso de recursos do daemon.",
+        ),
         View::SettingsUsers => ("Users", "Controle de acesso ao Unix Domain Socket (v2)."),
-        View::SettingsAuditLogs => ("Audit Logs", "Histórico de ações administrativas no daemon."),
-        View::SettingsSshKeys => ("SSH Keys", "Chaves SSH disponíveis para autenticação em repositórios privados."),
+        View::SettingsAuditLogs => (
+            "Audit Logs",
+            "Histórico de ações administrativas no daemon.",
+        ),
+        View::SettingsSshKeys => (
+            "SSH Keys",
+            "Chaves SSH disponíveis para autenticação em repositórios privados.",
+        ),
         View::SettingsTags => ("Tags", "Tags para organização de projetos e serviços."),
         View::SettingsGit => ("Git", "Configurações globais de clone e build Git."),
         View::SettingsRegistry => ("Registry", "Credenciais para Docker registries privados."),
-        View::SettingsS3 => ("S3 Destinations", "Destinos S3 para backups de volumes e logs (v2)."),
-        View::SettingsCerts => ("Certificates", "Certificados TLS manuais e status ACME por domínio."),
+        View::SettingsS3 => (
+            "S3 Destinations",
+            "Destinos S3 para backups de volumes e logs (v2).",
+        ),
+        View::SettingsCerts => (
+            "Certificates",
+            "Certificados TLS manuais e status ACME por domínio.",
+        ),
         View::SettingsSso => ("SSO", "Single Sign-On para acesso ao TUI (v2)."),
         _ => ("Settings", ""),
     };
@@ -123,7 +146,10 @@ fn render_placeholder(f: &mut Frame, app: &App, area: Rect) {
         Line::from(""),
         Line::from(Span::styled(desc, Style::default().fg(Color::DarkGray))),
         Line::from(""),
-        Line::from(Span::styled("Em construção.", Style::default().fg(Color::Yellow))),
+        Line::from(Span::styled(
+            "Em construção.",
+            Style::default().fg(Color::Yellow),
+        )),
     ])
     .block(block);
 
@@ -148,7 +174,10 @@ pub fn render_account(f: &mut Frame, _app: &App, area: Rect) {
         ]),
         Line::from(vec![
             Span::styled("  Socket:   ", Style::default().fg(Color::DarkGray)),
-            Span::styled("/run/rustploy/rustploy.sock", Style::default().fg(Color::White)),
+            Span::styled(
+                "/run/rustploy/rustploy.sock",
+                Style::default().fg(Color::White),
+            ),
         ]),
     ])
     .block(block);
@@ -158,7 +187,13 @@ pub fn render_account(f: &mut Frame, _app: &App, area: Rect) {
 
 fn btn_span(label: &'static str, focused: bool) -> Span<'static> {
     if focused {
-        Span::styled(label, Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD))
+        Span::styled(
+            label,
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
     } else {
         Span::styled(label, Style::default().fg(Color::DarkGray))
     }

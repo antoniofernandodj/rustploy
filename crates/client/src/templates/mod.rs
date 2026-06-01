@@ -1,4 +1,5 @@
 pub mod catalog;
+pub mod entries;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -46,23 +47,23 @@ impl TemplateCategory {
 
     pub fn label(self) -> &'static str {
         match self {
-            Self::All              => "Todos",
-            Self::Cms              => "CMS",
-            Self::Analytics        => "Analytics",
-            Self::Monitoring       => "Monitoring",
-            Self::DevTools         => "DevTools",
-            Self::Communication    => "Chat",
-            Self::Storage          => "Storage",
-            Self::Security         => "Segurança",
-            Self::Automation       => "Automação",
-            Self::Media            => "Mídia",
-            Self::Ai               => "IA",
-            Self::Finance          => "Finanças",
-            Self::Gaming           => "Games",
-            Self::Database         => "Banco de Dados",
-            Self::Networking       => "Redes",
+            Self::All => "Todos",
+            Self::Cms => "CMS",
+            Self::Analytics => "Analytics",
+            Self::Monitoring => "Monitoring",
+            Self::DevTools => "DevTools",
+            Self::Communication => "Chat",
+            Self::Storage => "Storage",
+            Self::Security => "Segurança",
+            Self::Automation => "Automação",
+            Self::Media => "Mídia",
+            Self::Ai => "IA",
+            Self::Finance => "Finanças",
+            Self::Gaming => "Games",
+            Self::Database => "Banco de Dados",
+            Self::Networking => "Redes",
             Self::ProjectManagement => "Projetos",
-            Self::Backup           => "Backup",
+            Self::Backup => "Backup",
         }
     }
 }

@@ -4,12 +4,11 @@ use chrono::Utc;
 use super::Db;
 
 pub async fn get(db: &Db, service_id: &str) -> Result<Option<String>> {
-    let row = sqlx::query_scalar::<_, String>(
-        "SELECT token FROM webhook_token WHERE service_id = ?",
-    )
-    .bind(service_id)
-    .fetch_optional(db)
-    .await?;
+    let row =
+        sqlx::query_scalar::<_, String>("SELECT token FROM webhook_token WHERE service_id = ?")
+            .bind(service_id)
+            .fetch_optional(db)
+            .await?;
     Ok(row)
 }
 

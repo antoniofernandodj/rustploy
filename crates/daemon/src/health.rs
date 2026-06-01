@@ -31,7 +31,9 @@ pub async fn check_http(url: &str, expected: u16, timeout: Duration) -> bool {
         warn!(url = %url, "check_http: handshake HTTP falhou");
         return false;
     };
-    tokio::spawn(async move { let _ = conn.await; });
+    tokio::spawn(async move {
+        let _ = conn.await;
+    });
 
     let req = match Request::builder()
         .method("GET")

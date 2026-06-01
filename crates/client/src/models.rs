@@ -38,7 +38,10 @@ pub enum View {
     SettingsCerts,
     SettingsSso,
     Account,
-    Confirm { message: String, action: ConfirmAction },
+    Confirm {
+        message: String,
+        action: ConfirmAction,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -195,7 +198,11 @@ impl ServiceTab {
 
     pub fn prev(&self) -> ServiceTab {
         let all = Self::all();
-        let idx = if self.index() == 0 { all.len() - 1 } else { self.index() - 1 };
+        let idx = if self.index() == 0 {
+            all.len() - 1
+        } else {
+            self.index() - 1
+        };
         all[idx].clone()
     }
 }
@@ -471,7 +478,9 @@ impl DomainsTabState {
         Self {
             focused: DomainsField::Domain,
             domain: svc.spec.domain.clone().unwrap_or_default(),
-            host_port: svc.spec.host_port
+            host_port: svc
+                .spec
+                .host_port
                 .map(|p| p.to_string())
                 .unwrap_or_default(),
         }
@@ -518,9 +527,10 @@ impl HealthcheckTabState {
         let hc = &svc.spec.healthcheck;
         let (kind, http_path, expected_status) = match &hc.kind {
             HealthcheckKind::Tcp => ("Tcp".into(), String::new(), "200".into()),
-            HealthcheckKind::Http { path, expected_status } => {
-                ("Http".into(), path.clone(), expected_status.to_string())
-            }
+            HealthcheckKind::Http {
+                path,
+                expected_status,
+            } => ("Http".into(), path.clone(), expected_status.to_string()),
             HealthcheckKind::DockerNative => ("DockerNative".into(), String::new(), "200".into()),
         };
         Self {
@@ -629,8 +639,13 @@ pub enum DbKind {
 }
 
 impl DbKind {
-    pub const ALL: &'static [DbKind] =
-        &[DbKind::MongoDB, DbKind::Postgres, DbKind::MariaDB, DbKind::MySQL, DbKind::Redis];
+    pub const ALL: &'static [DbKind] = &[
+        DbKind::MongoDB,
+        DbKind::Postgres,
+        DbKind::MariaDB,
+        DbKind::MySQL,
+        DbKind::Redis,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
@@ -691,20 +706,23 @@ impl DbKind {
     }
 
     pub fn detect_from_env(env_vars: &[EnvVar]) -> Option<Self> {
-        env_vars.iter().find(|e| e.key == "RUSTPLOY_DB_KIND").and_then(|e| {
-            if let EnvVarValue::Plain(ref s) = e.value {
-                match s.as_str() {
-                    "postgres" => Some(DbKind::Postgres),
-                    "mongodb" => Some(DbKind::MongoDB),
-                    "mariadb" => Some(DbKind::MariaDB),
-                    "mysql" => Some(DbKind::MySQL),
-                    "redis" => Some(DbKind::Redis),
-                    _ => None,
+        env_vars
+            .iter()
+            .find(|e| e.key == "RUSTPLOY_DB_KIND")
+            .and_then(|e| {
+                if let EnvVarValue::Plain(ref s) = e.value {
+                    match s.as_str() {
+                        "postgres" => Some(DbKind::Postgres),
+                        "mongodb" => Some(DbKind::MongoDB),
+                        "mariadb" => Some(DbKind::MariaDB),
+                        "mysql" => Some(DbKind::MySQL),
+                        "redis" => Some(DbKind::Redis),
+                        _ => None,
+                    }
+                } else {
+                    None
                 }
-            } else {
-                None
-            }
-        })
+            })
     }
 }
 
@@ -769,12 +787,14 @@ impl NewServiceState {
         match self.step {
             NewServiceStep::ApplicationForm => 4,
             NewServiceStep::ComposeForm => 3,
-            NewServiceStep::DatabaseForm => {
-                self.db_kind.map(|d| d.field_count()).unwrap_or(0)
-            }
+            NewServiceStep::DatabaseForm => self.db_kind.map(|d| d.field_count()).unwrap_or(0),
             // name(1) + vars(n) + button(1)
             NewServiceStep::TemplateVarForm => {
-                1 + self.selected_template.map(|t| t.variables.len()).unwrap_or(0) + 1
+                1 + self
+                    .selected_template
+                    .map(|t| t.variables.len())
+                    .unwrap_or(0)
+                    + 1
             }
             _ => 0,
         }
@@ -805,7 +825,10 @@ impl NewServiceState {
     }
 
     fn sync_scroll(&mut self) {
-        if !matches!(self.step, NewServiceStep::DatabaseForm | NewServiceStep::TemplateVarForm) {
+        if !matches!(
+            self.step,
+            NewServiceStep::DatabaseForm | NewServiceStep::TemplateVarForm
+        ) {
             return;
         }
         const VISIBLE: usize = 4;
@@ -935,7 +958,8 @@ impl NewServiceState {
     fn generate_db_compose(&self) -> String {
         match self.db_kind {
             Some(DbKind::Postgres) => format!(
-                "services:\n  postgres:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      POSTGRES_DB: {db}\n      POSTGRES_USER: {user}\n      POSTGRES_PASSWORD: {pass}\n    volumes:\n      - pgdata:/var/lib/postgresql/data\n\nvolumes:\n  pgdata:\n",
+                "services:
+\n  postgres:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      POSTGRES_DB: {db}\n      POSTGRES_USER: {user}\n      POSTGRES_PASSWORD: {pass}\n    volumes:\n      - pgdata:/var/lib/postgresql/data\n\nvolumes:\n  pgdata:\n",
                 image = self.docker_image,
                 db = self.db_name,
                 user = self.db_user,
@@ -948,7 +972,8 @@ impl NewServiceState {
                     ""
                 };
                 format!(
-                    "services:\n  mongo:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      MONGO_INITDB_ROOT_USERNAME: {user}\n      MONGO_INITDB_ROOT_PASSWORD: {pass}\n{replica}    volumes:\n      - mongodata:/data/db\n\nvolumes:\n  mongodata:\n",
+                    "services:
+\n  mongo:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      MONGO_INITDB_ROOT_USERNAME: {user}\n      MONGO_INITDB_ROOT_PASSWORD: {pass}\n{replica}    volumes:\n      - mongodata:/data/db\n\nvolumes:\n  mongodata:\n",
                     image = self.docker_image,
                     user = self.db_user,
                     pass = self.db_password,
@@ -956,7 +981,8 @@ impl NewServiceState {
                 )
             }
             Some(DbKind::MariaDB) => format!(
-                "services:\n  mariadb:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      MYSQL_DATABASE: {db}\n      MYSQL_USER: {user}\n      MYSQL_PASSWORD: {pass}\n      MYSQL_ROOT_PASSWORD: {root}\n    volumes:\n      - mariadbdata:/var/lib/mysql\n\nvolumes:\n  mariadbdata:\n",
+                "services:
+\n  mariadb:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      MYSQL_DATABASE: {db}\n      MYSQL_USER: {user}\n      MYSQL_PASSWORD: {pass}\n      MYSQL_ROOT_PASSWORD: {root}\n    volumes:\n      - mariadbdata:/var/lib/mysql\n\nvolumes:\n  mariadbdata:\n",
                 image = self.docker_image,
                 db = self.db_name,
                 user = self.db_user,
@@ -964,7 +990,8 @@ impl NewServiceState {
                 root = self.db_root_password,
             ),
             Some(DbKind::MySQL) => format!(
-                "services:\n  mysql:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      MYSQL_DATABASE: {db}\n      MYSQL_USER: {user}\n      MYSQL_PASSWORD: {pass}\n      MYSQL_ROOT_PASSWORD: {root}\n    volumes:\n      - mysqldata:/var/lib/mysql\n\nvolumes:\n  mysqldata:\n",
+                "services:
+\n  mysql:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      MYSQL_DATABASE: {db}\n      MYSQL_USER: {user}\n      MYSQL_PASSWORD: {pass}\n      MYSQL_ROOT_PASSWORD: {root}\n    volumes:\n      - mysqldata:/var/lib/mysql\n\nvolumes:\n  mysqldata:\n",
                 image = self.docker_image,
                 db = self.db_name,
                 user = self.db_user,
@@ -975,10 +1002,14 @@ impl NewServiceState {
                 let cmd_line = if self.db_password.is_empty() {
                     String::new()
                 } else {
-                    format!("    command: redis-server --requirepass {}\n", self.db_password)
+                    format!(
+                        "    command: redis-server --requirepass {}\n",
+                        self.db_password
+                    )
                 };
                 format!(
-                    "services:\n  redis:\n    image: {image}\n    restart: unless-stopped\n{cmd}    volumes:\n      - redisdata:/data\n\nvolumes:\n  redisdata:\n",
+                    "services:
+\n  redis:\n    image: {image}\n    restart: unless-stopped\n{cmd}    volumes:\n      - redisdata:/data\n\nvolumes:\n  redisdata:\n",
                     image = self.docker_image,
                     cmd = cmd_line,
                 )
@@ -988,13 +1019,18 @@ impl NewServiceState {
     }
 
     pub fn to_service_spec(&self) -> ServiceSpec {
-        let svc_name =
-            if !self.app_name.is_empty() { self.app_name.clone() } else { self.name.clone() };
+        let svc_name = if !self.app_name.is_empty() {
+            self.app_name.clone()
+        } else {
+            self.name.clone()
+        };
         match self.step {
             NewServiceStep::ApplicationForm => ServiceSpec {
                 name: svc_name,
                 project_id: self.project_id.clone(),
-                source: ServiceSource::Registry { image: String::new() },
+                source: ServiceSource::Registry {
+                    image: String::new(),
+                },
                 port: 80,
                 host_port: None,
                 domain: None,
@@ -1145,8 +1181,13 @@ impl ComposeTabState {
         };
         let mut textarea = tui_textarea::TextArea::new(lines);
         textarea.set_cursor_style(ratatui::style::Style::default()); // cursor invisível por padrão
-        textarea.set_line_number_style(ratatui::style::Style::default().fg(ratatui::style::Color::DarkGray));
-        Self { editing: false, textarea }
+        textarea.set_line_number_style(
+            ratatui::style::Style::default().fg(ratatui::style::Color::DarkGray),
+        );
+        Self {
+            editing: false,
+            textarea,
+        }
     }
 
     pub fn content(&self) -> String {
@@ -1157,7 +1198,8 @@ impl ComposeTabState {
         use ratatui::style::{Color, Modifier, Style};
         self.editing = editing;
         if editing {
-            self.textarea.set_cursor_style(Style::default().add_modifier(Modifier::REVERSED));
+            self.textarea
+                .set_cursor_style(Style::default().add_modifier(Modifier::REVERSED));
         } else {
             self.textarea.set_cursor_style(Style::default());
         }

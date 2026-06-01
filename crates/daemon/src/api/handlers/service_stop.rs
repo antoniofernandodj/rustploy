@@ -41,12 +41,9 @@ async fn stop_compose(
     content: &str,
     network_name: &str,
 ) -> RpResponse {
-    if let Err(e) = crate::docker::compose::compose_down(
-        content,
-        &format!("rp_{}", service_name),
-        network_name,
-    )
-    .await
+    if let Err(e) =
+        crate::docker::compose::compose_down(content, &format!("rp_{}", service_name), network_name)
+            .await
     {
         return RpResponse::err("DockerError", e.to_string());
     }
@@ -65,9 +62,7 @@ async fn finish_stop(state: &AppState, service_id: &str, container_id: Option<&s
         return RpResponse::err("DatabaseError", e.to_string());
     }
 
-    if let Ok(history) =
-        crate::db::deployments::list_for_service(&state.db, service_id, 1).await
-    {
+    if let Ok(history) = crate::db::deployments::list_for_service(&state.db, service_id, 1).await {
         if let Some(dep) = history.into_iter().find(|d| d.state == DeployState::Live) {
             let _ = crate::db::deployments::transition(
                 &state.db,

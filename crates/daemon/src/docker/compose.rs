@@ -1,10 +1,10 @@
 use crate::{db::Db, event_bus::EventBus};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::Utc;
 use shared::Event;
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tracing::{error, info};
 
@@ -22,8 +22,8 @@ const PROJECT_NET_ALIAS: &str = "rp_project_net";
 pub fn inject_project_network(content: &str, network_name: &str) -> Result<String> {
     use serde_yaml::Value;
 
-    let mut doc: Value = serde_yaml::from_str(content)
-        .map_err(|e| anyhow!("compose YAML inválido: {e}"))?;
+    let mut doc: Value =
+        serde_yaml::from_str(content).map_err(|e| anyhow!("compose YAML inválido: {e}"))?;
 
     // An empty document parses to Null; treat it as an empty mapping.
     if doc.is_null() {
@@ -39,7 +39,10 @@ pub fn inject_project_network(content: &str, network_name: &str) -> Result<Strin
     // --- Top-level networks block -------------------------------------------
     let networks_key = Value::String("networks".to_string());
     if !root.contains_key(&networks_key) {
-        root.insert(networks_key.clone(), Value::Mapping(serde_yaml::Mapping::new()));
+        root.insert(
+            networks_key.clone(),
+            Value::Mapping(serde_yaml::Mapping::new()),
+        );
     }
     let networks = root
         .get_mut(&networks_key)
@@ -71,7 +74,8 @@ pub fn inject_project_network(content: &str, network_name: &str) -> Result<Strin
     if let Some(services_val) = root.get_mut(&services_key) {
         let services = services_val
             .as_mapping_mut()
-            .ok_or_else(|| anyhow!("`services:` no compose não é um mapping"))?;
+            .ok_or_else(|| anyhow!("`services:
+` no compose não é um mapping"))?;
 
         let svc_net_key = Value::String("networks".to_string());
         for (_, svc) in services.iter_mut() {
@@ -89,7 +93,10 @@ pub fn inject_project_network(content: &str, network_name: &str) -> Result<Strin
                 }
                 Some(Value::Mapping(map)) => {
                     if !map.contains_key(&alias_key) {
-                        map.insert(alias_key.clone(), Value::Mapping(serde_yaml::Mapping::new()));
+                        map.insert(
+                            alias_key.clone(),
+                            Value::Mapping(serde_yaml::Mapping::new()),
+                        );
                     }
                 }
                 Some(other) if other.is_null() => {
@@ -127,9 +134,15 @@ pub async fn compose_up(
 
     let mut child = Command::new("docker")
         .args([
-            "compose", "-p", project_name,
-            "-f", "-",
-            "up", "-d", "--build", "--remove-orphans",
+            "compose",
+            "-p",
+            project_name,
+            "-f",
+            "-",
+            "up",
+            "-d",
+            "--build",
+            "--remove-orphans",
         ])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -139,7 +152,9 @@ pub async fn compose_up(
 
     // Escreve o YAML e fecha stdin
     if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(content.as_bytes()).await
+        stdin
+            .write_all(content.as_bytes())
+            .await
             .map_err(|e| anyhow!("falha ao escrever no stdin: {e}"))?;
         stdin.shutdown().await.ok();
     }
@@ -156,7 +171,9 @@ pub async fn compose_up(
     let read_stdout = async move {
         let mut lines = stdout.lines();
         while let Ok(Some(line)) = lines.next_line().await {
-            if line.trim().is_empty() { continue; }
+            if line.trim().is_empty() {
+                continue;
+            }
             let ts = Utc::now();
             bus_s.publish(Event::BuildLog {
                 deployment_id: did.clone(),
@@ -176,7 +193,9 @@ pub async fn compose_up(
     let read_stderr = async move {
         let mut lines = stderr.lines();
         while let Ok(Some(line)) = lines.next_line().await {
-            if line.trim().is_empty() { continue; }
+            if line.trim().is_empty() {
+                continue;
+            }
             let ts = Utc::now();
             bus_e.publish(Event::BuildLog {
                 deployment_id: did_e.clone(),
@@ -190,7 +209,9 @@ pub async fn compose_up(
 
     tokio::join!(read_stdout, read_stderr);
 
-    let status = child.wait().await
+    let status = child
+        .wait()
+        .await
         .map_err(|e| anyhow!("falha ao aguardar docker compose: {e}"))?;
 
     if !status.success() {
@@ -208,9 +229,13 @@ pub async fn compose_down(content: &str, project_name: &str, _network_name: &str
 
     let mut child = Command::new("docker")
         .args([
-            "compose", "-p", project_name,
-            "-f", "-",
-            "down", "--remove-orphans",
+            "compose",
+            "-p",
+            project_name,
+            "-f",
+            "-",
+            "down",
+            "--remove-orphans",
         ])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -223,7 +248,9 @@ pub async fn compose_down(content: &str, project_name: &str, _network_name: &str
         stdin.shutdown().await.ok();
     }
 
-    let output = child.wait_with_output().await
+    let output = child
+        .wait_with_output()
+        .await
         .map_err(|e| anyhow!("falha ao aguardar compose down: {e}"))?;
 
     if !output.status.success() {

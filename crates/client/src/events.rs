@@ -1,11 +1,11 @@
 use crate::app::{
     App, CmdContext, ConfirmAction, DbKind, EnvEditField, EnvTabState, Focus, GeneralTabField,
-    HcField, NewServiceState, NewServiceStep, PendingCommand, ProjectDetailTab, ServerSettingsField,
-    ServiceTab, View,
+    HcField, NewServiceState, NewServiceStep, PendingCommand, ProjectDetailTab,
+    ServerSettingsField, ServiceTab, View,
 };
 use crossterm::event::KeyModifiers;
-use shared::ServiceSource;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
+use shared::ServiceSource;
 use shared::{Command, EnvVar, EnvVarValue};
 
 pub fn handle_key(app: &mut App, key: KeyEvent) {
@@ -336,7 +336,10 @@ fn on_tab_change(app: &mut App) {
                 app.logs.remove(&sid);
                 app.log_cursor = 0;
                 app.pending_commands.push(PendingCommand {
-                    command: Command::LogsGet { service_id: sid, tail: 500 },
+                    command: Command::LogsGet {
+                        service_id: sid,
+                        tail: 500,
+                    },
                     context: CmdContext::LoadLogs,
                 });
             }
@@ -349,7 +352,8 @@ fn handle_service_detail(app: &mut App, key: KeyEvent) {
     // Quando a compose textarea está em modo edição, todas as teclas vão para ela
     let compose_editing = app.compose_tab.editing
         && app.service_tab == ServiceTab::General
-        && app.current_active_service()
+        && app
+            .current_active_service()
             .map(|s| matches!(s.spec.source, ServiceSource::Compose(_)))
             .unwrap_or(false);
 
@@ -408,7 +412,10 @@ fn save_compose_content(app: &mut App) {
         ..svc.spec.clone()
     };
     app.pending_commands.push(PendingCommand {
-        command: Command::ServiceUpdate { id: sid, spec: new_spec },
+        command: Command::ServiceUpdate {
+            id: sid,
+            spec: new_spec,
+        },
         context: CmdContext::UpdateService,
     });
     app.compose_tab.set_editing(false);
@@ -581,10 +588,17 @@ fn save_service_general(app: &mut App) {
         ServiceSource::Registry { .. } => svc.spec.source.clone(),
     };
 
-    let new_spec = shared::ServiceSpec { source: new_source, port, ..svc.spec.clone() };
+    let new_spec = shared::ServiceSpec {
+        source: new_source,
+        port,
+        ..svc.spec.clone()
+    };
 
     app.pending_commands.push(PendingCommand {
-        command: Command::ServiceUpdate { id: sid, spec: new_spec },
+        command: Command::ServiceUpdate {
+            id: sid,
+            spec: new_spec,
+        },
         context: CmdContext::UpdateService,
     });
 }
@@ -677,9 +691,16 @@ fn save_domains(app: &mut App) {
         Some(app.domains_tab.domain.trim().to_string())
     };
     let host_port = app.domains_tab.host_port.trim().parse::<u16>().ok();
-    let new_spec = shared::ServiceSpec { domain, host_port, ..svc.spec.clone() };
+    let new_spec = shared::ServiceSpec {
+        domain,
+        host_port,
+        ..svc.spec.clone()
+    };
     app.pending_commands.push(PendingCommand {
-        command: Command::ServiceUpdate { id: sid, spec: new_spec },
+        command: Command::ServiceUpdate {
+            id: sid,
+            spec: new_spec,
+        },
         context: CmdContext::UpdateService,
     });
     app.set_notification("Domínio atualizado.", false);
@@ -701,7 +722,10 @@ fn save_healthcheck(app: &mut App) {
     };
 
     app.pending_commands.push(PendingCommand {
-        command: Command::ServiceUpdate { id: sid, spec: new_spec },
+        command: Command::ServiceUpdate {
+            id: sid,
+            spec: new_spec,
+        },
         context: CmdContext::UpdateService,
     });
     app.set_notification("Healthcheck atualizado.", false);
@@ -727,7 +751,10 @@ fn handle_env_tab(app: &mut App, key: KeyEvent) {
                         if let Some(svc) = app.services.iter().find(|s| s.id == sid) {
                             let mut spec = svc.spec.clone();
                             spec.env_vars.retain(|e| e.key != k);
-                            spec.env_vars.push(EnvVar { key: k, value: EnvVarValue::Plain(v) });
+                            spec.env_vars.push(EnvVar {
+                                key: k,
+                                value: EnvVarValue::Plain(v),
+                            });
                             app.pending_commands.push(PendingCommand {
                                 command: Command::ServiceUpdate { id: sid, spec },
                                 context: CmdContext::UpdateService,
@@ -815,13 +842,17 @@ fn handle_env_tab(app: &mut App, key: KeyEvent) {
 }
 
 fn request_build_logs(app: &mut App) {
-    let cursor = app.deployment_cursor.min(app.service_deployments.len().saturating_sub(1));
+    let cursor = app
+        .deployment_cursor
+        .min(app.service_deployments.len().saturating_sub(1));
     if let Some(dep) = app.service_deployments.get(cursor) {
         let dep_id = dep.id.clone();
         // Skip if already cached.
         if !app.build_logs.contains_key(&dep_id) {
             app.pending_commands.push(PendingCommand {
-                command: Command::GetBuildLogs { deployment_id: dep_id },
+                command: Command::GetBuildLogs {
+                    deployment_id: dep_id,
+                },
                 context: CmdContext::LoadBuildLogs,
             });
         }
@@ -910,7 +941,10 @@ fn handle_logs_tab(app: &mut App, key: KeyEvent) {
                 app.logs.remove(&sid);
                 app.log_cursor = 0;
                 app.pending_commands.push(PendingCommand {
-                    command: Command::LogsGet { service_id: sid, tail: 500 },
+                    command: Command::LogsGet {
+                        service_id: sid,
+                        tail: 500,
+                    },
                     context: CmdContext::LoadLogs,
                 });
             }
@@ -1081,7 +1115,11 @@ fn handle_ns_form(app: &mut App, key: KeyEvent) {
             }
         }
         KeyCode::Enter => {
-            let is_btn = app.new_service.as_ref().map(|s| s.is_button()).unwrap_or(false);
+            let is_btn = app
+                .new_service
+                .as_ref()
+                .map(|s| s.is_button())
+                .unwrap_or(false);
             if is_btn {
                 let spec = app.new_service.as_ref().unwrap().to_service_spec();
                 if spec.name.is_empty() {
@@ -1210,7 +1248,11 @@ fn handle_ns_template_vars(app: &mut App, key: KeyEvent) {
             }
         }
         KeyCode::Enter => {
-            let is_btn = app.new_service.as_ref().map(|s| s.is_button()).unwrap_or(false);
+            let is_btn = app
+                .new_service
+                .as_ref()
+                .map(|s| s.is_button())
+                .unwrap_or(false);
             if is_btn {
                 let spec = app.new_service.as_ref().unwrap().to_service_spec();
                 if spec.name.is_empty() {
@@ -1244,9 +1286,16 @@ fn handle_new_project(app: &mut App, key: KeyEvent) {
                 return;
             }
             let name = app.new_proj_name.clone();
-            let desc = if app.new_proj_desc.is_empty() { None } else { Some(app.new_proj_desc.clone()) };
+            let desc = if app.new_proj_desc.is_empty() {
+                None
+            } else {
+                Some(app.new_proj_desc.clone())
+            };
             app.pending_commands.push(PendingCommand {
-                command: Command::ProjectCreate { name, description: desc },
+                command: Command::ProjectCreate {
+                    name,
+                    description: desc,
+                },
                 context: CmdContext::CreateProject,
             });
             app.creating_project = false;
@@ -1270,7 +1319,9 @@ fn handle_new_project(app: &mut App, key: KeyEvent) {
 }
 
 fn handle_confirm(app: &mut App, key: KeyEvent) {
-    let View::Confirm { action, .. } = app.view.clone() else { return };
+    let View::Confirm { action, .. } = app.view.clone() else {
+        return;
+    };
 
     match key.code {
         KeyCode::Char('y') | KeyCode::Char('Y') => {
@@ -1336,7 +1387,11 @@ fn handle_settings_web_server(app: &mut App, key: KeyEvent) {
 
 fn save_server_settings(app: &mut App) {
     let domain = app.server_settings.server_domain.trim().to_string();
-    let webhook_base_url = if domain.is_empty() { None } else { Some(domain) };
+    let webhook_base_url = if domain.is_empty() {
+        None
+    } else {
+        Some(domain)
+    };
     app.pending_commands.push(PendingCommand {
         command: Command::SetDaemonSettings { webhook_base_url },
         context: CmdContext::SaveServerSettings,
@@ -1390,5 +1445,8 @@ fn copy_to_clipboard(app: &mut App, text: &str) {
         return;
     }
 
-    app.set_notification("Instale wl-copy (Wayland) ou xclip/xsel (X11) para copiar", true);
+    app.set_notification(
+        "Instale wl-copy (Wayland) ou xclip/xsel (X11) para copiar",
+        true,
+    );
 }

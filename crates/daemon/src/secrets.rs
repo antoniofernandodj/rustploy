@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use std::{
     io::{Read, Write},
     path::Path,
@@ -66,5 +66,9 @@ fn generate_key() -> String {
         .hash(&mut hasher);
     std::process::id().hash(&mut hasher);
 
-    format!("{:016x}{:016x}", hasher.finish(), hasher.finish() ^ 0xdeadbeef)
+    format!(
+        "{:016x}{:016x}",
+        hasher.finish(),
+        hasher.finish() ^ 0xdeadbeef
+    )
 }

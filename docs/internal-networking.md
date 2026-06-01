@@ -33,6 +33,7 @@ Use o nome do serviço conforme definido no YAML:
 
 ```yaml
 services:
+
   api:
     image: minha-api
     environment:
@@ -76,6 +77,7 @@ Dois serviços no mesmo projeto: `mydb` (Compose, Postgres) e `myapi` (Applicati
 
 ```yaml
 services:
+
   postgres:
     image: postgres:16
     restart: unless-stopped
