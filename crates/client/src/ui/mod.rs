@@ -1,3 +1,4 @@
+pub mod deploy_engine;
 pub mod deploy_log;
 pub mod home_deployments;
 pub mod metrics;
@@ -73,7 +74,7 @@ fn render_content(f: &mut Frame, app: &App, area: Rect) {
         View::HomeSchedules => render_home_placeholder(f, area, "Schedules", "Agendamentos de auto-deploy (v2)."),
         View::HomeIngress => render_home_placeholder(f, area, "Ingress Routes", "Tabela de rotas ativa no proxy hyper."),
         View::HomeDocker => render_home_placeholder(f, area, "Docker", "Containers, redes e imagens gerenciadas."),
-        View::HomeDeployEngine => render_home_placeholder(f, area, "Deploy Engine", "Estado interno do motor de deploy."),
+        View::HomeDeployEngine => deploy_engine::render(f, app, area),
         View::HomeRequests => render_home_placeholder(f, area, "Requests", "Log de requisições recebidas pelo proxy hyper."),
         View::SettingsWebServer
         | View::SettingsProfile
@@ -125,6 +126,7 @@ fn render_statusbar(f: &mut Frame, area: Rect, app: &App) {
         (Focus::Content, View::ServiceDetail) => {
             " [←→] abas  [↑↓] nav campo  [Esc] voltar  [Tab] sidebar"
         }
+        (_, View::Confirm { .. }) => " [y] confirmar  [n/Esc] cancelar",
         _ => " [Tab] sidebar  [Esc] voltar",
     };
 
@@ -243,7 +245,7 @@ fn render_new_project_popup(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_confirm_overlay(f: &mut Frame, area: Rect, message: &str) {
-    let popup = centered_rect(60, 20, area);
+    let popup = centered_rect_h(60, 7, area);
     f.render_widget(Clear, popup);
     let block = Block::default()
         .title(" Confirmar ")
@@ -254,8 +256,12 @@ fn render_confirm_overlay(f: &mut Frame, area: Rect, message: &str) {
         Line::from(message),
         Line::from(""),
         Line::from(vec![
-            Span::styled(" [y] Sim  ", Style::default().fg(Color::Green)),
-            Span::styled("[n] Não", Style::default().fg(Color::Red)),
+            Span::styled(" [y]", Style::default().fg(Color::Green)),
+            Span::styled(" confirmar   ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[n]", Style::default().fg(Color::Red)),
+            Span::styled(" / ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Esc]", Style::default().fg(Color::Red)),
+            Span::styled(" cancelar", Style::default().fg(Color::DarkGray)),
         ]),
     ])
     .block(block);

@@ -1,8 +1,8 @@
 pub use crate::models::*;
 
 use shared::{
-    Command, ContainerMetricsPoint, Deployment, DeploymentSummary, DeployState, Event, Project,
-    Response, Service, ServiceStatus,
+    Command, ContainerMetricsPoint, Deployment, DeployEngineSummary, DeploymentSummary,
+    DeployState, Event, Project, Response, Service, ServiceStatus,
 };
 use std::collections::{HashMap, VecDeque};
 
@@ -55,6 +55,8 @@ pub struct App {
     pub pending_commands: Vec<PendingCommand>,
 
     pub log_refresh_ticks: u32,
+    pub deploy_engine_refresh_ticks: u32,
+    pub deploy_engine: Option<DeployEngineSummary>,
 
     pub webhook_url: Option<String>,
     pub server_settings: ServerSettingsState,
@@ -109,6 +111,8 @@ impl App {
             pending_commands: vec![],
 
             log_refresh_ticks: 0,
+            deploy_engine_refresh_ticks: 0,
+            deploy_engine: None,
 
             webhook_url: None,
             server_settings: ServerSettingsState::default(),
@@ -201,6 +205,16 @@ impl App {
                     });
                 }
                 self.focus = Focus::Content;
+            }
+            SidebarItem::HomeDeployEngine => {
+                self.view = View::HomeDeployEngine;
+                self.focus = Focus::Content;
+                self.deploy_engine = None;
+                self.deploy_engine_refresh_ticks = 0;
+                self.pending_commands.push(PendingCommand {
+                    command: Command::DeployEngineStatus,
+                    context: CmdContext::LoadDeployEngine,
+                });
             }
             SidebarItem::SettingsWebServer => {
                 self.view = View::SettingsWebServer;
@@ -311,6 +325,20 @@ impl App {
             }
         } else {
             self.log_refresh_ticks = 0;
+        }
+
+        // Auto-refresh Deploy Engine a cada ~5s
+        if self.view == View::HomeDeployEngine {
+            self.deploy_engine_refresh_ticks += 1;
+            if self.deploy_engine_refresh_ticks >= 50 {
+                self.deploy_engine_refresh_ticks = 0;
+                self.pending_commands.push(PendingCommand {
+                    command: Command::DeployEngineStatus,
+                    context: CmdContext::LoadDeployEngine,
+                });
+            }
+        } else {
+            self.deploy_engine_refresh_ticks = 0;
         }
     }
 
@@ -468,12 +496,12 @@ impl App {
                 }
                 self.set_notification("Projeto removido", false);
             }
-            (Response::Ok, CmdContext::DeleteService) => {
-                if let Some(sid) = &self.active_service_id.clone() {
-                    self.services.retain(|s| &s.id != sid);
+            (Response::Ok, CmdContext::DeleteService(sid)) => {
+                self.services.retain(|s| s.id != sid);
+                if self.active_service_id.as_deref() == Some(&sid) {
                     self.active_service_id = None;
-                    self.view = View::ProjectDetail;
                 }
+                self.view = View::ProjectDetail;
                 self.set_notification("Serviço removido", false);
             }
             (Response::Deployments(deps), CmdContext::LoadDeployments) => {
@@ -597,6 +625,9 @@ impl App {
                     });
                 }
             }
+            (Response::DeployEngineStatus(summary), CmdContext::LoadDeployEngine) => {
+                self.deploy_engine = Some(summary);
+            }
             (Response::Err { message, .. }, _) => {
                 self.set_notification(message, true);
             }
@@ -606,6 +637,31 @@ impl App {
 
     pub fn can_quit(&self) -> bool {
         self.focus == Focus::Sidebar && !self.creating_project && self.new_service.is_none()
+    }
+
+    pub fn visible_service_tabs(&self) -> &'static [ServiceTab] {
+        let is_db = self
+            .current_active_service()
+            .map(|s| DbKind::detect_from_env(&s.spec.env_vars).is_some())
+            .unwrap_or(false);
+        if is_db {
+            ServiceTab::all_with_connection()
+        } else {
+            ServiceTab::all()
+        }
+    }
+
+    pub fn next_service_tab(&self) -> ServiceTab {
+        let tabs = self.visible_service_tabs();
+        let idx = tabs.iter().position(|t| t == &self.service_tab).unwrap_or(0);
+        tabs[(idx + 1) % tabs.len()].clone()
+    }
+
+    pub fn prev_service_tab(&self) -> ServiceTab {
+        let tabs = self.visible_service_tabs();
+        let idx = tabs.iter().position(|t| t == &self.service_tab).unwrap_or(0);
+        let prev = if idx == 0 { tabs.len() - 1 } else { idx - 1 };
+        tabs[prev].clone()
     }
 }
 

@@ -136,6 +136,7 @@ impl SidebarItem {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ServiceTab {
     General,
+    Connection,
     Environment,
     Domains,
     Deployments,
@@ -157,9 +158,23 @@ impl ServiceTab {
         ]
     }
 
+    pub fn all_with_connection() -> &'static [ServiceTab] {
+        &[
+            ServiceTab::General,
+            ServiceTab::Connection,
+            ServiceTab::Environment,
+            ServiceTab::Domains,
+            ServiceTab::Deployments,
+            ServiceTab::Healthcheck,
+            ServiceTab::Logs,
+            ServiceTab::Patches,
+        ]
+    }
+
     pub fn label(&self) -> &'static str {
         match self {
             ServiceTab::General => "General",
+            ServiceTab::Connection => "Connection",
             ServiceTab::Environment => "Environment",
             ServiceTab::Domains => "Domains",
             ServiceTab::Deployments => "Deployments",
@@ -652,6 +667,43 @@ impl DbKind {
             Self::Redis => 6,
         }
     }
+
+    pub fn yaml_service_name(self) -> &'static str {
+        match self {
+            Self::MongoDB => "mongo",
+            Self::Postgres => "postgres",
+            Self::MariaDB => "mariadb",
+            Self::MySQL => "mysql",
+            Self::Redis => "redis",
+        }
+    }
+
+    pub fn kind_id(self) -> &'static str {
+        match self {
+            Self::MongoDB => "mongodb",
+            Self::Postgres => "postgres",
+            Self::MariaDB => "mariadb",
+            Self::MySQL => "mysql",
+            Self::Redis => "redis",
+        }
+    }
+
+    pub fn detect_from_env(env_vars: &[EnvVar]) -> Option<Self> {
+        env_vars.iter().find(|e| e.key == "RUSTPLOY_DB_KIND").and_then(|e| {
+            if let EnvVarValue::Plain(ref s) = e.value {
+                match s.as_str() {
+                    "postgres" => Some(DbKind::Postgres),
+                    "mongodb" => Some(DbKind::MongoDB),
+                    "mariadb" => Some(DbKind::MariaDB),
+                    "mysql" => Some(DbKind::MySQL),
+                    "redis" => Some(DbKind::Redis),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -813,32 +865,91 @@ impl NewServiceState {
             key: k.to_string(),
             value: EnvVarValue::Plain(v.to_string()),
         };
-        match self.db_kind {
-            Some(DbKind::Postgres) => vec![
-                plain("POSTGRES_DB", &self.db_name),
-                plain("POSTGRES_USER", &self.db_user),
-                plain("POSTGRES_PASSWORD", &self.db_password),
-            ],
-            Some(DbKind::MongoDB) => {
-                let mut vars = vec![
-                    plain("MONGO_INITDB_ROOT_USERNAME", &self.db_user),
-                    plain("MONGO_INITDB_ROOT_PASSWORD", &self.db_password),
-                ];
+        let kind = match self.db_kind {
+            Some(k) => k,
+            None => return vec![],
+        };
+        let mut vars = vec![plain("RUSTPLOY_DB_KIND", kind.kind_id())];
+        match kind {
+            DbKind::Postgres => {
+                vars.push(plain("POSTGRES_DB", &self.db_name));
+                vars.push(plain("POSTGRES_USER", &self.db_user));
+                vars.push(plain("POSTGRES_PASSWORD", &self.db_password));
+            }
+            DbKind::MongoDB => {
+                vars.push(plain("MONGO_INITDB_ROOT_USERNAME", &self.db_user));
+                vars.push(plain("MONGO_INITDB_ROOT_PASSWORD", &self.db_password));
                 if self.use_replica_sets {
                     vars.push(plain("MONGO_REPLICA_SET_NAME", "rs0"));
                 }
-                vars
             }
-            Some(DbKind::MariaDB | DbKind::MySQL) => vec![
-                plain("MYSQL_DATABASE", &self.db_name),
-                plain("MYSQL_USER", &self.db_user),
-                plain("MYSQL_PASSWORD", &self.db_password),
-                plain("MYSQL_ROOT_PASSWORD", &self.db_root_password),
-            ],
-            Some(DbKind::Redis) if !self.db_password.is_empty() => {
-                vec![plain("REDIS_PASSWORD", &self.db_password)]
+            DbKind::MariaDB | DbKind::MySQL => {
+                vars.push(plain("MYSQL_DATABASE", &self.db_name));
+                vars.push(plain("MYSQL_USER", &self.db_user));
+                vars.push(plain("MYSQL_PASSWORD", &self.db_password));
+                vars.push(plain("MYSQL_ROOT_PASSWORD", &self.db_root_password));
             }
-            _ => vec![],
+            DbKind::Redis => {
+                if !self.db_password.is_empty() {
+                    vars.push(plain("REDIS_PASSWORD", &self.db_password));
+                }
+            }
+        }
+        vars
+    }
+
+    fn generate_db_compose(&self) -> String {
+        match self.db_kind {
+            Some(DbKind::Postgres) => format!(
+                "services:\n  postgres:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      POSTGRES_DB: {db}\n      POSTGRES_USER: {user}\n      POSTGRES_PASSWORD: {pass}\n    volumes:\n      - pgdata:/var/lib/postgresql/data\n\nvolumes:\n  pgdata:\n",
+                image = self.docker_image,
+                db = self.db_name,
+                user = self.db_user,
+                pass = self.db_password,
+            ),
+            Some(DbKind::MongoDB) => {
+                let replica_line = if self.use_replica_sets {
+                    "      MONGO_REPLICA_SET_NAME: rs0\n"
+                } else {
+                    ""
+                };
+                format!(
+                    "services:\n  mongo:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      MONGO_INITDB_ROOT_USERNAME: {user}\n      MONGO_INITDB_ROOT_PASSWORD: {pass}\n{replica}    volumes:\n      - mongodata:/data/db\n\nvolumes:\n  mongodata:\n",
+                    image = self.docker_image,
+                    user = self.db_user,
+                    pass = self.db_password,
+                    replica = replica_line,
+                )
+            }
+            Some(DbKind::MariaDB) => format!(
+                "services:\n  mariadb:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      MYSQL_DATABASE: {db}\n      MYSQL_USER: {user}\n      MYSQL_PASSWORD: {pass}\n      MYSQL_ROOT_PASSWORD: {root}\n    volumes:\n      - mariadbdata:/var/lib/mysql\n\nvolumes:\n  mariadbdata:\n",
+                image = self.docker_image,
+                db = self.db_name,
+                user = self.db_user,
+                pass = self.db_password,
+                root = self.db_root_password,
+            ),
+            Some(DbKind::MySQL) => format!(
+                "services:\n  mysql:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      MYSQL_DATABASE: {db}\n      MYSQL_USER: {user}\n      MYSQL_PASSWORD: {pass}\n      MYSQL_ROOT_PASSWORD: {root}\n    volumes:\n      - mysqldata:/var/lib/mysql\n\nvolumes:\n  mysqldata:\n",
+                image = self.docker_image,
+                db = self.db_name,
+                user = self.db_user,
+                pass = self.db_password,
+                root = self.db_root_password,
+            ),
+            Some(DbKind::Redis) => {
+                let cmd_line = if self.db_password.is_empty() {
+                    String::new()
+                } else {
+                    format!("    command: redis-server --requirepass {}\n", self.db_password)
+                };
+                format!(
+                    "services:\n  redis:\n    image: {image}\n    restart: unless-stopped\n{cmd}    volumes:\n      - redisdata:/data\n\nvolumes:\n  redisdata:\n",
+                    image = self.docker_image,
+                    cmd = cmd_line,
+                )
+            }
+            None => String::new(),
         }
     }
 
@@ -877,7 +988,9 @@ impl NewServiceState {
             NewServiceStep::DatabaseForm => ServiceSpec {
                 name: svc_name,
                 project_id: self.project_id.clone(),
-                source: ServiceSource::Registry { image: self.docker_image.clone() },
+                source: ServiceSource::Compose(ComposeSource {
+                    content: self.generate_db_compose(),
+                }),
                 port: self.db_kind.map(|d| d.default_port()).unwrap_or(5432),
                 host_port: None,
                 domain: None,
@@ -943,6 +1056,7 @@ pub enum CmdContext {
     LoadServices,
     LoadDeployments,
     LoadHomeDeployments,
+    LoadDeployEngine,
     LoadLogs,
     LoadBuildLogs,
     CreateProject,
@@ -950,7 +1064,7 @@ pub enum CmdContext {
     UpdateProjectEnv,
     CreateService,
     UpdateService,
-    DeleteService,
+    DeleteService(String),
     Deploy,
     ServiceStop,
     ServiceReload,

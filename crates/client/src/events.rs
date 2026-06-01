@@ -83,18 +83,28 @@ fn handle_content(app: &mut App, key: KeyEvent) {
         View::ProjectDetail => handle_project_detail(app, key),
         View::ServiceDetail => handle_service_detail(app, key),
         View::SettingsWebServer => handle_settings_web_server(app, key),
+        View::HomeDeployEngine => handle_home_deploy_engine(app, key),
         View::HomeMonitoring
         | View::HomeDeployments
         | View::HomeSchedules
         | View::HomeIngress
         | View::HomeDocker
-        | View::HomeDeployEngine
         | View::HomeRequests => handle_home(app, key),
         _ => {}
     }
 }
 
 fn handle_home(app: &mut App, _key: KeyEvent) {}
+
+fn handle_home_deploy_engine(app: &mut App, key: KeyEvent) {
+    if key.code == KeyCode::Char('r') {
+        app.deploy_engine = None;
+        app.pending_commands.push(PendingCommand {
+            command: Command::DeployEngineStatus,
+            context: CmdContext::LoadDeployEngine,
+        });
+    }
+}
 
 fn handle_project_detail(app: &mut App, key: KeyEvent) {
     // ←/→ alternam entre abas (igual ao service detail); não conflita com o Tab global
@@ -350,11 +360,11 @@ fn handle_service_detail(app: &mut App, key: KeyEvent) {
 
     match key.code {
         KeyCode::Left => {
-            app.service_tab = app.service_tab.prev();
+            app.service_tab = app.prev_service_tab();
             on_tab_change(app);
         }
         KeyCode::Right => {
-            app.service_tab = app.service_tab.next();
+            app.service_tab = app.next_service_tab();
             on_tab_change(app);
         }
         _ => match app.service_tab.clone() {
@@ -364,7 +374,7 @@ fn handle_service_detail(app: &mut App, key: KeyEvent) {
             crate::app::ServiceTab::Healthcheck => handle_healthcheck_tab(app, key),
             crate::app::ServiceTab::Domains => handle_domains_tab(app, key),
             crate::app::ServiceTab::Logs => handle_logs_tab(app, key),
-            _ => {}
+            crate::app::ServiceTab::Connection | crate::app::ServiceTab::Patches => {}
         },
     }
 }
@@ -1139,8 +1149,8 @@ fn handle_confirm(app: &mut App, key: KeyEvent) {
                 }
                 ConfirmAction::DeleteService(id) => {
                     app.pending_commands.push(PendingCommand {
-                        command: Command::ServiceDelete { id },
-                        context: CmdContext::DeleteService,
+                        command: Command::ServiceDelete { id: id.clone() },
+                        context: CmdContext::DeleteService(id),
                     });
                 }
                 ConfirmAction::AbortDeploy(id) => {
