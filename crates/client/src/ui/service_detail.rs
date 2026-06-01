@@ -616,16 +616,9 @@ fn render_domains_tab(f: &mut Frame, app: &App, area: Rect) {
 
 fn render_deployments_tab(f: &mut Frame, app: &App, area: Rect) {
     let has_webhook = app.webhook_url.is_some();
-    let webhook_hint = if has_webhook {
-        "  [c] copiar URL  [w] regenerar token"
-    } else {
-        ""
-    };
     let block = Block::default()
         .borders(Borders::ALL)
-        .title(format!(
-            " Deployments — [↑↓] navegar  [[] log ▲  []] log ▼  [g/G] início/fim  [r] rollback{webhook_hint} "
-        ))
+        .title(" Deployments — [↑↓] navegar  [[] log ▲  []] log ▼  [g/G] início/fim  [r] rollback ")
         .border_style(Style::default().fg(Color::DarkGray));
 
     let deps = &app.service_deployments;
@@ -743,16 +736,26 @@ fn render_deployments_tab(f: &mut Frame, app: &App, area: Rect) {
             .border_style(Style::default().fg(Color::DarkGray));
         let inner = webhook_block.inner(chunks[2]);
         f.render_widget(webhook_block, chunks[2]);
+
+        // Trunca a URL para caber na largura disponível (desconta "  Webhook:  " = 12 chars)
+        let prefix_len = 12usize;
+        let max_url = inner.width.saturating_sub(prefix_len as u16) as usize;
+        let display_url = if url.len() > max_url && max_url > 1 {
+            format!("{}…", &url[..max_url.saturating_sub(1)])
+        } else {
+            url.clone()
+        };
+
         f.render_widget(
             Paragraph::new(vec![
                 Line::from(vec![
                     Span::styled("  Webhook:  ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(url.as_str(), Style::default().fg(Color::Cyan)),
+                    Span::styled(display_url, Style::default().fg(Color::Cyan)),
                 ]),
                 Line::from(vec![
                     Span::styled("  ", Style::default()),
                     Span::styled("[c]", Style::default().fg(Color::Yellow)),
-                    Span::styled(" copiar  ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(" copiar URL  ", Style::default().fg(Color::DarkGray)),
                     Span::styled("[w]", Style::default().fg(Color::Yellow)),
                     Span::styled(" regenerar token", Style::default().fg(Color::DarkGray)),
                 ]),
