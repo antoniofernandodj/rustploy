@@ -14,6 +14,13 @@ pub enum TemplateCategory {
     Security,
     Automation,
     Media,
+    Ai,
+    Finance,
+    Gaming,
+    Database,
+    Networking,
+    ProjectManagement,
+    Backup,
 }
 
 impl TemplateCategory {
@@ -28,20 +35,34 @@ impl TemplateCategory {
         Self::Security,
         Self::Automation,
         Self::Media,
+        Self::Ai,
+        Self::Finance,
+        Self::Gaming,
+        Self::Database,
+        Self::Networking,
+        Self::ProjectManagement,
+        Self::Backup,
     ];
 
     pub fn label(self) -> &'static str {
         match self {
-            Self::All          => "Todos",
-            Self::Cms          => "CMS",
-            Self::Analytics    => "Analytics",
-            Self::Monitoring   => "Monitoring",
-            Self::DevTools     => "DevTools",
-            Self::Communication => "Chat",
-            Self::Storage      => "Storage",
-            Self::Security     => "Segurança",
-            Self::Automation   => "Automação",
-            Self::Media        => "Mídia",
+            Self::All              => "Todos",
+            Self::Cms              => "CMS",
+            Self::Analytics        => "Analytics",
+            Self::Monitoring       => "Monitoring",
+            Self::DevTools         => "DevTools",
+            Self::Communication    => "Chat",
+            Self::Storage          => "Storage",
+            Self::Security         => "Segurança",
+            Self::Automation       => "Automação",
+            Self::Media            => "Mídia",
+            Self::Ai               => "IA",
+            Self::Finance          => "Finanças",
+            Self::Gaming           => "Games",
+            Self::Database         => "Banco de Dados",
+            Self::Networking       => "Redes",
+            Self::ProjectManagement => "Projetos",
+            Self::Backup           => "Backup",
         }
     }
 }
