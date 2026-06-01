@@ -57,6 +57,7 @@ pub async fn recover(
             | DeployState::PullingImage
             | DeployState::CloningRepo
             | DeployState::BuildingImage
+            | DeployState::ComposingUp
             | DeployState::Staging
             | DeployState::HealthcheckPolling => {
                 info!(

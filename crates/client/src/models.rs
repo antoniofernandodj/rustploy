@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use shared::{
-    Command, DeployState, EnvVar, EnvVarValue, GitSource, Healthcheck, HealthcheckKind, Project,
-    ResourceLimits, Service, ServiceSource, ServiceSpec,
+    Command, ComposeSource, DeployState, EnvVar, EnvVarValue, GitSource, Healthcheck,
+    HealthcheckKind, Project, ResourceLimits, Service, ServiceSource, ServiceSpec,
 };
 
 pub const MAX_LOG_LINES: usize = 2000;
@@ -310,6 +310,18 @@ impl GeneralTabState {
                 context_path: ".".into(),
                 build_stage: String::new(),
             },
+            ServiceSource::Compose(_) => Self {
+                focused_field: GeneralTabField::BtnDeploy,
+                repo_url: String::new(),
+                branch: String::new(),
+                build_path: String::new(),
+                watch_paths: String::new(),
+                submodules: false,
+                port: svc.spec.port.to_string(),
+                dockerfile: String::new(),
+                context_path: String::new(),
+                build_stage: String::new(),
+            },
         }
     }
 
@@ -559,6 +571,7 @@ pub enum NewServiceStep {
     PickDbType,
     ApplicationForm,
     DatabaseForm,
+    ComposeForm,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -656,6 +669,7 @@ pub struct NewServiceState {
     pub db_password: String,
     pub db_root_password: String,
     pub docker_image: String,
+    pub compose_file_path: String,
     pub use_replica_sets: bool,
     pub focused_field: usize,
     pub form_scroll: usize,
@@ -677,6 +691,7 @@ impl NewServiceState {
             db_password: String::new(),
             db_root_password: String::new(),
             docker_image: String::new(),
+            compose_file_path: "docker-compose.yml".into(),
             use_replica_sets: false,
             focused_field: 0,
             form_scroll: 0,
@@ -686,6 +701,7 @@ impl NewServiceState {
     pub fn field_count(&self) -> usize {
         match self.step {
             NewServiceStep::ApplicationForm => 4,
+            NewServiceStep::ComposeForm => 3,
             NewServiceStep::DatabaseForm => {
                 self.db_kind.map(|d| d.field_count()).unwrap_or(0)
             }
@@ -718,7 +734,10 @@ impl NewServiceState {
     }
 
     fn sync_scroll(&mut self) {
-        if !matches!(self.step, NewServiceStep::DatabaseForm) {
+        if !matches!(self.step, NewServiceStep::DatabaseForm | NewServiceStep::ComposeForm) {
+            return;
+        }
+        if matches!(self.step, NewServiceStep::ComposeForm) {
             return;
         }
         const VISIBLE: usize = 4;
@@ -752,6 +771,11 @@ impl NewServiceState {
                 0 => Some(&mut self.name),
                 1 => Some(&mut self.app_name),
                 2 => Some(&mut self.description),
+                _ => None,
+            },
+            NewServiceStep::ComposeForm => match field {
+                0 => Some(&mut self.name),
+                1 => Some(&mut self.app_name),
                 _ => None,
             },
             NewServiceStep::DatabaseForm => match (db?, field) {
@@ -826,6 +850,21 @@ impl NewServiceState {
                 name: svc_name,
                 project_id: self.project_id.clone(),
                 source: ServiceSource::Registry { image: String::new() },
+                port: 80,
+                host_port: None,
+                domain: None,
+                env_vars: vec![],
+                volumes: vec![],
+                healthcheck: Healthcheck::default(),
+                replicas: 1,
+                resources: ResourceLimits::default(),
+            },
+            NewServiceStep::ComposeForm => ServiceSpec {
+                name: svc_name,
+                project_id: self.project_id.clone(),
+                source: ServiceSource::Compose(ComposeSource {
+                    content: String::new(),
+                }),
                 port: 80,
                 host_port: None,
                 domain: None,
@@ -915,6 +954,47 @@ pub enum CmdContext {
     Deploy,
     ServiceStop,
     ServiceReload,
+}
+
+// ── Compose tab ───────────────────────────────────────────────────────────────
+
+pub struct ComposeTabState {
+    pub editing: bool,
+    pub textarea: tui_textarea::TextArea<'static>,
+}
+
+impl ComposeTabState {
+    pub fn new(content: &str) -> Self {
+        let lines: Vec<String> = if content.is_empty() {
+            vec![String::new()]
+        } else {
+            content.lines().map(String::from).collect()
+        };
+        let mut textarea = tui_textarea::TextArea::new(lines);
+        textarea.set_cursor_style(ratatui::style::Style::default()); // cursor invisível por padrão
+        textarea.set_line_number_style(ratatui::style::Style::default().fg(ratatui::style::Color::DarkGray));
+        Self { editing: false, textarea }
+    }
+
+    pub fn content(&self) -> String {
+        self.textarea.lines().join("\n")
+    }
+
+    pub fn set_editing(&mut self, editing: bool) {
+        use ratatui::style::{Color, Modifier, Style};
+        self.editing = editing;
+        if editing {
+            self.textarea.set_cursor_style(Style::default().add_modifier(Modifier::REVERSED));
+        } else {
+            self.textarea.set_cursor_style(Style::default());
+        }
+    }
+}
+
+impl Default for ComposeTabState {
+    fn default() -> Self {
+        Self::new("")
+    }
 }
 
 // ── Runtime state ─────────────────────────────────────────────────────────────

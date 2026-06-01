@@ -313,6 +313,7 @@ fn render_new_service_popup(f: &mut Frame, area: Rect, app: &App) {
         NewServiceStep::PickDbType => render_ns_pick_db(f, area, app),
         NewServiceStep::ApplicationForm => render_ns_app_form(f, area, app),
         NewServiceStep::DatabaseForm => render_ns_db_form(f, area, app),
+        NewServiceStep::ComposeForm => render_ns_compose_form(f, area, app),
     }
 }
 
@@ -722,6 +723,60 @@ fn render_ns_labeled_box(
         Span::styled(format!(" {value}{cursor}"), Style::default().fg(Color::White))
     };
     f.render_widget(Paragraph::new(display), input_inner);
+}
+
+fn render_ns_compose_form(f: &mut Frame, area: Rect, app: &App) {
+    let state = app.new_service.as_ref().unwrap();
+    // 2 border + 1 pad + 2×(1 label + 3 box) + 1 pad + 1 hint + 1 pad + 1 btn + 1 hints = 17
+    let popup = centered_rect_h(60, 17, area);
+    f.render_widget(Clear, popup);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Nova Compose Stack ")
+        .border_style(Style::default().fg(Color::Cyan));
+    let inner = block.inner(popup);
+    f.render_widget(block, popup);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // padding
+            Constraint::Length(1), // label Nome
+            Constraint::Length(3), // input Nome
+            Constraint::Length(1), // label App Name
+            Constraint::Length(3), // input App Name
+            Constraint::Length(1), // padding
+            Constraint::Length(1), // info
+            Constraint::Length(1), // padding
+            Constraint::Length(1), // button
+            Constraint::Length(1), // key hints
+            Constraint::Min(0),
+        ])
+        .split(inner);
+
+    render_ns_labeled_box(f, chunks[1], chunks[2], "  Nome", &state.name, state.focused_field == 0);
+    render_ns_labeled_box(f, chunks[3], chunks[4], "  App Name", &state.app_name, state.focused_field == 1);
+
+    f.render_widget(
+        Paragraph::new(Line::from(Span::styled(
+            "  Configure o compose file dentro do serviço antes de fazer deploy.",
+            Style::default().fg(Color::DarkGray),
+        ))),
+        chunks[6],
+    );
+
+    let btn_focused = state.is_button();
+    let btn = if btn_focused {
+        Span::styled(
+            " [ Criar Compose Stack ] ",
+            Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD),
+        )
+    } else {
+        Span::styled(" [ Criar Compose Stack ] ", Style::default().fg(Color::White))
+    };
+    f.render_widget(Paragraph::new(Line::from(vec![Span::raw("  "), btn])), chunks[8]);
+    render_ns_hints(f, chunks[9]);
 }
 
 fn render_ns_hints(f: &mut Frame, area: Rect) {

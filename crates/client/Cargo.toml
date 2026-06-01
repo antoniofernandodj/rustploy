@@ -18,6 +18,7 @@ futures = "0.3"
 # TUI
 ratatui = "0.28"
 crossterm = { version = "0.28", features = ["event-stream"] }
+tui-textarea = { version = "0.6", features = ["crossterm"] }
 
 
 # Serialization

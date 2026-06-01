@@ -92,6 +92,16 @@ fn render_tab_content(f: &mut Frame, app: &App, area: Rect) {
 // ─── General Tab ─────────────────────────────────────────────────────────────
 
 fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
+    let is_compose = app
+        .current_active_service()
+        .map(|s| matches!(s.spec.source, ServiceSource::Compose(_)))
+        .unwrap_or(false);
+
+    if is_compose {
+        render_compose_general_tab(f, app, area);
+        return;
+    }
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -199,6 +209,75 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
         ])),
         chunks[18],
     );
+}
+
+fn render_compose_general_tab(f: &mut Frame, app: &App, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // spacing        [0]
+            Constraint::Length(1), // action buttons [1]
+            Constraint::Length(1), // spacing        [2]
+            Constraint::Length(1), // editor header  [3]
+            Constraint::Min(0),    // textarea       [4]
+            Constraint::Length(1), // hints          [5]
+        ])
+        .split(area);
+
+    let gt = &app.general_tab;
+
+    let btn_row = Line::from(vec![
+        Span::raw("  "),
+        btn_span("[ Deploy ]", gt.focused_field == GeneralTabField::BtnDeploy),
+        Span::raw("  "),
+        btn_span("[ Reload ]", gt.focused_field == GeneralTabField::BtnReload),
+        Span::raw("  "),
+        btn_span("[ Rebuild ]", gt.focused_field == GeneralTabField::BtnRebuild),
+        Span::raw("  "),
+        btn_span("[ Stop ]", gt.focused_field == GeneralTabField::BtnStop),
+    ]);
+    f.render_widget(Paragraph::new(btn_row), chunks[1]);
+
+    let (header_text, header_color) = if app.compose_tab.editing {
+        ("── Compose YAML  [Ctrl+S] salvar  [Esc] sair do editor ──────", Color::Cyan)
+    } else {
+        ("── Compose YAML  [Enter] editar ──────────────────────────────", Color::Yellow)
+    };
+    f.render_widget(
+        Paragraph::new(Line::from(Span::styled(header_text, Style::default().fg(header_color)))),
+        chunks[3],
+    );
+
+    let border_color = if app.compose_tab.editing { Color::Cyan } else { Color::DarkGray };
+    let editor_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(border_color));
+    let editor_inner = editor_block.inner(chunks[4]);
+    f.render_widget(editor_block, chunks[4]);
+    f.render_widget(app.compose_tab.textarea.widget(), editor_inner);
+
+    let hints = if app.compose_tab.editing {
+        Line::from(vec![
+            Span::styled(" Ctrl+S", Style::default().fg(Color::Cyan)),
+            Span::styled(" salvar  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("Esc", Style::default().fg(Color::Cyan)),
+            Span::styled(" sair do editor", Style::default().fg(Color::DarkGray)),
+        ])
+    } else {
+        let lines = app.compose_tab.textarea.lines().len();
+        let is_empty = app.compose_tab.content().trim().is_empty();
+        let info = if is_empty {
+            " (vazio — não é possível fazer deploy)".to_string()
+        } else {
+            format!(" ({lines} linhas)")
+        };
+        Line::from(vec![
+            Span::styled(" [Enter]", Style::default().fg(Color::Cyan)),
+            Span::styled(" editar  ", Style::default().fg(Color::DarkGray)),
+            Span::styled(info, Style::default().fg(if is_empty { Color::Red } else { Color::DarkGray })),
+        ])
+    };
+    f.render_widget(Paragraph::new(hints), chunks[5]);
 }
 
 // ─── Healthcheck Tab ─────────────────────────────────────────────────────────
@@ -707,7 +786,7 @@ fn render_logs_tab(f: &mut Frame, app: &App, area: Rect) {
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .title(" Logs — [↑↓] scroll  [f] ir ao final ")
+        .title(" Logs — [↑↓] scroll  [f] final  [r] refresh ")
         .border_style(Style::default().fg(Color::DarkGray));
 
     let log_lines: Vec<&crate::app::LogLine> =

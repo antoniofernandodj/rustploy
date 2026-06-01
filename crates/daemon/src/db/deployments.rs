@@ -48,6 +48,7 @@ fn parse_state(s: &str) -> DeployState {
         "RollingBack" => DeployState::RollingBack,
         "Failed" => DeployState::Failed,
         "Pruning" => DeployState::Pruning,
+        "ComposingUp" => DeployState::ComposingUp,
         _ => DeployState::Failed,
     }
 }

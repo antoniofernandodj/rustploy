@@ -102,12 +102,15 @@ async fn run(
             }
             Some(daemon_ev) = event_rx.recv() => {
                 app.apply_event(daemon_ev);
+                dispatch_pending(&socket_path, &mut app, resp_tx.clone());
             }
             Some((resp, ctx)) = resp_rx.recv() => {
                 app.handle_response(resp, ctx);
+                dispatch_pending(&socket_path, &mut app, resp_tx.clone());
             }
             _ = tick.tick() => {
                 app.tick();
+                dispatch_pending(&socket_path, &mut app, resp_tx.clone());
             }
         }
     }

@@ -101,6 +101,7 @@ fn state_display(state: &DeployState) -> (&'static str, Color) {
         DeployState::Draining         => ("◌ Draining",         Color::Yellow),
         DeployState::Promoting        => ("◌ Promoting",        Color::Yellow),
         DeployState::Pruning          => ("◌ Pruning",          Color::DarkGray),
+        DeployState::ComposingUp      => ("◌ Composing",         Color::Yellow),
     }
 }
 

@@ -1,5 +1,5 @@
-use crate::{api::AppState, deploy::executor::DeployExecutor, db::services};
-use shared::{Response as RpResponse, ServiceSource, ServiceStatus, Event};
+use crate::{api::AppState, db::services, deploy::executor::DeployExecutor};
+use shared::{Event, Response as RpResponse, ServiceSource, ServiceStatus};
 use std::sync::Arc;
 use tracing::{error, info, warn};
 
@@ -25,6 +25,7 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
         source = match &svc.spec.source {
             ServiceSource::Registry { image } => format!("registry:{image}"),
             ServiceSource::Git(g) => format!("git:{}", g.url),
+            ServiceSource::Compose(c) => format!("compose:{}", c.content),
         },
         port = svc.spec.port,
         "deploy_start: serviço encontrado"
@@ -51,6 +52,13 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
                 "git URL is empty — configure o repositório antes de fazer deploy",
             );
         }
+        ServiceSource::Compose(c) if c.content.is_empty() => {
+            warn!(service_id = %service_id, "deploy_start: compose file vazio");
+            return RpResponse::err(
+                "InvalidSource",
+                "compose file is empty — configure o caminho do docker-compose.yml",
+            );
+        }
         _ => {}
     }
 
@@ -62,6 +70,11 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
         ServiceSource::Git(_) => {
             let tag = format!("rp_{}", svc.spec.name);
             info!(service_id = %service_id, tag = %tag, "deploy_start: fonte git, tag de build resolvida");
+            tag
+        }
+        ServiceSource::Compose(c) => {
+            let tag = format!("compose:{}", c.content);
+            info!(service_id = %service_id, tag = %tag, "deploy_start: fonte compose, referência resolvida");
             tag
         }
     };

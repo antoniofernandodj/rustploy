@@ -141,6 +141,14 @@ impl DeployExecutor {
                         );
                         DeployState::CloningRepo
                     }
+                    ServiceSource::Compose(c) => {
+                        info!(
+                            deployment_id = %dep.id,
+                            compose_file = %c.content,
+                            "step[ResolvingDeps]: fonte é Compose → irá para ComposingUp"
+                        );
+                        DeployState::ComposingUp
+                    }
                 };
                 Ok(next)
             }
@@ -490,6 +498,29 @@ impl DeployExecutor {
             }
 
             DeployState::RollingBack => {
+                if let ServiceSource::Compose(compose) = &svc.spec.source {
+                    let project_name = format!("rp_{}", &svc.spec.name);
+                    info!(
+                        deployment_id = %dep.id,
+                        project = %project_name,
+                        "step[RollingBack]: derrubando compose stack"
+                    );
+                    let _ = crate::docker::compose::compose_down(
+                        &compose.content,
+                        &project_name,
+                    )
+                    .await;
+                    let err_status = ServiceStatus::Error("deploy failed".into());
+                    let _ = crate::db::services::update_status(
+                        &self.db, &svc.id, &err_status, None,
+                    ).await;
+                    self.bus.publish(Event::ServiceStatusChanged {
+                        service_id: svc.id.clone(),
+                        status: err_status,
+                    });
+                    return Ok(DeployState::Failed);
+                }
+
                 let staging = containers::staging_name(&svc.spec.name, self.short(&dep.id));
                 info!(
                     deployment_id = %dep.id,
@@ -558,6 +589,45 @@ impl DeployExecutor {
                 info!(deployment_id = %dep.id, "step[RollingBack]: rollback concluído, estado = Failed");
                 let _ = std::fs::remove_dir_all(self.clone_dir(&dep.id));
                 Ok(DeployState::Failed)
+            }
+
+            DeployState::ComposingUp => {
+                let ServiceSource::Compose(compose) = &svc.spec.source else {
+                    return Err(anyhow!("expected Compose source in ComposingUp"));
+                };
+                let project_name = format!("rp_{}", &svc.spec.name);
+                info!(
+                    deployment_id = %dep.id,
+                    content_bytes = compose.content.len(),
+                    project = %project_name,
+                    "step[ComposingUp]: executando docker compose up"
+                );
+                crate::docker::compose::compose_up(
+                    &compose.content,
+                    &project_name,
+                    &svc.id,
+                    &dep.id,
+                    &self.bus,
+                    &self.db,
+                )
+                .await?;
+                info!(
+                    deployment_id = %dep.id,
+                    project = %project_name,
+                    "step[ComposingUp]: compose up concluído, promovendo serviço"
+                );
+                crate::db::services::update_status(
+                    &self.db,
+                    &svc.id,
+                    &ServiceStatus::Running,
+                    None,
+                )
+                .await?;
+                self.bus.publish(Event::ServiceStatusChanged {
+                    service_id: svc.id.clone(),
+                    status: ServiceStatus::Running,
+                });
+                Ok(DeployState::Live)
             }
 
             other => Err(anyhow!("unhandled state: {:?}", other)),
@@ -692,6 +762,7 @@ impl DeployExecutor {
         match &svc.spec.source {
             ServiceSource::Registry { image } => image.clone(),
             ServiceSource::Git(_) => format!("rp_{}:{}", svc.spec.name, self.short(&dep.id)),
+            ServiceSource::Compose(c) => format!("compose:{}", c.content),
         }
     }
 

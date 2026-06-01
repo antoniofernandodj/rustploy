@@ -33,6 +33,7 @@ pub struct App {
     pub healthcheck_tab: HealthcheckTabState,
     pub domains_tab: DomainsTabState,
     pub env_tab: EnvTabState,
+    pub compose_tab: ComposeTabState,
     pub deployment_cursor: usize,
     pub build_log_scroll: usize, // offset from top; usize::MAX = follow tail
     pub log_cursor: usize,
@@ -52,6 +53,8 @@ pub struct App {
     pub last_deployment: Option<Deployment>,
 
     pub pending_commands: Vec<PendingCommand>,
+
+    pub log_refresh_ticks: u32,
 }
 
 impl App {
@@ -83,6 +86,7 @@ impl App {
             healthcheck_tab: HealthcheckTabState::default(),
             domains_tab: DomainsTabState::default(),
             env_tab: EnvTabState::default(),
+            compose_tab: ComposeTabState::default(),
             deployment_cursor: 0,
             build_log_scroll: usize::MAX,
             log_cursor: 0,
@@ -100,6 +104,8 @@ impl App {
             last_deployment: None,
 
             pending_commands: vec![],
+
+            log_refresh_ticks: 0,
         }
     }
 
@@ -229,6 +235,11 @@ impl App {
         self.healthcheck_tab = HealthcheckTabState::from_service(svc);
         self.domains_tab = DomainsTabState::from_service(svc);
         self.env_tab = EnvTabState::default();
+        self.compose_tab = if let shared::ServiceSource::Compose(c) = &svc.spec.source {
+            ComposeTabState::new(&c.content)
+        } else {
+            ComposeTabState::default()
+        };
         self.deployment_cursor = 0;
         self.build_log_scroll = usize::MAX;
         self.log_cursor = 0;
@@ -259,13 +270,39 @@ impl App {
                 self.notification = None;
             }
         }
+
+        // Auto-refresh logs a cada ~5s enquanto a aba Logs estiver ativa
+        if self.service_tab == ServiceTab::Logs {
+            self.log_refresh_ticks += 1;
+            if self.log_refresh_ticks >= 50 {
+                self.log_refresh_ticks = 0;
+                if let Some(sid) = self.active_service_id.clone() {
+                    self.pending_commands.push(PendingCommand {
+                        command: Command::LogsGet { service_id: sid, tail: 500 },
+                        context: CmdContext::LoadLogs,
+                    });
+                }
+            }
+        } else {
+            self.log_refresh_ticks = 0;
+        }
     }
 
     pub fn apply_event(&mut self, event: Event) {
         match event {
             Event::ServiceStatusChanged { service_id, status } => {
                 if let Some(svc) = self.services.iter_mut().find(|s| s.id == service_id) {
-                    svc.status = status;
+                    svc.status = status.clone();
+                }
+                // Quando o serviço fica Running e está aberto, recarrega logs automaticamente
+                if matches!(status, ServiceStatus::Running)
+                    && self.active_service_id.as_deref() == Some(&service_id)
+                {
+                    self.logs.remove(&service_id);
+                    self.pending_commands.push(PendingCommand {
+                        command: Command::LogsGet { service_id, tail: 500 },
+                        context: CmdContext::LoadLogs,
+                    });
                 }
             }
 
@@ -310,7 +347,7 @@ impl App {
                 );
                 entry.states_seen.push(entry.current_state.clone());
                 entry.current_state = state;
-                entry.percent = state_to_percent(&entry.current_state);
+                entry.percent = entry.current_state.to_percent();
             }
 
             Event::DeployProgress { deployment_id, percent, description, .. } => {
@@ -389,6 +426,9 @@ impl App {
                     self.general_tab = GeneralTabState::from_service(&s);
                     self.healthcheck_tab = HealthcheckTabState::from_service(&s);
                     self.domains_tab = DomainsTabState::from_service(&s);
+                    if let shared::ServiceSource::Compose(c) = &s.spec.source {
+                        self.compose_tab = ComposeTabState::new(&c.content);
+                    }
                 }
                 self.set_notification("Serviço atualizado", false);
             }
@@ -521,21 +561,3 @@ impl App {
     }
 }
 
-fn state_to_percent(state: &DeployState) -> u8 {
-    match state {
-        DeployState::Pending => 5,
-        DeployState::ResolvingDeps => 10,
-        DeployState::PullingImage => 30,
-        DeployState::CloningRepo => 20,
-        DeployState::BuildingImage => 50,
-        DeployState::Staging => 65,
-        DeployState::HealthcheckPolling => 75,
-        DeployState::SwappingIn => 85,
-        DeployState::Draining => 90,
-        DeployState::Promoting => 95,
-        DeployState::Live => 100,
-        DeployState::Stopped => 100,
-        DeployState::RollingBack | DeployState::Failed => 0,
-        DeployState::Pruning => 100,
-    }
-}
