@@ -1,0 +1,24 @@
+#!/bin/sh
+set -e
+
+if ! getent group docker > /dev/null 2>&1; then
+    groupadd --system docker || true
+fi
+
+if ! id -u rustploy > /dev/null 2>&1; then
+    useradd --system \
+        --no-create-home \
+        --shell /usr/sbin/nologin \
+        --groups docker \
+        --comment "Rustploy daemon" \
+        rustploy
+fi
+
+# Ensure /etc/rustploy/ is owned by rustploy
+chown -R rustploy:rustploy /etc/rustploy 2>/dev/null || true
+chmod 750 /etc/rustploy 2>/dev/null || true
+
+# Socket permissions — allow group members to connect
+chmod 775 /run/rustploy 2>/dev/null || true
+
+#DEBHELPER#

@@ -1,122 +1,78 @@
-# Comunicação interna: API Application ↔ Banco Compose
+# Comunicação interna entre serviços do projeto
 
-Este documento explica como um serviço do tipo **Application** (Registry ou Git) se comunica internamente com um serviço do tipo **Compose** (por exemplo, um banco de dados) dentro do Rustploy.
+No Rustploy, todos os serviços de um mesmo projeto se comunicam automaticamente pela rede Docker do projeto — sem nenhuma configuração manual necessária.
 
-## O problema: duas redes separadas
+## Como funciona
 
-No Rustploy, serviços Application e serviços Compose vivem em redes Docker diferentes por padrão:
+Quando um projeto é criado, o Rustploy garante a existência de uma **rede bridge dedicada**:
 
-- **Serviços Application** são conectados à rede compartilhada do projeto:
-  - Nome: `rp_net_{primeiros_8_chars_do_project_id}` (ex.: `rp_net_a1b2c3d4`)
-  - A conexão é feita pelo executor antes de iniciar o container.
-  - O container live recebe o nome `rp_{service_name}`.
-
-- **Serviços Compose** são executados com:
-
-  ```
-  docker compose -p rp_{service_name} -f - up -d --build --remove-orphans
-  ```
-
-  O Docker Compose cria automaticamente uma **rede própria**: `rp_{service_name}_default`. Os containers recebem nomes no padrão `rp_{service_name}-{nome_no_yaml}-1`.
-
-  Exemplo: um serviço Compose chamado `mydb`, com um serviço `postgres` no YAML, gera o container `rp_mydb-postgres-1`.
-
-Como essas duas redes são separadas, **a API não consegue resolver o nome do banco por padrão**. O Docker DNS só resolve nomes entre containers que compartilham a mesma rede user-defined.
-
-## A solução
-
-Para que a API alcance o banco, o compose file precisa **declarar a rede do projeto como externa** e **conectar o serviço do banco a ela**. Com ambos na mesma rede, o Docker DNS passa a resolver os nomes automaticamente.
-
-São três passos.
-
-### Passo 1 — Descobrir o ID do projeto
-
-O nome da rede é `rp_net_` + os 8 primeiros caracteres do **Project ID**.
-
-O Project ID aparece na aba **Projects** do TUI. Você também pode descobrir o nome da rede direto pelo Docker:
-
-```bash
-docker network ls | grep rp_net
+```
+rp_net_{primeiros_8_chars_do_project_id}
 ```
 
-Anote o nome completo da rede (ex.: `rp_net_a1b2c3d4`).
+Todos os serviços do projeto — tanto **Application** (Registry/Git) quanto **Compose** — são conectados a essa rede automaticamente pelo daemon no momento do deploy.
 
-### Passo 2 — Escrever o compose file com a rede externa
+### Serviços Application
 
-Declare a rede do projeto como `external` e conecte o serviço do banco a ela:
+O executor conecta o container à rede do projeto via `docker network connect` antes do start, atribuindo o nome `rp_{service_name}` ao container.
+
+### Serviços Compose
+
+Antes de invocar `docker compose up`, o daemon injeta a rede do projeto no YAML do usuário (`docker/compose.rs → inject_project_network`). O compose file original **não precisa declarar nenhuma rede**; o Rustploy adiciona automaticamente:
+
+- Um bloco `networks:` de topo com a rede do projeto como `external: true`
+- A entrada dessa rede em todos os serviços do compose
+
+O rewrite é idempotente: se a rede já estiver declarada no YAML, não é adicionada de novo.
+
+## Como referenciar outros serviços
+
+### De um serviço Compose para outro serviço Compose (mesmo stack)
+
+Use o nome do serviço conforme definido no YAML:
 
 ```yaml
 services:
+  api:
+    image: minha-api
+    environment:
+      DB_URL: postgresql://user:pass@postgres:5432/mydb
+
   postgres:
     image: postgres:16
-    environment:
-      POSTGRES_PASSWORD: secret
-      POSTGRES_DB: myapp
-    networks:
-      - rp_net          # alias local usado dentro deste compose file
-    # volumes, etc.
-
-networks:
-  rp_net:
-    external: true
-    name: rp_net_a1b2c3d4   # substitua pelos 8 chars do SEU project ID
 ```
 
-Pontos importantes:
+O Docker Compose resolve `postgres` internamente.
 
-- `external: true` diz ao Compose para **não criar** essa rede, e sim usar uma já existente (a rede do projeto, criada pelo Rustploy).
-- O `name:` precisa bater exatamente com o nome real da rede do projeto.
-- `rp_net` (sob `services` e como chave em `networks`) é apenas um **apelido local** dentro deste arquivo; não precisa ser o nome real da rede.
+### De um serviço Application para um serviço Compose
 
-### Passo 3 — Configurar a env var da API
-
-Aponte a URL de conexão da API para o nome do container do banco (próxima seção). Tipicamente isso vai em uma variável de ambiente do serviço Application, por exemplo:
-
-```
-DATABASE_URL=postgresql://user:password@rp_mydb-postgres-1:5432/myapp
-```
-
-## Nome do container e URL de conexão
-
-Com ambos na mesma rede, a API resolve o banco pelo **nome do container**, seguindo o padrão:
+Use o nome do container gerado pelo Rustploy:
 
 ```
 rp_{nome_do_service_compose}-{nome_do_serviço_no_yaml}-1
 ```
 
-Para um serviço Compose `mydb` com serviço `postgres` no YAML, o container é `rp_mydb-postgres-1`, e a URL fica:
+Exemplo: serviço Compose `mydb` com serviço `postgres` no YAML → container `rp_mydb-postgres-1`.
 
 ```
-postgresql://user:password@rp_mydb-postgres-1:5432/myapp
+DATABASE_URL=postgresql://user:pass@rp_mydb-postgres-1:5432/mydb
 ```
 
-## Alternativa mais limpa: alias de rede
+### De um serviço Compose para um serviço Application
 
-O nome `rp_mydb-postgres-1` é verboso e muda se você renomear o serviço Compose. Você pode definir um **alias de rede** estável no compose file:
-
-```yaml
-services:
-  postgres:
-    image: postgres:16
-    networks:
-      rp_net:
-        aliases:
-          - db   # a API pode usar "db" como hostname
-```
-
-Com isso, a API usa simplesmente `db` como hostname:
+Use o nome do container do serviço Application:
 
 ```
-postgresql://user:password@db:5432/myapp
+rp_{nome_do_service}
 ```
 
-Essa é a abordagem recomendada: o hostname fica curto, legível e independente do nome interno do container.
+Exemplo: serviço Application `myapi` → hostname `rp_myapi`.
 
 ## Exemplo completo
 
-Cenário realista: um Postgres como banco (serviço Compose) e uma API Node ou FastAPI (serviço Application).
+Dois serviços no mesmo projeto: `mydb` (Compose, Postgres) e `myapi` (Application, Node/FastAPI).
 
-### Compose file do banco (serviço Compose `mydb`)
+### Compose file do banco — sem configuração de rede necessária
 
 ```yaml
 services:
@@ -129,73 +85,34 @@ services:
       POSTGRES_DB: myapp
     volumes:
       - pgdata:/var/lib/postgresql/data
-    networks:
-      rp_net:
-        aliases:
-          - db
 
 volumes:
   pgdata:
-
-networks:
-  rp_net:
-    external: true
-    name: rp_net_a1b2c3d4   # 8 chars do seu project ID
 ```
 
-### Env var da API (serviço Application)
+O Rustploy injeta a rede do projeto automaticamente.
+
+### Env var da API (serviço Application `myapi`)
 
 ```
-DATABASE_URL=postgresql://appuser:secret@db:5432/myapp
+DATABASE_URL=postgresql://appuser:secret@rp_mydb-postgres-1:5432/myapp
 ```
-
-Node (exemplo com `pg`):
-
-```js
-import { Pool } from "pg";
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-```
-
-FastAPI / SQLAlchemy (exemplo):
-
-```python
-import os
-from sqlalchemy import create_engine
-
-engine = create_engine(os.environ["DATABASE_URL"])
-```
-
-Como ambos estão na rede `rp_net_a1b2c3d4`, o Docker DNS resolve `db` para o container do Postgres e a conexão funciona.
 
 ## Troubleshooting
 
-**Verificar se o container do banco está na rede do projeto:**
+**Verificar se um container está na rede do projeto:**
 
 ```bash
-docker network inspect rp_net_a1b2c3d4 \
+docker network inspect rp_net_<8chars> \
   --format '{{range .Containers}}{{.Name}} {{end}}'
 ```
 
-A saída deve listar tanto o container da API (`rp_{service_name}`) quanto o container do banco (`rp_mydb-postgres-1`). Se o banco não aparecer, o compose file não conectou o serviço à rede externa corretamente.
+A saída deve listar tanto o container da API (`rp_myapi`) quanto os containers do banco (`rp_mydb-postgres-1`).
 
-**Verificar a quais redes um container pertence:**
-
-```bash
-docker inspect rp_mydb-postgres-1 \
-  --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}'
-```
-
-**Testar resolução de DNS de dentro do container da API:**
+**Testar resolução de DNS de dentro de um container:**
 
 ```bash
-docker exec rp_myapi getent hosts db
-# ou, se houver ping disponível:
-docker exec rp_myapi ping -c1 db
+docker exec rp_myapi getent hosts rp_mydb-postgres-1
 ```
 
-Se o nome não resolver:
-
-- Confirme que o `name:` da rede externa no compose bate com o nome real (`docker network ls | grep rp_net`).
-- Confirme que o serviço do banco tem o bloco `networks:` apontando para a rede externa.
-- Lembre que a rede `rp_{service_name}_default`, criada pelo Compose, é separada e **não** dá acesso à API — a conexão precisa ser pela rede do projeto.
+Se não resolver, confirme que o deploy do serviço Compose foi concluído com sucesso — a rede só é injetada no momento do `compose up`.

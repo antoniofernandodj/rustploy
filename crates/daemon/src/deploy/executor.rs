@@ -505,9 +505,11 @@ impl DeployExecutor {
                         project = %project_name,
                         "step[RollingBack]: derrubando compose stack"
                     );
+                    let network_name = self.network_name(&svc.spec.project_id);
                     let _ = crate::docker::compose::compose_down(
                         &compose.content,
                         &project_name,
+                        &network_name,
                     )
                     .await;
                     let err_status = ServiceStatus::Error("deploy failed".into());
@@ -602,11 +604,13 @@ impl DeployExecutor {
                     project = %project_name,
                     "step[ComposingUp]: executando docker compose up"
                 );
+                let network_name = self.network_name(&svc.spec.project_id);
                 crate::docker::compose::compose_up(
                     &compose.content,
                     &project_name,
                     &svc.id,
                     &dep.id,
+                    &network_name,
                     &self.bus,
                     &self.db,
                 )

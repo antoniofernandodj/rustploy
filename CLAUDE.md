@@ -58,7 +58,7 @@ Postcard uses varint encoding: small integers and short strings produce fewer by
 
 - **`api/routes.rs`** — single `/rpc` + `/stream` + `/health` router; `dispatch()` matches every `Command` variant to a handler module.
 - **`api/handlers/`** — one file per command (e.g. `deploy_start.rs`, `project_create.rs`).
-- **`db/`** — SurrealDB (embedded, `kv-mem` feature) wrappers for projects, services, deployments.
+- **`db/`** — SQLite (via `sqlx`) wrappers for projects, services, deployments.
 - **`deploy/executor.rs`** — `DeployExecutor` drives the deploy state machine in a `tokio::spawn`. States: `Pending → ResolvingDeps → PullingImage | CloningRepo → BuildingImage → Staging → HealthcheckPolling → SwappingIn → Draining → Promoting → Live`. Rollback lands at `Failed`.
 - **`docker/`** — bollard wrappers: `images` (pull/build), `containers` (create/start/stop/rename/remove), `networks` (per-project bridge networks named `rp_<project_id_prefix>`).
 - **`ingress/proxy.rs`** — hyper-based reverse proxy; route table is an `arc-swap`-protected `HashMap<domain, upstream>` updated live by the deploy executor.

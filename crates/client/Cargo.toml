@@ -8,6 +8,18 @@ default-run = "rustploy"
 name = "rustploy"
 path = "src/main.rs"
 
+[package.metadata.deb]
+name                 = "rustploy"
+maintainer           = "Antonio Fernando <antoniofernando2723@gmail.com>"
+copyright            = "2026, Antonio Fernando"
+extended-description = "Rustploy TUI client — terminal interface for the Rustploy PaaS"
+section              = "admin"
+priority             = "optional"
+depends              = "$auto, wl-clipboard | xclip | xsel"
+assets = [
+    ["target/release/rustploy", "usr/bin/rustploy", "755"],
+]
+
 [dependencies]
 shared = { path = "../shared" }
 

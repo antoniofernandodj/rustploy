@@ -10,7 +10,16 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
     };
 
     if let ServiceSource::Compose(compose) = &svc.spec.source {
-        return stop_compose(&state, &service_id, &svc.spec.name, &compose.content).await;
+        let pid = &svc.spec.project_id;
+        let network_name = crate::docker::networks::project_network_name(&pid[..8.min(pid.len())]);
+        return stop_compose(
+            &state,
+            &service_id,
+            &svc.spec.name,
+            &compose.content,
+            &network_name,
+        )
+        .await;
     }
 
     let container_id = match &svc.live_container_id {
@@ -30,9 +39,14 @@ async fn stop_compose(
     service_id: &str,
     service_name: &str,
     content: &str,
+    network_name: &str,
 ) -> RpResponse {
-    if let Err(e) =
-        crate::docker::compose::compose_down(content, &format!("rp_{}", service_name)).await
+    if let Err(e) = crate::docker::compose::compose_down(
+        content,
+        &format!("rp_{}", service_name),
+        network_name,
+    )
+    .await
     {
         return RpResponse::err("DockerError", e.to_string());
     }

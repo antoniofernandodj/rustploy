@@ -42,7 +42,11 @@
       "Bash(sudo iptables -L FORWARD -n --line-numbers)",
       "Bash(sudo iptables -L DOCKER -n)",
       "Bash(sudo iptables -S FORWARD)",
-      "Bash(sudo nft list ruleset)"
+      "Bash(sudo nft list ruleset)",
+      "Bash(dpkg -l wl-clipboard)",
+      "Bash(chmod +x *)",
+      "Bash(make help *)",
+      "Bash(make *)"
     ]
   }
 }

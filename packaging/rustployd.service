@@ -1,0 +1,29 @@
+[Unit]
+Description=Rustploy PaaS Daemon
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=rustploy
+Group=rustploy
+SupplementaryGroups=docker
+ExecStart=/usr/bin/rustployd
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+RuntimeDirectory=rustploy
+RuntimeDirectoryMode=0755
+StateDirectory=rustploy
+ConfigurationDirectory=rustploy
+
+Environment=RUSTPLOY_SOCKET_PATH=/run/rustploy/rustploy.sock
+Environment=RUSTPLOY_DB_PATH=/var/lib/rustploy/db
+Environment=RUST_LOG=info
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
