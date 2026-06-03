@@ -158,6 +158,15 @@ pub async fn get_running(db: &Db) -> Result<Vec<Service>> {
     rows.into_iter().map(row_to_service).collect()
 }
 
+pub async fn count_by_project(db: &Db, project_id: &str) -> Result<i64> {
+    let (count,): (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM service WHERE project_id = ?")
+            .bind(project_id)
+            .fetch_one(db)
+            .await?;
+    Ok(count)
+}
+
 pub async fn get_watchable(db: &Db) -> Result<Vec<Service>> {
     let rows = sqlx::query_as::<_, ServiceRow>(&format!(
         "SELECT {SELECT_COLS} FROM service WHERE status IN ('Running', 'Degraded')"

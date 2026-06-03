@@ -144,10 +144,17 @@ fn render_statusbar(f: &mut Frame, area: Rect, app: &App) {
             } else {
                 match app.project_detail_tab {
                     ProjectDetailTab::Services => {
-                        " [←→/1/2] abas  [n] novo serviço  [Enter] abrir  [D] deletar  [/] filtrar  [Tab] sidebar"
+                        " [←→/1/2/3] abas  [n] novo serviço  [Enter] abrir  [D] deletar  [/] filtrar  [Tab] sidebar"
                     }
                     ProjectDetailTab::Environment => {
-                        " [←→/1/2] abas  [n] nova var  [e] editar  [D] remover  [Tab] sidebar"
+                        " [←→/1/2/3] abas  [n] nova var  [e] editar  [D] remover  [Tab] sidebar"
+                    }
+                    ProjectDetailTab::Settings => {
+                        if app.project_settings.focused.clone().is_text() {
+                            " [Enter/Tab/↓] próximo campo  [Esc] sair do campo"
+                        } else {
+                            " [←→/1/2/3] abas  [↑↓/Tab] nav  [Enter/Space] ação  [Tab] sidebar"
+                        }
                     }
                 }
             }

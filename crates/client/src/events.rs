@@ -1,7 +1,7 @@
 use crate::app::{
     App, CmdContext, ConfirmAction, DbKind, EnvEditField, EnvTabState, Focus, GeneralTabField,
     HcField, NewServiceState, NewServiceStep, PendingCommand, ProjectDetailTab,
-    ServerSettingsField, ServiceTab, View,
+    ProjectSettingsField, ServerSettingsField, ServiceTab, View,
 };
 use crossterm::event::KeyModifiers;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
@@ -107,22 +107,35 @@ fn handle_home_deploy_engine(app: &mut App, key: KeyEvent) {
 }
 
 fn handle_project_detail(app: &mut App, key: KeyEvent) {
-    // ←/→ alternam entre abas (igual ao service detail); não conflita com o Tab global
-    if !app.service_filtering && !app.project_env_tab.editing {
+    let editing = app.service_filtering
+        || app.project_env_tab.editing
+        || app.project_settings.focused.clone().is_text();
+
+    if !editing {
         match key.code {
-            KeyCode::Left | KeyCode::Right => {
-                app.project_detail_tab = match app.project_detail_tab {
-                    ProjectDetailTab::Services => ProjectDetailTab::Environment,
-                    ProjectDetailTab::Environment => ProjectDetailTab::Services,
-                };
+            KeyCode::Left => {
+                app.project_detail_tab = app.project_detail_tab.prev();
+                on_project_tab_change(app);
+                return;
+            }
+            KeyCode::Right => {
+                app.project_detail_tab = app.project_detail_tab.next();
+                on_project_tab_change(app);
                 return;
             }
             KeyCode::Char('1') => {
                 app.project_detail_tab = ProjectDetailTab::Services;
+                on_project_tab_change(app);
                 return;
             }
             KeyCode::Char('2') => {
                 app.project_detail_tab = ProjectDetailTab::Environment;
+                on_project_tab_change(app);
+                return;
+            }
+            KeyCode::Char('3') => {
+                app.project_detail_tab = ProjectDetailTab::Settings;
+                on_project_tab_change(app);
                 return;
             }
             _ => {}
@@ -132,6 +145,20 @@ fn handle_project_detail(app: &mut App, key: KeyEvent) {
     match app.project_detail_tab.clone() {
         ProjectDetailTab::Services => handle_project_services_tab(app, key),
         ProjectDetailTab::Environment => handle_project_env_tab(app, key),
+        ProjectDetailTab::Settings => handle_project_settings_tab(app, key),
+    }
+}
+
+fn on_project_tab_change(app: &mut App) {
+    if app.project_detail_tab == ProjectDetailTab::Settings {
+        let data = app
+            .current_project()
+            .map(|p| (p.name.clone(), p.description.clone().unwrap_or_default()));
+        if let Some((name, description)) = data {
+            app.project_settings.name = name;
+            app.project_settings.description = description;
+            app.project_settings.focused = ProjectSettingsField::default();
+        }
     }
 }
 
@@ -321,6 +348,114 @@ fn handle_project_env_tab(app: &mut App, key: KeyEvent) {
         }
         _ => {}
     }
+}
+
+fn handle_project_settings_tab(app: &mut App, key: KeyEvent) {
+    let focused = app.project_settings.focused.clone();
+
+    if focused.clone().is_text() {
+        match key.code {
+            KeyCode::Esc => {
+                app.project_settings.focused = ProjectSettingsField::default();
+            }
+            KeyCode::Tab | KeyCode::Down => {
+                app.project_settings.focused = focused.next();
+            }
+            KeyCode::Up => {
+                app.project_settings.focused = focused.prev();
+            }
+            KeyCode::Char(c) => {
+                match focused {
+                    ProjectSettingsField::Name => app.project_settings.name.push(c),
+                    ProjectSettingsField::Description => app.project_settings.description.push(c),
+                    _ => {}
+                }
+            }
+            KeyCode::Backspace => {
+                match focused {
+                    ProjectSettingsField::Name => {
+                        app.project_settings.name.pop();
+                    }
+                    ProjectSettingsField::Description => {
+                        app.project_settings.description.pop();
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+        return;
+    }
+
+    match key.code {
+        KeyCode::Up => {
+            app.project_settings.focused = focused.prev();
+        }
+        KeyCode::Down | KeyCode::Tab => {
+            app.project_settings.focused = focused.next();
+        }
+        KeyCode::Enter | KeyCode::Char(' ') => match focused {
+            ProjectSettingsField::Name | ProjectSettingsField::Description => {
+                // entra em modo texto
+            }
+            ProjectSettingsField::Save => save_project_settings(app),
+            ProjectSettingsField::Delete => request_delete_project(app),
+        },
+        _ => {}
+    }
+}
+
+fn save_project_settings(app: &mut App) {
+    let pid = match app.active_project_id.clone() {
+        Some(p) => p,
+        None => return,
+    };
+    let name = app.project_settings.name.trim().to_string();
+    if name.is_empty() {
+        app.set_notification("Nome do projeto não pode ser vazio", true);
+        return;
+    }
+    let description = {
+        let d = app.project_settings.description.trim().to_string();
+        if d.is_empty() { None } else { Some(d) }
+    };
+    app.pending_commands.push(PendingCommand {
+        command: Command::ProjectUpdate {
+            id: pid,
+            name,
+            description,
+        },
+        context: CmdContext::UpdateProject,
+    });
+}
+
+fn request_delete_project(app: &mut App) {
+    let service_count = {
+        let pid = match app.active_project_id.as_deref() {
+            Some(p) => p,
+            None => return,
+        };
+        app.services
+            .iter()
+            .filter(|s| s.spec.project_id == pid)
+            .count()
+    };
+    if service_count > 0 {
+        app.set_notification(
+            "Remova todos os serviços antes de deletar o projeto",
+            true,
+        );
+        return;
+    }
+    let pid = match app.active_project_id.clone() {
+        Some(p) => p,
+        None => return,
+    };
+    let name = app.current_project().map(|p| p.name.clone()).unwrap_or_default();
+    app.view = View::Confirm {
+        message: format!("Remover projeto '{name}'? Esta ação não pode ser desfeita."),
+        action: ConfirmAction::DeleteProject(pid),
+    };
 }
 
 fn on_tab_change(app: &mut App) {

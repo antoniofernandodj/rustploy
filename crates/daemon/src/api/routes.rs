@@ -12,6 +12,7 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::ProjectCreate { .. } => "ProjectCreate",
         Command::ProjectList => "ProjectList",
         Command::ProjectDelete { .. } => "ProjectDelete",
+        Command::ProjectUpdate { .. } => "ProjectUpdate",
         Command::ProjectEnvSet { .. } => "ProjectEnvSet",
         Command::ServiceCreate(_) => "ServiceCreate",
         Command::ServiceList { .. } => "ServiceList",
@@ -44,6 +45,11 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         }
         Command::ProjectList => handlers::project_list::handle(state).await,
         Command::ProjectDelete { id } => handlers::project_delete::handle(state, id).await,
+        Command::ProjectUpdate {
+            id,
+            name,
+            description,
+        } => handlers::project_update::handle(state, id, name, description).await,
         Command::ProjectEnvSet {
             project_id,
             env_vars,

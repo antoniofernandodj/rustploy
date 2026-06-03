@@ -99,6 +99,26 @@ pub async fn get(db: &Db, id: &str) -> Result<Option<Project>> {
     .transpose()
 }
 
+pub async fn update(
+    db: &Db,
+    id: &str,
+    name: String,
+    description: Option<String>,
+) -> Result<Option<Project>> {
+    let rows_affected =
+        sqlx::query("UPDATE project SET name = ?, description = ? WHERE id = ?")
+            .bind(&name)
+            .bind(&description)
+            .bind(id)
+            .execute(db)
+            .await?
+            .rows_affected();
+    if rows_affected == 0 {
+        return Ok(None);
+    }
+    get(db, id).await
+}
+
 pub async fn delete(db: &Db, id: &str) -> Result<bool> {
     let rows_affected = sqlx::query("DELETE FROM project WHERE id = ?")
         .bind(id)

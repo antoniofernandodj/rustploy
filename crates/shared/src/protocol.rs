@@ -21,6 +21,11 @@ pub enum Command {
     ProjectDelete {
         id: String,
     },
+    ProjectUpdate {
+        id: String,
+        name: String,
+        description: Option<String>,
+    },
     ProjectList,
     ProjectEnvSet {
         project_id: String,

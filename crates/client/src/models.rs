@@ -1103,6 +1103,7 @@ pub enum ProjectDetailTab {
     #[default]
     Services,
     Environment,
+    Settings,
 }
 
 impl ProjectDetailTab {
@@ -1110,8 +1111,67 @@ impl ProjectDetailTab {
         match self {
             Self::Services => "Services",
             Self::Environment => "Environment",
+            Self::Settings => "Settings",
         }
     }
+
+    pub fn next(&self) -> Self {
+        match self {
+            Self::Services => Self::Environment,
+            Self::Environment => Self::Settings,
+            Self::Settings => Self::Services,
+        }
+    }
+
+    pub fn prev(&self) -> Self {
+        match self {
+            Self::Services => Self::Settings,
+            Self::Environment => Self::Services,
+            Self::Settings => Self::Environment,
+        }
+    }
+}
+
+// ── Project settings tab ──────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum ProjectSettingsField {
+    #[default]
+    Name,
+    Description,
+    Save,
+    Delete,
+}
+
+impl ProjectSettingsField {
+    pub fn next(self) -> Self {
+        match self {
+            Self::Name => Self::Description,
+            Self::Description => Self::Save,
+            Self::Save => Self::Delete,
+            Self::Delete => Self::Name,
+        }
+    }
+
+    pub fn prev(self) -> Self {
+        match self {
+            Self::Name => Self::Delete,
+            Self::Description => Self::Name,
+            Self::Save => Self::Description,
+            Self::Delete => Self::Save,
+        }
+    }
+
+    pub fn is_text(self) -> bool {
+        matches!(self, Self::Name | Self::Description)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ProjectSettingsState {
+    pub focused: ProjectSettingsField,
+    pub name: String,
+    pub description: String,
 }
 
 // ── Env tab ───────────────────────────────────────────────────────────────────
@@ -1151,6 +1211,7 @@ pub enum CmdContext {
     LoadLogs,
     LoadBuildLogs,
     CreateProject,
+    UpdateProject,
     DeleteProject,
     UpdateProjectEnv,
     CreateService,
@@ -1195,7 +1256,7 @@ impl ComposeTabState {
     }
 
     pub fn set_editing(&mut self, editing: bool) {
-        use ratatui::style::{Color, Modifier, Style};
+        use ratatui::style::{Modifier, Style};
         self.editing = editing;
         if editing {
             self.textarea

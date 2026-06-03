@@ -1,4 +1,4 @@
-use crate::app::{App, EnvEditField, Focus, ProjectDetailTab};
+use crate::app::{App, EnvEditField, Focus, ProjectDetailTab, ProjectSettingsField};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -27,7 +27,11 @@ pub fn render_project_detail(f: &mut Frame, app: &App, area: Rect) {
         .borders(Borders::BOTTOM)
         .border_style(Style::default().fg(Color::DarkGray));
 
-    let tabs = [ProjectDetailTab::Services, ProjectDetailTab::Environment];
+    let tabs = [
+        ProjectDetailTab::Services,
+        ProjectDetailTab::Environment,
+        ProjectDetailTab::Settings,
+    ];
     let mut tab_spans = vec![
         Span::styled(
             format!(" {project_name} "),
@@ -57,6 +61,7 @@ pub fn render_project_detail(f: &mut Frame, app: &App, area: Rect) {
     match app.project_detail_tab {
         ProjectDetailTab::Services => render_services_tab(f, app, chunks[1]),
         ProjectDetailTab::Environment => render_project_env_tab(f, app, chunks[1]),
+        ProjectDetailTab::Settings => render_project_settings_tab(f, app, chunks[1]),
     }
 }
 
@@ -306,4 +311,218 @@ pub fn render_project_env_tab(f: &mut Frame, app: &App, area: Rect) {
         ]);
         f.render_widget(Paragraph::new(hint), chunks[1]);
     }
+}
+
+// ── Aba de configurações do projeto ──────────────────────────────────────────
+
+pub fn render_project_settings_tab(f: &mut Frame, app: &App, area: Rect) {
+    let project = match app.current_project() {
+        Some(p) => p,
+        None => return,
+    };
+
+    let outer = Block::default()
+        .borders(Borders::ALL)
+        .title(" Configurações do Projeto ")
+        .border_style(Style::default().fg(Color::DarkGray));
+    let inner = outer.inner(area);
+    f.render_widget(outer, area);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // padding
+            Constraint::Length(1), // label Nome
+            Constraint::Length(3), // input Nome
+            Constraint::Length(1), // label Descrição
+            Constraint::Length(3), // input Descrição
+            Constraint::Length(1), // padding
+            Constraint::Length(1), // botão Salvar
+            Constraint::Length(1), // padding
+            Constraint::Length(1), // separador danger zone
+            Constraint::Length(1), // padding
+            Constraint::Length(1), // aviso
+            Constraint::Length(1), // botão Remover
+            Constraint::Min(0),    // espaço
+            Constraint::Length(1), // dicas
+        ])
+        .split(inner);
+
+    let st = &app.project_settings;
+
+    // ── Nome ──────────────────────────────────────────────────────────────────
+    let name_focused = st.focused == ProjectSettingsField::Name;
+    f.render_widget(
+        Paragraph::new(Span::styled(
+            "  Nome",
+            Style::default().fg(if name_focused {
+                Color::Cyan
+            } else {
+                Color::DarkGray
+            }),
+        )),
+        chunks[1],
+    );
+    let name_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(if name_focused {
+            Color::Cyan
+        } else {
+            Color::DarkGray
+        }));
+    let name_inner = name_block.inner(chunks[2]);
+    f.render_widget(name_block, chunks[2]);
+    f.render_widget(
+        Paragraph::new(Span::styled(
+            if name_focused {
+                format!(" {}▌", st.name)
+            } else {
+                format!(" {}", st.name)
+            },
+            Style::default().fg(Color::White),
+        )),
+        name_inner,
+    );
+
+    // ── Descrição ─────────────────────────────────────────────────────────────
+    let desc_focused = st.focused == ProjectSettingsField::Description;
+    f.render_widget(
+        Paragraph::new(Span::styled(
+            "  Descrição  (opcional)",
+            Style::default().fg(if desc_focused {
+                Color::Cyan
+            } else {
+                Color::DarkGray
+            }),
+        )),
+        chunks[3],
+    );
+    let desc_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(if desc_focused {
+            Color::Cyan
+        } else {
+            Color::DarkGray
+        }));
+    let desc_inner = desc_block.inner(chunks[4]);
+    f.render_widget(desc_block, chunks[4]);
+    let desc_content = if desc_focused {
+        format!(" {}▌", st.description)
+    } else if st.description.is_empty() {
+        " opcional...".to_string()
+    } else {
+        format!(" {}", st.description)
+    };
+    f.render_widget(
+        Paragraph::new(Span::styled(
+            desc_content,
+            if !desc_focused && st.description.is_empty() {
+                Style::default().fg(Color::DarkGray)
+            } else {
+                Style::default().fg(Color::White)
+            },
+        )),
+        desc_inner,
+    );
+
+    // ── Botão Salvar ──────────────────────────────────────────────────────────
+    let save_focused = st.focused == ProjectSettingsField::Save;
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::raw("  "),
+            if save_focused {
+                Span::styled(
+                    " [ Salvar Alterações ] ",
+                    Style::default()
+                        .fg(Color::Black)
+                        .bg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                )
+            } else {
+                Span::styled(" [ Salvar Alterações ] ", Style::default().fg(Color::White))
+            },
+        ])),
+        chunks[6],
+    );
+
+    // ── Danger zone ───────────────────────────────────────────────────────────
+    f.render_widget(
+        Paragraph::new(Span::styled(
+            "─── Zona de Perigo ────────────────────────────────",
+            Style::default().fg(Color::Red),
+        )),
+        chunks[8],
+    );
+
+    let service_count = app
+        .services
+        .iter()
+        .filter(|s| s.spec.project_id == project.id)
+        .count();
+    let (warn_text, warn_color) = if service_count > 0 {
+        (
+            format!(
+                "  Este projeto possui {} serviço{}. Remova-os primeiro.",
+                service_count,
+                if service_count == 1 { "" } else { "s" }
+            ),
+            Color::Yellow,
+        )
+    } else {
+        (
+            "  Nenhum serviço. O projeto pode ser removido.".to_string(),
+            Color::DarkGray,
+        )
+    };
+    f.render_widget(
+        Paragraph::new(Span::styled(warn_text, Style::default().fg(warn_color))),
+        chunks[10],
+    );
+
+    let del_focused = st.focused == ProjectSettingsField::Delete;
+    let can_delete = service_count == 0;
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::raw("  "),
+            if del_focused && can_delete {
+                Span::styled(
+                    " [ Remover Projeto ] ",
+                    Style::default()
+                        .fg(Color::Black)
+                        .bg(Color::Red)
+                        .add_modifier(Modifier::BOLD),
+                )
+            } else if del_focused {
+                Span::styled(
+                    " [ Remover Projeto ] ",
+                    Style::default()
+                        .fg(Color::Red)
+                        .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+                )
+            } else {
+                Span::styled(
+                    " [ Remover Projeto ] ",
+                    Style::default().fg(if can_delete {
+                        Color::Red
+                    } else {
+                        Color::DarkGray
+                    }),
+                )
+            },
+        ])),
+        chunks[11],
+    );
+
+    // ── Dicas ────────────────────────────────────────────────────────────────
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(" ↑↓/Tab", Style::default().fg(Color::Cyan)),
+            Span::styled(" nav  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("Enter/Space", Style::default().fg(Color::Cyan)),
+            Span::styled(" ação  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[←→/1/2/3]", Style::default().fg(Color::DarkGray)),
+            Span::styled(" abas", Style::default().fg(Color::DarkGray)),
+        ])),
+        chunks[13],
+    );
 }

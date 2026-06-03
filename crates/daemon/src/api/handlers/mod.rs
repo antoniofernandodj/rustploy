@@ -13,6 +13,7 @@ pub mod project_create;
 pub mod project_delete;
 pub mod project_env_set;
 pub mod project_list;
+pub mod project_update;
 pub mod recent_deployments;
 pub mod reconcile;
 pub mod regenerate_webhook_token;

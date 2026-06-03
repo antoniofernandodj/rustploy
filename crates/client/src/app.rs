@@ -28,6 +28,7 @@ pub struct App {
 
     pub project_detail_tab: ProjectDetailTab,
     pub project_env_tab: EnvTabState,
+    pub project_settings: ProjectSettingsState,
 
     pub service_tab: ServiceTab,
     pub general_tab: GeneralTabState,
@@ -87,6 +88,7 @@ impl App {
 
             project_detail_tab: ProjectDetailTab::default(),
             project_env_tab: EnvTabState::default(),
+            project_settings: ProjectSettingsState::default(),
 
             service_tab: ServiceTab::General,
             general_tab: GeneralTabState::default(),
@@ -196,6 +198,11 @@ impl App {
             SidebarItem::Project(idx) => {
                 if let Some(project) = self.projects.get(*idx) {
                     let pid = project.id.clone();
+                    self.project_settings = ProjectSettingsState {
+                        focused: ProjectSettingsField::default(),
+                        name: project.name.clone(),
+                        description: project.description.clone().unwrap_or_default(),
+                    };
                     self.active_project_id = Some(pid.clone());
                     self.view = View::ProjectDetail;
                     self.project_detail_tab = ProjectDetailTab::Services;
@@ -519,6 +526,14 @@ impl App {
             (Response::Project(p), CmdContext::CreateProject) => {
                 self.projects.push(p);
                 self.set_notification("Projeto criado", false);
+            }
+            (Response::Project(p), CmdContext::UpdateProject) => {
+                if let Some(existing) = self.projects.iter_mut().find(|x| x.id == p.id) {
+                    *existing = p.clone();
+                }
+                self.project_settings.name = p.name;
+                self.project_settings.description = p.description.unwrap_or_default();
+                self.set_notification("Projeto atualizado", false);
             }
             (Response::Project(p), CmdContext::UpdateProjectEnv) => {
                 if let Some(existing) = self.projects.iter_mut().find(|x| x.id == p.id) {
