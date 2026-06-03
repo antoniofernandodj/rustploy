@@ -557,14 +557,15 @@ impl App {
                 }
                 self.set_notification("Serviço atualizado", false);
             }
-            (Response::Ok, CmdContext::DeleteProject) => {
-                if let Some(pid) = &self.active_project_id.clone() {
-                    self.projects.retain(|p| &p.id != pid);
+            (Response::Ok, CmdContext::DeleteProject(pid)) => {
+                self.projects.retain(|p| p.id != pid);
+                if self.active_project_id.as_deref() == Some(&pid) {
                     self.services.clear();
                     self.active_project_id = None;
-                    self.view = View::HomeDeployments;
-                    self.focus = Focus::Sidebar;
                 }
+                self.projects_cursor =
+                    self.projects_cursor.min(self.projects.len().saturating_sub(1));
+                self.view = View::Projects;
                 self.set_notification("Projeto removido", false);
             }
             (Response::Ok, CmdContext::DeleteService(sid)) => {

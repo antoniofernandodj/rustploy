@@ -131,6 +131,30 @@ fn handle_projects_list(app: &mut App, key: KeyEvent) {
             app.new_proj_desc = String::new();
             app.new_proj_field = 0;
         }
+        KeyCode::Char('D') => {
+            if let Some(project) = app.projects.get(app.projects_cursor) {
+                let svc_count = app
+                    .services
+                    .iter()
+                    .filter(|s| s.spec.project_id == project.id)
+                    .count();
+                if svc_count > 0 {
+                    app.set_notification(
+                        "Remova todos os serviços antes de deletar o projeto",
+                        true,
+                    );
+                } else {
+                    let pid = project.id.clone();
+                    let name = project.name.clone();
+                    app.view = View::Confirm {
+                        message: format!(
+                            "Remover projeto '{name}'? Esta ação não pode ser desfeita."
+                        ),
+                        action: ConfirmAction::DeleteProject(pid),
+                    };
+                }
+            }
+        }
         _ => {}
     }
 }
@@ -1492,8 +1516,8 @@ fn handle_confirm(app: &mut App, key: KeyEvent) {
             match action {
                 ConfirmAction::DeleteProject(id) => {
                     app.pending_commands.push(PendingCommand {
-                        command: Command::ProjectDelete { id },
-                        context: CmdContext::DeleteProject,
+                        command: Command::ProjectDelete { id: id.clone() },
+                        context: CmdContext::DeleteProject(id),
                     });
                 }
                 ConfirmAction::DeleteService(id) => {
@@ -1509,10 +1533,20 @@ fn handle_confirm(app: &mut App, key: KeyEvent) {
                     });
                 }
             }
-            app.view = View::ProjectDetail;
+            let back = if app.active_project_id.is_some() {
+                View::ProjectDetail
+            } else {
+                View::Projects
+            };
+            app.view = back;
         }
         KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
-            app.view = View::ProjectDetail;
+            let back = if app.active_project_id.is_some() {
+                View::ProjectDetail
+            } else {
+                View::Projects
+            };
+            app.view = back;
         }
         _ => {}
     }

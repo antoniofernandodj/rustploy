@@ -138,7 +138,7 @@ fn render_statusbar(f: &mut Frame, area: Rect, app: &App) {
     let hints = match (&app.focus, &app.view) {
         (Focus::Sidebar, _) => " [Tab] conteúdo  [↑↓] nav  [Enter] abrir  [q] quit",
         (Focus::Content, View::Projects) => {
-            " [↑↓] navegar  [Enter] abrir projeto  [n] novo projeto  [Tab] sidebar"
+            " [↑↓] navegar  [Enter] abrir  [n] novo  [D] remover  [Tab] sidebar"
         }
         (Focus::Content, View::ProjectDetail) => {
             use crate::app::ProjectDetailTab;

@@ -1215,7 +1215,7 @@ pub enum CmdContext {
     LoadBuildLogs,
     CreateProject,
     UpdateProject,
-    DeleteProject,
+    DeleteProject(String),
     UpdateProjectEnv,
     CreateService,
     UpdateService,

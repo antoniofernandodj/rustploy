@@ -88,9 +88,11 @@ pub fn render_projects_list(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(" [n]", Style::default().fg(Color::Cyan)),
-            Span::styled(" novo projeto  ", Style::default().fg(Color::DarkGray)),
+            Span::styled(" novo  ", Style::default().fg(Color::DarkGray)),
             Span::styled("[Enter]", Style::default().fg(Color::Cyan)),
             Span::styled(" abrir  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[D]", Style::default().fg(Color::Red)),
+            Span::styled(" remover  ", Style::default().fg(Color::DarkGray)),
             Span::styled("[Tab]", Style::default().fg(Color::DarkGray)),
             Span::styled(" sidebar", Style::default().fg(Color::DarkGray)),
         ])),
