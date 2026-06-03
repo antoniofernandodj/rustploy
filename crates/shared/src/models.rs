@@ -36,6 +36,21 @@ pub struct ServiceSpec {
 pub enum ServiceSource {
     Registry { image: String },
     Git(GitSource),
+    Compose(ComposeSource),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ComposeSource {
+    #[serde(alias = "compose_file")]
+    pub content: String,
+}
+
+impl Default for ComposeSource {
+    fn default() -> Self {
+        Self {
+            content: String::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -128,11 +143,33 @@ pub enum DeployState {
     RollingBack,
     Failed,
     Pruning,
+    ComposingUp,
 }
 
 impl DeployState {
     pub fn is_terminal(&self) -> bool {
-        matches!(self, Self::Live | Self::Stopped | Self::Failed | Self::Pruning)
+        matches!(
+            self,
+            Self::Live | Self::Stopped | Self::Failed | Self::Pruning
+        )
+    }
+
+    pub fn to_percent(&self) -> u8 {
+        match self {
+            Self::Pending => 5,
+            Self::ResolvingDeps => 10,
+            Self::PullingImage => 30,
+            Self::CloningRepo => 20,
+            Self::BuildingImage => 50,
+            Self::ComposingUp => 60,
+            Self::Staging => 65,
+            Self::HealthcheckPolling => 75,
+            Self::SwappingIn => 85,
+            Self::Draining => 90,
+            Self::Promoting => 95,
+            Self::Live | Self::Stopped | Self::Pruning => 100,
+            Self::RollingBack | Self::Failed => 0,
+        }
     }
 
     pub fn label(&self) -> &'static str {
@@ -152,6 +189,7 @@ impl DeployState {
             Self::RollingBack => "RollingBack",
             Self::Failed => "Failed",
             Self::Pruning => "Pruning",
+            Self::ComposingUp => "ComposingUp",
         }
     }
 }
@@ -230,6 +268,30 @@ pub struct DaemonStatus {
     pub uptime_secs: u64,
     pub services_running: usize,
     pub services_total: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActiveDeployInfo {
+    pub deployment_id: String,
+    pub service_id: String,
+    pub service_name: String,
+    pub project_name: String,
+    pub state: DeployState,
+    pub percent: u8,
+    pub started_at: DateTime<Utc>,
+    pub elapsed_secs: u64,
+    pub current_state_secs: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeployEngineSummary {
+    pub version: String,
+    pub uptime_secs: u64,
+    pub active: Vec<ActiveDeployInfo>,
+    pub recent: Vec<ActiveDeployInfo>,
+    pub total_24h: u64,
+    pub successful_24h: u64,
+    pub failed_24h: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

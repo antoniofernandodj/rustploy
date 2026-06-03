@@ -1,8 +1,8 @@
 use crate::{db::Db, event_bus::EventBus};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use bollard::{
-    image::{BuildImageOptions, CreateImageOptions, RemoveImageOptions},
     Docker,
+    image::{BuildImageOptions, CreateImageOptions, RemoveImageOptions},
 };
 use futures::StreamExt;
 use shared::Event;
@@ -111,7 +111,9 @@ pub async fn build(
                             line: line.to_string(),
                             timestamp: now,
                         });
-                        if let Err(e) = crate::db::build_logs::append(db, deployment_id, line, now).await {
+                        if let Err(e) =
+                            crate::db::build_logs::append(db, deployment_id, line, now).await
+                        {
                             warn!(deployment_id, error = %e, "failed to persist build log line");
                         }
                     }
@@ -120,7 +122,10 @@ pub async fn build(
                     return Err(anyhow!("docker build error: {err}"));
                 }
             }
-            Err(e) => return Err(anyhow!("docker build stream error: {e}")),
+            Err(bollard::errors::Error::DockerStreamError { error }) => {
+                return Err(anyhow!("docker build failed: {error}"));
+            }
+            Err(e) => return Err(anyhow!("docker build stream error: {e:?}")),
         }
     }
 
@@ -161,7 +166,9 @@ fn append_dir_filtered(
             append_dir_filtered(tar, &path, &archive_path)?;
         } else if path.is_file() {
             tar.append_path_with_name(&path, &archive_path)
-                .map_err(|e| anyhow::anyhow!("tar: falha ao adicionar '{}': {e}", path.display()))?;
+                .map_err(|e| {
+                    anyhow::anyhow!("tar: falha ao adicionar '{}': {e}", path.display())
+                })?;
         }
         // symlinks são ignorados (seguro para contexto Docker)
     }
@@ -179,7 +186,10 @@ pub async fn prune_unused(docker: &Docker, keep_tags: &[&str]) -> Result<()> {
     };
     let images = docker.list_images(Some(opts)).await?;
     for image in images {
-        let keep = image.repo_tags.iter().any(|t| keep_tags.contains(&t.as_str()));
+        let keep = image
+            .repo_tags
+            .iter()
+            .any(|t| keep_tags.contains(&t.as_str()));
         if !keep {
             for tag in &image.repo_tags {
                 if tag.starts_with("rp_") {
@@ -187,7 +197,10 @@ pub async fn prune_unused(docker: &Docker, keep_tags: &[&str]) -> Result<()> {
                     let _ = docker
                         .remove_image(
                             tag,
-                            Some(RemoveImageOptions { force: false, noprune: false }),
+                            Some(RemoveImageOptions {
+                                force: false,
+                                noprune: false,
+                            }),
                             None,
                         )
                         .await;

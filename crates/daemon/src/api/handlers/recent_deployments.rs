@@ -40,7 +40,11 @@ pub async fn handle(state: AppState, limit: usize) -> RpResponse {
             (sname, pname)
         };
 
-        summaries.push(DeploymentSummary { deployment: dep, service_name, project_name });
+        summaries.push(DeploymentSummary {
+            deployment: dep,
+            service_name,
+            project_name,
+        });
     }
 
     RpResponse::DeploymentSummaries(summaries)

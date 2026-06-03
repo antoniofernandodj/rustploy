@@ -1,6 +1,6 @@
 use crate::{
     db::Db,
-    docker::{containers, DockerClient},
+    docker::{DockerClient, containers},
     event_bus::EventBus,
     ingress::IngressController,
     secrets::SecretsManager,
@@ -26,6 +26,9 @@ pub async fn recover(
         }
     };
 
+    // Restore ingress routes for running services
+    restore_routes(&db, &docker, &ingress).await;
+
     if pending.is_empty() {
         info!("no deployments to recover");
         return;
@@ -37,7 +40,10 @@ pub async fn recover(
         let svc = match crate::db::services::get(&db, &dep.service_id).await {
             Ok(Some(s)) => s,
             _ => {
-                warn!(deployment_id = dep.id, "service not found during recovery, marking failed");
+                warn!(
+                    deployment_id = dep.id,
+                    "service not found during recovery, marking failed"
+                );
                 let _ = crate::db::deployments::transition(
                     &db,
                     &dep.id,
@@ -57,6 +63,7 @@ pub async fn recover(
             | DeployState::PullingImage
             | DeployState::CloningRepo
             | DeployState::BuildingImage
+            | DeployState::ComposingUp
             | DeployState::Staging
             | DeployState::HealthcheckPolling => {
                 info!(
@@ -65,13 +72,9 @@ pub async fn recover(
                     "aborting pre-swap deployment"
                 );
                 // Remove staging container if it exists
-                let staging_name = containers::staging_name(
-                    &svc.spec.name,
-                    &dep.id[..8.min(dep.id.len())],
-                );
-                if let Ok(Some(id)) =
-                    containers::find_by_name(&docker.inner, &staging_name).await
-                {
+                let staging_name =
+                    containers::staging_name(&svc.spec.name, &dep.id[..8.min(dep.id.len())]);
+                if let Ok(Some(id)) = containers::find_by_name(&docker.inner, &staging_name).await {
                     let _ = containers::remove(&docker.inner, &id).await;
                 }
                 let _ = crate::db::deployments::transition(
@@ -143,12 +146,12 @@ pub async fn recover(
                 tokio::spawn(async move { executor.run(dep_id).await });
             }
 
-            DeployState::Live | DeployState::Stopped | DeployState::Failed | DeployState::Pruning => {}
+            DeployState::Live
+            | DeployState::Stopped
+            | DeployState::Failed
+            | DeployState::Pruning => {}
         }
     }
-
-    // Restore ingress routes for running services
-    restore_routes(&db, &docker, &ingress).await;
 }
 
 async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressController) {
@@ -160,37 +163,58 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
         }
     };
 
-    info!(count = services.len(), "restoring ingress routes for running services");
+    info!(
+        count = services.len(),
+        "restoring ingress routes for running services"
+    );
 
     for svc in services {
-        let live_name = containers::live_name(&svc.spec.name);
-        let container_id = match containers::find_by_name(&docker.inner, &live_name).await {
-            Ok(Some(id)) => id,
-            _ => {
-                warn!(service = svc.spec.name, "live container not found, skipping route restore");
-                continue;
-            }
-        };
+        let replicas = svc.spec.replicas.max(1);
+        let net = format!(
+            "rp_net_{}",
+            &svc.spec.project_id[..8.min(svc.spec.project_id.len())]
+        );
 
-        let net = format!("rp_net_{}", &svc.spec.project_id[..8.min(svc.spec.project_id.len())]);
-        let ip = match containers::get_container_ip(&docker.inner, &container_id, &net).await {
-            Ok(ip) => ip,
-            Err(e) => {
-                warn!(service = svc.spec.name, error = %e, "could not get container IP, skipping");
-                continue;
+        // Coleta IPs de todas as réplicas live (Git/Registry)
+        let mut backends: Vec<String> = Vec::new();
+        for i in 0..replicas {
+            let live_name = containers::replica_live_name(&svc.spec.name, i);
+            if let Ok(Some(cid)) = containers::find_by_name(&docker.inner, &live_name).await {
+                if let Ok(ip) =
+                    containers::get_container_ip(&docker.inner, &cid, &net).await
+                {
+                    backends.push(format!("{ip}:{}", svc.spec.port));
+                }
             }
-        };
+        }
 
-        let backend = format!("{ip}:{}", svc.spec.port);
+        // Fallback para Compose: encontra via prefixo e usa single backend
+        if backends.is_empty() {
+            let compose_prefix = format!("rp_{}-{}", svc.spec.name, svc.spec.name);
+            if let Ok(Some(cid)) =
+                containers::find_by_prefix(&docker.inner, &compose_prefix).await
+            {
+                if let Ok(ip) =
+                    containers::get_container_ip(&docker.inner, &cid, &net).await
+                {
+                    backends.push(format!("{ip}:{}", svc.spec.port));
+                }
+            }
+        }
+
+        if backends.is_empty() {
+            warn!(service = svc.spec.name, "no live containers found, skipping route restore");
+            continue;
+        }
 
         if let Some(domain) = &svc.spec.domain {
-            ingress.upsert_route(domain, &backend, &svc.id);
-            info!(service = svc.spec.name, domain, backend, "route restored");
+            ingress.upsert_route(domain, backends.clone(), &svc.id);
+            info!(service = svc.spec.name, domain, ?backends, "routes restored");
         }
 
         if let Some(host_port) = svc.spec.host_port {
-            ingress.upsert_port_route(host_port, &backend);
-            info!(service = svc.spec.name, host_port, backend, "port route restored");
+            ingress.upsert_port_route(host_port, backends.clone());
+            info!(service = svc.spec.name, host_port, ?backends, "port routes restored");
         }
     }
 }

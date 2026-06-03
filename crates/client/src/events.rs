@@ -1,8 +1,11 @@
 use crate::app::{
     AdvancedField, App, CmdContext, ConfirmAction, DbKind, EnvEditField, EnvTabState, Focus,
-    GeneralTabField, HcField, NewServiceState, NewServiceStep, PendingCommand, ProjectDetailTab, View,
+    GeneralTabField, HcField, NewServiceState, NewServiceStep, PendingCommand, ProjectDetailTab,
+    ServerSettingsField, ServiceTab, View,
 };
+use crossterm::event::KeyModifiers;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
+use shared::ServiceSource;
 use shared::{Command, EnvVar, EnvVarValue};
 
 pub fn handle_key(app: &mut App, key: KeyEvent) {
@@ -79,18 +82,29 @@ fn handle_content(app: &mut App, key: KeyEvent) {
     match app.view.clone() {
         View::ProjectDetail => handle_project_detail(app, key),
         View::ServiceDetail => handle_service_detail(app, key),
+        View::SettingsWebServer => handle_settings_web_server(app, key),
+        View::HomeDeployEngine => handle_home_deploy_engine(app, key),
         View::HomeMonitoring
         | View::HomeDeployments
         | View::HomeSchedules
         | View::HomeIngress
         | View::HomeDocker
-        | View::HomeDeployEngine
         | View::HomeRequests => handle_home(app, key),
         _ => {}
     }
 }
 
-fn handle_home(app: &mut App, _key: KeyEvent) {}
+fn handle_home(_app: &mut App, _key: KeyEvent) {}
+
+fn handle_home_deploy_engine(app: &mut App, key: KeyEvent) {
+    if key.code == KeyCode::Char('r') {
+        app.deploy_engine = None;
+        app.pending_commands.push(PendingCommand {
+            command: Command::DeployEngineStatus,
+            context: CmdContext::LoadDeployEngine,
+        });
+    }
+}
 
 fn handle_project_detail(app: &mut App, key: KeyEvent) {
     // ←/→ alternam entre abas (igual ao service detail); não conflita com o Tab global
@@ -309,23 +323,53 @@ fn handle_project_env_tab(app: &mut App, key: KeyEvent) {
     }
 }
 
-fn handle_service_detail(app: &mut App, key: KeyEvent) {
-    match key.code {
-        KeyCode::Left => {
-            app.service_tab = app.service_tab.prev();
-            if app.service_tab == crate::app::ServiceTab::General {
-                if let Some(svc) = app.current_active_service() {
-                    app.general_tab = crate::app::GeneralTabState::from_service(svc);
-                }
+fn on_tab_change(app: &mut App) {
+    match app.service_tab {
+        ServiceTab::General => {
+            if let Some(svc) = app.current_active_service() {
+                app.general_tab = crate::app::GeneralTabState::from_service(svc);
             }
         }
-        KeyCode::Right => {
-            app.service_tab = app.service_tab.next();
-            if app.service_tab == crate::app::ServiceTab::General {
-                if let Some(svc) = app.current_active_service() {
-                    app.general_tab = crate::app::GeneralTabState::from_service(svc);
-                }
+        ServiceTab::Logs => {
+            app.log_refresh_ticks = 0;
+            if let Some(sid) = app.active_service_id.clone() {
+                app.logs.remove(&sid);
+                app.log_cursor = 0;
+                app.pending_commands.push(PendingCommand {
+                    command: Command::LogsGet {
+                        service_id: sid,
+                        tail: 500,
+                    },
+                    context: CmdContext::LoadLogs,
+                });
             }
+        }
+        _ => {}
+    }
+}
+
+fn handle_service_detail(app: &mut App, key: KeyEvent) {
+    // Quando a compose textarea está em modo edição, todas as teclas vão para ela
+    let compose_editing = app.compose_tab.editing
+        && app.service_tab == ServiceTab::General
+        && app
+            .current_active_service()
+            .map(|s| matches!(s.spec.source, ServiceSource::Compose(_)))
+            .unwrap_or(false);
+
+    if compose_editing {
+        handle_compose_textarea(app, key);
+        return;
+    }
+
+    match key.code {
+        KeyCode::Left => {
+            app.service_tab = app.prev_service_tab();
+            on_tab_change(app);
+        }
+        KeyCode::Right => {
+            app.service_tab = app.next_service_tab();
+            on_tab_change(app);
         }
         _ => match app.service_tab.clone() {
             crate::app::ServiceTab::General => handle_general_tab(app, key),
@@ -335,12 +379,61 @@ fn handle_service_detail(app: &mut App, key: KeyEvent) {
             crate::app::ServiceTab::Domains => handle_domains_tab(app, key),
             crate::app::ServiceTab::Logs => handle_logs_tab(app, key),
             crate::app::ServiceTab::Advanced => handle_advanced_tab(app, key),
-            _ => {}
+            crate::app::ServiceTab::Connection | crate::app::ServiceTab::Patches => {}
         },
     }
 }
 
+fn handle_compose_textarea(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Esc => {
+            app.compose_tab.set_editing(false);
+        }
+        KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            save_compose_content(app);
+        }
+        _ => {
+            app.compose_tab.textarea.input(key);
+        }
+    }
+}
+
+fn save_compose_content(app: &mut App) {
+    let sid = match app.active_service_id.clone() {
+        Some(s) => s,
+        None => return,
+    };
+    let svc = match app.services.iter().find(|s| s.id == sid) {
+        Some(s) => s.clone(),
+        None => return,
+    };
+    let content = app.compose_tab.content();
+    let new_spec = shared::ServiceSpec {
+        source: shared::ServiceSource::Compose(shared::ComposeSource { content }),
+        ..svc.spec.clone()
+    };
+    app.pending_commands.push(PendingCommand {
+        command: Command::ServiceUpdate {
+            id: sid,
+            spec: new_spec,
+        },
+        context: CmdContext::UpdateService,
+    });
+    app.compose_tab.set_editing(false);
+    app.set_notification("Compose salvo.", false);
+}
+
 fn handle_general_tab(app: &mut App, key: KeyEvent) {
+    let is_compose = app
+        .current_active_service()
+        .map(|s| matches!(s.spec.source, ServiceSource::Compose(_)))
+        .unwrap_or(false);
+
+    if is_compose {
+        handle_compose_general_nav(app, key);
+        return;
+    }
+
     match key.code {
         KeyCode::Up => {
             app.general_tab.focused_field = app.general_tab.focused_field.prev();
@@ -379,6 +472,56 @@ fn handle_general_tab(app: &mut App, key: KeyEvent) {
             }
         }
         _ => {}
+    }
+}
+
+fn handle_compose_general_nav(app: &mut App, key: KeyEvent) {
+    let field = app.general_tab.focused_field;
+    match key.code {
+        KeyCode::Up => {
+            app.general_tab.focused_field = compose_general_prev(field);
+        }
+        KeyCode::Down => {
+            app.general_tab.focused_field = compose_general_next(field);
+        }
+        KeyCode::Enter | KeyCode::Char(' ') => {
+            if field.is_button() {
+                activate_general_btn(app, field);
+            } else if field == GeneralTabField::RepoUrl {
+                // RepoUrl é reaproveitado como "entrar no editor" para compose
+                app.compose_tab.set_editing(true);
+            }
+        }
+        KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            save_compose_content(app);
+        }
+        _ => {}
+    }
+}
+
+fn compose_general_next(field: GeneralTabField) -> GeneralTabField {
+    match field {
+        GeneralTabField::BtnDeploy => GeneralTabField::BtnReload,
+        GeneralTabField::BtnReload => GeneralTabField::BtnRebuild,
+        GeneralTabField::BtnRebuild => GeneralTabField::BtnStop,
+        GeneralTabField::BtnStop => GeneralTabField::RepoUrl,
+        GeneralTabField::RepoUrl => GeneralTabField::Port,
+        GeneralTabField::Port => GeneralTabField::ProviderSave,
+        GeneralTabField::ProviderSave => GeneralTabField::BtnDeploy,
+        _ => GeneralTabField::BtnDeploy,
+    }
+}
+
+fn compose_general_prev(field: GeneralTabField) -> GeneralTabField {
+    match field {
+        GeneralTabField::BtnDeploy => GeneralTabField::ProviderSave,
+        GeneralTabField::BtnReload => GeneralTabField::BtnDeploy,
+        GeneralTabField::BtnRebuild => GeneralTabField::BtnReload,
+        GeneralTabField::BtnStop => GeneralTabField::BtnRebuild,
+        GeneralTabField::RepoUrl => GeneralTabField::BtnStop,
+        GeneralTabField::Port => GeneralTabField::RepoUrl,
+        GeneralTabField::ProviderSave => GeneralTabField::Port,
+        _ => GeneralTabField::BtnDeploy,
     }
 }
 
@@ -432,24 +575,31 @@ fn save_service_general(app: &mut App) {
         None => return,
     };
 
-    let new_git = {
-        let existing = match &svc.spec.source {
-            shared::ServiceSource::Git(g) => g.clone(),
-            shared::ServiceSource::Registry { .. } => shared::GitSource::default(),
-        };
-        app.general_tab.to_git_source(&existing)
-    };
-
     let port = app.general_tab.port.parse::<u16>().unwrap_or(svc.spec.port);
 
+    let new_source = match &svc.spec.source {
+        ServiceSource::Compose(_) => return, // compose content é salvo via Ctrl+S no editor
+        ServiceSource::Git(_) => {
+            let existing = match &svc.spec.source {
+                ServiceSource::Git(g) => g.clone(),
+                _ => shared::GitSource::default(),
+            };
+            ServiceSource::Git(app.general_tab.to_git_source(&existing))
+        }
+        ServiceSource::Registry { .. } => svc.spec.source.clone(),
+    };
+
     let new_spec = shared::ServiceSpec {
-        source: shared::ServiceSource::Git(new_git),
+        source: new_source,
         port,
         ..svc.spec.clone()
     };
 
     app.pending_commands.push(PendingCommand {
-        command: Command::ServiceUpdate { id: sid, spec: new_spec },
+        command: Command::ServiceUpdate {
+            id: sid,
+            spec: new_spec,
+        },
         context: CmdContext::UpdateService,
     });
 }
@@ -542,9 +692,16 @@ fn save_domains(app: &mut App) {
         Some(app.domains_tab.domain.trim().to_string())
     };
     let host_port = app.domains_tab.host_port.trim().parse::<u16>().ok();
-    let new_spec = shared::ServiceSpec { domain, host_port, ..svc.spec.clone() };
+    let new_spec = shared::ServiceSpec {
+        domain,
+        host_port,
+        ..svc.spec.clone()
+    };
     app.pending_commands.push(PendingCommand {
-        command: Command::ServiceUpdate { id: sid, spec: new_spec },
+        command: Command::ServiceUpdate {
+            id: sid,
+            spec: new_spec,
+        },
         context: CmdContext::UpdateService,
     });
     app.set_notification("Domínio atualizado.", false);
@@ -566,7 +723,10 @@ fn save_healthcheck(app: &mut App) {
     };
 
     app.pending_commands.push(PendingCommand {
-        command: Command::ServiceUpdate { id: sid, spec: new_spec },
+        command: Command::ServiceUpdate {
+            id: sid,
+            spec: new_spec,
+        },
         context: CmdContext::UpdateService,
     });
     app.set_notification("Healthcheck atualizado.", false);
@@ -592,7 +752,10 @@ fn handle_env_tab(app: &mut App, key: KeyEvent) {
                         if let Some(svc) = app.services.iter().find(|s| s.id == sid) {
                             let mut spec = svc.spec.clone();
                             spec.env_vars.retain(|e| e.key != k);
-                            spec.env_vars.push(EnvVar { key: k, value: EnvVarValue::Plain(v) });
+                            spec.env_vars.push(EnvVar {
+                                key: k,
+                                value: EnvVarValue::Plain(v),
+                            });
                             app.pending_commands.push(PendingCommand {
                                 command: Command::ServiceUpdate { id: sid, spec },
                                 context: CmdContext::UpdateService,
@@ -680,13 +843,17 @@ fn handle_env_tab(app: &mut App, key: KeyEvent) {
 }
 
 fn request_build_logs(app: &mut App) {
-    let cursor = app.deployment_cursor.min(app.service_deployments.len().saturating_sub(1));
+    let cursor = app
+        .deployment_cursor
+        .min(app.service_deployments.len().saturating_sub(1));
     if let Some(dep) = app.service_deployments.get(cursor) {
         let dep_id = dep.id.clone();
         // Skip if already cached.
         if !app.build_logs.contains_key(&dep_id) {
             app.pending_commands.push(PendingCommand {
-                command: Command::GetBuildLogs { deployment_id: dep_id },
+                command: Command::GetBuildLogs {
+                    deployment_id: dep_id,
+                },
                 context: CmdContext::LoadBuildLogs,
             });
         }
@@ -732,6 +899,19 @@ fn handle_deployments_tab(app: &mut App, key: KeyEvent) {
                 app.set_notification("Rollback iniciado", false);
             }
         }
+        KeyCode::Char('c') => {
+            if let Some(url) = app.webhook_url.clone() {
+                copy_to_clipboard(app, &url);
+            }
+        }
+        KeyCode::Char('w') => {
+            if let Some(sid) = app.active_service_id.clone() {
+                app.pending_commands.push(PendingCommand {
+                    command: Command::RegenerateWebhookToken { service_id: sid },
+                    context: CmdContext::RegenerateWebhook,
+                });
+            }
+        }
         _ => {}
     }
 }
@@ -755,6 +935,19 @@ fn handle_logs_tab(app: &mut App, key: KeyEvent) {
             if let Some(sid) = &app.active_service_id {
                 let len = app.logs.get(sid).map(|l| l.len()).unwrap_or(0);
                 app.log_cursor = len.saturating_sub(1);
+            }
+        }
+        KeyCode::Char('r') => {
+            if let Some(sid) = app.active_service_id.clone() {
+                app.logs.remove(&sid);
+                app.log_cursor = 0;
+                app.pending_commands.push(PendingCommand {
+                    command: Command::LogsGet {
+                        service_id: sid,
+                        tail: 500,
+                    },
+                    context: CmdContext::LoadLogs,
+                });
             }
         }
         _ => {}
@@ -903,9 +1096,11 @@ fn handle_new_service(app: &mut App, key: KeyEvent) {
     match step {
         NewServiceStep::PickType => handle_ns_pick_type(app, key),
         NewServiceStep::PickDbType => handle_ns_pick_db(app, key),
-        NewServiceStep::ApplicationForm | NewServiceStep::DatabaseForm => {
-            handle_ns_form(app, key)
-        }
+        NewServiceStep::ApplicationForm
+        | NewServiceStep::DatabaseForm
+        | NewServiceStep::ComposeForm => handle_ns_form(app, key),
+        NewServiceStep::PickTemplate => handle_ns_pick_template(app, key),
+        NewServiceStep::TemplateVarForm => handle_ns_template_vars(app, key),
     }
 }
 
@@ -953,8 +1148,15 @@ fn handle_ns_pick_type(app: &mut App, key: KeyEvent) {
                         s.step = NewServiceStep::PickDbType;
                         s.db_cursor = 0;
                     }
+                    2 => {
+                        s.step = NewServiceStep::ComposeForm;
+                        s.focused_field = 0;
+                    }
                     _ => {
-                        app.set_notification("Em breve: Compose e Template", false);
+                        s.step = NewServiceStep::PickTemplate;
+                        s.template_cat_cursor = 0;
+                        s.template_cursor = 0;
+                        s.template_search.clear();
                     }
                 }
             }
@@ -998,7 +1200,9 @@ fn handle_ns_form(app: &mut App, key: KeyEvent) {
         KeyCode::Esc => {
             if let Some(s) = &mut app.new_service {
                 match s.step {
-                    NewServiceStep::ApplicationForm => app.new_service = None,
+                    NewServiceStep::ApplicationForm | NewServiceStep::ComposeForm => {
+                        app.new_service = None;
+                    }
                     NewServiceStep::DatabaseForm => {
                         s.step = NewServiceStep::PickDbType;
                         s.focused_field = 0;
@@ -1046,7 +1250,11 @@ fn handle_ns_form(app: &mut App, key: KeyEvent) {
             }
         }
         KeyCode::Enter => {
-            let is_btn = app.new_service.as_ref().map(|s| s.is_button()).unwrap_or(false);
+            let is_btn = app
+                .new_service
+                .as_ref()
+                .map(|s| s.is_button())
+                .unwrap_or(false);
             if is_btn {
                 let spec = app.new_service.as_ref().unwrap().to_service_spec();
                 if spec.name.is_empty() {
@@ -1059,6 +1267,139 @@ fn handle_ns_form(app: &mut App, key: KeyEvent) {
                 });
                 app.new_service = None;
             } else if let Some(s) = &mut app.new_service {
+                s.next_field();
+            }
+        }
+        _ => {}
+    }
+}
+
+fn handle_ns_pick_template(app: &mut App, key: KeyEvent) {
+    use crate::templates::{self, TemplateCategory};
+
+    let s = match app.new_service.as_mut() {
+        Some(s) => s,
+        None => return,
+    };
+
+    if s.template_searching {
+        match key.code {
+            KeyCode::Esc | KeyCode::Enter => {
+                s.template_searching = false;
+                s.template_cursor = 0;
+            }
+            KeyCode::Char(c) => {
+                s.template_search.push(c);
+                s.template_cursor = 0;
+            }
+            KeyCode::Backspace => {
+                s.template_search.pop();
+                s.template_cursor = 0;
+            }
+            _ => {}
+        }
+        return;
+    }
+
+    match key.code {
+        KeyCode::Esc => {
+            s.step = NewServiceStep::PickType;
+            s.template_search.clear();
+            s.template_cursor = 0;
+        }
+        KeyCode::Left => {
+            if s.template_cat_cursor > 0 {
+                s.template_cat_cursor -= 1;
+                s.template_cursor = 0;
+            }
+        }
+        KeyCode::Right => {
+            if s.template_cat_cursor + 1 < TemplateCategory::FILTERS.len() {
+                s.template_cat_cursor += 1;
+                s.template_cursor = 0;
+            }
+        }
+        KeyCode::Up => {
+            if s.template_cursor > 0 {
+                s.template_cursor -= 1;
+            }
+        }
+        KeyCode::Down => {
+            let cat = TemplateCategory::FILTERS[s.template_cat_cursor];
+            let count = templates::filtered(cat, &s.template_search.clone()).len();
+            if s.template_cursor + 1 < count {
+                s.template_cursor += 1;
+            }
+        }
+        KeyCode::Char('/') => {
+            s.template_searching = true;
+            s.template_search.clear();
+        }
+        KeyCode::Enter => {
+            let cat = TemplateCategory::FILTERS[s.template_cat_cursor];
+            let search = s.template_search.clone();
+            let list = templates::filtered(cat, &search);
+            if let Some(&t) = list.get(s.template_cursor) {
+                let s2 = app.new_service.as_mut().unwrap();
+                s2.select_template(t);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn handle_ns_template_vars(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Esc => {
+            if let Some(s) = app.new_service.as_mut() {
+                s.step = NewServiceStep::PickTemplate;
+                s.focused_field = 0;
+            }
+        }
+        KeyCode::Up => {
+            if let Some(s) = app.new_service.as_mut() {
+                s.prev_field();
+            }
+        }
+        KeyCode::Down | KeyCode::Tab => {
+            if let Some(s) = app.new_service.as_mut() {
+                s.next_field();
+            }
+        }
+        KeyCode::Char(c) => {
+            if let Some(s) = app.new_service.as_mut() {
+                if !s.is_button() {
+                    if let Some(f) = s.focused_text_mut() {
+                        f.push(c);
+                    }
+                }
+            }
+        }
+        KeyCode::Backspace => {
+            if let Some(s) = app.new_service.as_mut() {
+                if let Some(f) = s.focused_text_mut() {
+                    f.pop();
+                }
+            }
+        }
+        KeyCode::Enter => {
+            let is_btn = app
+                .new_service
+                .as_ref()
+                .map(|s| s.is_button())
+                .unwrap_or(false);
+            if is_btn {
+                let spec = app.new_service.as_ref().unwrap().to_service_spec();
+                if spec.name.is_empty() {
+                    app.set_notification("Nome é obrigatório", true);
+                    return;
+                }
+                app.pending_commands.push(PendingCommand {
+                    command: Command::ServiceCreate(spec),
+                    context: CmdContext::CreateService,
+                });
+                app.new_service = None;
+            } else if let Some(s) = app.new_service.as_mut() {
                 s.next_field();
             }
         }
@@ -1080,9 +1421,16 @@ fn handle_new_project(app: &mut App, key: KeyEvent) {
                 return;
             }
             let name = app.new_proj_name.clone();
-            let desc = if app.new_proj_desc.is_empty() { None } else { Some(app.new_proj_desc.clone()) };
+            let desc = if app.new_proj_desc.is_empty() {
+                None
+            } else {
+                Some(app.new_proj_desc.clone())
+            };
             app.pending_commands.push(PendingCommand {
-                command: Command::ProjectCreate { name, description: desc },
+                command: Command::ProjectCreate {
+                    name,
+                    description: desc,
+                },
                 context: CmdContext::CreateProject,
             });
             app.creating_project = false;
@@ -1106,7 +1454,9 @@ fn handle_new_project(app: &mut App, key: KeyEvent) {
 }
 
 fn handle_confirm(app: &mut App, key: KeyEvent) {
-    let View::Confirm { action, .. } = app.view.clone() else { return };
+    let View::Confirm { action, .. } = app.view.clone() else {
+        return;
+    };
 
     match key.code {
         KeyCode::Char('y') | KeyCode::Char('Y') => {
@@ -1119,8 +1469,8 @@ fn handle_confirm(app: &mut App, key: KeyEvent) {
                 }
                 ConfirmAction::DeleteService(id) => {
                     app.pending_commands.push(PendingCommand {
-                        command: Command::ServiceDelete { id },
-                        context: CmdContext::DeleteService,
+                        command: Command::ServiceDelete { id: id.clone() },
+                        context: CmdContext::DeleteService(id),
                     });
                 }
                 ConfirmAction::AbortDeploy(id) => {
@@ -1137,4 +1487,101 @@ fn handle_confirm(app: &mut App, key: KeyEvent) {
         }
         _ => {}
     }
+}
+
+fn handle_settings_web_server(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Up => {
+            app.server_settings.focused = app.server_settings.focused.clone().prev();
+        }
+        KeyCode::Down | KeyCode::Enter => {
+            if app.server_settings.focused == ServerSettingsField::Save {
+                save_server_settings(app);
+            } else {
+                app.server_settings.focused = app.server_settings.focused.clone().next();
+            }
+        }
+        KeyCode::Char(' ') => {
+            if app.server_settings.focused == ServerSettingsField::Save {
+                save_server_settings(app);
+            }
+        }
+        KeyCode::Char(c) => {
+            if app.server_settings.focused == ServerSettingsField::ServerDomain {
+                app.server_settings.server_domain.push(c);
+            }
+        }
+        KeyCode::Backspace => {
+            if app.server_settings.focused == ServerSettingsField::ServerDomain {
+                app.server_settings.server_domain.pop();
+            }
+        }
+        _ => {}
+    }
+}
+
+fn save_server_settings(app: &mut App) {
+    let domain = app.server_settings.server_domain.trim().to_string();
+    let webhook_base_url = if domain.is_empty() {
+        None
+    } else {
+        Some(domain)
+    };
+    app.pending_commands.push(PendingCommand {
+        command: Command::SetDaemonSettings { webhook_base_url },
+        context: CmdContext::SaveServerSettings,
+    });
+}
+
+fn copy_to_clipboard(app: &mut App, text: &str) {
+    // wl-copy (Wayland) — fica em background como dono do clipboard
+    if std::process::Command::new("wl-copy")
+        .arg("--")
+        .arg(text)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .is_ok()
+    {
+        app.set_notification("URL copiada para a área de transferência", false);
+        return;
+    }
+
+    // xclip (X11)
+    if let Ok(mut child) = std::process::Command::new("xclip")
+        .args(["-selection", "clipboard"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+    {
+        use std::io::Write;
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(text.as_bytes());
+        }
+        app.set_notification("URL copiada para a área de transferência", false);
+        return;
+    }
+
+    // xsel (X11 alternativo)
+    if let Ok(mut child) = std::process::Command::new("xsel")
+        .args(["--clipboard", "--input"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+    {
+        use std::io::Write;
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(text.as_bytes());
+        }
+        app.set_notification("URL copiada para a área de transferência", false);
+        return;
+    }
+
+    app.set_notification(
+        "Instale wl-copy (Wayland) ou xclip/xsel (X11) para copiar",
+        true,
+    );
 }

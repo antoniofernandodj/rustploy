@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use shared::{
-    Command, DeployState, EnvVar, EnvVarValue, GitSource, Healthcheck, HealthcheckKind, Project,
-    ResourceLimits, Service, ServiceSource, ServiceSpec,
+    Command, ComposeSource, DeployState, EnvVar, EnvVarValue, GitSource, Healthcheck,
+    HealthcheckKind, Project, ResourceLimits, Service, ServiceSource, ServiceSpec,
 };
 
 pub const MAX_LOG_LINES: usize = 2000;
@@ -38,7 +38,10 @@ pub enum View {
     SettingsCerts,
     SettingsSso,
     Account,
-    Confirm { message: String, action: ConfirmAction },
+    Confirm {
+        message: String,
+        action: ConfirmAction,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -136,6 +139,7 @@ impl SidebarItem {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ServiceTab {
     General,
+    Connection,
     Environment,
     Domains,
     Deployments,
@@ -159,9 +163,23 @@ impl ServiceTab {
         ]
     }
 
+    pub fn all_with_connection() -> &'static [ServiceTab] {
+        &[
+            ServiceTab::General,
+            ServiceTab::Connection,
+            ServiceTab::Environment,
+            ServiceTab::Domains,
+            ServiceTab::Deployments,
+            ServiceTab::Healthcheck,
+            ServiceTab::Logs,
+            ServiceTab::Patches,
+        ]
+    }
+
     pub fn label(&self) -> &'static str {
         match self {
             ServiceTab::General => "General",
+            ServiceTab::Connection => "Connection",
             ServiceTab::Environment => "Environment",
             ServiceTab::Domains => "Domains",
             ServiceTab::Deployments => "Deployments",
@@ -183,7 +201,11 @@ impl ServiceTab {
 
     pub fn prev(&self) -> ServiceTab {
         let all = Self::all();
-        let idx = if self.index() == 0 { all.len() - 1 } else { self.index() - 1 };
+        let idx = if self.index() == 0 {
+            all.len() - 1
+        } else {
+            self.index() - 1
+        };
         all[idx].clone()
     }
 }
@@ -311,6 +333,18 @@ impl GeneralTabState {
                 port: svc.spec.port.to_string(),
                 dockerfile: "Dockerfile".into(),
                 context_path: ".".into(),
+                build_stage: String::new(),
+            },
+            ServiceSource::Compose(_) => Self {
+                focused_field: GeneralTabField::BtnDeploy,
+                repo_url: String::new(),
+                branch: String::new(),
+                build_path: String::new(),
+                watch_paths: String::new(),
+                submodules: false,
+                port: svc.spec.port.to_string(),
+                dockerfile: String::new(),
+                context_path: String::new(),
                 build_stage: String::new(),
             },
         }
@@ -447,7 +481,9 @@ impl DomainsTabState {
         Self {
             focused: DomainsField::Domain,
             domain: svc.spec.domain.clone().unwrap_or_default(),
-            host_port: svc.spec.host_port
+            host_port: svc
+                .spec
+                .host_port
                 .map(|p| p.to_string())
                 .unwrap_or_default(),
         }
@@ -494,9 +530,10 @@ impl HealthcheckTabState {
         let hc = &svc.spec.healthcheck;
         let (kind, http_path, expected_status) = match &hc.kind {
             HealthcheckKind::Tcp => ("Tcp".into(), String::new(), "200".into()),
-            HealthcheckKind::Http { path, expected_status } => {
-                ("Http".into(), path.clone(), expected_status.to_string())
-            }
+            HealthcheckKind::Http {
+                path,
+                expected_status,
+            } => ("Http".into(), path.clone(), expected_status.to_string()),
             HealthcheckKind::DockerNative => ("DockerNative".into(), String::new(), "200".into()),
         };
         Self {
@@ -646,6 +683,9 @@ pub enum NewServiceStep {
     PickDbType,
     ApplicationForm,
     DatabaseForm,
+    ComposeForm,
+    PickTemplate,
+    TemplateVarForm,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -686,8 +726,13 @@ pub enum DbKind {
 }
 
 impl DbKind {
-    pub const ALL: &'static [DbKind] =
-        &[DbKind::MongoDB, DbKind::Postgres, DbKind::MariaDB, DbKind::MySQL, DbKind::Redis];
+    pub const ALL: &'static [DbKind] = &[
+        DbKind::MongoDB,
+        DbKind::Postgres,
+        DbKind::MariaDB,
+        DbKind::MySQL,
+        DbKind::Redis,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
@@ -726,6 +771,46 @@ impl DbKind {
             Self::Redis => 6,
         }
     }
+
+    pub fn yaml_service_name(self) -> &'static str {
+        match self {
+            Self::MongoDB => "mongo",
+            Self::Postgres => "postgres",
+            Self::MariaDB => "mariadb",
+            Self::MySQL => "mysql",
+            Self::Redis => "redis",
+        }
+    }
+
+    pub fn kind_id(self) -> &'static str {
+        match self {
+            Self::MongoDB => "mongodb",
+            Self::Postgres => "postgres",
+            Self::MariaDB => "mariadb",
+            Self::MySQL => "mysql",
+            Self::Redis => "redis",
+        }
+    }
+
+    pub fn detect_from_env(env_vars: &[EnvVar]) -> Option<Self> {
+        env_vars
+            .iter()
+            .find(|e| e.key == "RUSTPLOY_DB_KIND")
+            .and_then(|e| {
+                if let EnvVarValue::Plain(ref s) = e.value {
+                    match s.as_str() {
+                        "postgres" => Some(DbKind::Postgres),
+                        "mongodb" => Some(DbKind::MongoDB),
+                        "mariadb" => Some(DbKind::MariaDB),
+                        "mysql" => Some(DbKind::MySQL),
+                        "redis" => Some(DbKind::Redis),
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            })
+    }
 }
 
 #[derive(Debug)]
@@ -743,9 +828,17 @@ pub struct NewServiceState {
     pub db_password: String,
     pub db_root_password: String,
     pub docker_image: String,
+    pub compose_file_path: String,
     pub use_replica_sets: bool,
     pub focused_field: usize,
     pub form_scroll: usize,
+    // Template-specific state
+    pub template_cat_cursor: usize,
+    pub template_cursor: usize,
+    pub template_search: String,
+    pub template_searching: bool,
+    pub selected_template: Option<&'static crate::templates::Template>,
+    pub template_var_values: Vec<String>,
 }
 
 impl NewServiceState {
@@ -764,17 +857,31 @@ impl NewServiceState {
             db_password: String::new(),
             db_root_password: String::new(),
             docker_image: String::new(),
+            compose_file_path: "docker-compose.yml".into(),
             use_replica_sets: false,
             focused_field: 0,
             form_scroll: 0,
+            template_cat_cursor: 0,
+            template_cursor: 0,
+            template_search: String::new(),
+            template_searching: false,
+            selected_template: None,
+            template_var_values: vec![],
         }
     }
 
     pub fn field_count(&self) -> usize {
         match self.step {
             NewServiceStep::ApplicationForm => 4,
-            NewServiceStep::DatabaseForm => {
-                self.db_kind.map(|d| d.field_count()).unwrap_or(0)
+            NewServiceStep::ComposeForm => 3,
+            NewServiceStep::DatabaseForm => self.db_kind.map(|d| d.field_count()).unwrap_or(0),
+            // name(1) + vars(n) + button(1)
+            NewServiceStep::TemplateVarForm => {
+                1 + self
+                    .selected_template
+                    .map(|t| t.variables.len())
+                    .unwrap_or(0)
+                    + 1
             }
             _ => 0,
         }
@@ -805,7 +912,10 @@ impl NewServiceState {
     }
 
     fn sync_scroll(&mut self) {
-        if !matches!(self.step, NewServiceStep::DatabaseForm) {
+        if !matches!(
+            self.step,
+            NewServiceStep::DatabaseForm | NewServiceStep::TemplateVarForm
+        ) {
             return;
         }
         const VISIBLE: usize = 4;
@@ -824,6 +934,20 @@ impl NewServiceState {
         max > 0 && self.focused_field == max - 1
     }
 
+    /// Selects a template, initialises var values with defaults and resets the form.
+    pub fn select_template(&mut self, t: &'static crate::templates::Template) {
+        self.selected_template = Some(t);
+        self.template_var_values = t
+            .variables
+            .iter()
+            .map(|v| v.default.unwrap_or("").to_string())
+            .collect();
+        self.name = t.name.to_lowercase().replace(' ', "-");
+        self.focused_field = 0;
+        self.form_scroll = 0;
+        self.step = NewServiceStep::TemplateVarForm;
+    }
+
     pub fn is_checkbox(&self) -> bool {
         self.step == NewServiceStep::DatabaseForm
             && matches!(self.db_kind, Some(DbKind::MongoDB))
@@ -840,6 +964,15 @@ impl NewServiceState {
                 1 => Some(&mut self.app_name),
                 2 => Some(&mut self.description),
                 _ => None,
+            },
+            NewServiceStep::ComposeForm => match field {
+                0 => Some(&mut self.name),
+                1 => Some(&mut self.app_name),
+                _ => None,
+            },
+            NewServiceStep::TemplateVarForm => match field {
+                0 => Some(&mut self.name),
+                n => self.template_var_values.get_mut(n - 1),
             },
             NewServiceStep::DatabaseForm => match (db?, field) {
                 (_, 0) => Some(&mut self.name),
@@ -876,43 +1009,132 @@ impl NewServiceState {
             key: k.to_string(),
             value: EnvVarValue::Plain(v.to_string()),
         };
-        match self.db_kind {
-            Some(DbKind::Postgres) => vec![
-                plain("POSTGRES_DB", &self.db_name),
-                plain("POSTGRES_USER", &self.db_user),
-                plain("POSTGRES_PASSWORD", &self.db_password),
-            ],
-            Some(DbKind::MongoDB) => {
-                let mut vars = vec![
-                    plain("MONGO_INITDB_ROOT_USERNAME", &self.db_user),
-                    plain("MONGO_INITDB_ROOT_PASSWORD", &self.db_password),
-                ];
+        let kind = match self.db_kind {
+            Some(k) => k,
+            None => return vec![],
+        };
+        let mut vars = vec![plain("RUSTPLOY_DB_KIND", kind.kind_id())];
+        match kind {
+            DbKind::Postgres => {
+                vars.push(plain("POSTGRES_DB", &self.db_name));
+                vars.push(plain("POSTGRES_USER", &self.db_user));
+                vars.push(plain("POSTGRES_PASSWORD", &self.db_password));
+            }
+            DbKind::MongoDB => {
+                vars.push(plain("MONGO_INITDB_ROOT_USERNAME", &self.db_user));
+                vars.push(plain("MONGO_INITDB_ROOT_PASSWORD", &self.db_password));
                 if self.use_replica_sets {
                     vars.push(plain("MONGO_REPLICA_SET_NAME", "rs0"));
                 }
-                vars
             }
-            Some(DbKind::MariaDB | DbKind::MySQL) => vec![
-                plain("MYSQL_DATABASE", &self.db_name),
-                plain("MYSQL_USER", &self.db_user),
-                plain("MYSQL_PASSWORD", &self.db_password),
-                plain("MYSQL_ROOT_PASSWORD", &self.db_root_password),
-            ],
-            Some(DbKind::Redis) if !self.db_password.is_empty() => {
-                vec![plain("REDIS_PASSWORD", &self.db_password)]
+            DbKind::MariaDB | DbKind::MySQL => {
+                vars.push(plain("MYSQL_DATABASE", &self.db_name));
+                vars.push(plain("MYSQL_USER", &self.db_user));
+                vars.push(plain("MYSQL_PASSWORD", &self.db_password));
+                vars.push(plain("MYSQL_ROOT_PASSWORD", &self.db_root_password));
             }
-            _ => vec![],
+            DbKind::Redis => {
+                if !self.db_password.is_empty() {
+                    vars.push(plain("REDIS_PASSWORD", &self.db_password));
+                }
+            }
+        }
+        vars
+    }
+
+    fn generate_db_compose(&self) -> String {
+        match self.db_kind {
+            Some(DbKind::Postgres) => format!(
+                "services:
+\n  postgres:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      POSTGRES_DB: {db}\n      POSTGRES_USER: {user}\n      POSTGRES_PASSWORD: {pass}\n    volumes:\n      - pgdata:/var/lib/postgresql/data\n\nvolumes:\n  pgdata:\n",
+                image = self.docker_image,
+                db = self.db_name,
+                user = self.db_user,
+                pass = self.db_password,
+            ),
+            Some(DbKind::MongoDB) => {
+                let replica_line = if self.use_replica_sets {
+                    "      MONGO_REPLICA_SET_NAME: rs0\n"
+                } else {
+                    ""
+                };
+                format!(
+                    "services:
+\n  mongo:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      MONGO_INITDB_ROOT_USERNAME: {user}\n      MONGO_INITDB_ROOT_PASSWORD: {pass}\n{replica}    volumes:\n      - mongodata:/data/db\n\nvolumes:\n  mongodata:\n",
+                    image = self.docker_image,
+                    user = self.db_user,
+                    pass = self.db_password,
+                    replica = replica_line,
+                )
+            }
+            Some(DbKind::MariaDB) => format!(
+                "services:
+\n  mariadb:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      MYSQL_DATABASE: {db}\n      MYSQL_USER: {user}\n      MYSQL_PASSWORD: {pass}\n      MYSQL_ROOT_PASSWORD: {root}\n    volumes:\n      - mariadbdata:/var/lib/mysql\n\nvolumes:\n  mariadbdata:\n",
+                image = self.docker_image,
+                db = self.db_name,
+                user = self.db_user,
+                pass = self.db_password,
+                root = self.db_root_password,
+            ),
+            Some(DbKind::MySQL) => format!(
+                "services:
+\n  mysql:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      MYSQL_DATABASE: {db}\n      MYSQL_USER: {user}\n      MYSQL_PASSWORD: {pass}\n      MYSQL_ROOT_PASSWORD: {root}\n    volumes:\n      - mysqldata:/var/lib/mysql\n\nvolumes:\n  mysqldata:\n",
+                image = self.docker_image,
+                db = self.db_name,
+                user = self.db_user,
+                pass = self.db_password,
+                root = self.db_root_password,
+            ),
+            Some(DbKind::Redis) => {
+                let cmd_line = if self.db_password.is_empty() {
+                    String::new()
+                } else {
+                    format!(
+                        "    command: redis-server --requirepass {}\n",
+                        self.db_password
+                    )
+                };
+                format!(
+                    "services:
+\n  redis:\n    image: {image}\n    restart: unless-stopped\n{cmd}    volumes:\n      - redisdata:/data\n\nvolumes:\n  redisdata:\n",
+                    image = self.docker_image,
+                    cmd = cmd_line,
+                )
+            }
+            None => String::new(),
         }
     }
 
     pub fn to_service_spec(&self) -> ServiceSpec {
-        let svc_name =
-            if !self.app_name.is_empty() { self.app_name.clone() } else { self.name.clone() };
+        let svc_name = if !self.app_name.is_empty() {
+            self.app_name.clone()
+        } else {
+            self.name.clone()
+        };
         match self.step {
             NewServiceStep::ApplicationForm => ServiceSpec {
                 name: svc_name,
                 project_id: self.project_id.clone(),
-                source: ServiceSource::Registry { image: String::new() },
+                source: ServiceSource::Registry {
+                    image: String::new(),
+                },
+                port: 80,
+                host_port: None,
+                domain: None,
+                env_vars: vec![],
+                volumes: vec![],
+                healthcheck: Healthcheck::default(),
+                replicas: 1,
+                resources: ResourceLimits::default(),
+                run_command: None,
+                run_args: vec![],
+            },
+            NewServiceStep::ComposeForm => ServiceSpec {
+                name: svc_name,
+                project_id: self.project_id.clone(),
+                source: ServiceSource::Compose(ComposeSource {
+                    content: String::new(),
+                }),
                 port: 80,
                 host_port: None,
                 domain: None,
@@ -927,7 +1149,9 @@ impl NewServiceState {
             NewServiceStep::DatabaseForm => ServiceSpec {
                 name: svc_name,
                 project_id: self.project_id.clone(),
-                source: ServiceSource::Registry { image: self.docker_image.clone() },
+                source: ServiceSource::Compose(ComposeSource {
+                    content: self.generate_db_compose(),
+                }),
                 port: self.db_kind.map(|d| d.default_port()).unwrap_or(5432),
                 host_port: None,
                 domain: None,
@@ -939,6 +1163,29 @@ impl NewServiceState {
                 run_command: None,
                 run_args: vec![],
             },
+            NewServiceStep::TemplateVarForm => {
+                let template = self.selected_template.expect("template selected");
+                let content = crate::templates::render_compose(template, &self.template_var_values);
+                ServiceSpec {
+                    name: if self.name.is_empty() {
+                        template.name.to_lowercase().replace(' ', "-")
+                    } else {
+                        self.name.clone()
+                    },
+                    project_id: self.project_id.clone(),
+                    source: ServiceSource::Compose(ComposeSource { content }),
+                    port: template.default_port,
+                    host_port: None,
+                    domain: None,
+                    env_vars: vec![],
+                    volumes: vec![],
+                    healthcheck: Healthcheck::default(),
+                    replicas: 1,
+                    resources: ResourceLimits::default(),
+                    run_command: None,
+                    run_args: vec![],
+                }
+            }
             _ => unreachable!(),
         }
     }
@@ -995,6 +1242,7 @@ pub enum CmdContext {
     LoadServices,
     LoadDeployments,
     LoadHomeDeployments,
+    LoadDeployEngine,
     LoadLogs,
     LoadBuildLogs,
     CreateProject,
@@ -1002,10 +1250,92 @@ pub enum CmdContext {
     UpdateProjectEnv,
     CreateService,
     UpdateService,
-    DeleteService,
+    DeleteService(String),
     Deploy,
     ServiceStop,
     ServiceReload,
+    LoadWebhookUrl,
+    RegenerateWebhook,
+    LoadServerSettings,
+    SaveServerSettings,
+}
+
+// ── Compose tab ───────────────────────────────────────────────────────────────
+
+pub struct ComposeTabState {
+    pub editing: bool,
+    pub textarea: tui_textarea::TextArea<'static>,
+}
+
+impl ComposeTabState {
+    pub fn new(content: &str) -> Self {
+        let lines: Vec<String> = if content.is_empty() {
+            vec![String::new()]
+        } else {
+            content.lines().map(String::from).collect()
+        };
+        let mut textarea = tui_textarea::TextArea::new(lines);
+        textarea.set_cursor_style(ratatui::style::Style::default()); // cursor invisível por padrão
+        textarea.set_line_number_style(
+            ratatui::style::Style::default().fg(ratatui::style::Color::DarkGray),
+        );
+        Self {
+            editing: false,
+            textarea,
+        }
+    }
+
+    pub fn content(&self) -> String {
+        self.textarea.lines().join("\n")
+    }
+
+    pub fn set_editing(&mut self, editing: bool) {
+        use ratatui::style::{Color, Modifier, Style};
+        self.editing = editing;
+        if editing {
+            self.textarea
+                .set_cursor_style(Style::default().add_modifier(Modifier::REVERSED));
+        } else {
+            self.textarea.set_cursor_style(Style::default());
+        }
+    }
+}
+
+impl Default for ComposeTabState {
+    fn default() -> Self {
+        Self::new("")
+    }
+}
+
+// ── Settings — Web Server ─────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum ServerSettingsField {
+    #[default]
+    ServerDomain,
+    Save,
+}
+
+impl ServerSettingsField {
+    pub fn next(self) -> Self {
+        match self {
+            Self::ServerDomain => Self::Save,
+            Self::Save => Self::ServerDomain,
+        }
+    }
+    pub fn prev(self) -> Self {
+        match self {
+            Self::ServerDomain => Self::Save,
+            Self::Save => Self::ServerDomain,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ServerSettingsState {
+    pub server_domain: String,
+    pub focused: ServerSettingsField,
+    pub loaded: bool,
 }
 
 // ── Runtime state ─────────────────────────────────────────────────────────────

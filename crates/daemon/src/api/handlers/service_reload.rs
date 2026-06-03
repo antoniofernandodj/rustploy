@@ -34,10 +34,11 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
     }
 
     // Se o deployment estava Stopped, volta para Live.
-    if let Ok(history) =
-        crate::db::deployments::list_for_service(&state.db, &service_id, 1).await
-    {
-        if let Some(dep) = history.into_iter().find(|d| d.state == DeployState::Stopped) {
+    if let Ok(history) = crate::db::deployments::list_for_service(&state.db, &service_id, 1).await {
+        if let Some(dep) = history
+            .into_iter()
+            .find(|d| d.state == DeployState::Stopped)
+        {
             let _ = crate::db::deployments::transition(
                 &state.db,
                 &dep.id,

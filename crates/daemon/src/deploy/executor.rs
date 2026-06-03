@@ -1,11 +1,11 @@
 use crate::{
     db::Db,
-    docker::{containers, images, networks, DockerClient},
+    docker::{DockerClient, containers, images, networks},
     event_bus::EventBus,
     ingress::IngressController,
     secrets::SecretsManager,
 };
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use bollard::models::HealthStatusEnum;
 use chrono::Utc;
 use shared::{
@@ -35,7 +35,10 @@ impl DeployExecutor {
             // ex.: falha ao ler do banco — distintos das falhas de step que já fazem rollback)
             self.bus.publish(Event::Error {
                 code: "ExecutorFatal".into(),
-                message: format!("Falha crítica no deploy {}: {e}", &deployment_id[..8.min(deployment_id.len())]),
+                message: format!(
+                    "Falha crítica no deploy {}: {e}",
+                    &deployment_id[..8.min(deployment_id.len())]
+                ),
             });
         }
         info!(deployment_id = %deployment_id, "executor: encerrado");
@@ -140,6 +143,14 @@ impl DeployExecutor {
                             "step[ResolvingDeps]: fonte é Git → irá para CloningRepo"
                         );
                         DeployState::CloningRepo
+                    }
+                    ServiceSource::Compose(c) => {
+                        info!(
+                            deployment_id = %dep.id,
+                            compose_file = %c.content,
+                            "step[ResolvingDeps]: fonte é Compose → irá para ComposingUp"
+                        );
+                        DeployState::ComposingUp
                     }
                 };
                 Ok(next)
@@ -335,36 +346,47 @@ impl DeployExecutor {
             }
 
             DeployState::SwappingIn => {
-                let staging = containers::staging_name(&svc.spec.name, self.short(&dep.id));
-                info!(
-                    deployment_id = %dep.id,
-                    container_name = %staging,
-                    "step[SwappingIn]: buscando container de staging para swap"
-                );
-                let staging_id = containers::find_by_name(&self.docker.inner, &staging)
-                    .await?
-                    .ok_or_else(|| anyhow!("staging container not found"))?;
+                let replicas = svc.spec.replicas.max(1);
+                let dep_short = self.short(&dep.id).to_string();
                 let net = self.network_name(&svc.spec.project_id);
-                let ip =
-                    containers::get_container_ip(&self.docker.inner, &staging_id, &net).await?;
-                let backend = format!("{ip}:{}", svc.spec.port);
+
+                // Coleta IPs de todas as réplicas para registrar no ingress
+                let mut backends: Vec<String> = Vec::with_capacity(replicas as usize);
+                for i in 0..replicas {
+                    let staging =
+                        containers::replica_staging_name(&svc.spec.name, &dep_short, i);
+                    info!(
+                        deployment_id = %dep.id,
+                        replica = i,
+                        container_name = %staging,
+                        "step[SwappingIn]: resolvendo IP da réplica de staging"
+                    );
+                    let staging_id = containers::find_by_name(&self.docker.inner, &staging)
+                        .await?
+                        .ok_or_else(|| anyhow!("staging container not found: {staging}"))?;
+                    let ip =
+                        containers::get_container_ip(&self.docker.inner, &staging_id, &net)
+                            .await?;
+                    backends.push(format!("{ip}:{}", svc.spec.port));
+                }
+
                 if let Some(domain) = &svc.spec.domain {
                     info!(
                         deployment_id = %dep.id,
                         domain = %domain,
-                        upstream = %backend,
+                        backends = ?backends,
                         "step[SwappingIn]: atualizando rota de domínio no ingress"
                     );
-                    self.ingress.upsert_route(domain, &backend, &svc.id);
+                    self.ingress.upsert_route(domain, backends.clone(), &svc.id);
                 }
                 if let Some(host_port) = svc.spec.host_port {
                     info!(
                         deployment_id = %dep.id,
                         host_port,
-                        upstream = %backend,
+                        backends = ?backends,
                         "step[SwappingIn]: atualizando rota de porta no ingress"
                     );
-                    self.ingress.upsert_port_route(host_port, &backend);
+                    self.ingress.upsert_port_route(host_port, backends.clone());
                 }
                 if svc.spec.domain.is_none() && svc.spec.host_port.is_none() {
                     info!(
@@ -487,15 +509,21 @@ impl DeployExecutor {
 
                 // Transiciona qualquer deployment anterior em Live para Pruning
                 // para evitar múltiplos registros Live para o mesmo serviço.
-                if let Ok(history) = crate::db::deployments::list_for_service(&self.db, &svc.id, 20).await {
-                    for prev in history.iter().filter(|d| d.id != dep.id && d.state == DeployState::Live) {
+                if let Ok(history) =
+                    crate::db::deployments::list_for_service(&self.db, &svc.id, 20).await
+                {
+                    for prev in history
+                        .iter()
+                        .filter(|d| d.id != dep.id && d.state == DeployState::Live)
+                    {
                         let _ = crate::db::deployments::transition(
                             &self.db,
                             &prev.id,
                             &DeployState::Live,
                             DeployState::Pruning,
                             Some("superseded by newer deployment".into()),
-                        ).await;
+                        )
+                        .await;
                         self.bus.publish(Event::DeployStateChanged {
                             deployment_id: prev.id.clone(),
                             service_id: svc.id.clone(),
@@ -510,6 +538,31 @@ impl DeployExecutor {
             }
 
             DeployState::RollingBack => {
+                if let ServiceSource::Compose(compose) = &svc.spec.source {
+                    let project_name = format!("rp_{}", &svc.spec.name);
+                    info!(
+                        deployment_id = %dep.id,
+                        project = %project_name,
+                        "step[RollingBack]: derrubando compose stack"
+                    );
+                    let network_name = self.network_name(&svc.spec.project_id);
+                    let _ = crate::docker::compose::compose_down(
+                        &compose.content,
+                        &project_name,
+                        &network_name,
+                    )
+                    .await;
+                    let err_status = ServiceStatus::Error("deploy failed".into());
+                    let _ =
+                        crate::db::services::update_status(&self.db, &svc.id, &err_status, None)
+                            .await;
+                    self.bus.publish(Event::ServiceStatusChanged {
+                        service_id: svc.id.clone(),
+                        status: err_status,
+                    });
+                    return Ok(DeployState::Failed);
+                }
+
                 // Remove todos os containers de staging deste deployment.
                 let replicas = svc.spec.replicas.max(1);
                 let dep_short = self.short(&dep.id).to_string();
@@ -526,38 +579,43 @@ impl DeployExecutor {
                     }
                 }
 
-                let live = containers::live_name(&svc.spec.name);
-                match containers::find_by_name(&self.docker.inner, &live).await {
-                    Ok(Some(old)) => {
-                        let net = self.network_name(&svc.spec.project_id);
+                // Restaura todos os backends live anteriores para o ingress
+                let live_replicas = svc.spec.replicas.max(1);
+                let net = self.network_name(&svc.spec.project_id);
+                let mut live_backends: Vec<String> = Vec::new();
+                for i in 0..live_replicas {
+                    let live = containers::replica_live_name(&svc.spec.name, i);
+                    if let Ok(Some(cid)) =
+                        containers::find_by_name(&self.docker.inner, &live).await
+                    {
                         if let Ok(ip) =
-                            containers::get_container_ip(&self.docker.inner, &old, &net).await
+                            containers::get_container_ip(&self.docker.inner, &cid, &net).await
                         {
-                            let backend = format!("{ip}:{}", svc.spec.port);
-                            if let Some(domain) = &svc.spec.domain {
-                                info!(
-                                    deployment_id = %dep.id,
-                                    old_live = %old,
-                                    ip = %ip,
-                                    "step[RollingBack]: restaurando rota de domínio para live anterior"
-                                );
-                                self.ingress.upsert_route(domain, &backend, &svc.id);
-                            }
-                            if let Some(host_port) = svc.spec.host_port {
-                                info!(
-                                    deployment_id = %dep.id,
-                                    host_port,
-                                    "step[RollingBack]: restaurando rota de porta para live anterior"
-                                );
-                                self.ingress.upsert_port_route(host_port, &backend);
-                            }
+                            live_backends.push(format!("{ip}:{}", svc.spec.port));
                         }
                     }
-                    _ => {
-                        info!(deployment_id = %dep.id, "step[RollingBack]: nenhum live anterior para restaurar");
-                        if let Some(host_port) = svc.spec.host_port {
-                            self.ingress.remove_port_route(host_port);
-                        }
+                }
+                if !live_backends.is_empty() {
+                    if let Some(domain) = &svc.spec.domain {
+                        info!(
+                            deployment_id = %dep.id,
+                            backends = ?live_backends,
+                            "step[RollingBack]: restaurando rota de domínio para lives anteriores"
+                        );
+                        self.ingress.upsert_route(domain, live_backends.clone(), &svc.id);
+                    }
+                    if let Some(host_port) = svc.spec.host_port {
+                        info!(
+                            deployment_id = %dep.id,
+                            host_port,
+                            "step[RollingBack]: restaurando rota de porta para lives anteriores"
+                        );
+                        self.ingress.upsert_port_route(host_port, live_backends);
+                    }
+                } else {
+                    info!(deployment_id = %dep.id, "step[RollingBack]: nenhum live anterior para restaurar");
+                    if let Some(host_port) = svc.spec.host_port {
+                        self.ingress.remove_port_route(host_port);
                     }
                 }
 
@@ -567,13 +625,7 @@ impl DeployExecutor {
                     service_id = %svc.id,
                     "step[RollingBack]: atualizando serviço para Error"
                 );
-                crate::db::services::update_status(
-                    &self.db,
-                    &svc.id,
-                    &err_status,
-                    None,
-                )
-                .await?;
+                crate::db::services::update_status(&self.db, &svc.id, &err_status, None).await?;
                 self.bus.publish(Event::ServiceStatusChanged {
                     service_id: svc.id.clone(),
                     status: err_status,
@@ -581,6 +633,64 @@ impl DeployExecutor {
                 info!(deployment_id = %dep.id, "step[RollingBack]: rollback concluído, estado = Failed");
                 let _ = std::fs::remove_dir_all(self.clone_dir(&dep.id));
                 Ok(DeployState::Failed)
+            }
+
+            DeployState::ComposingUp => {
+                let ServiceSource::Compose(compose) = &svc.spec.source else {
+                    return Err(anyhow!("expected Compose source in ComposingUp"));
+                };
+                let project_name = format!("rp_{}", &svc.spec.name);
+                info!(
+                    deployment_id = %dep.id,
+                    content_bytes = compose.content.len(),
+                    project = %project_name,
+                    "step[ComposingUp]: executando docker compose up"
+                );
+                let network_name = self.network_name(&svc.spec.project_id);
+                crate::docker::compose::compose_up(
+                    &compose.content,
+                    &project_name,
+                    &svc.id,
+                    &dep.id,
+                    &network_name,
+                    &self.bus,
+                    &self.db,
+                )
+                .await?;
+
+                // Compose ingress: tenta encontrar o container principal para roteamento
+                let main_container = format!("{}-{}", project_name, svc.spec.name);
+                if let Ok(Some(cid)) = containers::find_by_prefix(&self.docker.inner, &main_container).await {
+                    if let Ok(ip) = containers::get_container_ip(&self.docker.inner, &cid, &network_name).await {
+                        let backend = format!("{ip}:{}", svc.spec.port);
+                        if let Some(domain) = &svc.spec.domain {
+                            info!(deployment_id = %dep.id, domain, backend, "ComposingUp: registrando rota de domínio");
+                            self.ingress.upsert_route(domain, vec![backend.clone()], &svc.id);
+                        }
+                        if let Some(host_port) = svc.spec.host_port {
+                            info!(deployment_id = %dep.id, host_port, backend, "ComposingUp: registrando rota de porta");
+                            self.ingress.upsert_port_route(host_port, vec![backend.clone()]);
+                        }
+                    }
+                }
+
+                info!(
+                    deployment_id = %dep.id,
+                    project = %project_name,
+                    "step[ComposingUp]: compose up concluído, promovendo serviço"
+                );
+                crate::db::services::update_status(
+                    &self.db,
+                    &svc.id,
+                    &ServiceStatus::Running,
+                    None,
+                )
+                .await?;
+                self.bus.publish(Event::ServiceStatusChanged {
+                    service_id: svc.id.clone(),
+                    status: ServiceStatus::Running,
+                });
+                Ok(DeployState::Live)
             }
 
             other => Err(anyhow!("unhandled state: {:?}", other)),
@@ -626,10 +736,7 @@ impl DeployExecutor {
                 .unwrap_or(false);
 
             if !running {
-                let exit_code = inspect
-                    .state
-                    .as_ref()
-                    .and_then(|s| s.exit_code);
+                let exit_code = inspect.state.as_ref().and_then(|s| s.exit_code);
                 error!(
                     deployment_id = %dep.id,
                     container_id = %container_id,
@@ -640,15 +747,18 @@ impl DeployExecutor {
             }
 
             let ok = match &hc.kind {
-                HealthcheckKind::Http { path, expected_status } => {
+                HealthcheckKind::Http {
+                    path,
+                    expected_status,
+                } => {
                     let url = format!("http://{ip}:{}{path}", svc.spec.port);
                     debug!(deployment_id = %dep.id, url = %url, expected = expected_status, "healthcheck: HTTP check");
-                    check_http(&url, *expected_status, timeout).await
+                    crate::health::check_http(&url, *expected_status, timeout).await
                 }
                 HealthcheckKind::Tcp => {
                     let addr = format!("{ip}:{}", svc.spec.port);
                     debug!(deployment_id = %dep.id, addr = %addr, "healthcheck: TCP check");
-                    check_tcp(&addr, timeout).await
+                    crate::health::check_tcp(&addr, timeout).await
                 }
                 HealthcheckKind::DockerNative => {
                     let status = inspect
@@ -715,6 +825,7 @@ impl DeployExecutor {
         match &svc.spec.source {
             ServiceSource::Registry { image } => image.clone(),
             ServiceSource::Git(_) => format!("rp_{}:{}", svc.spec.name, self.short(&dep.id)),
+            ServiceSource::Compose(c) => format!("compose:{}", c.content),
         }
     }
 
@@ -820,75 +931,5 @@ impl DeployExecutor {
             "executor: evento DeployStateChanged publicado"
         );
         Ok(())
-    }
-}
-
-
-async fn check_http(url: &str, expected: u16, timeout: Duration) -> bool {
-    use http_body_util::Empty;
-    use hyper::Request;
-    use hyper_util::rt::TokioIo;
-    use tokio::net::TcpStream;
-
-    // Parse host:port and path from the URL (plain http:// only — healthchecks are internal).
-    let without_scheme = url.strip_prefix("http://").unwrap_or(url);
-    let (authority, path) = without_scheme
-        .split_once('/')
-        .map(|(h, p)| (h, format!("/{p}")))
-        .unwrap_or((without_scheme, "/".into()));
-
-    let connect = TcpStream::connect(authority);
-    let stream = match tokio::time::timeout(timeout, connect).await {
-        Ok(Ok(s)) => s,
-        Ok(Err(e)) => {
-            debug!(url = %url, error = %e, "check_http: conexão falhou");
-            return false;
-        }
-        Err(_) => {
-            debug!(url = %url, "check_http: timeout na conexão");
-            return false;
-        }
-    };
-
-    let io = TokioIo::new(stream);
-    let Ok((mut sender, conn)) = hyper::client::conn::http1::handshake(io).await else {
-        return false;
-    };
-    tokio::spawn(async move { let _ = conn.await; });
-
-    let req = match Request::builder()
-        .method("GET")
-        .uri(format!("http://{authority}{path}"))
-        .header("host", authority)
-        .body(Empty::<bytes::Bytes>::new())
-    {
-        Ok(r) => r,
-        Err(_) => return false,
-    };
-
-    match tokio::time::timeout(timeout, sender.send_request(req)).await {
-        Ok(Ok(resp)) => resp.status().as_u16() == expected,
-        Ok(Err(e)) => {
-            debug!(url = %url, error = %e, "check_http: falhou");
-            false
-        }
-        Err(_) => {
-            debug!(url = %url, "check_http: timeout na resposta");
-            false
-        }
-    }
-}
-
-async fn check_tcp(addr: &str, timeout: Duration) -> bool {
-    match tokio::time::timeout(timeout, tokio::net::TcpStream::connect(addr)).await {
-        Ok(Ok(_)) => true,
-        Ok(Err(e)) => {
-            debug!(addr = %addr, error = %e, "check_tcp: conexão recusada");
-            false
-        }
-        Err(_) => {
-            debug!(addr = %addr, "check_tcp: timeout");
-            false
-        }
     }
 }

@@ -12,7 +12,9 @@ pub struct DaemonClient {
 
 impl DaemonClient {
     pub fn new(socket_path: impl Into<PathBuf>) -> Self {
-        Self { socket_path: socket_path.into() }
+        Self {
+            socket_path: socket_path.into(),
+        }
     }
 
     pub async fn ping(&self) -> bool {

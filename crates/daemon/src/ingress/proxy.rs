@@ -4,8 +4,8 @@
 
 use crate::ingress::router::{PortBackend, RouteHandle};
 use bytes::Bytes;
-use http_body_util::{combinators::BoxBody, BodyExt, Empty};
-use hyper::{body::Incoming, Request, Response, StatusCode};
+use http_body_util::{BodyExt, Empty, combinators::BoxBody};
+use hyper::{Request, Response, StatusCode, body::Incoming};
 use hyper_util::rt::TokioIo;
 use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
@@ -14,9 +14,7 @@ use tracing::{debug, info, warn};
 type ProxyBody = BoxBody<Bytes, hyper::Error>;
 
 pub async fn start_proxy(routes: RouteHandle, http_port: u16, _https_port: u16) {
-    let addr: SocketAddr = format!("0.0.0.0:{http_port}")
-        .parse()
-        .expect("valid addr");
+    let addr: SocketAddr = format!("0.0.0.0:{http_port}").parse().expect("valid addr");
     let listener = match TcpListener::bind(addr).await {
         Ok(l) => l,
         Err(e) => {
@@ -67,7 +65,7 @@ async fn handle(
 
     let backend = {
         let table = routes.load();
-        table.get(&host).map(|e| e.backend_addr.clone())
+        table.get(&host).and_then(|e| e.next_backend())
     };
 
     let Some(backend_addr) = backend else {
@@ -92,7 +90,9 @@ async fn handle(
         }
     };
 
-    tokio::spawn(async move { let _ = conn.await; });
+    tokio::spawn(async move {
+        let _ = conn.await;
+    });
 
     match sender.send_request(req).await {
         Ok(resp) => {
@@ -158,7 +158,7 @@ async fn handle_port(
     req: Request<Incoming>,
     backend: PortBackend,
 ) -> Result<Response<ProxyBody>, std::convert::Infallible> {
-    let Some(backend_addr) = (**backend.load()).clone() else {
+    let Some(backend_addr) = (**backend.load()).as_ref().and_then(|b| b.next()) else {
         return Ok(status_response(StatusCode::SERVICE_UNAVAILABLE));
     };
 
@@ -178,7 +178,9 @@ async fn handle_port(
             return Ok(status_response(StatusCode::BAD_GATEWAY));
         }
     };
-    tokio::spawn(async move { let _ = conn.await; });
+    tokio::spawn(async move {
+        let _ = conn.await;
+    });
 
     match sender.send_request(req).await {
         Ok(resp) => {

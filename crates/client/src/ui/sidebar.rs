@@ -1,10 +1,10 @@
 use crate::app::{App, Focus, SidebarItem};
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, ListState},
-    Frame,
 };
 
 pub fn render(f: &mut Frame, app: &App, area: Rect) {
@@ -40,7 +40,10 @@ pub fn render(f: &mut Frame, app: &App, area: Rect) {
     items.push(make_header("PROJECTS"));
 
     let selected = focused && sel_idx == app.sidebar_cursor;
-    items.push(make_item(SidebarItem::NewProject.label(&app.projects), selected));
+    items.push(make_item(
+        SidebarItem::NewProject.label(&app.projects),
+        selected,
+    ));
     sel_idx += 1;
 
     for i in 0..app.projects.len() {
@@ -54,7 +57,10 @@ pub fn render(f: &mut Frame, app: &App, area: Rect) {
         };
 
         let style = if selected {
-            Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Cyan)
+                .add_modifier(Modifier::BOLD)
         } else if is_active {
             Style::default().fg(Color::Cyan)
         } else {
@@ -89,10 +95,14 @@ pub fn render(f: &mut Frame, app: &App, area: Rect) {
     // ACCOUNT
     items.push(make_blank());
     let selected = focused && sel_idx == app.sidebar_cursor;
-    items.push(make_item(SidebarItem::Account.label(&app.projects), selected));
+    items.push(make_item(
+        SidebarItem::Account.label(&app.projects),
+        selected,
+    ));
 
-    let sidebar_block =
-        Block::default().borders(Borders::RIGHT).border_style(border_style);
+    let sidebar_block = Block::default()
+        .borders(Borders::RIGHT)
+        .border_style(border_style);
     let list = List::new(items).block(sidebar_block);
 
     let mut state = ListState::default();
@@ -106,13 +116,18 @@ pub fn render(f: &mut Frame, app: &App, area: Rect) {
 fn make_header(label: &str) -> ListItem<'static> {
     ListItem::new(Line::from(Span::styled(
         label.to_string(),
-        Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
     )))
 }
 
 fn make_item(label: String, selected: bool) -> ListItem<'static> {
     let style = if selected {
-        Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::Cyan)
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(Color::White)
     };

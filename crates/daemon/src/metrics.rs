@@ -31,14 +31,7 @@ pub async fn collect_loop(
                 continue;
             };
 
-            match collect_container_metrics(
-                &docker,
-                container_id,
-                &svc.id,
-                &mut prev_cpu,
-            )
-            .await
-            {
+            match collect_container_metrics(&docker, container_id, &svc.id, &mut prev_cpu).await {
                 Ok(metrics) => bus.publish(Event::ContainerMetrics(metrics)),
                 Err(e) => warn!(
                     service = svc.spec.name,
@@ -61,7 +54,10 @@ async fn collect_container_metrics(
 
     let mut stream = docker.stats(
         container_id,
-        Some(StatsOptions { stream: false, one_shot: true }),
+        Some(StatsOptions {
+            stream: false,
+            one_shot: true,
+        }),
     );
 
     let stats = stream
@@ -73,12 +69,7 @@ async fn collect_container_metrics(
         .cpu_stats
         .cpu_usage
         .total_usage
-        .saturating_sub(
-            stats
-                .precpu_stats
-                .cpu_usage
-                .total_usage,
-        );
+        .saturating_sub(stats.precpu_stats.cpu_usage.total_usage);
     let system_delta = stats
         .cpu_stats
         .system_cpu_usage

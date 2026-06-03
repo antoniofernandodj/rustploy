@@ -3,18 +3,20 @@ mod db;
 mod deploy;
 mod docker;
 mod event_bus;
+mod health;
 mod ingress;
 mod logs;
 mod metrics;
 mod secrets;
+mod watchdog;
 
 use mimalloc::MiMalloc;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
-use api::AppState;
 use anyhow::Result;
+use api::AppState;
 use event_bus::EventBus;
 use ingress::IngressController;
 use shared::{Event, RustployConfig};
@@ -50,7 +52,6 @@ async fn main() -> Result<()> {
 
     let bus = Arc::new(EventBus::new());
     let ingress = Arc::new(IngressController::new());
-
 
     let master_key = resolve_master_key_path(&config.secrets.master_key_path);
     let secrets = Arc::new(secrets::SecretsManager::new(&master_key)?);
@@ -92,7 +93,43 @@ async fn main() -> Result<()> {
         version: env!("CARGO_PKG_VERSION").to_string(),
     });
 
-    let state = AppState::new(db, docker, ingress, bus, secrets, db_path, config.deploy.drain_secs);
+    let state = AppState::new(
+        db,
+        docker,
+        ingress.clone(),
+        bus,
+        secrets,
+        db_path,
+        config.deploy.drain_secs,
+        config.daemon.webhook_port,
+    );
+
+    // Watchdog: detecta containers parados/removidos, tenta restart e redeploy
+    {
+        let state2 = state.clone();
+        tokio::spawn(async move {
+            watchdog::watchdog_loop(state2).await;
+        });
+    }
+
+    // Ingress Proxy: roteamento de domínios e portas
+    {
+        let routes = ingress.table_handle();
+        let http_port = config.ingress.http_port;
+        let https_port = config.ingress.https_port;
+        tokio::spawn(async move {
+            ingress::proxy::start_proxy(routes, http_port, https_port).await;
+        });
+    }
+
+    // Servidor HTTP para receber webhooks de CI/CD
+    {
+        let state2 = state.clone();
+        let webhook_port = config.daemon.webhook_port;
+        tokio::spawn(async move {
+            api::webhook_server::run(state2, webhook_port).await;
+        });
+    }
 
     // Bind UDS — try configured path, fall back to ~/.local/share/rustploy/
     let socket_path = resolve_socket_path(&config.daemon.socket_path);
@@ -128,14 +165,19 @@ async fn main() -> Result<()> {
 }
 
 fn init_logging(level: &str) {
-    let filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(level));
-    tracing_subscriber::fmt().with_env_filter(filter).json().init();
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(level));
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .json()
+        .init();
 }
 
 fn fallback_dir() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
-    PathBuf::from(home).join(".local").join("share").join("rustploy")
+    PathBuf::from(home)
+        .join(".local")
+        .join("share")
+        .join("rustploy")
 }
 
 /// Tries to prepare `configured` for use as a Unix socket path.

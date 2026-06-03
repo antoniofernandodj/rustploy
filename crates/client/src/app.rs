@@ -1,8 +1,8 @@
 pub use crate::models::*;
 
 use shared::{
-    Command, ContainerMetricsPoint, Deployment, DeploymentSummary, DeployState, Event, Project,
-    Response, Service, ServiceStatus,
+    Command, ContainerMetricsPoint, DeployEngineSummary, DeployState, Deployment,
+    DeploymentSummary, Event, Project, Response, Service, ServiceStatus,
 };
 use std::collections::{HashMap, VecDeque};
 
@@ -12,7 +12,8 @@ pub struct App {
     pub view: View,
 
     pub projects: Vec<Project>,
-    pub services: Vec<Service>,
+    pub services:
+ Vec<Service>,
     pub active_project_id: Option<String>,
     pub active_service_id: Option<String>,
 
@@ -34,6 +35,7 @@ pub struct App {
     pub domains_tab: DomainsTabState,
     pub advanced_tab: AdvancedTabState,
     pub env_tab: EnvTabState,
+    pub compose_tab: ComposeTabState,
     pub deployment_cursor: usize,
     pub build_log_scroll: usize, // offset from top; usize::MAX = follow tail
     pub log_cursor: usize,
@@ -53,6 +55,13 @@ pub struct App {
     pub last_deployment: Option<Deployment>,
 
     pub pending_commands: Vec<PendingCommand>,
+
+    pub log_refresh_ticks: u32,
+    pub deploy_engine_refresh_ticks: u32,
+    pub deploy_engine: Option<DeployEngineSummary>,
+
+    pub webhook_url: Option<String>,
+    pub server_settings: ServerSettingsState,
 }
 
 impl App {
@@ -63,7 +72,8 @@ impl App {
             view: View::HomeDeployments,
 
             projects: vec![],
-            services: vec![],
+            services:
+ vec![],
             active_project_id: None,
             active_service_id: None,
 
@@ -85,6 +95,7 @@ impl App {
             domains_tab: DomainsTabState::default(),
             advanced_tab: AdvancedTabState::default(),
             env_tab: EnvTabState::default(),
+            compose_tab: ComposeTabState::default(),
             deployment_cursor: 0,
             build_log_scroll: usize::MAX,
             log_cursor: 0,
@@ -102,6 +113,13 @@ impl App {
             last_deployment: None,
 
             pending_commands: vec![],
+
+            log_refresh_ticks: 0,
+            deploy_engine_refresh_ticks: 0,
+            deploy_engine: None,
+
+            webhook_url: None,
+            server_settings: ServerSettingsState::default(),
         }
     }
 
@@ -137,7 +155,9 @@ impl App {
     }
 
     pub fn current_sidebar_item(&self) -> Option<SidebarItem> {
-        self.selectable_sidebar_items().into_iter().nth(self.sidebar_cursor)
+        self.selectable_sidebar_items()
+            .into_iter()
+            .nth(self.sidebar_cursor)
     }
 
     pub fn sidebar_move_up(&mut self) {
@@ -192,6 +212,26 @@ impl App {
                 }
                 self.focus = Focus::Content;
             }
+            SidebarItem::HomeDeployEngine => {
+                self.view = View::HomeDeployEngine;
+                self.focus = Focus::Content;
+                self.deploy_engine = None;
+                self.deploy_engine_refresh_ticks = 0;
+                self.pending_commands.push(PendingCommand {
+                    command: Command::DeployEngineStatus,
+                    context: CmdContext::LoadDeployEngine,
+                });
+            }
+            SidebarItem::SettingsWebServer => {
+                self.view = View::SettingsWebServer;
+                self.focus = Focus::Content;
+                if !self.server_settings.loaded {
+                    self.pending_commands.push(PendingCommand {
+                        command: Command::GetDaemonSettings,
+                        context: CmdContext::LoadServerSettings,
+                    });
+                }
+            }
             other => {
                 if let Some(view) = other.to_view() {
                     self.view = view;
@@ -206,12 +246,17 @@ impl App {
             self.services.iter().collect()
         } else {
             let f = self.service_filter.to_lowercase();
-            self.services.iter().filter(|s| s.spec.name.to_lowercase().contains(&f)).collect()
+            self.services
+                .iter()
+                .filter(|s| s.spec.name.to_lowercase().contains(&f))
+                .collect()
         }
     }
 
     pub fn current_service(&self) -> Option<&Service> {
-        self.filtered_services().into_iter().nth(self.service_cursor)
+        self.filtered_services()
+            .into_iter()
+            .nth(self.service_cursor)
     }
 
     pub fn current_project(&self) -> Option<&Project> {
@@ -232,6 +277,11 @@ impl App {
         self.domains_tab = DomainsTabState::from_service(svc);
         self.advanced_tab = AdvancedTabState::from_service(svc);
         self.env_tab = EnvTabState::default();
+        self.compose_tab = if let shared::ServiceSource::Compose(c) = &svc.spec.source {
+            ComposeTabState::new(&c.content)
+        } else {
+            ComposeTabState::default()
+        };
         self.deployment_cursor = 0;
         self.build_log_scroll = usize::MAX;
         self.log_cursor = 0;
@@ -239,13 +289,31 @@ impl App {
         self.view = View::ServiceDetail;
         self.focus = Focus::Content;
         self.pending_commands.push(PendingCommand {
-            command: Command::DeployHistory { service_id: svc.id.clone(), limit: 10 },
+            command: Command::DeployHistory {
+                service_id: svc.id.clone(),
+                limit: 10,
+            },
             context: CmdContext::LoadDeployments,
         });
         self.pending_commands.push(PendingCommand {
-            command: Command::LogsGet { service_id: svc.id.clone(), tail: 500 },
+            command: Command::LogsGet {
+                service_id: svc.id.clone(),
+                tail: 500,
+            },
             context: CmdContext::LoadLogs,
         });
+        // Busca webhook URL somente para serviços Application (não Compose)
+        if !matches!(svc.spec.source, shared::ServiceSource::Compose(_)) {
+            self.webhook_url = None;
+            self.pending_commands.push(PendingCommand {
+                command: Command::GetWebhookUrl {
+                    service_id: svc.id.clone(),
+                },
+                context: CmdContext::LoadWebhookUrl,
+            });
+        } else {
+            self.webhook_url = None;
+        }
     }
 
     pub fn set_notification(&mut self, msg: impl Into<String>, is_error: bool) {
@@ -262,76 +330,158 @@ impl App {
                 self.notification = None;
             }
         }
+
+        // Auto-refresh logs a cada ~5s enquanto a aba Logs estiver ativa
+        if self.service_tab == ServiceTab::Logs {
+            self.log_refresh_ticks += 1;
+            if self.log_refresh_ticks >= 50 {
+                self.log_refresh_ticks = 0;
+                if let Some(sid) = self.active_service_id.clone() {
+                    self.pending_commands.push(PendingCommand {
+                        command: Command::LogsGet {
+                            service_id: sid,
+                            tail: 500,
+                        },
+                        context: CmdContext::LoadLogs,
+                    });
+                }
+            }
+        } else {
+            self.log_refresh_ticks = 0;
+        }
+
+        // Auto-refresh Deploy Engine a cada ~5s
+        if self.view == View::HomeDeployEngine {
+            self.deploy_engine_refresh_ticks += 1;
+            if self.deploy_engine_refresh_ticks >= 50 {
+                self.deploy_engine_refresh_ticks = 0;
+                self.pending_commands.push(PendingCommand {
+                    command: Command::DeployEngineStatus,
+                    context: CmdContext::LoadDeployEngine,
+                });
+            }
+        } else {
+            self.deploy_engine_refresh_ticks = 0;
+        }
     }
 
     pub fn apply_event(&mut self, event: Event) {
         match event {
             Event::ServiceStatusChanged { service_id, status } => {
                 if let Some(svc) = self.services.iter_mut().find(|s| s.id == service_id) {
-                    svc.status = status;
+                    svc.status = status.clone();
+                }
+                // Quando o serviço fica Running e está aberto, recarrega logs automaticamente
+                if matches!(status, ServiceStatus::Running)
+                    && self.active_service_id.as_deref() == Some(&service_id)
+                {
+                    self.logs.remove(&service_id);
+                    self.pending_commands.push(PendingCommand {
+                        command: Command::LogsGet {
+                            service_id,
+                            tail: 500,
+                        },
+                        context: CmdContext::LoadLogs,
+                    });
                 }
             }
 
-            Event::DeployStateChanged { deployment_id, service_id, state, message, .. } => {
+            Event::DeployStateChanged {
+                deployment_id,
+                service_id,
+                state,
+                message,
+                ..
+            } => {
                 if matches!(state, DeployState::RollingBack) {
                     let reason = message.as_deref().unwrap_or("motivo desconhecido");
                     self.set_notification(format!("Deploy falhou: {reason}"), true);
                 }
 
                 // Atualiza na home de deployments se estiver carregada.
-                if let Some(s) = self.home_deployments.iter_mut().find(|s| s.deployment.id == deployment_id) {
+                if let Some(s) = self
+                    .home_deployments
+                    .iter_mut()
+                    .find(|s| s.deployment.id == deployment_id)
+                {
                     s.deployment.state = state.clone();
                 }
 
-                if let Some(dep) =
-                    self.service_deployments.iter_mut().find(|d| d.id == deployment_id)
+                if let Some(dep) = self
+                    .service_deployments
+                    .iter_mut()
+                    .find(|d| d.id == deployment_id)
                 {
                     dep.state = state.clone();
                 } else if self.active_service_id.as_deref() == Some(&service_id) {
                     // Evento chegou antes de Response::Deployment — insere placeholder
                     // que será sobrescrito quando a resposta RPC chegar.
-                    self.service_deployments.insert(0, Deployment {
-                        id: deployment_id.clone(),
-                        service_id: service_id.clone(),
-                        image: String::new(),
-                        state: state.clone(),
-                        states_log: vec![],
-                        started_at: chrono::Utc::now(),
-                        finished_at: None,
-                    });
+                    self.service_deployments.insert(
+                        0,
+                        Deployment {
+                            id: deployment_id.clone(),
+                            service_id: service_id.clone(),
+                            image: String::new(),
+                            state: state.clone(),
+                            states_log: vec![],
+                            started_at: chrono::Utc::now(),
+                            finished_at: None,
+                        },
+                    );
                 }
 
-                let entry = self.deploy_progress.entry(deployment_id.clone()).or_insert_with(
-                    || DeployProgressState {
+                let entry = self
+                    .deploy_progress
+                    .entry(deployment_id.clone())
+                    .or_insert_with(|| DeployProgressState {
                         deployment_id: deployment_id.clone(),
                         service_id: service_id.clone(),
                         current_state: state.clone(),
                         percent: 0,
                         description: String::new(),
                         states_seen: vec![],
-                    },
-                );
+                    });
                 entry.states_seen.push(entry.current_state.clone());
                 entry.current_state = state;
-                entry.percent = state_to_percent(&entry.current_state);
+                entry.percent = entry.current_state.to_percent();
             }
 
-            Event::DeployProgress { deployment_id, percent, description, .. } => {
+            Event::DeployProgress {
+                deployment_id,
+                percent,
+                description,
+                ..
+            } => {
                 if let Some(p) = self.deploy_progress.get_mut(&deployment_id) {
                     p.percent = percent;
                     p.description = description;
                 }
             }
 
-            Event::BuildLog { deployment_id, line, timestamp, .. } => {
+            Event::BuildLog {
+                deployment_id,
+                line,
+                timestamp,
+                ..
+            } => {
                 let buf = self.build_logs.entry(deployment_id).or_default();
                 if buf.len() >= MAX_LOG_LINES {
                     buf.pop_front();
                 }
-                buf.push_back(LogLine { timestamp, text: line, is_stderr: false });
+                buf.push_back(LogLine {
+                    timestamp,
+                    text: line,
+                    is_stderr: false,
+                });
             }
 
-            Event::LogLine { service_id, stream, line, timestamp, .. } => {
+            Event::LogLine {
+                service_id,
+                stream,
+                line,
+                timestamp,
+                ..
+            } => {
                 let buf = self.logs.entry(service_id).or_default();
                 if buf.len() >= MAX_LOG_LINES {
                     buf.pop_front();
@@ -393,6 +543,9 @@ impl App {
                     self.healthcheck_tab = HealthcheckTabState::from_service(&s);
                     self.domains_tab = DomainsTabState::from_service(&s);
                     self.advanced_tab = AdvancedTabState::from_service(&s);
+                    if let shared::ServiceSource::Compose(c) = &s.spec.source {
+                        self.compose_tab = ComposeTabState::new(&c.content);
+                    }
                 }
                 self.set_notification("Serviço atualizado", false);
             }
@@ -406,18 +559,20 @@ impl App {
                 }
                 self.set_notification("Projeto removido", false);
             }
-            (Response::Ok, CmdContext::DeleteService) => {
-                if let Some(sid) = &self.active_service_id.clone() {
-                    self.services.retain(|s| &s.id != sid);
+            (Response::Ok, CmdContext::DeleteService(sid)) => {
+                self.services.retain(|s| s.id != sid);
+                if self.active_service_id.as_deref() == Some(&sid) {
                     self.active_service_id = None;
-                    self.view = View::ProjectDetail;
                 }
+                self.view = View::ProjectDetail;
                 self.set_notification("Serviço removido", false);
             }
             (Response::Deployments(deps), CmdContext::LoadDeployments) => {
                 if let Some(first) = deps.first() {
                     self.pending_commands.push(PendingCommand {
-                        command: Command::GetBuildLogs { deployment_id: first.id.clone() },
+                        command: Command::GetBuildLogs {
+                            deployment_id: first.id.clone(),
+                        },
                         context: CmdContext::LoadBuildLogs,
                     });
                 }
@@ -429,25 +584,35 @@ impl App {
             (Response::BuildLogs(entries), CmdContext::LoadBuildLogs) => {
                 // deposit into whichever deployment is currently selected
                 if let Some(dep) = self.service_deployments.get(
-                    self.deployment_cursor.min(self.service_deployments.len().saturating_sub(1))
+                    self.deployment_cursor
+                        .min(self.service_deployments.len().saturating_sub(1)),
                 ) {
                     let buf = self.build_logs.entry(dep.id.clone()).or_default();
-                    buf.clear();
-                    for e in entries {
-                        buf.push_back(LogLine { timestamp: e.timestamp, text: e.line, is_stderr: false });
-                    }
-                }
-            }
-            (Response::Logs(entries), CmdContext::LoadLogs) => {
-                if let Some(sid) = &self.active_service_id.clone() {
-                    let buf = self.logs.entry(sid.clone()).or_default();
                     buf.clear();
                     for e in entries {
                         buf.push_back(LogLine {
                             timestamp: e.timestamp,
                             text: e.line,
-                            is_stderr: e.stream == shared::protocol::LogStream::Stderr,
+                            is_stderr: false,
                         });
+                    }
+                }
+            }
+            (Response::Logs(entries), CmdContext::LoadLogs) => {
+                if let Some(sid) = &self.active_service_id.clone() {
+                    // Só substitui o buffer se Docker retornou linhas.
+                    // Se vier vazio (ex: stdout buffered), mantém os logs
+                    // acumulados via Event::LogLine para não perder histórico.
+                    if !entries.is_empty() {
+                        let buf = self.logs.entry(sid.clone()).or_default();
+                        buf.clear();
+                        for e in entries {
+                            buf.push_back(LogLine {
+                                timestamp: e.timestamp,
+                                text: e.line,
+                                is_stderr: e.stream == shared::protocol::LogStream::Stderr,
+                            });
+                        }
                     }
                 }
             }
@@ -496,8 +661,16 @@ impl App {
                     .and_then(|s| self.projects.iter().find(|p| p.id == s.spec.project_id))
                     .map(|p| p.name.clone())
                     .unwrap_or_default();
-                let summary = DeploymentSummary { deployment: dep.clone(), service_name, project_name };
-                if let Some(pos) = self.home_deployments.iter().position(|s| s.deployment.id == dep.id) {
+                let summary = DeploymentSummary {
+                    deployment: dep.clone(),
+                    service_name,
+                    project_name,
+                };
+                if let Some(pos) = self
+                    .home_deployments
+                    .iter()
+                    .position(|s| s.deployment.id == dep.id)
+                {
                     self.home_deployments[pos] = summary;
                 } else {
                     self.home_deployments.insert(0, summary);
@@ -507,6 +680,31 @@ impl App {
             }
             (Response::Ok, CmdContext::Deploy) => {
                 self.set_notification("Deploy iniciado", false);
+            }
+            (Response::WebhookUrl(url), CmdContext::LoadWebhookUrl) => {
+                self.webhook_url = url;
+            }
+            (Response::WebhookUrl(url), CmdContext::RegenerateWebhook) => {
+                self.webhook_url = url;
+                self.set_notification("Token de webhook regenerado", false);
+            }
+            (Response::DaemonSettings { webhook_base_url }, CmdContext::LoadServerSettings) => {
+                self.server_settings.server_domain = webhook_base_url.unwrap_or_default();
+                self.server_settings.loaded = true;
+            }
+            (Response::Ok, CmdContext::SaveServerSettings) => {
+                self.server_settings.loaded = false; // força reload na próxima visita
+                self.set_notification("Domínio do servidor salvo", false);
+                // Recarrega a URL do webhook do serviço atual, se houver
+                if let Some(sid) = self.active_service_id.clone() {
+                    self.pending_commands.push(PendingCommand {
+                        command: Command::GetWebhookUrl { service_id: sid },
+                        context: CmdContext::LoadWebhookUrl,
+                    });
+                }
+            }
+            (Response::DeployEngineStatus(summary), CmdContext::LoadDeployEngine) => {
+                self.deploy_engine = Some(summary);
             }
             (Response::Err { message, .. }, _) => {
                 self.set_notification(message, true);
@@ -518,23 +716,35 @@ impl App {
     pub fn can_quit(&self) -> bool {
         self.focus == Focus::Sidebar && !self.creating_project && self.new_service.is_none()
     }
-}
 
-fn state_to_percent(state: &DeployState) -> u8 {
-    match state {
-        DeployState::Pending => 5,
-        DeployState::ResolvingDeps => 10,
-        DeployState::PullingImage => 30,
-        DeployState::CloningRepo => 20,
-        DeployState::BuildingImage => 50,
-        DeployState::Staging => 65,
-        DeployState::HealthcheckPolling => 75,
-        DeployState::SwappingIn => 85,
-        DeployState::Draining => 90,
-        DeployState::Promoting => 95,
-        DeployState::Live => 100,
-        DeployState::Stopped => 100,
-        DeployState::RollingBack | DeployState::Failed => 0,
-        DeployState::Pruning => 100,
+    pub fn visible_service_tabs(&self) -> &'static [ServiceTab] {
+        let is_db = self
+            .current_active_service()
+            .map(|s| DbKind::detect_from_env(&s.spec.env_vars).is_some())
+            .unwrap_or(false);
+        if is_db {
+            ServiceTab::all_with_connection()
+        } else {
+            ServiceTab::all()
+        }
+    }
+
+    pub fn next_service_tab(&self) -> ServiceTab {
+        let tabs = self.visible_service_tabs();
+        let idx = tabs
+            .iter()
+            .position(|t| t == &self.service_tab)
+            .unwrap_or(0);
+        tabs[(idx + 1) % tabs.len()].clone()
+    }
+
+    pub fn prev_service_tab(&self) -> ServiceTab {
+        let tabs = self.visible_service_tabs();
+        let idx = tabs
+            .iter()
+            .position(|t| t == &self.service_tab)
+            .unwrap_or(0);
+        let prev = if idx == 0 { tabs.len() - 1 } else { idx - 1 };
+        tabs[prev].clone()
     }
 }

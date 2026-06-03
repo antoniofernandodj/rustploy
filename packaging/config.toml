@@ -1,0 +1,29 @@
+[daemon]
+socket_path  = "/run/rustploy/rustploy.sock"
+db_path      = "/var/lib/rustploy/db"
+log_level    = "info"
+webhook_port = 9001
+
+[ingress]
+http_port    = 80
+https_port   = 443
+bind_address = "0.0.0.0"
+
+[ingress.acme]
+enabled   = false
+email     = ""               # set your email to enable ACME/TLS
+directory = "https://acme-v02.api.letsencrypt.org/directory"
+
+[docker]
+socket_path = "/var/run/docker.sock"
+
+[deploy]
+drain_secs  = 10
+image_cache = 2
+
+[metrics]
+interval_secs  = 2
+history_points = 60
+
+[secrets]
+master_key_path = "/etc/rustploy/master.key"

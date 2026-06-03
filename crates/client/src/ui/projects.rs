@@ -1,10 +1,10 @@
 use crate::app::{App, EnvEditField, Focus, ProjectDetailTab};
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
-    Frame,
 };
 use shared::ServiceStatus;
 
@@ -31,14 +31,18 @@ pub fn render_project_detail(f: &mut Frame, app: &App, area: Rect) {
     let mut tab_spans = vec![
         Span::styled(
             format!(" {project_name} "),
-            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
         ),
         Span::styled("  ", Style::default()),
     ];
     for tab in &tabs {
         let active = *tab == app.project_detail_tab;
         let style = if active {
-            Style::default().fg(Color::White).add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
         } else {
             Style::default().fg(Color::DarkGray)
         };
@@ -74,9 +78,10 @@ fn render_services_tab(f: &mut Frame, app: &App, area: Rect) {
         .split(area);
 
     if !filter_display.is_empty() {
-        let filter_p = Paragraph::new(Line::from(
-            Span::styled(filter_display, Style::default().fg(Color::Yellow)),
-        ));
+        let filter_p = Paragraph::new(Line::from(Span::styled(
+            filter_display,
+            Style::default().fg(Color::Yellow),
+        )));
         f.render_widget(filter_p, hint_chunks[0]);
     }
 
@@ -89,20 +94,20 @@ fn render_services_tab(f: &mut Frame, app: &App, area: Rect) {
         .map(|(i, svc)| {
             let selected = focused && i == app.service_cursor;
             let status_color = match &svc.status {
-                ServiceStatus::Running   => Color::Green,
-                ServiceStatus::Stopping  => Color::Yellow,
-                ServiceStatus::Stopped   => Color::DarkGray,
+                ServiceStatus::Running => Color::Green,
+                ServiceStatus::Stopping => Color::Yellow,
+                ServiceStatus::Stopped => Color::DarkGray,
                 ServiceStatus::Deploying => Color::Yellow,
-                ServiceStatus::Degraded  => Color::Magenta,
-                ServiceStatus::Error(_)  => Color::Red,
+                ServiceStatus::Degraded => Color::Magenta,
+                ServiceStatus::Error(_) => Color::Red,
             };
             let status_label = match &svc.status {
-                ServiceStatus::Running   => "RUNNING",
-                ServiceStatus::Stopping  => "STOPPING",
-                ServiceStatus::Stopped   => "STOPPED",
+                ServiceStatus::Running => "RUNNING",
+                ServiceStatus::Stopping => "STOPPING",
+                ServiceStatus::Stopped => "STOPPED",
                 ServiceStatus::Deploying => "DEPLOYING",
-                ServiceStatus::Degraded  => "DEGRADED",
-                ServiceStatus::Error(_)  => "ERROR",
+                ServiceStatus::Degraded => "DEGRADED",
+                ServiceStatus::Error(_) => "ERROR",
             };
 
             let metrics_str = app
@@ -119,7 +124,10 @@ fn render_services_tab(f: &mut Frame, app: &App, area: Rect) {
                 .unwrap_or_default();
 
             let name_style = if selected {
-                Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Black)
+                    .bg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::White)
             };
@@ -137,7 +145,10 @@ fn render_services_tab(f: &mut Frame, app: &App, area: Rect) {
 
     let list_block = Block::default().borders(Borders::NONE);
     let list = List::new(items).block(list_block).highlight_style(
-        Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD),
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::Cyan)
+            .add_modifier(Modifier::BOLD),
     );
 
     let mut state = ListState::default();
@@ -194,21 +205,29 @@ pub fn render_project_env_tab(f: &mut Frame, app: &App, area: Rect) {
             .iter()
             .enumerate()
             .map(|(i, ev)| {
-                let selected =
-                    !app.project_env_tab.editing && i == app.project_env_tab.cursor;
+                let selected = !app.project_env_tab.editing && i == app.project_env_tab.cursor;
                 let val_display = match &ev.value {
                     shared::EnvVarValue::Plain(v) => v.clone(),
                     shared::EnvVarValue::Secret(s) => format!("<secret:{s}>"),
                 };
                 let style = if selected {
-                    Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
+                    Style::default()
+                        .fg(Color::Black)
+                        .bg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default()
                 };
                 ListItem::new(Line::from(vec![
-                    Span::styled(format!(" {:<24}", ev.key), style.fg(if selected { Color::Black } else { Color::Cyan })),
+                    Span::styled(
+                        format!(" {:<24}", ev.key),
+                        style.fg(if selected { Color::Black } else { Color::Cyan }),
+                    ),
                     Span::styled(" = ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(val_display, style.fg(if selected { Color::Black } else { Color::White })),
+                    Span::styled(
+                        val_display,
+                        style.fg(if selected { Color::Black } else { Color::White }),
+                    ),
                 ]))
             })
             .collect();
@@ -218,7 +237,10 @@ pub fn render_project_env_tab(f: &mut Frame, app: &App, area: Rect) {
             list_state.select(Some(app.project_env_tab.cursor));
         }
         let list = List::new(items).highlight_style(
-            Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
         );
         f.render_stateful_widget(list, chunks[0], &mut list_state);
     }
@@ -233,23 +255,41 @@ pub fn render_project_env_tab(f: &mut Frame, app: &App, area: Rect) {
         f.render_widget(form_block, chunks[1]);
 
         let key_style = if app.project_env_tab.edit_field == EnvEditField::Key {
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::White)
         };
         let val_style = if app.project_env_tab.edit_field == EnvEditField::Value {
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::White)
         };
 
-        let cursor_k = if app.project_env_tab.edit_field == EnvEditField::Key { "▌" } else { "" };
-        let cursor_v = if app.project_env_tab.edit_field == EnvEditField::Value { "▌" } else { "" };
+        let cursor_k = if app.project_env_tab.edit_field == EnvEditField::Key {
+            "▌"
+        } else {
+            ""
+        };
+        let cursor_v = if app.project_env_tab.edit_field == EnvEditField::Value {
+            "▌"
+        } else {
+            ""
+        };
 
         let form_line = Line::from(vec![
-            Span::styled(format!(" KEY: {}{}", app.project_env_tab.edit_key, cursor_k), key_style),
+            Span::styled(
+                format!(" KEY: {}{}", app.project_env_tab.edit_key, cursor_k),
+                key_style,
+            ),
             Span::raw("   "),
-            Span::styled(format!("VALUE: {}{}", app.project_env_tab.edit_value, cursor_v), val_style),
+            Span::styled(
+                format!("VALUE: {}{}", app.project_env_tab.edit_value, cursor_v),
+                val_style,
+            ),
         ]);
         f.render_widget(Paragraph::new(form_line), form_inner);
     } else {

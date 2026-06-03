@@ -1,11 +1,11 @@
 use crate::app::App;
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     symbols,
     text::{Line, Span},
     widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph},
-    Frame,
 };
 
 /// Global monitoring view — shown in Home > Monitoring.
@@ -71,8 +71,8 @@ pub fn render_service_charts(
         ])
         .split(area);
 
-    let title_line = Paragraph::new(format!(" Métricas: {svc_name}"))
-        .style(Style::default().fg(Color::Cyan));
+    let title_line =
+        Paragraph::new(format!(" Métricas: {svc_name}")).style(Style::default().fg(Color::Cyan));
     f.render_widget(title_line, chunks[0]);
 
     let metrics: Vec<_> = app
@@ -108,10 +108,7 @@ pub fn render_service_charts(
             Axis::default()
                 .style(Style::default().fg(Color::DarkGray))
                 .bounds([0.0, cpu_max])
-                .labels(vec![
-                    Span::raw("0%"),
-                    Span::raw(format!("{cpu_max:.0}%")),
-                ]),
+                .labels(vec![Span::raw("0%"), Span::raw(format!("{cpu_max:.0}%"))]),
         );
     f.render_widget(cpu_chart, chunks[1]);
 
@@ -140,10 +137,7 @@ pub fn render_service_charts(
             Axis::default()
                 .style(Style::default().fg(Color::DarkGray))
                 .bounds([0.0, mem_max])
-                .labels(vec![
-                    Span::raw("0"),
-                    Span::raw(format!("{mem_max:.0}M")),
-                ]),
+                .labels(vec![Span::raw("0"), Span::raw(format!("{mem_max:.0}M"))]),
         );
     f.render_widget(mem_chart, chunks[2]);
 }

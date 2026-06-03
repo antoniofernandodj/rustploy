@@ -14,42 +14,101 @@ pub enum ClientFrame {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Command {
     // Projects
-    ProjectCreate { name: String, description: Option<String> },
-    ProjectDelete { id: String },
+    ProjectCreate {
+        name: String,
+        description: Option<String>,
+    },
+    ProjectDelete {
+        id: String,
+    },
     ProjectList,
-    ProjectEnvSet { project_id: String, env_vars: Vec<EnvVar> },
+    ProjectEnvSet {
+        project_id: String,
+        env_vars: Vec<EnvVar>,
+    },
 
     // Services
     ServiceCreate(ServiceSpec),
-    ServiceUpdate { id: String, spec: ServiceSpec },
-    ServiceDelete { id: String },
-    ServiceList { project_id: String },
-    ServiceGet { id: String },
+    ServiceUpdate {
+        id: String,
+        spec: ServiceSpec,
+    },
+    ServiceDelete {
+        id: String,
+    },
+    ServiceList {
+        project_id: String,
+    },
+    ServiceGet {
+        id: String,
+    },
 
     // Deployments
-    DeployStart { service_id: String },
-    DeployAbort { deployment_id: String },
-    DeployRollback { service_id: String },
-    DeployHistory { service_id: String, limit: usize },
+    DeployStart {
+        service_id: String,
+    },
+    DeployAbort {
+        deployment_id: String,
+    },
+    DeployRollback {
+        service_id: String,
+    },
+    DeployHistory {
+        service_id: String,
+        limit: usize,
+    },
 
     // Service lifecycle
-    ServiceStop { service_id: String },
-    ServiceReload { service_id: String },
+    ServiceStop {
+        service_id: String,
+    },
+    ServiceReload {
+        service_id: String,
+    },
 
     // Global views
-    RecentDeployments { limit: usize },
-    GetBuildLogs { deployment_id: String },
+    RecentDeployments {
+        limit: usize,
+    },
+    GetBuildLogs {
+        deployment_id: String,
+    },
 
     // Observability
-    LogsGet { service_id: String, tail: usize },
-    LogsSubscribe { service_id: String, tail: usize },
-    LogsUnsubscribe { service_id: String },
-    MetricsSubscribe { service_id: String },
-    MetricsUnsubscribe { service_id: String },
+    LogsGet {
+        service_id: String,
+        tail: usize,
+    },
+    LogsSubscribe {
+        service_id: String,
+        tail: usize,
+    },
+    LogsUnsubscribe {
+        service_id: String,
+    },
+    MetricsSubscribe {
+        service_id: String,
+    },
+    MetricsUnsubscribe {
+        service_id: String,
+    },
+
+    // Webhooks
+    GetWebhookUrl {
+        service_id: String,
+    },
+    RegenerateWebhookToken {
+        service_id: String,
+    },
+    GetDaemonSettings,
+    SetDaemonSettings {
+        webhook_base_url: Option<String>,
+    },
 
     // Infrastructure
     Ping,
     DaemonStatus,
+    DeployEngineStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,19 +157,27 @@ pub enum Event {
 }
 
 impl Event {
-
     pub fn matches(&self, service_id: &str) -> bool {
         match self {
-            Event::DeployStateChanged { service_id: sid, .. } => sid == service_id,
-            Event::DeployProgress { service_id: sid, .. } => sid == service_id,
-            Event::BuildLog { service_id: sid, .. } => sid == service_id,
-            Event::LogLine { service_id: sid, .. } => sid == service_id,
+            Event::DeployStateChanged {
+                service_id: sid, ..
+            } => sid == service_id,
+            Event::DeployProgress {
+                service_id: sid, ..
+            } => sid == service_id,
+            Event::BuildLog {
+                service_id: sid, ..
+            } => sid == service_id,
+            Event::LogLine {
+                service_id: sid, ..
+            } => sid == service_id,
             Event::ContainerMetrics(m) => m.service_id == service_id,
-            Event::ServiceStatusChanged { service_id: sid, .. } => sid == service_id,
+            Event::ServiceStatusChanged {
+                service_id: sid, ..
+            } => sid == service_id,
             Event::DaemonReady { .. } | Event::Error { .. } => true,
         }
     }
-
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -146,12 +213,18 @@ pub enum Response {
     BuildLogs(Vec<BuildLogLine>),
     DeploymentSummaries(Vec<DeploymentSummary>),
     DaemonStatus(DaemonStatus),
+    DeployEngineStatus(DeployEngineSummary),
     Pong { uptime_secs: u64 },
+    WebhookUrl(Option<String>),
+    DaemonSettings { webhook_base_url: Option<String> },
     Err { code: String, message: String },
 }
 
 impl Response {
     pub fn err(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self::Err { code: code.into(), message: message.into() }
+        Self::Err {
+            code: code.into(),
+            message: message.into(),
+        }
     }
 }
