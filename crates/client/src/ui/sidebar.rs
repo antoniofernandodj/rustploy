@@ -1,4 +1,4 @@
-use crate::app::{App, Focus, SidebarItem};
+use crate::app::{App, Focus, SidebarItem, View};
 use ratatui::{
     Frame,
     layout::Rect,
@@ -38,24 +38,10 @@ pub fn render(f: &mut Frame, app: &App, area: Rect) {
     // PROJECTS section
     items.push(make_blank());
     items.push(make_header("PROJECTS"));
-
-    let selected = focused && sel_idx == app.sidebar_cursor;
-    items.push(make_item(
-        SidebarItem::NewProject.label(&app.projects),
-        selected,
-    ));
-    sel_idx += 1;
-
-    for i in 0..app.projects.len() {
-        let is_active = app.active_project_id.as_deref() == Some(&app.projects[i].id);
+    {
         let selected = focused && sel_idx == app.sidebar_cursor;
-
-        let label = if is_active && !selected {
-            format!("► {}", app.projects[i].name)
-        } else {
-            format!("  {}", app.projects[i].name)
-        };
-
+        let is_active = matches!(app.view, View::Projects | View::ProjectDetail);
+        let label = SidebarItem::Projects.label(&app.projects);
         let style = if selected {
             Style::default()
                 .fg(Color::Black)
@@ -66,7 +52,6 @@ pub fn render(f: &mut Frame, app: &App, area: Rect) {
         } else {
             Style::default().fg(Color::White)
         };
-
         items.push(ListItem::new(Line::from(Span::styled(label, style))));
         sel_idx += 1;
     }
@@ -107,7 +92,7 @@ pub fn render(f: &mut Frame, app: &App, area: Rect) {
 
     let mut state = ListState::default();
     if let Some(sel_item) = selectable.get(app.sidebar_cursor) {
-        state.select(Some(compute_visual_index(app, sel_item)));
+        state.select(Some(compute_visual_index(sel_item)));
     }
 
     f.render_stateful_widget(list, area, &mut state);
@@ -138,20 +123,18 @@ fn make_blank() -> ListItem<'static> {
     ListItem::new(Line::from(""))
 }
 
-fn compute_visual_index(app: &App, target: &SidebarItem) -> usize {
-    // Layout offsets:
+fn compute_visual_index(target: &SidebarItem) -> usize {
+    // Layout offsets (fixed — no dynamic project entries):
     // 0: HOME header
     // 1-7: home items
     // 8: blank
     // 9: PROJECTS header
-    // 10: New Project
-    // 11..10+n: projects
-    // 11+n: blank
-    // 12+n: SETTINGS header
-    // 13+n..23+n: settings items (11)
-    // 24+n: blank
-    // 25+n: ACCOUNT
-    let n = app.projects.len();
+    // 10: Projects
+    // 11: blank
+    // 12: SETTINGS header
+    // 13-23: settings items (11)
+    // 24: blank
+    // 25: ACCOUNT
     match target {
         SidebarItem::HomeDeployments => 1,
         SidebarItem::HomeMonitoring => 2,
@@ -160,19 +143,18 @@ fn compute_visual_index(app: &App, target: &SidebarItem) -> usize {
         SidebarItem::HomeDocker => 5,
         SidebarItem::HomeDeployEngine => 6,
         SidebarItem::HomeRequests => 7,
-        SidebarItem::NewProject => 10,
-        SidebarItem::Project(i) => 11 + i,
-        SidebarItem::SettingsWebServer => 13 + n,
-        SidebarItem::SettingsProfile => 14 + n,
-        SidebarItem::SettingsUsers => 15 + n,
-        SidebarItem::SettingsAuditLogs => 16 + n,
-        SidebarItem::SettingsSshKeys => 17 + n,
-        SidebarItem::SettingsTags => 18 + n,
-        SidebarItem::SettingsGit => 19 + n,
-        SidebarItem::SettingsRegistry => 20 + n,
-        SidebarItem::SettingsS3 => 21 + n,
-        SidebarItem::SettingsCerts => 22 + n,
-        SidebarItem::SettingsSso => 23 + n,
-        SidebarItem::Account => 25 + n,
+        SidebarItem::Projects => 10,
+        SidebarItem::SettingsWebServer => 13,
+        SidebarItem::SettingsProfile => 14,
+        SidebarItem::SettingsUsers => 15,
+        SidebarItem::SettingsAuditLogs => 16,
+        SidebarItem::SettingsSshKeys => 17,
+        SidebarItem::SettingsTags => 18,
+        SidebarItem::SettingsGit => 19,
+        SidebarItem::SettingsRegistry => 20,
+        SidebarItem::SettingsS3 => 21,
+        SidebarItem::SettingsCerts => 22,
+        SidebarItem::SettingsSso => 23,
+        SidebarItem::Account => 25,
     }
 }

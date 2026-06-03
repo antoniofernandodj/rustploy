@@ -8,6 +8,96 @@ use ratatui::{
 };
 use shared::ServiceStatus;
 
+pub fn render_projects_list(f: &mut Frame, app: &App, area: Rect) {
+    let focused = app.focus == Focus::Content;
+
+    let outer = Block::default()
+        .borders(Borders::ALL)
+        .title(" Projects ")
+        .border_style(Style::default().fg(if focused {
+            Color::Cyan
+        } else {
+            Color::DarkGray
+        }));
+    let inner = outer.inner(area);
+    f.render_widget(outer, area);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(0), Constraint::Length(1)])
+        .split(inner);
+
+    if app.projects.is_empty() {
+        f.render_widget(
+            Paragraph::new(Span::styled(
+                "\n  Nenhum projeto criado. Pressione [n] para criar um.",
+                Style::default().fg(Color::DarkGray),
+            )),
+            chunks[0],
+        );
+    } else {
+        let items: Vec<ListItem> = app
+            .projects
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                let selected = i == app.projects_cursor;
+                let svc_count = app
+                    .services
+                    .iter()
+                    .filter(|s| s.spec.project_id == p.id)
+                    .count();
+                let desc = p
+                    .description
+                    .as_deref()
+                    .unwrap_or("sem descrição");
+                let line = Line::from(vec![
+                    Span::styled(
+                        format!("  {:<30}", p.name),
+                        Style::default()
+                            .fg(if selected { Color::Black } else { Color::White })
+                            .add_modifier(if selected { Modifier::BOLD } else { Modifier::empty() }),
+                    ),
+                    Span::styled(
+                        format!("{:<40}", desc),
+                        Style::default().fg(if selected {
+                            Color::Black
+                        } else {
+                            Color::DarkGray
+                        }),
+                    ),
+                    Span::styled(
+                        format!("  {} serviço{}", svc_count, if svc_count == 1 { "" } else { "s" }),
+                        Style::default().fg(if selected { Color::Black } else { Color::Cyan }),
+                    ),
+                ]);
+                let style = if selected {
+                    Style::default().bg(Color::Cyan)
+                } else {
+                    Style::default()
+                };
+                ListItem::new(line).style(style)
+            })
+            .collect();
+
+        let mut list_state = ListState::default();
+        list_state.select(Some(app.projects_cursor));
+        f.render_stateful_widget(List::new(items), chunks[0], &mut list_state);
+    }
+
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(" [n]", Style::default().fg(Color::Cyan)),
+            Span::styled(" novo projeto  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Enter]", Style::default().fg(Color::Cyan)),
+            Span::styled(" abrir  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[Tab]", Style::default().fg(Color::DarkGray)),
+            Span::styled(" sidebar", Style::default().fg(Color::DarkGray)),
+        ])),
+        chunks[1],
+    );
+}
+
 pub fn render_project_detail(f: &mut Frame, app: &App, area: Rect) {
     let project_name = app
         .current_project()

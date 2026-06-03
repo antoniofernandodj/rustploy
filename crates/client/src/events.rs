@@ -48,6 +48,11 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
                     app.view = View::ProjectDetail;
                     app.active_service_id = None;
                 }
+                View::ProjectDetail => {
+                    app.view = View::Projects;
+                    app.active_project_id = None;
+                    app.service_filtering = false;
+                }
                 _ => {
                     app.focus = Focus::Sidebar;
                     app.service_filtering = false;
@@ -69,17 +74,13 @@ fn handle_sidebar(app: &mut App, key: KeyEvent) {
         KeyCode::Up => app.sidebar_move_up(),
         KeyCode::Down => app.sidebar_move_down(),
         KeyCode::Enter => app.sidebar_select(),
-        KeyCode::Char('n') => {
-            if let Some(crate::app::SidebarItem::Project(_)) = app.current_sidebar_item() {
-                app.sidebar_select();
-            }
-        }
         _ => {}
     }
 }
 
 fn handle_content(app: &mut App, key: KeyEvent) {
     match app.view.clone() {
+        View::Projects => handle_projects_list(app, key),
         View::ProjectDetail => handle_project_detail(app, key),
         View::ServiceDetail => handle_service_detail(app, key),
         View::SettingsWebServer => handle_settings_web_server(app, key),
@@ -103,6 +104,34 @@ fn handle_home_deploy_engine(app: &mut App, key: KeyEvent) {
             command: Command::DeployEngineStatus,
             context: CmdContext::LoadDeployEngine,
         });
+    }
+}
+
+fn handle_projects_list(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Tab | KeyCode::Esc => {
+            app.focus = Focus::Sidebar;
+        }
+        KeyCode::Up => {
+            if app.projects_cursor > 0 {
+                app.projects_cursor -= 1;
+            }
+        }
+        KeyCode::Down => {
+            if app.projects_cursor + 1 < app.projects.len() {
+                app.projects_cursor += 1;
+            }
+        }
+        KeyCode::Enter => {
+            app.open_project(app.projects_cursor);
+        }
+        KeyCode::Char('n') => {
+            app.creating_project = true;
+            app.new_proj_name = String::new();
+            app.new_proj_desc = String::new();
+            app.new_proj_field = 0;
+        }
+        _ => {}
     }
 }
 

@@ -24,6 +24,7 @@ pub enum View {
     HomeDocker,
     HomeDeployEngine,
     HomeRequests,
+    Projects,
     ProjectDetail,
     ServiceDetail,
     SettingsWebServer,
@@ -62,8 +63,7 @@ pub enum SidebarItem {
     HomeDocker,
     HomeDeployEngine,
     HomeRequests,
-    NewProject,
-    Project(usize),
+    Projects,
     SettingsWebServer,
     SettingsProfile,
     SettingsUsers,
@@ -88,11 +88,14 @@ impl SidebarItem {
             Self::HomeDocker => "  Docker".into(),
             Self::HomeDeployEngine => "  Deploy Engine".into(),
             Self::HomeRequests => "  Requests".into(),
-            Self::NewProject => "  + New Project".into(),
-            Self::Project(i) => projects
-                .get(*i)
-                .map(|p| format!("  {}", p.name))
-                .unwrap_or_else(|| "  ?".into()),
+            Self::Projects => {
+                let n = projects.len();
+                if n == 0 {
+                    "  Projects".into()
+                } else {
+                    format!("  Projects  ({})", n)
+                }
+            }
             Self::SettingsWebServer => "  Web Server".into(),
             Self::SettingsProfile => "  Profile".into(),
             Self::SettingsUsers => "  Users".into(),
@@ -129,7 +132,7 @@ impl SidebarItem {
             Self::SettingsCerts => View::SettingsCerts,
             Self::SettingsSso => View::SettingsSso,
             Self::Account => View::Account,
-            Self::NewProject | Self::Project(_) => return None,
+            Self::Projects => View::Projects,
         })
     }
 }

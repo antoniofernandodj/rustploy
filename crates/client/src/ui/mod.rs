@@ -8,6 +8,7 @@ pub mod settings;
 pub mod sidebar;
 
 use crate::app::{App, DbKind, Focus, NewServiceStep, View};
+use crate::ui::projects::render_projects_list;
 use crate::templates::{self, TemplateCategory};
 use ratatui::{
     Frame,
@@ -72,6 +73,7 @@ fn render_body(f: &mut Frame, area: Rect, app: &App) {
 
 fn render_content(f: &mut Frame, app: &App, area: Rect) {
     match &app.view {
+        View::Projects => render_projects_list(f, app, area),
         View::ProjectDetail => projects::render_project_detail(f, app, area),
         View::ServiceDetail => service_detail::render(f, app, area),
         View::HomeDeployments => home_deployments::render(f, app, area),
@@ -135,6 +137,9 @@ fn render_home_placeholder(f: &mut Frame, area: Rect, title: &str, desc: &str) {
 fn render_statusbar(f: &mut Frame, area: Rect, app: &App) {
     let hints = match (&app.focus, &app.view) {
         (Focus::Sidebar, _) => " [Tab] conteúdo  [↑↓] nav  [Enter] abrir  [q] quit",
+        (Focus::Content, View::Projects) => {
+            " [↑↓] navegar  [Enter] abrir projeto  [n] novo projeto  [Tab] sidebar"
+        }
         (Focus::Content, View::ProjectDetail) => {
             use crate::app::ProjectDetailTab;
             if app.service_filtering {

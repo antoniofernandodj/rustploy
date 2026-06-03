@@ -12,8 +12,8 @@ pub struct App {
     pub view: View,
 
     pub projects: Vec<Project>,
-    pub services:
- Vec<Service>,
+    pub projects_cursor: usize,
+    pub services: Vec<Service>,
     pub active_project_id: Option<String>,
     pub active_service_id: Option<String>,
 
@@ -72,8 +72,8 @@ impl App {
             view: View::HomeDeployments,
 
             projects: vec![],
-            services:
- vec![],
+            projects_cursor: 0,
+            services: vec![],
             active_project_id: None,
             active_service_id: None,
 
@@ -132,11 +132,8 @@ impl App {
             SidebarItem::HomeDocker,
             SidebarItem::HomeDeployEngine,
             SidebarItem::HomeRequests,
-            SidebarItem::NewProject,
+            SidebarItem::Projects,
         ];
-        for i in 0..self.projects.len() {
-            items.push(SidebarItem::Project(i));
-        }
         items.extend([
             SidebarItem::SettingsWebServer,
             SidebarItem::SettingsProfile,
@@ -189,33 +186,10 @@ impl App {
                     context: CmdContext::LoadHomeDeployments,
                 });
             }
-            SidebarItem::NewProject => {
-                self.creating_project = true;
-                self.new_proj_name = String::new();
-                self.new_proj_desc = String::new();
-                self.new_proj_field = 0;
-            }
-            SidebarItem::Project(idx) => {
-                if let Some(project) = self.projects.get(*idx) {
-                    let pid = project.id.clone();
-                    self.project_settings = ProjectSettingsState {
-                        focused: ProjectSettingsField::default(),
-                        name: project.name.clone(),
-                        description: project.description.clone().unwrap_or_default(),
-                    };
-                    self.active_project_id = Some(pid.clone());
-                    self.view = View::ProjectDetail;
-                    self.project_detail_tab = ProjectDetailTab::Services;
-                    self.project_env_tab = EnvTabState::default();
-                    self.service_cursor = 0;
-                    self.service_filter = String::new();
-                    self.service_filtering = false;
-                    self.pending_commands.push(PendingCommand {
-                        command: Command::ServiceList { project_id: pid },
-                        context: CmdContext::LoadServices,
-                    });
-                }
+            SidebarItem::Projects => {
+                self.view = View::Projects;
                 self.focus = Focus::Content;
+                self.projects_cursor = 0;
             }
             SidebarItem::HomeDeployEngine => {
                 self.view = View::HomeDeployEngine;
@@ -272,6 +246,29 @@ impl App {
     pub fn current_active_service(&self) -> Option<&Service> {
         let sid = self.active_service_id.as_deref()?;
         self.services.iter().find(|s| s.id == sid)
+    }
+
+    pub fn open_project(&mut self, idx: usize) {
+        if let Some(project) = self.projects.get(idx) {
+            let pid = project.id.clone();
+            self.project_settings = ProjectSettingsState {
+                focused: ProjectSettingsField::default(),
+                name: project.name.clone(),
+                description: project.description.clone().unwrap_or_default(),
+            };
+            self.active_project_id = Some(pid.clone());
+            self.view = View::ProjectDetail;
+            self.project_detail_tab = ProjectDetailTab::Services;
+            self.project_env_tab = EnvTabState::default();
+            self.service_cursor = 0;
+            self.service_filter = String::new();
+            self.service_filtering = false;
+            self.focus = Focus::Content;
+            self.pending_commands.push(PendingCommand {
+                command: Command::ServiceList { project_id: pid },
+                context: CmdContext::LoadServices,
+            });
+        }
     }
 
     pub fn open_service(&mut self, svc: &Service) {
