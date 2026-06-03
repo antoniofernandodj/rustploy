@@ -529,6 +529,7 @@ impl HealthcheckTabState {
     pub fn from_service(svc: &Service) -> Self {
         let hc = &svc.spec.healthcheck;
         let (kind, http_path, expected_status) = match &hc.kind {
+            HealthcheckKind::None => ("None".into(), String::new(), "200".into()),
             HealthcheckKind::Tcp => ("Tcp".into(), String::new(), "200".into()),
             HealthcheckKind::Http {
                 path,
@@ -550,9 +551,10 @@ impl HealthcheckTabState {
 
     pub fn cycle_kind(&mut self) {
         self.kind = match self.kind.as_str() {
+            "None" => "Tcp".into(),
             "Tcp" => "Http".into(),
             "Http" => "DockerNative".into(),
-            _ => "Tcp".into(),
+            _ => "None".into(),
         };
     }
 
@@ -570,6 +572,7 @@ impl HealthcheckTabState {
 
     pub fn to_healthcheck(&self) -> Healthcheck {
         let kind = match self.kind.as_str() {
+            "None" => HealthcheckKind::None,
             "Http" => HealthcheckKind::Http {
                 path: if self.http_path.is_empty() {
                     "/".into()

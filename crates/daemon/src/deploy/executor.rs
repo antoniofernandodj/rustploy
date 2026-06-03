@@ -258,34 +258,15 @@ impl DeployExecutor {
             DeployState::Staging => {
                 let image = self.image_for(dep, svc);
                 let network = self.network_name(&svc.spec.project_id);
-                info!(
-                    deployment_id = %dep.id,
-                    service_name = %svc.spec.name,
-                    image = %image,
-                    network = %network,
-                    "step[Staging]: resolvendo env vars"
-                );
                 let env = self.resolve_env(svc).await?;
-                info!(
-                    deployment_id = %dep.id,
-                    env_keys = ?env.iter().map(|(k, _)| k.as_str()).collect::<Vec<_>>(),
-                    "step[Staging]: env vars resolvidas"
-                );
                 let replicas = svc.spec.replicas.max(1);
                 let dep_short = self.short(&dep.id).to_string();
-                info!(
-                    deployment_id = %dep.id,
-                    replicas = replicas,
-                    "step[Staging]: criando containers de staging"
-                );
-                for i in 0..replicas {
-                    let cname = containers::replica_staging_name(&svc.spec.name, &dep_short, i);
-                    info!(
-                        deployment_id = %dep.id,
-                        replica = i,
-                        container_name = %cname,
-                        "step[Staging]: criando réplica"
-                    );
+
+                if replicas == 1 {
+                    // Single replica: caminho existente, healthcheck e swap tratados nos próximos estados
+                    let cname =
+                        containers::replica_staging_name(&svc.spec.name, &dep_short, 0);
+                    info!(deployment_id = %dep.id, container_name = %cname, "step[Staging]: criando réplica única");
                     let id = containers::create_staging(
                         &self.docker.inner,
                         &svc.spec,
@@ -297,17 +278,128 @@ impl DeployExecutor {
                         &cname,
                     )
                     .await?;
-                    // Conecta explicitamente via `network connect` ANTES do start.
                     networks::connect_container(&self.docker.inner, &network, &id).await?;
                     containers::start(&self.docker.inner, &id).await?;
+                    return Ok(DeployState::HealthcheckPolling);
+                }
+
+                // Multi-réplica: exige healthcheck configurado
+                if svc.spec.healthcheck.kind == HealthcheckKind::None {
+                    return Err(anyhow!(
+                        "Deploy com múltiplas réplicas requer configuração de healthcheck"
+                    ));
+                }
+
+                // Rolling update: uma réplica por vez — sobe → healthcheck → derruba antiga → promove
+                info!(
+                    deployment_id = %dep.id,
+                    replicas = replicas,
+                    "step[Staging/Rolling]: iniciando rolling update"
+                );
+
+                // Estado inicial: coleta IPs das réplicas live já existentes (None = primeiro deploy)
+                let mut backends: Vec<Option<String>> = vec![None; replicas as usize];
+                for i in 0..replicas {
+                    let live = containers::replica_live_name(&svc.spec.name, i);
+                    if let Ok(Some(cid)) =
+                        containers::find_by_name(&self.docker.inner, &live).await
+                    {
+                        if let Ok(ip) =
+                            containers::get_container_ip(&self.docker.inner, &cid, &network)
+                                .await
+                        {
+                            backends[i as usize] = Some(format!("{ip}:{}", svc.spec.port));
+                        }
+                    }
+                }
+
+                for i in 0..replicas {
+                    let staging =
+                        containers::replica_staging_name(&svc.spec.name, &dep_short, i);
                     info!(
                         deployment_id = %dep.id,
                         replica = i,
-                        container_id = %id,
-                        "step[Staging]: réplica iniciada"
+                        container_name = %staging,
+                        "step[Staging/Rolling]: criando nova réplica"
                     );
+
+                    let staging_id = containers::create_staging(
+                        &self.docker.inner,
+                        &svc.spec,
+                        &image,
+                        &svc.id,
+                        &dep.id,
+                        &network,
+                        &env,
+                        &staging,
+                    )
+                    .await?;
+                    networks::connect_container(&self.docker.inner, &network, &staging_id)
+                        .await?;
+                    containers::start(&self.docker.inner, &staging_id).await?;
+
+                    let ip = containers::get_container_ip(
+                        &self.docker.inner,
+                        &staging_id,
+                        &network,
+                    )
+                    .await?;
+                    info!(
+                        deployment_id = %dep.id,
+                        replica = i,
+                        ip = %ip,
+                        "step[Staging/Rolling]: verificando healthcheck da nova réplica"
+                    );
+                    // Falha aqui → RollingBack remove todos os stagings pendentes
+                    self.poll_healthcheck(&ip, &staging_id, svc, dep).await?;
+
+                    // Derruba a réplica live antiga (se existir)
+                    let live_name = containers::replica_live_name(&svc.spec.name, i);
+                    if let Ok(Some(old_cid)) =
+                        containers::find_by_name(&self.docker.inner, &live_name).await
+                    {
+                        info!(
+                            deployment_id = %dep.id,
+                            replica = i,
+                            old_container = %old_cid,
+                            "step[Staging/Rolling]: parando réplica anterior"
+                        );
+                        let _ = containers::stop_graceful(&self.docker.inner, &old_cid, 30)
+                            .await;
+                        let _ = containers::remove(&self.docker.inner, &old_cid).await;
+                    }
+
+                    // Promove staging → live
+                    containers::rename(&self.docker.inner, &staging_id, &live_name).await?;
+                    info!(
+                        deployment_id = %dep.id,
+                        replica = i,
+                        new_name = %live_name,
+                        "step[Staging/Rolling]: réplica promovida"
+                    );
+
+                    // Atualiza ingress com backends ativos até agora
+                    backends[i as usize] = Some(format!("{ip}:{}", svc.spec.port));
+                    let active: Vec<String> =
+                        backends.iter().flatten().cloned().collect();
+                    if let Some(domain) = &svc.spec.domain {
+                        self.ingress.upsert_route(domain, active.clone(), &svc.id);
+                    }
+                    if let Some(host_port) = svc.spec.host_port {
+                        self.ingress.upsert_port_route(host_port, active);
+                    }
+
+                    self.bus.publish(Event::DeployProgress {
+                        deployment_id: dep.id.clone(),
+                        service_id: svc.id.clone(),
+                        phase: "RollingUpdate".into(),
+                        percent: (((i + 1) as f32 / replicas as f32) * 100.0) as u8,
+                        description: format!("replica {}/{replicas} ok", i + 1),
+                    });
                 }
-                Ok(DeployState::HealthcheckPolling)
+
+                // Todas as réplicas substituídas; Promoting cuida do status no banco
+                Ok(DeployState::Promoting)
             }
 
             DeployState::HealthcheckPolling => {
@@ -747,6 +839,7 @@ impl DeployExecutor {
             }
 
             let ok = match &hc.kind {
+                HealthcheckKind::None => return Ok(()),
                 HealthcheckKind::Http {
                     path,
                     expected_status,

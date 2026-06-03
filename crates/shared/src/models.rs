@@ -244,6 +244,7 @@ impl Default for Healthcheck {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum HealthcheckKind {
+    None,
     Http { path: String, expected_status: u16 },
     Tcp,
     DockerNative,
