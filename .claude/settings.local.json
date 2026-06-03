@@ -46,7 +46,9 @@
       "Bash(dpkg -l wl-clipboard)",
       "Bash(chmod +x *)",
       "Bash(make help *)",
-      "Bash(make *)"
+      "Bash(make *)",
+      "Bash(rustup show *)",
+      "Bash(rustup default *)"
     ]
   }
 }
