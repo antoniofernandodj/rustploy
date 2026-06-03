@@ -133,17 +133,11 @@ fn handle_projects_list(app: &mut App, key: KeyEvent) {
         }
         KeyCode::Char('D') => {
             if let Some(project) = app.projects.get(app.projects_cursor) {
-                let svc_count = app
+                let has_services = app
                     .services
                     .iter()
-                    .filter(|s| s.spec.project_id == project.id)
-                    .count();
-                if svc_count > 0 {
-                    app.set_notification(
-                        "Remova todos os serviços antes de deletar o projeto",
-                        true,
-                    );
-                } else {
+                    .any(|s| s.spec.project_id == project.id);
+                if !has_services {
                     let pid = project.id.clone();
                     let name = project.name.clone();
                     app.view = View::Confirm {

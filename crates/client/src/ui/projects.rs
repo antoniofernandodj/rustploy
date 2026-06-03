@@ -85,13 +85,32 @@ pub fn render_projects_list(f: &mut Frame, app: &App, area: Rect) {
         f.render_stateful_widget(List::new(items), chunks[0], &mut list_state);
     }
 
+    let can_delete = app
+        .projects
+        .get(app.projects_cursor)
+        .map(|p| {
+            app.services
+                .iter()
+                .filter(|s| s.spec.project_id == p.id)
+                .count()
+                == 0
+        })
+        .unwrap_or(false);
+
     f.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(" [n]", Style::default().fg(Color::Cyan)),
             Span::styled(" novo  ", Style::default().fg(Color::DarkGray)),
             Span::styled("[Enter]", Style::default().fg(Color::Cyan)),
             Span::styled(" abrir  ", Style::default().fg(Color::DarkGray)),
-            Span::styled("[D]", Style::default().fg(Color::Red)),
+            Span::styled(
+                "[D]",
+                Style::default().fg(if can_delete {
+                    Color::Red
+                } else {
+                    Color::DarkGray
+                }),
+            ),
             Span::styled(" remover  ", Style::default().fg(Color::DarkGray)),
             Span::styled("[Tab]", Style::default().fg(Color::DarkGray)),
             Span::styled(" sidebar", Style::default().fg(Color::DarkGray)),
