@@ -142,6 +142,7 @@ pub enum ServiceTab {
     Healthcheck,
     Logs,
     Patches,
+    Advanced,
 }
 
 impl ServiceTab {
@@ -154,6 +155,7 @@ impl ServiceTab {
             ServiceTab::Healthcheck,
             ServiceTab::Logs,
             ServiceTab::Patches,
+            ServiceTab::Advanced,
         ]
     }
 
@@ -166,6 +168,7 @@ impl ServiceTab {
             ServiceTab::Healthcheck => "Healthcheck",
             ServiceTab::Logs => "Logs",
             ServiceTab::Patches => "Patches",
+            ServiceTab::Advanced => "Advanced",
         }
     }
 
@@ -551,6 +554,90 @@ impl HealthcheckTabState {
     }
 }
 
+// ── Advanced tab ─────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum AdvancedField {
+    #[default]
+    Replicas,
+    RunCommand,
+    RunArgs,
+    Save,
+}
+
+impl AdvancedField {
+    const COUNT: usize = 4;
+
+    pub fn next(self) -> Self {
+        Self::from_idx((self as usize + 1) % Self::COUNT)
+    }
+
+    pub fn prev(self) -> Self {
+        let i = self as usize;
+        Self::from_idx(if i == 0 { Self::COUNT - 1 } else { i - 1 })
+    }
+
+    fn from_idx(i: usize) -> Self {
+        match i {
+            0 => Self::Replicas,
+            1 => Self::RunCommand,
+            2 => Self::RunArgs,
+            _ => Self::Save,
+        }
+    }
+
+    pub fn is_simple_text(self) -> bool {
+        matches!(self, Self::Replicas | Self::RunCommand)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AdvancedTabState {
+    pub focused: AdvancedField,
+    pub replicas: String,
+    pub run_command: String,
+    pub run_args: Vec<String>,
+    pub args_cursor: usize,
+    pub args_editing: bool,
+}
+
+impl AdvancedTabState {
+    pub fn from_service(svc: &Service) -> Self {
+        Self {
+            focused: AdvancedField::Replicas,
+            replicas: svc.spec.replicas.to_string(),
+            run_command: svc.spec.run_command.clone().unwrap_or_default(),
+            run_args: svc.spec.run_args.clone(),
+            args_cursor: 0,
+            args_editing: false,
+        }
+    }
+
+    pub fn focused_text_mut(&mut self) -> Option<&mut String> {
+        match self.focused {
+            AdvancedField::Replicas => Some(&mut self.replicas),
+            AdvancedField::RunCommand => Some(&mut self.run_command),
+            _ => None,
+        }
+    }
+
+    pub fn args_add(&mut self) {
+        self.run_args.push(String::new());
+        self.args_cursor = self.run_args.len() - 1;
+        self.args_editing = true;
+    }
+
+    pub fn args_delete(&mut self) {
+        if self.args_cursor < self.run_args.len() {
+            self.run_args.remove(self.args_cursor);
+            if self.args_cursor > 0 && self.args_cursor >= self.run_args.len() {
+                self.args_cursor -= 1;
+            }
+            self.args_editing = false;
+        }
+    }
+}
+
 // ── New-service creation flow ─────────────────────────────────────────────────
 
 #[derive(Debug, Clone, PartialEq)]
@@ -834,6 +921,8 @@ impl NewServiceState {
                 healthcheck: Healthcheck::default(),
                 replicas: 1,
                 resources: ResourceLimits::default(),
+                run_command: None,
+                run_args: vec![],
             },
             NewServiceStep::DatabaseForm => ServiceSpec {
                 name: svc_name,
@@ -847,6 +936,8 @@ impl NewServiceState {
                 healthcheck: Healthcheck::default(),
                 replicas: 1,
                 resources: ResourceLimits::default(),
+                run_command: None,
+                run_args: vec![],
             },
             _ => unreachable!(),
         }

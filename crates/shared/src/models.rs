@@ -26,6 +26,10 @@ pub struct ServiceSpec {
     pub healthcheck: Healthcheck,
     pub replicas: u32,
     pub resources: ResourceLimits,
+    #[serde(default)]
+    pub run_command: Option<String>,
+    #[serde(default)]
+    pub run_args: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

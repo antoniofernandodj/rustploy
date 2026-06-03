@@ -36,7 +36,9 @@
       "Read(//opt/**)",
       "Read(//home/**)",
       "Bash(GIT_DIR=/workspace/rustploy/.git GIT_WORK_TREE=/workspace/rustploy git status)",
-      "Bash(GIT_CONFIG_NOSYSTEM=1 HOME=/tmp git -C /workspace/rustploy config --global --add safe.directory /workspace/rustploy)"
+      "Bash(GIT_CONFIG_NOSYSTEM=1 HOME=/tmp git -C /workspace/rustploy config --global --add safe.directory /workspace/rustploy)",
+      "Bash(/usr/bin/time --version)",
+      "Bash(sqlite3 *)"
     ]
   }
 }

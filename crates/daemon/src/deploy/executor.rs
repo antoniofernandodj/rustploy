@@ -260,41 +260,42 @@ impl DeployExecutor {
                     env_keys = ?env.iter().map(|(k, _)| k.as_str()).collect::<Vec<_>>(),
                     "step[Staging]: env vars resolvidas"
                 );
+                let replicas = svc.spec.replicas.max(1);
+                let dep_short = self.short(&dep.id).to_string();
                 info!(
                     deployment_id = %dep.id,
-                    "step[Staging]: criando container de staging"
+                    replicas = replicas,
+                    "step[Staging]: criando containers de staging"
                 );
-                let id = containers::create_staging(
-                    &self.docker.inner,
-                    &svc.spec,
-                    &image,
-                    &svc.id,
-                    &dep.id,
-                    &network,
-                    &env,
-                )
-                .await?;
-                info!(
-                    deployment_id = %dep.id,
-                    container_id = %id,
-                    network = %network,
-                    "step[Staging]: conectando container à rede do projeto"
-                );
-                // Conecta explicitamente via `network connect` ANTES do start.
-                // Usar network_mode=rede_user_defined no create não preenche
-                // IPAddress no inspect; o flow create→connect→start é confiável.
-                networks::connect_container(&self.docker.inner, &network, &id).await?;
-                info!(
-                    deployment_id = %dep.id,
-                    container_id = %id,
-                    "step[Staging]: container conectado, dando start"
-                );
-                containers::start(&self.docker.inner, &id).await?;
-                info!(
-                    deployment_id = %dep.id,
-                    container_id = %id,
-                    "step[Staging]: container iniciado"
-                );
+                for i in 0..replicas {
+                    let cname = containers::replica_staging_name(&svc.spec.name, &dep_short, i);
+                    info!(
+                        deployment_id = %dep.id,
+                        replica = i,
+                        container_name = %cname,
+                        "step[Staging]: criando réplica"
+                    );
+                    let id = containers::create_staging(
+                        &self.docker.inner,
+                        &svc.spec,
+                        &image,
+                        &svc.id,
+                        &dep.id,
+                        &network,
+                        &env,
+                        &cname,
+                    )
+                    .await?;
+                    // Conecta explicitamente via `network connect` ANTES do start.
+                    networks::connect_container(&self.docker.inner, &network, &id).await?;
+                    containers::start(&self.docker.inner, &id).await?;
+                    info!(
+                        deployment_id = %dep.id,
+                        replica = i,
+                        container_id = %id,
+                        "step[Staging]: réplica iniciada"
+                    );
+                }
                 Ok(DeployState::HealthcheckPolling)
             }
 
@@ -372,22 +373,24 @@ impl DeployExecutor {
                     );
                 }
 
-                let live = containers::live_name(&svc.spec.name);
-                match containers::find_by_name(&self.docker.inner, &live).await {
-                    Ok(Some(old)) => {
+                // Para todas as instâncias antigas (suporte a replicas), excluindo as do deploy atual.
+                match containers::find_old_containers(&self.docker.inner, &svc.id, &dep.id).await {
+                    Ok(old_ids) if !old_ids.is_empty() => {
                         info!(
                             deployment_id = %dep.id,
-                            old_container = %old,
-                            "step[SwappingIn]: parando container live antigo"
+                            count = old_ids.len(),
+                            "step[SwappingIn]: parando instâncias live antigas"
                         );
-                        let _ = containers::stop_graceful(&self.docker.inner, &old, 30).await;
-                        info!(deployment_id = %dep.id, "step[SwappingIn]: container antigo parado");
+                        for old in &old_ids {
+                            let _ = containers::stop_graceful(&self.docker.inner, old, 30).await;
+                        }
+                        info!(deployment_id = %dep.id, "step[SwappingIn]: instâncias antigas paradas");
                     }
-                    Ok(None) => {
-                        info!(deployment_id = %dep.id, "step[SwappingIn]: nenhum container live anterior");
+                    Ok(_) => {
+                        info!(deployment_id = %dep.id, "step[SwappingIn]: nenhuma instância live anterior");
                     }
                     Err(e) => {
-                        warn!(deployment_id = %dep.id, error = %e, "step[SwappingIn]: erro ao buscar live (ignorado)");
+                        warn!(deployment_id = %dep.id, error = %e, "step[SwappingIn]: erro ao buscar containers antigos (ignorado)");
                     }
                 }
                 Ok(DeployState::Draining)
@@ -405,48 +408,65 @@ impl DeployExecutor {
             }
 
             DeployState::Promoting => {
-                let staging = containers::staging_name(&svc.spec.name, self.short(&dep.id));
-                let live = containers::live_name(&svc.spec.name);
+                let replicas = svc.spec.replicas.max(1);
+                let dep_short = self.short(&dep.id).to_string();
                 info!(
                     deployment_id = %dep.id,
-                    staging_name = %staging,
-                    live_name = %live,
+                    replicas = replicas,
                     "step[Promoting]: promovendo staging → live"
                 );
-                let staging_id = containers::find_by_name(&self.docker.inner, &staging)
-                    .await?
-                    .ok_or_else(|| anyhow!("staging container not found"))?;
 
-                if let Ok(Some(old)) = containers::find_by_name(&self.docker.inner, &live).await {
+                // Remove todos os containers antigos (já parados no SwappingIn).
+                match containers::find_old_containers(&self.docker.inner, &svc.id, &dep.id).await {
+                    Ok(old_ids) => {
+                        for old in &old_ids {
+                            let _ = containers::remove(&self.docker.inner, old).await;
+                        }
+                        if !old_ids.is_empty() {
+                            info!(deployment_id = %dep.id, count = old_ids.len(), "step[Promoting]: containers antigos removidos");
+                        }
+                    }
+                    Err(e) => {
+                        warn!(deployment_id = %dep.id, error = %e, "step[Promoting]: erro ao remover containers antigos (ignorado)");
+                    }
+                }
+
+                // Renomeia cada réplica de staging → live.
+                let mut primary_id = String::new();
+                for i in 0..replicas {
+                    let staging = containers::replica_staging_name(&svc.spec.name, &dep_short, i);
+                    let live = containers::replica_live_name(&svc.spec.name, i);
+                    let sid = match containers::find_by_name(&self.docker.inner, &staging).await? {
+                        Some(id) => id,
+                        None => {
+                            warn!(deployment_id = %dep.id, replica = i, container_name = %staging, "step[Promoting]: réplica de staging não encontrada, pulando");
+                            continue;
+                        }
+                    };
                     info!(
                         deployment_id = %dep.id,
-                        old_container = %old,
-                        "step[Promoting]: removendo container live antigo"
+                        replica = i,
+                        container_id = %sid,
+                        new_name = %live,
+                        "step[Promoting]: renomeando réplica"
                     );
-                    let _ = containers::remove(&self.docker.inner, &old).await;
-                    info!(deployment_id = %dep.id, "step[Promoting]: container antigo removido");
+                    containers::rename(&self.docker.inner, &sid, &live).await?;
+                    if i == 0 {
+                        primary_id = sid;
+                    }
                 }
 
                 info!(
                     deployment_id = %dep.id,
-                    container_id = %staging_id,
-                    new_name = %live,
-                    "step[Promoting]: renomeando staging → live"
-                );
-                containers::rename(&self.docker.inner, &staging_id, &live).await?;
-                info!(deployment_id = %dep.id, live_name = %live, "step[Promoting]: rename concluído");
-
-                info!(
-                    deployment_id = %dep.id,
                     service_id = %svc.id,
-                    container_id = %staging_id,
+                    container_id = %primary_id,
                     "step[Promoting]: atualizando status do serviço para Running"
                 );
                 crate::db::services::update_status(
                     &self.db,
                     &svc.id,
                     &ServiceStatus::Running,
-                    Some(&staging_id),
+                    if primary_id.is_empty() { None } else { Some(primary_id.as_str()) },
                 )
                 .await?;
                 self.bus.publish(Event::ServiceStatusChanged {
@@ -490,17 +510,20 @@ impl DeployExecutor {
             }
 
             DeployState::RollingBack => {
-                let staging = containers::staging_name(&svc.spec.name, self.short(&dep.id));
+                // Remove todos os containers de staging deste deployment.
+                let replicas = svc.spec.replicas.max(1);
+                let dep_short = self.short(&dep.id).to_string();
                 info!(
                     deployment_id = %dep.id,
-                    container_name = %staging,
-                    "step[RollingBack]: removendo container de staging"
+                    replicas = replicas,
+                    "step[RollingBack]: removendo containers de staging"
                 );
-                if let Ok(Some(id)) = containers::find_by_name(&self.docker.inner, &staging).await {
-                    let _ = containers::remove(&self.docker.inner, &id).await;
-                    info!(deployment_id = %dep.id, container_id = %id, "step[RollingBack]: staging removido");
-                } else {
-                    info!(deployment_id = %dep.id, "step[RollingBack]: nenhum staging encontrado para remover");
+                for i in 0..replicas {
+                    let staging = containers::replica_staging_name(&svc.spec.name, &dep_short, i);
+                    if let Ok(Some(id)) = containers::find_by_name(&self.docker.inner, &staging).await {
+                        let _ = containers::remove(&self.docker.inner, &id).await;
+                        info!(deployment_id = %dep.id, replica = i, container_id = %id, "step[RollingBack]: staging removido");
+                    }
                 }
 
                 let live = containers::live_name(&svc.spec.name);

@@ -9,21 +9,37 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
         Err(e) => return RpResponse::err("DatabaseError", e.to_string()),
     };
 
-    let container_id = match &svc.live_container_id {
-        Some(id) => id.clone(),
-        None => return RpResponse::err("NotRunning", "serviço não possui container ativo"),
+    // Para todas as instâncias do serviço (suporte a replicas).
+    let all_ids = match containers::find_all_by_service_id(&state.docker.inner, &service_id).await {
+        Ok(ids) => ids,
+        Err(e) => return RpResponse::err("DockerError", e.to_string()),
     };
 
-    if let Err(e) = containers::stop_graceful(&state.docker.inner, &container_id, 10).await {
-        return RpResponse::err("DockerError", e.to_string());
+    if all_ids.is_empty() && svc.live_container_id.is_none() {
+        return RpResponse::err("NotRunning", "serviço não possui containers ativos");
     }
+
+    // Para cada container encontrado via label; se nenhum, cai no live_container_id.
+    let ids_to_stop: Vec<String> = if all_ids.is_empty() {
+        svc.live_container_id.clone().into_iter().collect()
+    } else {
+        all_ids
+    };
+
+    for cid in &ids_to_stop {
+        if let Err(e) = containers::stop_graceful(&state.docker.inner, cid, 10).await {
+            return RpResponse::err("DockerError", e.to_string());
+        }
+    }
+
+    let primary_id = ids_to_stop.first().map(|s| s.as_str()).or(svc.live_container_id.as_deref());
 
     // Preserva o container_id no banco para que um Reload futuro possa encontrá-lo.
     if let Err(e) = crate::db::services::update_status(
         &state.db,
         &service_id,
         &ServiceStatus::Stopped,
-        Some(&container_id),
+        primary_id,
     )
     .await
     {
