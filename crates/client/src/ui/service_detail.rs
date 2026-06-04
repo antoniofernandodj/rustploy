@@ -1,4 +1,5 @@
-use crate::app::{App, DbKind, EnvEditField, GeneralTabField, HcField, ServiceTab};
+use crate::app::{AdvancedField, App, DbKind, EnvEditField, GeneralTabField, HcField, ServiceTab};
+use shared::ServiceSource;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -6,7 +7,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
 };
-use shared::{EnvVarValue, ServiceSource};
+use shared::EnvVarValue;
 
 pub fn render(f: &mut Frame, app: &App, area: Rect) {
     let svc = match app.current_active_service() {
@@ -89,6 +90,7 @@ fn render_tab_content(f: &mut Frame, app: &App, area: Rect) {
         ServiceTab::Healthcheck => render_healthcheck_tab(f, app, area),
         ServiceTab::Logs => render_logs_tab(f, app, area),
         ServiceTab::Patches => render_patches_tab(f, area),
+        ServiceTab::Advanced => render_advanced_tab(f, app, area),
     }
 }
 
@@ -114,19 +116,21 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
             Constraint::Length(1), // Provider header   [3]
             Constraint::Length(1), // Repo URL          [4]
             Constraint::Length(1), // Branch            [5]
-            Constraint::Length(1), // Build Path        [6]
-            Constraint::Length(1), // Watch Paths       [7]
-            Constraint::Length(1), // Submodules        [8]
-            Constraint::Length(1), // Port              [9]
-            Constraint::Length(1), // spacing           [10]
-            Constraint::Length(1), // SSH + Save (prov) [11]
+            Constraint::Length(1), // Username          [6]
+            Constraint::Length(1), // Credentials       [7]
+            Constraint::Length(1), // Build Path        [8]
+            Constraint::Length(1), // Watch Paths       [9]
+            Constraint::Length(1), // Submodules        [10]
+            Constraint::Length(1), // Port              [11]
             Constraint::Length(1), // spacing           [12]
-            Constraint::Length(1), // Build Type header [13]
-            Constraint::Length(1), // Docker File       [14]
-            Constraint::Length(1), // Context Path      [15]
-            Constraint::Length(1), // Build Stage       [16]
-            Constraint::Length(1), // spacing           [17]
-            Constraint::Length(1), // Build Save button [18]
+            Constraint::Length(1), // SSH + Save (prov) [13]
+            Constraint::Length(1), // spacing           [14]
+            Constraint::Length(1), // Build Type header [15]
+            Constraint::Length(1), // Docker File       [16]
+            Constraint::Length(1), // Context Path      [17]
+            Constraint::Length(1), // Build Stage       [18]
+            Constraint::Length(1), // spacing           [19]
+            Constraint::Length(1), // Build Save button [20]
             Constraint::Min(0),
         ])
         .split(area);
@@ -175,13 +179,27 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
     render_form_row(
         f,
         chunks[6],
+        "Username",
+        &gt.username,
+        gt.focused_field == GeneralTabField::Username,
+    );
+    render_form_row(
+        f,
+        chunks[7],
+        "Credentials (secret)",
+        &gt.credentials,
+        gt.focused_field == GeneralTabField::Credentials,
+    );
+    render_form_row(
+        f,
+        chunks[8],
         "Build Path",
         &gt.build_path,
         gt.focused_field == GeneralTabField::BuildPath,
     );
     render_form_row(
         f,
-        chunks[7],
+        chunks[9],
         "Watch Paths",
         &gt.watch_paths,
         gt.focused_field == GeneralTabField::WatchPaths,
@@ -202,12 +220,12 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
                 sub_val_style,
             ),
         ])),
-        chunks[8],
+        chunks[10],
     );
 
     render_form_row(
         f,
-        chunks[9],
+        chunks[11],
         "Port",
         &gt.port,
         gt.focused_field == GeneralTabField::Port,
@@ -227,7 +245,7 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
                 gt.focused_field == GeneralTabField::ProviderSave,
             ),
         ])),
-        chunks[11],
+        chunks[13],
     );
 
     // Build Type header
@@ -236,26 +254,26 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
             "── Build Type: Dockerfile ─────────────────────────────────",
             Style::default().fg(Color::Yellow),
         ))),
-        chunks[13],
+        chunks[15],
     );
 
     render_form_row(
         f,
-        chunks[14],
+        chunks[16],
         "Docker File",
         &gt.dockerfile,
         gt.focused_field == GeneralTabField::DockerFile,
     );
     render_form_row(
         f,
-        chunks[15],
+        chunks[17],
         "Docker Context Path",
         &gt.context_path,
         gt.focused_field == GeneralTabField::DockerContextPath,
     );
     render_form_row(
         f,
-        chunks[16],
+        chunks[18],
         "Docker Build Stage",
         &gt.build_stage,
         gt.focused_field == GeneralTabField::DockerBuildStage,
@@ -267,7 +285,7 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
             Span::raw("  "),
             btn_span("[ Save ]", gt.focused_field == GeneralTabField::BuildSave),
         ])),
-        chunks[18],
+        chunks[20],
     );
 }
 
@@ -1060,6 +1078,131 @@ fn render_logs_tab(f: &mut Frame, app: &App, area: Rect) {
 
     let list = List::new(visible).block(block);
     f.render_widget(list, area);
+}
+
+// ─── Advanced Tab ─────────────────────────────────────────────────────────────
+
+fn render_advanced_tab(f: &mut Frame, app: &App, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // spacing         [0]
+            Constraint::Length(1), // Scaling header  [1]
+            Constraint::Length(1), // Replicas        [2]
+            Constraint::Length(1), // spacing         [3]
+            Constraint::Length(1), // Run Cmd header  [4]
+            Constraint::Length(1), // hint text       [5]
+            Constraint::Length(1), // Command input   [6]
+            Constraint::Length(1), // spacing         [7]
+            Constraint::Min(3),    // Args block      [8]
+            Constraint::Length(1), // spacing         [9]
+            Constraint::Length(1), // Save            [10]
+        ])
+        .split(area);
+
+    let adv = &app.advanced_tab;
+
+    f.render_widget(
+        Paragraph::new(Line::from(Span::styled(
+            "── Scaling ────────────────────────────────────────────────",
+            Style::default().fg(Color::Yellow),
+        ))),
+        chunks[1],
+    );
+
+    render_form_row(f, chunks[2], "Replicas", &adv.replicas, adv.focused == AdvancedField::Replicas);
+
+    f.render_widget(
+        Paragraph::new(Line::from(Span::styled(
+            "── Run Command ─────────────────────────────────────────────",
+            Style::default().fg(Color::Yellow),
+        ))),
+        chunks[4],
+    );
+
+    f.render_widget(
+        Paragraph::new(Line::from(Span::styled(
+            "  Run a custom command in the container after the application initialized.",
+            Style::default().fg(Color::DarkGray),
+        ))),
+        chunks[5],
+    );
+
+    // Command input
+    let cmd_focused = adv.focused == AdvancedField::RunCommand;
+    let cmd_span = if adv.run_command.is_empty() && !cmd_focused {
+        Span::styled("/bin/sh", Style::default().fg(Color::DarkGray))
+    } else {
+        let cursor = if cmd_focused { "▌" } else { "" };
+        Span::styled(
+            format!("{}{}", adv.run_command, cursor),
+            if cmd_focused { Style::default().fg(Color::Cyan) } else { Style::default().fg(Color::White) },
+        )
+    };
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(format!("  {:<22}", "Command"), Style::default().fg(Color::DarkGray)),
+            cmd_span,
+        ])),
+        chunks[6],
+    );
+
+    // Args form-array block
+    let args_focused = adv.focused == AdvancedField::RunArgs;
+    let args_border_style = if args_focused {
+        Style::default().fg(Color::Cyan)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+    let args_block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Args — [a] adicionar  [D] remover ")
+        .border_style(args_border_style);
+
+    let items: Vec<ListItem> = adv
+        .run_args
+        .iter()
+        .enumerate()
+        .map(|(i, arg)| {
+            let selected = args_focused && i == adv.args_cursor;
+            let editing = selected && adv.args_editing;
+            let content = if editing {
+                format!(" {}▌", arg)
+            } else {
+                format!(" {}", arg)
+            };
+            let style = if selected {
+                Style::default().fg(Color::Black).bg(Color::Cyan)
+            } else {
+                Style::default().fg(Color::White)
+            };
+            ListItem::new(Line::from(Span::styled(content, style)))
+        })
+        .collect();
+
+    if adv.run_args.is_empty() {
+        let placeholder = Paragraph::new(Line::from(Span::styled(
+            " Nenhum argumento. Pressione [a] para adicionar.",
+            Style::default().fg(Color::DarkGray),
+        )))
+        .block(args_block);
+        f.render_widget(placeholder, chunks[8]);
+    } else {
+        let list = List::new(items).block(args_block);
+        let mut state = ListState::default();
+        if args_focused {
+            state.select(Some(adv.args_cursor));
+        }
+        f.render_stateful_widget(list, chunks[8], &mut state);
+    }
+
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::raw("  "),
+            btn_span("[ Save ]", adv.focused == AdvancedField::Save),
+        ])),
+        chunks[10],
+    );
 }
 
 // ─── Patches Tab ──────────────────────────────────────────────────────────────

@@ -1,12 +1,12 @@
 use crate::app::{
-    App, CmdContext, ConfirmAction, DbKind, EnvEditField, EnvTabState, Focus, GeneralTabField,
-    HcField, NewServiceState, NewServiceStep, PendingCommand, ProjectDetailTab,
-    ProjectSettingsField, ServerSettingsField, ServiceTab, View,
+    AdvancedField, App, CmdContext, ConfirmAction, DbKind, EnvEditField, EnvTabState, Focus,
+    GeneralTabField, HcField, NewServiceState, NewServiceStep, PendingCommand, ProjectDetailTab,
+    ProjectSettingsField, SecretEditField, SecretsTabState, ServerSettingsField, ServiceTab, View,
 };
 use crossterm::event::KeyModifiers;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use shared::ServiceSource;
-use shared::{Command, EnvVar, EnvVarValue};
+use shared::{self, Command, EnvVar, EnvVarValue};
 
 pub fn handle_key(app: &mut App, key: KeyEvent) {
     if key.kind != KeyEventKind::Press {
@@ -32,7 +32,7 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
         KeyCode::Tab => {
             // Cede o Tab quando algum formulário de edição está aberto
             // (env vars de serviço ou de projeto precisam de Tab para KEY→VALUE)
-            let editing = app.env_tab.editing || app.project_env_tab.editing;
+            let editing = app.env_tab.editing || app.project_env_tab.editing || app.secrets_tab.adding;
             if !editing {
                 app.focus = match app.focus {
                     Focus::Sidebar => Focus::Content,
@@ -154,11 +154,13 @@ fn handle_projects_list(app: &mut App, key: KeyEvent) {
 }
 
 fn handle_project_detail(app: &mut App, key: KeyEvent) {
-    let editing = app.service_filtering
+    let is_editing = app.service_filtering
         || app.project_env_tab.editing
-        || app.project_settings.focused.clone().is_text();
+        || (app.project_detail_tab == ProjectDetailTab::Settings
+            && app.project_settings.focused.clone().is_text())
+        || (app.project_detail_tab == ProjectDetailTab::Secrets && app.secrets_tab.adding);
 
-    if !editing {
+    if !is_editing {
         match key.code {
             KeyCode::Left => {
                 app.project_detail_tab = app.project_detail_tab.prev();
@@ -181,6 +183,11 @@ fn handle_project_detail(app: &mut App, key: KeyEvent) {
                 return;
             }
             KeyCode::Char('3') => {
+                app.project_detail_tab = ProjectDetailTab::Secrets;
+                on_project_tab_change(app);
+                return;
+            }
+            KeyCode::Char('4') => {
                 app.project_detail_tab = ProjectDetailTab::Settings;
                 on_project_tab_change(app);
                 return;
@@ -193,19 +200,32 @@ fn handle_project_detail(app: &mut App, key: KeyEvent) {
         ProjectDetailTab::Services => handle_project_services_tab(app, key),
         ProjectDetailTab::Environment => handle_project_env_tab(app, key),
         ProjectDetailTab::Settings => handle_project_settings_tab(app, key),
+        ProjectDetailTab::Secrets => handle_project_secrets_tab(app, key),
     }
 }
 
 fn on_project_tab_change(app: &mut App) {
-    if app.project_detail_tab == ProjectDetailTab::Settings {
-        let data = app
-            .current_project()
-            .map(|p| (p.name.clone(), p.description.clone().unwrap_or_default()));
-        if let Some((name, description)) = data {
-            app.project_settings.name = name;
-            app.project_settings.description = description;
-            app.project_settings.focused = ProjectSettingsField::default();
+    match app.project_detail_tab {
+        ProjectDetailTab::Settings => {
+            let data = app
+                .current_project()
+                .map(|p| (p.name.clone(), p.description.clone().unwrap_or_default()));
+            if let Some((name, description)) = data {
+                app.project_settings.name = name;
+                app.project_settings.description = description;
+                app.project_settings.focused = ProjectSettingsField::default();
+            }
         }
+        ProjectDetailTab::Secrets => {
+            if let Some(pid) = app.active_project_id.clone() {
+                app.project_secrets.clear();
+                app.pending_commands.push(PendingCommand {
+                    command: shared::Command::SecretList { project_id: pid },
+                    context: CmdContext::LoadSecrets,
+                });
+            }
+        }
+        _ => {}
     }
 }
 
@@ -292,7 +312,11 @@ fn handle_project_env_tab(app: &mut App, key: KeyEvent) {
                             env_vars.retain(|e| e.key != k);
                             env_vars.push(shared::EnvVar {
                                 key: k,
-                                value: shared::EnvVarValue::Plain(v),
+                                value: if let Some(n) = v.strip_prefix("secret:") {
+                                            shared::EnvVarValue::Secret(n.to_string())
+                                        } else {
+                                            shared::EnvVarValue::Plain(v)
+                                        },
                             });
                             app.pending_commands.push(PendingCommand {
                                 command: shared::Command::ProjectEnvSet {
@@ -452,6 +476,94 @@ fn handle_project_settings_tab(app: &mut App, key: KeyEvent) {
     }
 }
 
+fn handle_project_secrets_tab(app: &mut App, key: KeyEvent) {
+    if app.secrets_tab.adding {
+        match key.code {
+            KeyCode::Tab => {
+                app.secrets_tab.edit_field = match app.secrets_tab.edit_field {
+                    SecretEditField::Name => SecretEditField::Value,
+                    SecretEditField::Value => SecretEditField::Name,
+                };
+            }
+            KeyCode::Esc => {
+                app.secrets_tab.adding = false;
+            }
+            KeyCode::Enter => {
+                let name = app.secrets_tab.edit_name.clone();
+                let value = app.secrets_tab.edit_value.clone();
+                if !name.is_empty() && !value.is_empty() {
+                    if let Some(pid) = app.active_project_id.clone() {
+                        app.pending_commands.push(PendingCommand {
+                            command: Command::SecretSet {
+                                project_id: pid,
+                                name,
+                                value,
+                            },
+                            context: CmdContext::SetSecret,
+                        });
+                    }
+                } else {
+                    app.secrets_tab.adding = false;
+                }
+            }
+            KeyCode::Char(c) => match app.secrets_tab.edit_field {
+                SecretEditField::Name => app.secrets_tab.edit_name.push(c),
+                SecretEditField::Value => app.secrets_tab.edit_value.push(c),
+            },
+            KeyCode::Backspace => match app.secrets_tab.edit_field {
+                SecretEditField::Name => {
+                    app.secrets_tab.edit_name.pop();
+                }
+                SecretEditField::Value => {
+                    app.secrets_tab.edit_value.pop();
+                }
+            },
+            _ => {}
+        }
+        return;
+    }
+
+    let secrets_len = app.project_secrets.len();
+    match key.code {
+        KeyCode::Up => {
+            if app.secrets_tab.cursor > 0 {
+                app.secrets_tab.cursor -= 1;
+            }
+        }
+        KeyCode::Down => {
+            if app.secrets_tab.cursor + 1 < secrets_len {
+                app.secrets_tab.cursor += 1;
+            }
+        }
+        KeyCode::Char('n') => {
+            app.secrets_tab = SecretsTabState {
+                cursor: app.secrets_tab.cursor,
+                adding: true,
+                edit_name: String::new(),
+                edit_value: String::new(),
+                edit_field: SecretEditField::Name,
+            };
+        }
+        KeyCode::Char('D') => {
+            if let Some(name) = app.project_secrets.get(app.secrets_tab.cursor).cloned() {
+                if let Some(pid) = app.active_project_id.clone() {
+                    app.pending_commands.push(PendingCommand {
+                        command: Command::SecretDelete {
+                            project_id: pid,
+                            name,
+                        },
+                        context: CmdContext::DeleteSecret,
+                    });
+                    if app.secrets_tab.cursor > 0 {
+                        app.secrets_tab.cursor -= 1;
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
 fn save_project_settings(app: &mut App) {
     let pid = match app.active_project_id.clone() {
         Some(p) => p,
@@ -560,6 +672,7 @@ fn handle_service_detail(app: &mut App, key: KeyEvent) {
             crate::app::ServiceTab::Healthcheck => handle_healthcheck_tab(app, key),
             crate::app::ServiceTab::Domains => handle_domains_tab(app, key),
             crate::app::ServiceTab::Logs => handle_logs_tab(app, key),
+            crate::app::ServiceTab::Advanced => handle_advanced_tab(app, key),
             crate::app::ServiceTab::Connection | crate::app::ServiceTab::Patches => {}
         },
     }
@@ -760,14 +873,15 @@ fn save_service_general(app: &mut App) {
 
     let new_source = match &svc.spec.source {
         ServiceSource::Compose(_) => return, // compose content é salvo via Ctrl+S no editor
-        ServiceSource::Git(_) => {
-            let existing = match &svc.spec.source {
-                ServiceSource::Git(g) => g.clone(),
-                _ => shared::GitSource::default(),
-            };
-            ServiceSource::Git(app.general_tab.to_git_source(&existing))
+        ServiceSource::Git(_) => ServiceSource::Git(app.general_tab.to_git_source()),
+        ServiceSource::Registry { .. } => {
+            let url = &app.general_tab.repo_url;
+            if url.starts_with("https://") || url.starts_with("git@") || url.starts_with("ssh://") {
+                ServiceSource::Git(app.general_tab.to_git_source())
+            } else {
+                ServiceSource::Registry { image: url.clone() }
+            }
         }
-        ServiceSource::Registry { .. } => svc.spec.source.clone(),
     };
 
     let new_spec = shared::ServiceSpec {
@@ -935,7 +1049,11 @@ fn handle_env_tab(app: &mut App, key: KeyEvent) {
                             spec.env_vars.retain(|e| e.key != k);
                             spec.env_vars.push(EnvVar {
                                 key: k,
-                                value: EnvVarValue::Plain(v),
+                                value: if let Some(n) = v.strip_prefix("secret:") {
+                                            EnvVarValue::Secret(n.to_string())
+                                        } else {
+                                            EnvVarValue::Plain(v)
+                                        },
                             });
                             app.pending_commands.push(PendingCommand {
                                 command: Command::ServiceUpdate { id: sid, spec },
@@ -1133,6 +1251,140 @@ fn handle_logs_tab(app: &mut App, key: KeyEvent) {
         }
         _ => {}
     }
+}
+
+fn handle_advanced_tab(app: &mut App, key: KeyEvent) {
+    // Se estiver editando um arg, captura tudo primeiro.
+    if app.advanced_tab.focused == AdvancedField::RunArgs && app.advanced_tab.args_editing {
+        match key.code {
+            KeyCode::Enter | KeyCode::Esc => {
+                app.advanced_tab.args_editing = false;
+            }
+            KeyCode::Char(c) => {
+                let cur = app.advanced_tab.args_cursor;
+                if cur < app.advanced_tab.run_args.len() {
+                    app.advanced_tab.run_args[cur].push(c);
+                }
+            }
+            KeyCode::Backspace => {
+                let cur = app.advanced_tab.args_cursor;
+                if cur < app.advanced_tab.run_args.len() {
+                    app.advanced_tab.run_args[cur].pop();
+                }
+            }
+            _ => {}
+        }
+        return;
+    }
+
+    // Navegação e ações no contexto de RunArgs (sem edição ativa).
+    if app.advanced_tab.focused == AdvancedField::RunArgs {
+        match key.code {
+            KeyCode::Up => {
+                if app.advanced_tab.args_cursor > 0 {
+                    app.advanced_tab.args_cursor -= 1;
+                } else {
+                    // Sai do bloco de args para o campo acima.
+                    app.advanced_tab.focused = AdvancedField::RunCommand;
+                }
+                return;
+            }
+            KeyCode::Down => {
+                let last = app.advanced_tab.run_args.len().saturating_sub(1);
+                if app.advanced_tab.run_args.is_empty() || app.advanced_tab.args_cursor >= last {
+                    // Sai do bloco de args para o Save.
+                    app.advanced_tab.focused = AdvancedField::Save;
+                } else {
+                    app.advanced_tab.args_cursor += 1;
+                }
+                return;
+            }
+            KeyCode::Enter => {
+                if !app.advanced_tab.run_args.is_empty() {
+                    app.advanced_tab.args_editing = true;
+                }
+                return;
+            }
+            KeyCode::Char('a') => {
+                app.advanced_tab.args_add();
+                return;
+            }
+            KeyCode::Char('D') => {
+                app.advanced_tab.args_delete();
+                return;
+            }
+            _ => return,
+        }
+    }
+
+    // Navegação global entre campos.
+    match key.code {
+        KeyCode::Up => {
+            app.advanced_tab.focused = app.advanced_tab.focused.prev();
+        }
+        KeyCode::Down | KeyCode::Enter => {
+            if app.advanced_tab.focused == AdvancedField::Save {
+                save_advanced(app);
+            } else {
+                app.advanced_tab.focused = app.advanced_tab.focused.next();
+                // Ao entrar em RunArgs, garante cursor válido.
+                if app.advanced_tab.focused == AdvancedField::RunArgs {
+                    let len = app.advanced_tab.run_args.len();
+                    if app.advanced_tab.args_cursor >= len && len > 0 {
+                        app.advanced_tab.args_cursor = len - 1;
+                    }
+                }
+            }
+        }
+        KeyCode::Char(' ') => {
+            if app.advanced_tab.focused == AdvancedField::Save {
+                save_advanced(app);
+            }
+        }
+        KeyCode::Char(c) => {
+            if app.advanced_tab.focused.is_simple_text() {
+                if let Some(field) = app.advanced_tab.focused_text_mut() {
+                    field.push(c);
+                }
+            }
+        }
+        KeyCode::Backspace => {
+            if app.advanced_tab.focused.is_simple_text() {
+                if let Some(field) = app.advanced_tab.focused_text_mut() {
+                    field.pop();
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn save_advanced(app: &mut App) {
+    let sid = match app.active_service_id.clone() {
+        Some(s) => s,
+        None => return,
+    };
+    let svc = match app.services.iter().find(|s| s.id == sid) {
+        Some(s) => s.clone(),
+        None => return,
+    };
+    let replicas = app.advanced_tab.replicas.parse::<u32>().unwrap_or(svc.spec.replicas).max(1);
+    let run_command = if app.advanced_tab.run_command.trim().is_empty() {
+        None
+    } else {
+        Some(app.advanced_tab.run_command.trim().to_string())
+    };
+    let run_args: Vec<String> = app.advanced_tab.run_args
+        .iter()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    let new_spec = shared::ServiceSpec { replicas, run_command, run_args, ..svc.spec.clone() };
+    app.pending_commands.push(PendingCommand {
+        command: Command::ServiceUpdate { id: sid, spec: new_spec },
+        context: CmdContext::UpdateService,
+    });
+    app.set_notification("Configurações avançadas salvas.", false);
 }
 
 fn handle_new_service(app: &mut App, key: KeyEvent) {

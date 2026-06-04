@@ -149,6 +149,7 @@ pub enum ServiceTab {
     Healthcheck,
     Logs,
     Patches,
+    Advanced,
 }
 
 impl ServiceTab {
@@ -161,6 +162,7 @@ impl ServiceTab {
             ServiceTab::Healthcheck,
             ServiceTab::Logs,
             ServiceTab::Patches,
+            ServiceTab::Advanced,
         ]
     }
 
@@ -187,6 +189,7 @@ impl ServiceTab {
             ServiceTab::Healthcheck => "Healthcheck",
             ServiceTab::Logs => "Logs",
             ServiceTab::Patches => "Patches",
+            ServiceTab::Advanced => "Advanced",
         }
     }
 
@@ -221,6 +224,8 @@ pub enum GeneralTabField {
     BtnStop,
     RepoUrl,
     Branch,
+    Username,
+    Credentials,
     BuildPath,
     WatchPaths,
     Submodules,
@@ -234,7 +239,7 @@ pub enum GeneralTabField {
 }
 
 impl GeneralTabField {
-    const COUNT: usize = 16;
+    const COUNT: usize = 19;
 
     pub fn next(self) -> Self {
         Self::from_idx((self as usize + 1) % Self::COUNT)
@@ -253,16 +258,19 @@ impl GeneralTabField {
             3 => Self::BtnStop,
             4 => Self::RepoUrl,
             5 => Self::Branch,
-            6 => Self::BuildPath,
-            7 => Self::WatchPaths,
-            8 => Self::Submodules,
-            9 => Self::Port,
-            10 => Self::AddSshKeys,
-            11 => Self::ProviderSave,
-            12 => Self::DockerFile,
-            13 => Self::DockerContextPath,
-            14 => Self::DockerBuildStage,
-            _ => Self::BuildSave,
+            6 => Self::Username,
+            7 => Self::Credentials,
+            8 => Self::BuildPath,
+            9 => Self::WatchPaths,
+            10 => Self::Submodules,
+            11 => Self::Port,
+            12 => Self::AddSshKeys,
+            13 => Self::ProviderSave,
+            14 => Self::DockerFile,
+            15 => Self::DockerContextPath,
+            16 => Self::DockerBuildStage,
+            17 => Self::BuildSave,
+            _ => Self::BtnDeploy,
         }
     }
 
@@ -271,6 +279,8 @@ impl GeneralTabField {
             self,
             Self::RepoUrl
                 | Self::Branch
+                | Self::Username
+                | Self::Credentials
                 | Self::BuildPath
                 | Self::WatchPaths
                 | Self::Port
@@ -299,6 +309,8 @@ pub struct GeneralTabState {
     pub focused_field: GeneralTabField,
     pub repo_url: String,
     pub branch: String,
+    pub username: String,
+    pub credentials: String,
     pub build_path: String,
     pub watch_paths: String,
     pub submodules: bool,
@@ -315,6 +327,8 @@ impl GeneralTabState {
                 focused_field: GeneralTabField::BtnDeploy,
                 repo_url: g.url.clone(),
                 branch: g.branch.clone(),
+                username: g.username.clone().unwrap_or_default(),
+                credentials: g.credentials.clone().unwrap_or_default(),
                 build_path: g.root_path.clone(),
                 watch_paths: g.watch_paths.join(", "),
                 submodules: g.submodules,
@@ -327,6 +341,8 @@ impl GeneralTabState {
                 focused_field: GeneralTabField::BtnDeploy,
                 repo_url: image.clone(),
                 branch: String::new(),
+                username: String::new(),
+                credentials: String::new(),
                 build_path: ".".into(),
                 watch_paths: String::new(),
                 submodules: false,
@@ -339,6 +355,8 @@ impl GeneralTabState {
                 focused_field: GeneralTabField::BtnDeploy,
                 repo_url: String::new(),
                 branch: String::new(),
+                username: String::new(),
+                credentials: String::new(),
                 build_path: String::new(),
                 watch_paths: String::new(),
                 submodules: false,
@@ -354,6 +372,8 @@ impl GeneralTabState {
         match self.focused_field {
             GeneralTabField::RepoUrl => Some(&mut self.repo_url),
             GeneralTabField::Branch => Some(&mut self.branch),
+            GeneralTabField::Username => Some(&mut self.username),
+            GeneralTabField::Credentials => Some(&mut self.credentials),
             GeneralTabField::BuildPath => Some(&mut self.build_path),
             GeneralTabField::WatchPaths => Some(&mut self.watch_paths),
             GeneralTabField::Port => Some(&mut self.port),
@@ -364,7 +384,7 @@ impl GeneralTabState {
         }
     }
 
-    pub fn to_git_source(&self, existing: &GitSource) -> GitSource {
+    pub fn to_git_source(&self) -> GitSource {
         GitSource {
             url: self.repo_url.clone(),
             branch: self.branch.clone(),
@@ -383,7 +403,16 @@ impl GeneralTabState {
             } else {
                 Some(self.build_stage.clone())
             },
-            credentials: existing.credentials.clone(),
+            credentials: if self.credentials.is_empty() {
+                None
+            } else {
+                Some(self.credentials.clone())
+            },
+            username: if self.username.is_empty() {
+                None
+            } else {
+                Some(self.username.clone())
+            },
         }
     }
 }
@@ -529,6 +558,7 @@ impl HealthcheckTabState {
     pub fn from_service(svc: &Service) -> Self {
         let hc = &svc.spec.healthcheck;
         let (kind, http_path, expected_status) = match &hc.kind {
+            HealthcheckKind::None => ("None".into(), String::new(), "200".into()),
             HealthcheckKind::Tcp => ("Tcp".into(), String::new(), "200".into()),
             HealthcheckKind::Http {
                 path,
@@ -550,9 +580,10 @@ impl HealthcheckTabState {
 
     pub fn cycle_kind(&mut self) {
         self.kind = match self.kind.as_str() {
+            "None" => "Tcp".into(),
             "Tcp" => "Http".into(),
             "Http" => "DockerNative".into(),
-            _ => "Tcp".into(),
+            _ => "None".into(),
         };
     }
 
@@ -570,6 +601,7 @@ impl HealthcheckTabState {
 
     pub fn to_healthcheck(&self) -> Healthcheck {
         let kind = match self.kind.as_str() {
+            "None" => HealthcheckKind::None,
             "Http" => HealthcheckKind::Http {
                 path: if self.http_path.is_empty() {
                     "/".into()
@@ -587,6 +619,90 @@ impl HealthcheckTabState {
             timeout_secs: self.timeout.parse().unwrap_or(3),
             retries: self.retries.parse().unwrap_or(10),
             start_period_secs: self.start_period.parse().unwrap_or(5),
+        }
+    }
+}
+
+// ── Advanced tab ─────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum AdvancedField {
+    #[default]
+    Replicas,
+    RunCommand,
+    RunArgs,
+    Save,
+}
+
+impl AdvancedField {
+    const COUNT: usize = 4;
+
+    pub fn next(self) -> Self {
+        Self::from_idx((self as usize + 1) % Self::COUNT)
+    }
+
+    pub fn prev(self) -> Self {
+        let i = self as usize;
+        Self::from_idx(if i == 0 { Self::COUNT - 1 } else { i - 1 })
+    }
+
+    fn from_idx(i: usize) -> Self {
+        match i {
+            0 => Self::Replicas,
+            1 => Self::RunCommand,
+            2 => Self::RunArgs,
+            _ => Self::Save,
+        }
+    }
+
+    pub fn is_simple_text(self) -> bool {
+        matches!(self, Self::Replicas | Self::RunCommand)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AdvancedTabState {
+    pub focused: AdvancedField,
+    pub replicas: String,
+    pub run_command: String,
+    pub run_args: Vec<String>,
+    pub args_cursor: usize,
+    pub args_editing: bool,
+}
+
+impl AdvancedTabState {
+    pub fn from_service(svc: &Service) -> Self {
+        Self {
+            focused: AdvancedField::Replicas,
+            replicas: svc.spec.replicas.to_string(),
+            run_command: svc.spec.run_command.clone().unwrap_or_default(),
+            run_args: svc.spec.run_args.clone(),
+            args_cursor: 0,
+            args_editing: false,
+        }
+    }
+
+    pub fn focused_text_mut(&mut self) -> Option<&mut String> {
+        match self.focused {
+            AdvancedField::Replicas => Some(&mut self.replicas),
+            AdvancedField::RunCommand => Some(&mut self.run_command),
+            _ => None,
+        }
+    }
+
+    pub fn args_add(&mut self) {
+        self.run_args.push(String::new());
+        self.args_cursor = self.run_args.len() - 1;
+        self.args_editing = true;
+    }
+
+    pub fn args_delete(&mut self) {
+        if self.args_cursor < self.run_args.len() {
+            self.run_args.remove(self.args_cursor);
+            if self.args_cursor > 0 && self.args_cursor >= self.run_args.len() {
+                self.args_cursor -= 1;
+            }
+            self.args_editing = false;
         }
     }
 }
@@ -1042,6 +1158,8 @@ impl NewServiceState {
                 healthcheck: Healthcheck::default(),
                 replicas: 1,
                 resources: ResourceLimits::default(),
+                run_command: None,
+                run_args: vec![],
             },
             NewServiceStep::ComposeForm => ServiceSpec {
                 name: svc_name,
@@ -1057,6 +1175,8 @@ impl NewServiceState {
                 healthcheck: Healthcheck::default(),
                 replicas: 1,
                 resources: ResourceLimits::default(),
+                run_command: None,
+                run_args: vec![],
             },
             NewServiceStep::DatabaseForm => ServiceSpec {
                 name: svc_name,
@@ -1072,6 +1192,8 @@ impl NewServiceState {
                 healthcheck: Healthcheck::default(),
                 replicas: 1,
                 resources: ResourceLimits::default(),
+                run_command: None,
+                run_args: vec![],
             },
             NewServiceStep::TemplateVarForm => {
                 let template = self.selected_template.expect("template selected");
@@ -1092,6 +1214,8 @@ impl NewServiceState {
                     healthcheck: Healthcheck::default(),
                     replicas: 1,
                     resources: ResourceLimits::default(),
+                    run_command: None,
+                    run_args: vec![],
                 }
             }
             _ => unreachable!(),
@@ -1106,6 +1230,7 @@ pub enum ProjectDetailTab {
     #[default]
     Services,
     Environment,
+    Secrets,
     Settings,
 }
 
@@ -1114,6 +1239,7 @@ impl ProjectDetailTab {
         match self {
             Self::Services => "Services",
             Self::Environment => "Environment",
+            Self::Secrets => "Secrets",
             Self::Settings => "Settings",
         }
     }
@@ -1121,7 +1247,8 @@ impl ProjectDetailTab {
     pub fn next(&self) -> Self {
         match self {
             Self::Services => Self::Environment,
-            Self::Environment => Self::Settings,
+            Self::Environment => Self::Secrets,
+            Self::Secrets => Self::Settings,
             Self::Settings => Self::Services,
         }
     }
@@ -1130,7 +1257,8 @@ impl ProjectDetailTab {
         match self {
             Self::Services => Self::Settings,
             Self::Environment => Self::Services,
-            Self::Settings => Self::Environment,
+            Self::Secrets => Self::Environment,
+            Self::Settings => Self::Secrets,
         }
     }
 }
@@ -1175,6 +1303,24 @@ pub struct ProjectSettingsState {
     pub focused: ProjectSettingsField,
     pub name: String,
     pub description: String,
+}
+
+// ── Secrets tab ───────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Default)]
+pub struct SecretsTabState {
+    pub cursor: usize,
+    pub adding: bool,
+    pub edit_name: String,
+    pub edit_value: String,
+    pub edit_field: SecretEditField,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum SecretEditField {
+    #[default]
+    Name,
+    Value,
 }
 
 // ── Env tab ───────────────────────────────────────────────────────────────────
@@ -1227,6 +1373,9 @@ pub enum CmdContext {
     RegenerateWebhook,
     LoadServerSettings,
     SaveServerSettings,
+    LoadSecrets,
+    SetSecret,
+    DeleteSecret,
 }
 
 // ── Compose tab ───────────────────────────────────────────────────────────────

@@ -169,49 +169,52 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
     );
 
     for svc in services {
-        let live_name = containers::live_name(&svc.spec.name);
-        // Tenta nome exato (Git/Registry) ou prefixo (Compose)
-        let container_id = match containers::find_by_name(&docker.inner, &live_name).await {
-            Ok(Some(id)) => Some(id),
-            _ => {
-                let compose_prefix = format!("rp_{}-{}", svc.spec.name, svc.spec.name);
-                containers::find_by_prefix(&docker.inner, &compose_prefix).await.ok().flatten()
-            }
-        };
-
-        let Some(container_id) = container_id else {
-            warn!(
-                service = svc.spec.name,
-                "live container not found, skipping route restore"
-            );
-            continue;
-        };
-
+        let replicas = svc.spec.replicas.max(1);
         let net = format!(
             "rp_net_{}",
             &svc.spec.project_id[..8.min(svc.spec.project_id.len())]
         );
-        let ip = match containers::get_container_ip(&docker.inner, &container_id, &net).await {
-            Ok(ip) => ip,
-            Err(e) => {
-                warn!(service = svc.spec.name, error = %e, "could not get container IP, skipping");
-                continue;
-            }
-        };
 
-        let backend = format!("{ip}:{}", svc.spec.port);
+        // Coleta IPs de todas as réplicas live (Git/Registry)
+        let mut backends: Vec<String> = Vec::new();
+        for i in 0..replicas {
+            let live_name = containers::replica_live_name(&svc.spec.name, i);
+            if let Ok(Some(cid)) = containers::find_by_name(&docker.inner, &live_name).await {
+                if let Ok(ip) =
+                    containers::get_container_ip(&docker.inner, &cid, &net).await
+                {
+                    backends.push(format!("{ip}:{}", svc.spec.port));
+                }
+            }
+        }
+
+        // Fallback para Compose: encontra via prefixo e usa single backend
+        if backends.is_empty() {
+            let compose_prefix = format!("rp_{}-{}", svc.spec.name, svc.spec.name);
+            if let Ok(Some(cid)) =
+                containers::find_by_prefix(&docker.inner, &compose_prefix).await
+            {
+                if let Ok(ip) =
+                    containers::get_container_ip(&docker.inner, &cid, &net).await
+                {
+                    backends.push(format!("{ip}:{}", svc.spec.port));
+                }
+            }
+        }
+
+        if backends.is_empty() {
+            warn!(service = svc.spec.name, "no live containers found, skipping route restore");
+            continue;
+        }
 
         if let Some(domain) = &svc.spec.domain {
-            ingress.upsert_route(domain, &backend, &svc.id);
-            info!(service = svc.spec.name, domain, backend, "route restored");
+            ingress.upsert_route(domain, backends.clone(), &svc.id);
+            info!(service = svc.spec.name, domain, ?backends, "routes restored");
         }
 
         if let Some(host_port) = svc.spec.host_port {
-            ingress.upsert_port_route(host_port, &backend);
-            info!(
-                service = svc.spec.name,
-                host_port, backend, "port route restored"
-            );
+            ingress.upsert_port_route(host_port, backends.clone());
+            info!(service = svc.spec.name, host_port, ?backends, "port routes restored");
         }
     }
 }

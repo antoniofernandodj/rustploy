@@ -292,6 +292,7 @@ async fn run_healthcheck(
     timeout: Duration,
 ) -> bool {
     match &hc.kind {
+        HealthcheckKind::None => return true,
         HealthcheckKind::DockerNative => {
             use bollard::container::InspectContainerOptions;
             match docker

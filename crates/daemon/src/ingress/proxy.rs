@@ -65,7 +65,7 @@ async fn handle(
 
     let backend = {
         let table = routes.load();
-        table.get(&host).map(|e| e.backend_addr.clone())
+        table.get(&host).and_then(|e| e.next_backend())
     };
 
     let Some(backend_addr) = backend else {
@@ -158,7 +158,7 @@ async fn handle_port(
     req: Request<Incoming>,
     backend: PortBackend,
 ) -> Result<Response<ProxyBody>, std::convert::Infallible> {
-    let Some(backend_addr) = (**backend.load()).clone() else {
+    let Some(backend_addr) = (**backend.load()).as_ref().and_then(|b| b.next()) else {
         return Ok(status_response(StatusCode::SERVICE_UNAVAILABLE));
     };
 

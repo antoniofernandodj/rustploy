@@ -1,4 +1,4 @@
-use crate::app::{App, EnvEditField, Focus, ProjectDetailTab, ProjectSettingsField};
+use crate::app::{App, EnvEditField, Focus, ProjectDetailTab, ProjectSettingsField, SecretEditField};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -141,6 +141,7 @@ pub fn render_project_detail(f: &mut Frame, app: &App, area: Rect) {
     let tabs = [
         ProjectDetailTab::Services,
         ProjectDetailTab::Environment,
+        ProjectDetailTab::Secrets,
         ProjectDetailTab::Settings,
     ];
     let mut tab_spans = vec![
@@ -173,6 +174,7 @@ pub fn render_project_detail(f: &mut Frame, app: &App, area: Rect) {
         ProjectDetailTab::Services => render_services_tab(f, app, chunks[1]),
         ProjectDetailTab::Environment => render_project_env_tab(f, app, chunks[1]),
         ProjectDetailTab::Settings => render_project_settings_tab(f, app, chunks[1]),
+        ProjectDetailTab::Secrets => render_project_secrets_tab(f, app, chunks[1]),
     }
 }
 
@@ -636,4 +638,103 @@ pub fn render_project_settings_tab(f: &mut Frame, app: &App, area: Rect) {
         ])),
         chunks[13],
     );
+}
+
+// ── Aba de secrets do projeto ─────────────────────────────────────────────────
+
+pub fn render_project_secrets_tab(f: &mut Frame, app: &App, area: Rect) {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Secrets — credenciais criptografadas por projeto ")
+        .border_style(Style::default().fg(Color::DarkGray));
+
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(0), Constraint::Length(3)])
+        .split(inner);
+
+    if app.project_secrets.is_empty() && !app.secrets_tab.adding {
+        let p = Paragraph::new(Line::from(Span::styled(
+            " Nenhum secret. Pressione [n] para adicionar.",
+            Style::default().fg(Color::DarkGray),
+        )));
+        f.render_widget(p, chunks[0]);
+    } else {
+        let items: Vec<ListItem> = app
+            .project_secrets
+            .iter()
+            .enumerate()
+            .map(|(i, name)| {
+                let selected = !app.secrets_tab.adding && i == app.secrets_tab.cursor;
+                let style = if selected {
+                    Style::default()
+                        .fg(Color::Black)
+                        .bg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default()
+                };
+                ListItem::new(Line::from(vec![
+                    Span::styled(format!(" {:<28}", name), style.fg(if selected { Color::Black } else { Color::Cyan })),
+                    Span::styled(" ••••••••", style.fg(if selected { Color::Black } else { Color::DarkGray })),
+                ]))
+            })
+            .collect();
+
+        let mut list_state = ListState::default();
+        if !app.secrets_tab.adding {
+            list_state.select(Some(app.secrets_tab.cursor));
+        }
+        let list = List::new(items).highlight_style(
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        );
+        f.render_stateful_widget(list, chunks[0], &mut list_state);
+    }
+
+    if app.secrets_tab.adding {
+        let form_block = Block::default()
+            .borders(Borders::ALL)
+            .title(" Novo secret ")
+            .border_style(Style::default().fg(Color::Yellow));
+        let form_inner = form_block.inner(chunks[1]);
+        f.render_widget(form_block, chunks[1]);
+
+        let name_style = if app.secrets_tab.edit_field == SecretEditField::Name {
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::White)
+        };
+        let val_style = if app.secrets_tab.edit_field == SecretEditField::Value {
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::White)
+        };
+
+        let cursor_n = if app.secrets_tab.edit_field == SecretEditField::Name { "▌" } else { "" };
+        let cursor_v = if app.secrets_tab.edit_field == SecretEditField::Value { "▌" } else { "" };
+        let masked_value: String = "•".repeat(app.secrets_tab.edit_value.len());
+
+        let form_line = Line::from(vec![
+            Span::styled(format!(" NAME: {}{}", app.secrets_tab.edit_name, cursor_n), name_style),
+            Span::raw("   "),
+            Span::styled(format!("VALUE: {}{}", masked_value, cursor_v), val_style),
+        ]);
+        f.render_widget(Paragraph::new(form_line), form_inner);
+    } else {
+        let hint = Line::from(vec![
+            Span::styled(" [n]", Style::default().fg(Color::Cyan)),
+            Span::styled(" novo  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[D]", Style::default().fg(Color::Red)),
+            Span::styled(" remover  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[←→]", Style::default().fg(Color::DarkGray)),
+            Span::styled(" trocar aba", Style::default().fg(Color::DarkGray)),
+        ]);
+        f.render_widget(Paragraph::new(hint), chunks[1]);
+    }
 }

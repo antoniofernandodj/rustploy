@@ -11,6 +11,8 @@ pub struct CloneOptions<'a> {
     pub branch: &'a str,
     /// Personal-access token for HTTPS authentication. SSH URLs ignore this.
     pub token: Option<&'a str>,
+    /// Git username. Defaults to "x-token-auth" when not set (works for GitHub.com).
+    pub username: Option<&'a str>,
     pub dir: &'a Path,
 }
 
@@ -34,7 +36,7 @@ pub async fn clone(
     }
     std::fs::create_dir_all(opts.dir)?;
 
-    let effective_url = inject_token(opts.url, opts.token);
+    let effective_url = inject_token(opts.url, opts.token, opts.username);
     info!(
         url = %redact_url(opts.url),
         branch = %opts.branch,
@@ -115,14 +117,15 @@ pub async fn clone(
 
 /// Embeds a personal-access token into an HTTPS URL.
 /// SSH and file:// URLs are returned unchanged.
-fn inject_token(url: &str, token: Option<&str>) -> String {
+fn inject_token(url: &str, token: Option<&str>, username: Option<&str>) -> String {
     let Some(tok) = token else {
         return url.to_string();
     };
     if let Some(rest) = url.strip_prefix("https://") {
         // Strip existing credentials if the URL already contains them.
         let host_path = rest.split_once('@').map_or(rest, |(_, hp)| hp);
-        return format!("https://x-token-auth:{tok}@{host_path}");
+        let user = username.unwrap_or("x-token-auth");
+        return format!("https://{user}:{tok}@{host_path}");
     }
     url.to_string()
 }

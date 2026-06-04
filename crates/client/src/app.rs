@@ -4,6 +4,7 @@ use shared::{
     Command, ContainerMetricsPoint, DeployEngineSummary, DeployState, Deployment,
     DeploymentSummary, Event, Project, Response, Service, ServiceStatus,
 };
+
 use std::collections::{HashMap, VecDeque};
 
 pub struct App {
@@ -34,6 +35,7 @@ pub struct App {
     pub general_tab: GeneralTabState,
     pub healthcheck_tab: HealthcheckTabState,
     pub domains_tab: DomainsTabState,
+    pub advanced_tab: AdvancedTabState,
     pub env_tab: EnvTabState,
     pub compose_tab: ComposeTabState,
     pub deployment_cursor: usize,
@@ -62,6 +64,8 @@ pub struct App {
 
     pub webhook_url: Option<String>,
     pub server_settings: ServerSettingsState,
+    pub project_secrets: Vec<String>,
+    pub secrets_tab: SecretsTabState,
 }
 
 impl App {
@@ -94,6 +98,7 @@ impl App {
             general_tab: GeneralTabState::default(),
             healthcheck_tab: HealthcheckTabState::default(),
             domains_tab: DomainsTabState::default(),
+            advanced_tab: AdvancedTabState::default(),
             env_tab: EnvTabState::default(),
             compose_tab: ComposeTabState::default(),
             deployment_cursor: 0,
@@ -120,6 +125,8 @@ impl App {
 
             webhook_url: None,
             server_settings: ServerSettingsState::default(),
+            project_secrets: vec![],
+            secrets_tab: SecretsTabState::default(),
         }
     }
 
@@ -277,6 +284,7 @@ impl App {
         self.general_tab = GeneralTabState::from_service(svc);
         self.healthcheck_tab = HealthcheckTabState::from_service(svc);
         self.domains_tab = DomainsTabState::from_service(svc);
+        self.advanced_tab = AdvancedTabState::from_service(svc);
         self.env_tab = EnvTabState::default();
         self.compose_tab = if let shared::ServiceSource::Compose(c) = &svc.spec.source {
             ComposeTabState::new(&c.content)
@@ -551,6 +559,7 @@ impl App {
                     self.general_tab = GeneralTabState::from_service(&s);
                     self.healthcheck_tab = HealthcheckTabState::from_service(&s);
                     self.domains_tab = DomainsTabState::from_service(&s);
+                    self.advanced_tab = AdvancedTabState::from_service(&s);
                     if let shared::ServiceSource::Compose(c) = &s.spec.source {
                         self.compose_tab = ComposeTabState::new(&c.content);
                     }
@@ -714,6 +723,28 @@ impl App {
             }
             (Response::DeployEngineStatus(summary), CmdContext::LoadDeployEngine) => {
                 self.deploy_engine = Some(summary);
+            }
+            (Response::SecretNames(names), CmdContext::LoadSecrets) => {
+                self.project_secrets = names;
+            }
+            (Response::Ok, CmdContext::SetSecret) => {
+                if let Some(pid) = self.active_project_id.clone() {
+                    self.pending_commands.push(PendingCommand {
+                        command: Command::SecretList { project_id: pid },
+                        context: CmdContext::LoadSecrets,
+                    });
+                }
+                self.secrets_tab.adding = false;
+                self.set_notification("Secret salvo", false);
+            }
+            (Response::Ok, CmdContext::DeleteSecret) => {
+                if let Some(pid) = self.active_project_id.clone() {
+                    self.pending_commands.push(PendingCommand {
+                        command: Command::SecretList { project_id: pid },
+                        context: CmdContext::LoadSecrets,
+                    });
+                }
+                self.set_notification("Secret removido", false);
             }
             (Response::Err { message, .. }, _) => {
                 self.set_notification(message, true);

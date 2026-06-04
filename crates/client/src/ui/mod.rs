@@ -144,8 +144,8 @@ fn render_statusbar(f: &mut Frame, area: Rect, app: &App) {
             use crate::app::ProjectDetailTab;
             if app.service_filtering {
                 " [Enter/Esc] sair do filtro  [Backspace] apagar"
-            } else if app.project_env_tab.editing {
-                " [Tab] KEY↔VALUE  [Enter] salvar  [Esc] cancelar"
+            } else if app.project_env_tab.editing || app.secrets_tab.adding {
+                " [Tab] NAME↔VALUE  [Enter] salvar  [Esc] cancelar"
             } else {
                 match app.project_detail_tab {
                     ProjectDetailTab::Services => {
@@ -158,8 +158,11 @@ fn render_statusbar(f: &mut Frame, area: Rect, app: &App) {
                         if app.project_settings.focused.clone().is_text() {
                             " [Enter/Tab/↓] próximo campo  [Esc] sair do campo"
                         } else {
-                            " [←→/1/2/3] abas  [↑↓/Tab] nav  [Enter/Space] ação  [Tab] sidebar"
+                            " [←→/1/2/3/4] abas  [↑↓/Tab] nav  [Enter/Space] ação  [Tab] sidebar"
                         }
+                    }
+                    ProjectDetailTab::Secrets => {
+                        " [←→/1/2/3/4] abas  [n] novo secret  [D] remover  [Tab] sidebar"
                     }
                 }
             }

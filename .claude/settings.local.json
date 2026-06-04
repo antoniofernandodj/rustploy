@@ -30,10 +30,11 @@
       "Read(//home/**)",
       "Bash(GIT_DIR=/workspace/rustploy/.git GIT_WORK_TREE=/workspace/rustploy git status)",
       "Bash(GIT_CONFIG_NOSYSTEM=1 HOME=/tmp git -C /workspace/rustploy config --global --add safe.directory /workspace/rustploy)",
+      "Bash(/usr/bin/time --version)",
+      "Bash(sqlite3 *)",
       "Bash(GIT_SSL_NO_VERIFY=true git *)",
       "Read(//var/lib/rustploy/**)",
       "Read(//tmp/**)",
-      "Bash(sqlite3 *)",
       "Bash(ip route *)",
       "Bash(ping -c1 -W1 172.20.0.1)",
       "Bash(docker *)",
@@ -48,7 +49,8 @@
       "Bash(make help *)",
       "Bash(make *)",
       "Bash(rustup show *)",
-      "Bash(rustup default *)"
+      "Bash(rustup default *)",
+      "Bash(git add *)"
     ]
   }
 }

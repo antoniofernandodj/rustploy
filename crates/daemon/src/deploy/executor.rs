@@ -184,7 +184,7 @@ impl DeployExecutor {
                 );
                 let token = if let Some(name) = &git.credentials {
                     info!(deployment_id = %dep.id, secret = %name, "step[CloningRepo]: buscando token do secret");
-                    self.secrets.get_raw(name).await.ok()
+                    self.secrets.get_raw(&svc.spec.project_id, name).await.ok()
                 } else {
                     info!(deployment_id = %dep.id, "step[CloningRepo]: sem credenciais configuradas");
                     None
@@ -204,6 +204,7 @@ impl DeployExecutor {
                         url: &git.url,
                         branch: &git.branch,
                         token: token.as_deref(),
+                        username: git.username.as_deref(),
                         dir: &dir,
                     },
                     |p| {
@@ -258,55 +259,148 @@ impl DeployExecutor {
             DeployState::Staging => {
                 let image = self.image_for(dep, svc);
                 let network = self.network_name(&svc.spec.project_id);
-                info!(
-                    deployment_id = %dep.id,
-                    service_name = %svc.spec.name,
-                    image = %image,
-                    network = %network,
-                    "step[Staging]: resolvendo env vars"
-                );
                 let env = self.resolve_env(svc).await?;
+                let replicas = svc.spec.replicas.max(1);
+                let dep_short = self.short(&dep.id).to_string();
+
+                if replicas == 1 {
+                    // Single replica: caminho existente, healthcheck e swap tratados nos próximos estados
+                    let cname =
+                        containers::replica_staging_name(&svc.spec.name, &dep_short, 0);
+                    info!(deployment_id = %dep.id, container_name = %cname, "step[Staging]: criando réplica única");
+                    let id = containers::create_staging(
+                        &self.docker.inner,
+                        &svc.spec,
+                        &image,
+                        &svc.id,
+                        &dep.id,
+                        &network,
+                        &env,
+                        &cname,
+                    )
+                    .await?;
+                    networks::connect_container(&self.docker.inner, &network, &id).await?;
+                    containers::start(&self.docker.inner, &id).await?;
+                    return Ok(DeployState::HealthcheckPolling);
+                }
+
+                // Multi-réplica: exige healthcheck configurado
+                if svc.spec.healthcheck.kind == HealthcheckKind::None {
+                    return Err(anyhow!(
+                        "Deploy com múltiplas réplicas requer configuração de healthcheck"
+                    ));
+                }
+
+                // Rolling update: uma réplica por vez — sobe → healthcheck → derruba antiga → promove
                 info!(
                     deployment_id = %dep.id,
-                    env_keys = ?env.iter().map(|(k, _)| k.as_str()).collect::<Vec<_>>(),
-                    "step[Staging]: env vars resolvidas"
+                    replicas = replicas,
+                    "step[Staging/Rolling]: iniciando rolling update"
                 );
-                info!(
-                    deployment_id = %dep.id,
-                    "step[Staging]: criando container de staging"
-                );
-                let id = containers::create_staging(
-                    &self.docker.inner,
-                    &svc.spec,
-                    &image,
-                    &svc.id,
-                    &dep.id,
-                    &network,
-                    &env,
-                )
-                .await?;
-                info!(
-                    deployment_id = %dep.id,
-                    container_id = %id,
-                    network = %network,
-                    "step[Staging]: conectando container à rede do projeto"
-                );
-                // Conecta explicitamente via `network connect` ANTES do start.
-                // Usar network_mode=rede_user_defined no create não preenche
-                // IPAddress no inspect; o flow create→connect→start é confiável.
-                networks::connect_container(&self.docker.inner, &network, &id).await?;
-                info!(
-                    deployment_id = %dep.id,
-                    container_id = %id,
-                    "step[Staging]: container conectado, dando start"
-                );
-                containers::start(&self.docker.inner, &id).await?;
-                info!(
-                    deployment_id = %dep.id,
-                    container_id = %id,
-                    "step[Staging]: container iniciado"
-                );
-                Ok(DeployState::HealthcheckPolling)
+
+                // Estado inicial: coleta IPs das réplicas live já existentes (None = primeiro deploy)
+                let mut backends: Vec<Option<String>> = vec![None; replicas as usize];
+                for i in 0..replicas {
+                    let live = containers::replica_live_name(&svc.spec.name, i);
+                    if let Ok(Some(cid)) =
+                        containers::find_by_name(&self.docker.inner, &live).await
+                    {
+                        if let Ok(ip) =
+                            containers::get_container_ip(&self.docker.inner, &cid, &network)
+                                .await
+                        {
+                            backends[i as usize] = Some(format!("{ip}:{}", svc.spec.port));
+                        }
+                    }
+                }
+
+                for i in 0..replicas {
+                    let staging =
+                        containers::replica_staging_name(&svc.spec.name, &dep_short, i);
+                    info!(
+                        deployment_id = %dep.id,
+                        replica = i,
+                        container_name = %staging,
+                        "step[Staging/Rolling]: criando nova réplica"
+                    );
+
+                    let staging_id = containers::create_staging(
+                        &self.docker.inner,
+                        &svc.spec,
+                        &image,
+                        &svc.id,
+                        &dep.id,
+                        &network,
+                        &env,
+                        &staging,
+                    )
+                    .await?;
+                    networks::connect_container(&self.docker.inner, &network, &staging_id)
+                        .await?;
+                    containers::start(&self.docker.inner, &staging_id).await?;
+
+                    let ip = containers::get_container_ip(
+                        &self.docker.inner,
+                        &staging_id,
+                        &network,
+                    )
+                    .await?;
+                    info!(
+                        deployment_id = %dep.id,
+                        replica = i,
+                        ip = %ip,
+                        "step[Staging/Rolling]: verificando healthcheck da nova réplica"
+                    );
+                    // Falha aqui → RollingBack remove todos os stagings pendentes
+                    self.poll_healthcheck(&ip, &staging_id, svc, dep).await?;
+
+                    // Derruba a réplica live antiga (se existir)
+                    let live_name = containers::replica_live_name(&svc.spec.name, i);
+                    if let Ok(Some(old_cid)) =
+                        containers::find_by_name(&self.docker.inner, &live_name).await
+                    {
+                        info!(
+                            deployment_id = %dep.id,
+                            replica = i,
+                            old_container = %old_cid,
+                            "step[Staging/Rolling]: parando réplica anterior"
+                        );
+                        let _ = containers::stop_graceful(&self.docker.inner, &old_cid, 30)
+                            .await;
+                        let _ = containers::remove(&self.docker.inner, &old_cid).await;
+                    }
+
+                    // Promove staging → live
+                    containers::rename(&self.docker.inner, &staging_id, &live_name).await?;
+                    info!(
+                        deployment_id = %dep.id,
+                        replica = i,
+                        new_name = %live_name,
+                        "step[Staging/Rolling]: réplica promovida"
+                    );
+
+                    // Atualiza ingress com backends ativos até agora
+                    backends[i as usize] = Some(format!("{ip}:{}", svc.spec.port));
+                    let active: Vec<String> =
+                        backends.iter().flatten().cloned().collect();
+                    if let Some(domain) = &svc.spec.domain {
+                        self.ingress.upsert_route(domain, active.clone(), &svc.id);
+                    }
+                    if let Some(host_port) = svc.spec.host_port {
+                        self.ingress.upsert_port_route(host_port, active);
+                    }
+
+                    self.bus.publish(Event::DeployProgress {
+                        deployment_id: dep.id.clone(),
+                        service_id: svc.id.clone(),
+                        phase: "RollingUpdate".into(),
+                        percent: (((i + 1) as f32 / replicas as f32) * 100.0) as u8,
+                        description: format!("replica {}/{replicas} ok", i + 1),
+                    });
+                }
+
+                // Todas as réplicas substituídas; Promoting cuida do status no banco
+                Ok(DeployState::Promoting)
             }
 
             DeployState::HealthcheckPolling => {
@@ -345,36 +439,47 @@ impl DeployExecutor {
             }
 
             DeployState::SwappingIn => {
-                let staging = containers::staging_name(&svc.spec.name, self.short(&dep.id));
-                info!(
-                    deployment_id = %dep.id,
-                    container_name = %staging,
-                    "step[SwappingIn]: buscando container de staging para swap"
-                );
-                let staging_id = containers::find_by_name(&self.docker.inner, &staging)
-                    .await?
-                    .ok_or_else(|| anyhow!("staging container not found"))?;
+                let replicas = svc.spec.replicas.max(1);
+                let dep_short = self.short(&dep.id).to_string();
                 let net = self.network_name(&svc.spec.project_id);
-                let ip =
-                    containers::get_container_ip(&self.docker.inner, &staging_id, &net).await?;
-                let backend = format!("{ip}:{}", svc.spec.port);
+
+                // Coleta IPs de todas as réplicas para registrar no ingress
+                let mut backends: Vec<String> = Vec::with_capacity(replicas as usize);
+                for i in 0..replicas {
+                    let staging =
+                        containers::replica_staging_name(&svc.spec.name, &dep_short, i);
+                    info!(
+                        deployment_id = %dep.id,
+                        replica = i,
+                        container_name = %staging,
+                        "step[SwappingIn]: resolvendo IP da réplica de staging"
+                    );
+                    let staging_id = containers::find_by_name(&self.docker.inner, &staging)
+                        .await?
+                        .ok_or_else(|| anyhow!("staging container not found: {staging}"))?;
+                    let ip =
+                        containers::get_container_ip(&self.docker.inner, &staging_id, &net)
+                            .await?;
+                    backends.push(format!("{ip}:{}", svc.spec.port));
+                }
+
                 if let Some(domain) = &svc.spec.domain {
                     info!(
                         deployment_id = %dep.id,
                         domain = %domain,
-                        upstream = %backend,
+                        backends = ?backends,
                         "step[SwappingIn]: atualizando rota de domínio no ingress"
                     );
-                    self.ingress.upsert_route(domain, &backend, &svc.id);
+                    self.ingress.upsert_route(domain, backends.clone(), &svc.id);
                 }
                 if let Some(host_port) = svc.spec.host_port {
                     info!(
                         deployment_id = %dep.id,
                         host_port,
-                        upstream = %backend,
+                        backends = ?backends,
                         "step[SwappingIn]: atualizando rota de porta no ingress"
                     );
-                    self.ingress.upsert_port_route(host_port, &backend);
+                    self.ingress.upsert_port_route(host_port, backends.clone());
                 }
                 if svc.spec.domain.is_none() && svc.spec.host_port.is_none() {
                     info!(
@@ -383,22 +488,24 @@ impl DeployExecutor {
                     );
                 }
 
-                let live = containers::live_name(&svc.spec.name);
-                match containers::find_by_name(&self.docker.inner, &live).await {
-                    Ok(Some(old)) => {
+                // Para todas as instâncias antigas (suporte a replicas), excluindo as do deploy atual.
+                match containers::find_old_containers(&self.docker.inner, &svc.id, &dep.id).await {
+                    Ok(old_ids) if !old_ids.is_empty() => {
                         info!(
                             deployment_id = %dep.id,
-                            old_container = %old,
-                            "step[SwappingIn]: parando container live antigo"
+                            count = old_ids.len(),
+                            "step[SwappingIn]: parando instâncias live antigas"
                         );
-                        let _ = containers::stop_graceful(&self.docker.inner, &old, 30).await;
-                        info!(deployment_id = %dep.id, "step[SwappingIn]: container antigo parado");
+                        for old in &old_ids {
+                            let _ = containers::stop_graceful(&self.docker.inner, old, 30).await;
+                        }
+                        info!(deployment_id = %dep.id, "step[SwappingIn]: instâncias antigas paradas");
                     }
-                    Ok(None) => {
-                        info!(deployment_id = %dep.id, "step[SwappingIn]: nenhum container live anterior");
+                    Ok(_) => {
+                        info!(deployment_id = %dep.id, "step[SwappingIn]: nenhuma instância live anterior");
                     }
                     Err(e) => {
-                        warn!(deployment_id = %dep.id, error = %e, "step[SwappingIn]: erro ao buscar live (ignorado)");
+                        warn!(deployment_id = %dep.id, error = %e, "step[SwappingIn]: erro ao buscar containers antigos (ignorado)");
                     }
                 }
                 Ok(DeployState::Draining)
@@ -416,48 +523,65 @@ impl DeployExecutor {
             }
 
             DeployState::Promoting => {
-                let staging = containers::staging_name(&svc.spec.name, self.short(&dep.id));
-                let live = containers::live_name(&svc.spec.name);
+                let replicas = svc.spec.replicas.max(1);
+                let dep_short = self.short(&dep.id).to_string();
                 info!(
                     deployment_id = %dep.id,
-                    staging_name = %staging,
-                    live_name = %live,
+                    replicas = replicas,
                     "step[Promoting]: promovendo staging → live"
                 );
-                let staging_id = containers::find_by_name(&self.docker.inner, &staging)
-                    .await?
-                    .ok_or_else(|| anyhow!("staging container not found"))?;
 
-                if let Ok(Some(old)) = containers::find_by_name(&self.docker.inner, &live).await {
+                // Remove todos os containers antigos (já parados no SwappingIn).
+                match containers::find_old_containers(&self.docker.inner, &svc.id, &dep.id).await {
+                    Ok(old_ids) => {
+                        for old in &old_ids {
+                            let _ = containers::remove(&self.docker.inner, old).await;
+                        }
+                        if !old_ids.is_empty() {
+                            info!(deployment_id = %dep.id, count = old_ids.len(), "step[Promoting]: containers antigos removidos");
+                        }
+                    }
+                    Err(e) => {
+                        warn!(deployment_id = %dep.id, error = %e, "step[Promoting]: erro ao remover containers antigos (ignorado)");
+                    }
+                }
+
+                // Renomeia cada réplica de staging → live.
+                let mut primary_id = String::new();
+                for i in 0..replicas {
+                    let staging = containers::replica_staging_name(&svc.spec.name, &dep_short, i);
+                    let live = containers::replica_live_name(&svc.spec.name, i);
+                    let sid = match containers::find_by_name(&self.docker.inner, &staging).await? {
+                        Some(id) => id,
+                        None => {
+                            warn!(deployment_id = %dep.id, replica = i, container_name = %staging, "step[Promoting]: réplica de staging não encontrada, pulando");
+                            continue;
+                        }
+                    };
                     info!(
                         deployment_id = %dep.id,
-                        old_container = %old,
-                        "step[Promoting]: removendo container live antigo"
+                        replica = i,
+                        container_id = %sid,
+                        new_name = %live,
+                        "step[Promoting]: renomeando réplica"
                     );
-                    let _ = containers::remove(&self.docker.inner, &old).await;
-                    info!(deployment_id = %dep.id, "step[Promoting]: container antigo removido");
+                    containers::rename(&self.docker.inner, &sid, &live).await?;
+                    if i == 0 {
+                        primary_id = sid;
+                    }
                 }
 
                 info!(
                     deployment_id = %dep.id,
-                    container_id = %staging_id,
-                    new_name = %live,
-                    "step[Promoting]: renomeando staging → live"
-                );
-                containers::rename(&self.docker.inner, &staging_id, &live).await?;
-                info!(deployment_id = %dep.id, live_name = %live, "step[Promoting]: rename concluído");
-
-                info!(
-                    deployment_id = %dep.id,
                     service_id = %svc.id,
-                    container_id = %staging_id,
+                    container_id = %primary_id,
                     "step[Promoting]: atualizando status do serviço para Running"
                 );
                 crate::db::services::update_status(
                     &self.db,
                     &svc.id,
                     &ServiceStatus::Running,
-                    Some(&staging_id),
+                    if primary_id.is_empty() { None } else { Some(primary_id.as_str()) },
                 )
                 .await?;
                 self.bus.publish(Event::ServiceStatusChanged {
@@ -532,51 +656,59 @@ impl DeployExecutor {
                     return Ok(DeployState::Failed);
                 }
 
-                let staging = containers::staging_name(&svc.spec.name, self.short(&dep.id));
+                // Remove todos os containers de staging deste deployment.
+                let replicas = svc.spec.replicas.max(1);
+                let dep_short = self.short(&dep.id).to_string();
                 info!(
                     deployment_id = %dep.id,
-                    container_name = %staging,
-                    "step[RollingBack]: removendo container de staging"
+                    replicas = replicas,
+                    "step[RollingBack]: removendo containers de staging"
                 );
-                if let Ok(Some(id)) = containers::find_by_name(&self.docker.inner, &staging).await {
-                    let _ = containers::remove(&self.docker.inner, &id).await;
-                    info!(deployment_id = %dep.id, container_id = %id, "step[RollingBack]: staging removido");
-                } else {
-                    info!(deployment_id = %dep.id, "step[RollingBack]: nenhum staging encontrado para remover");
+                for i in 0..replicas {
+                    let staging = containers::replica_staging_name(&svc.spec.name, &dep_short, i);
+                    if let Ok(Some(id)) = containers::find_by_name(&self.docker.inner, &staging).await {
+                        let _ = containers::remove(&self.docker.inner, &id).await;
+                        info!(deployment_id = %dep.id, replica = i, container_id = %id, "step[RollingBack]: staging removido");
+                    }
                 }
 
-                let live = containers::live_name(&svc.spec.name);
-                match containers::find_by_name(&self.docker.inner, &live).await {
-                    Ok(Some(old)) => {
-                        let net = self.network_name(&svc.spec.project_id);
+                // Restaura todos os backends live anteriores para o ingress
+                let live_replicas = svc.spec.replicas.max(1);
+                let net = self.network_name(&svc.spec.project_id);
+                let mut live_backends: Vec<String> = Vec::new();
+                for i in 0..live_replicas {
+                    let live = containers::replica_live_name(&svc.spec.name, i);
+                    if let Ok(Some(cid)) =
+                        containers::find_by_name(&self.docker.inner, &live).await
+                    {
                         if let Ok(ip) =
-                            containers::get_container_ip(&self.docker.inner, &old, &net).await
+                            containers::get_container_ip(&self.docker.inner, &cid, &net).await
                         {
-                            let backend = format!("{ip}:{}", svc.spec.port);
-                            if let Some(domain) = &svc.spec.domain {
-                                info!(
-                                    deployment_id = %dep.id,
-                                    old_live = %old,
-                                    ip = %ip,
-                                    "step[RollingBack]: restaurando rota de domínio para live anterior"
-                                );
-                                self.ingress.upsert_route(domain, &backend, &svc.id);
-                            }
-                            if let Some(host_port) = svc.spec.host_port {
-                                info!(
-                                    deployment_id = %dep.id,
-                                    host_port,
-                                    "step[RollingBack]: restaurando rota de porta para live anterior"
-                                );
-                                self.ingress.upsert_port_route(host_port, &backend);
-                            }
+                            live_backends.push(format!("{ip}:{}", svc.spec.port));
                         }
                     }
-                    _ => {
-                        info!(deployment_id = %dep.id, "step[RollingBack]: nenhum live anterior para restaurar");
-                        if let Some(host_port) = svc.spec.host_port {
-                            self.ingress.remove_port_route(host_port);
-                        }
+                }
+                if !live_backends.is_empty() {
+                    if let Some(domain) = &svc.spec.domain {
+                        info!(
+                            deployment_id = %dep.id,
+                            backends = ?live_backends,
+                            "step[RollingBack]: restaurando rota de domínio para lives anteriores"
+                        );
+                        self.ingress.upsert_route(domain, live_backends.clone(), &svc.id);
+                    }
+                    if let Some(host_port) = svc.spec.host_port {
+                        info!(
+                            deployment_id = %dep.id,
+                            host_port,
+                            "step[RollingBack]: restaurando rota de porta para lives anteriores"
+                        );
+                        self.ingress.upsert_port_route(host_port, live_backends);
+                    }
+                } else {
+                    info!(deployment_id = %dep.id, "step[RollingBack]: nenhum live anterior para restaurar");
+                    if let Some(host_port) = svc.spec.host_port {
+                        self.ingress.remove_port_route(host_port);
                     }
                 }
 
@@ -626,11 +758,11 @@ impl DeployExecutor {
                         let backend = format!("{ip}:{}", svc.spec.port);
                         if let Some(domain) = &svc.spec.domain {
                             info!(deployment_id = %dep.id, domain, backend, "ComposingUp: registrando rota de domínio");
-                            self.ingress.upsert_route(domain, &backend, &svc.id);
+                            self.ingress.upsert_route(domain, vec![backend.clone()], &svc.id);
                         }
                         if let Some(host_port) = svc.spec.host_port {
                             info!(deployment_id = %dep.id, host_port, backend, "ComposingUp: registrando rota de porta");
-                            self.ingress.upsert_port_route(host_port, &backend);
+                            self.ingress.upsert_port_route(host_port, vec![backend.clone()]);
                         }
                     }
                 }
@@ -708,6 +840,7 @@ impl DeployExecutor {
             }
 
             let ok = match &hc.kind {
+                HealthcheckKind::None => return Ok(()),
                 HealthcheckKind::Http {
                     path,
                     expected_status,
@@ -817,7 +950,7 @@ impl DeployExecutor {
                 EnvVarValue::Plain(v) => v.clone(),
                 EnvVarValue::Secret(name) => {
                     debug!(service_id = %svc.id, secret = %name, "resolve_env: desencriptando secret do projeto");
-                    self.secrets.get_raw(name).await.unwrap_or_default()
+                    self.secrets.get_raw(&svc.spec.project_id, name).await.unwrap_or_default()
                 }
             };
             env_map.insert(ev.key.clone(), value);
@@ -828,7 +961,7 @@ impl DeployExecutor {
                 EnvVarValue::Plain(v) => v.clone(),
                 EnvVarValue::Secret(name) => {
                     debug!(service_id = %svc.id, secret = %name, "resolve_env: desencriptando secret do serviço");
-                    self.secrets.get_raw(name).await.unwrap_or_default()
+                    self.secrets.get_raw(&svc.spec.project_id, name).await.unwrap_or_default()
                 }
             };
             // Service override tem precedência sobre o projeto

@@ -26,6 +26,10 @@ pub struct ServiceSpec {
     pub healthcheck: Healthcheck,
     pub replicas: u32,
     pub resources: ResourceLimits,
+    #[serde(default)]
+    pub run_command: Option<String>,
+    #[serde(default)]
+    pub run_args: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -60,6 +64,7 @@ pub struct GitSource {
     pub build_context: String,
     pub build_stage: Option<String>,
     pub credentials: Option<String>,
+    pub username: Option<String>,
 }
 
 impl Default for GitSource {
@@ -74,6 +79,7 @@ impl Default for GitSource {
             build_context: ".".into(),
             build_stage: None,
             credentials: None,
+            username: None,
         }
     }
 }
@@ -240,6 +246,7 @@ impl Default for Healthcheck {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum HealthcheckKind {
+    None,
     Http { path: String, expected_status: u16 },
     Tcp,
     DockerNative,
