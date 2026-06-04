@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build (${{ matrix.artifact }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            artifact: x86_64
+          - target: aarch64-unknown-linux-musl
+            artifact: aarch64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-${{ matrix.target }}-cargo-
+
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build daemon
+        run: cross build --release --target ${{ matrix.target }} -p daemon
+
+      - name: Build client
+        run: cross build --release --target ${{ matrix.target }} -p client
+
+      - name: Package
+        run: |
+          mkdir dist
+          cp target/${{ matrix.target }}/release/rustployd dist/
+          cp target/${{ matrix.target }}/release/rustploy dist/
+          cp packaging/rustployd.service dist/
+          tar -czf rustploy-${{ github.ref_name }}-${{ matrix.artifact }}.tar.gz \
+            -C dist rustployd rustploy rustployd.service
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustploy-${{ matrix.artifact }}
+          path: rustploy-*.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: sha256sum rustploy-*.tar.gz > checksums.sha256
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            rustploy-*.tar.gz
+            checksums.sha256
+          generate_release_notes: true
