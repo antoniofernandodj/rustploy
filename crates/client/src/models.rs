@@ -221,6 +221,7 @@ pub enum GeneralTabField {
     BtnStop,
     RepoUrl,
     Branch,
+    Credentials,
     BuildPath,
     WatchPaths,
     Submodules,
@@ -234,7 +235,7 @@ pub enum GeneralTabField {
 }
 
 impl GeneralTabField {
-    const COUNT: usize = 16;
+    const COUNT: usize = 18;
 
     pub fn next(self) -> Self {
         Self::from_idx((self as usize + 1) % Self::COUNT)
@@ -253,16 +254,18 @@ impl GeneralTabField {
             3 => Self::BtnStop,
             4 => Self::RepoUrl,
             5 => Self::Branch,
-            6 => Self::BuildPath,
-            7 => Self::WatchPaths,
-            8 => Self::Submodules,
-            9 => Self::Port,
-            10 => Self::AddSshKeys,
-            11 => Self::ProviderSave,
-            12 => Self::DockerFile,
-            13 => Self::DockerContextPath,
-            14 => Self::DockerBuildStage,
-            _ => Self::BuildSave,
+            6 => Self::Credentials,
+            7 => Self::BuildPath,
+            8 => Self::WatchPaths,
+            9 => Self::Submodules,
+            10 => Self::Port,
+            11 => Self::AddSshKeys,
+            12 => Self::ProviderSave,
+            13 => Self::DockerFile,
+            14 => Self::DockerContextPath,
+            15 => Self::DockerBuildStage,
+            16 => Self::BuildSave,
+            _ => Self::BtnDeploy,
         }
     }
 
@@ -271,6 +274,7 @@ impl GeneralTabField {
             self,
             Self::RepoUrl
                 | Self::Branch
+                | Self::Credentials
                 | Self::BuildPath
                 | Self::WatchPaths
                 | Self::Port
@@ -299,6 +303,7 @@ pub struct GeneralTabState {
     pub focused_field: GeneralTabField,
     pub repo_url: String,
     pub branch: String,
+    pub credentials: String,
     pub build_path: String,
     pub watch_paths: String,
     pub submodules: bool,
@@ -315,6 +320,7 @@ impl GeneralTabState {
                 focused_field: GeneralTabField::BtnDeploy,
                 repo_url: g.url.clone(),
                 branch: g.branch.clone(),
+                credentials: g.credentials.clone().unwrap_or_default(),
                 build_path: g.root_path.clone(),
                 watch_paths: g.watch_paths.join(", "),
                 submodules: g.submodules,
@@ -327,6 +333,7 @@ impl GeneralTabState {
                 focused_field: GeneralTabField::BtnDeploy,
                 repo_url: image.clone(),
                 branch: String::new(),
+                credentials: String::new(),
                 build_path: ".".into(),
                 watch_paths: String::new(),
                 submodules: false,
@@ -339,6 +346,7 @@ impl GeneralTabState {
                 focused_field: GeneralTabField::BtnDeploy,
                 repo_url: String::new(),
                 branch: String::new(),
+                credentials: String::new(),
                 build_path: String::new(),
                 watch_paths: String::new(),
                 submodules: false,
@@ -354,6 +362,7 @@ impl GeneralTabState {
         match self.focused_field {
             GeneralTabField::RepoUrl => Some(&mut self.repo_url),
             GeneralTabField::Branch => Some(&mut self.branch),
+            GeneralTabField::Credentials => Some(&mut self.credentials),
             GeneralTabField::BuildPath => Some(&mut self.build_path),
             GeneralTabField::WatchPaths => Some(&mut self.watch_paths),
             GeneralTabField::Port => Some(&mut self.port),
@@ -364,7 +373,7 @@ impl GeneralTabState {
         }
     }
 
-    pub fn to_git_source(&self, existing: &GitSource) -> GitSource {
+    pub fn to_git_source(&self) -> GitSource {
         GitSource {
             url: self.repo_url.clone(),
             branch: self.branch.clone(),
@@ -383,7 +392,11 @@ impl GeneralTabState {
             } else {
                 Some(self.build_stage.clone())
             },
-            credentials: existing.credentials.clone(),
+            credentials: if self.credentials.is_empty() {
+                None
+            } else {
+                Some(self.credentials.clone())
+            },
         }
     }
 }
@@ -1201,6 +1214,7 @@ pub enum ProjectDetailTab {
     #[default]
     Services,
     Environment,
+    Secrets,
 }
 
 impl ProjectDetailTab {
@@ -1208,8 +1222,27 @@ impl ProjectDetailTab {
         match self {
             Self::Services => "Services",
             Self::Environment => "Environment",
+            Self::Secrets => "Secrets",
         }
     }
+}
+
+// ── Secrets tab ───────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Default)]
+pub struct SecretsTabState {
+    pub cursor: usize,
+    pub adding: bool,
+    pub edit_name: String,
+    pub edit_value: String,
+    pub edit_field: SecretEditField,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub enum SecretEditField {
+    #[default]
+    Name,
+    Value,
 }
 
 // ── Env tab ───────────────────────────────────────────────────────────────────
@@ -1261,6 +1294,9 @@ pub enum CmdContext {
     RegenerateWebhook,
     LoadServerSettings,
     SaveServerSettings,
+    LoadSecrets,
+    SetSecret,
+    DeleteSecret,
 }
 
 // ── Compose tab ───────────────────────────────────────────────────────────────

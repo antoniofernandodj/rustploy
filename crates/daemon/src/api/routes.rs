@@ -31,6 +31,9 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::RegenerateWebhookToken { .. } => "RegenerateWebhookToken",
         Command::GetDaemonSettings => "GetDaemonSettings",
         Command::SetDaemonSettings { .. } => "SetDaemonSettings",
+        Command::SecretSet { .. } => "SecretSet",
+        Command::SecretDelete { .. } => "SecretDelete",
+        Command::SecretList { .. } => "SecretList",
         _ => "Unknown",
     };
     info!(command = cmd_name, "→ RPC recebido");
@@ -93,6 +96,17 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::GetDaemonSettings => handlers::get_daemon_settings::handle(state).await,
         Command::SetDaemonSettings { webhook_base_url } => {
             handlers::set_daemon_settings::handle(state, webhook_base_url).await
+        }
+        Command::SecretSet {
+            project_id,
+            name,
+            value,
+        } => handlers::secret_set::handle(state, project_id, name, value).await,
+        Command::SecretDelete { project_id, name } => {
+            handlers::secret_delete::handle(state, project_id, name).await
+        }
+        Command::SecretList { project_id } => {
+            handlers::secret_list::handle(state, project_id).await
         }
         _ => RpResponse::err("NotImplemented", "command not yet implemented"),
     };

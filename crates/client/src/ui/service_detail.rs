@@ -116,19 +116,20 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
             Constraint::Length(1), // Provider header   [3]
             Constraint::Length(1), // Repo URL          [4]
             Constraint::Length(1), // Branch            [5]
-            Constraint::Length(1), // Build Path        [6]
-            Constraint::Length(1), // Watch Paths       [7]
-            Constraint::Length(1), // Submodules        [8]
-            Constraint::Length(1), // Port              [9]
-            Constraint::Length(1), // spacing           [10]
-            Constraint::Length(1), // SSH + Save (prov) [11]
-            Constraint::Length(1), // spacing           [12]
-            Constraint::Length(1), // Build Type header [13]
-            Constraint::Length(1), // Docker File       [14]
-            Constraint::Length(1), // Context Path      [15]
-            Constraint::Length(1), // Build Stage       [16]
-            Constraint::Length(1), // spacing           [17]
-            Constraint::Length(1), // Build Save button [18]
+            Constraint::Length(1), // Credentials       [6]
+            Constraint::Length(1), // Build Path        [7]
+            Constraint::Length(1), // Watch Paths       [8]
+            Constraint::Length(1), // Submodules        [9]
+            Constraint::Length(1), // Port              [10]
+            Constraint::Length(1), // spacing           [11]
+            Constraint::Length(1), // SSH + Save (prov) [12]
+            Constraint::Length(1), // spacing           [13]
+            Constraint::Length(1), // Build Type header [14]
+            Constraint::Length(1), // Docker File       [15]
+            Constraint::Length(1), // Context Path      [16]
+            Constraint::Length(1), // Build Stage       [17]
+            Constraint::Length(1), // spacing           [18]
+            Constraint::Length(1), // Build Save button [19]
             Constraint::Min(0),
         ])
         .split(area);
@@ -177,13 +178,20 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
     render_form_row(
         f,
         chunks[6],
+        "Credentials (secret)",
+        &gt.credentials,
+        gt.focused_field == GeneralTabField::Credentials,
+    );
+    render_form_row(
+        f,
+        chunks[7],
         "Build Path",
         &gt.build_path,
         gt.focused_field == GeneralTabField::BuildPath,
     );
     render_form_row(
         f,
-        chunks[7],
+        chunks[8],
         "Watch Paths",
         &gt.watch_paths,
         gt.focused_field == GeneralTabField::WatchPaths,
@@ -204,12 +212,12 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
                 sub_val_style,
             ),
         ])),
-        chunks[8],
+        chunks[9],
     );
 
     render_form_row(
         f,
-        chunks[9],
+        chunks[10],
         "Port",
         &gt.port,
         gt.focused_field == GeneralTabField::Port,
@@ -229,7 +237,7 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
                 gt.focused_field == GeneralTabField::ProviderSave,
             ),
         ])),
-        chunks[11],
+        chunks[12],
     );
 
     // Build Type header
@@ -238,26 +246,26 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
             "── Build Type: Dockerfile ─────────────────────────────────",
             Style::default().fg(Color::Yellow),
         ))),
-        chunks[13],
+        chunks[14],
     );
 
     render_form_row(
         f,
-        chunks[14],
+        chunks[15],
         "Docker File",
         &gt.dockerfile,
         gt.focused_field == GeneralTabField::DockerFile,
     );
     render_form_row(
         f,
-        chunks[15],
+        chunks[16],
         "Docker Context Path",
         &gt.context_path,
         gt.focused_field == GeneralTabField::DockerContextPath,
     );
     render_form_row(
         f,
-        chunks[16],
+        chunks[17],
         "Docker Build Stage",
         &gt.build_stage,
         gt.focused_field == GeneralTabField::DockerBuildStage,
@@ -269,7 +277,7 @@ fn render_general_tab(f: &mut Frame, app: &App, area: Rect) {
             Span::raw("  "),
             btn_span("[ Save ]", gt.focused_field == GeneralTabField::BuildSave),
         ])),
-        chunks[18],
+        chunks[19],
     );
 }
 

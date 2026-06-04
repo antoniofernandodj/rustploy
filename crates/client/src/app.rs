@@ -4,6 +4,7 @@ use shared::{
     Command, ContainerMetricsPoint, DeployEngineSummary, DeployState, Deployment,
     DeploymentSummary, Event, Project, Response, Service, ServiceStatus,
 };
+
 use std::collections::{HashMap, VecDeque};
 
 pub struct App {
@@ -62,6 +63,8 @@ pub struct App {
 
     pub webhook_url: Option<String>,
     pub server_settings: ServerSettingsState,
+    pub project_secrets: Vec<String>,
+    pub secrets_tab: SecretsTabState,
 }
 
 impl App {
@@ -120,6 +123,8 @@ impl App {
 
             webhook_url: None,
             server_settings: ServerSettingsState::default(),
+            project_secrets: vec![],
+            secrets_tab: SecretsTabState::default(),
         }
     }
 
@@ -705,6 +710,28 @@ impl App {
             }
             (Response::DeployEngineStatus(summary), CmdContext::LoadDeployEngine) => {
                 self.deploy_engine = Some(summary);
+            }
+            (Response::SecretNames(names), CmdContext::LoadSecrets) => {
+                self.project_secrets = names;
+            }
+            (Response::Ok, CmdContext::SetSecret) => {
+                if let Some(pid) = self.active_project_id.clone() {
+                    self.pending_commands.push(PendingCommand {
+                        command: Command::SecretList { project_id: pid },
+                        context: CmdContext::LoadSecrets,
+                    });
+                }
+                self.secrets_tab.adding = false;
+                self.set_notification("Secret salvo", false);
+            }
+            (Response::Ok, CmdContext::DeleteSecret) => {
+                if let Some(pid) = self.active_project_id.clone() {
+                    self.pending_commands.push(PendingCommand {
+                        command: Command::SecretList { project_id: pid },
+                        context: CmdContext::LoadSecrets,
+                    });
+                }
+                self.set_notification("Secret removido", false);
             }
             (Response::Err { message, .. }, _) => {
                 self.set_notification(message, true);

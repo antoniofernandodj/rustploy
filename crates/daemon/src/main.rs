@@ -54,7 +54,7 @@ async fn main() -> Result<()> {
     let ingress = Arc::new(IngressController::new());
 
     let master_key = resolve_master_key_path(&config.secrets.master_key_path);
-    let secrets = Arc::new(secrets::SecretsManager::new(&master_key)?);
+    let secrets = Arc::new(secrets::SecretsManager::new(&master_key, db.clone())?);
 
     // Recovery
     deploy::recovery::recover(

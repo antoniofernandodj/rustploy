@@ -1,12 +1,12 @@
 use crate::app::{
     AdvancedField, App, CmdContext, ConfirmAction, DbKind, EnvEditField, EnvTabState, Focus,
     GeneralTabField, HcField, NewServiceState, NewServiceStep, PendingCommand, ProjectDetailTab,
-    ServerSettingsField, ServiceTab, View,
+    SecretEditField, SecretsTabState, ServerSettingsField, ServiceTab, View,
 };
 use crossterm::event::KeyModifiers;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use shared::ServiceSource;
-use shared::{Command, EnvVar, EnvVarValue};
+use shared::{self, Command, EnvVar, EnvVarValue};
 
 pub fn handle_key(app: &mut App, key: KeyEvent) {
     if key.kind != KeyEventKind::Press {
@@ -107,14 +107,27 @@ fn handle_home_deploy_engine(app: &mut App, key: KeyEvent) {
 }
 
 fn handle_project_detail(app: &mut App, key: KeyEvent) {
-    // ←/→ alternam entre abas (igual ao service detail); não conflita com o Tab global
-    if !app.service_filtering && !app.project_env_tab.editing {
+    let is_editing = app.service_filtering
+        || app.project_env_tab.editing
+        || app.secrets_tab.adding;
+
+    if !is_editing {
         match key.code {
             KeyCode::Left | KeyCode::Right => {
                 app.project_detail_tab = match app.project_detail_tab {
                     ProjectDetailTab::Services => ProjectDetailTab::Environment,
-                    ProjectDetailTab::Environment => ProjectDetailTab::Services,
+                    ProjectDetailTab::Environment => ProjectDetailTab::Secrets,
+                    ProjectDetailTab::Secrets => ProjectDetailTab::Services,
                 };
+                if app.project_detail_tab == ProjectDetailTab::Secrets {
+                    if let Some(pid) = app.active_project_id.clone() {
+                        app.project_secrets.clear();
+                        app.pending_commands.push(PendingCommand {
+                            command: shared::Command::SecretList { project_id: pid },
+                            context: CmdContext::LoadSecrets,
+                        });
+                    }
+                }
                 return;
             }
             KeyCode::Char('1') => {
@@ -125,6 +138,17 @@ fn handle_project_detail(app: &mut App, key: KeyEvent) {
                 app.project_detail_tab = ProjectDetailTab::Environment;
                 return;
             }
+            KeyCode::Char('3') => {
+                app.project_detail_tab = ProjectDetailTab::Secrets;
+                if let Some(pid) = app.active_project_id.clone() {
+                    app.project_secrets.clear();
+                    app.pending_commands.push(PendingCommand {
+                        command: shared::Command::SecretList { project_id: pid },
+                        context: CmdContext::LoadSecrets,
+                    });
+                }
+                return;
+            }
             _ => {}
         }
     }
@@ -132,6 +156,7 @@ fn handle_project_detail(app: &mut App, key: KeyEvent) {
     match app.project_detail_tab.clone() {
         ProjectDetailTab::Services => handle_project_services_tab(app, key),
         ProjectDetailTab::Environment => handle_project_env_tab(app, key),
+        ProjectDetailTab::Secrets => handle_project_secrets_tab(app, key),
     }
 }
 
@@ -315,6 +340,94 @@ fn handle_project_env_tab(app: &mut App, key: KeyEvent) {
                         if app.project_env_tab.cursor > 0 {
                             app.project_env_tab.cursor -= 1;
                         }
+                    }
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn handle_project_secrets_tab(app: &mut App, key: KeyEvent) {
+    if app.secrets_tab.adding {
+        match key.code {
+            KeyCode::Tab => {
+                app.secrets_tab.edit_field = match app.secrets_tab.edit_field {
+                    SecretEditField::Name => SecretEditField::Value,
+                    SecretEditField::Value => SecretEditField::Name,
+                };
+            }
+            KeyCode::Esc => {
+                app.secrets_tab.adding = false;
+            }
+            KeyCode::Enter => {
+                let name = app.secrets_tab.edit_name.clone();
+                let value = app.secrets_tab.edit_value.clone();
+                if !name.is_empty() && !value.is_empty() {
+                    if let Some(pid) = app.active_project_id.clone() {
+                        app.pending_commands.push(PendingCommand {
+                            command: Command::SecretSet {
+                                project_id: pid,
+                                name,
+                                value,
+                            },
+                            context: CmdContext::SetSecret,
+                        });
+                    }
+                } else {
+                    app.secrets_tab.adding = false;
+                }
+            }
+            KeyCode::Char(c) => match app.secrets_tab.edit_field {
+                SecretEditField::Name => app.secrets_tab.edit_name.push(c),
+                SecretEditField::Value => app.secrets_tab.edit_value.push(c),
+            },
+            KeyCode::Backspace => match app.secrets_tab.edit_field {
+                SecretEditField::Name => {
+                    app.secrets_tab.edit_name.pop();
+                }
+                SecretEditField::Value => {
+                    app.secrets_tab.edit_value.pop();
+                }
+            },
+            _ => {}
+        }
+        return;
+    }
+
+    let secrets_len = app.project_secrets.len();
+    match key.code {
+        KeyCode::Up => {
+            if app.secrets_tab.cursor > 0 {
+                app.secrets_tab.cursor -= 1;
+            }
+        }
+        KeyCode::Down => {
+            if app.secrets_tab.cursor + 1 < secrets_len {
+                app.secrets_tab.cursor += 1;
+            }
+        }
+        KeyCode::Char('n') => {
+            app.secrets_tab = SecretsTabState {
+                cursor: app.secrets_tab.cursor,
+                adding: true,
+                edit_name: String::new(),
+                edit_value: String::new(),
+                edit_field: SecretEditField::Name,
+            };
+        }
+        KeyCode::Char('D') => {
+            if let Some(name) = app.project_secrets.get(app.secrets_tab.cursor).cloned() {
+                if let Some(pid) = app.active_project_id.clone() {
+                    app.pending_commands.push(PendingCommand {
+                        command: Command::SecretDelete {
+                            project_id: pid,
+                            name,
+                        },
+                        context: CmdContext::DeleteSecret,
+                    });
+                    if app.secrets_tab.cursor > 0 {
+                        app.secrets_tab.cursor -= 1;
                     }
                 }
             }
@@ -580,11 +693,7 @@ fn save_service_general(app: &mut App) {
     let new_source = match &svc.spec.source {
         ServiceSource::Compose(_) => return, // compose content é salvo via Ctrl+S no editor
         ServiceSource::Git(_) => {
-            let existing = match &svc.spec.source {
-                ServiceSource::Git(g) => g.clone(),
-                _ => shared::GitSource::default(),
-            };
-            ServiceSource::Git(app.general_tab.to_git_source(&existing))
+            ServiceSource::Git(app.general_tab.to_git_source())
         }
         ServiceSource::Registry { .. } => svc.spec.source.clone(),
     };
