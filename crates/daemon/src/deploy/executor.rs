@@ -184,7 +184,7 @@ impl DeployExecutor {
                 );
                 let token = if let Some(name) = &git.credentials {
                     info!(deployment_id = %dep.id, secret = %name, "step[CloningRepo]: buscando token do secret");
-                    self.secrets.get_raw(name).await.ok()
+                    self.secrets.get_raw(&svc.spec.project_id, name).await.ok()
                 } else {
                     info!(deployment_id = %dep.id, "step[CloningRepo]: sem credenciais configuradas");
                     None
@@ -949,7 +949,7 @@ impl DeployExecutor {
                 EnvVarValue::Plain(v) => v.clone(),
                 EnvVarValue::Secret(name) => {
                     debug!(service_id = %svc.id, secret = %name, "resolve_env: desencriptando secret do projeto");
-                    self.secrets.get_raw(name).await.unwrap_or_default()
+                    self.secrets.get_raw(&svc.spec.project_id, name).await.unwrap_or_default()
                 }
             };
             env_map.insert(ev.key.clone(), value);
@@ -960,7 +960,7 @@ impl DeployExecutor {
                 EnvVarValue::Plain(v) => v.clone(),
                 EnvVarValue::Secret(name) => {
                     debug!(service_id = %svc.id, secret = %name, "resolve_env: desencriptando secret do serviço");
-                    self.secrets.get_raw(name).await.unwrap_or_default()
+                    self.secrets.get_raw(&svc.spec.project_id, name).await.unwrap_or_default()
                 }
             };
             // Service override tem precedência sobre o projeto

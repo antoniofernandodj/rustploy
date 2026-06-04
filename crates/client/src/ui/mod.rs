@@ -139,15 +139,18 @@ fn render_statusbar(f: &mut Frame, area: Rect, app: &App) {
             use crate::app::ProjectDetailTab;
             if app.service_filtering {
                 " [Enter/Esc] sair do filtro  [Backspace] apagar"
-            } else if app.project_env_tab.editing {
-                " [Tab] KEY↔VALUE  [Enter] salvar  [Esc] cancelar"
+            } else if app.project_env_tab.editing || app.secrets_tab.adding {
+                " [Tab] NAME↔VALUE  [Enter] salvar  [Esc] cancelar"
             } else {
                 match app.project_detail_tab {
                     ProjectDetailTab::Services => {
-                        " [←→/1/2] abas  [n] novo serviço  [Enter] abrir  [D] deletar  [/] filtrar  [Tab] sidebar"
+                        " [←→/1/2/3] abas  [n] novo serviço  [Enter] abrir  [D] deletar  [/] filtrar  [Tab] sidebar"
                     }
                     ProjectDetailTab::Environment => {
-                        " [←→/1/2] abas  [n] nova var  [e] editar  [D] remover  [Tab] sidebar"
+                        " [←→/1/2/3] abas  [n] nova var  [e] editar  [D] remover  [Tab] sidebar"
+                    }
+                    ProjectDetailTab::Secrets => {
+                        " [←→/1/2/3] abas  [n] novo secret  [D] remover  [Tab] sidebar"
                     }
                 }
             }

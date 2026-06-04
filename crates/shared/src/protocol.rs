@@ -105,6 +105,20 @@ pub enum Command {
         webhook_base_url: Option<String>,
     },
 
+    // Secrets
+    SecretSet {
+        project_id: String,
+        name: String,
+        value: String,
+    },
+    SecretDelete {
+        project_id: String,
+        name: String,
+    },
+    SecretList {
+        project_id: String,
+    },
+
     // Infrastructure
     Ping,
     DaemonStatus,
@@ -217,6 +231,7 @@ pub enum Response {
     Pong { uptime_secs: u64 },
     WebhookUrl(Option<String>),
     DaemonSettings { webhook_base_url: Option<String> },
+    SecretNames(Vec<String>),
     Err { code: String, message: String },
 }
 
