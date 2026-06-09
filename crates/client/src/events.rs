@@ -950,8 +950,16 @@ fn handle_domains_tab(app: &mut App, key: KeyEvent) {
             }
         }
         KeyCode::Char(' ') => {
-            if app.domains_tab.focused == DomainsField::Save {
-                save_domains(app);
+            match app.domains_tab.focused {
+                DomainsField::TlsEnabled => {
+                    app.domains_tab.tls_enabled = !app.domains_tab.tls_enabled;
+                }
+                DomainsField::Save => save_domains(app),
+                _ => {
+                    if let Some(field) = app.domains_tab.focused_text_mut() {
+                        field.push(' ');
+                    }
+                }
             }
         }
         KeyCode::Char(c) => {
@@ -987,9 +995,11 @@ fn save_domains(app: &mut App) {
         Some(app.domains_tab.domain.trim().to_string())
     };
     let host_port = app.domains_tab.host_port.trim().parse::<u16>().ok();
+    let tls_enabled = app.domains_tab.tls_enabled;
     let new_spec = shared::ServiceSpec {
         domain,
         host_port,
+        tls_enabled,
         ..svc.spec.clone()
     };
     app.pending_commands.push(PendingCommand {

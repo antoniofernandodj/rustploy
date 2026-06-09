@@ -4,7 +4,7 @@ pub mod server;
 pub mod webhook_server;
 
 use crate::{
-    db::Db, docker::DockerClient, event_bus::EventBus, ingress::IngressController,
+    db::Db, docker::DockerClient, event_bus::EventBus, ingress::{IngressController, TlsManager},
     secrets::SecretsManager,
 };
 use std::{path::PathBuf, sync::Arc};
@@ -16,6 +16,7 @@ pub struct AppState {
     pub ingress: Arc<IngressController>,
     pub bus: Arc<EventBus>,
     pub secrets: Arc<SecretsManager>,
+    pub tls: Arc<TlsManager>,
     pub db_path: PathBuf,
     pub drain_secs: u64,
     pub webhook_port: u16,
@@ -29,6 +30,7 @@ impl AppState {
         ingress: Arc<IngressController>,
         bus: Arc<EventBus>,
         secrets: Arc<SecretsManager>,
+        tls: Arc<TlsManager>,
         db_path: PathBuf,
         drain_secs: u64,
         webhook_port: u16,
@@ -39,6 +41,7 @@ impl AppState {
             ingress,
             bus,
             secrets,
+            tls,
             db_path,
             drain_secs,
             webhook_port,

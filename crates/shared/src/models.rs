@@ -21,6 +21,8 @@ pub struct ServiceSpec {
     #[serde(default)]
     pub host_port: Option<u16>,
     pub domain: Option<String>,
+    #[serde(default)]
+    pub tls_enabled: bool,
     pub env_vars: Vec<EnvVar>,
     pub volumes: Vec<VolumeMount>,
     pub healthcheck: Healthcheck,

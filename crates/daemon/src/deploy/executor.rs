@@ -2,7 +2,7 @@ use crate::{
     db::Db,
     docker::{DockerClient, containers, images, networks},
     event_bus::EventBus,
-    ingress::IngressController,
+    ingress::{IngressController, TlsManager},
     secrets::SecretsManager,
 };
 use anyhow::{Result, anyhow};
@@ -22,6 +22,7 @@ pub struct DeployExecutor {
     pub ingress: Arc<IngressController>,
     pub bus: Arc<EventBus>,
     pub secrets: Arc<SecretsManager>,
+    pub tls: Arc<TlsManager>,
     pub db_path: PathBuf,
     pub drain_secs: u64,
 }
@@ -600,6 +601,18 @@ impl DeployExecutor {
                     debug!(deployment_id = %dep.id, dir = %build_dir.display(), "step[Promoting]: diretório de build removido");
                 }
 
+                // Provisiona certificado TLS em background (não bloqueia o pipeline)
+                if svc.spec.tls_enabled {
+                    if let Some(domain) = svc.spec.domain.clone() {
+                        let tls = self.tls.clone();
+                        tokio::spawn(async move {
+                            if let Err(e) = tls.ensure_cert(&domain).await {
+                                warn!(domain = %domain, error = %e, "TLS: falha ao provisionar certificado");
+                            }
+                        });
+                    }
+                }
+
                 // Transiciona qualquer deployment anterior em Live para Pruning
                 // para evitar múltiplos registros Live para o mesmo serviço.
                 if let Ok(history) =
@@ -783,6 +796,18 @@ impl DeployExecutor {
                     service_id: svc.id.clone(),
                     status: ServiceStatus::Running,
                 });
+
+                if svc.spec.tls_enabled {
+                    if let Some(domain) = svc.spec.domain.clone() {
+                        let tls = self.tls.clone();
+                        tokio::spawn(async move {
+                            if let Err(e) = tls.ensure_cert(&domain).await {
+                                warn!(domain = %domain, error = %e, "TLS: falha ao provisionar certificado (compose)");
+                            }
+                        });
+                    }
+                }
+
                 Ok(DeployState::Live)
             }
 

@@ -475,6 +475,7 @@ pub enum DomainsField {
     #[default]
     Domain,
     HostPort,
+    TlsEnabled,
     Save,
 }
 
@@ -482,7 +483,8 @@ impl DomainsField {
     pub fn next(self) -> Self {
         match self {
             Self::Domain => Self::HostPort,
-            Self::HostPort => Self::Save,
+            Self::HostPort => Self::TlsEnabled,
+            Self::TlsEnabled => Self::Save,
             Self::Save => Self::Domain,
         }
     }
@@ -490,7 +492,8 @@ impl DomainsField {
         match self {
             Self::Domain => Self::Save,
             Self::HostPort => Self::Domain,
-            Self::Save => Self::HostPort,
+            Self::TlsEnabled => Self::HostPort,
+            Self::Save => Self::TlsEnabled,
         }
     }
     pub fn is_text(self) -> bool {
@@ -503,6 +506,7 @@ pub struct DomainsTabState {
     pub focused: DomainsField,
     pub domain: String,
     pub host_port: String,
+    pub tls_enabled: bool,
 }
 
 impl DomainsTabState {
@@ -515,6 +519,7 @@ impl DomainsTabState {
                 .host_port
                 .map(|p| p.to_string())
                 .unwrap_or_default(),
+            tls_enabled: svc.spec.tls_enabled,
         }
     }
 
@@ -1153,6 +1158,7 @@ impl NewServiceState {
                 port: 80,
                 host_port: None,
                 domain: None,
+                tls_enabled: false,
                 env_vars: vec![],
                 volumes: vec![],
                 healthcheck: Healthcheck::default(),
@@ -1170,6 +1176,7 @@ impl NewServiceState {
                 port: 80,
                 host_port: None,
                 domain: None,
+                tls_enabled: false,
                 env_vars: vec![],
                 volumes: vec![],
                 healthcheck: Healthcheck::default(),
@@ -1187,6 +1194,7 @@ impl NewServiceState {
                 port: self.db_kind.map(|d| d.default_port()).unwrap_or(5432),
                 host_port: None,
                 domain: None,
+                tls_enabled: false,
                 env_vars: self.db_env_vars(),
                 volumes: vec![],
                 healthcheck: Healthcheck::default(),
@@ -1209,6 +1217,7 @@ impl NewServiceState {
                     port: template.default_port,
                     host_port: None,
                     domain: None,
+                    tls_enabled: false,
                     env_vars: vec![],
                     volumes: vec![],
                     healthcheck: Healthcheck::default(),

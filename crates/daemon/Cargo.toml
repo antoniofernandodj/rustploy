@@ -52,9 +52,12 @@ bollard = "0.17"
 # Reverse proxy (hyper-based, HTTP/1.1, lock-free route table via arc-swap)
 arc-swap = "1"
 
-# TLS — Phase 5
-# rustls = "0.23"
-# instant-acme = "0.7"
+# TLS — ACME / Let's Encrypt
+rustls = { version = "0.23", features = ["ring"] }
+rustls-pemfile = "2"
+tokio-rustls = "0.26"
+instant-acme = "0.7"
+rcgen = { version = "0.13", features = ["ring"] }
 
 # Crypto / Secrets
 age = { version = "0.10", features = ["async"] }

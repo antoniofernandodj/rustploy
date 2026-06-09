@@ -120,6 +120,7 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
         ingress: state.ingress.clone(),
         bus: state.bus.clone(),
         secrets: state.secrets.clone(),
+        tls: state.tls.clone(),
         db_path: state.db_path.clone(),
         drain_secs: state.drain_secs,
     });

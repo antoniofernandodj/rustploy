@@ -18,7 +18,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 use anyhow::Result;
 use api::AppState;
 use event_bus::EventBus;
-use ingress::IngressController;
+use ingress::{IngressController, TlsManager};
 use shared::{Event, RustployConfig};
 use socket2::{Domain, Socket, Type};
 use std::{os::unix::net::UnixListener as StdUnixListener, path::PathBuf, sync::Arc};
@@ -56,6 +56,13 @@ async fn main() -> Result<()> {
     let master_key = resolve_master_key_path(&config.secrets.master_key_path);
     let secrets = Arc::new(secrets::SecretsManager::new(&master_key, db.clone())?);
 
+    // TLS / ACME
+    let certs_dir = resolve_data_path(&config.daemon.db_path).join("certs");
+    let tls = Arc::new(
+        TlsManager::new(certs_dir, config.ingress.acme.clone())
+            .expect("failed to initialize TLS manager"),
+    );
+
     // Recovery
     deploy::recovery::recover(
         db.clone(),
@@ -63,6 +70,7 @@ async fn main() -> Result<()> {
         ingress.clone(),
         bus.clone(),
         secrets.clone(),
+        tls.clone(),
         db_path.clone(),
         config.deploy.drain_secs,
     )
@@ -99,6 +107,7 @@ async fn main() -> Result<()> {
         ingress.clone(),
         bus,
         secrets,
+        tls.clone(),
         db_path,
         config.deploy.drain_secs,
         config.daemon.webhook_port,
@@ -112,13 +121,39 @@ async fn main() -> Result<()> {
         });
     }
 
+    // Loop de renovação de certificados TLS (a cada 12 horas)
+    if config.ingress.acme.enabled {
+        let tls_renew = tls.clone();
+        tokio::spawn(async move {
+            let mut interval =
+                tokio::time::interval(std::time::Duration::from_secs(12 * 3600));
+            loop {
+                interval.tick().await;
+                match tls_renew.renew_expiring().await {
+                    Ok(renewed) if !renewed.is_empty() => {
+                        info!(domains = ?renewed, "TLS: certificados renovados");
+                    }
+                    Err(e) => {
+                        warn!(error = %e, "TLS: erro na renovação periódica");
+                    }
+                    _ => {}
+                }
+            }
+        });
+    }
+
     // Ingress Proxy: roteamento de domínios e portas
     {
         let routes = ingress.table_handle();
         let http_port = config.ingress.http_port;
         let https_port = config.ingress.https_port;
+        let tls_proxy = if config.ingress.acme.enabled {
+            Some(tls.clone())
+        } else {
+            None
+        };
         tokio::spawn(async move {
-            ingress::proxy::start_proxy(routes, http_port, https_port).await;
+            ingress::proxy::start_proxy(routes, http_port, https_port, tls_proxy).await;
         });
     }
 

@@ -725,8 +725,9 @@ fn render_domains_tab(f: &mut Frame, app: &App, area: Rect) {
             Constraint::Length(1), // spacing            [2]
             Constraint::Length(1), // Domain             [3]
             Constraint::Length(1), // Host Port          [4]
-            Constraint::Length(1), // spacing            [5]
-            Constraint::Length(1), // Save               [6]
+            Constraint::Length(1), // TLS toggle         [5]
+            Constraint::Length(1), // spacing            [6]
+            Constraint::Length(1), // Save               [7]
             Constraint::Min(0),
         ])
         .split(area);
@@ -744,40 +745,31 @@ fn render_domains_tab(f: &mut Frame, app: &App, area: Rect) {
     let domain_val = format!(
         "{}{}",
         dt.domain,
-        if dt.focused == DomainsField::Domain {
-            "▌"
-        } else {
-            ""
-        }
+        if dt.focused == DomainsField::Domain { "▌" } else { "" }
     );
     let hp_val = format!(
         "{}{}",
         dt.host_port,
-        if dt.focused == DomainsField::HostPort {
-            "▌"
-        } else {
-            ""
-        }
+        if dt.focused == DomainsField::HostPort { "▌" } else { "" }
     );
 
     let focused_style = Style::default().fg(Color::Cyan);
     let normal_style = Style::default().fg(Color::White);
     let label_style = Style::default().fg(Color::DarkGray);
 
+    // Domínio
     f.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(format!("  {:<22}", "Domínio"), label_style),
             Span::styled(
                 domain_val,
-                if dt.focused == DomainsField::Domain {
-                    focused_style
-                } else {
-                    normal_style
-                },
+                if dt.focused == DomainsField::Domain { focused_style } else { normal_style },
             ),
         ])),
         chunks[3],
     );
+
+    // Porta externa
     f.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(format!("  {:<22}", "Porta externa"), label_style),
@@ -794,23 +786,51 @@ fn render_domains_tab(f: &mut Frame, app: &App, area: Rect) {
                 },
                 if dt.focused == DomainsField::HostPort {
                     focused_style
+                } else if dt.host_port.is_empty() {
+                    Style::default().fg(Color::DarkGray)
                 } else {
-                    if dt.host_port.is_empty() {
-                        Style::default().fg(Color::DarkGray)
-                    } else {
-                        normal_style
-                    }
+                    normal_style
                 },
             ),
         ])),
         chunks[4],
     );
+
+    // TLS / HTTPS toggle
+    let tls_focused = dt.focused == DomainsField::TlsEnabled;
+    let tls_no_domain = dt.domain.trim().is_empty();
+    let checkbox = if dt.tls_enabled { "[✓]" } else { "[ ]" };
+    let tls_label = if tls_no_domain {
+        format!("{} HTTPS / TLS  (requer domínio)", checkbox)
+    } else {
+        format!("{} HTTPS / TLS", checkbox)
+    };
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(format!("  {:<22}", "Certificado SSL"), label_style),
+            Span::styled(
+                tls_label,
+                if tls_focused {
+                    focused_style
+                } else if dt.tls_enabled {
+                    Style::default().fg(Color::Green)
+                } else if tls_no_domain {
+                    Style::default().fg(Color::DarkGray)
+                } else {
+                    normal_style
+                },
+            ),
+        ])),
+        chunks[5],
+    );
+
+    // Save
     f.render_widget(
         Paragraph::new(Line::from(vec![
             Span::raw("  "),
             btn_span("[ Save ]", dt.focused == DomainsField::Save),
         ])),
-        chunks[6],
+        chunks[7],
     );
 }
 

@@ -2,7 +2,7 @@ use crate::{
     db::Db,
     docker::{DockerClient, containers},
     event_bus::EventBus,
-    ingress::IngressController,
+    ingress::{IngressController, TlsManager},
     secrets::SecretsManager,
 };
 use shared::{DeployState, ServiceStatus};
@@ -15,6 +15,7 @@ pub async fn recover(
     ingress: Arc<IngressController>,
     bus: Arc<EventBus>,
     secrets: Arc<SecretsManager>,
+    tls: Arc<TlsManager>,
     db_path: PathBuf,
     drain_secs: u64,
 ) {
@@ -107,6 +108,7 @@ pub async fn recover(
                     ingress: ingress.clone(),
                     bus: bus.clone(),
                     secrets: secrets.clone(),
+                    tls: tls.clone(),
                     db_path: db_path.clone(),
                     drain_secs,
                 });
@@ -123,6 +125,7 @@ pub async fn recover(
                     ingress: ingress.clone(),
                     bus: bus.clone(),
                     secrets: secrets.clone(),
+                    tls: tls.clone(),
                     db_path: db_path.clone(),
                     drain_secs,
                 });
@@ -139,6 +142,7 @@ pub async fn recover(
                     ingress: ingress.clone(),
                     bus: bus.clone(),
                     secrets: secrets.clone(),
+                    tls: tls.clone(),
                     db_path: db_path.clone(),
                     drain_secs,
                 });
