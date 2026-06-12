@@ -50,7 +50,12 @@
       "Bash(make *)",
       "Bash(rustup show *)",
       "Bash(rustup default *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(timeout 10 ./target/debug/rustploy)",
+      "Bash(mkdir -p /tmp/rustploy_test_db)",
+      "Bash(RUSTPLOY_SOCKET_PATH=/tmp/rustploy_test.sock RUSTPLOY_DB_PATH=/tmp/rustploy_test_db/db RUSTPLOY_LOG_LEVEL=warn nohup ./target/debug/rustployd)",
+      "Bash(CARGO_TARGET_DIR=/home/antonio/Development/rust/rustploy/target cargo build --release -p client)",
+      "Bash(RUSTPLOY_SOCKET_PATH=/tmp/rp_test.sock RUSTPLOY_DB_PATH=/tmp/rp_test_db/db RUSTPLOY_LOG_LEVEL=warn nohup ./target/debug/rustployd)"
     ]
   }
 }
