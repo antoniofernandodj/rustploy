@@ -50,13 +50,14 @@ Default master key: `/etc/rustploy/master.key`
 
 ### IPC protocol
 
-The client sends **postcard-encoded** `Command` values via HTTP POST to `/rpc` over the Unix Domain Socket, and receives postcard-encoded `Response` values. Real-time events (logs, metrics, deploy progress) come from `GET /stream` (chunked response framed as `[u32 LE length][postcard bytes]`).  
-All three message types — `Command`, `Response`, `Event` — are defined in `crates/shared/src/protocol.rs`.  
+Raw **postcard-encoded** frames over the Unix Domain Socket — no HTTP involved. Every frame is `[u32 LE length][postcard bytes]`. The client opens a connection and sends a `ClientFrame`: `Rpc(Command)` gets a single `Response` frame back; `Subscribe { service_id }` turns the connection into a stream of `Event` frames (logs, metrics, deploy progress).  
+All message types — `ClientFrame`, `Command`, `Response`, `Event` — are defined in `crates/shared/src/protocol.rs`.  
 Postcard uses varint encoding: small integers and short strings produce fewer bytes than bincode, with no schema overhead.
 
 ### Daemon internals (`crates/daemon/src/`)
 
-- **`api/routes.rs`** — single `/rpc` + `/stream` + `/health` router; `dispatch()` matches every `Command` variant to a handler module.
+- **`api/server.rs`** — UDS listener; decodes each `ClientFrame` and routes `Rpc` to `dispatch()`, `Subscribe` to the event stream.
+- **`api/routes.rs`** — `dispatch()` matches every `Command` variant to a handler module.
 - **`api/handlers/`** — one file per command (e.g. `deploy_start.rs`, `project_create.rs`).
 - **`db/`** — SQLite (via `sqlx`) wrappers for projects, services, deployments.
 - **`deploy/executor.rs`** — `DeployExecutor` drives the deploy state machine in a `tokio::spawn`. States: `Pending → ResolvingDeps → PullingImage | CloningRepo → BuildingImage → Staging → HealthcheckPolling → SwappingIn → Draining → Promoting → Live`. Rollback lands at `Failed`.
@@ -70,7 +71,7 @@ Postcard uses varint encoding: small integers and short strings produce fewer by
 
 - **`app.rs`** — `App` struct (all UI state), `View`/`SidebarItem` enums, `Command`/`CmdContext` pairing. `App::apply_event()` handles incoming daemon events; `App::handle_response()` handles RPC responses.
 - **`events.rs`** — input event loop; maps key presses to mutations on `App`.
-- **`transport.rs`** — HTTP-over-UDS client using hyper; exposes `rpc(Command) → Response` and a stream subscription.
+- **`transport.rs`** — sync UDS client (`std::os::unix::net::UnixStream`, no tokio); exposes `send(Command) → Response` and a blocking stream subscription (run on a dedicated thread).
 - **`ui/mod.rs`** — top-level render dispatcher; delegates to sub-modules by current `View`.
 - **`ui/sidebar.rs`**, **`ui/projects.rs`**, **`ui/service_detail.rs`**, **`ui/deploy_log.rs`**, **`ui/metrics.rs`**, **`ui/settings.rs`** — individual screen renderers.
 

@@ -1,8 +1,8 @@
 use anyhow::Result;
 use shared::{ClientFrame, Command, Event, Response};
+use std::io::{Read, Write};
+use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::UnixStream;
 
 const MAX_FRAME: usize = 4 * 1024 * 1024;
 
@@ -17,29 +17,29 @@ impl DaemonClient {
         }
     }
 
-    pub async fn ping(&self) -> bool {
-        matches!(self.send(Command::Ping).await, Ok(Response::Pong { .. }))
+    pub fn ping(&self) -> bool {
+        matches!(self.send(Command::Ping), Ok(Response::Pong { .. }))
     }
 
-    pub async fn send(&self, cmd: Command) -> Result<Response> {
-        let mut stream = UnixStream::connect(&self.socket_path).await?;
-        write_frame(&mut stream, &postcard::to_allocvec(&ClientFrame::Rpc(cmd))?).await?;
-        let buf = read_frame(&mut stream).await?;
+    pub fn send(&self, cmd: Command) -> Result<Response> {
+        let mut stream = UnixStream::connect(&self.socket_path)?;
+        write_frame(&mut stream, &postcard::to_allocvec(&ClientFrame::Rpc(cmd))?)?;
+        let buf = read_frame(&mut stream)?;
         Ok(postcard::from_bytes(&buf)?)
     }
 
-    pub async fn stream<F>(&self, service_id: Option<&str>, mut on_event: F) -> Result<()>
+    pub fn stream<F>(&self, service_id: Option<&str>, mut on_event: F) -> Result<()>
     where
-        F: FnMut(Event) + Send,
+        F: FnMut(Event),
     {
-        let mut stream = UnixStream::connect(&self.socket_path).await?;
+        let mut stream = UnixStream::connect(&self.socket_path)?;
         let subscribe = ClientFrame::Subscribe {
             service_id: service_id.map(String::from),
         };
-        write_frame(&mut stream, &postcard::to_allocvec(&subscribe)?).await?;
+        write_frame(&mut stream, &postcard::to_allocvec(&subscribe)?)?;
 
         loop {
-            match read_frame(&mut stream).await {
+            match read_frame(&mut stream) {
                 Ok(buf) => {
                     if let Ok(event) = postcard::from_bytes::<Event>(&buf) {
                         on_event(event);
@@ -52,19 +52,19 @@ impl DaemonClient {
     }
 }
 
-async fn write_frame(stream: &mut UnixStream, data: &[u8]) -> Result<()> {
+fn write_frame(stream: &mut UnixStream, data: &[u8]) -> Result<()> {
     let len = (data.len() as u32).to_le_bytes();
-    stream.write_all(&len).await?;
-    stream.write_all(data).await?;
+    stream.write_all(&len)?;
+    stream.write_all(data)?;
     Ok(())
 }
 
-async fn read_frame(stream: &mut UnixStream) -> Result<Vec<u8>> {
+fn read_frame(stream: &mut UnixStream) -> Result<Vec<u8>> {
     let mut len_buf = [0u8; 4];
-    stream.read_exact(&mut len_buf).await?;
+    stream.read_exact(&mut len_buf)?;
     let len = u32::from_le_bytes(len_buf) as usize;
     anyhow::ensure!(len > 0 && len <= MAX_FRAME, "invalid frame length: {len}");
     let mut buf = vec![0u8; len];
-    stream.read_exact(&mut buf).await?;
+    stream.read_exact(&mut buf)?;
     Ok(buf)
 }

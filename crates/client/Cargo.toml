@@ -23,13 +23,9 @@ assets = [
 [dependencies]
 shared = { path = "../shared" }
 
-# Async
-tokio = { version = "1", features = ["full"] }
-futures = "0.3"
-
 # TUI
 ratatui = "0.28"
-crossterm = { version = "0.28", features = ["event-stream"] }
+crossterm = "0.28"
 tui-textarea = { version = "0.6", features = ["crossterm"] }
 
 
