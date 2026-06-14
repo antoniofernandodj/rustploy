@@ -53,26 +53,53 @@ pub async fn write_to_db(data: &TransformedData) -> Result<()> {
 
     let pool = SqlitePool::connect(db_path).await?;
 
+    let mut project_id_map = std::collections::HashMap::new(); // Original ID from data -> ID in DB
+
     for p in &data.projects {
         let env_vars = serde_json::to_string(&p.env_vars)?;
-        sqlx::query(
-            "INSERT INTO project (id, name, description, env_vars, created_at) VALUES (?, ?, ?, ?, ?)
-             ON CONFLICT(name) DO UPDATE SET description = excluded.description, env_vars = excluded.env_vars"
-        )
-        .bind(&p.id)
-        .bind(&p.name)
-        .bind(&p.description)
-        .bind(&env_vars)
-        .bind(&p.created_at.to_rfc3339())
-        .execute(&pool)
-        .await?;
+        
+        // Try to find existing project by name
+        let existing: Option<(String,)> = sqlx::query_as("SELECT id FROM project WHERE name = ?")
+            .bind(&p.name)
+            .fetch_optional(&pool)
+            .await?;
+
+        let final_id = if let Some((id,)) = existing {
+            // Update existing project
+            sqlx::query(
+                "UPDATE project SET description = ?, env_vars = ? WHERE id = ?"
+            )
+            .bind(&p.description)
+            .bind(&env_vars)
+            .bind(&id)
+            .execute(&pool)
+            .await?;
+            id
+        } else {
+            // Insert new project
+            sqlx::query(
+                "INSERT INTO project (id, name, description, env_vars, created_at) VALUES (?, ?, ?, ?, ?)"
+            )
+            .bind(&p.id)
+            .bind(&p.name)
+            .bind(&p.description)
+            .bind(&env_vars)
+            .bind(&p.created_at.to_rfc3339())
+            .execute(&pool)
+            .await?;
+            p.id.clone()
+        };
+
+        project_id_map.insert(p.id.clone(), final_id);
     }
 
     for s in &data.services {
         let spec = serde_json::to_string(&s.spec)?;
         
+        // Reconcile project_id
+        let project_id = project_id_map.get(&s.spec.project_id).unwrap_or(&s.spec.project_id);
+
         // Delete existing service with same name to avoid duplicates/confusion
-        // (since schema doesn't have UNIQUE constraint on name yet)
         sqlx::query("DELETE FROM service WHERE name = ?")
             .bind(&s.spec.name)
             .execute(&pool)
@@ -83,7 +110,7 @@ pub async fn write_to_db(data: &TransformedData) -> Result<()> {
         )
         .bind(&s.id)
         .bind(&s.spec.name)
-        .bind(&s.spec.project_id)
+        .bind(project_id)
         .bind(&spec)
         .bind("Stopped")
         .bind(&s.created_at.to_rfc3339())
