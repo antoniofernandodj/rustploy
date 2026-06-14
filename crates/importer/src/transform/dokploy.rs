@@ -55,7 +55,9 @@ pub fn transform(data: DokployData, gitea_url: Option<&str>) -> (TransformedData
                 ServiceSource::Git(GitSource {
                     url,
                     branch: da.custom_git_branch.or(da.branch).unwrap_or_else(|| "main".to_string()),
-                    dockerfile_path: da.build_path.unwrap_or_else(|| "Dockerfile".to_string()),
+                    dockerfile_path: da.dockerfile.unwrap_or_else(|| "Dockerfile".to_string()),
+                    build_context: normalize_path(da.docker_context_path.as_deref().unwrap_or(".")),
+                    build_stage: da.docker_build_stage.filter(|s| !s.is_empty()),
                     ..Default::default()
                 })
             }
@@ -169,4 +171,12 @@ fn parse_env(env_str: Option<&str>) -> Vec<EnvVar> {
         }
     }
     vars
+}
+
+fn normalize_path(path: &str) -> String {
+    let p = path.trim();
+    if p == "/" {
+        return ".".to_string();
+    }
+    p.trim_start_matches('/').to_string()
 }

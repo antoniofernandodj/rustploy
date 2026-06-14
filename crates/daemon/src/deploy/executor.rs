@@ -228,7 +228,7 @@ impl DeployExecutor {
                 let ServiceSource::Git(git) = &svc.spec.source else {
                     return Err(anyhow!("expected Git source"));
                 };
-                let tag = format!("rp_{}:{}", svc.spec.name, self.short(&dep.id));
+                let tag = format!("rp_{}:{}", svc.spec.safe_name(), self.short(&dep.id));
                 let clone_dir = self.clone_dir(&dep.id);
                 let context = clone_dir.join(&git.build_context);
                 info!(
@@ -943,7 +943,7 @@ impl DeployExecutor {
     fn image_for(&self, dep: &Deployment, svc: &Service) -> String {
         match &svc.spec.source {
             ServiceSource::Registry { image } => image.clone(),
-            ServiceSource::Git(_) => format!("rp_{}:{}", svc.spec.name, self.short(&dep.id)),
+            ServiceSource::Git(_) => format!("rp_{}:{}", svc.spec.safe_name(), self.short(&dep.id)),
             ServiceSource::Compose(c) => format!("compose:{}", c.content),
         }
     }

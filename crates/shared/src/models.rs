@@ -34,6 +34,29 @@ pub struct ServiceSpec {
     pub run_args: Vec<String>,
 }
 
+pub fn normalize_name(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    let mut last_was_dash = true; // Prevent leading dashes
+
+    for c in name.to_lowercase().chars() {
+        if c.is_alphanumeric() {
+            out.push(c);
+            last_was_dash = false;
+        } else if !last_was_dash {
+            out.push('_');
+            last_was_dash = true;
+        }
+    }
+
+    out.trim_matches('_').to_string()
+}
+
+impl ServiceSpec {
+    pub fn safe_name(&self) -> String {
+        normalize_name(&self.name)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ServiceSource {
     Registry { image: String },

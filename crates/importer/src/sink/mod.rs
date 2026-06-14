@@ -70,6 +70,14 @@ pub async fn write_to_db(data: &TransformedData) -> Result<()> {
 
     for s in &data.services {
         let spec = serde_json::to_string(&s.spec)?;
+        
+        // Delete existing service with same name to avoid duplicates/confusion
+        // (since schema doesn't have UNIQUE constraint on name yet)
+        sqlx::query("DELETE FROM service WHERE name = ?")
+            .bind(&s.spec.name)
+            .execute(&pool)
+            .await?;
+
         sqlx::query(
             "INSERT INTO service (id, name, project_id, spec, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
         )

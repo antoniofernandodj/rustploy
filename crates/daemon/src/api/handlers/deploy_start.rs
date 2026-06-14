@@ -68,7 +68,7 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
             image.clone()
         }
         ServiceSource::Git(_) => {
-            let tag = format!("rp_{}", svc.spec.name);
+            let tag = format!("rp_{}", svc.spec.safe_name());
             info!(service_id = %service_id, tag = %tag, "deploy_start: fonte git, tag de build resolvida");
             tag
         }

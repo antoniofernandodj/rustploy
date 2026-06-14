@@ -20,18 +20,20 @@ pub fn live_name(service_name: &str) -> String {
 }
 
 pub fn replica_staging_name(service_name: &str, dep_short: &str, idx: u32) -> String {
+    let safe_name = shared::normalize_name(service_name);
     if idx == 0 {
-        format!("rp_{service_name}_staging_{dep_short}")
+        format!("rp_{safe_name}_staging_{dep_short}")
     } else {
-        format!("rp_{service_name}_staging_{dep_short}_r{idx}")
+        format!("rp_{safe_name}_staging_{dep_short}_r{idx}")
     }
 }
 
 pub fn replica_live_name(service_name: &str, idx: u32) -> String {
+    let safe_name = shared::normalize_name(service_name);
     if idx == 0 {
-        format!("rp_{service_name}")
+        format!("rp_{safe_name}")
     } else {
-        format!("rp_{service_name}_r{idx}")
+        format!("rp_{safe_name}_r{idx}")
     }
 }
 

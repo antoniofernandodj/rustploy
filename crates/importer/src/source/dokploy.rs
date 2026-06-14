@@ -25,6 +25,12 @@ pub struct DokployApplication {
     pub branch: Option<String>,
     #[sqlx(rename = "buildPath")]
     pub build_path: Option<String>,
+    #[sqlx(rename = "dockerfile")]
+    pub dockerfile: Option<String>,
+    #[sqlx(rename = "dockerContextPath")]
+    pub docker_context_path: Option<String>,
+    #[sqlx(rename = "dockerBuildStage")]
+    pub docker_build_stage: Option<String>,
     #[sqlx(rename = "customGitUrl")]
     pub custom_git_url: Option<String>,
     #[sqlx(rename = "customGitBranch")]
@@ -91,6 +97,7 @@ impl DokploySource {
 
         let applications = sqlx::query_as::<_, DokployApplication>(
             "SELECT a.\"applicationId\", a.name, a.\"sourceType\"::TEXT, a.repository, a.owner, a.branch, a.\"buildPath\", \
+             a.dockerfile, a.\"dockerContextPath\", a.\"dockerBuildStage\", \
              a.\"customGitUrl\", a.\"customGitBranch\", a.\"buildType\"::TEXT, a.env, e.\"projectId\", \
              a.\"giteaRepository\", a.\"giteaOwner\" \
              FROM \"application\" a \
