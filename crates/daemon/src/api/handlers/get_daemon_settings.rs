@@ -7,5 +7,10 @@ pub async fn handle(state: AppState) -> RpResponse {
         .ok()
         .flatten();
 
-    RpResponse::DaemonSettings { webhook_base_url }
+    let acme_email = daemon_settings::get(&state.db, daemon_settings::KEY_ACME_EMAIL)
+        .await
+        .ok()
+        .flatten();
+
+    RpResponse::DaemonSettings { webhook_base_url, acme_email }
 }

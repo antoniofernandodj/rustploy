@@ -1825,29 +1825,27 @@ fn handle_settings_web_server(app: &mut App, key: KeyEvent) {
                 save_server_settings(app);
             }
         }
-        KeyCode::Char(c) => {
-            if app.server_settings.focused == ServerSettingsField::ServerDomain {
-                app.server_settings.server_domain.push(c);
-            }
-        }
-        KeyCode::Backspace => {
-            if app.server_settings.focused == ServerSettingsField::ServerDomain {
-                app.server_settings.server_domain.pop();
-            }
-        }
+        KeyCode::Char(c) => match app.server_settings.focused {
+            ServerSettingsField::ServerDomain => app.server_settings.server_domain.push(c),
+            ServerSettingsField::AcmeEmail => app.server_settings.acme_email.push(c),
+            _ => {}
+        },
+        KeyCode::Backspace => match app.server_settings.focused {
+            ServerSettingsField::ServerDomain => { app.server_settings.server_domain.pop(); }
+            ServerSettingsField::AcmeEmail => { app.server_settings.acme_email.pop(); }
+            _ => {}
+        },
         _ => {}
     }
 }
 
 fn save_server_settings(app: &mut App) {
     let domain = app.server_settings.server_domain.trim().to_string();
-    let webhook_base_url = if domain.is_empty() {
-        None
-    } else {
-        Some(domain)
-    };
+    let webhook_base_url = if domain.is_empty() { None } else { Some(domain) };
+    let email = app.server_settings.acme_email.trim().to_string();
+    let acme_email = if email.is_empty() { None } else { Some(email) };
     app.pending_commands.push(PendingCommand {
-        command: Command::SetDaemonSettings { webhook_base_url },
+        command: Command::SetDaemonSettings { webhook_base_url, acme_email },
         context: CmdContext::SaveServerSettings,
     });
 }

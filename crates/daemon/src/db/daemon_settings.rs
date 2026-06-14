@@ -31,3 +31,4 @@ pub async fn delete(db: &Db, key: &str) -> Result<()> {
 }
 
 pub const KEY_WEBHOOK_BASE_URL: &str = "webhook_base_url";
+pub const KEY_ACME_EMAIL: &str = "acme_email";

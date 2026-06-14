@@ -56,10 +56,23 @@ async fn main() -> Result<()> {
     let master_key = resolve_master_key_path(&config.secrets.master_key_path);
     let secrets = Arc::new(secrets::SecretsManager::new(&master_key, db.clone())?);
 
-    // TLS / ACME
+    // TLS / ACME — email do banco tem precedência sobre o config
+    let acme_config = {
+        let mut acme = config.ingress.acme.clone();
+        if let Ok(Some(email)) =
+            db::daemon_settings::get(&db, db::daemon_settings::KEY_ACME_EMAIL).await
+        {
+            if !email.trim().is_empty() {
+                info!(email = %email, "ACME: usando email do banco de dados");
+                acme.email = Some(email);
+                acme.enabled = true;
+            }
+        }
+        acme
+    };
     let certs_dir = resolve_data_path(&config.daemon.db_path).join("certs");
     let tls = Arc::new(
-        TlsManager::new(certs_dir, config.ingress.acme.clone())
+        TlsManager::new(certs_dir, acme_config.clone())
             .expect("failed to initialize TLS manager"),
     );
 
@@ -122,7 +135,7 @@ async fn main() -> Result<()> {
     }
 
     // Loop de renovação de certificados TLS (a cada 12 horas)
-    if config.ingress.acme.enabled {
+    if acme_config.enabled {
         let tls_renew = tls.clone();
         tokio::spawn(async move {
             let mut interval =
@@ -147,7 +160,7 @@ async fn main() -> Result<()> {
         let routes = ingress.table_handle();
         let http_port = config.ingress.http_port;
         let https_port = config.ingress.https_port;
-        let tls_proxy = if config.ingress.acme.enabled {
+        let tls_proxy = if acme_config.enabled {
             Some(tls.clone())
         } else {
             None

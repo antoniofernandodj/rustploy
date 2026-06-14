@@ -706,13 +706,14 @@ impl App {
                 self.webhook_url = url;
                 self.set_notification("Token de webhook regenerado", false);
             }
-            (Response::DaemonSettings { webhook_base_url }, CmdContext::LoadServerSettings) => {
+            (Response::DaemonSettings { webhook_base_url, acme_email }, CmdContext::LoadServerSettings) => {
                 self.server_settings.server_domain = webhook_base_url.unwrap_or_default();
+                self.server_settings.acme_email = acme_email.unwrap_or_default();
                 self.server_settings.loaded = true;
             }
             (Response::Ok, CmdContext::SaveServerSettings) => {
                 self.server_settings.loaded = false; // força reload na próxima visita
-                self.set_notification("Domínio do servidor salvo", false);
+                self.set_notification("Configurações salvas", false);
                 // Recarrega a URL do webhook do serviço atual, se houver
                 if let Some(sid) = self.active_service_id.clone() {
                     self.pending_commands.push(PendingCommand {

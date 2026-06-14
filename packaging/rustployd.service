@@ -24,6 +24,8 @@ Environment=RUST_LOG=info
 
 NoNewPrivileges=yes
 PrivateTmp=yes
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 
 [Install]
 WantedBy=multi-user.target

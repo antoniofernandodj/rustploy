@@ -23,23 +23,32 @@ fn render_web_server(f: &mut Frame, app: &App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1), // [0] espaço
-            Constraint::Length(1), // [1] header
-            Constraint::Length(1), // [2] espaço
-            Constraint::Length(1), // [3] campo domínio
-            Constraint::Length(1), // [4] dica
-            Constraint::Length(1), // [5] espaço
-            Constraint::Length(1), // [6] botão Save
-            Constraint::Length(1), // [7] espaço
-            Constraint::Length(1), // [8] header webhook
-            Constraint::Length(1), // [9] explicação webhook
+            Constraint::Length(1), // [0]  espaço
+            Constraint::Length(1), // [1]  header domínio
+            Constraint::Length(1), // [2]  espaço
+            Constraint::Length(1), // [3]  campo domínio
+            Constraint::Length(1), // [4]  dica domínio
+            Constraint::Length(1), // [5]  espaço
+            Constraint::Length(1), // [6]  header HTTPS
+            Constraint::Length(1), // [7]  espaço
+            Constraint::Length(1), // [8]  campo email ACME
+            Constraint::Length(1), // [9]  dica email
+            Constraint::Length(1), // [10] espaço
+            Constraint::Length(1), // [11] botão Save
+            Constraint::Length(1), // [12] espaço
+            Constraint::Length(1), // [13] header webhook
+            Constraint::Length(1), // [14] explicação webhook
             Constraint::Min(0),
         ])
         .split(block.inner(area));
     f.render_widget(block, area);
 
     let ss = &app.server_settings;
+    let focused_style = Style::default().fg(Color::Cyan);
+    let normal_style = Style::default().fg(Color::White);
+    let label_style = Style::default().fg(Color::DarkGray);
 
+    // ── Domínio do Servidor ───────────────────────────────────────────────────
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(
             "── Domínio do Servidor ─────────────────────────────────────",
@@ -51,27 +60,14 @@ fn render_web_server(f: &mut Frame, app: &App, area: Rect) {
     let domain_val = format!(
         "{}{}",
         ss.server_domain,
-        if ss.focused == ServerSettingsField::ServerDomain {
-            "▌"
-        } else {
-            ""
-        }
+        if ss.focused == ServerSettingsField::ServerDomain { "▌" } else { "" }
     );
-
-    let focused_style = Style::default().fg(Color::Cyan);
-    let normal_style = Style::default().fg(Color::White);
-    let label_style = Style::default().fg(Color::DarkGray);
-
     f.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(format!("  {:<22}", "Domínio / URL base"), label_style),
             Span::styled(
                 domain_val,
-                if ss.focused == ServerSettingsField::ServerDomain {
-                    focused_style
-                } else {
-                    normal_style
-                },
+                if ss.focused == ServerSettingsField::ServerDomain { focused_style } else { normal_style },
             ),
         ])),
         chunks[3],
@@ -79,31 +75,72 @@ fn render_web_server(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(
             "  Ex: https://rustploy.meusite.com  ou  http://192.168.1.42:9001",
-            Style::default().fg(Color::DarkGray),
+            label_style,
         ))),
         chunks[4],
     );
+
+    // ── HTTPS / ACME ──────────────────────────────────────────────────────────
+    f.render_widget(
+        Paragraph::new(Line::from(Span::styled(
+            "── HTTPS automático (Let's Encrypt) ────────────────────────",
+            Style::default().fg(Color::Yellow),
+        ))),
+        chunks[6],
+    );
+
+    let email_val = format!(
+        "{}{}",
+        ss.acme_email,
+        if ss.focused == ServerSettingsField::AcmeEmail { "▌" } else { "" }
+    );
+    let https_status = if ss.acme_email.trim().is_empty() {
+        Span::styled(" (desabilitado)", Style::default().fg(Color::DarkGray))
+    } else {
+        Span::styled(" (ativo no próximo restart)", Style::default().fg(Color::Green))
+    };
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(format!("  {:<22}", "E-mail Let's Encrypt"), label_style),
+            Span::styled(
+                email_val,
+                if ss.focused == ServerSettingsField::AcmeEmail { focused_style } else { normal_style },
+            ),
+            https_status,
+        ])),
+        chunks[8],
+    );
+    f.render_widget(
+        Paragraph::new(Line::from(Span::styled(
+            "  Certificados TLS emitidos automaticamente. Requer restart do daemon.",
+            label_style,
+        ))),
+        chunks[9],
+    );
+
+    // ── Save ──────────────────────────────────────────────────────────────────
     f.render_widget(
         Paragraph::new(Line::from(vec![
             Span::raw("  "),
             btn_span("[ Save ]", ss.focused == ServerSettingsField::Save),
         ])),
-        chunks[6],
+        chunks[11],
     );
 
+    // ── Webhooks ──────────────────────────────────────────────────────────────
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(
             "── Webhooks ────────────────────────────────────────────────",
             Style::default().fg(Color::Yellow),
         ))),
-        chunks[8],
+        chunks[13],
     );
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(
             "  A URL de webhook de cada serviço é montada com este domínio como base.",
-            Style::default().fg(Color::DarkGray),
+            label_style,
         ))),
-        chunks[9],
+        chunks[14],
     );
 }
 

@@ -108,6 +108,7 @@ pub enum Command {
     GetDaemonSettings,
     SetDaemonSettings {
         webhook_base_url: Option<String>,
+        acme_email: Option<String>,
     },
 
     // Secrets
@@ -235,7 +236,7 @@ pub enum Response {
     DeployEngineStatus(DeployEngineSummary),
     Pong { uptime_secs: u64 },
     WebhookUrl(Option<String>),
-    DaemonSettings { webhook_base_url: Option<String> },
+    DaemonSettings { webhook_base_url: Option<String>, acme_email: Option<String> },
     SecretNames(Vec<String>),
     Err { code: String, message: String },
 }

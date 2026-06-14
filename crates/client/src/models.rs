@@ -1440,20 +1440,23 @@ impl Default for ComposeTabState {
 pub enum ServerSettingsField {
     #[default]
     ServerDomain,
+    AcmeEmail,
     Save,
 }
 
 impl ServerSettingsField {
     pub fn next(self) -> Self {
         match self {
-            Self::ServerDomain => Self::Save,
+            Self::ServerDomain => Self::AcmeEmail,
+            Self::AcmeEmail => Self::Save,
             Self::Save => Self::ServerDomain,
         }
     }
     pub fn prev(self) -> Self {
         match self {
             Self::ServerDomain => Self::Save,
-            Self::Save => Self::ServerDomain,
+            Self::AcmeEmail => Self::ServerDomain,
+            Self::Save => Self::AcmeEmail,
         }
     }
 }
@@ -1461,6 +1464,7 @@ impl ServerSettingsField {
 #[derive(Debug, Clone, Default)]
 pub struct ServerSettingsState {
     pub server_domain: String,
+    pub acme_email: String,
     pub focused: ServerSettingsField,
     pub loaded: bool,
 }
