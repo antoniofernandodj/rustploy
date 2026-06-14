@@ -1,0 +1,39 @@
+[package]
+name = "importer"
+version = "0.1.0"
+edition = "2024"
+default-run = "rustploy-import"
+
+[[bin]]
+name = "rustploy-import"
+path = "src/main.rs"
+
+[dependencies]
+shared = { path = "../shared" }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Async runtime
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+
+# Database (source: postgres; sink: sqlite)
+sqlx = { version = "0.8", features = ["runtime-tokio-native-tls", "postgres", "sqlite", "chrono"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+
+# Crypto (same version/config as daemon)
+age = { version = "0.10", features = ["async"] }
+hex = "0.4"
+
+# IDs / Time
+ulid = { version = "1", features = ["serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Errors / Logging
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

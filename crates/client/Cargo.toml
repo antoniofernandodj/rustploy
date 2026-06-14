@@ -28,6 +28,9 @@ ratatui = "0.28"
 crossterm = "0.28"
 tui-textarea = { version = "0.6", features = ["crossterm"] }
 
+# CLI
+clap = { version = "4", features = ["derive"] }
+
 
 # Serialization
 serde = { version = "1", features = ["derive"] }

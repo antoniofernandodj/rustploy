@@ -45,5 +45,6 @@ Rustploy is a self-hosted platform for deploying and managing applications using
 ## Documentation Reference
 
 - `docs/services.md`: Tracking of implemented and pending service templates.
+- `docs/migration.md`: Instructions for importing data from other platforms (Dokploy).
 - `docs/internal-networking.md`: Details on how containers communicate within the Rustploy ecosystem.
 - `docs/ingress-proxy.md`: Documentation for the built-in reverse proxy and TLS management.

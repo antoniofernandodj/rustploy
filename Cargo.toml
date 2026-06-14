@@ -3,6 +3,7 @@ members = [
     "crates/daemon",
     "crates/client",
     "crates/shared",
+    "crates/importer",
 ]
 resolver = "2"
 

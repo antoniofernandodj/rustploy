@@ -30,6 +30,11 @@ use transport::DaemonClient;
 const TICK_MS: u64 = 100;
 
 fn main() -> anyhow::Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 && args[1] == "import" {
+        return handle_import(&args[2..]);
+    }
+
     let socket_path = resolve_socket(&[
         std::env::var("RUSTPLOY_SOCKET").ok(),
         Some("/run/rustploy/rustploy.sock".into()),
@@ -49,6 +54,26 @@ fn main() -> anyhow::Result<()> {
     terminal.show_cursor()?;
 
     result
+}
+
+fn handle_import(args: &[String]) -> anyhow::Result<()> {
+    let mut cmd_name = "rustploy-import".to_string();
+
+    // In dev mode, the binary might be in the same dir
+    if let Ok(current_exe) = std::env::current_exe() {
+        if let Some(parent) = current_exe.parent() {
+            let local_bin = parent.join("rustploy-import");
+            if local_bin.exists() {
+                cmd_name = local_bin.to_string_lossy().to_string();
+            }
+        }
+    }
+
+    let status = std::process::Command::new(cmd_name).args(args).status()?;
+    if !status.success() {
+        std::process::exit(status.code().unwrap_or(1));
+    }
+    Ok(())
 }
 
 fn run(
