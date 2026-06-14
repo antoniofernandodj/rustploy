@@ -1,24 +1,40 @@
-# Plano: protocolo remoto binário do daemon
+# Plano: Rustploy Wire Protocol (RWP)
 
 Este documento registra a decisão de expor uma interface remota administrativa
-para o `rustployd` sem HTTP e sem JSON: TCP direto, framing binário e payload em
-`postcard`.
+para o `rustployd` via **Rustploy Wire Protocol (RWP)**: TCP direto, framing
+binário e payload em `postcard`, sem HTTP e sem JSON.
 
 O objetivo é permitir um client remoto com baixo consumo de memória, mantendo o
 alvo do projeto: daemon abaixo de 50 MB de RAM em idle.
 
 ---
 
-## 1. Decisão proposta
+## 1. Nome e escopo
+
+O protocolo se chama **Rustploy Wire Protocol**, abreviado como **RWP**.
+
+O nome descreve a camada de transporte própria do Rustploy: um protocolo de fio
+binário, mínimo e específico para comunicação entre clients Rustploy e o daemon.
+Ele cobre:
+
+- comandos administrativos;
+- respostas estruturadas;
+- assinatura de eventos;
+- stream de eventos do daemon.
+
+O RWP não é uma API pública genérica nem um substituto HTTP. Ele é uma interface
+administrativa própria para clients confiáveis do Rustploy.
+
+## 2. Decisão proposta
 
 Adicionar ao daemon um listener TCP dedicado para RPC remoto:
 
 ```text
 client remoto
     │
-    │ TCP + TLS opcional/obrigatório em produção
+    │ RWP sobre TCP + TLS opcional/obrigatório em produção
     ▼
-rustployd remote-rpc
+rustployd rwp
     │
     │ Command / Response internos
     ▼
@@ -45,11 +61,11 @@ event:
   [payload: postcard<Event>]
 ```
 
-Isso mantém o protocolo simples, auditável e barato em RAM. `postcard` não
+Isso mantém o RWP simples, auditável e barato em RAM. `postcard` não
 adiciona custo relevante em idle; o custo real vem de conexões, buffers, TLS e
 threads.
 
-## 2. Por que não HTTP para este canal
+## 3. Por que não HTTP para este canal
 
 HTTP com `hyper` é aceitável, mas traz uma base maior: parser HTTP, headers,
 estado de conexão, keep-alive, camadas de roteamento e integração TLS via stack
@@ -68,7 +84,7 @@ O custo é perder compatibilidade com ferramentas HTTP comuns, como `curl`,
 proxies e gateways. Para o Rustploy, esse trade-off é aceitável porque o client
 principal é próprio.
 
-## 3. Modelo de execução
+## 4. Modelo de execução
 
 Tokio não é necessário para este canal se o objetivo for baixa concorrência
 administrativa. O desenho inicial deve ser síncrono:
@@ -104,7 +120,7 @@ stack virtual default do Linux pode parecer grande, mas o RSS real cresce só na
 páginas tocadas. Ainda assim, usar `std::thread::Builder::stack_size` deixa o
 teto explícito e reduz o risco operacional.
 
-## 4. Segurança
+## 5. Segurança
 
 Para acesso remoto real, TCP puro não deve ser exposto na internet.
 
@@ -137,7 +153,7 @@ Regras obrigatórias:
 - Fechar a conexão após erro de autenticação.
 - Ter opção de bind em `127.0.0.1` por padrão e bind remoto explícito.
 
-## 5. Estimativa de RAM
+## 6. Estimativa de RAM
 
 Base atual informada:
 
@@ -165,22 +181,22 @@ Orçamento conservador para a v1 remota:
 Isso preserva margem razoável abaixo de 50 MB, desde que os limites de conexão e
 buffer sejam aplicados.
 
-## 6. Tipos de protocolo
+## 7. Tipos de protocolo
 
 O protocolo deve reaproveitar os tipos existentes sempre que possível:
 
 ```rust
-enum RemoteFrame {
+enum RwpFrame {
     Command(Command),
     EventSubscribe(EventFilter),
     Ping,
 }
 
-enum RemoteReply {
+enum RwpReply {
     Response(Response),
     Event(Event),
     Pong { uptime_secs: u64 },
-    Error(RemoteError),
+    Error(RwpError),
 }
 ```
 
@@ -189,7 +205,7 @@ ideal é serializar esses tipos diretamente em `postcard`. Um envelope só deve
 ser adicionado se houver necessidade real de versão, autenticação por sessão ou
 mensagens especiais.
 
-## 7. Versionamento
+## 8. Versionamento
 
 O handshake deve negociar uma versão de protocolo antes dos comandos normais:
 
@@ -204,9 +220,9 @@ Na v1:
 - Se a versão minor do client for menor, o daemon pode aceitar.
 - Evitar campos obrigatórios novos sem bump de major.
 
-## 8. Plano de implementação
+## 9. Plano de implementação
 
-1. Criar módulo `remote_rpc` no daemon.
+1. Criar módulo `rwp` no daemon.
 2. Definir configuração: bind address, porta, TLS, max frame, max connections.
 3. Implementar framing `[u32 LE][payload]` com leitura exata e limite de tamanho.
 4. Implementar encoding/decoding com `postcard`.
@@ -219,9 +235,9 @@ Na v1:
     erros de autenticação e frames rejeitados.
 11. Medir RSS antes/depois com `/proc/<pid>/smaps_rollup` e `measure_ram.sh`.
 
-## 9. Critérios de aceite
+## 10. Critérios de aceite
 
-- Daemon inicia com remote RPC desabilitado por padrão.
+- Daemon inicia com RWP desabilitado por padrão.
 - Ao habilitar sem TLS, bind default é `127.0.0.1`.
 - Bind em `0.0.0.0` exige TLS configurado.
 - Frames acima do limite são rejeitados sem alocar o payload inteiro.
@@ -230,7 +246,7 @@ Na v1:
 - Com TLS habilitado, o aumento de RSS em idle fica abaixo de 6 MB.
 - O total esperado permanece abaixo de 44 MB partindo da base atual de 38 MB.
 
-## 10. Medição recomendada
+## 11. Medição recomendada
 
 Antes de aceitar a feature, medir em três cenários:
 
@@ -240,9 +256,9 @@ Antes de aceitar a feature, medir em três cenários:
 
 Cenários:
 
-1. Daemon sem remote RPC.
-2. Daemon com remote RPC habilitado, sem client conectado.
-3. Daemon com remote RPC habilitado e 8 clients ociosos conectados.
+1. Daemon sem RWP.
+2. Daemon com RWP habilitado, sem client conectado.
+3. Daemon com RWP habilitado e 8 clients ociosos conectados.
 
 Registrar:
 
