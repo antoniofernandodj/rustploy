@@ -23,6 +23,10 @@ Environment=RUSTPLOY_DB_PATH=/var/lib/rustploy/db
 Environment=RUST_LOG=info
 EnvironmentFile=-/etc/rustploy/environment
 
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rustployd
+
 NoNewPrivileges=yes
 PrivateTmp=yes
 AmbientCapabilities=CAP_NET_BIND_SERVICE

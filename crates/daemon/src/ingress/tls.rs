@@ -2,7 +2,7 @@ use anyhow::{Result, anyhow};
 use instant_acme::{
     Account, AccountCredentials, ChallengeType, Identifier, NewAccount, NewOrder, OrderStatus,
 };
-use rcgen::{CertificateParams, KeyPair};
+use rcgen::{CertificateParams, DistinguishedName, KeyPair};
 use rustls::{
     ServerConfig,
     crypto::ring::{default_provider, sign::any_supported_type},
@@ -17,7 +17,7 @@ use std::{
     time::Duration,
 };
 use tokio::time::sleep;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 /// token → key_authorization: compartilhado com o handler HTTP para servir challenges.
 pub type ChallengeStore = Arc<Mutex<HashMap<String, String>>>;
@@ -108,7 +108,10 @@ impl TlsManager {
             (cfg.enabled, cfg.email.clone(), cfg.directory.clone())
         };
 
+        info!(domain, acme_enabled = enabled, acme_email = ?email, acme_directory = %directory, "TLS: ensure_cert chamado");
+
         if !enabled {
+            warn!(domain, "TLS: ACME desabilitado, ignorando provisionamento");
             return Ok(());
         }
 
@@ -117,11 +120,13 @@ impl TlsManager {
             return Ok(());
         }
 
-        info!(domain, "TLS: iniciando provisionamento via ACME");
+        info!(domain, "TLS: nenhum certificado válido encontrado, iniciando provisionamento via ACME");
 
         let email = email.as_deref().unwrap_or("admin@localhost");
+        info!(domain, email, directory = %directory, "TLS: carregando/criando conta ACME");
 
         let account = self.load_or_create_account(email, &directory).await?;
+        info!(domain, "TLS: conta ACME pronta, criando nova order");
 
         let mut order = account
             .new_order(&NewOrder {
@@ -130,10 +135,14 @@ impl TlsManager {
             .await
             .map_err(|e| anyhow!("ACME new order: {e}"))?;
 
+        info!(domain, "TLS: order criada, obtendo authorizations");
+
         let authorizations = order
             .authorizations()
             .await
             .map_err(|e| anyhow!("ACME authorizations: {e}"))?;
+
+        info!(domain, count = authorizations.len(), "TLS: authorizations recebidas");
 
         let mut pending: Vec<(String, String)> = vec![];
 
@@ -144,6 +153,8 @@ impl TlsManager {
                 .find(|c| c.r#type == ChallengeType::Http01)
                 .ok_or_else(|| anyhow!("nenhum challenge HTTP-01 disponível para {domain}"))?;
 
+            info!(domain, token = %challenge.token, challenge_url = %challenge.url, "TLS: challenge HTTP-01 encontrado, armazenando token");
+
             let key_auth = order.key_authorization(challenge);
             self.challenges
                 .lock()
@@ -153,32 +164,42 @@ impl TlsManager {
             pending.push((challenge.url.clone(), challenge.token.clone()));
         }
 
+        info!(domain, "TLS: notificando LE que challenges estão prontos");
+
         // Notifica LE que os challenges estão prontos
-        for (url, _) in &pending {
+        for (url, token) in &pending {
+            info!(domain, token = %token, url = %url, "TLS: set_challenge_ready");
             order
                 .set_challenge_ready(url)
                 .await
                 .map_err(|e| anyhow!("ACME set_challenge_ready: {e}"))?;
         }
 
+        info!(domain, "TLS: aguardando LE validar o challenge (poll a cada 3s, máx 90s)");
+
         // Aguarda o pedido ficar Ready (LE valida o challenge)
         let mut ready = false;
-        for _ in 0..30 {
+        for attempt in 0..30 {
             sleep(Duration::from_secs(3)).await;
             let state = order
                 .refresh()
                 .await
                 .map_err(|e| anyhow!("ACME refresh: {e}"))?;
+            debug!(domain, attempt, status = ?state.status, "TLS: poll order status");
             match state.status {
                 OrderStatus::Ready => {
+                    info!(domain, attempt, "TLS: order Ready — LE validou o challenge com sucesso");
                     ready = true;
                     break;
                 }
                 OrderStatus::Invalid => {
+                    warn!(domain, attempt, "TLS: order Invalid — LE rejeitou o challenge");
                     self.remove_challenges(&pending);
-                    return Err(anyhow!("ACME: order inválida para {domain}"));
+                    return Err(anyhow!("ACME: order inválida para {domain} (LE rejeitou o challenge HTTP-01)"));
                 }
-                _ => {}
+                other => {
+                    info!(domain, attempt, status = ?other, "TLS: aguardando...");
+                }
             }
         }
 
@@ -186,17 +207,26 @@ impl TlsManager {
 
         if !ready {
             return Err(anyhow!(
-                "ACME: timeout aguardando order Ready para {domain}"
+                "ACME: timeout aguardando order Ready para {domain} (90s esgotados)"
             ));
         }
 
-        // Gera chave privada e CSR
+        info!(domain, "TLS: gerando chave privada e CSR");
+
+        // Gera chave privada e CSR.
+        // DistinguishedName vazio evita que rcgen coloque o CN padrão
+        // "rcgen self signed cert" no CSR — o LE rejeita qualquer CN que
+        // não seja um hostname válido (urn:acme:error:rejectedIdentifier).
+        // Autoridades modernas usam apenas os SANs para validação.
         let key_pair = KeyPair::generate().map_err(|e| anyhow!("rcgen keygen: {e}"))?;
-        let params = CertificateParams::new(vec![domain.to_string()])
+        let mut params = CertificateParams::new(vec![domain.to_string()])
             .map_err(|e| anyhow!("rcgen params: {e}"))?;
+        params.distinguished_name = DistinguishedName::new();
         let csr = params
             .serialize_request(&key_pair)
             .map_err(|e| anyhow!("rcgen CSR: {e}"))?;
+
+        info!(domain, "TLS: finalizando order com CSR");
 
         // Finaliza o pedido
         order
@@ -204,14 +234,19 @@ impl TlsManager {
             .await
             .map_err(|e| anyhow!("ACME finalize: {e}"))?;
 
+        info!(domain, "TLS: aguardando certificado ficar disponível");
+
         // Aguarda o certificado ficar disponível
         let cert_chain_pem = loop {
             sleep(Duration::from_secs(3)).await;
-            let state = order
-                .refresh()
-                .await
-                .map_err(|e| anyhow!("ACME refresh pós-finalize: {e}"))?;
-            if matches!(state.status, OrderStatus::Invalid) {
+            let order_status = {
+                let state = order
+                    .refresh()
+                    .await
+                    .map_err(|e| anyhow!("ACME refresh pós-finalize: {e}"))?;
+                state.status
+            };
+            if matches!(order_status, OrderStatus::Invalid) {
                 return Err(anyhow!("ACME: order inválida durante finalização para {domain}"));
             }
             if let Some(chain) = order
@@ -219,13 +254,17 @@ impl TlsManager {
                 .await
                 .map_err(|e| anyhow!("ACME certificate: {e}"))?
             {
+                info!(domain, "TLS: certificado recebido do LE");
                 break chain;
             }
+            debug!(domain, status = ?order_status, "TLS: certificado ainda não disponível, aguardando...");
         };
 
+        info!(domain, "TLS: salvando certificado em disco");
         let key_pem = key_pair.serialize_pem();
         self.save_cert(domain, &cert_chain_pem, &key_pem)?;
 
+        info!(domain, "TLS: carregando certificado no SniResolver");
         let ck = self.parse_certified_key(cert_chain_pem.as_bytes(), key_pem.as_bytes())?;
         self.resolver
             .certs
@@ -233,7 +272,7 @@ impl TlsManager {
             .unwrap()
             .insert(domain.to_string(), ck);
 
-        info!(domain, "TLS: certificado provisionado com sucesso");
+        info!(domain, "TLS: certificado provisionado com sucesso — HTTPS ativo");
         Ok(())
     }
 
@@ -291,13 +330,26 @@ impl TlsManager {
         let creds_path = self.cert_dir.join("acme-account.json");
 
         if let Ok(raw) = std::fs::read_to_string(&creds_path) {
-            if let Ok(creds) = serde_json::from_str::<AccountCredentials>(&raw) {
-                if let Ok(account) = Account::from_credentials(creds).await {
-                    return Ok(account);
+            info!("TLS: credenciais ACME encontradas em {}, tentando restaurar conta", creds_path.display());
+            match serde_json::from_str::<AccountCredentials>(&raw) {
+                Ok(creds) => match Account::from_credentials(creds).await {
+                    Ok(account) => {
+                        info!("TLS: conta ACME restaurada com sucesso");
+                        return Ok(account);
+                    }
+                    Err(e) => {
+                        warn!(error = %e, "TLS: falha ao restaurar conta ACME das credenciais salvas, criando nova");
+                    }
+                },
+                Err(e) => {
+                    warn!(error = %e, "TLS: credenciais salvas inválidas (JSON corrompido?), criando nova conta");
                 }
             }
+        } else {
+            info!("TLS: nenhuma credencial ACME salva, criando nova conta");
         }
 
+        info!(email, directory = %directory, "TLS: criando nova conta ACME");
         let (account, credentials) = Account::create(
             &NewAccount {
                 contact: &[&format!("mailto:{email}")],

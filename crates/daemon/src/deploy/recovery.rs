@@ -27,8 +27,8 @@ pub async fn recover(
         }
     };
 
-    // Restore ingress routes for running services
-    restore_routes(&db, &docker, &ingress).await;
+    // Restore ingress routes for running services and re-provision missing TLS certs
+    restore_routes(&db, &docker, &ingress, &tls).await;
 
     if pending.is_empty() {
         info!("no deployments to recover");
@@ -158,7 +158,7 @@ pub async fn recover(
     }
 }
 
-async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressController) {
+async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressController, tls: &Arc<TlsManager>) {
     let services = match crate::db::services::get_running(db).await {
         Ok(v) => v,
         Err(e) => {
@@ -214,6 +214,17 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
         if let Some(domain) = &svc.spec.domain {
             ingress.upsert_route(domain, backends.clone(), &svc.id);
             info!(service = svc.spec.name, domain, ?backends, "routes restored");
+
+            if svc.spec.tls_enabled {
+                info!(service = svc.spec.name, domain = %domain, "TLS: disparando ensure_cert no restart para serviço running");
+                let tls = tls.clone();
+                let domain = domain.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = tls.ensure_cert(&domain).await {
+                        warn!(domain = %domain, error = %e, "TLS: falha ao re-provisionar certificado no restart");
+                    }
+                });
+            }
         }
 
         if let Some(host_port) = svc.spec.host_port {
