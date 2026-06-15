@@ -64,7 +64,10 @@
       "Bash(timeout 6 ./target/debug/rustploy-remote)",
       "Bash(pkill -f rustploy-remote)",
       "Bash(cat app/db.py)",
-      "Bash(grep -rniE \"host|getenv|environ|DATABASE|5432|dbname|password|connect\" app/)"
+      "Bash(grep -rniE \"host|getenv|environ|DATABASE|5432|dbname|password|connect\" app/)",
+      "Read(//usr/lib/systemd/system/**)",
+      "Read(//etc/systemd/system/**)",
+      "Bash(systemctl cat *)"
     ]
   }
 }

@@ -21,6 +21,7 @@ ConfigurationDirectory=rustploy
 Environment=RUSTPLOY_SOCKET_PATH=/run/rustploy/rustploy.sock
 Environment=RUSTPLOY_DB_PATH=/var/lib/rustploy/db
 Environment=RUST_LOG=info
+EnvironmentFile=-/etc/rustploy/environment
 
 NoNewPrivileges=yes
 PrivateTmp=yes

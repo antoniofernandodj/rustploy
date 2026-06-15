@@ -187,7 +187,7 @@ async fn stream_events(
                 // Same filtering semantics as the UDS stream: when a service is
                 // given, skip events that do NOT belong to it.
                 if let Some(ref sid) = service_id {
-                    if event.matches(sid) {
+                    if !event.matches(sid) {
                         continue;
                     }
                 }
