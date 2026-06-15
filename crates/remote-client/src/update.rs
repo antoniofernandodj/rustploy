@@ -56,9 +56,15 @@ impl App {
             Message::BackToProject => self.view = View::ProjectDetail,
             Message::ProjectTab(tab) => {
                 self.project_tab = tab;
-                if tab == ProjectTab::Secrets {
-                    if let Some(pid) = self.active_project_id.clone() {
-                        self.send(Ctx::Secrets, Command::SecretList { project_id: pid });
+                if let Some(pid) = self.active_project_id.clone() {
+                    match tab {
+                        ProjectTab::Services | ProjectTab::Settings => {
+                            self.send(Ctx::Services, Command::ServiceList { project_id: pid });
+                        }
+                        ProjectTab::Secrets => {
+                            self.send(Ctx::Secrets, Command::SecretList { project_id: pid });
+                        }
+                        ProjectTab::Environment => {}
                     }
                 }
             }
@@ -384,6 +390,8 @@ impl App {
     fn open_project(&mut self, id: String) {
         if let Some(p) = self.projects.iter().find(|p| p.id == id).cloned() {
             self.active_project_id = Some(p.id.clone());
+            self.services.clear();
+            self.project_secrets.clear();
             self.ps_name = p.name.clone();
             self.ps_desc = p.description.clone().unwrap_or_default();
             self.view = View::ProjectDetail;
@@ -434,6 +442,10 @@ impl App {
                 self.send(Ctx::DaemonStatus, Command::DaemonStatus);
                 self.send(Ctx::Projects, Command::ProjectList);
                 self.send(Ctx::HomeDeployments, Command::RecentDeployments { limit: 30 });
+                if let Some(pid) = self.active_project_id.clone() {
+                    self.send(Ctx::Services, Command::ServiceList { project_id: pid.clone() });
+                    self.send(Ctx::Secrets, Command::SecretList { project_id: pid });
+                }
             }
             WorkerEvent::Reply(ctx, resp) => self.handle_reply(ctx, resp),
             WorkerEvent::Event(e) => self.apply_event(e),
