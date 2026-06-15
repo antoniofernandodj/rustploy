@@ -10,7 +10,7 @@ pub fn web_server(app: &App) -> Element<'_, Message> {
     let https_status = if app.ss_email.trim().is_empty() {
         text("(desabilitado)").size(12).color(palette::GRAY)
     } else {
-        text("(ativo no próximo restart)").size(12).color(palette::GREEN)
+        text("(ativo)").size(12).color(palette::GREEN)
     };
 
     panel(

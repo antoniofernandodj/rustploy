@@ -136,7 +136,7 @@ async fn main() -> Result<()> {
     }
 
     // Loop de renovação de certificados TLS (a cada 12 horas)
-    if acme_config.enabled {
+    {
         let tls_renew = tls.clone();
         tokio::spawn(async move {
             let mut interval =
@@ -156,18 +156,14 @@ async fn main() -> Result<()> {
         });
     }
 
-    // Ingress Proxy: roteamento de domínios e portas
+    // Ingress Proxy: roteamento de domínios e portas.
+    // O listener HTTPS sobe sempre — certs chegam via ACME dinamicamente.
     {
         let routes = ingress.table_handle();
         let http_port = config.ingress.http_port;
         let https_port = config.ingress.https_port;
-        let tls_proxy = if acme_config.enabled {
-            Some(tls.clone())
-        } else {
-            None
-        };
         tokio::spawn(async move {
-            ingress::proxy::start_proxy(routes, http_port, https_port, tls_proxy).await;
+            ingress::proxy::start_proxy(routes, http_port, https_port, Some(tls)).await;
         });
     }
 

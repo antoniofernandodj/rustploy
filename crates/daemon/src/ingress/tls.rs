@@ -47,7 +47,7 @@ pub struct TlsManager {
     resolver: Arc<SniResolver>,
     /// Arc estável — SniResolver é atualizado internamente sem trocar o ServerConfig.
     server_config: Arc<ServerConfig>,
-    acme_config: AcmeConfig,
+    acme_config: Mutex<AcmeConfig>,
 }
 
 impl TlsManager {
@@ -71,7 +71,7 @@ impl TlsManager {
             challenges: Arc::new(Mutex::new(HashMap::new())),
             resolver,
             server_config,
-            acme_config,
+            acme_config: Mutex::new(acme_config),
         };
 
         mgr.load_all_from_disk();
@@ -84,10 +84,31 @@ impl TlsManager {
         tokio_rustls::TlsAcceptor::from(self.server_config.clone())
     }
 
+    /// Ativa ACME dinamicamente — sem precisar reiniciar o daemon.
+    pub fn enable_acme(&self, email: String) {
+        let mut cfg = self.acme_config.lock().unwrap();
+        cfg.enabled = true;
+        cfg.email = Some(email);
+        info!("TLS: ACME ativado dinamicamente");
+    }
+
+    /// Desativa ACME (chamado quando o e-mail é removido).
+    pub fn disable_acme(&self) {
+        let mut cfg = self.acme_config.lock().unwrap();
+        cfg.enabled = false;
+        cfg.email = None;
+        info!("TLS: ACME desabilitado");
+    }
+
     /// Garante que exista um certificado válido para `domain`.
     /// No-op se ACME estiver desabilitado ou se o cert existir e não expirar em 30 dias.
     pub async fn ensure_cert(&self, domain: &str) -> Result<()> {
-        if !self.acme_config.enabled {
+        let (enabled, email, directory) = {
+            let cfg = self.acme_config.lock().unwrap();
+            (cfg.enabled, cfg.email.clone(), cfg.directory.clone())
+        };
+
+        if !enabled {
             return Ok(());
         }
 
@@ -98,14 +119,9 @@ impl TlsManager {
 
         info!(domain, "TLS: iniciando provisionamento via ACME");
 
-        let email = self
-            .acme_config
-            .email
-            .as_deref()
-            .unwrap_or("admin@localhost");
-        let directory = &self.acme_config.directory;
+        let email = email.as_deref().unwrap_or("admin@localhost");
 
-        let account = self.load_or_create_account(email, directory).await?;
+        let account = self.load_or_create_account(email, &directory).await?;
 
         let mut order = account
             .new_order(&NewOrder {
@@ -271,7 +287,7 @@ impl TlsManager {
         age > Duration::from_secs(60 * 24 * 3600)
     }
 
-    async fn load_or_create_account(&self, email: &str, directory: &str) -> Result<Account> {
+    async fn load_or_create_account(&self, email: &str, directory: &String) -> Result<Account> {
         let creds_path = self.cert_dir.join("acme-account.json");
 
         if let Ok(raw) = std::fs::read_to_string(&creds_path) {

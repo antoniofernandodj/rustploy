@@ -1,6 +1,6 @@
 use crate::{api::AppState, db::daemon_settings};
 use shared::Response as RpResponse;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 pub async fn handle(
     state: AppState,
@@ -17,12 +17,58 @@ pub async fn handle(
         return e;
     }
 
-    if let Err(e) = save_optional(&state, daemon_settings::KEY_ACME_EMAIL, acme_email).await {
+    let email_trimmed = acme_email
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+
+    if let Err(e) = save_optional(&state, daemon_settings::KEY_ACME_EMAIL, email_trimmed.clone()).await {
         return e;
+    }
+
+    match email_trimmed {
+        Some(email) => {
+            state.tls.enable_acme(email);
+            provision_existing_domains(state);
+        }
+        None => {
+            state.tls.disable_acme();
+        }
     }
 
     info!("daemon settings saved");
     RpResponse::Ok
+}
+
+/// Emite certificados para todos os services já em execução com tls_enabled.
+fn provision_existing_domains(state: AppState) {
+    tokio::spawn(async move {
+        let services = match crate::db::services::get_running(&state.db).await {
+            Ok(s) => s,
+            Err(e) => {
+                warn!(error = %e, "TLS: falha ao listar services para provisionamento");
+                return;
+            }
+        };
+
+        for svc in services {
+            if !svc.spec.tls_enabled {
+                continue;
+            }
+            let Some(domain) = svc.spec.domain else {
+                continue;
+            };
+            let tls = state.tls.clone();
+            tokio::spawn(async move {
+                if let Err(e) = tls.ensure_cert(&domain).await {
+                    warn!(domain = %domain, error = %e, "TLS: falha ao provisionar certificado");
+                } else {
+                    info!(domain = %domain, "TLS: certificado provisionado");
+                }
+            });
+        }
+    });
 }
 
 async fn save_optional(
