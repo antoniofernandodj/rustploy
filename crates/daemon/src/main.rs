@@ -32,6 +32,13 @@ async fn main() -> Result<()> {
     let config = RustployConfig::global();
     init_logging(&config.daemon.log_level);
 
+    // rustls pulls in both `ring` and `aws-lc-rs` providers transitively, so it
+    // cannot pick a process-level CryptoProvider on its own and panics on the
+    // first TLS use (ACME). Install one explicitly before any TLS work.
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("failed to install rustls ring CryptoProvider");
+
     info!(
         version = env!("CARGO_PKG_VERSION"),
         socket = config.daemon.socket_path,

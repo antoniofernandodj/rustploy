@@ -43,6 +43,13 @@ pub fn connect(addr: String, token: Option<String>) -> impl Stream<Item = Messag
         emit!(WorkerEvent::Ready(tx));
         emit!(WorkerEvent::Connected);
 
+        // Keepalive: the daemon closes an idle command connection after
+        // `rwp.idle_timeout_secs` (default 120s). Ping well under that so the
+        // connection survives periods without user-issued RPCs.
+        let mut heartbeat = tokio::time::interval(std::time::Duration::from_secs(30));
+        heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        heartbeat.tick().await; // consume the immediate first tick
+
         loop {
             tokio::select! {
                 maybe = rx.recv() => match maybe {
@@ -51,6 +58,12 @@ pub fn connect(addr: String, token: Option<String>) -> impl Stream<Item = Messag
                         Err(e) => { emit!(WorkerEvent::Error(e.to_string())); return; }
                     },
                     None => return,
+                },
+                _ = heartbeat.tick() => {
+                    if let Err(e) = rwp::ping(&mut cmd_conn).await {
+                        emit!(WorkerEvent::Error(e.to_string()));
+                        return;
+                    }
                 },
                 frame = rwp::read_frame::<shared::RwpReply>(&mut evt_conn) => match frame {
                     Ok(shared::RwpReply::Event(ev)) => { emit!(WorkerEvent::Event(ev)); }

@@ -82,3 +82,15 @@ pub async fn rpc(s: &mut TcpStream, cmd: Command) -> anyhow::Result<Response> {
         _ => anyhow::bail!("resposta inesperada"),
     }
 }
+
+/// Sends a keepalive `Ping` and waits for the matching `Pong`. Used to keep the
+/// command connection from hitting the daemon's idle timeout while the user is
+/// not issuing any RPCs.
+pub async fn ping(s: &mut TcpStream) -> anyhow::Result<()> {
+    write_frame(s, &RwpFrame::Ping).await?;
+    match read_frame::<RwpReply>(s).await? {
+        RwpReply::Pong { .. } => Ok(()),
+        RwpReply::Error(e) => anyhow::bail!("{}: {}", e.code, e.message),
+        _ => anyhow::bail!("resposta inesperada ao ping"),
+    }
+}
