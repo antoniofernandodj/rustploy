@@ -12,7 +12,7 @@ mod wizard;
 use crate::model::{palette, ConfirmAction, View};
 use crate::{App, Message};
 use iced::widget::{
-    button, column, container, row, stack, text, text_input, Space,
+    button, checkbox, column, container, row, stack, text, text_input, Space,
 };
 use iced::{Alignment, Element, Length};
 use widgets::*;
@@ -140,12 +140,20 @@ fn connect_screen(app: &App) -> Element<'_, Message> {
             .on_input(Message::AddressChanged)
             .on_submit(Message::Connect)
             .padding(10),
+        checkbox("Lembrar servidor (host:porta)", app.remember_address)
+            .on_toggle(Message::RememberAddressToggled)
+            .size(16)
+            .text_size(13),
         label_text("Token (opcional)"),
         text_input("token de acesso", &app.token)
             .on_input(Message::TokenChanged)
             .on_submit(Message::Connect)
             .secure(true)
             .padding(10),
+        checkbox("Lembrar token", app.remember_token)
+            .on_toggle(Message::RememberTokenToggled)
+            .size(16)
+            .text_size(13),
         Space::with_height(Length::Fixed(6.0)),
         button(text("Conectar")).on_press(Message::Connect).padding([10, 24]),
         text(app.status_msg.clone()).size(13).color(palette::GRAY),

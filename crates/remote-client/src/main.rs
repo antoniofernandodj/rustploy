@@ -5,6 +5,7 @@ mod model;
 mod rwp;
 #[cfg(test)]
 mod smoke;
+mod store;
 mod update;
 mod view;
 mod worker;
@@ -22,8 +23,8 @@ fn main() -> iced::Result {
 
 impl App {
     fn boot() -> (Self, Task<Message>) {
-        let address = shared::RustployConfig::global().rwp_address();
-        (App::new(address), Task::none())
+        let default_address = shared::RustployConfig::global().rwp_address();
+        (App::with_prefs(default_address, store::RemotePrefs::load()), Task::none())
     }
 
     fn subscription(&self) -> Subscription<Message> {
