@@ -227,7 +227,7 @@ fn secrets_tab(app: &App) -> Element<'_, Message> {
 
 fn settings_tab(app: &App) -> Element<'_, Message> {
     let project_id = app.active_project_id.clone().unwrap_or_default();
-    let svc_count = app.services.iter().filter(|s| s.spec.project_id == project_id).count();
+    let svc_count = app.services.len();
     let can_delete = svc_count == 0;
 
     let mut col = column![

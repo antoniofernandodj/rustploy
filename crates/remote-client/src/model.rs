@@ -1154,10 +1154,7 @@ impl App {
     }
 
     pub fn project_services(&self) -> Vec<&Service> {
-        match &self.active_project_id {
-            Some(pid) => self.services.iter().filter(|s| s.spec.project_id == *pid).collect(),
-            None => self.services.iter().collect(),
-        }
+        self.services.iter().collect()
     }
 }
 
