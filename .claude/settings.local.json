@@ -67,7 +67,12 @@
       "Bash(grep -rniE \"host|getenv|environ|DATABASE|5432|dbname|password|connect\" app/)",
       "Read(//usr/lib/systemd/system/**)",
       "Read(//etc/systemd/system/**)",
-      "Bash(systemctl cat *)"
+      "Bash(systemctl cat *)",
+      "Bash(dig +short chiquitos.tech)",
+      "Bash(nslookup chiquitos.tech)",
+      "Bash(nc -vz chiquitos.tech 8787 -w 5)",
+      "Bash(timeout 5 bash -c 'cat < /dev/null > /dev/tcp/chiquitos.tech/8787 && echo OPEN || echo CLOSED_OR_FILTERED')",
+      "Bash(sudo ss -tlnp)"
     ]
   }
 }

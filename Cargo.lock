@@ -4513,6 +4513,7 @@ dependencies = [
  "iced",
  "postcard",
  "serde",
+ "serde_json",
  "shared",
  "tokio",
 ]

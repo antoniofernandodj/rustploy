@@ -831,6 +831,8 @@ pub enum Message {
     // connection
     AddressChanged(String),
     TokenChanged(String),
+    RememberAddressToggled(bool),
+    RememberTokenToggled(bool),
     Connect,
     Disconnect,
     Worker(WorkerEvent),
@@ -978,6 +980,8 @@ pub struct App {
     // connection
     pub address: String,
     pub token: String,
+    pub remember_address: bool,
+    pub remember_token: bool,
     pub connect_seq: u64,
     pub session: Option<Session>,
     pub worker_tx: Option<UnboundedSender<(Ctx, shared::Command)>>,
@@ -1039,6 +1043,8 @@ impl App {
         Self {
             address,
             token: String::new(),
+            remember_address: false,
+            remember_token: false,
             connect_seq: 0,
             session: None,
             worker_tx: None,
@@ -1086,6 +1092,37 @@ impl App {
             log_ticks: 0,
             engine_ticks: 0,
         }
+    }
+
+    /// Builds the app, prefilling the connect screen from saved preferences.
+    /// `default_address` is used only when no address was remembered.
+    pub fn with_prefs(default_address: String, prefs: crate::store::RemotePrefs) -> Self {
+        let mut app = Self::new(default_address);
+        app.remember_address = prefs.remember_address;
+        app.remember_token = prefs.remember_token;
+        if prefs.remember_address {
+            if let Some(addr) = prefs.address.filter(|s| !s.is_empty()) {
+                app.address = addr;
+            }
+        }
+        if prefs.remember_token {
+            if let Some(token) = prefs.token {
+                app.token = token;
+            }
+        }
+        app
+    }
+
+    /// Persists the current "remember" choices and, when enabled, the address
+    /// and token so the next launch can prefill them.
+    pub fn persist_prefs(&self) {
+        crate::store::RemotePrefs {
+            remember_address: self.remember_address,
+            remember_token: self.remember_token,
+            address: self.remember_address.then(|| self.address.clone()),
+            token: self.remember_token.then(|| self.token.clone()),
+        }
+        .save();
     }
 
     pub fn send(&self, ctx: Ctx, cmd: shared::Command) {

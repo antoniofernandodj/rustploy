@@ -11,7 +11,16 @@ impl App {
             // ── Connection ────────────────────────────────────────────────
             Message::AddressChanged(v) => self.address = v,
             Message::TokenChanged(v) => self.token = v,
+            Message::RememberAddressToggled(v) => {
+                self.remember_address = v;
+                self.persist_prefs();
+            }
+            Message::RememberTokenToggled(v) => {
+                self.remember_token = v;
+                self.persist_prefs();
+            }
             Message::Connect => {
+                self.persist_prefs();
                 self.connect_seq += 1;
                 self.connected = false;
                 self.worker_tx = None;
