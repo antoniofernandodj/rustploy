@@ -270,3 +270,130 @@ Registrar:
 
 O número que importa para o alvo do projeto é RSS/PSS em idle com a feature
 habilitada.
+
+---
+
+## 12. Implementação v1 (entregue)
+
+Esta seção documenta o que foi efetivamente construído e onde a implementação
+diverge — conscientemente — do desenho inicial acima.
+
+### 12.1 Envelope do protocolo
+
+Definido em `crates/shared/src/protocol.rs`, reaproveitando `Command`,
+`Response` e `Event` diretamente:
+
+```rust
+pub const RWP_PROTOCOL_VERSION: u16 = 1;
+
+pub enum RwpFrame {
+    Hello { protocol_version: u16, client_version: String },
+    Authenticate { token: String },
+    Rpc(Command),
+    Subscribe { service_id: Option<String> },
+    Ping,
+}
+
+pub enum RwpReply {
+    HelloAck { protocol_version: u16, daemon_version: String, auth_required: bool },
+    AuthOk,
+    Response(Response),
+    Event(Event),
+    Pong { uptime_secs: u64 },
+    Error(RwpError),
+}
+```
+
+Framing idêntico ao canal UDS: `[u32 LE length][payload postcard]`.
+
+### 12.2 Ciclo de vida da conexão
+
+```text
+client -> Hello { protocol_version, client_version }
+daemon -> HelloAck { protocol_version, daemon_version, auth_required }
+[ se auth_required ]
+client -> Authenticate { token }
+daemon -> AuthOk | Error   (Error fecha a conexão)
+loop:
+    client -> Rpc(Command)        daemon -> Response(...)
+    client -> Ping                daemon -> Pong { uptime_secs }
+    client -> Subscribe { .. }    daemon -> stream contínuo de Event(...)
+```
+
+Diferente do UDS (que fecha após um RPC), o RWP mantém a conexão de comando
+viva para múltiplos RPCs sequenciais — o client remoto reusa uma conexão de
+comando e abre uma segunda conexão dedicada para o stream de eventos.
+
+### 12.3 Cobertura de comandos
+
+O listener encaminha `RwpFrame::Rpc(cmd)` para o **mesmo** `dispatch()`
+(`crates/daemon/src/api/routes.rs`) usado pelo socket local. Logo, **todos** os
+comandos da TUI ficam disponíveis remotamente sem código adicional por comando:
+projetos (create/list/update/delete/env), serviços (create/list/get/update/
+delete/stop/reload), deploys (start/abort/rollback/history), logs/build logs,
+métricas (via stream), secrets, webhooks, settings, `DaemonStatus`,
+`DeployEngineStatus`, `Ping`. `Subscribe` reusa o `EventBus`.
+
+### 12.4 Desvios conscientes do desenho inicial
+
+- **Tokio em vez de threads síncronas (seção 4).** O daemon já é
+  `#[tokio::main]` e todo handler (sqlx, EventBus, bollard) é assíncrono.
+  Implementar o listener em Tokio reusa `dispatch()` e `EventBus::subscribe()`
+  sem ponte sync↔async (que exigiria um `block_on` por chamada) e sem custo de
+  RAM relevante — o runtime já existe. Limites de conexão (`Semaphore`) e de
+  frame mantêm o footprint contido.
+- **Token estático em vez de TLS na v1 (seção 5).** A v1 entrega TCP + token
+  estático opcional (comparação em tempo ~constante). O guard de segurança é:
+  bind **não-loopback exige token** — caso contrário o listener não inicia.
+  TLS/mTLS via `rustls` permanece como o próximo passo documentado nas seções
+  5 e 6; o framing e o envelope já estão prontos para rodar sobre um
+  `tokio_rustls::TlsStream` sem mudanças de protocolo.
+
+### 12.5 Configuração
+
+Nova seção `[rwp]` em `RustployConfig` (`crates/shared/src/config.rs`):
+
+```toml
+[rwp]
+enabled = false          # desabilitado por padrão
+bind_address = "127.0.0.1"
+port = 8787
+token = ""               # vazio = sem auth (apenas loopback)
+max_connections = 8
+max_frame_size = 1048576 # 1 MiB
+read_timeout_secs = 15
+idle_timeout_secs = 120
+```
+
+Overrides por env (todos centralizados em `apply_env_overrides`):
+`RUSTPLOY_RWP_ENABLED`, `RUSTPLOY_RWP_BIND`, `RUSTPLOY_RWP_PORT`,
+`RUSTPLOY_RWP_TOKEN`.
+
+### 12.6 Config singleton
+
+Todas as leituras de variáveis de ambiente passam por um singleton
+`RustployConfig::global()` (`OnceLock`), carregado uma única vez. Helpers
+centralizam `$HOME` (`shared::user_home`, `shared::fallback_data_dir`) e a
+resolução de socket do client (`client_socket_candidates`). Daemon e TUI agora
+consomem o singleton em vez de ler `std::env::var` ad hoc.
+
+---
+
+## 13. Client gráfico remoto (iced)
+
+Crate `crates/remote-client` (binário `rustploy-remote`), uma GUI
+[iced](https://iced.rs) que fala RWP:
+
+- **Tela de conexão:** endereço `host:porta` (default vindo de `rwp_address()`)
+  + token opcional.
+- **Worker assíncrono** (`src/worker.rs`) exposto como `Subscription` iced,
+  mantendo duas conexões RWP: uma de comando (request/response) e uma de eventos
+  (`Subscribe`). Comandos da UI viajam por um canal `mpsc`; respostas e eventos
+  voltam como mensagens iced.
+- **UI** (`src/view.rs`): barra de status (versão/uptime do daemon), painel de
+  projetos, painel de serviços com ações **Deploy / Stop / Reload / Rollback**,
+  detalhe do serviço e um painel de **eventos ao vivo** (deploy progress, build
+  logs, log lines, métricas, mudanças de status).
+- **Transporte** (`src/rwp.rs`): handshake, auth e framing.
+
+Execução: `cargo run -p remote-client` (ou binário `rustploy-remote`).

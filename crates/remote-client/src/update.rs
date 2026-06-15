@@ -1,0 +1,814 @@
+//! Message handling: mirrors the TUI's command dispatch, response handling and
+//! event application.
+
+use crate::model::*;
+use iced::Task;
+use shared::{Command, Event, Response, Service, ServiceSource, ServiceSpec, ServiceStatus};
+
+impl App {
+    pub fn update(&mut self, message: Message) -> Task<Message> {
+        match message {
+            // ── Connection ────────────────────────────────────────────────
+            Message::AddressChanged(v) => self.address = v,
+            Message::TokenChanged(v) => self.token = v,
+            Message::Connect => {
+                self.connect_seq += 1;
+                self.connected = false;
+                self.worker_tx = None;
+                self.error = None;
+                self.reset_data();
+                self.status_msg = "Conectando…".into();
+                let token = if self.token.trim().is_empty() {
+                    None
+                } else {
+                    Some(self.token.clone())
+                };
+                self.session = Some(Session {
+                    addr: self.address.clone(),
+                    token,
+                });
+            }
+            Message::Disconnect => {
+                self.session = None;
+                self.worker_tx = None;
+                self.connected = false;
+                self.status_msg = "Desconectado".into();
+                self.reset_data();
+            }
+            Message::Worker(ev) => self.handle_worker(ev),
+            Message::Tick => self.on_tick(),
+            Message::DismissNotification => self.notification = None,
+
+            // ── Navigation ────────────────────────────────────────────────
+            Message::Sidebar(item) => self.select_sidebar(item),
+            Message::OpenProject(id) => self.open_project(id),
+            Message::BackToProjects => self.view = View::Projects,
+            Message::OpenService(id) => self.open_service(id),
+            Message::BackToProject => self.view = View::ProjectDetail,
+            Message::ProjectTab(tab) => {
+                self.project_tab = tab;
+                if tab == ProjectTab::Secrets {
+                    if let Some(pid) = self.active_project_id.clone() {
+                        self.send(Ctx::Secrets, Command::SecretList { project_id: pid });
+                    }
+                }
+            }
+            Message::ServiceTab(tab) => {
+                self.service_tab = tab;
+                if tab == ServiceTab::Logs {
+                    if let Some(sid) = self.active_service_id.clone() {
+                        self.send(Ctx::Logs, Command::LogsGet { service_id: sid, tail: 500 });
+                    }
+                }
+            }
+
+            // ── New project ───────────────────────────────────────────────
+            Message::NewProjectOpen => {
+                self.new_project_open = true;
+                self.np_name.clear();
+                self.np_desc.clear();
+            }
+            Message::NpName(v) => self.np_name = v,
+            Message::NpDesc(v) => self.np_desc = v,
+            Message::NpCancel => self.new_project_open = false,
+            Message::NpSubmit => {
+                if !self.np_name.trim().is_empty() {
+                    self.send(
+                        Ctx::CreateProject,
+                        Command::ProjectCreate {
+                            name: self.np_name.trim().to_string(),
+                            description: opt(&self.np_desc),
+                        },
+                    );
+                }
+            }
+
+            // ── Project settings / delete ─────────────────────────────────
+            Message::PsName(v) => self.ps_name = v,
+            Message::PsDesc(v) => self.ps_desc = v,
+            Message::PsSave => {
+                if let Some(id) = self.active_project_id.clone() {
+                    self.send(
+                        Ctx::UpdateProject,
+                        Command::ProjectUpdate {
+                            id,
+                            name: self.ps_name.trim().to_string(),
+                            description: opt(&self.ps_desc),
+                        },
+                    );
+                }
+            }
+            Message::AskDelete(action) => self.confirm = Some(action),
+            Message::ConfirmNo => self.confirm = None,
+            Message::ConfirmYes => {
+                if let Some(action) = self.confirm.take() {
+                    match action {
+                        ConfirmAction::DeleteProject(id) => {
+                            self.send(Ctx::DeleteProject(id.clone()), Command::ProjectDelete { id });
+                        }
+                        ConfirmAction::DeleteService(id) => {
+                            self.send(Ctx::DeleteService(id.clone()), Command::ServiceDelete { id });
+                        }
+                    }
+                }
+            }
+
+            // ── Project env ───────────────────────────────────────────────
+            Message::PEnvOpen => {
+                self.p_env_editor = KvEditor { open: true, ..Default::default() };
+            }
+            Message::PEnvKey(v) => self.p_env_editor.key = v,
+            Message::PEnvVal(v) => self.p_env_editor.value = v,
+            Message::PEnvCancel => self.p_env_editor.open = false,
+            Message::PEnvSubmit => self.project_env_add(),
+            Message::PEnvDelete(i) => self.project_env_delete(i),
+
+            // ── Secrets ───────────────────────────────────────────────────
+            Message::SecretOpen => {
+                self.secret_editor = KvEditor { open: true, ..Default::default() };
+            }
+            Message::SecretName(v) => self.secret_editor.key = v,
+            Message::SecretVal(v) => self.secret_editor.value = v,
+            Message::SecretCancel => self.secret_editor.open = false,
+            Message::SecretSubmit => {
+                if let Some(pid) = self.active_project_id.clone() {
+                    if !self.secret_editor.key.trim().is_empty() {
+                        self.send(
+                            Ctx::Action("Secret salvo".into()),
+                            Command::SecretSet {
+                                project_id: pid,
+                                name: self.secret_editor.key.trim().to_string(),
+                                value: self.secret_editor.value.clone(),
+                            },
+                        );
+                        self.secret_editor.open = false;
+                    }
+                }
+            }
+            Message::SecretDelete(name) => {
+                if let Some(pid) = self.active_project_id.clone() {
+                    self.send(
+                        Ctx::Action("Secret removido".into()),
+                        Command::SecretDelete { project_id: pid, name },
+                    );
+                }
+            }
+
+            // ── Service actions ───────────────────────────────────────────
+            Message::SvcDeploy => self.service_action(Ctx::Deploy, |id| Command::DeployStart { service_id: id }, "Deploy"),
+            Message::SvcReload => self.service_action(Ctx::Action("Reload".into()), |id| Command::ServiceReload { service_id: id }, "Reload"),
+            Message::SvcStop => self.service_action(Ctx::Action("Stop".into()), |id| Command::ServiceStop { service_id: id }, "Stop"),
+            Message::SvcRollback => self.service_action(Ctx::Action("Rollback".into()), |id| Command::DeployRollback { service_id: id }, "Rollback"),
+
+            // ── General / git form ────────────────────────────────────────
+            Message::GenField(f, v) => {
+                let g = &mut self.general;
+                match f {
+                    GenField::RepoUrl => g.repo_url = v,
+                    GenField::Branch => g.branch = v,
+                    GenField::Username => g.username = v,
+                    GenField::Credentials => g.credentials = v,
+                    GenField::BuildPath => g.build_path = v,
+                    GenField::WatchPaths => g.watch_paths = v,
+                    GenField::Port => g.port = v,
+                    GenField::Dockerfile => g.dockerfile = v,
+                    GenField::ContextPath => g.context_path = v,
+                    GenField::BuildStage => g.build_stage = v,
+                }
+            }
+            Message::GenSubmodules(b) => self.general.submodules = b,
+            Message::GenSave => self.general_save(),
+            Message::ComposeAction(action) => self.compose_editor.perform(action),
+            Message::ComposeSave => self.compose_save(),
+
+            // ── Service env ───────────────────────────────────────────────
+            Message::SEnvOpen => {
+                self.s_env_editor = KvEditor { open: true, ..Default::default() };
+            }
+            Message::SEnvKey(v) => self.s_env_editor.key = v,
+            Message::SEnvVal(v) => self.s_env_editor.value = v,
+            Message::SEnvCancel => self.s_env_editor.open = false,
+            Message::SEnvSubmit => self.service_env_add(),
+            Message::SEnvDelete(i) => self.service_env_delete(i),
+
+            // ── Domains ───────────────────────────────────────────────────
+            Message::DomDomain(v) => self.domains.domain = v,
+            Message::DomHostPort(v) => self.domains.host_port = v,
+            Message::DomTls(b) => self.domains.tls_enabled = b,
+            Message::DomSave => self.domains_save(),
+
+            // ── Healthcheck ───────────────────────────────────────────────
+            Message::HcKind(v) => self.health.kind = v,
+            Message::HcField(f, v) => {
+                let h = &mut self.health;
+                match f {
+                    HcField::HttpPath => h.http_path = v,
+                    HcField::ExpectedStatus => h.expected_status = v,
+                    HcField::Interval => h.interval = v,
+                    HcField::Timeout => h.timeout = v,
+                    HcField::Retries => h.retries = v,
+                    HcField::StartPeriod => h.start_period = v,
+                }
+            }
+            Message::HcSave => {
+                let hc = self.health.to_healthcheck();
+                self.update_spec(|s| s.healthcheck = hc);
+            }
+
+            // ── Advanced ──────────────────────────────────────────────────
+            Message::AdvReplicas(v) => self.advanced.replicas = v,
+            Message::AdvCommand(v) => self.advanced.run_command = v,
+            Message::AdvArgAdd => self.advanced.run_args.push(String::new()),
+            Message::AdvArg(i, v) => {
+                if let Some(a) = self.advanced.run_args.get_mut(i) {
+                    *a = v;
+                }
+            }
+            Message::AdvArgDelete(i) => {
+                if i < self.advanced.run_args.len() {
+                    self.advanced.run_args.remove(i);
+                }
+            }
+            Message::AdvSave => {
+                let replicas = self.advanced.replicas.parse().unwrap_or(1);
+                let cmd = opt(&self.advanced.run_command);
+                let args: Vec<String> = self
+                    .advanced
+                    .run_args
+                    .iter()
+                    .filter(|a| !a.trim().is_empty())
+                    .cloned()
+                    .collect();
+                self.update_spec(|s| {
+                    s.replicas = replicas;
+                    s.run_command = cmd;
+                    s.run_args = args;
+                });
+            }
+
+            // ── Deployments ───────────────────────────────────────────────
+            Message::DeploySelect(i) => {
+                self.selected_deployment = i;
+                if let Some(dep) = self.service_deployments.get(i) {
+                    self.send(Ctx::BuildLogs, Command::GetBuildLogs { deployment_id: dep.id.clone() });
+                }
+            }
+            Message::WebhookRegen => {
+                if let Some(sid) = self.active_service_id.clone() {
+                    self.send(Ctx::WebhookUrl, Command::RegenerateWebhookToken { service_id: sid });
+                }
+            }
+
+            // ── New service wizard ────────────────────────────────────────
+            Message::NewServiceOpen => {
+                if let Some(pid) = self.active_project_id.clone() {
+                    self.ns = Some(NsForm::new(pid));
+                }
+            }
+            Message::NsCancel => self.ns = None,
+            Message::NsBack => self.ns_back(),
+            Message::NsPickType(kind) => {
+                if let Some(ns) = &mut self.ns {
+                    ns.step = match kind {
+                        ServiceKind::Application => NsStep::AppForm,
+                        ServiceKind::Database => NsStep::PickDb,
+                        ServiceKind::Compose => NsStep::ComposeForm,
+                        ServiceKind::Template => NsStep::PickTemplate,
+                    };
+                }
+            }
+            Message::NsPickDb(db) => {
+                if let Some(ns) = &mut self.ns {
+                    ns.select_db(db);
+                }
+            }
+            Message::NsField(f, v) => {
+                if let Some(ns) = &mut self.ns {
+                    match f {
+                        NsField::Name => ns.name = v,
+                        NsField::AppName => ns.app_name = v,
+                        NsField::Description => ns.description = v,
+                        NsField::DbName => ns.db_name = v,
+                        NsField::DbUser => ns.db_user = v,
+                        NsField::DbPassword => ns.db_password = v,
+                        NsField::DbRootPassword => ns.db_root_password = v,
+                        NsField::Image => ns.docker_image = v,
+                    }
+                }
+            }
+            Message::NsReplica(b) => {
+                if let Some(ns) = &mut self.ns {
+                    ns.use_replica_sets = b;
+                }
+            }
+            Message::NsTemplateCat(i) => {
+                if let Some(ns) = &mut self.ns {
+                    ns.template_cat = i;
+                }
+            }
+            Message::NsTemplateSearch(v) => {
+                if let Some(ns) = &mut self.ns {
+                    ns.template_search = v;
+                }
+            }
+            Message::NsTemplateSelect(id) => {
+                if let Some(t) = shared::templates::all().iter().find(|t| t.id == id) {
+                    if let Some(ns) = &mut self.ns {
+                        ns.select_template(t);
+                    }
+                }
+            }
+            Message::NsTemplateVar(i, v) => {
+                if let Some(ns) = &mut self.ns {
+                    if let Some(slot) = ns.template_var_values.get_mut(i) {
+                        *slot = v;
+                    }
+                }
+            }
+            Message::NsCreate => {
+                if let Some(spec) = self.ns.as_ref().and_then(|ns| ns.to_spec()) {
+                    self.send(Ctx::CreateService, Command::ServiceCreate(spec));
+                }
+            }
+
+            // ── Server settings ───────────────────────────────────────────
+            Message::SsDomain(v) => self.ss_domain = v,
+            Message::SsEmail(v) => self.ss_email = v,
+            Message::SsSave => {
+                self.send(
+                    Ctx::Action("Configurações salvas".into()),
+                    Command::SetDaemonSettings {
+                        webhook_base_url: opt(&self.ss_domain),
+                        acme_email: opt(&self.ss_email),
+                    },
+                );
+            }
+            Message::Copy(s) => return iced::clipboard::write(s),
+            Message::Ignore => {}
+        }
+        Task::none()
+    }
+
+    // ── Navigation helpers ────────────────────────────────────────────────
+
+    fn select_sidebar(&mut self, item: SidebarItem) {
+        self.sidebar = item;
+        self.view = item.to_view();
+        match item {
+            SidebarItem::Projects => self.send(Ctx::Projects, Command::ProjectList),
+            SidebarItem::HomeDeployments => {
+                self.send(Ctx::HomeDeployments, Command::RecentDeployments { limit: 30 })
+            }
+            SidebarItem::HomeDeployEngine => {
+                self.engine_ticks = 0;
+                self.send(Ctx::DeployEngine, Command::DeployEngineStatus)
+            }
+            SidebarItem::SettingsWebServer => {
+                if !self.ss_loaded {
+                    self.send(Ctx::ServerSettings, Command::GetDaemonSettings);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn open_project(&mut self, id: String) {
+        if let Some(p) = self.projects.iter().find(|p| p.id == id).cloned() {
+            self.active_project_id = Some(p.id.clone());
+            self.ps_name = p.name.clone();
+            self.ps_desc = p.description.clone().unwrap_or_default();
+            self.view = View::ProjectDetail;
+            self.project_tab = ProjectTab::Services;
+            self.p_env_editor.open = false;
+            self.secret_editor.open = false;
+            self.send(Ctx::Services, Command::ServiceList { project_id: p.id });
+        }
+    }
+
+    fn open_service(&mut self, id: String) {
+        let Some(svc) = self.services.iter().find(|s| s.id == id).cloned() else {
+            return;
+        };
+        self.active_service_id = Some(svc.id.clone());
+        self.view = View::ServiceDetail;
+        self.service_tab = ServiceTab::General;
+        self.conn_info = ConnInfo::from_service(&svc);
+        self.general = GeneralForm::from_service(&svc);
+        self.health = HealthForm::from_service(&svc);
+        self.domains = DomainsForm::from_service(&svc);
+        self.advanced = AdvancedForm::from_service(&svc);
+        let compose = match &svc.spec.source {
+            ServiceSource::Compose(c) => c.content.clone(),
+            _ => String::new(),
+        };
+        self.compose_editor = iced::widget::text_editor::Content::with_text(&compose);
+        self.s_env_editor.open = false;
+        self.selected_deployment = 0;
+        self.service_deployments.clear();
+        self.webhook_url = None;
+        self.send(Ctx::Deployments, Command::DeployHistory { service_id: svc.id.clone(), limit: 10 });
+        self.send(Ctx::Logs, Command::LogsGet { service_id: svc.id.clone(), tail: 500 });
+        if !matches!(svc.spec.source, ServiceSource::Compose(_)) {
+            self.send(Ctx::WebhookUrl, Command::GetWebhookUrl { service_id: svc.id });
+        }
+    }
+
+    // ── Worker / responses / events ───────────────────────────────────────
+
+    fn handle_worker(&mut self, ev: WorkerEvent) {
+        match ev {
+            WorkerEvent::Ready(tx) => self.worker_tx = Some(tx),
+            WorkerEvent::Connected => {
+                self.connected = true;
+                self.error = None;
+                self.status_msg = format!("Conectado a {}", self.address);
+                self.send(Ctx::DaemonStatus, Command::DaemonStatus);
+                self.send(Ctx::Projects, Command::ProjectList);
+                self.send(Ctx::HomeDeployments, Command::RecentDeployments { limit: 30 });
+            }
+            WorkerEvent::Reply(ctx, resp) => self.handle_reply(ctx, resp),
+            WorkerEvent::Event(e) => self.apply_event(e),
+            WorkerEvent::Error(e) => {
+                self.connected = false;
+                self.error = Some(e.clone());
+                self.status_msg = "Erro de conexão".into();
+            }
+            WorkerEvent::Disconnected => {
+                self.connected = false;
+                self.status_msg = "Conexão encerrada".into();
+            }
+        }
+    }
+
+    fn handle_reply(&mut self, ctx: Ctx, resp: Response) {
+        match (ctx, resp) {
+            (Ctx::Projects, Response::Projects(p)) => self.projects = p,
+            (Ctx::Services, Response::Services(s)) => self.services = s,
+            (Ctx::HomeDeployments, Response::DeploymentSummaries(s)) => self.home_deployments = s,
+            (Ctx::DeployEngine, Response::DeployEngineStatus(s)) => self.deploy_engine = Some(s),
+            (Ctx::Deployments, Response::Deployments(d)) => {
+                if let Some(first) = d.first() {
+                    self.send(Ctx::BuildLogs, Command::GetBuildLogs { deployment_id: first.id.clone() });
+                }
+                self.service_deployments = d;
+                self.selected_deployment = 0;
+            }
+            (Ctx::BuildLogs, Response::BuildLogs(entries)) => {
+                if let Some(dep) = self.service_deployments.get(self.selected_deployment) {
+                    let buf = self.build_logs.entry(dep.id.clone()).or_default();
+                    buf.clear();
+                    for e in entries {
+                        buf.push(LogLine { timestamp: e.timestamp, text: e.line, is_stderr: false });
+                    }
+                }
+            }
+            (Ctx::Logs, Response::Logs(entries)) => {
+                if !entries.is_empty() {
+                    if let Some(sid) = self.active_service_id.clone() {
+                        let buf = self.logs.entry(sid).or_default();
+                        buf.clear();
+                        for e in entries {
+                            buf.push(LogLine {
+                                timestamp: e.timestamp,
+                                text: e.line,
+                                is_stderr: e.stream == shared::protocol::LogStream::Stderr,
+                            });
+                        }
+                    }
+                }
+            }
+            (Ctx::Secrets, Response::SecretNames(n)) => self.project_secrets = n,
+            (Ctx::WebhookUrl, Response::WebhookUrl(u)) => self.webhook_url = u,
+            (Ctx::ServerSettings, Response::DaemonSettings { webhook_base_url, acme_email }) => {
+                self.ss_domain = webhook_base_url.unwrap_or_default();
+                self.ss_email = acme_email.unwrap_or_default();
+                self.ss_loaded = true;
+            }
+            (Ctx::DaemonStatus, Response::DaemonStatus(d)) => self.daemon_status = Some(d),
+            (Ctx::CreateProject, Response::Project(p)) => {
+                self.projects.push(p);
+                self.new_project_open = false;
+                self.notify("Projeto criado", false);
+            }
+            (Ctx::UpdateProject, Response::Project(p)) => {
+                if let Some(e) = self.projects.iter_mut().find(|x| x.id == p.id) {
+                    *e = p.clone();
+                }
+                self.ps_name = p.name;
+                self.ps_desc = p.description.unwrap_or_default();
+                self.notify("Projeto atualizado", false);
+            }
+            (Ctx::UpdateProjectEnv, Response::Project(p)) => {
+                if let Some(e) = self.projects.iter_mut().find(|x| x.id == p.id) {
+                    *e = p;
+                }
+                self.p_env_editor.open = false;
+                self.notify("Env vars atualizadas", false);
+            }
+            (Ctx::DeleteProject(id), Response::Ok) => {
+                self.projects.retain(|p| p.id != id);
+                self.view = View::Projects;
+                self.notify("Projeto removido", false);
+            }
+            (Ctx::CreateService, Response::Service(s)) => {
+                self.services.push(s);
+                self.ns = None;
+                self.view = View::ProjectDetail;
+                self.notify("Serviço criado", false);
+            }
+            (Ctx::UpdateService, Response::Service(s)) => {
+                if let Some(e) = self.services.iter_mut().find(|x| x.id == s.id) {
+                    *e = s.clone();
+                }
+                if self.active_service_id.as_deref() == Some(&s.id) {
+                    self.general = GeneralForm::from_service(&s);
+                    self.health = HealthForm::from_service(&s);
+                    self.domains = DomainsForm::from_service(&s);
+                    self.advanced = AdvancedForm::from_service(&s);
+                    self.s_env_editor.open = false;
+                }
+                self.notify("Serviço atualizado", false);
+            }
+            (Ctx::DeleteService(id), Response::Ok) => {
+                self.services.retain(|s| s.id != id);
+                self.view = View::ProjectDetail;
+                self.notify("Serviço removido", false);
+            }
+            (Ctx::Deploy, Response::Deployment(dep)) => {
+                if let Some(pos) = self.service_deployments.iter().position(|d| d.id == dep.id) {
+                    self.service_deployments[pos] = dep;
+                } else {
+                    self.service_deployments.insert(0, dep);
+                }
+                self.notify("Deploy iniciado ✓", false);
+            }
+            (Ctx::Action(label), Response::Err { message, .. }) => {
+                self.notify(format!("{label}: {message}"), true);
+            }
+            (Ctx::Action(label), _) => {
+                self.notify(label, false);
+                // refresh services and, if relevant, secrets
+                if let Some(pid) = self.active_project_id.clone() {
+                    self.send(Ctx::Services, Command::ServiceList { project_id: pid.clone() });
+                    self.send(Ctx::Secrets, Command::SecretList { project_id: pid });
+                }
+            }
+            (_, Response::Err { message, .. }) => self.notify(message, true),
+            _ => {}
+        }
+    }
+
+    fn apply_event(&mut self, event: Event) {
+        match event {
+            Event::ServiceStatusChanged { service_id, status } => {
+                if let Some(svc) = self.services.iter_mut().find(|s| s.id == service_id) {
+                    svc.status = status.clone();
+                }
+                if matches!(status, ServiceStatus::Running)
+                    && self.active_service_id.as_deref() == Some(&service_id)
+                {
+                    self.logs.remove(&service_id);
+                    self.send(Ctx::Logs, Command::LogsGet { service_id, tail: 500 });
+                }
+            }
+            Event::DeployStateChanged { deployment_id, service_id, state, message, .. } => {
+                if matches!(state, shared::DeployState::RollingBack) {
+                    let reason = message.as_deref().unwrap_or("motivo desconhecido");
+                    self.notify(format!("Deploy falhou: {reason}"), true);
+                }
+                if let Some(s) = self.home_deployments.iter_mut().find(|s| s.deployment.id == deployment_id) {
+                    s.deployment.state = state.clone();
+                }
+                if let Some(dep) = self.service_deployments.iter_mut().find(|d| d.id == deployment_id) {
+                    dep.state = state.clone();
+                } else if self.active_service_id.as_deref() == Some(&service_id) {
+                    self.service_deployments.insert(0, shared::Deployment {
+                        id: deployment_id,
+                        service_id,
+                        image: String::new(),
+                        state,
+                        states_log: vec![],
+                        started_at: chrono::Utc::now(),
+                        finished_at: None,
+                    });
+                }
+            }
+            Event::DeployProgress { .. } => {}
+            Event::BuildLog { deployment_id, line, timestamp, .. } => {
+                let buf = self.build_logs.entry(deployment_id).or_default();
+                if buf.len() >= MAX_LOG_LINES {
+                    buf.remove(0);
+                }
+                buf.push(LogLine { timestamp, text: line, is_stderr: false });
+            }
+            Event::LogLine { service_id, stream, line, timestamp, .. } => {
+                let buf = self.logs.entry(service_id).or_default();
+                if buf.len() >= MAX_LOG_LINES {
+                    buf.remove(0);
+                }
+                buf.push(LogLine {
+                    timestamp,
+                    text: line,
+                    is_stderr: stream == shared::protocol::LogStream::Stderr,
+                });
+            }
+            Event::ContainerMetrics(m) => {
+                let buf = self.metrics.entry(m.service_id.clone()).or_default();
+                if buf.len() >= MAX_METRIC_POINTS {
+                    buf.remove(0);
+                }
+                buf.push(m);
+            }
+            Event::Error { message, .. } => self.notify(message, true),
+            Event::DaemonReady { version } => self.notify(format!("daemon {version} ready"), false),
+        }
+    }
+
+    // ── Periodic ──────────────────────────────────────────────────────────
+
+    fn on_tick(&mut self) {
+        if let Some(n) = &self.notification {
+            if n.expires_at <= std::time::Instant::now() {
+                self.notification = None;
+            }
+        }
+        if !self.connected {
+            return;
+        }
+        if self.view == View::ServiceDetail && self.service_tab == ServiceTab::Logs {
+            self.log_ticks += 1;
+            if self.log_ticks >= 5 {
+                self.log_ticks = 0;
+                if let Some(sid) = self.active_service_id.clone() {
+                    self.send(Ctx::Logs, Command::LogsGet { service_id: sid, tail: 500 });
+                }
+            }
+        } else {
+            self.log_ticks = 0;
+        }
+        if self.view == View::HomeDeployEngine {
+            self.engine_ticks += 1;
+            if self.engine_ticks >= 5 {
+                self.engine_ticks = 0;
+                self.send(Ctx::DeployEngine, Command::DeployEngineStatus);
+            }
+        } else {
+            self.engine_ticks = 0;
+        }
+    }
+
+    // ── Mutations ─────────────────────────────────────────────────────────
+
+    fn reset_data(&mut self) {
+        self.daemon_status = None;
+        self.projects.clear();
+        self.services.clear();
+        self.active_project_id = None;
+        self.active_service_id = None;
+        self.home_deployments.clear();
+        self.deploy_engine = None;
+        self.service_deployments.clear();
+        self.conn_info = None;
+        self.project_secrets.clear();
+        self.logs.clear();
+        self.build_logs.clear();
+        self.metrics.clear();
+        self.ns = None;
+        self.confirm = None;
+        self.view = View::HomeDeployments;
+        self.sidebar = SidebarItem::HomeDeployments;
+    }
+
+    fn service_action(&mut self, ctx: Ctx, build: impl Fn(String) -> Command, label: &str) {
+        if let Some(id) = self.active_service_id.clone() {
+            self.notify(format!("{label}…"), false);
+            self.send(ctx, build(id));
+        }
+    }
+
+    /// Clones the active service spec, applies `mutate`, sends `ServiceUpdate`.
+    fn update_spec(&mut self, mutate: impl FnOnce(&mut ServiceSpec)) {
+        let Some(svc) = self.current_service().cloned() else {
+            return;
+        };
+        let mut spec = svc.spec.clone();
+        mutate(&mut spec);
+        self.send(Ctx::UpdateService, Command::ServiceUpdate { id: svc.id, spec });
+    }
+
+    fn general_save(&mut self) {
+        let Some(svc) = self.current_service().cloned() else { return };
+        let g = self.general.clone();
+        let mut spec = svc.spec.clone();
+        spec.port = g.port.parse().unwrap_or(spec.port);
+        spec.source = match &svc.spec.source {
+            ServiceSource::Git(_) => ServiceSource::Git(g.to_git_source()),
+            // A registry-typed Application becomes a Git source when the URL
+            // looks like a repository (https/ssh/git@/file:///…).
+            ServiceSource::Registry { .. } => {
+                if shared::looks_like_git_url(&g.repo_url) {
+                    ServiceSource::Git(g.to_git_source())
+                } else {
+                    ServiceSource::Registry { image: g.repo_url.clone() }
+                }
+            }
+            other => other.clone(),
+        };
+        self.send(Ctx::UpdateService, Command::ServiceUpdate { id: svc.id, spec });
+    }
+
+    fn compose_save(&mut self) {
+        let content = self.compose_editor.text();
+        self.update_spec(|s| s.source = ServiceSource::Compose(shared::ComposeSource { content }));
+    }
+
+    fn domains_save(&mut self) {
+        let domain = opt(&self.domains.domain);
+        let host_port = self.domains.host_port.parse::<u16>().ok();
+        let tls = self.domains.tls_enabled;
+        self.update_spec(move |s| {
+            s.domain = domain;
+            s.host_port = host_port;
+            s.tls_enabled = tls;
+        });
+    }
+
+    fn service_env_add(&mut self) {
+        let key = self.s_env_editor.key.trim().to_string();
+        if key.is_empty() {
+            return;
+        }
+        let value = shared::EnvVarValue::Plain(self.s_env_editor.value.clone());
+        self.s_env_editor.open = false;
+        self.update_spec(move |s| {
+            if let Some(ev) = s.env_vars.iter_mut().find(|e| e.key == key) {
+                ev.value = value;
+            } else {
+                s.env_vars.push(shared::EnvVar { key, value });
+            }
+        });
+    }
+
+    fn service_env_delete(&mut self, i: usize) {
+        self.update_spec(move |s| {
+            if i < s.env_vars.len() {
+                s.env_vars.remove(i);
+            }
+        });
+    }
+
+    fn project_env_add(&mut self) {
+        let key = self.p_env_editor.key.trim().to_string();
+        if key.is_empty() {
+            return;
+        }
+        let Some(project) = self.current_project().cloned() else { return };
+        let mut env = project.env_vars.clone();
+        let value = shared::EnvVarValue::Plain(self.p_env_editor.value.clone());
+        if let Some(ev) = env.iter_mut().find(|e| e.key == key) {
+            ev.value = value;
+        } else {
+            env.push(shared::EnvVar { key, value });
+        }
+        self.send(Ctx::UpdateProjectEnv, Command::ProjectEnvSet { project_id: project.id, env_vars: env });
+    }
+
+    fn project_env_delete(&mut self, i: usize) {
+        let Some(project) = self.current_project().cloned() else { return };
+        let mut env = project.env_vars.clone();
+        if i < env.len() {
+            env.remove(i);
+        }
+        self.send(Ctx::UpdateProjectEnv, Command::ProjectEnvSet { project_id: project.id, env_vars: env });
+    }
+
+    fn ns_back(&mut self) {
+        if let Some(ns) = &mut self.ns {
+            ns.step = match ns.step {
+                NsStep::PickType => {
+                    self.ns = None;
+                    return;
+                }
+                NsStep::PickDb | NsStep::AppForm | NsStep::ComposeForm | NsStep::PickTemplate => {
+                    NsStep::PickType
+                }
+                NsStep::DbForm => NsStep::PickDb,
+                NsStep::TemplateForm => NsStep::PickTemplate,
+            };
+        }
+    }
+}
+
+/// Convenience used by the views to colour a service status.
+pub fn status_color(status: &ServiceStatus) -> iced::Color {
+    match status {
+        ServiceStatus::Running => palette::GREEN,
+        ServiceStatus::Stopping | ServiceStatus::Deploying => palette::YELLOW,
+        ServiceStatus::Stopped => palette::GRAY,
+        ServiceStatus::Degraded => palette::MAGENTA,
+        ServiceStatus::Error(_) => palette::RED,
+    }
+}
+
+#[allow(dead_code)]
+fn _assert_service(_s: &Service) {}

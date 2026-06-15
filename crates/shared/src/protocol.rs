@@ -249,3 +249,72 @@ impl Response {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// RWP — Rustploy Wire Protocol (remote administrative channel over TCP)
+//
+// Same `[u32 LE length][postcard payload]` framing as the local UDS channel,
+// but wrapped in a thin envelope that adds a version handshake and optional
+// token authentication. It reuses `Command`, `Response` and `Event` directly,
+// so every command the TUI can issue is available remotely with no extra code.
+// ---------------------------------------------------------------------------
+
+/// Bumped on any breaking change to `RwpFrame` / `RwpReply` shape.
+pub const RWP_PROTOCOL_VERSION: u16 = 1;
+
+/// A frame sent by a remote client to the daemon over RWP.
+///
+/// Expected lifecycle on a connection:
+/// `Hello` → (`Authenticate` if the daemon requires it) → then either an
+/// indefinite sequence of `Rpc`/`Ping`, or a single `Subscribe` that turns the
+/// connection into an event stream.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RwpFrame {
+    /// First frame on every connection. Negotiates protocol version.
+    Hello {
+        protocol_version: u16,
+        client_version: String,
+    },
+    /// Sent after `Hello` when the daemon reported `auth_required = true`.
+    Authenticate { token: String },
+    /// A single administrative call; the daemon replies with `RwpReply::Response`.
+    Rpc(Command),
+    /// Turns the connection into a one-way stream of `RwpReply::Event` frames.
+    Subscribe { service_id: Option<String> },
+    /// Liveness probe; the daemon replies with `RwpReply::Pong`.
+    Ping,
+}
+
+/// A frame sent by the daemon to a remote client over RWP.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RwpReply {
+    /// Response to `Hello`. `auth_required` tells the client whether it must
+    /// send `Authenticate` before any other frame is accepted.
+    HelloAck {
+        protocol_version: u16,
+        daemon_version: String,
+        auth_required: bool,
+    },
+    /// Authentication accepted; the connection may now issue commands.
+    AuthOk,
+    Response(Response),
+    Event(Event),
+    Pong { uptime_secs: u64 },
+    Error(RwpError),
+}
+
+/// Protocol-level error (distinct from a command-level `Response::Err`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RwpError {
+    pub code: String,
+    pub message: String,
+}
+
+impl RwpError {
+    pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            code: code.into(),
+            message: message.into(),
+        }
+    }
+}

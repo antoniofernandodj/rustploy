@@ -1,0 +1,26 @@
+[package]
+name = "remote-client"
+version = "0.1.0"
+edition = "2024"
+default-run = "rustploy-remote"
+
+[[bin]]
+name = "rustploy-remote"
+path = "src/main.rs"
+
+[dependencies]
+shared = { path = "../shared" }
+
+# GUI
+iced = { version = "0.13", features = ["tokio"] }
+
+# Async / networking (runs on iced's tokio executor)
+tokio = { version = "1", features = ["net", "sync", "macros", "io-util", "rt", "time"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+postcard = { version = "1", features = ["alloc"] }
+
+# Errors / Time
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }

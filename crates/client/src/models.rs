@@ -387,7 +387,11 @@ impl GeneralTabState {
     pub fn to_git_source(&self) -> GitSource {
         GitSource {
             url: self.repo_url.clone(),
-            branch: self.branch.clone(),
+            branch: if self.branch.trim().is_empty() {
+                "main".into()
+            } else {
+                self.branch.clone()
+            },
             root_path: self.build_path.clone(),
             watch_paths: self
                 .watch_paths
@@ -874,7 +878,7 @@ pub struct NewServiceState {
     pub template_cursor: usize,
     pub template_search: String,
     pub template_searching: bool,
-    pub selected_template: Option<&'static crate::templates::Template>,
+    pub selected_template: Option<&'static shared::templates::Template>,
     pub template_var_values: Vec<String>,
 }
 
@@ -972,7 +976,7 @@ impl NewServiceState {
     }
 
     /// Selects a template, initialises var values with defaults and resets the form.
-    pub fn select_template(&mut self, t: &'static crate::templates::Template) {
+    pub fn select_template(&mut self, t: &'static shared::templates::Template) {
         self.selected_template = Some(t);
         self.template_var_values = t
             .variables
@@ -1083,7 +1087,7 @@ impl NewServiceState {
         match self.db_kind {
             Some(DbKind::Postgres) => format!(
                 "services:
-\n  postgres:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      POSTGRES_DB: {db}\n      POSTGRES_USER: {user}\n      POSTGRES_PASSWORD: {pass}\n    volumes:\n      - pgdata:/var/lib/postgresql/data\n\nvolumes:\n  pgdata:\n",
+\n  postgres:\n    image: {image}\n    restart: unless-stopped\n    environment:\n      POSTGRES_DB: {db}\n      POSTGRES_USER: {user}\n      POSTGRES_PASSWORD: {pass}\n    volumes:\n      - pgdata:/var/lib/postgresql\n\nvolumes:\n  pgdata:\n",
                 image = self.docker_image,
                 db = self.db_name,
                 user = self.db_user,
@@ -1205,7 +1209,7 @@ impl NewServiceState {
             },
             NewServiceStep::TemplateVarForm => {
                 let template = self.selected_template.expect("template selected");
-                let content = crate::templates::render_compose(template, &self.template_var_values);
+                let content = shared::templates::render_compose(template, &self.template_var_values);
                 ServiceSpec {
                     name: if self.name.is_empty() {
                         template.name.to_lowercase().replace(' ', "-")

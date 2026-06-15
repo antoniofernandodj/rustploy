@@ -57,6 +57,20 @@ impl ServiceSpec {
     }
 }
 
+/// Heuristic used by the clients' General tab to decide whether a
+/// "Repository URL / Image" value denotes a Git source to clone+build, or a
+/// Docker image to pull. Recognizes the common git URL schemes, including
+/// local `file://` repositories (which the daemon clones via `git clone`).
+pub fn looks_like_git_url(url: &str) -> bool {
+    let u = url.trim();
+    u.starts_with("https://")
+        || u.starts_with("http://")
+        || u.starts_with("git@")
+        || u.starts_with("ssh://")
+        || u.starts_with("file://")
+        || u.ends_with(".git")
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ServiceSource {
     Registry { image: String },

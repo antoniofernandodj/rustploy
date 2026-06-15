@@ -9,7 +9,7 @@ pub mod sidebar;
 
 use crate::app::{App, DbKind, Focus, NewServiceStep, View};
 use crate::ui::projects::render_projects_list;
-use crate::templates::{self, TemplateCategory};
+use shared::templates::{self, TemplateCategory};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},

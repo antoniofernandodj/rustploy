@@ -1,7 +1,6 @@
 mod app;
 mod events;
 mod models;
-pub(crate) mod templates;
 mod transport;
 mod ui;
 
@@ -35,11 +34,7 @@ fn main() -> anyhow::Result<()> {
         return handle_import(&args[2..]);
     }
 
-    let socket_path = resolve_socket(&[
-        std::env::var("RUSTPLOY_SOCKET").ok(),
-        Some("/run/rustploy/rustploy.sock".into()),
-        fallback_socket(),
-    ])?;
+    let socket_path = resolve_socket(&shared::RustployConfig::global().client_socket_candidates())?;
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -165,19 +160,11 @@ fn dispatch_pending(
     }
 }
 
-fn fallback_socket() -> Option<String> {
-    std::env::var("HOME")
-        .ok()
-        .map(|home| format!("{home}/.local/share/rustploy/rustploy.sock"))
-}
-
-fn resolve_socket(candidates: &[Option<String>]) -> anyhow::Result<String> {
-    let paths: Vec<&str> = candidates.iter().flatten().map(String::as_str).collect();
-
-    for path in &paths {
+fn resolve_socket(candidates: &[String]) -> anyhow::Result<String> {
+    for path in candidates {
         let client = DaemonClient::new(path);
         if client.ping() {
-            return Ok(path.to_string());
+            return Ok(path.clone());
         }
     }
 
@@ -185,6 +172,6 @@ fn resolve_socket(candidates: &[Option<String>]) -> anyhow::Result<String> {
         "daemon não encontrado.\n\
          Inicie o daemon primeiro: rustployd\n\
          Caminhos tentados: {}",
-        paths.join(", ")
+        candidates.join(", ")
     )
 }

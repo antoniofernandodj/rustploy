@@ -56,7 +56,15 @@
       "Bash(RUSTPLOY_SOCKET_PATH=/tmp/rustploy_test.sock RUSTPLOY_DB_PATH=/tmp/rustploy_test_db/db RUSTPLOY_LOG_LEVEL=warn nohup ./target/debug/rustployd)",
       "Bash(CARGO_TARGET_DIR=/home/antonio/Development/rust/rustploy/target cargo build --release -p client)",
       "Bash(RUSTPLOY_SOCKET_PATH=/tmp/rp_test.sock RUSTPLOY_DB_PATH=/tmp/rp_test_db/db RUSTPLOY_LOG_LEVEL=warn nohup ./target/debug/rustployd)",
-      "Bash(xargs -r docker stop)"
+      "Bash(xargs -r docker stop)",
+      "Bash(RUSTPLOY_RWP_ENABLED=1 RUSTPLOY_RWP_BIND=127.0.0.1 RUSTPLOY_RWP_PORT=8787 RUSTPLOY_RWP_TOKEN=secret123 RUSTPLOY_HTTP_PORT=18080 RUSTPLOY_LOG_LEVEL=info ./target/debug/rustployd *)",
+      "Bash(pkill -f \"target/debug/rustployd\")",
+      "Bash(rm -f /tmp/rwp_test.py)",
+      "Bash(pkill -9 -f \"target/debug/rustployd\")",
+      "Bash(timeout 6 ./target/debug/rustploy-remote)",
+      "Bash(pkill -f rustploy-remote)",
+      "Bash(cat app/db.py)",
+      "Bash(grep -rniE \"host|getenv|environ|DATABASE|5432|dbname|password|connect\" app/)"
     ]
   }
 }

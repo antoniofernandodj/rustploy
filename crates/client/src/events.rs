@@ -876,7 +876,7 @@ fn save_service_general(app: &mut App) {
         ServiceSource::Git(_) => ServiceSource::Git(app.general_tab.to_git_source()),
         ServiceSource::Registry { .. } => {
             let url = &app.general_tab.repo_url;
-            if url.starts_with("https://") || url.starts_with("git@") || url.starts_with("ssh://") {
+            if shared::looks_like_git_url(url) {
                 ServiceSource::Git(app.general_tab.to_git_source())
             } else {
                 ServiceSource::Registry { image: url.clone() }
@@ -1584,7 +1584,7 @@ fn handle_ns_form(app: &mut App, key: KeyEvent) {
 }
 
 fn handle_ns_pick_template(app: &mut App, key: KeyEvent) {
-    use crate::templates::{self, TemplateCategory};
+    use shared::templates::{self, TemplateCategory};
 
     let s = match app.new_service.as_mut() {
         Some(s) => s,

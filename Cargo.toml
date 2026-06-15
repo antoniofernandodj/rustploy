@@ -4,6 +4,7 @@ members = [
     "crates/client",
     "crates/shared",
     "crates/importer",
+    "crates/remote-client",
 ]
 resolver = "2"
 

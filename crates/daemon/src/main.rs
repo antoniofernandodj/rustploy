@@ -7,6 +7,7 @@ mod health;
 mod ingress;
 mod logs;
 mod metrics;
+mod rwp;
 mod secrets;
 mod watchdog;
 
@@ -28,7 +29,7 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let config = RustployConfig::load();
+    let config = RustployConfig::global();
     init_logging(&config.daemon.log_level);
 
     info!(
@@ -179,6 +180,15 @@ async fn main() -> Result<()> {
         });
     }
 
+    // RWP — canal administrativo remoto (TCP). Desabilitado por padrão.
+    if config.rwp.enabled {
+        let state2 = state.clone();
+        let rwp_cfg = config.rwp.clone();
+        tokio::spawn(async move {
+            rwp::run(state2, rwp_cfg).await;
+        });
+    }
+
     // Bind UDS — try configured path, fall back to ~/.local/share/rustploy/
     let socket_path = resolve_socket_path(&config.daemon.socket_path);
     info!(socket = ?socket_path, "listening");
@@ -221,11 +231,7 @@ fn init_logging(level: &str) {
 }
 
 fn fallback_dir() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
-    PathBuf::from(home)
-        .join(".local")
-        .join("share")
-        .join("rustploy")
+    shared::fallback_data_dir()
 }
 
 /// Tries to prepare `configured` for use as a Unix socket path.

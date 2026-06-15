@@ -1,4 +1,10 @@
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+use std::sync::OnceLock;
+
+/// Process-wide configuration singleton. Loaded once (files + env vars) on first
+/// access and shared everywhere via [`RustployConfig::global`].
+static CONFIG: OnceLock<RustployConfig> = OnceLock::new();
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RustployConfig {
@@ -8,6 +14,50 @@ pub struct RustployConfig {
     pub deploy: DeployConfig,
     pub metrics: MetricsConfig,
     pub secrets: SecretsConfig,
+    #[serde(default)]
+    pub rwp: RwpConfig,
+}
+
+/// Configuration for the RWP remote administrative channel (TCP).
+/// Disabled by default; when enabled without a token it only binds to
+/// loopback. Binding to a non-loopback address requires a token to be set.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RwpConfig {
+    pub enabled: bool,
+    pub bind_address: String,
+    pub port: u16,
+    pub token: Option<String>,
+    pub max_connections: usize,
+    pub max_frame_size: usize,
+    pub read_timeout_secs: u64,
+    pub idle_timeout_secs: u64,
+}
+
+impl Default for RwpConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            bind_address: "127.0.0.1".into(),
+            port: 8787,
+            token: None,
+            max_connections: 8,
+            max_frame_size: 1024 * 1024,
+            read_timeout_secs: 15,
+            idle_timeout_secs: 120,
+        }
+    }
+}
+
+impl RwpConfig {
+    /// True when the configured bind address is not a loopback address.
+    pub fn is_public_bind(&self) -> bool {
+        match self.bind_address.parse::<std::net::IpAddr>() {
+            Ok(ip) => !ip.is_loopback(),
+            // Hostnames or "0.0.0.0"/"::" that fail to parse as loopback are
+            // treated as public to stay on the safe side.
+            Err(_) => self.bind_address != "localhost",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -88,11 +138,20 @@ impl Default for RustployConfig {
             secrets: SecretsConfig {
                 master_key_path: "/etc/rustploy/master.key".into(),
             },
+            rwp: RwpConfig::default(),
         }
     }
 }
 
 impl RustployConfig {
+    /// Returns the process-wide config, loading it on first call.
+    ///
+    /// This is the single entry point every binary should use so that all
+    /// `RUSTPLOY_*` environment variables are read in exactly one place.
+    pub fn global() -> &'static RustployConfig {
+        CONFIG.get_or_init(Self::load)
+    }
+
     pub fn load() -> Self {
         let paths = [
             std::env::var("RUSTPLOY_CONFIG")
@@ -114,7 +173,9 @@ impl RustployConfig {
     }
 
     fn apply_env_overrides(mut cfg: Self) -> Self {
-        if let Ok(v) = std::env::var("RUSTPLOY_SOCKET_PATH") {
+        // `RUSTPLOY_SOCKET` is the historical client-side alias for the socket
+        // path; accept both so there is a single source of truth.
+        if let Ok(v) = std::env::var("RUSTPLOY_SOCKET_PATH").or_else(|_| std::env::var("RUSTPLOY_SOCKET")) {
             cfg.daemon.socket_path = v;
         }
         if let Ok(v) = std::env::var("RUSTPLOY_DB_PATH") {
@@ -128,13 +189,58 @@ impl RustployConfig {
                 cfg.ingress.http_port = p;
             }
         }
+        if let Ok(v) = std::env::var("RUSTPLOY_RWP_ENABLED") {
+            cfg.rwp.enabled = matches!(v.as_str(), "1" | "true" | "yes" | "on");
+        }
+        if let Ok(v) = std::env::var("RUSTPLOY_RWP_BIND") {
+            cfg.rwp.bind_address = v;
+        }
+        if let Ok(v) = std::env::var("RUSTPLOY_RWP_PORT") {
+            if let Ok(p) = v.parse() {
+                cfg.rwp.port = p;
+            }
+        }
+        if let Ok(v) = std::env::var("RUSTPLOY_RWP_TOKEN") {
+            cfg.rwp.token = Some(v).filter(|s| !s.is_empty());
+        }
         cfg
+    }
+
+    /// Default RWP address a remote client should dial, derived from config.
+    pub fn rwp_address(&self) -> String {
+        format!("{}:{}", self.rwp.bind_address, self.rwp.port)
+    }
+
+    /// Ordered list of Unix socket paths a local client should try, from the
+    /// most specific (configured/override) to the writable fallback. Centralizes
+    /// every `HOME`/`RUSTPLOY_SOCKET` read for socket resolution.
+    pub fn client_socket_candidates(&self) -> Vec<String> {
+        let mut out = vec![self.daemon.socket_path.clone()];
+        if let Some(home) = user_home() {
+            out.push(format!("{home}/.local/share/rustploy/rustploy.sock"));
+        }
+        out.dedup();
+        out
     }
 }
 
-fn dirs_config_path() -> Option<std::path::PathBuf> {
-    std::env::var("HOME").ok().map(|home| {
-        std::path::PathBuf::from(home)
+/// The single place the process reads `$HOME`.
+pub fn user_home() -> Option<String> {
+    std::env::var("HOME").ok().filter(|s| !s.is_empty())
+}
+
+/// `~/.local/share/rustploy`, falling back to `/tmp` when `$HOME` is unset.
+pub fn fallback_data_dir() -> PathBuf {
+    let home = user_home().unwrap_or_else(|| "/tmp".into());
+    PathBuf::from(home)
+        .join(".local")
+        .join("share")
+        .join("rustploy")
+}
+
+fn dirs_config_path() -> Option<PathBuf> {
+    user_home().map(|home| {
+        PathBuf::from(home)
             .join(".config")
             .join("rustploy")
             .join("config.toml")
