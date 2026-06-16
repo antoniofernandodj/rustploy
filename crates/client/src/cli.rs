@@ -80,7 +80,11 @@ pub fn run_apply(args: &[String]) -> Result<()> {
 
     let socket = resolve_socket()?;
     let client = DaemonClient::new(&socket);
-    match client.send(Command::ManifestApply { manifests })? {
+    match client.send(Command::ManifestApply {
+        manifests,
+        prune: opts.prune,
+        deploy: opts.deploy,
+    })? {
         Response::ManifestReport(report) => {
             print_report(&report);
             Ok(())
@@ -91,19 +95,24 @@ pub fn run_apply(args: &[String]) -> Result<()> {
 }
 
 fn print_report(report: &ApplyReport) {
-    let (mut created, mut updated, mut unchanged) = (0u32, 0u32, 0u32);
+    let (mut created, mut updated, mut unchanged, mut deleted) = (0u32, 0u32, 0u32, 0u32);
     for a in &report.actions {
         use shared::ActionVerb::*;
         match a.action {
             Created => created += 1,
             Updated => updated += 1,
             Unchanged => unchanged += 1,
+            Deleted => deleted += 1,
         }
         println!("  [{}] {} {}", a.action, a.kind, a.name);
     }
     println!(
-        "\n🎉 apply concluído: {created} criado(s), {updated} atualizado(s), {unchanged} inalterado(s)."
+        "\n🎉 apply concluído: {created} criado(s), {updated} atualizado(s), \
+         {unchanged} inalterado(s), {deleted} removido(s)."
     );
+    if !report.deployed.is_empty() {
+        println!("🚀 deploy disparado para: {}", report.deployed.join(", "));
+    }
 }
 
 // --------------------------------------------------------------------------
@@ -206,6 +215,8 @@ struct ApplyOpts {
     file: String,
     env_file: Option<String>,
     dry_run: bool,
+    prune: bool,
+    deploy: bool,
 }
 
 impl ApplyOpts {
@@ -213,12 +224,16 @@ impl ApplyOpts {
         let mut file = None;
         let mut env_file = None;
         let mut dry_run = false;
+        let mut prune = false;
+        let mut deploy = false;
         let mut it = args.iter();
         while let Some(a) = it.next() {
             match a.as_str() {
                 "-f" | "--file" => file = it.next().cloned(),
                 "--env-file" => env_file = it.next().cloned(),
                 "--dry-run" => dry_run = true,
+                "--prune" => prune = true,
+                "--deploy" => deploy = true,
                 "-h" | "--help" => {
                     print_apply_help();
                     std::process::exit(0);
@@ -230,6 +245,8 @@ impl ApplyOpts {
             file: file.ok_or_else(|| anyhow!("faltou -f <arquivo>"))?,
             env_file,
             dry_run,
+            prune,
+            deploy,
         })
     }
 }
@@ -265,10 +282,12 @@ impl ExportOpts {
 fn print_apply_help() {
     println!(
         "rustploy apply — aplica um manifesto declarativo (Infra-as-Code)\n\n\
-         USO:\n  rustploy apply -f <arquivo.yml> [--env-file <.env>] [--dry-run]\n\n\
+         USO:\n  rustploy apply -f <arquivo.yml> [--env-file <.env>] [--prune] [--deploy] [--dry-run]\n\n\
          OPÇÕES:\n  \
          -f, --file <arquivo>   Manifesto (projeto único ou raiz)\n  \
              --env-file <.env>  Arquivo de variáveis para interpolar ${{VAR}}\n  \
+             --prune            Remove serviços do projeto ausentes no manifesto\n  \
+             --deploy           Dispara deploy dos serviços criados/alterados\n  \
              --dry-run          Imprime o manifesto resolvido sem aplicar"
     );
 }

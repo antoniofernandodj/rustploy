@@ -138,10 +138,12 @@ pub struct ResourcesManifest {
     pub mem: Option<String>,
 }
 
-/// Resultado de um `apply`: o que foi criado/atualizado em cada recurso.
+/// Resultado de um `apply`: o que foi criado/atualizado/removido em cada recurso,
+/// mais a lista de serviços para os quais um deploy foi disparado (`--deploy`).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ApplyReport {
     pub actions: Vec<ResourceAction>,
+    pub deployed: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -163,6 +165,7 @@ pub enum ActionVerb {
     Created,
     Updated,
     Unchanged,
+    Deleted,
 }
 
 impl std::fmt::Display for ActionVerb {
@@ -171,6 +174,7 @@ impl std::fmt::Display for ActionVerb {
             Self::Created => write!(f, "created"),
             Self::Updated => write!(f, "updated"),
             Self::Unchanged => write!(f, "unchanged"),
+            Self::Deleted => write!(f, "deleted"),
         }
     }
 }

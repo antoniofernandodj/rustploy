@@ -4,6 +4,8 @@ Permite descrever projetos e serviços em arquivos `rustploy.yml` versionáveis 
 
 O manifesto mapeia quase 1:1 para os modelos internos `Project` e `ServiceSpec`, mas com uma sintaxe ergonômica para edição humana.
 
+> **Onde versionar os manifestos** (repo da API? frontend? infra dedicada?) é tratado em [infra-as-code-organizacao-repo.md](infra-as-code-organizacao-repo.md).
+
 ---
 
 ## Princípios de design
@@ -11,9 +13,9 @@ O manifesto mapeia quase 1:1 para os modelos internos `Project` e `ServiceSpec`,
 | Decisão | Comportamento |
 |---------|---------------|
 | **Escopo** | Dois formatos: um arquivo **por projeto** ou um **manifesto raiz** que agrega vários projetos (inline ou via `include:`). |
-| **Reconciliação** | **Aditiva**: casa projetos/serviços **por nome**, cria os ausentes e atualiza os existentes. **Nunca deleta** — remoção é sempre manual. |
+| **Reconciliação** | Casa projetos/serviços **por nome**, cria os ausentes e atualiza os alterados. Por padrão **nunca deleta** (aditivo); com `--prune` remove serviços do projeto ausentes no manifesto. |
 | **Secrets** | O YAML nunca contém segredo em texto plano. Suporta interpolação `${VAR}` (resolvida no cliente) e referência `secret:NOME` (valor gerenciado fora de banda). |
-| **Deploy** | `apply` **apenas sincroniza o spec** no banco. O deploy é disparado manualmente depois — não há rollout automático. |
+| **Deploy** | Por padrão `apply` **apenas sincroniza o spec** no banco. Com `--deploy`, dispara o rollout dos serviços criados/alterados após sincronizar. |
 
 ---
 
@@ -28,6 +30,12 @@ rustploy apply -f rustploy.yml
 # Injeta variáveis de um arquivo .env para interpolar ${VAR}
 rustploy apply -f rustploy.yml --env-file .env
 
+# Remove serviços do projeto que não constam no manifesto
+rustploy apply -f rustploy.yml --prune
+
+# Sincroniza E dispara o deploy dos serviços criados/alterados
+rustploy apply -f rustploy.yml --deploy
+
 # Mostra o manifesto resolvido (após interpolação) sem enviar ao daemon
 rustploy apply -f rustploy.yml --dry-run
 
@@ -35,6 +43,9 @@ rustploy apply -f rustploy.yml --dry-run
 rustploy export minha-app
 rustploy export minha-app -o rustploy.yml
 ```
+
+As flags `--prune` e `--deploy` são combináveis (ex.: `apply -f stack.yml --prune --deploy`
+converge o estado e faz o rollout numa só chamada — GitOps completo).
 
 Variáveis `${VAR}` não resolvidas (sem valor no ambiente nem no `--env-file`) **abortam** o `apply` com a lista do que faltou — nada é enviado ao daemon.
 
@@ -119,7 +130,7 @@ A peça-chave: a **interpolação `${VAR}` acontece no cliente**, porque depende
 │ 3. interpola ${VAR} (ambiente do processo + --env-file) │
 │ 4. re-serializa cada projeto para YAML (String)         │
 └───────────────────────────┬─────────────────────────────┘
-                            │  Command::ManifestApply { manifests: Vec<String> }
+                            │  Command::ManifestApply { manifests, prune, deploy }
                             ▼
 ┌─────────────────────────── daemon ──────────────────────┐
 │ 5. parseia cada YAML → ProjectManifest (serde_yaml)      │
@@ -150,12 +161,14 @@ Cada valor de `env` é classificado na conversão para `EnvVarValue`:
 
 > Use `secret:NOME` para segredos de verdade (o valor nunca aparece no YAML nem no banco em texto plano). Use `${VAR}` para config que você não quer commitar mas que não é necessariamente secreta. Veja [secrets.md](secrets.md).
 
-### Reconciliação aditiva
+### Reconciliação por nome
 
-- **Projeto**: busca em `db::projects::list` por nome. Existe → `update` + `update_env_vars`. Não existe → `create`.
-- **Serviços**: busca em `db::services::list(project_id)` por nome. Existe → `update_spec`. Não existe → `create`.
-- Serviços que existem no banco mas **não** estão no YAML são **deixados intactos** (sem prune).
-- Nenhum deploy é disparado — o spec fica salvo, pronto para um deploy manual.
+- **Projeto**: busca em `db::projects::list` por nome. Igual (description + env) → `Unchanged`. Diferente → `update` + `update_env_vars`. Não existe → `create`.
+- **Serviços**: busca em `db::services::list(project_id)` por nome. O spec novo é comparado com o atual (`ServiceSpec` deriva `PartialEq`): idêntico → `Unchanged` (nenhuma escrita); diferente → `update_spec`; ausente → `create`.
+- **Sem `--prune`**: serviços no banco que não estão no YAML são **deixados intactos**.
+- **Com `--prune`**: esses serviços são removidos (mesma semântica do delete da TUI — remove a rota do ingress e o registro no banco). Projetos **nunca** são removidos por prune.
+- **Sem `--deploy`**: nenhum rollout é disparado — só o spec é gravado, pronto para deploy manual.
+- **Com `--deploy`**: ao final, cada serviço marcado `Created`/`Updated` tem o deploy disparado via `deploy_start` (serviços `Unchanged` são pulados). As deleções acontecem antes; o deploy, por último.
 
 ### Export (round-trip)
 
@@ -174,7 +187,7 @@ Permite **adotar IaC para projetos que já existem**: exporte, versione o YAML, 
 |---------|-------|
 | `crates/shared/src/manifest.rs` | **Novo.** Structs do manifesto (`ServerManifest`, `ProjectManifest`, `ServiceManifest`, `SourceManifest`, `HealthcheckManifest`, `ResourcesManifest`), conversões para/de `Project`/`ServiceSpec`, interpolação `${VAR}`, parse de `mem`/volumes, e `ApplyReport`/`ResourceAction`. Inclui testes unitários. |
 | `crates/shared/src/lib.rs` | Exporta o módulo `manifest` e seus tipos públicos. |
-| `crates/shared/src/protocol.rs` | Adiciona `Command::ManifestApply { manifests: Vec<String> }`, `Command::ManifestExport { project_id }`, `Response::ManifestReport(ApplyReport)` e `Response::Manifest(String)`. |
+| `crates/shared/src/protocol.rs` | Adiciona `Command::ManifestApply { manifests, prune, deploy }`, `Command::ManifestExport { project_id }`, `Response::ManifestReport(ApplyReport)` e `Response::Manifest(String)`. |
 | `crates/shared/Cargo.toml` | `serde_yaml` como `dev-dependency` (para os testes). |
 | `crates/daemon/src/api/handlers/manifest_apply.rs` | **Novo.** Parseia os YAMLs e faz a reconciliação aditiva por nome. |
 | `crates/daemon/src/api/handlers/manifest_export.rs` | **Novo.** Monta o `ProjectManifest` a partir do banco e serializa para YAML. |
@@ -195,26 +208,32 @@ Permite **adotar IaC para projetos que já existem**: exporte, versione o YAML, 
 $ DB_PASS=s3cr3t rustploy apply -f rustploy.yml
   [created] project minha-app
   [created] service minha-app/web
-🎉 apply concluído: 2 criado(s), 0 atualizado(s), 0 inalterado(s).
+🎉 apply concluído: 2 criado(s), 0 atualizado(s), 0 inalterado(s), 0 removido(s).
 
-# 2. aplicar de novo (idempotente — agora atualiza)
+# 2. aplicar de novo sem mudanças (idempotente — tudo inalterado)
 $ DB_PASS=s3cr3t rustploy apply -f rustploy.yml
-  [updated] project minha-app
-  [updated] service minha-app/web
-🎉 apply concluído: 0 criado(s), 2 atualizado(s), 0 inalterado(s).
+  [unchanged] project minha-app
+  [unchanged] service minha-app/web
+🎉 apply concluído: 0 criado(s), 0 atualizado(s), 2 inalterado(s), 0 removido(s).
 
-# 3. exportar o estado atual
+# 3. GitOps completo: convergir o estado E fazer o rollout numa só chamada
+$ DB_PASS=s3cr3t rustploy apply -f rustploy.yml --prune --deploy
+  [unchanged] project minha-app
+  [updated] service minha-app/web
+  [deleted] service minha-app/antigo
+🎉 apply concluído: 0 criado(s), 1 atualizado(s), 1 inalterado(s), 1 removido(s).
+🚀 deploy disparado para: minha-app/web
+
+# 4. exportar o estado atual (adoção de IaC para o que já existe)
 $ rustploy export minha-app -o rustploy.lock.yml
 💾 manifesto exportado para rustploy.lock.yml
-
-# 4. fazer o deploy (passo manual, pela TUI ou outro comando)
 ```
 
 ---
 
 ## Limitações e próximos passos
 
-- **Sem prune**: serviços removidos do YAML continuam no banco. Remoção é manual (uma flag `--prune` opcional pode ser adicionada no futuro).
-- **Sem auto-deploy**: `apply` só sincroniza o spec. Uma flag `--deploy` para rollout automático dos serviços alterados é um próximo passo natural.
+- **Prune escopado a serviços**: `--prune` remove apenas serviços ausentes; projetos nunca são removidos automaticamente (use o delete da TUI).
 - **`remote-client`**: os subcomandos `apply`/`export` hoje existem no cliente TUI local; replicá-los no `remote-client` é trabalho opcional pendente.
-- **Casamento por nome**: renomear um projeto/serviço no YAML cria um novo recurso em vez de renomear o existente.
+- **Casamento por nome**: renomear um projeto/serviço no YAML cria um novo recurso em vez de renomear o existente (e, com `--prune`, o antigo é removido).
+- **Export agregado**: não há `export --all` para gerar um `stack.yml` do servidor inteiro — o export é por projeto.

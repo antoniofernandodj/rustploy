@@ -136,6 +136,10 @@ pub enum Command {
     /// o daemon faz o parse com `serde_yaml`.
     ManifestApply {
         manifests: Vec<String>,
+        /// Deleta serviços que existem no projeto mas não constam no manifesto.
+        prune: bool,
+        /// Dispara deploy dos serviços criados/alterados após sincronizar.
+        deploy: bool,
     },
     /// Exporta o estado atual de um projeto como manifesto YAML (secrets redigidos).
     ManifestExport {

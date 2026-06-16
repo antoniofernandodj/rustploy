@@ -116,9 +116,11 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::SecretList { project_id } => {
             handlers::secret_list::handle(state, project_id).await
         }
-        Command::ManifestApply { manifests } => {
-            handlers::manifest_apply::handle(state, manifests).await
-        }
+        Command::ManifestApply {
+            manifests,
+            prune,
+            deploy,
+        } => handlers::manifest_apply::handle(state, manifests, prune, deploy).await,
         Command::ManifestExport { project_id } => {
             handlers::manifest_export::handle(state, project_id).await
         }
