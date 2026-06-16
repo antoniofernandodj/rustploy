@@ -1,3 +1,4 @@
+use crate::manifest::ApplyReport;
 use crate::models::*;
 use serde::{Deserialize, Serialize};
 
@@ -125,6 +126,22 @@ pub enum Command {
         project_id: String,
     },
 
+    // Infra-as-Code (manifesto declarativo)
+    /// Reconcilia projetos/serviços a partir de manifestos YAML já interpolados
+    /// pelo cliente (um documento `ProjectManifest` por string). Aditivo:
+    /// cria/atualiza, nunca deleta. Não dispara deploy.
+    ///
+    /// Os manifestos trafegam como YAML (e não como structs) porque o postcard é
+    /// um formato não auto-descritivo e quebra com `skip_serializing_if`/defaults;
+    /// o daemon faz o parse com `serde_yaml`.
+    ManifestApply {
+        manifests: Vec<String>,
+    },
+    /// Exporta o estado atual de um projeto como manifesto YAML (secrets redigidos).
+    ManifestExport {
+        project_id: String,
+    },
+
     // Infrastructure
     Ping,
     DaemonStatus,
@@ -238,6 +255,9 @@ pub enum Response {
     WebhookUrl(Option<String>),
     DaemonSettings { webhook_base_url: Option<String>, acme_email: Option<String> },
     SecretNames(Vec<String>),
+    ManifestReport(ApplyReport),
+    /// Manifesto YAML serializado (resposta de `ManifestExport`).
+    Manifest(String),
     Err { code: String, message: String },
 }
 

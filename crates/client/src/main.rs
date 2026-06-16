@@ -1,4 +1,5 @@
 mod app;
+mod cli;
 mod events;
 mod models;
 mod transport;
@@ -30,8 +31,13 @@ const TICK_MS: u64 = 100;
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() > 1 && args[1] == "import" {
-        return handle_import(&args[2..]);
+    if args.len() > 1 {
+        match args[1].as_str() {
+            "import" => return handle_import(&args[2..]),
+            "apply" => return cli::run_apply(&args[2..]),
+            "export" => return cli::run_export(&args[2..]),
+            _ => {}
+        }
     }
 
     let socket_path = resolve_socket(&shared::RustployConfig::global().client_socket_candidates())?;

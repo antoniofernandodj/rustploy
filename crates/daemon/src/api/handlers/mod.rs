@@ -11,6 +11,8 @@ pub mod get_build_logs;
 pub mod get_daemon_settings;
 pub mod get_webhook_url;
 pub mod logs_get;
+pub mod manifest_apply;
+pub mod manifest_export;
 pub mod ping;
 pub mod project_create;
 pub mod project_delete;

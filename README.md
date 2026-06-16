@@ -30,6 +30,7 @@ Um único binário (`rustployd`) substitui o PaaS inteiro. O cliente TUI (`rustp
 - Secrets criptografados em repouso com `age`
 - Recovery automático de deploys interrompidos ao reiniciar o daemon
 - **Webhooks de CI/CD**: endpoint `POST /webhook/{service_id}/{token}` gerado automaticamente no primeiro deploy; compatível com GitHub, GitLab, Gitea e Docker Hub (veja [`docs/webhooks.md`](docs/webhooks.md))
+- **Infra-as-Code**: descreva projetos e serviços em `rustploy.yml` versionável e aplique de forma declarativa e idempotente com `rustploy apply -f`; exporte projetos existentes com `rustploy export` (veja [`docs/infra-as-code.md`](docs/infra-as-code.md))
 
 ## Não-objetivos
 

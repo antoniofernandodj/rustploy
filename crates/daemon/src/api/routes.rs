@@ -35,6 +35,8 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::SecretSet { .. } => "SecretSet",
         Command::SecretDelete { .. } => "SecretDelete",
         Command::SecretList { .. } => "SecretList",
+        Command::ManifestApply { .. } => "ManifestApply",
+        Command::ManifestExport { .. } => "ManifestExport",
         _ => "Unknown",
     };
     info!(command = cmd_name, "→ RPC recebido");
@@ -113,6 +115,12 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         }
         Command::SecretList { project_id } => {
             handlers::secret_list::handle(state, project_id).await
+        }
+        Command::ManifestApply { manifests } => {
+            handlers::manifest_apply::handle(state, manifests).await
+        }
+        Command::ManifestExport { project_id } => {
+            handlers::manifest_export::handle(state, project_id).await
         }
         _ => RpResponse::err("NotImplemented", "command not yet implemented"),
     };

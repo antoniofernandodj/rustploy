@@ -841,6 +841,7 @@ dependencies = [
  "postcard",
  "ratatui",
  "serde",
+ "serde_yaml",
  "shared",
  "tui-textarea",
 ]
@@ -5027,6 +5028,7 @@ dependencies = [
  "chrono",
  "postcard",
  "serde",
+ "serde_yaml",
  "thiserror 2.0.18",
  "toml 0.8.23",
  "ulid",
