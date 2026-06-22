@@ -17,7 +17,12 @@ fn main() -> iced::Result {
     iced::application("Rustploy Remote", App::update, App::view)
         .subscription(App::subscription)
         .theme(|_| iced::Theme::Dark)
-        .window_size((1180.0, 760.0))
+        .window(iced::window::Settings {
+            size: iced::Size::new(1180.0, 760.0),
+            // Abaixo disso o layout (titlebar, cards) começa a quebrar feio.
+            min_size: Some(iced::Size::new(960.0, 600.0)),
+            ..Default::default()
+        })
         .run_with(App::boot)
 }
 

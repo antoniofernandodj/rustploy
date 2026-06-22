@@ -2,7 +2,7 @@
 
 use crate::model::palette;
 use crate::Message;
-use iced::widget::{button, column, container, row, text, text_input, Space};
+use iced::widget::{button, column, container, row, scrollable, text, text_input, Space};
 use iced::{Alignment, Element, Length};
 
 pub fn section(s: &str) -> Element<'static, Message> {
@@ -34,34 +34,34 @@ pub fn labeled_input<'a>(
 }
 
 pub fn primary_btn(label: &str, msg: Message) -> Element<'static, Message> {
-    button(text(label.to_string()).size(13))
+    button(text(label.to_string()).size(14))
         .on_press(msg)
         .style(button::primary)
-        .padding([6, 14])
+        .padding([10, 20])
         .into()
 }
 
 pub fn success_btn(label: &str, msg: Message) -> Element<'static, Message> {
-    button(text(label.to_string()).size(13))
+    button(text(label.to_string()).size(14))
         .on_press(msg)
         .style(button::success)
-        .padding([6, 14])
+        .padding([10, 20])
         .into()
 }
 
 pub fn danger_btn(label: &str, msg: Message) -> Element<'static, Message> {
-    button(text(label.to_string()).size(13))
+    button(text(label.to_string()).size(14))
         .on_press(msg)
         .style(button::danger)
-        .padding([6, 14])
+        .padding([10, 20])
         .into()
 }
 
 pub fn ghost_btn(label: &str, msg: Message) -> Element<'static, Message> {
-    button(text(label.to_string()).size(13))
+    button(text(label.to_string()).size(14))
         .on_press(msg)
         .style(button::secondary)
-        .padding([6, 14])
+        .padding([10, 20])
         .into()
 }
 
@@ -69,14 +69,14 @@ pub fn ghost_btn(label: &str, msg: Message) -> Element<'static, Message> {
 pub fn panel<'a>(title: &'a str, body: Element<'a, Message>) -> Element<'a, Message> {
     container(
         column![
-            text(title.to_string()).size(16).color(palette::CYAN),
-            Space::with_height(Length::Fixed(6.0)),
+            text(title.to_string()).size(20).color(palette::CYAN),
+            Space::with_height(Length::Fixed(18.0)),
             body,
         ]
         .spacing(2)
         .height(Length::Fill),
     )
-    .padding(12)
+    .padding(28)
     .width(Length::Fill)
     .height(Length::Fill)
     .style(container::rounded_box)
@@ -89,7 +89,7 @@ pub fn tab_bar<T: Copy + PartialEq>(
     active: T,
     on_select: impl Fn(T) -> Message,
 ) -> Element<'static, Message> {
-    let mut r = row![].spacing(6);
+    let mut r = row![].spacing(8);
     for (tab, lbl) in tabs {
         let style = if *tab == active {
             button::primary
@@ -97,13 +97,24 @@ pub fn tab_bar<T: Copy + PartialEq>(
             button::text
         };
         r = r.push(
-            button(text((*lbl).to_string()).size(13))
-                .on_press(on_select(*tab))
-                .style(style)
-                .padding([4, 10]),
+            button(
+                text((*lbl).to_string())
+                    .size(14)
+                    .wrapping(text::Wrapping::None),
+            )
+            .on_press(on_select(*tab))
+            .style(style)
+            .padding([8, 16]),
         );
     }
-    r.into()
+    // Em janelas estreitas a fileira de abas pode passar da largura — rola na
+    // horizontal em vez de quebrar os rótulos verticalmente.
+    scrollable(r)
+        .direction(scrollable::Direction::Horizontal(
+            scrollable::Scrollbar::new().width(4).scroller_width(4),
+        ))
+        .width(Length::Fill)
+        .into()
 }
 
 pub fn placeholder<'a>(title: &'a str, desc: &'a str) -> Element<'a, Message> {

@@ -20,6 +20,8 @@ impl App {
                 self.persist_prefs();
             }
             Message::Connect => {
+                // Fill in the default port if the user typed a bare host.
+                self.address = crate::model::normalize_address(&self.address);
                 self.persist_prefs();
                 self.connect_seq += 1;
                 self.connected = false;

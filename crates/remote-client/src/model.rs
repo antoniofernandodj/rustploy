@@ -11,6 +11,40 @@ use tokio::sync::mpsc::UnboundedSender;
 pub const MAX_LOG_LINES: usize = 1000;
 pub const MAX_METRIC_POINTS: usize = 60;
 
+/// Default RWP port appended when the user types an address without one.
+pub const DEFAULT_RWP_PORT: u16 = 8787;
+
+/// Appends `:8787` to an address that doesn't already carry an explicit port.
+///
+/// Handles the common forms an admin types: a hostname or IPv4 (`host` →
+/// `host:8787`, `host:1234` unchanged) and a bracketed IPv6 literal
+/// (`[::1]` → `[::1]:8787`, `[::1]:9000` unchanged). A bare IPv6 literal
+/// (multiple colons, no brackets) is left untouched since a trailing port
+/// can't be told apart from the address.
+pub fn normalize_address(input: &str) -> String {
+    let a = input.trim();
+    if a.is_empty() {
+        return a.to_string();
+    }
+    if let Some(rest) = a.strip_prefix('[') {
+        // Bracketed IPv6: has a port only if "]:" appears after the literal.
+        return if rest.contains("]:") {
+            a.to_string()
+        } else {
+            format!("{a}:{DEFAULT_RWP_PORT}")
+        };
+    }
+    // Bare IPv6 literal — ambiguous, leave as the user typed it.
+    if a.matches(':').count() >= 2 {
+        return a.to_string();
+    }
+    if a.contains(':') {
+        a.to_string()
+    } else {
+        format!("{a}:{DEFAULT_RWP_PORT}")
+    }
+}
+
 // ── Color palette (mirrors the TUI cyan/yellow/green accents) ─────────────────
 pub mod palette {
     use iced::Color;

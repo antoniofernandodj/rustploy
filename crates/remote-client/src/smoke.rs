@@ -170,3 +170,19 @@ fn renders_modals_and_toast() {
     app.notify("oi", false);
     let _ = crate::view::view(&app);
 }
+
+#[test]
+fn normalize_address_appends_default_port() {
+    assert_eq!(normalize_address("127.0.0.1"), "127.0.0.1:8787");
+    assert_eq!(normalize_address("example.com"), "example.com:8787");
+    assert_eq!(normalize_address("  10.0.0.5  "), "10.0.0.5:8787");
+    // already has a port — left untouched
+    assert_eq!(normalize_address("127.0.0.1:9000"), "127.0.0.1:9000");
+    assert_eq!(normalize_address("host:8787"), "host:8787");
+    // bracketed IPv6
+    assert_eq!(normalize_address("[::1]"), "[::1]:8787");
+    assert_eq!(normalize_address("[::1]:9000"), "[::1]:9000");
+    // bare IPv6 is ambiguous — left as typed
+    assert_eq!(normalize_address("::1"), "::1");
+    assert_eq!(normalize_address(""), "");
+}
