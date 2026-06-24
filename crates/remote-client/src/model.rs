@@ -2,8 +2,9 @@
 
 use shared::{
     ComposeSource, ContainerMetricsPoint, DaemonStatus, DeployEngineSummary, Deployment,
-    DeploymentSummary, EnvVar, EnvVarValue, GitSource, Healthcheck, HealthcheckKind, Project,
-    ResourceLimits, Service, ServiceSource, ServiceSpec,
+    DeploymentSummary, EnvVar, EnvVarValue, GitAuthMode, GitBranch, GitProvider, GitRepo,
+    GitSource, Healthcheck, HealthcheckKind, Project, ResourceLimits, Service, ServiceSource,
+    ServiceSpec,
 };
 use std::collections::HashMap;
 use tokio::sync::mpsc::UnboundedSender;
@@ -11,21 +12,60 @@ use tokio::sync::mpsc::UnboundedSender;
 pub const MAX_LOG_LINES: usize = 1000;
 pub const MAX_METRIC_POINTS: usize = 60;
 
-/// Default RWP port appended when the user types an address without one.
+/// Default RWP port appended to a URL authority that omits one.
 pub const DEFAULT_RWP_PORT: u16 = 8787;
 
-/// Appends `:8787` to an address that doesn't already carry an explicit port.
+/// The only scheme the remote client speaks.
+pub const RWP_SCHEME: &str = "rwp://";
+
+/// Canonicalizes user input into an `rwp://…` URL for display and storage.
+///
+/// Adds the `rwp://` scheme when the user typed a bare authority, and leaves
+/// the authority (`host[:port]`) exactly as typed — the default port is only
+/// materialized later by [`connect_target`] for the live connection, never
+/// baked into what we show or persist.
+pub fn normalize_url(input: &str) -> String {
+    let a = input.trim();
+    if a.is_empty() {
+        return String::new();
+    }
+    if a.contains("://") {
+        a.to_string()
+    } else {
+        format!("{RWP_SCHEME}{a}")
+    }
+}
+
+/// Parses an `rwp://` URL into the `host:port` target for `TcpStream::connect`,
+/// filling in [`DEFAULT_RWP_PORT`] when the authority omits one. Any other
+/// scheme is rejected — the client only connects over RWP.
+pub fn connect_target(url: &str) -> anyhow::Result<String> {
+    let a = url.trim();
+    let authority = match a.split_once("://") {
+        Some((scheme, rest)) => {
+            anyhow::ensure!(
+                scheme.eq_ignore_ascii_case("rwp"),
+                "esquema não suportado: {scheme}:// — use rwp://"
+            );
+            rest
+        }
+        None => a,
+    };
+    // Drop anything past the authority the user may have pasted (path/query).
+    let authority = authority.split(['/', '?', '#']).next().unwrap_or("").trim();
+    anyhow::ensure!(!authority.is_empty(), "URL sem host");
+    Ok(append_default_port(authority))
+}
+
+/// Appends `:8787` to an authority that doesn't already carry an explicit port.
 ///
 /// Handles the common forms an admin types: a hostname or IPv4 (`host` →
 /// `host:8787`, `host:1234` unchanged) and a bracketed IPv6 literal
 /// (`[::1]` → `[::1]:8787`, `[::1]:9000` unchanged). A bare IPv6 literal
 /// (multiple colons, no brackets) is left untouched since a trailing port
 /// can't be told apart from the address.
-pub fn normalize_address(input: &str) -> String {
-    let a = input.trim();
-    if a.is_empty() {
-        return a.to_string();
-    }
+fn append_default_port(authority: &str) -> String {
+    let a = authority;
     if let Some(rest) = a.strip_prefix('[') {
         // Bracketed IPv6: has a port only if "]:" appears after the literal.
         return if rest.contains("]:") {
@@ -232,6 +272,14 @@ impl ServiceTab {
             Self::Advanced => "Advanced",
         }
     }
+}
+
+/// Sub-tabs of the General tab's "Provider" section: the generic Git/registry
+/// URL form, or the connected-Gitea picker.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProviderTab {
+    Git,
+    Gitea,
 }
 
 // ── Databases ─────────────────────────────────────────────────────────────────
@@ -578,6 +626,7 @@ pub struct GeneralForm {
     pub context_path: String,
     pub build_stage: String,
     pub is_git: bool,
+    pub provider_id: Option<String>,
 }
 
 impl GeneralForm {
@@ -596,6 +645,7 @@ impl GeneralForm {
                 context_path: g.build_context.clone(),
                 build_stage: g.build_stage.clone().unwrap_or_default(),
                 is_git: true,
+                provider_id: g.provider_id.clone(),
             },
             ServiceSource::Registry { image } => Self {
                 repo_url: image.clone(),
@@ -605,6 +655,7 @@ impl GeneralForm {
                 dockerfile: "Dockerfile".into(),
                 context_path: ".".into(),
                 is_git: false,
+                provider_id: None,
                 ..Default::default()
             },
             ServiceSource::Compose(_) => Self {
@@ -636,6 +687,145 @@ impl GeneralForm {
             build_stage: opt(&self.build_stage),
             credentials: opt(&self.credentials),
             username: opt(&self.username),
+            provider_id: self.provider_id.clone(),
+        }
+    }
+}
+
+// ── Git providers (Gitea) ─────────────────────────────────────────────────────
+
+/// Buffer for the "Connect Gitea" form on the Settings → Git screen.
+#[derive(Debug, Clone)]
+pub struct GpForm {
+    pub name: String,
+    pub base_url: String,
+    pub mode: GitAuthMode,
+    pub client_id: String,
+    pub client_secret: String,
+    pub pat: String,
+}
+
+impl Default for GpForm {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            base_url: String::new(),
+            mode: GitAuthMode::OAuth,
+            client_id: String::new(),
+            client_secret: String::new(),
+            pat: String::new(),
+        }
+    }
+}
+
+/// A connected account as a `pick_list` option (label = name + login).
+#[derive(Debug, Clone)]
+pub struct ProviderChoice {
+    pub id: String,
+    pub label: String,
+}
+impl std::fmt::Display for ProviderChoice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.label)
+    }
+}
+impl PartialEq for ProviderChoice {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+impl Eq for ProviderChoice {}
+
+/// A repository as a `pick_list` option (label = full_name).
+#[derive(Debug, Clone)]
+pub struct RepoChoice {
+    pub full_name: String,
+    pub clone_url: String,
+    pub default_branch: String,
+}
+impl std::fmt::Display for RepoChoice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.full_name)
+    }
+}
+impl PartialEq for RepoChoice {
+    fn eq(&self, other: &Self) -> bool {
+        self.full_name == other.full_name
+    }
+}
+impl Eq for RepoChoice {}
+
+/// State of the service-detail Gitea tab: the picked provider/repo/branch plus
+/// the build settings. Saved as a `ServiceSource::Git` carrying `provider_id`.
+#[derive(Debug, Clone, Default)]
+pub struct GiteaForm {
+    pub provider_id: Option<String>,
+    pub repo_full_name: Option<String>,
+    pub clone_url: String,
+    pub branch: Option<String>,
+    pub build_path: String,
+    pub submodules: bool,
+    pub watch_paths: Vec<String>,
+    pub port: String,
+    pub dockerfile: String,
+    pub context_path: String,
+}
+
+impl GiteaForm {
+    pub fn from_service(svc: &Service) -> Self {
+        match &svc.spec.source {
+            ServiceSource::Git(g) if g.provider_id.is_some() => Self {
+                provider_id: g.provider_id.clone(),
+                repo_full_name: None,
+                clone_url: g.url.clone(),
+                branch: Some(g.branch.clone()),
+                build_path: g.root_path.clone(),
+                submodules: g.submodules,
+                watch_paths: g.watch_paths.clone(),
+                port: svc.spec.port.to_string(),
+                dockerfile: g.dockerfile_path.clone(),
+                context_path: g.build_context.clone(),
+            },
+            _ => Self {
+                build_path: ".".into(),
+                port: svc.spec.port.to_string(),
+                dockerfile: "Dockerfile".into(),
+                context_path: ".".into(),
+                ..Default::default()
+            },
+        }
+    }
+
+    pub fn to_git_source(&self) -> GitSource {
+        GitSource {
+            url: self.clone_url.clone(),
+            branch: self.branch.clone().unwrap_or_else(|| "main".into()),
+            root_path: if self.build_path.trim().is_empty() {
+                ".".into()
+            } else {
+                self.build_path.clone()
+            },
+            watch_paths: self
+                .watch_paths
+                .iter()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect(),
+            submodules: self.submodules,
+            dockerfile_path: if self.dockerfile.trim().is_empty() {
+                "Dockerfile".into()
+            } else {
+                self.dockerfile.clone()
+            },
+            build_context: if self.context_path.trim().is_empty() {
+                ".".into()
+            } else {
+                self.context_path.clone()
+            },
+            build_stage: None,
+            credentials: None,
+            username: None,
+            provider_id: self.provider_id.clone(),
         }
     }
 }
@@ -848,6 +1038,13 @@ pub enum Ctx {
     DeleteService(String),
     Deploy,
     Action(String),
+    // Git providers
+    GitProviders,
+    CreateGitProvider,
+    OAuthStart,
+    GitRepos,
+    GitBranches,
+    GitProviderDeleted,
 }
 
 #[derive(Debug, Clone)]
@@ -863,9 +1060,9 @@ pub enum WorkerEvent {
 #[derive(Debug, Clone)]
 pub enum Message {
     // connection
-    AddressChanged(String),
+    UrlChanged(String),
     TokenChanged(String),
-    RememberAddressToggled(bool),
+    RememberUrlToggled(bool),
     RememberTokenToggled(bool),
     Connect,
     Disconnect,
@@ -960,6 +1157,28 @@ pub enum Message {
     SsDomain(String),
     SsEmail(String),
     SsSave,
+    // git providers (Settings → Git)
+    GpName(String),
+    GpBaseUrl(String),
+    GpMode(GitAuthMode),
+    GpClientId(String),
+    GpClientSecret(String),
+    GpPat(String),
+    GpConnect,
+    GpDelete(String),
+    GpRefresh,
+    // provider sub-tab + service Gitea form
+    ProviderTabChanged(ProviderTab),
+    GiteaProviderPick(ProviderChoice),
+    GiteaRepoPick(RepoChoice),
+    GiteaBranchPick(String),
+    GiteaBuildPath(String),
+    GiteaSubmodules(bool),
+    GiteaPort(String),
+    GiteaWatchAdd,
+    GiteaWatch(usize, String),
+    GiteaWatchDelete(usize),
+    GiteaSave,
     DismissNotification,
     /// Copy a value to the system clipboard.
     Copy(String),
@@ -1012,9 +1231,9 @@ pub struct Session {
 
 pub struct App {
     // connection
-    pub address: String,
+    pub url: String,
     pub token: String,
-    pub remember_address: bool,
+    pub remember_url: bool,
     pub remember_token: bool,
     pub connect_seq: u64,
     pub session: Option<Session>,
@@ -1029,6 +1248,7 @@ pub struct App {
     pub sidebar: SidebarItem,
     pub project_tab: ProjectTab,
     pub service_tab: ServiceTab,
+    pub provider_tab: ProviderTab,
 
     // data
     pub daemon_status: Option<DaemonStatus>,
@@ -1067,17 +1287,24 @@ pub struct App {
     pub ss_email: String,
     pub ss_loaded: bool,
 
+    // git providers
+    pub git_providers: Vec<GitProvider>,
+    pub gp_form: GpForm,
+    pub gitea: GiteaForm,
+    pub git_repos: Vec<GitRepo>,
+    pub git_branches: Vec<GitBranch>,
+
     // periodic refresh
     pub log_ticks: u32,
     pub engine_ticks: u32,
 }
 
 impl App {
-    pub fn new(address: String) -> Self {
+    pub fn new(url: String) -> Self {
         Self {
-            address,
+            url,
             token: String::new(),
-            remember_address: false,
+            remember_url: false,
             remember_token: false,
             connect_seq: 0,
             session: None,
@@ -1090,6 +1317,7 @@ impl App {
             sidebar: SidebarItem::HomeDeployments,
             project_tab: ProjectTab::Services,
             service_tab: ServiceTab::General,
+            provider_tab: ProviderTab::Git,
             daemon_status: None,
             projects: Vec::new(),
             active_project_id: None,
@@ -1123,20 +1351,25 @@ impl App {
             ss_domain: String::new(),
             ss_email: String::new(),
             ss_loaded: false,
+            git_providers: Vec::new(),
+            gp_form: GpForm::default(),
+            gitea: GiteaForm::default(),
+            git_repos: Vec::new(),
+            git_branches: Vec::new(),
             log_ticks: 0,
             engine_ticks: 0,
         }
     }
 
     /// Builds the app, prefilling the connect screen from saved preferences.
-    /// `default_address` is used only when no address was remembered.
-    pub fn with_prefs(default_address: String, prefs: crate::store::RemotePrefs) -> Self {
-        let mut app = Self::new(default_address);
-        app.remember_address = prefs.remember_address;
+    /// `default_url` is used only when no URL was remembered.
+    pub fn with_prefs(default_url: String, prefs: crate::store::RemotePrefs) -> Self {
+        let mut app = Self::new(default_url);
+        app.remember_url = prefs.remember_url;
         app.remember_token = prefs.remember_token;
-        if prefs.remember_address {
-            if let Some(addr) = prefs.address.filter(|s| !s.is_empty()) {
-                app.address = addr;
+        if prefs.remember_url {
+            if let Some(url) = prefs.url.filter(|s| !s.is_empty()) {
+                app.url = url;
             }
         }
         if prefs.remember_token {
@@ -1147,13 +1380,13 @@ impl App {
         app
     }
 
-    /// Persists the current "remember" choices and, when enabled, the address
+    /// Persists the current "remember" choices and, when enabled, the URL
     /// and token so the next launch can prefill them.
     pub fn persist_prefs(&self) {
         crate::store::RemotePrefs {
-            remember_address: self.remember_address,
+            remember_url: self.remember_url,
             remember_token: self.remember_token,
-            address: self.remember_address.then(|| self.address.clone()),
+            url: self.remember_url.then(|| self.url.clone()),
             token: self.remember_token.then(|| self.token.clone()),
         }
         .save();

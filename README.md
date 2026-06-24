@@ -89,7 +89,7 @@ Arquivo TOML carregado de `$RUSTPLOY_CONFIG`, depois `/etc/rustploy/config.toml`
 socket_path  = "/run/rustploy/rustploy.sock"
 db_path      = "/var/lib/rustploy/db"
 log_level    = "info"
-webhook_port = 9001   # porta do servidor de webhook de CI/CD
+webhook_port = 8788   # porta do servidor de webhook de CI/CD + callback OAuth
 
 [ingress]
 http_port    = 80

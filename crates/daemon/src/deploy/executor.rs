@@ -183,13 +183,28 @@ impl DeployExecutor {
                     branch = %git.branch,
                     "step[CloningRepo]: resolvendo credenciais"
                 );
-                let token = if let Some(name) = &git.credentials {
+                let mut provider_login: Option<String> = None;
+                let token = if let Some(pid) = &git.provider_id {
+                    info!(deployment_id = %dep.id, provider_id = %pid, "step[CloningRepo]: resolvendo token via Git provider");
+                    match crate::db::git_providers::get(&self.db, pid).await {
+                        Ok(Some(p)) => {
+                            provider_login = p.account_login.clone();
+                            crate::git_providers::usable_token(&self.secrets, &p).ok()
+                        }
+                        _ => {
+                            info!(deployment_id = %dep.id, provider_id = %pid, "step[CloningRepo]: provider não encontrado");
+                            None
+                        }
+                    }
+                } else if let Some(name) = &git.credentials {
                     info!(deployment_id = %dep.id, secret = %name, "step[CloningRepo]: buscando token do secret");
                     self.secrets.get_raw(&svc.spec.project_id, name).await.ok()
                 } else {
                     info!(deployment_id = %dep.id, "step[CloningRepo]: sem credenciais configuradas");
                     None
                 };
+                // Username: login da conta do provider tem precedência sobre o manual.
+                let clone_username = provider_login.as_deref().or(git.username.as_deref());
                 let dir = self.clone_dir(&dep.id);
                 info!(
                     deployment_id = %dep.id,
@@ -205,7 +220,7 @@ impl DeployExecutor {
                         url: &git.url,
                         branch: &git.branch,
                         token: token.as_deref(),
-                        username: git.username.as_deref(),
+                        username: clone_username,
                         dir: &dir,
                     },
                     |p| {

@@ -49,6 +49,9 @@ sqlx = { version = "0.8", features = ["runtime-tokio-native-tls", "sqlite", "chr
 # Docker
 bollard = "0.17"
 
+# HTTP client for Git provider APIs (Gitea OAuth2 + REST)
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+
 # Reverse proxy (hyper-based, HTTP/1.1, lock-free route table via arc-swap)
 arc-swap = "1"
 

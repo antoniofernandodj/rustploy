@@ -139,7 +139,9 @@ impl Default for RustployConfig {
                 socket_path: "/run/rustploy/rustploy.sock".into(),
                 db_path: "/var/lib/rustploy/db".into(),
                 log_level: "info".into(),
-                webhook_port: 9001,
+                // 8788 fica ao lado do RWP (8787). Evita 9000/9001, comuns em
+                // MinIO/rustfs e outros serviços S3.
+                webhook_port: 8788,
             },
             ingress: IngressConfig {
                 http_port: 8080,
@@ -214,6 +216,11 @@ impl RustployConfig {
         if let Ok(v) = std::env::var("RUSTPLOY_HTTP_PORT") {
             if let Ok(p) = v.parse() {
                 cfg.ingress.http_port = p;
+            }
+        }
+        if let Ok(v) = std::env::var("RUSTPLOY_WEBHOOK_PORT") {
+            if let Ok(p) = v.parse() {
+                cfg.daemon.webhook_port = p;
             }
         }
         if let Ok(v) = std::env::var("RUSTPLOY_RWP_ENABLED") {

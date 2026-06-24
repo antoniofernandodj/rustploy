@@ -3,6 +3,7 @@ mod db;
 mod deploy;
 mod docker;
 mod event_bus;
+mod git_providers;
 mod health;
 mod ingress;
 mod logs;

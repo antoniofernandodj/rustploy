@@ -28,8 +28,8 @@ fn main() -> iced::Result {
 
 impl App {
     fn boot() -> (Self, Task<Message>) {
-        let default_address = shared::RustployConfig::global().rwp_address();
-        (App::with_prefs(default_address, store::RemotePrefs::load()), Task::none())
+        let default_url = format!("rwp://{}", shared::RustployConfig::global().rwp_address());
+        (App::with_prefs(default_url, store::RemotePrefs::load()), Task::none())
     }
 
     fn subscription(&self) -> Subscription<Message> {

@@ -417,6 +417,7 @@ impl GeneralTabState {
             } else {
                 Some(self.username.clone())
             },
+            provider_id: None,
         }
     }
 }

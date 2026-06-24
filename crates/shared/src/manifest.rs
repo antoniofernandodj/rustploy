@@ -108,6 +108,8 @@ pub struct GitManifest {
     pub username: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub credentials: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -306,6 +308,7 @@ impl SourceManifest {
                 build_stage: g.build_stage.clone(),
                 credentials: g.credentials.clone(),
                 username: g.username.clone(),
+                provider_id: g.provider_id.clone(),
             })
         } else if let Some(content) = &self.compose {
             ServiceSource::Compose(ComposeSource {
@@ -337,6 +340,7 @@ impl SourceManifest {
                     watch_paths: g.watch_paths.clone(),
                     username: g.username.clone(),
                     credentials: g.credentials.clone(),
+                    provider_id: g.provider_id.clone(),
                 }),
                 ..Default::default()
             },

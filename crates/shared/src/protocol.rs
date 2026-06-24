@@ -150,6 +150,33 @@ pub enum Command {
     Ping,
     DaemonStatus,
     DeployEngineStatus,
+
+    // Git providers (Gitea OAuth2 / PAT)
+    GitProviderList,
+    GitProviderCreate {
+        kind: GitProviderKind,
+        name: String,
+        base_url: String,
+        auth_mode: GitAuthMode,
+        oauth_client_id: Option<String>,
+        oauth_client_secret: Option<String>,
+        /// Personal Access Token, when `auth_mode == Pat`.
+        pat: Option<String>,
+    },
+    GitProviderDelete {
+        id: String,
+    },
+    /// Returns the Gitea authorization URL for the client to open in a browser.
+    GitOAuthStart {
+        provider_id: String,
+    },
+    GitRepoList {
+        provider_id: String,
+    },
+    GitBranchList {
+        provider_id: String,
+        repo_full_name: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -262,6 +289,15 @@ pub enum Response {
     ManifestReport(ApplyReport),
     /// Manifesto YAML serializado (resposta de `ManifestExport`).
     Manifest(String),
+
+    // Git providers
+    GitProviders(Vec<GitProvider>),
+    GitProviderInfo(GitProvider),
+    /// Authorization URL the client should open (resposta de `GitOAuthStart`).
+    OAuthUrl(String),
+    GitRepos(Vec<GitRepo>),
+    GitBranches(Vec<GitBranch>),
+
     Err { code: String, message: String },
 }
 

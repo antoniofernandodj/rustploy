@@ -25,3 +25,6 @@ postcard = { version = "1", features = ["alloc"] }
 # Errors / Time
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
+
+# Open the system browser for the OAuth authorization flow
+open = "5"

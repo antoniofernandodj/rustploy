@@ -71,7 +71,7 @@ fn content(app: &App) -> Element<'_, Message> {
         View::SettingsAuditLogs => placeholder("Audit Logs", "Histórico de ações administrativas."),
         View::SettingsSshKeys => placeholder("SSH Keys", "Chaves SSH para repositórios privados."),
         View::SettingsTags => placeholder("Tags", "Tags para organização de projetos e serviços."),
-        View::SettingsGit => placeholder("Git", "Configurações globais de clone e build Git."),
+        View::SettingsGit => settings::git(app),
         View::SettingsRegistry => placeholder("Registry", "Credenciais para Docker registries privados."),
         View::SettingsS3 => placeholder("S3 Destinations", "Destinos S3 para backups (v2)."),
         View::SettingsCerts => placeholder("Certificates", "Certificados TLS e status ACME por domínio."),
@@ -102,7 +102,7 @@ fn titlebar(app: &App) -> Element<'_, Message> {
                 .color(palette::CYAN),
             text("RWP").size(12).color(palette::GRAY),
             Space::with_width(Length::Fill),
-            text(format!("● {}  ", app.address)).size(12).color(palette::GRAY),
+            text(format!("● {}  ", app.url)).size(12).color(palette::GRAY),
             text(status).size(12).color(palette::GRAY),
             Space::with_width(Length::Fixed(16.0)),
             button(
@@ -142,13 +142,13 @@ fn connect_screen(app: &App) -> Element<'_, Message> {
         text("Rustploy Remote").size(30).color(palette::CYAN),
         text("Controle um daemon rustployd via RWP (TCP)").size(14).color(palette::GRAY),
         Space::with_height(Length::Fixed(8.0)),
-        label_text("Endereço (host:porta)"),
-        text_input("127.0.0.1:8787", &app.address)
-            .on_input(Message::AddressChanged)
+        label_text("URL do servidor"),
+        text_input("rwp://127.0.0.1:8787", &app.url)
+            .on_input(Message::UrlChanged)
             .on_submit(Message::Connect)
             .padding(10),
-        checkbox("Lembrar servidor (host:porta)", app.remember_address)
-            .on_toggle(Message::RememberAddressToggled)
+        checkbox("Lembrar servidor (URL)", app.remember_url)
+            .on_toggle(Message::RememberUrlToggled)
             .size(16)
             .text_size(13),
         label_text("Token (opcional)"),

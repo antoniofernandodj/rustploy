@@ -9,10 +9,10 @@ impl App {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             // ── Connection ────────────────────────────────────────────────
-            Message::AddressChanged(v) => self.address = v,
+            Message::UrlChanged(v) => self.url = v,
             Message::TokenChanged(v) => self.token = v,
-            Message::RememberAddressToggled(v) => {
-                self.remember_address = v;
+            Message::RememberUrlToggled(v) => {
+                self.remember_url = v;
                 self.persist_prefs();
             }
             Message::RememberTokenToggled(v) => {
@@ -20,9 +20,20 @@ impl App {
                 self.persist_prefs();
             }
             Message::Connect => {
-                // Fill in the default port if the user typed a bare host.
-                self.address = crate::model::normalize_address(&self.address);
-                self.persist_prefs();
+                // Canonicalize to an `rwp://…` URL, keeping the authority verbatim
+                // (no port baked in); resolve the TCP target separately. Prefs are
+                // only persisted once the connection actually succeeds.
+                self.url = crate::model::normalize_url(&self.url);
+                let target = match crate::model::connect_target(&self.url) {
+                    Ok(t) => t,
+                    Err(e) => {
+                        self.session = None;
+                        self.connected = false;
+                        self.error = Some(e.to_string());
+                        self.status_msg = "URL inválida".into();
+                        return Task::none();
+                    }
+                };
                 self.connect_seq += 1;
                 self.connected = false;
                 self.worker_tx = None;
@@ -34,10 +45,7 @@ impl App {
                 } else {
                     Some(self.token.clone())
                 };
-                self.session = Some(Session {
-                    addr: self.address.clone(),
-                    token,
-                });
+                self.session = Some(Session { addr: target, token });
             }
             Message::Disconnect => {
                 self.session = None;
@@ -360,6 +368,69 @@ impl App {
                     },
                 );
             }
+            // ── Git providers (Settings → Git) ────────────────────────────
+            Message::GpName(v) => self.gp_form.name = v,
+            Message::GpBaseUrl(v) => self.gp_form.base_url = v,
+            Message::GpMode(m) => self.gp_form.mode = m,
+            Message::GpClientId(v) => self.gp_form.client_id = v,
+            Message::GpClientSecret(v) => self.gp_form.client_secret = v,
+            Message::GpPat(v) => self.gp_form.pat = v,
+            Message::GpRefresh => self.send(Ctx::GitProviders, Command::GitProviderList),
+            Message::GpDelete(id) => {
+                self.send(Ctx::GitProviderDeleted, Command::GitProviderDelete { id });
+            }
+            Message::GpConnect => self.gp_connect(),
+
+            // ── Provider sub-tab (General) ────────────────────────────────
+            Message::ProviderTabChanged(tab) => {
+                self.provider_tab = tab;
+                // Ao abrir a sub-aba Gitea com uma conta já escolhida, garante
+                // que os repositórios estejam carregados.
+                if tab == ProviderTab::Gitea && self.git_repos.is_empty() {
+                    if let Some(pid) = self.gitea.provider_id.clone() {
+                        self.send(Ctx::GitRepos, Command::GitRepoList { provider_id: pid });
+                    }
+                }
+            }
+
+            // ── Service Gitea form ────────────────────────────────────────
+            Message::GiteaProviderPick(choice) => {
+                self.gitea.provider_id = Some(choice.id.clone());
+                self.gitea.repo_full_name = None;
+                self.gitea.branch = None;
+                self.git_repos.clear();
+                self.git_branches.clear();
+                self.send(Ctx::GitRepos, Command::GitRepoList { provider_id: choice.id });
+            }
+            Message::GiteaRepoPick(repo) => {
+                self.gitea.repo_full_name = Some(repo.full_name.clone());
+                self.gitea.clone_url = repo.clone_url.clone();
+                self.gitea.branch = Some(repo.default_branch.clone());
+                self.git_branches.clear();
+                if let Some(pid) = self.gitea.provider_id.clone() {
+                    self.send(
+                        Ctx::GitBranches,
+                        Command::GitBranchList { provider_id: pid, repo_full_name: repo.full_name },
+                    );
+                }
+            }
+            Message::GiteaBranchPick(b) => self.gitea.branch = Some(b),
+            Message::GiteaBuildPath(v) => self.gitea.build_path = v,
+            Message::GiteaSubmodules(b) => self.gitea.submodules = b,
+            Message::GiteaPort(v) => self.gitea.port = v,
+            Message::GiteaWatchAdd => self.gitea.watch_paths.push(String::new()),
+            Message::GiteaWatch(i, v) => {
+                if let Some(p) = self.gitea.watch_paths.get_mut(i) {
+                    *p = v;
+                }
+            }
+            Message::GiteaWatchDelete(i) => {
+                if i < self.gitea.watch_paths.len() {
+                    self.gitea.watch_paths.remove(i);
+                }
+            }
+            Message::GiteaSave => self.gitea_save(),
+
             Message::Copy(s) => return iced::clipboard::write(s),
             Message::Ignore => {}
         }
@@ -381,6 +452,13 @@ impl App {
                 self.send(Ctx::DeployEngine, Command::DeployEngineStatus)
             }
             SidebarItem::SettingsWebServer => {
+                if !self.ss_loaded {
+                    self.send(Ctx::ServerSettings, Command::GetDaemonSettings);
+                }
+            }
+            SidebarItem::SettingsGit => {
+                self.send(Ctx::GitProviders, Command::GitProviderList);
+                // Precisa do domínio do servidor para montar a redirect URL do OAuth.
                 if !self.ss_loaded {
                     self.send(Ctx::ServerSettings, Command::GetDaemonSettings);
                 }
@@ -413,9 +491,20 @@ impl App {
         self.service_tab = ServiceTab::General;
         self.conn_info = ConnInfo::from_service(&svc);
         self.general = GeneralForm::from_service(&svc);
+        self.gitea = GiteaForm::from_service(&svc);
         self.health = HealthForm::from_service(&svc);
         self.domains = DomainsForm::from_service(&svc);
         self.advanced = AdvancedForm::from_service(&svc);
+        self.git_repos.clear();
+        self.git_branches.clear();
+        // Abre na sub-aba Gitea quando o serviço já está vinculado a um provider
+        // (e pré-carrega seus repositórios); caso contrário, na sub-aba Git.
+        if let Some(pid) = self.gitea.provider_id.clone() {
+            self.provider_tab = ProviderTab::Gitea;
+            self.send(Ctx::GitRepos, Command::GitRepoList { provider_id: pid });
+        } else {
+            self.provider_tab = ProviderTab::Git;
+        }
         let compose = match &svc.spec.source {
             ServiceSource::Compose(c) => c.content.clone(),
             _ => String::new(),
@@ -440,10 +529,13 @@ impl App {
             WorkerEvent::Connected => {
                 self.connected = true;
                 self.error = None;
-                self.status_msg = format!("Conectado a {}", self.address);
+                // Only persist the connection prefs after a successful connect.
+                self.persist_prefs();
+                self.status_msg = format!("Conectado a {}", self.url);
                 self.send(Ctx::DaemonStatus, Command::DaemonStatus);
                 self.send(Ctx::Projects, Command::ProjectList);
                 self.send(Ctx::HomeDeployments, Command::RecentDeployments { limit: 30 });
+                self.send(Ctx::GitProviders, Command::GitProviderList);
                 if let Some(pid) = self.active_project_id.clone() {
                     self.send(Ctx::Services, Command::ServiceList { project_id: pid.clone() });
                     self.send(Ctx::Secrets, Command::SecretList { project_id: pid });
@@ -545,6 +637,7 @@ impl App {
                 }
                 if self.active_service_id.as_deref() == Some(&s.id) {
                     self.general = GeneralForm::from_service(&s);
+                    self.gitea = GiteaForm::from_service(&s);
                     self.health = HealthForm::from_service(&s);
                     self.domains = DomainsForm::from_service(&s);
                     self.advanced = AdvancedForm::from_service(&s);
@@ -565,6 +658,38 @@ impl App {
                 }
                 self.notify("Deploy iniciado ✓", false);
             }
+            // ── Git providers ─────────────────────────────────────────────
+            (Ctx::GitProviders, Response::GitProviders(ps)) => self.git_providers = ps,
+            (Ctx::CreateGitProvider, Response::GitProviderInfo(p)) => {
+                let is_oauth = matches!(p.auth_mode, shared::GitAuthMode::OAuth);
+                let pid = p.id.clone();
+                if let Some(e) = self.git_providers.iter_mut().find(|x| x.id == p.id) {
+                    *e = p;
+                } else {
+                    self.git_providers.push(p);
+                }
+                self.gp_form = GpForm::default();
+                if is_oauth {
+                    self.notify("Abrindo navegador para autorizar…", false);
+                    self.send(Ctx::OAuthStart, Command::GitOAuthStart { provider_id: pid });
+                } else {
+                    self.notify("Conta Gitea conectada ✓", false);
+                }
+            }
+            (Ctx::OAuthStart, Response::OAuthUrl(url)) => {
+                if let Err(e) = open::that(&url) {
+                    self.notify(format!("Abra manualmente: {url} ({e})"), true);
+                } else {
+                    self.notify("Autorize no navegador e clique em Atualizar", false);
+                }
+            }
+            (Ctx::GitProviderDeleted, Response::Ok) => {
+                self.notify("Provider removido", false);
+                self.send(Ctx::GitProviders, Command::GitProviderList);
+            }
+            (Ctx::GitRepos, Response::GitRepos(r)) => self.git_repos = r,
+            (Ctx::GitBranches, Response::GitBranches(b)) => self.git_branches = b,
+
             (Ctx::Action(label), Response::Err { message, .. }) => {
                 self.notify(format!("{label}: {message}"), true);
             }
@@ -737,6 +862,68 @@ impl App {
             }
             other => other.clone(),
         };
+        self.send(Ctx::UpdateService, Command::ServiceUpdate { id: svc.id, spec });
+    }
+
+    fn gp_connect(&mut self) {
+        let f = &self.gp_form;
+        if f.base_url.trim().is_empty() {
+            self.notify("Informe a Base URL do Gitea", true);
+            return;
+        }
+        let name = if f.name.trim().is_empty() {
+            "Gitea".to_string()
+        } else {
+            f.name.trim().to_string()
+        };
+        let cmd = match f.mode {
+            shared::GitAuthMode::OAuth => {
+                if f.client_id.trim().is_empty() || f.client_secret.trim().is_empty() {
+                    self.notify("Client ID e Client Secret são obrigatórios", true);
+                    return;
+                }
+                Command::GitProviderCreate {
+                    kind: shared::GitProviderKind::Gitea,
+                    name,
+                    base_url: f.base_url.trim().to_string(),
+                    auth_mode: shared::GitAuthMode::OAuth,
+                    oauth_client_id: Some(f.client_id.trim().to_string()),
+                    oauth_client_secret: Some(f.client_secret.clone()),
+                    pat: None,
+                }
+            }
+            shared::GitAuthMode::Pat => {
+                if f.pat.trim().is_empty() {
+                    self.notify("Informe o Personal Access Token", true);
+                    return;
+                }
+                Command::GitProviderCreate {
+                    kind: shared::GitProviderKind::Gitea,
+                    name,
+                    base_url: f.base_url.trim().to_string(),
+                    auth_mode: shared::GitAuthMode::Pat,
+                    oauth_client_id: None,
+                    oauth_client_secret: None,
+                    pat: Some(f.pat.clone()),
+                }
+            }
+        };
+        self.send(Ctx::CreateGitProvider, cmd);
+    }
+
+    fn gitea_save(&mut self) {
+        let Some(svc) = self.current_service().cloned() else { return };
+        if self.gitea.provider_id.is_none() {
+            self.notify("Selecione uma conta Gitea", true);
+            return;
+        }
+        if self.gitea.clone_url.trim().is_empty() {
+            self.notify("Selecione um repositório", true);
+            return;
+        }
+        let mut spec = svc.spec.clone();
+        spec.port = self.gitea.port.parse().unwrap_or(spec.port);
+        spec.source = ServiceSource::Git(self.gitea.to_git_source());
         self.send(Ctx::UpdateService, Command::ServiceUpdate { id: svc.id, spec });
     }
 

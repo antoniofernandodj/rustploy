@@ -7,7 +7,15 @@ use crate::{
     db::Db, docker::DockerClient, event_bus::EventBus, ingress::{IngressController, TlsManager},
     secrets::SecretsManager,
 };
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
+
+/// Pending OAuth handshakes: CSRF `state` → `provider_id`, consumed by the
+/// `/oauth/gitea/callback` route once the user authorizes.
+pub type OAuthStates = Arc<Mutex<HashMap<String, String>>>;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -21,6 +29,7 @@ pub struct AppState {
     pub drain_secs: u64,
     pub webhook_port: u16,
     pub started_at: std::time::Instant,
+    pub oauth_states: OAuthStates,
 }
 
 impl AppState {
@@ -46,6 +55,7 @@ impl AppState {
             drain_secs,
             webhook_port,
             started_at: std::time::Instant::now(),
+            oauth_states: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
