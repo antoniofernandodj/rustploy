@@ -75,11 +75,17 @@ pub async fn abort(
         return Bincode(Response::err("InvalidState", "deployment already finished")).into_response();
     }
 
+    if let Ok(mut map) = state.active_deploys.lock() {
+        if let Some(handle) = map.remove(&id) {
+            handle.abort();
+        }
+    }
+
     match crate::db::deployments::transition(
         &state.db,
         &id,
         &dep.state,
-        DeployState::RollingBack,
+        DeployState::Failed,
         Some("aborted by user".into()),
     )
     .await

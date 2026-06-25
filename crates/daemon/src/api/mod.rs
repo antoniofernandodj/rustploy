@@ -17,6 +17,10 @@ use std::{
 /// `/oauth/gitea/callback` route once the user authorizes.
 pub type OAuthStates = Arc<Mutex<HashMap<String, String>>>;
 
+/// Handles de abort para deploys activos: deployment_id → AbortHandle.
+/// Permite cancelar a task do executor ao receber DeployAbort.
+pub type ActiveDeploys = Arc<Mutex<HashMap<String, tokio::task::AbortHandle>>>;
+
 #[derive(Clone)]
 pub struct AppState {
     pub db: Arc<Db>,
@@ -30,6 +34,7 @@ pub struct AppState {
     pub webhook_port: u16,
     pub started_at: std::time::Instant,
     pub oauth_states: OAuthStates,
+    pub active_deploys: ActiveDeploys,
 }
 
 impl AppState {
@@ -56,6 +61,7 @@ impl AppState {
             webhook_port,
             started_at: std::time::Instant::now(),
             oauth_states: Arc::new(Mutex::new(HashMap::new())),
+            active_deploys: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }

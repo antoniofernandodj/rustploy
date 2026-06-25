@@ -125,8 +125,17 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
         drain_secs: state.drain_secs,
     });
     let dep_id = dep.id.clone();
+    let active_deploys = state.active_deploys.clone();
     info!(deployment_id = %dep_id, "deploy_start: spawning DeployExecutor");
-    tokio::spawn(async move { executor.run(dep_id).await });
+    let handle = tokio::spawn(async move {
+        executor.run(dep_id.clone()).await;
+        if let Ok(mut map) = active_deploys.lock() {
+            map.remove(&dep_id);
+        }
+    });
+    if let Ok(mut map) = state.active_deploys.lock() {
+        map.insert(dep.id.clone(), handle.abort_handle());
+    }
 
     RpResponse::Deployment(dep)
 }

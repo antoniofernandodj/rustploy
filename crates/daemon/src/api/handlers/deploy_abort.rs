@@ -10,11 +10,19 @@ pub async fn handle(state: AppState, deployment_id: String) -> RpResponse {
     if dep.state.is_terminal() {
         return RpResponse::err("InvalidState", "deployment already finished");
     }
+
+    // Aborta a task do executor imediatamente (interrompe o stream do Docker build).
+    if let Ok(mut map) = state.active_deploys.lock() {
+        if let Some(handle) = map.remove(&deployment_id) {
+            handle.abort();
+        }
+    }
+
     match crate::db::deployments::transition(
         &state.db,
         &deployment_id,
         &dep.state,
-        shared::DeployState::RollingBack,
+        shared::DeployState::Failed,
         Some("aborted by user".into()),
     )
     .await
