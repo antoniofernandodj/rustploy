@@ -1,3 +1,4 @@
+use crate::manifest::ApplyReport;
 use crate::models::*;
 use serde::{Deserialize, Serialize};
 
@@ -125,10 +126,57 @@ pub enum Command {
         project_id: String,
     },
 
+    // Infra-as-Code (manifesto declarativo)
+    /// Reconcilia projetos/serviços a partir de manifestos YAML já interpolados
+    /// pelo cliente (um documento `ProjectManifest` por string). Aditivo:
+    /// cria/atualiza, nunca deleta. Não dispara deploy.
+    ///
+    /// Os manifestos trafegam como YAML (e não como structs) porque o postcard é
+    /// um formato não auto-descritivo e quebra com `skip_serializing_if`/defaults;
+    /// o daemon faz o parse com `serde_yaml`.
+    ManifestApply {
+        manifests: Vec<String>,
+        /// Deleta serviços que existem no projeto mas não constam no manifesto.
+        prune: bool,
+        /// Dispara deploy dos serviços criados/alterados após sincronizar.
+        deploy: bool,
+    },
+    /// Exporta o estado atual de um projeto como manifesto YAML (secrets redigidos).
+    ManifestExport {
+        project_id: String,
+    },
+
     // Infrastructure
     Ping,
     DaemonStatus,
     DeployEngineStatus,
+
+    // Git providers (Gitea OAuth2 / PAT)
+    GitProviderList,
+    GitProviderCreate {
+        kind: GitProviderKind,
+        name: String,
+        base_url: String,
+        auth_mode: GitAuthMode,
+        oauth_client_id: Option<String>,
+        oauth_client_secret: Option<String>,
+        /// Personal Access Token, when `auth_mode == Pat`.
+        pat: Option<String>,
+    },
+    GitProviderDelete {
+        id: String,
+    },
+    /// Returns the Gitea authorization URL for the client to open in a browser.
+    GitOAuthStart {
+        provider_id: String,
+    },
+    GitRepoList {
+        provider_id: String,
+    },
+    GitBranchList {
+        provider_id: String,
+        repo_full_name: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -238,6 +286,18 @@ pub enum Response {
     WebhookUrl(Option<String>),
     DaemonSettings { webhook_base_url: Option<String>, acme_email: Option<String> },
     SecretNames(Vec<String>),
+    ManifestReport(ApplyReport),
+    /// Manifesto YAML serializado (resposta de `ManifestExport`).
+    Manifest(String),
+
+    // Git providers
+    GitProviders(Vec<GitProvider>),
+    GitProviderInfo(GitProvider),
+    /// Authorization URL the client should open (resposta de `GitOAuthStart`).
+    OAuthUrl(String),
+    GitRepos(Vec<GitRepo>),
+    GitBranches(Vec<GitBranch>),
+
     Err { code: String, message: String },
 }
 

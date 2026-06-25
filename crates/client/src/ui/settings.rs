@@ -74,7 +74,7 @@ fn render_web_server(f: &mut Frame, app: &App, area: Rect) {
     );
     f.render_widget(
         Paragraph::new(Line::from(Span::styled(
-            "  Ex: https://rustploy.meusite.com  ou  http://192.168.1.42:9001",
+            "  Ex: https://rustploy.meusite.com  ou  http://192.168.1.42:8788",
             label_style,
         ))),
         chunks[4],

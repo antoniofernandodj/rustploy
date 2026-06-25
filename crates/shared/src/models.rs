@@ -104,6 +104,10 @@ pub struct GitSource {
     pub build_stage: Option<String>,
     pub credentials: Option<String>,
     pub username: Option<String>,
+    /// When set, deploys resolve the clone token from the connected Git
+    /// provider (Gitea OAuth/PAT) instead of (or in addition to) `credentials`.
+    #[serde(default)]
+    pub provider_id: Option<String>,
 }
 
 impl Default for GitSource {
@@ -119,8 +123,93 @@ impl Default for GitSource {
             build_stage: None,
             credentials: None,
             username: None,
+            provider_id: None,
         }
     }
+}
+
+// ── Git providers (Gitea OAuth2 / PAT) ────────────────────────────────────────
+
+/// Which hosted Git service a provider connects to. Only Gitea is implemented
+/// today; the enum exists so GitHub/GitLab can be added without a wire break.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum GitProviderKind {
+    Gitea,
+}
+
+impl GitProviderKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Gitea => "gitea",
+        }
+    }
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "gitea" => Some(Self::Gitea),
+            _ => None,
+        }
+    }
+}
+
+/// How a provider authenticates: full OAuth2 authorization-code flow, or a
+/// pasted Personal Access Token.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum GitAuthMode {
+    OAuth,
+    Pat,
+}
+
+impl GitAuthMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::OAuth => "oauth",
+            Self::Pat => "pat",
+        }
+    }
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "oauth" => Some(Self::OAuth),
+            "pat" => Some(Self::Pat),
+            _ => None,
+        }
+    }
+}
+
+/// The connected account, populated once OAuth completes (or the PAT validates).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct GitAccount {
+    pub login: String,
+    pub avatar_url: Option<String>,
+}
+
+/// A connected Git provider, as exposed to clients. Secrets (client secret,
+/// access/refresh tokens, PAT) are kept daemon-side and never serialized here.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct GitProvider {
+    pub id: String,
+    pub kind: GitProviderKind,
+    pub name: String,
+    pub base_url: String,
+    pub auth_mode: GitAuthMode,
+    pub oauth_client_id: Option<String>,
+    /// `Some` once the connection is established.
+    pub account: Option<GitAccount>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// A repository listed from a provider's API.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct GitRepo {
+    pub full_name: String,
+    pub clone_url: String,
+    pub default_branch: String,
+    pub private: bool,
+}
+
+/// A branch listed from a provider's API.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct GitBranch {
+    pub name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -346,4 +435,60 @@ pub struct ContainerMetricsPoint {
     pub net_rx_bytes: u64,
     pub net_tx_bytes: u64,
     pub timestamp: DateTime<Utc>,
+}
+
+#[cfg(test)]
+mod git_provider_tests {
+    use super::*;
+    use crate::protocol::{Command, Response};
+
+    #[test]
+    fn git_source_json_back_compat_without_provider_id() {
+        // Specs persisted before the feature lack `provider_id`; serde default
+        // must fill it as None.
+        let json = r#"{
+            "url":"https://gitea.test/u/r.git","branch":"main","root_path":".",
+            "watch_paths":[],"submodules":false,"dockerfile_path":"Dockerfile",
+            "build_context":".","build_stage":null,"credentials":null,"username":null
+        }"#;
+        let g: GitSource = serde_json::from_str(json).unwrap();
+        assert_eq!(g.provider_id, None);
+        assert_eq!(g.branch, "main");
+    }
+
+    #[test]
+    fn command_postcard_round_trip() {
+        let cmd = Command::GitProviderCreate {
+            kind: GitProviderKind::Gitea,
+            name: "Gitea".into(),
+            base_url: "https://gitea.test".into(),
+            auth_mode: GitAuthMode::OAuth,
+            oauth_client_id: Some("cid".into()),
+            oauth_client_secret: Some("secret".into()),
+            pat: None,
+        };
+        let bytes = postcard::to_allocvec(&cmd).unwrap();
+        let back: Command = postcard::from_bytes(&bytes).unwrap();
+        assert!(matches!(back, Command::GitProviderCreate { kind: GitProviderKind::Gitea, .. }));
+    }
+
+    #[test]
+    fn response_postcard_round_trip() {
+        let resp = Response::GitProviders(vec![GitProvider {
+            id: "1".into(),
+            kind: GitProviderKind::Gitea,
+            name: "Gitea".into(),
+            base_url: "https://gitea.test".into(),
+            auth_mode: GitAuthMode::Pat,
+            oauth_client_id: None,
+            account: Some(GitAccount { login: "alice".into(), avatar_url: None }),
+            created_at: Utc::now(),
+        }]);
+        let bytes = postcard::to_allocvec(&resp).unwrap();
+        let back: Response = postcard::from_bytes(&bytes).unwrap();
+        match back {
+            Response::GitProviders(v) => assert_eq!(v[0].account.as_ref().unwrap().login, "alice"),
+            _ => panic!("variante errada"),
+        }
+    }
 }

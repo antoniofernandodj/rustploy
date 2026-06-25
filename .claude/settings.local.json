@@ -72,7 +72,22 @@
       "Bash(nslookup chiquitos.tech)",
       "Bash(nc -vz chiquitos.tech 8787 -w 5)",
       "Bash(timeout 5 bash -c 'cat < /dev/null > /dev/tcp/chiquitos.tech/8787 && echo OPEN || echo CLOSED_OR_FILTERED')",
-      "Bash(sudo ss -tlnp)"
+      "Bash(sudo ss -tlnp)",
+      "Bash(sudo journalctl -u rustployd -n 60 --no-pager)",
+      "Bash(sh -n packaging/debian/postinst)",
+      "Bash(kill 243766)",
+      "Bash(size target/release/rustploy-remote)",
+      "Bash(cp target/release/rustploy-remote /tmp/rc-stripped)",
+      "Bash(strip /tmp/rc-stripped)",
+      "Bash(sed -n '/\\\\[dependencies\\\\]/,/^\\\\[/p' crates/daemon/Cargo.toml)",
+      "Bash(sed -n '/pub enum Response/,/^}/p' crates/shared/src/protocol.rs)",
+      "Bash(sed -n '/ManifestExport/,/^}/p' crates/shared/src/protocol.rs)",
+      "Bash(pkill -f \"cargo build --workspace\")",
+      "Bash(ip -4 addr show)",
+      "Bash(command -v sqlite3)",
+      "Bash(sed -n '/fn resolve_data_path/,/^}/p' crates/daemon/src/main.rs)",
+      "Bash(sed -n '/fn resolve_socket_path/,/^}/p' crates/daemon/src/main.rs)",
+      "Bash(sed -n '/pub fn fallback_data_dir/,/^}/p' crates/shared/src/config.rs)"
     ]
   }
 }

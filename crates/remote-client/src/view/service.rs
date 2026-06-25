@@ -1,10 +1,15 @@
 //! Service detail screen with all tabs, mirroring the TUI.
 
 use super::widgets::*;
-use crate::model::{palette, DbKind, HcField, GenField, ServiceTab};
+use crate::model::{
+    palette, DbKind, GenField, HcField, ProviderChoice, ProviderTab, RepoChoice, ServiceTab,
+};
 use crate::update::status_color;
 use crate::{App, Message};
-use iced::widget::{button, checkbox, column, row, scrollable, text, text_editor, text_input, Space};
+use iced::widget::{
+    button, checkbox, column, container, pick_list, row, scrollable, text, text_editor, text_input,
+    Space,
+};
 use iced::{Alignment, Element, Length};
 use shared::{EnvVarValue, ServiceSource};
 
@@ -94,11 +99,38 @@ fn general<'a>(app: &'a App, svc: &'a shared::Service) -> Element<'a, Message> {
         .into();
     }
 
-    let g = &app.general;
+    // Provider tem duas sub-abas: Git (URL crua) e Gitea (contas conectadas).
+    // A sub-aba Gitea só aparece quando há ao menos um provider conectado.
+    let has_gitea = !app.git_providers.is_empty();
+    let active = if has_gitea { app.provider_tab } else { ProviderTab::Git };
+    let subtabs: Vec<(ProviderTab, &str)> = if has_gitea {
+        vec![(ProviderTab::Git, "Git"), (ProviderTab::Gitea, "Gitea")]
+    } else {
+        vec![(ProviderTab::Git, "Git")]
+    };
+
+    let body = match active {
+        ProviderTab::Git => git_provider_body(app),
+        ProviderTab::Gitea => gitea_provider_body(app),
+    };
+
     scrollable(column![
         actions_row(),
         Space::with_height(Length::Fixed(10.0)),
-        section(if g.is_git { "Provider: Git" } else { "Provider: Registry" }),
+        section("Provider"),
+        tab_bar(&subtabs, active, Message::ProviderTabChanged),
+        Space::with_height(Length::Fixed(8.0)),
+        body,
+    ]
+    .spacing(6))
+    .height(Length::Fill)
+    .into()
+}
+
+/// The generic Git/registry URL form (Provider → Git sub-tab).
+fn git_provider_body(app: &App) -> Element<'_, Message> {
+    let g = &app.general;
+    column![
         labeled_input("Repository URL / Image", "github.com/user/repo", &g.repo_url, |v| Message::GenField(GenField::RepoUrl, v)),
         labeled_input("Branch", "main", &g.branch, |v| Message::GenField(GenField::Branch, v)),
         labeled_input("Username", "", &g.username, |v| Message::GenField(GenField::Username, v)),
@@ -106,7 +138,7 @@ fn general<'a>(app: &'a App, svc: &'a shared::Service) -> Element<'a, Message> {
         labeled_input("Build Path", ".", &g.build_path, |v| Message::GenField(GenField::BuildPath, v)),
         labeled_input("Watch Paths", "src, Cargo.toml", &g.watch_paths, |v| Message::GenField(GenField::WatchPaths, v)),
         row![
-            iced::widget::container(label_text("Enable Submodules")).width(Length::Fixed(190.0)),
+            container(label_text("Enable Submodules")).width(Length::Fixed(190.0)),
             checkbox("", g.submodules).on_toggle(Message::GenSubmodules),
         ].spacing(8).align_y(Alignment::Center),
         labeled_input("Port", "80", &g.port, |v| Message::GenField(GenField::Port, v)),
@@ -118,8 +150,114 @@ fn general<'a>(app: &'a App, svc: &'a shared::Service) -> Element<'a, Message> {
         Space::with_height(Length::Fixed(8.0)),
         primary_btn("Save", Message::GenSave),
     ]
-    .spacing(6))
-    .height(Length::Fill)
+    .spacing(6)
+    .into()
+}
+
+/// The connected-Gitea picker form (Provider → Gitea sub-tab).
+fn gitea_provider_body(app: &App) -> Element<'_, Message> {
+    let gf = &app.gitea;
+
+    // Conta Gitea (dropdown)
+    let providers: Vec<ProviderChoice> = app
+        .git_providers
+        .iter()
+        .map(|p| {
+            let login = p.account.as_ref().map(|a| format!(" (@{})", a.login)).unwrap_or_default();
+            ProviderChoice { id: p.id.clone(), label: format!("{}{login}", p.name) }
+        })
+        .collect();
+    let selected_provider = gf
+        .provider_id
+        .as_ref()
+        .and_then(|id| providers.iter().find(|c| &c.id == id).cloned());
+
+    // Repositórios (dropdown) — disponível após escolher a conta.
+    let repos: Vec<RepoChoice> = app
+        .git_repos
+        .iter()
+        .map(|r| RepoChoice {
+            full_name: r.full_name.clone(),
+            clone_url: r.clone_url.clone(),
+            default_branch: r.default_branch.clone(),
+        })
+        .collect();
+    let selected_repo = repos.iter().find(|r| {
+        gf.repo_full_name.as_deref() == Some(&r.full_name) || r.clone_url == gf.clone_url
+    });
+
+    // Branches (dropdown) — disponível após escolher o repo.
+    let branches: Vec<String> = app.git_branches.iter().map(|b| b.name.clone()).collect();
+
+    let account_row = row![
+        container(label_text("Conta Gitea")).width(Length::Fixed(190.0)),
+        pick_list(providers, selected_provider, Message::GiteaProviderPick)
+            .placeholder("selecione uma conta"),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
+
+    let repo_row = row![
+        container(label_text("Repositório")).width(Length::Fixed(190.0)),
+        pick_list(repos.clone(), selected_repo.cloned(), Message::GiteaRepoPick)
+            .placeholder(if gf.provider_id.is_some() { "selecione um repositório" } else { "escolha a conta primeiro" }),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
+
+    let branch_row = row![
+        container(label_text("Branch")).width(Length::Fixed(190.0)),
+        pick_list(branches, gf.branch.clone(), Message::GiteaBranchPick)
+            .placeholder("selecione a branch"),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
+
+    // Watch Paths como array editável (linha por path).
+    let mut watch_col = column![row![
+        container(label_text("Watch Paths")).width(Length::Fixed(190.0)),
+        ghost_btn("+ Adicionar", Message::GiteaWatchAdd),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center)]
+    .spacing(6);
+    if gf.watch_paths.is_empty() {
+        watch_col = watch_col.push(row![
+            Space::with_width(Length::Fixed(190.0)),
+            muted("Nenhum path — dispara em qualquer mudança."),
+        ].spacing(8));
+    }
+    for (i, p) in gf.watch_paths.iter().enumerate() {
+        watch_col = watch_col.push(
+            row![
+                Space::with_width(Length::Fixed(190.0)),
+                text_input("src/", p).on_input(move |v| Message::GiteaWatch(i, v)).padding(6).size(13),
+                danger_btn("✕", Message::GiteaWatchDelete(i)),
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center),
+        );
+    }
+
+    column![
+        muted("Selecione a conta conectada, o repositório e a branch a implantar."),
+        account_row,
+        repo_row,
+        branch_row,
+        Space::with_height(Length::Fixed(8.0)),
+        section("Build"),
+        labeled_input("Build Path", ".", &gf.build_path, Message::GiteaBuildPath),
+        row![
+            container(label_text("Enable Submodules")).width(Length::Fixed(190.0)),
+            checkbox("", gf.submodules).on_toggle(Message::GiteaSubmodules),
+        ].spacing(8).align_y(Alignment::Center),
+        labeled_input("Port", "80", &gf.port, Message::GiteaPort),
+        Space::with_height(Length::Fixed(8.0)),
+        watch_col,
+        Space::with_height(Length::Fixed(10.0)),
+        primary_btn("Save", Message::GiteaSave),
+    ]
+    .spacing(6)
     .into()
 }
 

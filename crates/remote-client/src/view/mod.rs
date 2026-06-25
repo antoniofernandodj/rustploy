@@ -24,9 +24,13 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let base = column![
         titlebar(app),
-        row![sidebar::view(app), content(app)]
-            .spacing(0)
-            .height(Length::Fill),
+        container(
+            row![sidebar::view(app), content(app)]
+                .spacing(16)
+                .height(Length::Fill),
+        )
+        .padding(16)
+        .height(Length::Fill),
         statusbar(app),
     ]
     .height(Length::Fill);
@@ -67,7 +71,7 @@ fn content(app: &App) -> Element<'_, Message> {
         View::SettingsAuditLogs => placeholder("Audit Logs", "Histórico de ações administrativas."),
         View::SettingsSshKeys => placeholder("SSH Keys", "Chaves SSH para repositórios privados."),
         View::SettingsTags => placeholder("Tags", "Tags para organização de projetos e serviços."),
-        View::SettingsGit => placeholder("Git", "Configurações globais de clone e build Git."),
+        View::SettingsGit => settings::git(app),
         View::SettingsRegistry => placeholder("Registry", "Credenciais para Docker registries privados."),
         View::SettingsS3 => placeholder("S3 Destinations", "Destinos S3 para backups (v2)."),
         View::SettingsCerts => placeholder("Certificates", "Certificados TLS e status ACME por domínio."),
@@ -77,7 +81,6 @@ fn content(app: &App) -> Element<'_, Message> {
     container(inner)
         .width(Length::Fill)
         .height(Length::Fill)
-        .padding(8)
         .into()
 }
 
@@ -95,22 +98,26 @@ fn titlebar(app: &App) -> Element<'_, Message> {
     container(
         row![
             text(format!(" Rustploy Remote  v{}", env!("CARGO_PKG_VERSION")))
-                .size(14)
+                .size(15)
                 .color(palette::CYAN),
             text("RWP").size(12).color(palette::GRAY),
             Space::with_width(Length::Fill),
-            text(format!("● {}  ", app.address)).size(12).color(palette::GRAY),
+            text(format!("● {}  ", app.url)).size(12).color(palette::GRAY),
             text(status).size(12).color(palette::GRAY),
-            Space::with_width(Length::Fixed(12.0)),
-            button(text("Desconectar").size(12))
-                .on_press(Message::Disconnect)
-                .style(button::danger)
-                .padding([4, 10]),
+            Space::with_width(Length::Fixed(16.0)),
+            button(
+                text("Desconectar")
+                    .size(13)
+                    .wrapping(text::Wrapping::None),
+            )
+            .on_press(Message::Disconnect)
+            .style(button::danger)
+            .padding([8, 16]),
         ]
-        .spacing(10)
+        .spacing(14)
         .align_y(Alignment::Center),
     )
-    .padding([6, 8])
+    .padding([14, 20])
     .width(Length::Fill)
     .into()
 }
@@ -122,8 +129,8 @@ fn statusbar(app: &App) -> Element<'_, Message> {
         View::ServiceDetail => "Abas de configuração do serviço · Deploy / Stop / Reload / Rollback",
         _ => "Selecione um item na barra lateral",
     };
-    container(text(hint).size(11).color(palette::GRAY))
-        .padding([2, 8])
+    container(text(hint).size(12).color(palette::GRAY))
+        .padding([10, 20])
         .width(Length::Fill)
         .into()
 }
@@ -135,13 +142,13 @@ fn connect_screen(app: &App) -> Element<'_, Message> {
         text("Rustploy Remote").size(30).color(palette::CYAN),
         text("Controle um daemon rustployd via RWP (TCP)").size(14).color(palette::GRAY),
         Space::with_height(Length::Fixed(8.0)),
-        label_text("Endereço (host:porta)"),
-        text_input("127.0.0.1:8787", &app.address)
-            .on_input(Message::AddressChanged)
+        label_text("URL do servidor"),
+        text_input("rwp://127.0.0.1:8787", &app.url)
+            .on_input(Message::UrlChanged)
             .on_submit(Message::Connect)
             .padding(10),
-        checkbox("Lembrar servidor (host:porta)", app.remember_address)
-            .on_toggle(Message::RememberAddressToggled)
+        checkbox("Lembrar servidor (URL)", app.remember_url)
+            .on_toggle(Message::RememberUrlToggled)
             .size(16)
             .text_size(13),
         label_text("Token (opcional)"),
@@ -177,7 +184,7 @@ fn connect_screen(app: &App) -> Element<'_, Message> {
 fn modal(body: Element<'_, Message>) -> Element<'_, Message> {
     container(
         container(body)
-            .padding(18)
+            .padding(32)
             .max_width(720)
             .style(container::rounded_box),
     )

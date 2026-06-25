@@ -23,27 +23,54 @@ pub struct RustployConfig {
 /// loopback. Binding to a non-loopback address requires a token to be set.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RwpConfig {
+    #[serde(default)]
     pub enabled: bool,
+    #[serde(default = "default_rwp_bind")]
     pub bind_address: String,
+    #[serde(default = "default_rwp_port")]
     pub port: u16,
+    #[serde(default)]
     pub token: Option<String>,
+    #[serde(default = "default_rwp_max_connections")]
     pub max_connections: usize,
+    #[serde(default = "default_rwp_max_frame_size")]
     pub max_frame_size: usize,
+    #[serde(default = "default_rwp_read_timeout_secs")]
     pub read_timeout_secs: u64,
+    #[serde(default = "default_rwp_idle_timeout_secs")]
     pub idle_timeout_secs: u64,
+}
+
+fn default_rwp_bind() -> String {
+    "127.0.0.1".into()
+}
+fn default_rwp_port() -> u16 {
+    8787
+}
+fn default_rwp_max_connections() -> usize {
+    8
+}
+fn default_rwp_max_frame_size() -> usize {
+    1024 * 1024
+}
+fn default_rwp_read_timeout_secs() -> u64 {
+    15
+}
+fn default_rwp_idle_timeout_secs() -> u64 {
+    120
 }
 
 impl Default for RwpConfig {
     fn default() -> Self {
         Self {
             enabled: false,
-            bind_address: "127.0.0.1".into(),
-            port: 8787,
+            bind_address: default_rwp_bind(),
+            port: default_rwp_port(),
             token: None,
-            max_connections: 8,
-            max_frame_size: 1024 * 1024,
-            read_timeout_secs: 15,
-            idle_timeout_secs: 120,
+            max_connections: default_rwp_max_connections(),
+            max_frame_size: default_rwp_max_frame_size(),
+            read_timeout_secs: default_rwp_read_timeout_secs(),
+            idle_timeout_secs: default_rwp_idle_timeout_secs(),
         }
     }
 }
@@ -112,7 +139,9 @@ impl Default for RustployConfig {
                 socket_path: "/run/rustploy/rustploy.sock".into(),
                 db_path: "/var/lib/rustploy/db".into(),
                 log_level: "info".into(),
-                webhook_port: 9001,
+                // 8788 fica ao lado do RWP (8787). Evita 9000/9001, comuns em
+                // MinIO/rustfs e outros serviços S3.
+                webhook_port: 8788,
             },
             ingress: IngressConfig {
                 http_port: 8080,
@@ -189,6 +218,11 @@ impl RustployConfig {
                 cfg.ingress.http_port = p;
             }
         }
+        if let Ok(v) = std::env::var("RUSTPLOY_WEBHOOK_PORT") {
+            if let Ok(p) = v.parse() {
+                cfg.daemon.webhook_port = p;
+            }
+        }
         if let Ok(v) = std::env::var("RUSTPLOY_RWP_ENABLED") {
             cfg.rwp.enabled = matches!(v.as_str(), "1" | "true" | "yes" | "on");
         }
@@ -245,4 +279,34 @@ fn dirs_config_path() -> Option<PathBuf> {
             .join("rustploy")
             .join("config.toml")
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A partial `[rwp]` block (only the fields the installer/admin cares about)
+    /// must parse, with the remaining fields falling back to their defaults.
+    #[test]
+    fn partial_rwp_block_uses_field_defaults() {
+        let toml_str = r#"
+[rwp]
+enabled = true
+token = "abc123"
+"#;
+        let cfg: RwpConfig = toml::from_str(toml_str)
+            .map(|w: WrapRwp| w.rwp)
+            .expect("partial [rwp] must parse");
+        assert!(cfg.enabled);
+        assert_eq!(cfg.token.as_deref(), Some("abc123"));
+        assert_eq!(cfg.port, 8787);
+        assert_eq!(cfg.bind_address, "127.0.0.1");
+        assert_eq!(cfg.max_connections, 8);
+        assert_eq!(cfg.idle_timeout_secs, 120);
+    }
+
+    #[derive(Deserialize)]
+    struct WrapRwp {
+        rwp: RwpConfig,
+    }
 }

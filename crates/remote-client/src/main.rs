@@ -17,14 +17,19 @@ fn main() -> iced::Result {
     iced::application("Rustploy Remote", App::update, App::view)
         .subscription(App::subscription)
         .theme(|_| iced::Theme::Dark)
-        .window_size((1180.0, 760.0))
+        .window(iced::window::Settings {
+            size: iced::Size::new(1180.0, 760.0),
+            // Abaixo disso o layout (titlebar, cards) começa a quebrar feio.
+            min_size: Some(iced::Size::new(960.0, 600.0)),
+            ..Default::default()
+        })
         .run_with(App::boot)
 }
 
 impl App {
     fn boot() -> (Self, Task<Message>) {
-        let default_address = shared::RustployConfig::global().rwp_address();
-        (App::with_prefs(default_address, store::RemotePrefs::load()), Task::none())
+        let default_url = format!("rwp://{}", shared::RustployConfig::global().rwp_address());
+        (App::with_prefs(default_url, store::RemotePrefs::load()), Task::none())
     }
 
     fn subscription(&self) -> Subscription<Message> {

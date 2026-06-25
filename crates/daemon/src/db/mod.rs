@@ -1,5 +1,6 @@
 pub mod build_logs;
 pub mod daemon_settings;
+pub mod git_providers;
 pub mod deployments;
 pub mod projects;
 pub mod services;
@@ -97,6 +98,21 @@ async fn migrate(pool: &SqlitePool) -> Result<()> {
         CREATE TABLE IF NOT EXISTS daemon_settings (
             key   TEXT PRIMARY KEY,
             value TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS git_provider (
+            id                      TEXT PRIMARY KEY,
+            kind                    TEXT NOT NULL,
+            name                    TEXT NOT NULL,
+            base_url                TEXT NOT NULL,
+            auth_mode               TEXT NOT NULL,
+            oauth_client_id         TEXT,
+            oauth_client_secret_enc TEXT,
+            access_token_enc        TEXT,
+            refresh_token_enc       TEXT,
+            account_login           TEXT,
+            account_avatar          TEXT,
+            created_at              TEXT NOT NULL
         );
         ",
     )

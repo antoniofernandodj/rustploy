@@ -17,7 +17,7 @@ O servidor valida o token e, se correto, inicia um deploy do serviço imediatame
 Por padrão a URL usa o IP de saída detectado automaticamente:
 
 ```
-http://192.168.1.42:9001/webhook/01JXABC.../a3f8e2c1...
+http://192.168.1.42:8788/webhook/01JXABC.../a3f8e2c1...
 ```
 
 Para usar um domínio próprio, acesse **Settings › Web Server** no TUI e configure o campo **Domínio / URL base**:
@@ -32,7 +32,7 @@ A URL do webhook passa a ser:
 https://rustploy.meusite.com/webhook/01JXABC.../a3f8e2c1...
 ```
 
-> O servidor de webhook escuta na porta `9001` por padrão (configurável em `[daemon] webhook_port`). Se você usar um domínio com HTTPS, configure seu proxy reverso para encaminhar o tráfego HTTPS para `localhost:9001`.
+> O servidor de webhook escuta na porta `8788` por padrão (configurável em `[daemon] webhook_port`). Se você usar um domínio com HTTPS, configure seu proxy reverso para encaminhar o tráfego HTTPS para `localhost:8788`.
 
 ## Encontrando a URL no TUI
 
@@ -251,7 +251,7 @@ Se nenhuma ferramenta estiver presente, o TUI exibirá uma notificação informa
 # config.toml
 
 [daemon]
-webhook_port = 9001  # porta do servidor de webhook (default: 9001)
+webhook_port = 8788  # porta do servidor de webhook (default: 8788)
 ```
 
 O servidor de webhook é independente do proxy reverso de aplicações — ele escuta em uma porta dedicada para não interferir com o roteamento de domínios das aplicações deployadas.

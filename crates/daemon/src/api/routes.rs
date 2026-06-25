@@ -35,6 +35,14 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::SecretSet { .. } => "SecretSet",
         Command::SecretDelete { .. } => "SecretDelete",
         Command::SecretList { .. } => "SecretList",
+        Command::ManifestApply { .. } => "ManifestApply",
+        Command::ManifestExport { .. } => "ManifestExport",
+        Command::GitProviderList => "GitProviderList",
+        Command::GitProviderCreate { .. } => "GitProviderCreate",
+        Command::GitProviderDelete { .. } => "GitProviderDelete",
+        Command::GitOAuthStart { .. } => "GitOAuthStart",
+        Command::GitRepoList { .. } => "GitRepoList",
+        Command::GitBranchList { .. } => "GitBranchList",
         _ => "Unknown",
     };
     info!(command = cmd_name, "→ RPC recebido");
@@ -114,6 +122,47 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::SecretList { project_id } => {
             handlers::secret_list::handle(state, project_id).await
         }
+        Command::ManifestApply {
+            manifests,
+            prune,
+            deploy,
+        } => handlers::manifest_apply::handle(state, manifests, prune, deploy).await,
+        Command::ManifestExport { project_id } => {
+            handlers::manifest_export::handle(state, project_id).await
+        }
+        Command::GitProviderList => handlers::git_provider_list::handle(state).await,
+        Command::GitProviderCreate {
+            kind,
+            name,
+            base_url,
+            auth_mode,
+            oauth_client_id,
+            oauth_client_secret,
+            pat,
+        } => {
+            handlers::git_provider_create::handle(
+                state,
+                kind,
+                name,
+                base_url,
+                auth_mode,
+                oauth_client_id,
+                oauth_client_secret,
+                pat,
+            )
+            .await
+        }
+        Command::GitProviderDelete { id } => handlers::git_provider_delete::handle(state, id).await,
+        Command::GitOAuthStart { provider_id } => {
+            handlers::git_oauth_start::handle(state, provider_id).await
+        }
+        Command::GitRepoList { provider_id } => {
+            handlers::git_repo_list::handle(state, provider_id).await
+        }
+        Command::GitBranchList {
+            provider_id,
+            repo_full_name,
+        } => handlers::git_branch_list::handle(state, provider_id, repo_full_name).await,
         _ => RpResponse::err("NotImplemented", "command not yet implemented"),
     };
 

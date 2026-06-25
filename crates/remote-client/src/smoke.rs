@@ -51,7 +51,7 @@ fn fake_service(id: &str, project_id: &str, db: bool) -> Service {
 }
 
 fn connected_app() -> App {
-    let mut app = App::new("127.0.0.1:8787".into());
+    let mut app = App::new("rwp://127.0.0.1:8787".into());
     app.connected = true;
     app.projects = vec![shared::Project {
         id: "p1".into(),
@@ -169,4 +169,32 @@ fn renders_modals_and_toast() {
     app.confirm = None;
     app.notify("oi", false);
     let _ = crate::view::view(&app);
+}
+
+#[test]
+fn normalize_url_adds_rwp_scheme() {
+    assert_eq!(normalize_url("127.0.0.1"), "rwp://127.0.0.1");
+    assert_eq!(normalize_url("  localhost  "), "rwp://localhost");
+    // scheme already present — left as typed (authority not touched)
+    assert_eq!(normalize_url("rwp://example.com:9000"), "rwp://example.com:9000");
+    assert_eq!(normalize_url(""), "");
+}
+
+#[test]
+fn connect_target_resolves_host_and_port() {
+    // default port filled in
+    assert_eq!(connect_target("rwp://127.0.0.1").unwrap(), "127.0.0.1:8787");
+    assert_eq!(connect_target("rwp://example.com").unwrap(), "example.com:8787");
+    // explicit port kept
+    assert_eq!(connect_target("rwp://10.0.0.5:9000").unwrap(), "10.0.0.5:9000");
+    // a path past the authority is dropped
+    assert_eq!(connect_target("rwp://host:1234/ignored").unwrap(), "host:1234");
+    // bracketed IPv6
+    assert_eq!(connect_target("rwp://[::1]").unwrap(), "[::1]:8787");
+    assert_eq!(connect_target("rwp://[::1]:9000").unwrap(), "[::1]:9000");
+    // bare authority (no scheme) tolerated
+    assert_eq!(connect_target("127.0.0.1").unwrap(), "127.0.0.1:8787");
+    // other schemes rejected
+    assert!(connect_target("http://127.0.0.1").is_err());
+    assert!(connect_target("rwp://").is_err());
 }

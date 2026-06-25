@@ -34,6 +34,7 @@ clap = { version = "4", features = ["derive"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
 postcard = { version = "1", features = ["alloc"] }
 
 # Errors

@@ -24,9 +24,10 @@ pub fn deployments(app: &App) -> Element<'_, Message> {
         cell("Duração", 0.16, palette::GRAY),
         cell("Início", 0.18, palette::GRAY),
     ]
-    .spacing(6);
+    .spacing(16)
+    .padding([0, 4]);
 
-    let mut rows = column![header].spacing(3);
+    let mut rows = column![header].spacing(2);
     for s in &app.home_deployments {
         let dep = &s.deployment;
         let (lbl, color) = deploy_state_display(&dep.state);
@@ -36,14 +37,18 @@ pub fn deployments(app: &App) -> Element<'_, Message> {
             .unwrap_or_else(|| fmt_dur((chrono::Utc::now() - dep.started_at).num_seconds()));
         let started = dep.started_at.format("%H:%M:%S").to_string();
         rows = rows.push(
-            row![
-                cell(&s.service_name, 0.24, palette::CYAN),
-                cell(&s.project_name, 0.20, palette::WHITE),
-                cell(lbl, 0.22, color),
-                cell(&duration, 0.16, palette::GRAY),
-                cell(&started, 0.18, palette::GRAY),
-            ]
-            .spacing(6),
+            container(
+                row![
+                    cell(&s.service_name, 0.24, palette::CYAN),
+                    cell(&s.project_name, 0.20, palette::WHITE),
+                    cell(lbl, 0.22, color),
+                    cell(&duration, 0.16, palette::GRAY),
+                    cell(&started, 0.18, palette::GRAY),
+                ]
+                .spacing(16)
+                .align_y(Alignment::Center),
+            )
+            .padding([8, 4]),
         );
     }
 
@@ -51,7 +56,7 @@ pub fn deployments(app: &App) -> Element<'_, Message> {
 }
 
 fn cell<'a>(s: &str, portion: f32, color: Color) -> Element<'a, Message> {
-    container(text(s.to_string()).size(13).color(color))
+    container(text(s.to_string()).size(14).color(color))
         .width(Length::FillPortion((portion * 100.0) as u16))
         .into()
 }
@@ -68,9 +73,9 @@ pub fn deploy_engine(app: &App) -> Element<'_, Message> {
         stat_card("Total 24h", &s.total_24h.to_string(), palette::GRAY),
         stat_card("Uptime", &super::fmt_uptime(s.uptime_secs), palette::CYAN),
     ]
-    .spacing(8);
+    .spacing(14);
 
-    let mut active = column![section("Executando agora")].spacing(3);
+    let mut active = column![section("Executando agora")].spacing(6);
     if s.active.is_empty() {
         active = active.push(muted("Nenhum deploy em progresso."));
     } else {
@@ -79,7 +84,7 @@ pub fn deploy_engine(app: &App) -> Element<'_, Message> {
         }
     }
 
-    let mut recent = column![section("Histórico 24h")].spacing(3);
+    let mut recent = column![section("Histórico 24h")].spacing(6);
     if s.recent.is_empty() {
         recent = recent.push(muted("Nenhum deploy concluído nas últimas 24h."));
     } else {
@@ -93,12 +98,12 @@ pub fn deploy_engine(app: &App) -> Element<'_, Message> {
         "Deploy Engine",
         column![
             cards,
-            Space::with_height(Length::Fixed(10.0)),
+            Space::with_height(Length::Fixed(20.0)),
             active,
-            Space::with_height(Length::Fixed(10.0)),
+            Space::with_height(Length::Fixed(20.0)),
             scrollable(recent).height(Length::Fill),
         ]
-        .spacing(6)
+        .spacing(8)
         .into(),
     )
 }
@@ -106,12 +111,18 @@ pub fn deploy_engine(app: &App) -> Element<'_, Message> {
 fn stat_card<'a>(label: &str, value: &str, color: Color) -> Element<'a, Message> {
     container(
         column![
-            text(value.to_string()).size(22).color(color),
-            text(label.to_string()).size(12).color(palette::GRAY),
+            text(value.to_string())
+                .size(30)
+                .color(color)
+                .wrapping(text::Wrapping::None),
+            text(label.to_string())
+                .size(12)
+                .color(palette::GRAY)
+                .wrapping(text::Wrapping::None),
         ]
-        .spacing(2),
+        .spacing(6),
     )
-    .padding(10)
+    .padding(20)
     .width(Length::FillPortion(1))
     .style(container::rounded_box)
     .into()

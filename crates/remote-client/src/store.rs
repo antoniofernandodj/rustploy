@@ -1,18 +1,18 @@
 //! Persistence of remote-client connection preferences: the optionally
-//! remembered server address (host:port) and access token. Stored as JSON under
-//! the user data dir so the connect screen can prefill on the next launch.
+//! remembered server URL (`rwp://host[:port]`) and access token. Stored as JSON
+//! under the user data dir so the connect screen can prefill on the next launch.
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RemotePrefs {
-    #[serde(default)]
-    pub remember_address: bool,
+    #[serde(default, alias = "remember_address")]
+    pub remember_url: bool,
     #[serde(default)]
     pub remember_token: bool,
-    #[serde(default)]
-    pub address: Option<String>,
+    #[serde(default, alias = "address")]
+    pub url: Option<String>,
     #[serde(default)]
     pub token: Option<String>,
 }
