@@ -894,6 +894,17 @@ impl DeployExecutor {
                     exit_code = ?exit_code,
                     "healthcheck: container parou inesperadamente"
                 );
+                // Captura as últimas linhas do container antes do rollback removê-lo
+                let crash_logs = containers::get_container_logs(&self.docker.inner, &container_id, 50).await;
+                if crash_logs.is_empty() {
+                    self.log_step(&dep.id, &svc.id, "  [sem output do container]").await;
+                } else {
+                    self.log_step(&dep.id, &svc.id, "--- output do container ---").await;
+                    for line in &crash_logs {
+                        self.log_step(&dep.id, &svc.id, line).await;
+                    }
+                    self.log_step(&dep.id, &svc.id, "--------------------------").await;
+                }
                 return Err(anyhow!("container stopped during healthcheck"));
             }
 
@@ -1038,11 +1049,13 @@ impl DeployExecutor {
             env_map.insert(ev.key.clone(), value);
         }
 
-        debug!(
+        let keys: Vec<&str> = env_map.keys().map(|k| k.as_str()).collect();
+        info!(
             service_id = %svc.id,
             project_vars = project_env.len(),
             service_vars = svc.spec.env_vars.len(),
             total = env_map.len(),
+            keys = ?keys,
             "resolve_env: vars resolvidas (projeto + serviço)"
         );
 

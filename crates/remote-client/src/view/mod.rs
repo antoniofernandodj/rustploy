@@ -37,6 +37,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let mut layers: Vec<Element<Message>> = vec![base.into()];
 
+    if app.build_log_modal_open {
+        layers.push(wide_modal(service::build_log_modal_content(app)));
+    }
     if app.new_project_open {
         layers.push(modal(new_project_form(app)));
     }
@@ -186,6 +189,20 @@ fn modal(body: Element<'_, Message>) -> Element<'_, Message> {
         container(body)
             .padding(32)
             .max_width(720)
+            .style(container::rounded_box),
+    )
+    .center_x(Length::Fill)
+    .center_y(Length::Fill)
+    .padding(20)
+    .into()
+}
+
+fn wide_modal(body: Element<'_, Message>) -> Element<'_, Message> {
+    container(
+        container(body)
+            .padding(24)
+            .max_width(1200)
+            .width(Length::Fill)
             .style(container::rounded_box),
     )
     .center_x(Length::Fill)

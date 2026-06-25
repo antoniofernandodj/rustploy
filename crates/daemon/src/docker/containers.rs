@@ -2,11 +2,12 @@ use anyhow::{Result, anyhow};
 use bollard::{
     Docker,
     container::{
-        Config, CreateContainerOptions, InspectContainerOptions, RemoveContainerOptions,
-        RenameContainerOptions, StartContainerOptions, StopContainerOptions,
+        Config, CreateContainerOptions, InspectContainerOptions, LogsOptions,
+        RemoveContainerOptions, RenameContainerOptions, StartContainerOptions, StopContainerOptions,
     },
     models::{HostConfig, Mount, MountTypeEnum, RestartPolicy, RestartPolicyNameEnum},
 };
+use futures::StreamExt;
 use shared::ServiceSpec;
 use std::collections::HashMap;
 use tracing::{debug, info, warn};
@@ -295,6 +296,27 @@ pub async fn get_container_ip(
 
     info!(container_id = %container_id, network = %network_name, ip = %ip, "containers::get_container_ip: IP resolvido");
     Ok(ip)
+}
+
+/// Returns the last `tail` lines of stdout+stderr from a container (best-effort).
+pub async fn get_container_logs(docker: &Docker, container_id: &str, tail: usize) -> Vec<String> {
+    let opts = LogsOptions::<String> {
+        stdout: true,
+        stderr: true,
+        tail: tail.to_string(),
+        ..Default::default()
+    };
+    let mut stream = docker.logs(container_id, Some(opts));
+    let mut lines = Vec::new();
+    while let Some(Ok(output)) = stream.next().await {
+        let text = output.to_string();
+        for line in text.lines() {
+            if !line.is_empty() {
+                lines.push(line.to_string());
+            }
+        }
+    }
+    lines
 }
 
 pub async fn find_all_by_service_id(docker: &Docker, service_id: &str) -> Result<Vec<String>> {

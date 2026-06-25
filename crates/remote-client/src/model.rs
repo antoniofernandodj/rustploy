@@ -1114,6 +1114,7 @@ pub enum Message {
     ComposeSave,
     BuildLogAction(iced::widget::text_editor::Action),
     LogAction(iced::widget::text_editor::Action),
+    BuildLogModal(bool),
     // service env
     SEnvOpen,
     SEnvKey(String),
@@ -1277,6 +1278,7 @@ pub struct App {
     pub webhook_url: Option<String>,
 
     // forms
+    pub build_log_modal_open: bool,
     pub new_project_open: bool,
     pub np_name: String,
     pub np_desc: String,
@@ -1346,6 +1348,7 @@ impl App {
             metrics: HashMap::new(),
             project_secrets: Vec::new(),
             webhook_url: None,
+            build_log_modal_open: false,
             new_project_open: false,
             np_name: String::new(),
             np_desc: String::new(),

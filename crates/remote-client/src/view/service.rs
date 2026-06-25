@@ -526,42 +526,24 @@ fn deployments(app: &App) -> Element<'_, Message> {
         detail = detail.push(ghost_btn("Regenerar token", Message::WebhookRegen));
     }
 
-    // Build logs (read-only: o texto pode ser selecionado e copiado)
-    let build_text: String = app
-        .build_logs
-        .get(&dep.id)
-        .map(|buf| buf.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join("\n"))
-        .unwrap_or_default();
-    use iced::widget::text_editor::{Action, Motion};
-    let build_header = row![
-        section("Build log"),
+    let has_logs = app.build_logs.get(&dep.id).map(|b| !b.is_empty()).unwrap_or(false);
+    let open_logs_btn = row![
         Space::with_width(Length::Fill),
-        ghost_btn("↑ Topo", Message::BuildLogAction(Action::Move(Motion::DocumentStart))),
-        ghost_btn("↓ Fim", Message::BuildLogAction(Action::Move(Motion::DocumentEnd))),
-        copy_all_btn(build_text.clone()),
+        ghost_btn(
+            if has_logs { "Ver build log →" } else { "Build log (vazio)" },
+            Message::BuildLogModal(true),
+        ),
     ]
-    .spacing(6)
     .align_y(Alignment::Center);
-    let build_body: Element<'_, Message> = if build_text.is_empty() {
-        muted("Sem logs de build para este deployment.")
-    } else {
-        text_editor(&app.build_log_editor)
-            .on_action(Message::BuildLogAction)
-            .size(11)
-            .height(Length::Fill)
-            .padding(8)
-            .into()
-    };
 
     panel(
         "Deployments",
         column![
-            list,
+            container(scrollable(list)).max_height(160),
             Space::with_height(Length::Fixed(8.0)),
             detail,
-            Space::with_height(Length::Fixed(8.0)),
-            build_header,
-            build_body,
+            Space::with_height(Length::Fixed(4.0)),
+            open_logs_btn,
         ]
         .spacing(4)
         .into(),
@@ -630,6 +612,61 @@ pub fn kv_form<'a>(
     .spacing(6)
     .align_y(Alignment::Center)
     .into()
+}
+
+/// Conteúdo do modal de build log (aberto por Message::BuildLogModal(true)).
+pub fn build_log_modal_content(app: &App) -> Element<'_, Message> {
+    use iced::widget::text_editor::{Action, Motion};
+
+    if app.service_deployments.is_empty() {
+        return column![
+            text("Build Log").size(18).color(palette::CYAN),
+            Space::with_height(Length::Fixed(12.0)),
+            muted("Nenhum deployment selecionado."),
+            Space::with_height(Length::Fixed(16.0)),
+            ghost_btn("Fechar", Message::BuildLogModal(false)),
+        ]
+        .spacing(8)
+        .into();
+    }
+
+    let dep = &app.service_deployments
+        [app.selected_deployment.min(app.service_deployments.len() - 1)];
+    let (state_lbl, state_color) = super::home::deploy_state_display(&dep.state);
+    let build_text: String = app
+        .build_logs
+        .get(&dep.id)
+        .map(|buf| buf.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join("\n"))
+        .unwrap_or_default();
+
+    let header = row![
+        text(format!("Build Log — {}", dep.id.chars().take(12).collect::<String>()))
+            .size(16)
+            .color(palette::CYAN),
+        text(state_lbl).size(13).color(state_color),
+        Space::with_width(Length::Fill),
+        ghost_btn("↑ Topo", Message::BuildLogAction(Action::Move(Motion::DocumentStart))),
+        ghost_btn("↓ Fim", Message::BuildLogAction(Action::Move(Motion::DocumentEnd))),
+        copy_all_btn(build_text.clone()),
+        ghost_btn("✕ Fechar", Message::BuildLogModal(false)),
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
+
+    let body: Element<'_, Message> = if build_text.is_empty() {
+        muted("Sem logs de build para este deployment.")
+    } else {
+        text_editor(&app.build_log_editor)
+            .on_action(Message::BuildLogAction)
+            .size(11)
+            .height(Length::Fixed(520.0))
+            .padding(8)
+            .into()
+    };
+
+    column![header, Space::with_height(Length::Fixed(10.0)), body]
+        .spacing(4)
+        .into()
 }
 
 /// Formata uma duração em segundos como "Xm Ys" ou "Xh Ym" etc.

@@ -211,6 +211,7 @@ impl App {
             // Logs são read-only: aplicamos apenas ações de seleção/cursor/scroll
             // (cópia via Ctrl+C é tratada internamente pelo widget); ignoramos
             // edições para que o texto continue espelhando o buffer.
+            Message::BuildLogModal(open) => self.build_log_modal_open = open,
             Message::BuildLogAction(action) => {
                 if !action.is_edit() {
                     self.build_log_editor.perform(action);
@@ -245,7 +246,16 @@ impl App {
             Message::SEnvTextAction(action) => self.s_env_text_editor.perform(action),
             Message::SEnvImport => {
                 let text = self.s_env_text_editor.text();
-                let parsed = parse_dotenv(&text);
+                let raw = parse_dotenv(&text);
+                // Keep only the last occurrence of each key (last-wins, same as resolve_env)
+                let mut last_idx: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+                for (i, ev) in raw.iter().enumerate() {
+                    last_idx.insert(ev.key.clone(), i);
+                }
+                let parsed: Vec<shared::EnvVar> = raw.into_iter().enumerate()
+                    .filter(|(i, ev)| last_idx.get(&ev.key) == Some(i))
+                    .map(|(_, ev)| ev)
+                    .collect();
                 self.s_env_text_open = false;
                 self.update_spec(move |s| s.env_vars = parsed);
             }
