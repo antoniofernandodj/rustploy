@@ -315,16 +315,33 @@ fn labeled_static(label: &str, value: String) -> Element<'static, Message> {
 }
 
 fn environment<'a>(app: &'a App, svc: &'a shared::Service) -> Element<'a, Message> {
+    let text_btn_label = if app.s_env_text_open { "Fechar .env" } else { ".env" };
     let mut col = column![
         row![
             section("Environment Variables"),
             Space::with_width(Length::Fill),
+            ghost_btn("Exportar", Message::SEnvExport),
+            ghost_btn(text_btn_label, Message::SEnvTextOpen),
             ghost_btn("+ Adicionar", Message::SEnvOpen),
-        ].align_y(Alignment::Center),
+        ].spacing(6).align_y(Alignment::Center),
     ]
     .spacing(6);
 
-    if app.s_env_editor.open {
+    if app.s_env_text_open {
+        col = col.push(
+            column![
+                muted("Cole ou edite no formato KEY=VALUE (# para comentários). Importar substitui todas as variáveis."),
+                text_editor(&app.s_env_text_editor)
+                    .on_action(Message::SEnvTextAction)
+                    .height(Length::Fixed(200.0)),
+                row![
+                    primary_btn("Importar", Message::SEnvImport),
+                    ghost_btn("Cancelar", Message::SEnvTextOpen),
+                ].spacing(8),
+            ]
+            .spacing(6),
+        );
+    } else if app.s_env_editor.open {
         col = col.push(kv_form(
             &app.s_env_editor.key,
             &app.s_env_editor.value,

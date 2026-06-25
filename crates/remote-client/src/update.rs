@@ -225,12 +225,36 @@ impl App {
             // ── Service env ───────────────────────────────────────────────
             Message::SEnvOpen => {
                 self.s_env_editor = KvEditor { open: true, ..Default::default() };
+                self.s_env_text_open = false;
             }
             Message::SEnvKey(v) => self.s_env_editor.key = v,
             Message::SEnvVal(v) => self.s_env_editor.value = v,
             Message::SEnvCancel => self.s_env_editor.open = false,
             Message::SEnvSubmit => self.service_env_add(),
             Message::SEnvDelete(i) => self.service_env_delete(i),
+            Message::SEnvTextOpen => {
+                self.s_env_text_open = !self.s_env_text_open;
+                self.s_env_editor.open = false;
+                if self.s_env_text_open {
+                    let text = env_vars_to_dotenv(
+                        self.current_service().map(|s| s.spec.env_vars.as_slice()).unwrap_or(&[])
+                    );
+                    self.s_env_text_editor = iced::widget::text_editor::Content::with_text(&text);
+                }
+            }
+            Message::SEnvTextAction(action) => self.s_env_text_editor.perform(action),
+            Message::SEnvImport => {
+                let text = self.s_env_text_editor.text();
+                let parsed = parse_dotenv(&text);
+                self.s_env_text_open = false;
+                self.update_spec(move |s| s.env_vars = parsed);
+            }
+            Message::SEnvExport => {
+                let text = env_vars_to_dotenv(
+                    self.current_service().map(|s| s.spec.env_vars.as_slice()).unwrap_or(&[])
+                );
+                return iced::clipboard::write(text);
+            }
 
             // ── Domains ───────────────────────────────────────────────────
             Message::DomDomain(v) => self.domains.domain = v,
@@ -1080,6 +1104,50 @@ impl App {
 }
 
 /// Convenience used by the views to colour a service status.
+/// Converte uma lista de env vars para o formato de arquivo `.env`.
+pub fn env_vars_to_dotenv(env_vars: &[shared::EnvVar]) -> String {
+    env_vars
+        .iter()
+        .map(|ev| {
+            let val = match &ev.value {
+                shared::EnvVarValue::Plain(v) => v.clone(),
+                shared::EnvVarValue::Secret(s) => format!("<secret:{s}>"),
+            };
+            format!("{}={}", ev.key, val)
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Faz parse de texto no formato `.env` em uma lista de env vars.
+/// Ignora linhas vazias e comentários (`#`). Remove aspas simples/duplas do valor.
+pub fn parse_dotenv(text: &str) -> Vec<shared::EnvVar> {
+    text.lines()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .filter_map(|l| {
+            let (k, v) = l.split_once('=')?;
+            let key = k.trim().to_string();
+            if key.is_empty() {
+                return None;
+            }
+            let v = v.trim();
+            let val = if v.len() >= 2
+                && ((v.starts_with('"') && v.ends_with('"'))
+                    || (v.starts_with('\'') && v.ends_with('\'')))
+            {
+                v[1..v.len() - 1].to_string()
+            } else {
+                v.to_string()
+            };
+            Some(shared::EnvVar {
+                key,
+                value: shared::EnvVarValue::Plain(val),
+            })
+        })
+        .collect()
+}
+
 pub fn status_color(status: &ServiceStatus) -> iced::Color {
     match status {
         ServiceStatus::Running => palette::GREEN,
