@@ -8,6 +8,18 @@ default-run = "rustploy-remote"
 name = "rustploy-remote"
 path = "src/main.rs"
 
+[package.metadata.deb]
+name                 = "rustploy-remote"
+maintainer           = "Antonio Fernando <antoniofernando2723@gmail.com>"
+copyright            = "2026, Antonio Fernando"
+extended-description = "Rustploy remote GUI client — graphical interface for the Rustploy PaaS"
+section              = "admin"
+priority             = "optional"
+depends              = "$auto"
+assets = [
+    ["target/release/rustploy-remote", "usr/bin/rustploy-remote", "755"],
+]
+
 [dependencies]
 shared = { path = "../shared" }
 

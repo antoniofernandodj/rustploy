@@ -82,6 +82,18 @@ install: deb ## Instala os pacotes .deb via dpkg
 install-client: ## Instala apenas o client (requer make deb antes)
 	sudo dpkg -i $$(ls target/debian/rustploy_*.deb | tail -1)
 
+.PHONY: deb-remote-client
+deb-remote-client: ## Compila e gera apenas o .deb do remote-client
+	cargo build --release -p remote-client
+	cargo deb -p remote-client --no-build
+	@echo ""
+	@echo "$(GREEN)Pacote gerado:$(RESET)"
+	@ls -lh target/debian/rustploy-remote_*.deb
+
+.PHONY: install-remote-client
+install-remote-client: deb-remote-client ## Compila, empacota e instala o remote-client
+	sudo dpkg -i $$(ls target/debian/rustploy-remote_*.deb | tail -1)
+
 .PHONY: uninstall
 uninstall: ## Remove os pacotes instalados
 	sudo dpkg -r rustployd rustploy || true
