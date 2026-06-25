@@ -3,10 +3,9 @@ use bollard::{
     Docker,
     container::{
         Config, CreateContainerOptions, InspectContainerOptions, LogsOptions,
-        NetworkingConfig, RemoveContainerOptions, RenameContainerOptions, StartContainerOptions,
-        StopContainerOptions,
+        RemoveContainerOptions, RenameContainerOptions, StartContainerOptions, StopContainerOptions,
     },
-    models::{EndpointSettings, HostConfig, Mount, MountTypeEnum, RestartPolicy, RestartPolicyNameEnum},
+    models::{HostConfig, Mount, MountTypeEnum, RestartPolicy, RestartPolicyNameEnum},
 };
 use futures::StreamExt;
 use shared::ServiceSpec;
@@ -119,11 +118,10 @@ pub async fn create_staging(
     );
 
     let host_config = HostConfig {
-        // network_mode não é definido: a rede user-defined é declarada em
-        // networking_config abaixo, o que faz o Docker configurar o DNS embebido
-        // (127.0.0.11) desde a criação — necessário para resolução de nomes de
-        // outros containers na mesma rede antes do primeiro start.
-        // Port bindings são gerenciados pelo ingress proxy.
+        // network_mode substitui a bridge padrão pela rede user-defined do projeto.
+        // Equivalente a `docker run --network <rede>`: o Docker configura o DNS
+        // embebido (127.0.0.11) imediatamente, sem depender de network connect.
+        network_mode: Some(network_id.to_string()),
         mounts: Some(mounts),
         memory: mem_limit,
         cpu_shares,
@@ -146,9 +144,6 @@ pub async fn create_staging(
         None
     };
 
-    let mut endpoints = HashMap::new();
-    endpoints.insert(network_id.to_string(), EndpointSettings::default());
-
     let config = Config {
         image: Some(image.to_string()),
         env: Some(env),
@@ -160,7 +155,6 @@ pub async fn create_staging(
             m.insert(format!("{}/tcp", spec.port), HashMap::new());
             m
         }),
-        networking_config: Some(NetworkingConfig { endpoints_config: endpoints }),
         ..Default::default()
     };
 
