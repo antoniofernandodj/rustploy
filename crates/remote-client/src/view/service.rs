@@ -364,10 +364,10 @@ fn environment<'a>(app: &'a App, svc: &'a shared::Service) -> Element<'a, Messag
             };
             col = col.push(
                 row![
-                    text(ev.key.clone()).size(13).color(palette::CYAN).width(Length::Fixed(220.0)),
+                    button(text("✕").size(11)).on_press(Message::SEnvDelete(i)).style(button::danger).padding([2, 6]),
+                    text(ev.key.clone()).size(13).color(palette::CYAN).width(Length::Fixed(200.0)),
                     text("=").size(13).color(palette::GRAY),
                     text(val).size(13).color(palette::WHITE).width(Length::Fill),
-                    button(text("✕").size(12)).on_press(Message::SEnvDelete(i)).style(button::danger).padding([2, 8]),
                 ]
                 .spacing(8)
                 .align_y(Alignment::Center),
