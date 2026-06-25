@@ -3,9 +3,10 @@ use bollard::{
     Docker,
     container::{
         Config, CreateContainerOptions, InspectContainerOptions, LogsOptions,
-        RemoveContainerOptions, RenameContainerOptions, StartContainerOptions, StopContainerOptions,
+        NetworkingConfig, RemoveContainerOptions, RenameContainerOptions, StartContainerOptions,
+        StopContainerOptions,
     },
-    models::{HostConfig, Mount, MountTypeEnum, RestartPolicy, RestartPolicyNameEnum},
+    models::{EndpointSettings, HostConfig, Mount, MountTypeEnum, RestartPolicy, RestartPolicyNameEnum},
 };
 use futures::StreamExt;
 use shared::ServiceSpec;
@@ -118,13 +119,11 @@ pub async fn create_staging(
     );
 
     let host_config = HostConfig {
-        // Sem network_mode: Docker conecta à bridge padrão na criação.
-        // A conexão à rede user-defined é feita via `network connect` antes do start
-        // (no executor). Essa sequência create→connect→start é a única que garante
-        // que IPAddress apareça corretamente no inspect para redes user-defined.
-        // Port bindings são gerenciados pelo ingress proxy — containers só expõem
-        // a porta internamente para que dois containers nunca briguem pela mesma
-        // porta do host durante um rolling deploy.
+        // network_mode não é definido: a rede user-defined é declarada em
+        // networking_config abaixo, o que faz o Docker configurar o DNS embebido
+        // (127.0.0.11) desde a criação — necessário para resolução de nomes de
+        // outros containers na mesma rede antes do primeiro start.
+        // Port bindings são gerenciados pelo ingress proxy.
         mounts: Some(mounts),
         memory: mem_limit,
         cpu_shares,
@@ -147,6 +146,9 @@ pub async fn create_staging(
         None
     };
 
+    let mut endpoints = HashMap::new();
+    endpoints.insert(network_id.to_string(), EndpointSettings::default());
+
     let config = Config {
         image: Some(image.to_string()),
         env: Some(env),
@@ -158,6 +160,7 @@ pub async fn create_staging(
             m.insert(format!("{}/tcp", spec.port), HashMap::new());
             m
         }),
+        networking_config: Some(NetworkingConfig { endpoints_config: endpoints }),
         ..Default::default()
     };
 

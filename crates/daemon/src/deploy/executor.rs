@@ -304,7 +304,6 @@ impl DeployExecutor {
                         &cname,
                     )
                     .await?;
-                    networks::connect_container(&self.docker.inner, &network, &id).await?;
                     containers::start(&self.docker.inner, &id).await?;
                     return Ok(DeployState::HealthcheckPolling);
                 }
@@ -360,8 +359,6 @@ impl DeployExecutor {
                         &staging,
                     )
                     .await?;
-                    networks::connect_container(&self.docker.inner, &network, &staging_id)
-                        .await?;
                     containers::start(&self.docker.inner, &staging_id).await?;
 
                     let ip = containers::get_container_ip(
