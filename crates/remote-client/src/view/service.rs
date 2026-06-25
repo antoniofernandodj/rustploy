@@ -247,6 +247,7 @@ fn gitea_provider_body(app: &App) -> Element<'_, Message> {
         Space::with_height(Length::Fixed(8.0)),
         section("Build"),
         labeled_input("Build Path", ".", &gf.build_path, Message::GiteaBuildPath),
+        labeled_input("Dockerfile", "Dockerfile", &gf.dockerfile, Message::GiteaDockerfile),
         row![
             container(label_text("Enable Submodules")).width(Length::Fixed(190.0)),
             checkbox("", gf.submodules).on_toggle(Message::GiteaSubmodules),

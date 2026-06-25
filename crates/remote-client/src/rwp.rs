@@ -56,10 +56,11 @@ pub async fn connect(addr: &str, token: Option<&str>) -> anyhow::Result<TcpStrea
     };
 
     if auth_required {
+        let tok = token.unwrap_or("");
         write_frame(
             &mut s,
             &RwpFrame::Authenticate {
-                token: token.unwrap_or("").to_string(),
+                token: tok.to_string(),
             },
         )
         .await?;

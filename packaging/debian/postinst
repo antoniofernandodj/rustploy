@@ -46,7 +46,10 @@ fi
 chown rustploy:rustploy "$CONFIG" 2>/dev/null || true
 chmod 640 "$CONFIG" 2>/dev/null || true
 
-# Socket permissions — allow group members to connect
-chmod 775 /run/rustploy 2>/dev/null || true
+if [ "$1" = "configure" ]; then
+    systemctl daemon-reload              >/dev/null 2>&1 || true
+    systemctl enable  rustployd          >/dev/null 2>&1 || true
+    systemctl restart rustployd          >/dev/null 2>&1 || true
+fi
 
 #DEBHELPER#

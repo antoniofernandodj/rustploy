@@ -178,6 +178,24 @@ async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response<Ful
         }
     };
 
+    // Auto-registra a redirect URI atual no app OAuth2 do Gitea para que
+    // futuras trocas funcionem mesmo após mudança do webhook_base_url.
+    {
+        let base_url = provider.base_url.clone();
+        let token = tokens.access_token.clone();
+        let cid = client_id.clone();
+        let ru = redirect_uri.clone();
+        tokio::spawn(async move {
+            if let Err(e) = crate::git_providers::gitea::ensure_redirect_uri(
+                &base_url, &token, &cid, &ru,
+            )
+            .await
+            {
+                warn!(error = %e, "oauth: falha ao sincronizar redirect URI no Gitea (não crítico)");
+            }
+        });
+    }
+
     let account = match crate::git_providers::gitea::current_user(&provider.base_url, &tokens.access_token).await {
         Ok(a) => a,
         Err(e) => {

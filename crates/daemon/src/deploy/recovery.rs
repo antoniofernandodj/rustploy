@@ -5,7 +5,7 @@ use crate::{
     ingress::{IngressController, TlsManager},
     secrets::SecretsManager,
 };
-use shared::{DeployState, ServiceStatus};
+use shared::{DeployState, Service, ServiceStatus};
 use std::{path::PathBuf, sync::Arc};
 use tracing::{info, warn};
 
@@ -158,6 +158,119 @@ pub async fn recover(
     }
 }
 
+/// Reconciles every service's DB status against actual Docker container state.
+/// Marks stopped containers as Stopped, running containers as Running, and
+/// keeps ingress routes in sync. Safe to call at any time; non-destructive.
+pub async fn reconcile(
+    db: &Db,
+    docker: &DockerClient,
+    ingress: &IngressController,
+    tls: &Arc<TlsManager>,
+) {
+    let services = match crate::db::services::list_all(db).await {
+        Ok(v) => v,
+        Err(e) => {
+            warn!(error = %e, "reconcile: falha ao listar serviços");
+            return;
+        }
+    };
+
+    for svc in services {
+        let replicas = svc.spec.replicas.max(1);
+        let net = format!(
+            "rp_net_{}",
+            &svc.spec.project_id[..8.min(svc.spec.project_id.len())]
+        );
+
+        let mut backends: Vec<String> = Vec::new();
+
+        for i in 0..replicas {
+            let live_name = containers::replica_live_name(&svc.spec.name, i);
+            if let Ok(Some(cid)) = containers::find_by_name(&docker.inner, &live_name).await {
+                if let Ok(ip) =
+                    containers::get_container_ip(&docker.inner, &cid, &net).await
+                {
+                    backends.push(format!("{ip}:{}", svc.spec.port));
+                }
+            }
+        }
+
+        if backends.is_empty() {
+            let compose_prefix = format!("rp_{}-", svc.spec.name);
+            if let Ok(Some(cid)) =
+                containers::find_by_prefix(&docker.inner, &compose_prefix).await
+            {
+                if let Ok(ip) =
+                    containers::get_container_ip(&docker.inner, &cid, &net).await
+                {
+                    backends.push(format!("{ip}:{}", svc.spec.port));
+                }
+            }
+        }
+
+        let is_running = !backends.is_empty();
+        let was_running = matches!(svc.status, ServiceStatus::Running | ServiceStatus::Degraded);
+
+        match (is_running, was_running) {
+            (true, false) => {
+                info!(service = svc.spec.name, "reconcile: container encontrado, marcando Running");
+                let _ = crate::db::services::update_status(
+                    db,
+                    &svc.id,
+                    &ServiceStatus::Running,
+                    None,
+                )
+                .await;
+                reconcile_routes(&svc, backends, ingress, tls).await;
+            }
+            (false, true) => {
+                info!(service = svc.spec.name, "reconcile: container ausente, marcando Stopped");
+                let _ = crate::db::services::update_status(
+                    db,
+                    &svc.id,
+                    &ServiceStatus::Stopped,
+                    None,
+                )
+                .await;
+                if let Some(domain) = &svc.spec.domain {
+                    ingress.remove_route(domain);
+                }
+                if let Some(host_port) = svc.spec.host_port {
+                    ingress.remove_port_route(host_port);
+                }
+            }
+            (true, true) => {
+                // Container e DB ambos Running: garante que as rotas estão registradas.
+                reconcile_routes(&svc, backends, ingress, tls).await;
+            }
+            (false, false) => {}
+        }
+    }
+}
+
+async fn reconcile_routes(
+    svc: &Service,
+    backends: Vec<String>,
+    ingress: &IngressController,
+    tls: &Arc<TlsManager>,
+) {
+    if let Some(domain) = &svc.spec.domain {
+        ingress.upsert_route(domain, backends.clone(), &svc.id);
+        if svc.spec.tls_enabled {
+            let tls = tls.clone();
+            let domain = domain.clone();
+            tokio::spawn(async move {
+                if let Err(e) = tls.ensure_cert(&domain).await {
+                    warn!(domain = %domain, error = %e, "reconcile: falha ao garantir cert TLS");
+                }
+            });
+        }
+    }
+    if let Some(host_port) = svc.spec.host_port {
+        ingress.upsert_port_route(host_port, backends);
+    }
+}
+
 async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressController, tls: &Arc<TlsManager>) {
     let services = match crate::db::services::get_running(db).await {
         Ok(v) => v,
@@ -192,9 +305,10 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
             }
         }
 
-        // Fallback para Compose: encontra via prefixo e usa single backend
+        // Fallback para Compose: encontra via prefixo do projeto (rp_<name>-)
+        // O nome interno do serviço no compose file pode diferir do nome rustploy.
         if backends.is_empty() {
-            let compose_prefix = format!("rp_{}-{}", svc.spec.name, svc.spec.name);
+            let compose_prefix = format!("rp_{}-", svc.spec.name);
             if let Ok(Some(cid)) =
                 containers::find_by_prefix(&docker.inner, &compose_prefix).await
             {

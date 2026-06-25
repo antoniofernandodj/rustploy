@@ -779,8 +779,10 @@ impl DeployExecutor {
                 )
                 .await?;
 
-                // Compose ingress: tenta encontrar o container principal para roteamento
-                let main_container = format!("{}-{}", project_name, svc.spec.name);
+                // Compose ingress: busca qualquer container do projeto (prefix = "rp_<name>-")
+                // O nome interno do serviço no compose file pode diferir do nome rustploy,
+                // então usamos só o prefixo do projeto em vez de "rp_<name>-<name>".
+                let main_container = format!("{}-", project_name);
                 if let Ok(Some(cid)) = containers::find_by_prefix(&self.docker.inner, &main_container).await {
                     if let Ok(ip) = containers::get_container_ip(&self.docker.inner, &cid, &network_name).await {
                         let backend = format!("{ip}:{}", svc.spec.port);

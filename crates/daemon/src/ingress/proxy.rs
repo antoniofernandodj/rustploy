@@ -219,7 +219,14 @@ async fn handle(
         return Ok(status_response(StatusCode::NOT_FOUND));
     };
 
-    let stream = match TcpStream::connect(&backend_addr).await {
+    forward(req, &backend_addr).await
+}
+
+async fn forward(
+    req: Request<Incoming>,
+    backend_addr: &str,
+) -> Result<Response<ProxyBody>, std::convert::Infallible> {
+    let stream = match TcpStream::connect(backend_addr).await {
         Ok(s) => s,
         Err(e) => {
             warn!(backend = backend_addr, error = %e, "backend connect failed");

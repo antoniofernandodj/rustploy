@@ -433,6 +433,7 @@ impl App {
             }
             Message::GiteaBranchPick(b) => self.gitea.branch = Some(b),
             Message::GiteaBuildPath(v) => self.gitea.build_path = v,
+            Message::GiteaDockerfile(v) => self.gitea.dockerfile = v,
             Message::GiteaSubmodules(b) => self.gitea.submodules = b,
             Message::GiteaPort(v) => self.gitea.port = v,
             Message::GiteaWatchAdd => self.gitea.watch_paths.push(String::new()),

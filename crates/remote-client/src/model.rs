@@ -1175,6 +1175,7 @@ pub enum Message {
     GiteaRepoPick(RepoChoice),
     GiteaBranchPick(String),
     GiteaBuildPath(String),
+    GiteaDockerfile(String),
     GiteaSubmodules(bool),
     GiteaPort(String),
     GiteaWatchAdd,

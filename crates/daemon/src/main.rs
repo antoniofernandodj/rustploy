@@ -143,6 +143,25 @@ async fn main() -> Result<()> {
         });
     }
 
+    // Reconciliation loop: sincroniza status DB ↔ Docker a cada 30 segundos
+    {
+        let state2 = state.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop {
+                interval.tick().await;
+                deploy::recovery::reconcile(
+                    &state2.db,
+                    &state2.docker,
+                    &state2.ingress,
+                    &state2.tls,
+                )
+                .await;
+            }
+        });
+    }
+
     // Loop de renovação de certificados TLS (a cada 12 horas)
     {
         let tls_renew = tls.clone();

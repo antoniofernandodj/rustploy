@@ -184,6 +184,61 @@ pub async fn list_branches(
         .collect())
 }
 
+#[derive(Deserialize)]
+struct OAuthAppItem {
+    id: i64,
+    name: String,
+    redirect_uris: Vec<String>,
+    client_id: String,
+}
+
+/// Garante que `redirect_uri` está cadastrada no app OAuth2 identificado por
+/// `client_id`. Usa a API do Gitea autenticada com `token` (access token do
+/// próprio usuário). Adiciona a URI se ausente; não remove as existentes.
+pub async fn ensure_redirect_uri(
+    base_url: &str,
+    token: &str,
+    client_id: &str,
+    redirect_uri: &str,
+) -> Result<()> {
+    let url = format!("{}/api/v1/user/applications/oauth2", base(base_url));
+    let resp = client()?
+        .get(&url)
+        .header("Authorization", format!("token {token}"))
+        .send()
+        .await
+        .context("falha ao listar OAuth apps do Gitea")?;
+    let resp = error_for_status(resp).await?;
+    let apps: Vec<OAuthAppItem> = resp.json().await.context("oauth apps response inválido")?;
+
+    let app = match apps.into_iter().find(|a| a.client_id == client_id) {
+        Some(a) => a,
+        None => anyhow::bail!("app OAuth2 não encontrado para client_id={client_id}"),
+    };
+
+    if app.redirect_uris.iter().any(|u| u == redirect_uri) {
+        return Ok(());
+    }
+
+    let mut new_uris = app.redirect_uris;
+    new_uris.push(redirect_uri.to_string());
+
+    let patch_url = format!("{}/api/v1/user/applications/oauth2/{}", base(base_url), app.id);
+    let resp = client()?
+        .patch(&patch_url)
+        .header("Authorization", format!("token {token}"))
+        .json(&serde_json::json!({
+            "name": app.name,
+            "redirect_uris": new_uris,
+        }))
+        .send()
+        .await
+        .context("falha ao atualizar redirect URI no Gitea")?;
+    error_for_status(resp).await?;
+
+    Ok(())
+}
+
 /// Turns a non-2xx response into an error carrying the body for diagnostics.
 async fn error_for_status(resp: reqwest::Response) -> Result<reqwest::Response> {
     let status = resp.status();

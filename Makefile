@@ -51,6 +51,14 @@ lint: fmt-check clippy ## fmt-check + clippy
 
 # ── Packaging ─────────────────────────────────────────────────────────────────
 
+.PHONY: deb-daemon
+deb-daemon: ## Compila e gera apenas o .deb do daemon
+	cargo build --release -p daemon
+	cargo deb -p daemon --no-build
+	@echo ""
+	@echo "$(GREEN)Pacote gerado:$(RESET)"
+	@ls -lh target/debian/rustployd_*.deb
+
 .PHONY: deb
 deb: build ## Gera os pacotes .deb (daemon + client)
 	cargo deb -p daemon --no-build
@@ -59,17 +67,17 @@ deb: build ## Gera os pacotes .deb (daemon + client)
 	@echo "$(GREEN)Pacotes gerados:$(RESET)"
 	@ls -lh target/debian/*.deb
 
+.PHONY: install-daemon
+install-daemon: deb-daemon ## Compila, empacota e instala apenas o daemon
+	sudo dpkg -i $$(ls target/debian/rustployd_*.deb | tail -1)
+
 .PHONY: install
 install: deb ## Instala os pacotes .deb via dpkg
 	sudo dpkg -i $$(ls target/debian/rustployd_*.deb | tail -1)
 	sudo dpkg -i $$(ls target/debian/rustploy_*.deb  | tail -1)
 
-.PHONY: install-daemon
-install-daemon: ## Instala apenas o daemon
-	sudo dpkg -i $$(ls target/debian/rustployd_*.deb | tail -1)
-
 .PHONY: install-client
-install-client: ## Instala apenas o client
+install-client: ## Instala apenas o client (requer make deb antes)
 	sudo dpkg -i $$(ls target/debian/rustploy_*.deb | tail -1)
 
 .PHONY: uninstall

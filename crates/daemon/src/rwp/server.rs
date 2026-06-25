@@ -119,13 +119,36 @@ async fn handle_connection(
         match frame {
             RwpFrame::Authenticate { token } => {
                 let expected = cfg.token.as_deref().unwrap_or("");
+                tracing::debug!(
+                    received_len = token.len(),
+                    expected_len = expected.len(),
+                    received = %token,
+                    expected = %expected,
+                    "RWP: comparando tokens"
+                );
                 if !constant_time_eq(token.as_bytes(), expected.as_bytes()) {
-                    warn!("RWP: falha de autenticação");
+                    warn!(
+                        received_len = token.len(),
+                        expected_len = expected.len(),
+                        "RWP: falha de autenticação"
+                    );
                     let reply = RwpReply::Error(RwpError::new("Unauthorized", "token inválido"));
                     write_reply(&mut stream, &reply, cfg.max_frame_size).await?;
                     return Ok(()); // close on auth failure
                 }
                 write_reply(&mut stream, &RwpReply::AuthOk, cfg.max_frame_size).await?;
+
+                // Reconcilia status DB ↔ Docker ao autenticar para que o cliente
+                // remoto veja o estado real imediatamente.
+                {
+                    let db = state.db.clone();
+                    let docker = state.docker.clone();
+                    let ingress = state.ingress.clone();
+                    let tls = state.tls.clone();
+                    tokio::spawn(async move {
+                        crate::deploy::recovery::reconcile(&db, &docker, &ingress, &tls).await;
+                    });
+                }
             }
             _ => {
                 let reply = RwpReply::Error(RwpError::new(

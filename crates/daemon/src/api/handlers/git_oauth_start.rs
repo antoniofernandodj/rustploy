@@ -1,5 +1,6 @@
 use crate::api::AppState;
 use shared::Response;
+use tracing::warn;
 use ulid::Ulid;
 
 /// Produces the Gitea authorization URL the client opens in a browser, after
@@ -25,6 +26,23 @@ pub async fn handle(state: AppState, provider_id: String) -> Response {
             );
         }
     };
+
+    // Se já há um access token armazenado, tenta garantir que a redirect URI
+    // atual está registrada no Gitea — auto-cura após mudança de webhook_base_url.
+    if let Some(enc) = &provider.access_token_enc {
+        if let Ok(token) = state.secrets.decrypt(enc) {
+            if let Err(e) = crate::git_providers::gitea::ensure_redirect_uri(
+                &provider.base_url,
+                &token,
+                &client_id,
+                &redirect_uri,
+            )
+            .await
+            {
+                warn!(error = %e, "oauth: falha ao pré-sincronizar redirect URI (continuando)");
+            }
+        }
+    }
 
     let csrf = Ulid::new().to_string();
     state
