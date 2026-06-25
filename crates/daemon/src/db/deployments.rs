@@ -222,3 +222,11 @@ pub async fn stats_last_24h(db: &Db) -> Result<(u64, u64, u64)> {
     .unwrap_or(0);
     Ok((total as u64, successful as u64, failed as u64))
 }
+
+pub async fn delete(db: &Db, id: &str) -> Result<()> {
+    sqlx::query("DELETE FROM deployment WHERE id = ?")
+        .bind(id)
+        .execute(db)
+        .await?;
+    Ok(())
+}

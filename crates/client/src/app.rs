@@ -598,6 +598,26 @@ impl App {
                 self.view = View::ProjectDetail;
                 self.set_notification("Serviço removido", false);
             }
+            (Response::Ok, CmdContext::DeleteDeployment(did)) => {
+                self.service_deployments.retain(|d| d.id != did);
+                self.build_logs.remove(&did);
+                // Ajustar cursor se necessário
+                let max = self.service_deployments.len().saturating_sub(1);
+                if self.deployment_cursor > max {
+                    self.deployment_cursor = max;
+                }
+                // Carregar logs do novo deployment seleccionado
+                if let Some(dep) = self.service_deployments.get(self.deployment_cursor) {
+                    self.pending_commands.push(PendingCommand {
+                        command: Command::GetBuildLogs {
+                            deployment_id: dep.id.clone(),
+                        },
+                        context: CmdContext::LoadBuildLogs,
+                    });
+                }
+                self.set_notification("Deployment removido", false);
+            }
+
             (Response::Deployments(deps), CmdContext::LoadDeployments) => {
                 if let Some(first) = deps.first() {
                     self.pending_commands.push(PendingCommand {

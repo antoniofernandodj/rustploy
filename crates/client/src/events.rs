@@ -1211,6 +1211,17 @@ fn handle_deployments_tab(app: &mut App, key: KeyEvent) {
                 app.set_notification("Rollback iniciado", false);
             }
         }
+        KeyCode::Char('x') => {
+            let cursor = app.deployment_cursor
+                .min(app.service_deployments.len().saturating_sub(1));
+            if let Some(dep) = app.service_deployments.get(cursor) {
+                let did = dep.id.clone();
+                app.pending_commands.push(PendingCommand {
+                    command: Command::DeployDelete { deployment_id: did.clone() },
+                    context: CmdContext::DeleteDeployment(did),
+                });
+            }
+        }
         KeyCode::Char('c') => {
             if let Some(url) = app.webhook_url.clone() {
                 copy_to_clipboard(app, &url);

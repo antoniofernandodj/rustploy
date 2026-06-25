@@ -4,6 +4,7 @@ pub mod secret_delete;
 pub mod secret_list;
 pub mod secret_set;
 pub mod deploy_abort;
+pub mod deploy_delete;
 pub mod deploy_engine_status;
 pub mod deploy_history;
 pub mod deploy_rollback;

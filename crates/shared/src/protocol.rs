@@ -63,6 +63,9 @@ pub enum Command {
         service_id: String,
         limit: usize,
     },
+    DeployDelete {
+        deployment_id: String,
+    },
 
     // Service lifecycle
     ServiceStop {

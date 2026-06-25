@@ -846,7 +846,7 @@ fn render_deployments_tab(f: &mut Frame, app: &App, area: Rect) {
     let has_webhook = app.webhook_url.is_some();
     let block = Block::default()
         .borders(Borders::ALL)
-        .title(" Deployments — [↑↓] navegar  [[] log ▲  []] log ▼  [g/G] início/fim  [r] rollback ")
+        .title(" Deployments — [↑↓] navegar  [[] log ▲  []] log ▼  [g/G] início/fim  [r] rollback  [x] excluir ")
         .border_style(Style::default().fg(Color::DarkGray));
 
     let deps = &app.service_deployments;

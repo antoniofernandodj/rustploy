@@ -5,219 +5,258 @@ use ratatui::{
     style::{Color, Style},
     symbols,
     text::{Line, Span},
-    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Row, Table},
+    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph},
 };
-use shared::ServiceStatus;
 
 // ── Global monitoring (Home > Monitoring) ─────────────────────────────────────
 
 pub fn render_global(f: &mut Frame, app: &App, area: Rect) {
-    let chunks = Layout::default()
+    let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(7),  // painel SO
-            Constraint::Min(0),     // tabela serviços + charts
+            Constraint::Percentage(50), // SO: CPU | RAM
+            Constraint::Percentage(50), // Containers: CPU total | RAM total
         ])
         .split(area);
 
-    render_system_panel(f, app, chunks[0]);
-    render_services_panel(f, app, chunks[1]);
+    render_os_row(f, app, rows[0]);
+    render_aggregate_row(f, app, rows[1]);
 }
 
-fn render_system_panel(f: &mut Frame, app: &App, area: Rect) {
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .title(" Sistema ")
-        .border_style(Style::default().fg(Color::DarkGray));
+// ── Linha 1: métricas de SO ────────────────────────────────────────────────
 
-    let inner = block.inner(area);
-    f.render_widget(block, area);
+fn render_os_row(f: &mut Frame, app: &App, area: Rect) {
+    let cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(area);
 
     if app.system_metrics.is_empty() {
+        let waiting = Paragraph::new(Span::styled(
+            "  Aguardando métricas do sistema…",
+            Style::default().fg(Color::DarkGray),
+        ))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Sistema — CPU% ")
+                .border_style(Style::default().fg(Color::DarkGray)),
+        );
+        f.render_widget(waiting, cols[0]);
         f.render_widget(
-            Paragraph::new(Span::styled(
-                "  Aguardando métricas do sistema…",
-                Style::default().fg(Color::DarkGray),
-            )),
-            inner,
+            Paragraph::new("").block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(" Sistema — RAM ")
+                    .border_style(Style::default().fg(Color::DarkGray)),
+            ),
+            cols[1],
         );
         return;
     }
 
     let latest = app.system_metrics.back().unwrap();
-
-    let cols = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(33),
-            Constraint::Percentage(33),
-            Constraint::Percentage(34),
-        ])
-        .split(inner);
+    let n = app.system_metrics.len() as f64;
 
     // CPU
-    let cpu_history: Vec<(f64, f64)> = app
+    let cpu_data: Vec<(f64, f64)> = app
         .system_metrics
         .iter()
         .enumerate()
         .map(|(i, m)| (i as f64, m.cpu_percent))
         .collect();
-    let cpu_max = cpu_history.iter().map(|(_, v)| *v).fold(10.0f64, f64::max);
-    let cpu_ds = Dataset::default()
-        .marker(symbols::Marker::Braille)
-        .graph_type(GraphType::Line)
-        .style(Style::default().fg(Color::Green))
-        .data(&cpu_history);
-    let cpu_chart = Chart::new(vec![cpu_ds])
-        .block(Block::default().borders(Borders::ALL).title(format!(
-            " CPU  {:.1}% ",
-            latest.cpu_percent
-        )))
-        .x_axis(Axis::default().bounds([0.0, app.system_metrics.len() as f64]))
-        .y_axis(
-            Axis::default()
-                .bounds([0.0, cpu_max.max(100.0)])
-                .labels(vec![Span::raw("0%"), Span::raw("100%")]),
-        );
-    f.render_widget(cpu_chart, cols[0]);
+    let cpu_max = cpu_data.iter().map(|(_, v)| *v).fold(5.0f64, f64::max);
+    render_chart(
+        f,
+        cols[0],
+        &cpu_data,
+        Color::Green,
+        format!(" SO — CPU  {:.1}% ", latest.cpu_percent),
+        [0.0, n],
+        [0.0, cpu_max.max(100.0)],
+        "0%",
+        "100%",
+    );
 
     // RAM
     let mem_total_gb = latest.mem_total_bytes as f64 / 1_073_741_824.0;
     let mem_used_gb = latest.mem_used_bytes as f64 / 1_073_741_824.0;
-    let mem_history: Vec<(f64, f64)> = app
+    let mem_data: Vec<(f64, f64)> = app
         .system_metrics
         .iter()
         .enumerate()
         .map(|(i, m)| (i as f64, m.mem_used_bytes as f64 / 1_073_741_824.0))
         .collect();
-    let mem_ds = Dataset::default()
-        .marker(symbols::Marker::Braille)
-        .graph_type(GraphType::Line)
-        .style(Style::default().fg(Color::Blue))
-        .data(&mem_history);
-    let mem_chart = Chart::new(vec![mem_ds])
-        .block(Block::default().borders(Borders::ALL).title(format!(
-            " RAM  {:.1}/{:.1} GB ",
-            mem_used_gb, mem_total_gb
-        )))
-        .x_axis(Axis::default().bounds([0.0, app.system_metrics.len() as f64]))
-        .y_axis(
-            Axis::default()
-                .bounds([0.0, mem_total_gb])
-                .labels(vec![Span::raw("0"), Span::raw(format!("{mem_total_gb:.0}G"))]),
-        );
-    f.render_widget(mem_chart, cols[1]);
-
-    // Disco + Load avg (texto simples)
-    let disk_used_gb = latest.disk_used_bytes as f64 / 1_073_741_824.0;
-    let disk_total_gb = latest.disk_total_bytes as f64 / 1_073_741_824.0;
-    let disk_pct = if disk_total_gb > 0.0 {
-        disk_used_gb / disk_total_gb * 100.0
-    } else {
-        0.0
-    };
-
-    let info = Paragraph::new(vec![
-        Line::from(""),
-        Line::from(vec![
-            Span::styled("  Disco  ", Style::default().fg(Color::DarkGray)),
-            Span::styled(
-                format!("{:.1}/{:.1} GB  ({:.0}%)", disk_used_gb, disk_total_gb, disk_pct),
-                Style::default().fg(if disk_pct > 85.0 { Color::Red } else { Color::White }),
-            ),
-        ]),
-        Line::from(""),
-        Line::from(vec![
-            Span::styled("  Load   ", Style::default().fg(Color::DarkGray)),
-            Span::styled(
-                format!(
-                    "{:.2}  {:.2}  {:.2}",
-                    latest.load_avg_1, latest.load_avg_5, latest.load_avg_15
-                ),
-                Style::default().fg(Color::Cyan),
-            ),
-            Span::styled("  (1m / 5m / 15m)", Style::default().fg(Color::DarkGray)),
-        ]),
-    ])
-    .block(Block::default().borders(Borders::ALL).title(" Info "));
-    f.render_widget(info, cols[2]);
+    render_chart(
+        f,
+        cols[1],
+        &mem_data,
+        Color::Blue,
+        format!(" SO — RAM  {:.1}/{:.1} GB ", mem_used_gb, mem_total_gb),
+        [0.0, n],
+        [0.0, mem_total_gb.max(1.0)],
+        "0",
+        &format!("{mem_total_gb:.0}G"),
+    );
 }
 
-fn render_services_panel(f: &mut Frame, app: &App, area: Rect) {
-    let running: Vec<_> = app
-        .services
-        .iter()
-        .filter(|s| matches!(s.status, ServiceStatus::Running | ServiceStatus::Deploying))
-        .collect();
+// ── Linha 2: agregado de todos os containers ───────────────────────────────
 
-    if running.is_empty() {
-        let p = Paragraph::new(vec![
-            Line::from(""),
-            Line::from(Span::styled(
-                "  Nenhum container em execução.",
-                Style::default().fg(Color::DarkGray),
-            )),
-        ])
+fn render_aggregate_row(f: &mut Frame, app: &App, area: Rect) {
+    let cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(area);
+
+    // Calcular série temporal agregada:
+    // Para cada ponto de tempo (índice), somar todos os serviços.
+    // Usamos o comprimento mínimo entre todos os serviços para ter séries alinhadas.
+    let service_bufs: Vec<_> = app.metrics.values().collect();
+
+    if service_bufs.is_empty() {
+        let msg = Paragraph::new(Span::styled(
+            "  Nenhum container com dados de métricas.",
+            Style::default().fg(Color::DarkGray),
+        ))
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(" Serviços ")
+                .title(" Containers — CPU total ")
                 .border_style(Style::default().fg(Color::DarkGray)),
         );
-        f.render_widget(p, area);
+        f.render_widget(msg, cols[0]);
+        f.render_widget(
+            Paragraph::new("").block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(" Containers — RAM total ")
+                    .border_style(Style::default().fg(Color::DarkGray)),
+            ),
+            cols[1],
+        );
         return;
     }
 
-    let rows: Vec<Row> = running
-        .iter()
-        .map(|svc| {
-            let last = app.metrics.get(&svc.id).and_then(|m| m.back());
-            let cpu = last.map(|m| format!("{:.1}%", m.cpu_percent)).unwrap_or_else(|| "—".into());
-            let mem = last
-                .map(|m| {
-                    let used_mb = m.mem_used_bytes / 1_048_576;
-                    let limit_mb = m.mem_limit_bytes / 1_048_576;
-                    if limit_mb > 0 {
-                        format!("{used_mb} / {limit_mb} MB")
-                    } else {
-                        format!("{used_mb} MB")
-                    }
-                })
-                .unwrap_or_else(|| "—".into());
-            let net = last
-                .map(|m| {
-                    format!(
-                        "↓{} ↑{}",
-                        humanize_bytes(m.net_rx_bytes),
-                        humanize_bytes(m.net_tx_bytes)
-                    )
-                })
-                .unwrap_or_else(|| "—".into());
-
-            Row::new(vec![svc.spec.name.clone(), cpu, mem, net])
-        })
-        .collect();
-
-    let widths = [
-        Constraint::Min(20),
-        Constraint::Length(10),
-        Constraint::Length(22),
-        Constraint::Length(20),
-    ];
-    let header = Row::new(vec!["Serviço", "CPU", "Memória", "Rede (total)"])
-        .style(Style::default().fg(Color::DarkGray));
-
-    let table = Table::new(rows, widths)
-        .header(header)
+    let min_len = service_bufs.iter().map(|b| b.len()).min().unwrap_or(0);
+    if min_len == 0 {
+        let msg = Paragraph::new(Span::styled(
+            "  Aguardando métricas dos containers…",
+            Style::default().fg(Color::DarkGray),
+        ))
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(" Serviços ")
+                .title(" Containers — CPU total ")
+                .border_style(Style::default().fg(Color::DarkGray)),
+        );
+        f.render_widget(msg, cols[0]);
+        f.render_widget(
+            Paragraph::new("").block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title(" Containers — RAM total ")
+                    .border_style(Style::default().fg(Color::DarkGray)),
+            ),
+            cols[1],
+        );
+        return;
+    }
+
+    // Somar por índice (alinhado pelo tail)
+    let mut agg_cpu: Vec<(f64, f64)> = Vec::with_capacity(min_len);
+    let mut agg_mem: Vec<(f64, f64)> = Vec::with_capacity(min_len);
+
+    for idx in 0..min_len {
+        let offset_from_end = min_len - 1 - idx;
+        let cpu_sum: f64 = service_bufs
+            .iter()
+            .map(|b| {
+                let rev_idx = b.len() - 1 - offset_from_end;
+                b[rev_idx].cpu_percent
+            })
+            .sum();
+        let mem_sum: u64 = service_bufs
+            .iter()
+            .map(|b| {
+                let rev_idx = b.len() - 1 - offset_from_end;
+                b[rev_idx].mem_used_bytes
+            })
+            .sum();
+        agg_cpu.push((idx as f64, cpu_sum));
+        agg_mem.push((idx as f64, mem_sum as f64 / 1_073_741_824.0));
+    }
+
+    let n = min_len as f64;
+    let latest_cpu: f64 = agg_cpu.last().map(|(_, v)| *v).unwrap_or(0.0);
+    let latest_mem: f64 = agg_mem.last().map(|(_, v)| *v).unwrap_or(0.0);
+    let cpu_max = agg_cpu.iter().map(|(_, v)| *v).fold(5.0f64, f64::max);
+    let mem_max = agg_mem.iter().map(|(_, v)| *v).fold(0.1f64, f64::max);
+
+    render_chart(
+        f,
+        cols[0],
+        &agg_cpu,
+        Color::Yellow,
+        format!(" Containers — CPU total  {:.1}% ", latest_cpu),
+        [0.0, n],
+        [0.0, cpu_max * 1.1],
+        "0%",
+        &format!("{cpu_max:.0}%"),
+    );
+
+    render_chart(
+        f,
+        cols[1],
+        &agg_mem,
+        Color::Magenta,
+        format!(" Containers — RAM total  {:.1} GB ", latest_mem),
+        [0.0, n],
+        [0.0, mem_max * 1.1],
+        "0",
+        &format!("{mem_max:.1}G"),
+    );
+}
+
+// ── Helper genérico de gráfico ────────────────────────────────────────────────
+
+#[allow(clippy::too_many_arguments)]
+fn render_chart(
+    f: &mut Frame,
+    area: Rect,
+    data: &[(f64, f64)],
+    color: Color,
+    title: String,
+    x_bounds: [f64; 2],
+    y_bounds: [f64; 2],
+    y_label_lo: &str,
+    y_label_hi: &str,
+) {
+    let ds = Dataset::default()
+        .marker(symbols::Marker::Braille)
+        .graph_type(GraphType::Line)
+        .style(Style::default().fg(color))
+        .data(data);
+
+    let chart = Chart::new(vec![ds])
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(title)
                 .border_style(Style::default().fg(Color::DarkGray)),
         )
-        .highlight_style(Style::default().fg(Color::Cyan));
+        .x_axis(
+            Axis::default()
+                .style(Style::default().fg(Color::DarkGray))
+                .bounds(x_bounds),
+        )
+        .y_axis(
+            Axis::default()
+                .style(Style::default().fg(Color::DarkGray))
+                .bounds(y_bounds)
+                .labels(vec![Span::raw(y_label_lo), Span::raw(y_label_hi)]),
+        );
 
-    f.render_widget(table, area);
+    f.render_widget(chart, area);
 }
 
 fn humanize_bytes(bytes: u64) -> String {
@@ -271,13 +310,11 @@ pub fn render_service_charts(
     }
 
     let latest = metrics.last().unwrap();
+    let n = metrics.len() as f64;
 
-    let chunks = Layout::default()
+    let rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Percentage(50),
-            Constraint::Percentage(50),
-        ])
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(area);
 
     // CPU
@@ -286,30 +323,18 @@ pub fn render_service_charts(
         .enumerate()
         .map(|(i, m)| (i as f64, m.cpu_percent))
         .collect();
-    let cpu_max = cpu_data.iter().map(|(_, v)| *v).fold(10.0f64, f64::max);
-    let cpu_ds = Dataset::default()
-        .name("CPU%")
-        .marker(symbols::Marker::Braille)
-        .graph_type(GraphType::Line)
-        .style(Style::default().fg(Color::Green))
-        .data(&cpu_data);
-    let cpu_chart = Chart::new(vec![cpu_ds])
-        .block(Block::default().borders(Borders::ALL).title(format!(
-            " CPU  {:.1}% ",
-            latest.cpu_percent
-        )))
-        .x_axis(
-            Axis::default()
-                .style(Style::default().fg(Color::DarkGray))
-                .bounds([0.0, metrics.len() as f64]),
-        )
-        .y_axis(
-            Axis::default()
-                .style(Style::default().fg(Color::DarkGray))
-                .bounds([0.0, cpu_max.max(5.0)])
-                .labels(vec![Span::raw("0%"), Span::raw(format!("{cpu_max:.0}%"))]),
-        );
-    f.render_widget(cpu_chart, chunks[0]);
+    let cpu_max = cpu_data.iter().map(|(_, v)| *v).fold(5.0f64, f64::max);
+    render_chart(
+        f,
+        rows[0],
+        &cpu_data,
+        Color::Green,
+        format!(" {} — CPU  {:.1}% ", svc_name, latest.cpu_percent),
+        [0.0, n],
+        [0.0, cpu_max.max(5.0)],
+        "0%",
+        &format!("{cpu_max:.0}%"),
+    );
 
     // RAM
     let mem_used_mb = latest.mem_used_bytes as f64 / 1_048_576.0;
@@ -319,30 +344,22 @@ pub fn render_service_charts(
         .enumerate()
         .map(|(i, m)| (i as f64, m.mem_used_bytes as f64 / 1_048_576.0))
         .collect();
-    let mem_max = mem_data.iter().map(|(_, v)| *v).fold(64.0f64, f64::max);
-    let mem_ds = Dataset::default()
-        .name("RAM")
-        .marker(symbols::Marker::Braille)
-        .graph_type(GraphType::Line)
-        .style(Style::default().fg(Color::Blue))
-        .data(&mem_data);
+    let mem_max = mem_data.iter().map(|(_, v)| *v).fold(1.0f64, f64::max);
     let mem_title = if mem_limit_mb > 0.0 {
-        format!(" RAM  {mem_used_mb:.0}/{mem_limit_mb:.0} MB ")
+        format!(" {} — RAM  {:.0}/{:.0} MB ", svc_name, mem_used_mb, mem_limit_mb)
     } else {
-        format!(" RAM  {mem_used_mb:.0} MB ")
+        format!(" {} — RAM  {:.0} MB ", svc_name, mem_used_mb)
     };
-    let mem_chart = Chart::new(vec![mem_ds])
-        .block(Block::default().borders(Borders::ALL).title(mem_title))
-        .x_axis(
-            Axis::default()
-                .style(Style::default().fg(Color::DarkGray))
-                .bounds([0.0, metrics.len() as f64]),
-        )
-        .y_axis(
-            Axis::default()
-                .style(Style::default().fg(Color::DarkGray))
-                .bounds([0.0, mem_max])
-                .labels(vec![Span::raw("0"), Span::raw(format!("{mem_max:.0}M"))]),
-        );
-    f.render_widget(mem_chart, chunks[1]);
+    render_chart(
+        f,
+        rows[1],
+        &mem_data,
+        Color::Blue,
+        mem_title,
+        [0.0, n],
+        [0.0, mem_max * 1.1],
+        "0",
+        &format!("{mem_max:.0}M"),
+    );
+
 }

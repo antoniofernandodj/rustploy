@@ -18,6 +18,14 @@ pub async fn append(
     Ok(())
 }
 
+pub async fn delete_for_deployment(db: &Db, deployment_id: &str) -> Result<()> {
+    sqlx::query("DELETE FROM build_log WHERE deployment_id = ?")
+        .bind(deployment_id)
+        .execute(db)
+        .await?;
+    Ok(())
+}
+
 pub async fn get_for_deployment(db: &Db, deployment_id: &str) -> Result<Vec<BuildLogLine>> {
     let rows = sqlx::query_as::<_, (String, DateTime<Utc>)>(
         "SELECT line, ts FROM build_log WHERE deployment_id = ? ORDER BY ts ASC",

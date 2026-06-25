@@ -21,6 +21,7 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::ServiceDelete { .. } => "ServiceDelete",
         Command::DeployStart { .. } => "DeployStart",
         Command::DeployAbort { .. } => "DeployAbort",
+        Command::DeployDelete { .. } => "DeployDelete",
         Command::DeployHistory { .. } => "DeployHistory",
         Command::DeployRollback { .. } => "DeployRollback",
         Command::ServiceStop { .. } => "ServiceStop",
@@ -87,6 +88,9 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         }
         Command::DeployAbort { deployment_id } => {
             handlers::deploy_abort::handle(state, deployment_id).await
+        }
+        Command::DeployDelete { deployment_id } => {
+            handlers::deploy_delete::handle(state, deployment_id).await
         }
         Command::DeployHistory { service_id, limit } => {
             handlers::deploy_history::handle(state, service_id, limit).await

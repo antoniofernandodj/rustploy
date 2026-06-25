@@ -1398,6 +1398,7 @@ pub enum CmdContext {
     PruneVolumes,
     PruneImages,
     PruneBuildCache,
+    DeleteDeployment(String),
 }
 
 // ── Compose tab ───────────────────────────────────────────────────────────────
