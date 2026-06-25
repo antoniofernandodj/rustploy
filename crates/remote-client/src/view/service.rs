@@ -10,7 +10,7 @@ use iced::widget::{
     button, checkbox, column, container, pick_list, row, scrollable, text, text_editor, text_input,
     Space,
 };
-use iced::{Alignment, Element, Length};
+use iced::{Alignment, Color, Element, Length};
 use chrono::Utc;
 use shared::{EnvVarValue, ServiceSource};
 
@@ -616,8 +616,6 @@ pub fn kv_form<'a>(
 
 /// Conteúdo do modal de build log (aberto por Message::BuildLogModal(true)).
 pub fn build_log_modal_content(app: &App) -> Element<'_, Message> {
-    use iced::widget::text_editor::{Action, Motion};
-
     if app.service_deployments.is_empty() {
         return column![
             text("Build Log").size(18).color(palette::CYAN),
@@ -633,11 +631,8 @@ pub fn build_log_modal_content(app: &App) -> Element<'_, Message> {
     let dep = &app.service_deployments
         [app.selected_deployment.min(app.service_deployments.len() - 1)];
     let (state_lbl, state_color) = super::home::deploy_state_display(&dep.state);
-    let build_text: String = app
-        .build_logs
-        .get(&dep.id)
-        .map(|buf| buf.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join("\n"))
-        .unwrap_or_default();
+    let logs = app.build_logs.get(&dep.id).map(|b| b.as_slice()).unwrap_or(&[]);
+    let build_text: String = logs.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join("\n");
 
     let header = row![
         text(format!("Build Log — {}", dep.id.chars().take(12).collect::<String>()))
@@ -645,28 +640,107 @@ pub fn build_log_modal_content(app: &App) -> Element<'_, Message> {
             .color(palette::CYAN),
         text(state_lbl).size(13).color(state_color),
         Space::with_width(Length::Fill),
-        ghost_btn("↑ Topo", Message::BuildLogAction(Action::Move(Motion::DocumentStart))),
-        ghost_btn("↓ Fim", Message::BuildLogAction(Action::Move(Motion::DocumentEnd))),
-        copy_all_btn(build_text.clone()),
+        ghost_btn("↑ Topo", Message::BuildLogScrollTo(0.0)),
+        ghost_btn("↓ Fim", Message::BuildLogScrollTo(f32::MAX)),
+        copy_all_btn(build_text),
         ghost_btn("✕ Fechar", Message::BuildLogModal(false)),
     ]
     .spacing(8)
     .align_y(Alignment::Center);
 
-    let body: Element<'_, Message> = if build_text.is_empty() {
+    let body: Element<'_, Message> = if logs.is_empty() {
         muted("Sem logs de build para este deployment.")
     } else {
-        text_editor(&app.build_log_editor)
-            .on_action(Message::BuildLogAction)
-            .size(11)
-            .height(Length::Fixed(520.0))
-            .padding(8)
-            .into()
+        scrollable(
+            column(
+                logs.iter()
+                    .map(|log| render_ansi_line(&log.text))
+                    .collect::<Vec<_>>(),
+            )
+            .padding(8),
+        )
+        .id(scrollable::Id::new("build_log"))
+        .height(Length::Fixed(520.0))
+        .into()
     };
 
     column![header, Space::with_height(Length::Fixed(10.0)), body]
         .spacing(4)
         .into()
+}
+
+fn render_ansi_line(line: &str) -> Element<'static, Message> {
+    let spans = parse_ansi_spans(line);
+    if spans.is_empty() {
+        return text("").size(11).into();
+    }
+    iced::widget::rich_text(
+        spans
+            .into_iter()
+            .map(|(color, txt)| {
+                let s = iced::widget::span(txt).size(11.0);
+                match color {
+                    Some(c) => s.color(c),
+                    None => s,
+                }
+            })
+            .collect::<Vec<_>>(),
+    )
+    .into()
+}
+
+fn parse_ansi_spans(line: &str) -> Vec<(Option<Color>, String)> {
+    let mut spans: Vec<(Option<Color>, String)> = Vec::new();
+    let mut current_color: Option<Color> = None;
+    let mut current_text = String::new();
+    let mut chars = line.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '\x1b' && chars.peek() == Some(&'[') {
+            chars.next();
+            let mut code = String::new();
+            for next in chars.by_ref() {
+                if next.is_ascii_alphabetic() {
+                    if next == 'm' && !current_text.is_empty() {
+                        spans.push((current_color, std::mem::take(&mut current_text)));
+                        current_color = ansi_code_to_color(&code).unwrap_or(current_color);
+                    }
+                    break;
+                }
+                code.push(next);
+            }
+        } else {
+            current_text.push(c);
+        }
+    }
+    if !current_text.is_empty() {
+        spans.push((current_color, current_text));
+    }
+    spans
+}
+
+fn ansi_code_to_color(code: &str) -> Option<Option<Color>> {
+    let last = code.split(';').filter_map(|s| s.parse::<u8>().ok()).last()?;
+    Some(match last {
+        0 => None,
+        30 => Some(Color::from_rgb(0.3, 0.3, 0.3)),
+        31 => Some(Color::from_rgb(0.8, 0.2, 0.2)),
+        32 => Some(Color::from_rgb(0.2, 0.7, 0.2)),
+        33 => Some(Color::from_rgb(0.8, 0.7, 0.2)),
+        34 => Some(Color::from_rgb(0.2, 0.4, 0.9)),
+        35 => Some(Color::from_rgb(0.7, 0.2, 0.9)),
+        36 => Some(Color::from_rgb(0.2, 0.7, 0.8)),
+        37 => Some(Color::from_rgb(0.9, 0.9, 0.9)),
+        90 => Some(Color::from_rgb(0.5, 0.5, 0.5)),
+        91 => Some(Color::from_rgb(1.0, 0.4, 0.4)),
+        92 => Some(Color::from_rgb(0.4, 1.0, 0.4)),
+        93 => Some(Color::from_rgb(1.0, 1.0, 0.4)),
+        94 => Some(Color::from_rgb(0.4, 0.6, 1.0)),
+        95 => Some(Color::from_rgb(1.0, 0.4, 1.0)),
+        96 => Some(Color::from_rgb(0.4, 1.0, 1.0)),
+        97 => Some(Color::from_rgb(1.0, 1.0, 1.0)),
+        _ => return None,
+    })
 }
 
 /// Formata uma duração em segundos como "Xm Ys" ou "Xh Ym" etc.

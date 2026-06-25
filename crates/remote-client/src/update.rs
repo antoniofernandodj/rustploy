@@ -85,8 +85,6 @@ impl App {
                         self.send(Ctx::Logs, Command::LogsGet { service_id: sid, tail: 500 });
                     }
                     self.rebuild_log_editor();
-                } else if tab == ServiceTab::Deployments {
-                    self.rebuild_build_log_editor();
                 }
             }
 
@@ -212,10 +210,11 @@ impl App {
             // (cópia via Ctrl+C é tratada internamente pelo widget); ignoramos
             // edições para que o texto continue espelhando o buffer.
             Message::BuildLogModal(open) => self.build_log_modal_open = open,
-            Message::BuildLogAction(action) => {
-                if !action.is_edit() {
-                    self.build_log_editor.perform(action);
-                }
+            Message::BuildLogScrollTo(y) => {
+                return iced::widget::scrollable::scroll_to(
+                    iced::widget::scrollable::Id::new("build_log"),
+                    iced::widget::scrollable::AbsoluteOffset { x: 0.0, y },
+                );
             }
             Message::LogAction(action) => {
                 if !action.is_edit() {
@@ -327,7 +326,6 @@ impl App {
                 if let Some(dep) = self.service_deployments.get(i) {
                     self.send(Ctx::BuildLogs, Command::GetBuildLogs { deployment_id: dep.id.clone() });
                 }
-                self.rebuild_build_log_editor();
             }
             Message::WebhookRegen => {
                 if let Some(sid) = self.active_service_id.clone() {
@@ -565,7 +563,6 @@ impl App {
         self.s_env_editor.open = false;
         self.selected_deployment = 0;
         self.service_deployments.clear();
-        self.build_log_editor = iced::widget::text_editor::Content::new();
         self.log_editor = iced::widget::text_editor::Content::new();
         self.webhook_url = None;
         self.send(Ctx::Deployments, Command::DeployHistory { service_id: svc.id.clone(), limit: 10 });
@@ -573,20 +570,6 @@ impl App {
         if !matches!(svc.spec.source, ServiceSource::Compose(_)) {
             self.send(Ctx::WebhookUrl, Command::GetWebhookUrl { service_id: svc.id });
         }
-    }
-
-    /// Rebuild the read-only build-log editor from the currently selected
-    /// deployment's buffer, so the rendered text matches the live logs.
-    fn rebuild_build_log_editor(&mut self) {
-        let text = self
-            .service_deployments
-            .get(self.selected_deployment)
-            .and_then(|dep| self.build_logs.get(&dep.id))
-            .map(|buf| {
-                buf.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join("\n")
-            })
-            .unwrap_or_default();
-        self.build_log_editor = iced::widget::text_editor::Content::with_text(&text);
     }
 
     /// Rebuild the read-only service-log editor from the active service buffer.
@@ -660,7 +643,6 @@ impl App {
                         buf.push(LogLine { timestamp: e.timestamp, text: e.line, is_stderr: false });
                     }
                 }
-                self.rebuild_build_log_editor();
             }
             (Ctx::Logs, Response::Logs(entries)) => {
                 // O daemon recarimba todas as linhas com `now()` a cada poll, então
@@ -836,18 +818,11 @@ impl App {
             }
             Event::DeployProgress { .. } => {}
             Event::BuildLog { deployment_id, line, timestamp, .. } => {
-                let displayed = self
-                    .service_deployments
-                    .get(self.selected_deployment)
-                    .is_some_and(|d| d.id == deployment_id);
                 let buf = self.build_logs.entry(deployment_id).or_default();
                 if buf.len() >= MAX_LOG_LINES {
                     buf.remove(0);
                 }
                 buf.push(LogLine { timestamp, text: line, is_stderr: false });
-                if displayed {
-                    self.rebuild_build_log_editor();
-                }
             }
             Event::LogLine { service_id, stream, line, timestamp, .. } => {
                 let displayed = self.active_service_id.as_deref() == Some(service_id.as_str());
