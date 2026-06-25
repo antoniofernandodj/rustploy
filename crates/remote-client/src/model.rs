@@ -447,6 +447,8 @@ impl NsForm {
     pub fn select_db(&mut self, db: DbKind) {
         self.db_kind = Some(db);
         self.docker_image = db.default_image().to_string();
+        self.db_password = token_urlsafe(22);
+        self.db_root_password = token_urlsafe(22);
         self.step = NsStep::DbForm;
     }
 
@@ -1444,4 +1446,26 @@ pub fn opt(s: &str) -> Option<String> {
     } else {
         Some(s.to_string())
     }
+}
+
+/// Gera um token URL-safe de `n` caracteres usando apenas std.
+/// Usa SystemTime como semente com splitmix64 — adequado para senhas de setup.
+pub fn token_urlsafe(n: usize) -> String {
+    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let seed = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(12345);
+    let mut state = seed ^ (seed << 13) ^ (seed >> 7) ^ 0x9e3779b97f4a7c15;
+    (0..n)
+        .map(|_| {
+            // splitmix64
+            state = state.wrapping_add(0x9e3779b97f4a7c15);
+            let mut z = state;
+            z = (z ^ (z >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94d049bb133111eb);
+            z ^= z >> 31;
+            ALPHABET[(z as usize) % ALPHABET.len()] as char
+        })
+        .collect()
 }
