@@ -768,6 +768,7 @@ impl DeployExecutor {
                     "step[ComposingUp]: executando docker compose up"
                 );
                 let network_name = self.network_name(&svc.spec.project_id);
+                let env_vars = self.resolve_env(&svc).await.unwrap_or_default();
                 crate::docker::compose::compose_up(
                     &compose.content,
                     &project_name,
@@ -776,6 +777,7 @@ impl DeployExecutor {
                     &network_name,
                     &self.bus,
                     &self.db,
+                    &env_vars,
                 )
                 .await?;
 

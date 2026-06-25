@@ -126,6 +126,7 @@ pub async fn compose_up(
     network_name: &str,
     bus: &Arc<EventBus>,
     db: &Arc<Db>,
+    env_vars: &[(String, String)],
 ) -> Result<()> {
     info!(project = %project_name, "compose_up: iniciando docker compose up");
 
@@ -144,6 +145,7 @@ pub async fn compose_up(
             "--build",
             "--remove-orphans",
         ])
+        .envs(env_vars.iter().map(|(k, v)| (k.as_str(), v.as_str())))
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
