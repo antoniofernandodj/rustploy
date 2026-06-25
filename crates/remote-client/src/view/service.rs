@@ -523,11 +523,15 @@ fn deployments(app: &App) -> Element<'_, Message> {
         .get(&dep.id)
         .map(|buf| buf.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join("\n"))
         .unwrap_or_default();
+    use iced::widget::text_editor::{Action, Motion};
     let build_header = row![
         section("Build log"),
         Space::with_width(Length::Fill),
+        ghost_btn("↑ Topo", Message::BuildLogAction(Action::Move(Motion::DocumentStart))),
+        ghost_btn("↓ Fim", Message::BuildLogAction(Action::Move(Motion::DocumentEnd))),
         copy_all_btn(build_text.clone()),
     ]
+    .spacing(6)
     .align_y(Alignment::Center);
     let build_body: Element<'_, Message> = if build_text.is_empty() {
         muted("Sem logs de build para este deployment.")
@@ -570,8 +574,15 @@ fn logs(app: &App) -> Element<'_, Message> {
                 .join("\n")
         })
         .unwrap_or_default();
-    let header = row![Space::with_width(Length::Fill), copy_all_btn(full.clone())]
-        .align_y(Alignment::Center);
+    use iced::widget::text_editor::{Action, Motion};
+    let header = row![
+        Space::with_width(Length::Fill),
+        ghost_btn("↑ Topo", Message::LogAction(Action::Move(Motion::DocumentStart))),
+        ghost_btn("↓ Fim", Message::LogAction(Action::Move(Motion::DocumentEnd))),
+        copy_all_btn(full.clone()),
+    ]
+    .spacing(6)
+    .align_y(Alignment::Center);
     // Read-only: o texto pode ser selecionado e copiado (Ctrl+C) além do botão.
     let body: Element<'_, Message> = if full.is_empty() {
         muted("Aguardando logs... (serviço precisa estar Running)")
