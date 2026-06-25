@@ -65,6 +65,15 @@ pub fn ghost_btn(label: &str, msg: Message) -> Element<'static, Message> {
         .into()
 }
 
+/// A small "copy everything" button that writes `content` to the clipboard.
+pub fn copy_all_btn(content: String) -> Element<'static, Message> {
+    button(text("Copiar tudo").size(12))
+        .on_press(Message::Copy(content))
+        .style(button::secondary)
+        .padding([4, 10])
+        .into()
+}
+
 /// A bordered content panel with a title, filling available space.
 pub fn panel<'a>(title: &'a str, body: Element<'a, Message>) -> Element<'a, Message> {
     container(

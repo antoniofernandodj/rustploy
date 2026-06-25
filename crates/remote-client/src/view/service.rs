@@ -499,15 +499,28 @@ fn deployments(app: &App) -> Element<'_, Message> {
         detail = detail.push(ghost_btn("Regenerar token", Message::WebhookRegen));
     }
 
-    // Build logs
-    let mut logs = column![section("Build log")].spacing(1);
-    if let Some(buf) = app.build_logs.get(&dep.id) {
-        for l in buf.iter() {
-            logs = logs.push(text(l.text.clone()).size(11).color(palette::GRAY));
-        }
+    // Build logs (read-only: o texto pode ser selecionado e copiado)
+    let build_text: String = app
+        .build_logs
+        .get(&dep.id)
+        .map(|buf| buf.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join("\n"))
+        .unwrap_or_default();
+    let build_header = row![
+        section("Build log"),
+        Space::with_width(Length::Fill),
+        copy_all_btn(build_text.clone()),
+    ]
+    .align_y(Alignment::Center);
+    let build_body: Element<'_, Message> = if build_text.is_empty() {
+        muted("Sem logs de build para este deployment.")
     } else {
-        logs = logs.push(muted("Sem logs de build para este deployment."));
-    }
+        text_editor(&app.build_log_editor)
+            .on_action(Message::BuildLogAction)
+            .size(11)
+            .height(Length::Fill)
+            .padding(8)
+            .into()
+    };
 
     panel(
         "Deployments",
@@ -516,7 +529,8 @@ fn deployments(app: &App) -> Element<'_, Message> {
             Space::with_height(Length::Fixed(8.0)),
             detail,
             Space::with_height(Length::Fixed(8.0)),
-            scrollable(logs).height(Length::Fill),
+            build_header,
+            build_body,
         ]
         .spacing(4)
         .into(),
@@ -528,27 +542,30 @@ fn logs(app: &App) -> Element<'_, Message> {
         Some(s) => s,
         None => return panel("Logs", text("—").into()),
     };
-    let lines = app.logs.get(sid);
-    let mut col = column![].spacing(0);
-    match lines {
-        Some(buf) if !buf.is_empty() => {
-            for l in buf.iter() {
-                let ts = l.timestamp.format("%H:%M:%S%.3f").to_string();
-                let color = if l.is_stderr { palette::RED } else { palette::WHITE };
-                col = col.push(
-                    row![
-                        text(ts).size(11).color(palette::GRAY),
-                        text(l.text.clone()).size(11).color(color),
-                    ]
-                    .spacing(6),
-                );
-            }
-        }
-        _ => {
-            col = col.push(muted("Aguardando logs... (serviço precisa estar Running)"));
-        }
-    }
-    panel("Logs", scrollable(col).height(Length::Fill).into())
+    let full: String = app
+        .logs
+        .get(sid)
+        .map(|buf| {
+            buf.iter()
+                .map(|l| format!("{} {}", l.timestamp.format("%H:%M:%S%.3f"), l.text))
+                .collect::<Vec<_>>()
+                .join("\n")
+        })
+        .unwrap_or_default();
+    let header = row![Space::with_width(Length::Fill), copy_all_btn(full.clone())]
+        .align_y(Alignment::Center);
+    // Read-only: o texto pode ser selecionado e copiado (Ctrl+C) além do botão.
+    let body: Element<'_, Message> = if full.is_empty() {
+        muted("Aguardando logs... (serviço precisa estar Running)")
+    } else {
+        text_editor(&app.log_editor)
+            .on_action(Message::LogAction)
+            .size(11)
+            .height(Length::Fill)
+            .padding(8)
+            .into()
+    };
+    panel("Logs", column![header, body].spacing(6).height(Length::Fill).into())
 }
 
 /// Inline key/value editor row used by env and secret panels.

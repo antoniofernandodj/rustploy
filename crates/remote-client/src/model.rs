@@ -1114,6 +1114,8 @@ pub enum Message {
     GenSave,
     ComposeAction(iced::widget::text_editor::Action),
     ComposeSave,
+    BuildLogAction(iced::widget::text_editor::Action),
+    LogAction(iced::widget::text_editor::Action),
     // service env
     SEnvOpen,
     SEnvKey(String),
@@ -1263,6 +1265,10 @@ pub struct App {
     pub conn_info: Option<ConnInfo>,
     pub build_logs: HashMap<String, Vec<LogLine>>,
     pub logs: HashMap<String, Vec<LogLine>>,
+    /// Read-only editors mirroring the currently displayed log buffers so the
+    /// text can be selected and copied with the mouse / keyboard.
+    pub build_log_editor: iced::widget::text_editor::Content,
+    pub log_editor: iced::widget::text_editor::Content,
     pub metrics: HashMap<String, Vec<ContainerMetricsPoint>>,
     pub project_secrets: Vec<String>,
     pub webhook_url: Option<String>,
@@ -1330,6 +1336,8 @@ impl App {
             conn_info: None,
             build_logs: HashMap::new(),
             logs: HashMap::new(),
+            build_log_editor: iced::widget::text_editor::Content::new(),
+            log_editor: iced::widget::text_editor::Content::new(),
             metrics: HashMap::new(),
             project_secrets: Vec::new(),
             webhook_url: None,
