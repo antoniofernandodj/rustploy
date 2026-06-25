@@ -10,7 +10,8 @@ pub fn project_network_name(project_id_short: &str) -> String {
 }
 
 pub async fn ensure_project_network(docker: &Docker, project_id: &str) -> Result<String> {
-    let short = &project_id[..8.min(project_id.len())];
+    let pid = project_id.find('_').map(|i| &project_id[i + 1..]).unwrap_or(project_id);
+    let short = &pid[..8.min(pid.len())];
     let name = project_network_name(short);
 
     if let Ok(info) = docker.inspect_network::<String>(&name, None).await {
@@ -34,7 +35,8 @@ pub async fn ensure_project_network(docker: &Docker, project_id: &str) -> Result
 }
 
 pub async fn remove_project_network(docker: &Docker, project_id: &str) -> Result<()> {
-    let short = &project_id[..8.min(project_id.len())];
+    let pid = project_id.find('_').map(|i| &project_id[i + 1..]).unwrap_or(project_id);
+    let short = &pid[..8.min(pid.len())];
     let name = project_network_name(short);
     info!(network = %name, "networks::remove: removendo rede do projeto");
     let _ = docker.remove_network(&name).await;

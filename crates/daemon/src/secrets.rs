@@ -69,7 +69,7 @@ impl SecretsManager {
     }
 
     pub async fn set(&self, project_id: &str, name: &str, value: &str) -> Result<()> {
-        let id = Ulid::new().to_string();
+        let id = format!("sec_{}", Ulid::new());
         let encrypted = self.encrypt(value)?;
         sqlx::query(
             "INSERT INTO secret (id, project_id, key, value) VALUES (?, ?, ?, ?)

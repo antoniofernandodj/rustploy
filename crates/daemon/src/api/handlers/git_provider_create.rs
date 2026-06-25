@@ -23,7 +23,7 @@ pub async fn handle(
         return Response::err("InvalidInput", "Base URL obrigatória");
     }
 
-    let id = Ulid::new().to_string();
+    let id = format!("gp_{}", Ulid::new());
     let client_secret_enc = match &oauth_client_secret {
         Some(s) if !s.is_empty() => match state.secrets.encrypt(s) {
             Ok(e) => Some(e),

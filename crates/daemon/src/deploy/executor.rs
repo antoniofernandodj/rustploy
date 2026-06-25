@@ -38,7 +38,10 @@ impl DeployExecutor {
                 code: "ExecutorFatal".into(),
                 message: format!(
                     "Falha crítica no deploy {}: {e}",
-                    &deployment_id[..8.min(deployment_id.len())]
+                    {
+                        let s = deployment_id.find('_').map(|i| &deployment_id[i + 1..]).unwrap_or(&deployment_id);
+                        &s[..8.min(s.len())]
+                    }
                 ),
             });
         }
@@ -978,7 +981,8 @@ impl DeployExecutor {
     }
 
     fn short<'a>(&self, id: &'a str) -> &'a str {
-        &id[..8.min(id.len())]
+        let s = id.find('_').map(|i| &id[i + 1..]).unwrap_or(id);
+        &s[..8.min(s.len())]
     }
 
     /// Persiste uma linha de log de build no banco e a publica no event bus.

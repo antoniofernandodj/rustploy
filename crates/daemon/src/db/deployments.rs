@@ -56,7 +56,7 @@ fn parse_state(s: &str) -> DeployState {
 const SELECT_COLS: &str = "id, service_id, image, state, states_log, started_at, finished_at";
 
 pub async fn create(db: &Db, service_id: &str, image: &str) -> Result<Deployment> {
-    let id = Ulid::new().to_string();
+    let id = format!("dep_{}", Ulid::new());
     info!(id = %id, service_id = %service_id, image = %image, "db::deployments::create");
     let now = Utc::now();
     sqlx::query(

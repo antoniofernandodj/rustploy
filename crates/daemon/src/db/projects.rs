@@ -24,7 +24,7 @@ fn row_to_project(row: ProjectRow) -> Result<Project> {
 }
 
 pub async fn create(db: &Db, name: String, description: Option<String>) -> Result<Project> {
-    let id = Ulid::new().to_string();
+    let id = format!("prj_{}", Ulid::new());
     let now = Utc::now();
     let env_vars_json = "[]";
     sqlx::query(

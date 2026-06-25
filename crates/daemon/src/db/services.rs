@@ -50,7 +50,7 @@ const SELECT_COLS: &str =
     "id, name, project_id, spec, status, live_container_id, created_at, updated_at";
 
 pub async fn create(db: &Db, spec: ServiceSpec) -> Result<Service> {
-    let id = Ulid::new().to_string();
+    let id = format!("svc_{}", Ulid::new());
     info!(id = %id, name = %spec.name, project_id = %spec.project_id, "db::services:
 :create");
     let now = Utc::now();
