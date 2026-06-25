@@ -9,4 +9,5 @@ Icon=rustploy-remote
 Categories=Development;System;
 Keywords=deploy;paas;docker;container;server;
 StartupNotify=true
+StartupWMClass=rustploy-remote
 Terminal=false

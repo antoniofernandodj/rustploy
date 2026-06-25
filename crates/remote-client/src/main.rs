@@ -21,6 +21,12 @@ fn main() -> iced::Result {
             size: iced::Size::new(1180.0, 760.0),
             // Abaixo disso o layout (titlebar, cards) começa a quebrar feio.
             min_size: Some(iced::Size::new(960.0, 600.0)),
+            platform_specific: iced::window::settings::PlatformSpecific {
+                // Deve corresponder ao nome-base do .desktop file para que o Ubuntu
+                // consiga ligar a janela ao ícone correcto na dock (Wayland app_id / X11 WM_CLASS).
+                application_id: "rustploy-remote".to_string(),
+                ..Default::default()
+            },
             ..Default::default()
         })
         .run_with(App::boot)
