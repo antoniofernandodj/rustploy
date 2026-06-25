@@ -3,9 +3,10 @@ use bollard::{
     Docker,
     container::{
         Config, CreateContainerOptions, InspectContainerOptions, LogsOptions,
-        RemoveContainerOptions, RenameContainerOptions, StartContainerOptions, StopContainerOptions,
+        NetworkingConfig, RemoveContainerOptions, RenameContainerOptions, StartContainerOptions,
+        StopContainerOptions,
     },
-    models::{HostConfig, Mount, MountTypeEnum, RestartPolicy, RestartPolicyNameEnum},
+    models::{EndpointSettings, HostConfig, Mount, MountTypeEnum, RestartPolicy, RestartPolicyNameEnum},
 };
 use futures::StreamExt;
 use shared::ServiceSpec;
@@ -144,6 +145,13 @@ pub async fn create_staging(
         None
     };
 
+    // Replica o comportamento de `docker run --network <rede>`:
+    // a CLI envia TANTO network_mode no HostConfig COMO o endpoint em NetworkingConfig.
+    // Sem NetworkingConfig, o Docker pode não configurar o DNS embebido (127.0.0.11)
+    // correctamente mesmo com network_mode definido.
+    let mut endpoints = HashMap::new();
+    endpoints.insert(network_id.to_string(), EndpointSettings::default());
+
     let config = Config {
         image: Some(image.to_string()),
         env: Some(env),
@@ -155,6 +163,7 @@ pub async fn create_staging(
             m.insert(format!("{}/tcp", spec.port), HashMap::new());
             m
         }),
+        networking_config: Some(NetworkingConfig { endpoints_config: endpoints }),
         ..Default::default()
     };
 
