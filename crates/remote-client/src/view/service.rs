@@ -11,6 +11,7 @@ use iced::widget::{
     Space,
 };
 use iced::{Alignment, Element, Length};
+use chrono::Utc;
 use shared::{EnvVarValue, ServiceSource};
 
 pub fn detail(app: &App) -> Element<'_, Message> {
@@ -479,19 +480,20 @@ fn deployments(app: &App) -> Element<'_, Message> {
         ].spacing(6).into());
     }
 
+    let now = Utc::now();
     let mut list = column![].spacing(3);
     for (i, dep) in app.service_deployments.iter().enumerate() {
         let selected = i == app.selected_deployment;
-        let duration = dep
-            .finished_at
-            .map(|f| format!("{}s", (f - dep.started_at).num_seconds()))
-            .unwrap_or_else(|| "em andamento".into());
+        let duration = match dep.finished_at {
+            Some(f) => fmt_duration((f - dep.started_at).num_seconds().max(0) as u64),
+            None => format!("⏱ {}", fmt_duration((now - dep.started_at).num_seconds().max(0) as u64)),
+        };
         let (lbl, color) = super::home::deploy_state_display(&dep.state);
         list = list.push(
             button(
                 row![
                     text(dep.id.chars().take(12).collect::<String>()).size(12).color(palette::CYAN).width(Length::Fixed(120.0)),
-                    text(lbl).size(12).color(color).width(Length::Fixed(140.0)),
+                    text(lbl).size(12).color(color).width(Length::Fixed(130.0)),
                     text(duration).size(12).color(palette::GRAY),
                 ]
                 .spacing(8),
@@ -504,9 +506,16 @@ fn deployments(app: &App) -> Element<'_, Message> {
     }
 
     let dep = &app.service_deployments[app.selected_deployment.min(app.service_deployments.len() - 1)];
+    let ago = fmt_ago((now - dep.started_at).num_seconds().max(0) as u64);
+    let duration_val = match dep.finished_at {
+        Some(f) => fmt_duration((f - dep.started_at).num_seconds().max(0) as u64),
+        None => format!("⏱ {} (em andamento)", fmt_duration((now - dep.started_at).num_seconds().max(0) as u64)),
+    };
     let mut detail = column![
         labeled_static("ID", dep.id.clone()),
         labeled_static("Imagem", dep.image.clone()),
+        labeled_static("Iniciado", ago),
+        labeled_static("Duração", duration_val),
     ]
     .spacing(2);
 
@@ -621,4 +630,30 @@ pub fn kv_form<'a>(
     .spacing(6)
     .align_y(Alignment::Center)
     .into()
+}
+
+/// Formata uma duração em segundos como "Xm Ys" ou "Xh Ym" etc.
+fn fmt_duration(secs: u64) -> String {
+    if secs < 60 {
+        format!("{secs}s")
+    } else if secs < 3600 {
+        format!("{}m {}s", secs / 60, secs % 60)
+    } else {
+        format!("{}h {}m", secs / 3600, (secs % 3600) / 60)
+    }
+}
+
+/// Formata quantos segundos atrás como "há Xm Ys" etc.
+fn fmt_ago(secs: u64) -> String {
+    if secs < 5 {
+        "agora mesmo".into()
+    } else if secs < 60 {
+        format!("há {secs}s")
+    } else if secs < 3600 {
+        format!("há {}m {}s", secs / 60, secs % 60)
+    } else if secs < 86400 {
+        format!("há {}h {}m", secs / 3600, (secs % 3600) / 60)
+    } else {
+        format!("há {}d", secs / 86400)
+    }
 }
