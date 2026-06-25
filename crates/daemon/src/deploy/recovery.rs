@@ -74,7 +74,7 @@ pub async fn recover(
                 );
                 // Remove staging container if it exists
                 let staging_name =
-                    containers::staging_name(&svc.spec.name, &dep.id[..8.min(dep.id.len())]);
+                    containers::staging_name(&svc.spec.name, crate::docker::networks::id_short(&dep.id));
                 if let Ok(Some(id)) = containers::find_by_name(&docker.inner, &staging_name).await {
                     let _ = containers::remove(&docker.inner, &id).await;
                 }
@@ -179,7 +179,7 @@ pub async fn reconcile(
         let replicas = svc.spec.replicas.max(1);
         let net = format!(
             "rp_net_{}",
-            &svc.spec.project_id[..8.min(svc.spec.project_id.len())]
+            crate::docker::networks::id_short(&svc.spec.project_id)
         );
 
         let mut backends: Vec<String> = Vec::new();
@@ -289,7 +289,7 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
         let replicas = svc.spec.replicas.max(1);
         let net = format!(
             "rp_net_{}",
-            &svc.spec.project_id[..8.min(svc.spec.project_id.len())]
+            crate::docker::networks::id_short(&svc.spec.project_id)
         );
 
         // Coleta IPs de todas as réplicas live (Git/Registry)

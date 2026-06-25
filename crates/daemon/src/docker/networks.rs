@@ -9,6 +9,15 @@ pub fn project_network_name(project_id_short: &str) -> String {
     format!("rp_net_{project_id_short}")
 }
 
+pub fn id_short(id: &str) -> &str {
+    let s = id.find('_').map(|i| &id[i + 1..]).unwrap_or(id);
+    &s[..8.min(s.len())]
+}
+
+pub fn project_net_for(project_id: &str) -> String {
+    project_network_name(id_short(project_id))
+}
+
 pub async fn ensure_project_network(docker: &Docker, project_id: &str) -> Result<String> {
     let pid = project_id.find('_').map(|i| &project_id[i + 1..]).unwrap_or(project_id);
     let short = &pid[..8.min(pid.len())];

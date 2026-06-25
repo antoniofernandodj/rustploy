@@ -1006,7 +1006,7 @@ impl DeployExecutor {
     }
 
     fn network_name(&self, project_id: &str) -> String {
-        networks::project_network_name(&project_id[..8.min(project_id.len())])
+        networks::project_net_for(project_id)
     }
 
     async fn ensure_network(&self, project_id: &str) -> Result<String> {

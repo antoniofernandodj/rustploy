@@ -12,7 +12,7 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
     // Compose services are stopped via compose_down.
     if let ServiceSource::Compose(compose) = &svc.spec.source {
         let pid = &svc.spec.project_id;
-        let network_name = crate::docker::networks::project_network_name(&pid[..8.min(pid.len())]);
+        let network_name = crate::docker::networks::project_net_for(pid);
         return stop_compose(
             &state,
             &service_id,
