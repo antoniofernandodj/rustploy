@@ -8,6 +8,8 @@ RESET := \033[0m
 GREEN := \033[32m
 CYAN  := \033[36m
 
+export CARGO_TERM_COLOR := never
+
 .DEFAULT_GOAL := help
 
 # ── Build ──────────────────────────────────────────────────────────────────────
