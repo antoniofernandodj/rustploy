@@ -117,6 +117,7 @@ impl DeployExecutor {
                     project_id = %svc.spec.project_id,
                     "step[Pending]: garantindo rede Docker do projeto"
                 );
+                self.log_step(&dep.id, &svc.id, "==> Iniciando deploy").await;
                 let net = self.ensure_network(&svc.spec.project_id).await?;
                 info!(
                     deployment_id = %dep.id,
@@ -134,6 +135,7 @@ impl DeployExecutor {
                             image = %image,
                             "step[ResolvingDeps]: fonte é Registry → irá para PullingImage"
                         );
+                        self.log_step(&dep.id, &svc.id, &format!("--> Pulling image: {image}")).await;
                         DeployState::PullingImage
                     }
                     ServiceSource::Git(g) => {
@@ -143,6 +145,7 @@ impl DeployExecutor {
                             branch = %g.branch,
                             "step[ResolvingDeps]: fonte é Git → irá para CloningRepo"
                         );
+                        self.log_step(&dep.id, &svc.id, &format!("--> Clonando repositório: {} ({})", g.url, g.branch)).await;
                         DeployState::CloningRepo
                     }
                     ServiceSource::Compose(c) => {
@@ -151,6 +154,7 @@ impl DeployExecutor {
                             compose_file = %c.content,
                             "step[ResolvingDeps]: fonte é Compose → irá para ComposingUp"
                         );
+                        self.log_step(&dep.id, &svc.id, "--> Executando docker compose up").await;
                         DeployState::ComposingUp
                     }
                 };
@@ -164,7 +168,8 @@ impl DeployExecutor {
                     image = %image,
                     "step[PullingImage]: iniciando pull"
                 );
-                images::pull(&self.docker.inner, &image, &svc.id, &dep.id, &self.bus).await?;
+                images::pull(&self.docker.inner, &image, &svc.id, &dep.id, &self.bus, &self.db).await?;
+                self.log_step(&dep.id, &svc.id, &format!("--> Pull concluído: {image}")).await;
                 info!(
                     deployment_id = %dep.id,
                     image = %image,
@@ -235,6 +240,7 @@ impl DeployExecutor {
                 )
                 .await?;
 
+                self.log_step(&dep.id, &svc.id, "--> Clone concluído").await;
                 info!(deployment_id = %dep.id, "step[CloningRepo]: clone concluído");
                 Ok(DeployState::BuildingImage)
             }
@@ -253,6 +259,7 @@ impl DeployExecutor {
                     context = %context.display(),
                     "step[BuildingImage]: iniciando build Docker"
                 );
+                self.log_step(&dep.id, &svc.id, &format!("--> Build Docker: {} ({})", tag, git.dockerfile_path)).await;
                 images::build(
                     &self.docker.inner,
                     &self.db,
@@ -264,6 +271,7 @@ impl DeployExecutor {
                     &self.bus,
                 )
                 .await?;
+                self.log_step(&dep.id, &svc.id, "--> Build concluído").await;
                 info!(
                     deployment_id = %dep.id,
                     tag = %tag,
@@ -283,6 +291,7 @@ impl DeployExecutor {
                     // Single replica: caminho existente, healthcheck e swap tratados nos próximos estados
                     let cname =
                         containers::replica_staging_name(&svc.spec.name, &dep_short, 0);
+                    self.log_step(&dep.id, &svc.id, "--> Criando container de staging").await;
                     info!(deployment_id = %dep.id, container_name = %cname, "step[Staging]: criando réplica única");
                     let id = containers::create_staging(
                         &self.docker.inner,
@@ -445,7 +454,9 @@ impl DeployExecutor {
                     healthcheck = ?svc.spec.healthcheck.kind,
                     "step[HealthcheckPolling]: iniciando polling de healthcheck"
                 );
+                self.log_step(&dep.id, &svc.id, &format!("--> Healthcheck: aguardando {ip}:{}", svc.spec.port)).await;
                 self.poll_healthcheck(&ip, &cid, svc, dep).await?;
+                self.log_step(&dep.id, &svc.id, "--> Healthcheck OK").await;
                 info!(
                     deployment_id = %dep.id,
                     ip = %ip,
@@ -604,6 +615,7 @@ impl DeployExecutor {
                     service_id: svc.id.clone(),
                     status: ServiceStatus::Running,
                 });
+                self.log_step(&dep.id, &svc.id, "==> Deploy concluído — serviço Running ✓").await;
                 info!(
                     deployment_id = %dep.id,
                     service_id = %svc.id,
@@ -659,6 +671,7 @@ impl DeployExecutor {
             }
 
             DeployState::RollingBack => {
+                self.log_step(&dep.id, &svc.id, "==> Deploy falhou — iniciando rollback").await;
                 if let ServiceSource::Compose(compose) = &svc.spec.source {
                     let project_name = format!("rp_{}", &svc.spec.name);
                     info!(
@@ -799,6 +812,7 @@ impl DeployExecutor {
                     }
                 }
 
+                self.log_step(&dep.id, &svc.id, "==> Compose up concluído — serviço Running ✓").await;
                 info!(
                     deployment_id = %dep.id,
                     project = %project_name,
@@ -957,6 +971,18 @@ impl DeployExecutor {
 
     fn short<'a>(&self, id: &'a str) -> &'a str {
         &id[..8.min(id.len())]
+    }
+
+    /// Persiste uma linha de log de build no banco e a publica no event bus.
+    async fn log_step(&self, deployment_id: &str, service_id: &str, line: &str) {
+        let ts = chrono::Utc::now();
+        let _ = crate::db::build_logs::append(&self.db, deployment_id, line, ts).await;
+        self.bus.publish(Event::BuildLog {
+            deployment_id: deployment_id.to_string(),
+            service_id: service_id.to_string(),
+            line: line.to_string(),
+            timestamp: ts,
+        });
     }
 
     fn image_for(&self, dep: &Deployment, svc: &Service) -> String {

@@ -15,6 +15,7 @@ pub async fn pull(
     service_id: &str,
     deployment_id: &str,
     bus: &EventBus,
+    db: &Arc<Db>,
 ) -> Result<()> {
     info!(image = %image, deployment_id = %deployment_id, "images::pull: iniciando pull");
     let options = Some(CreateImageOptions {
@@ -50,13 +51,22 @@ pub async fn pull(
                     } else {
                         0
                     };
+                    let line = format!("[{layer_id}] {status}");
+                    let ts = chrono::Utc::now();
+                    bus.publish(Event::BuildLog {
+                        deployment_id: deployment_id.to_string(),
+                        service_id: service_id.to_string(),
+                        line: line.clone(),
+                        timestamp: ts,
+                    });
                     bus.publish(Event::DeployProgress {
                         deployment_id: deployment_id.to_string(),
                         service_id: service_id.to_string(),
                         phase: "PullingImage".into(),
                         percent,
-                        description: format!("[{layer_id}] {status}"),
+                        description: line.clone(),
                     });
+                    let _ = crate::db::build_logs::append(db, deployment_id, &line, ts).await;
                 }
             }
             Err(e) => {
