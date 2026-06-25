@@ -1,5 +1,6 @@
 pub mod deploy_engine;
 pub mod deploy_log;
+pub mod docker_cleanup;
 pub mod home_deployments;
 pub mod metrics;
 pub mod projects;
@@ -87,12 +88,7 @@ fn render_content(f: &mut Frame, app: &App, area: Rect) {
             "Ingress Routes",
             "Tabela de rotas ativa no proxy hyper.",
         ),
-        View::HomeDocker => render_home_placeholder(
-            f,
-            area,
-            "Docker",
-            "Containers, redes e imagens gerenciadas.",
-        ),
+        View::HomeDocker => docker_cleanup::render(f, app, area),
         View::HomeDeployEngine => deploy_engine::render(f, app, area),
         View::HomeRequests => render_home_placeholder(
             f,

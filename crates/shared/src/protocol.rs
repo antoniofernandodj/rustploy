@@ -146,6 +146,12 @@ pub enum Command {
         project_id: String,
     },
 
+    // Docker cleanup
+    PruneContainers,
+    PruneVolumes,
+    PruneImages,
+    PruneBuildCache,
+
     // Infrastructure
     Ping,
     DaemonStatus,
@@ -211,6 +217,7 @@ pub enum Event {
         timestamp: chrono::DateTime<chrono::Utc>,
     },
     ContainerMetrics(ContainerMetricsPoint),
+    SystemMetrics(SystemMetricsPoint),
     ServiceStatusChanged {
         service_id: String,
         status: ServiceStatus,
@@ -243,7 +250,7 @@ impl Event {
             Event::ServiceStatusChanged {
                 service_id: sid, ..
             } => sid == service_id,
-            Event::DaemonReady { .. } | Event::Error { .. } => true,
+            Event::DaemonReady { .. } | Event::Error { .. } | Event::SystemMetrics(_) => true,
         }
     }
 }
@@ -297,6 +304,8 @@ pub enum Response {
     OAuthUrl(String),
     GitRepos(Vec<GitRepo>),
     GitBranches(Vec<GitBranch>),
+
+    PruneResult { count: u32, reclaimed_bytes: u64 },
 
     Err { code: String, message: String },
 }

@@ -37,6 +37,10 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::SecretList { .. } => "SecretList",
         Command::ManifestApply { .. } => "ManifestApply",
         Command::ManifestExport { .. } => "ManifestExport",
+        Command::PruneContainers => "PruneContainers",
+        Command::PruneVolumes => "PruneVolumes",
+        Command::PruneImages => "PruneImages",
+        Command::PruneBuildCache => "PruneBuildCache",
         Command::GitProviderList => "GitProviderList",
         Command::GitProviderCreate { .. } => "GitProviderCreate",
         Command::GitProviderDelete { .. } => "GitProviderDelete",
@@ -51,6 +55,10 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::Ping => handlers::ping::handle(state).await,
         Command::DaemonStatus => handlers::daemon_status::handle(state).await,
         Command::DeployEngineStatus => handlers::deploy_engine_status::handle(state).await,
+        Command::PruneContainers => handlers::docker_prune::prune_containers(state).await,
+        Command::PruneVolumes => handlers::docker_prune::prune_volumes(state).await,
+        Command::PruneImages => handlers::docker_prune::prune_images(state).await,
+        Command::PruneBuildCache => handlers::docker_prune::prune_build_cache(state).await,
         Command::ProjectCreate { name, description } => {
             handlers::project_create::handle(state, name, description).await
         }

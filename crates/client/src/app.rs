@@ -2,7 +2,7 @@ pub use crate::models::*;
 
 use shared::{
     Command, ContainerMetricsPoint, DeployEngineSummary, DeployState, Deployment,
-    DeploymentSummary, Event, Project, Response, Service, ServiceStatus,
+    DeploymentSummary, Event, Project, Response, Service, ServiceStatus, SystemMetricsPoint,
 };
 
 use std::collections::{HashMap, VecDeque};
@@ -52,6 +52,7 @@ pub struct App {
     /// Container stdout/stderr per service_id — populated from Event::LogLine.
     pub logs: HashMap<String, VecDeque<LogLine>>,
     pub metrics: HashMap<String, VecDeque<ContainerMetricsPoint>>,
+    pub system_metrics: VecDeque<SystemMetricsPoint>,
 
     pub notification: Option<Notification>,
     pub last_deployment: Option<Deployment>,
@@ -66,6 +67,8 @@ pub struct App {
     pub server_settings: ServerSettingsState,
     pub project_secrets: Vec<String>,
     pub secrets_tab: SecretsTabState,
+
+    pub docker_prune: DockerPruneState,
 }
 
 impl App {
@@ -113,6 +116,7 @@ impl App {
             build_logs: HashMap::new(),
             logs: HashMap::new(),
             metrics: HashMap::new(),
+            system_metrics: VecDeque::new(),
 
             notification: None,
             last_deployment: None,
@@ -127,6 +131,8 @@ impl App {
             server_settings: ServerSettingsState::default(),
             project_secrets: vec![],
             secrets_tab: SecretsTabState::default(),
+
+            docker_prune: DockerPruneState::default(),
         }
     }
 
@@ -510,6 +516,13 @@ impl App {
                 buf.push_back(m);
             }
 
+            Event::SystemMetrics(m) => {
+                if self.system_metrics.len() >= MAX_METRIC_POINTS {
+                    self.system_metrics.pop_front();
+                }
+                self.system_metrics.push_back(m);
+            }
+
             Event::Error { message, .. } => {
                 self.set_notification(message, true);
             }
@@ -749,6 +762,34 @@ impl App {
             }
             (Response::Err { message, .. }, _) => {
                 self.set_notification(message, true);
+            }
+            (Response::PruneResult { count, reclaimed_bytes }, ctx) => {
+                let slot = match ctx {
+                    CmdContext::PruneContainers => &mut self.docker_prune.containers,
+                    CmdContext::PruneVolumes    => &mut self.docker_prune.volumes,
+                    CmdContext::PruneImages     => &mut self.docker_prune.images,
+                    CmdContext::PruneBuildCache => &mut self.docker_prune.build_cache,
+                    _ => return,
+                };
+                *slot = PruneSlot::Done { count, reclaimed_bytes };
+            }
+            (Response::Err { message, .. }, ctx)
+                if matches!(
+                    ctx,
+                    CmdContext::PruneContainers
+                        | CmdContext::PruneVolumes
+                        | CmdContext::PruneImages
+                        | CmdContext::PruneBuildCache
+                ) =>
+            {
+                let slot = match ctx {
+                    CmdContext::PruneContainers => &mut self.docker_prune.containers,
+                    CmdContext::PruneVolumes    => &mut self.docker_prune.volumes,
+                    CmdContext::PruneImages     => &mut self.docker_prune.images,
+                    CmdContext::PruneBuildCache => &mut self.docker_prune.build_cache,
+                    _ => return,
+                };
+                *slot = PruneSlot::Error(message);
             }
             _ => {}
         }

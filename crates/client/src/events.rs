@@ -1,7 +1,8 @@
 use crate::app::{
-    AdvancedField, App, CmdContext, ConfirmAction, DbKind, EnvEditField, EnvTabState, Focus,
-    GeneralTabField, HcField, NewServiceState, NewServiceStep, PendingCommand, ProjectDetailTab,
-    ProjectSettingsField, SecretEditField, SecretsTabState, ServerSettingsField, ServiceTab, View,
+    AdvancedField, App, CmdContext, ConfirmAction, DbKind, DockerPruneButton, EnvEditField,
+    EnvTabState, Focus, GeneralTabField, HcField, NewServiceState, NewServiceStep, PendingCommand,
+    ProjectDetailTab, ProjectSettingsField, PruneSlot, SecretEditField, SecretsTabState,
+    ServerSettingsField, ServiceTab, View,
 };
 use crossterm::event::KeyModifiers;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
@@ -85,11 +86,11 @@ fn handle_content(app: &mut App, key: KeyEvent) {
         View::ServiceDetail => handle_service_detail(app, key),
         View::SettingsWebServer => handle_settings_web_server(app, key),
         View::HomeDeployEngine => handle_home_deploy_engine(app, key),
+        View::HomeDocker => handle_docker_cleanup(app, key),
         View::HomeMonitoring
         | View::HomeDeployments
         | View::HomeSchedules
         | View::HomeIngress
-        | View::HomeDocker
         | View::HomeRequests => handle_home(app, key),
         _ => {}
     }
@@ -673,7 +674,9 @@ fn handle_service_detail(app: &mut App, key: KeyEvent) {
             crate::app::ServiceTab::Domains => handle_domains_tab(app, key),
             crate::app::ServiceTab::Logs => handle_logs_tab(app, key),
             crate::app::ServiceTab::Advanced => handle_advanced_tab(app, key),
-            crate::app::ServiceTab::Connection | crate::app::ServiceTab::Patches => {}
+            crate::app::ServiceTab::Connection
+            | crate::app::ServiceTab::Metrics
+            | crate::app::ServiceTab::Patches => {}
         },
     }
 }
@@ -1901,4 +1904,45 @@ fn copy_to_clipboard(app: &mut App, text: &str) {
         "Instale wl-copy (Wayland) ou xclip/xsel (X11) para copiar",
         true,
     );
+}
+
+fn handle_docker_cleanup(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Up | KeyCode::Char('k') => {
+            app.docker_prune.focused = app.docker_prune.focused.prev();
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            app.docker_prune.focused = app.docker_prune.focused.next();
+        }
+        KeyCode::Enter => {
+            let (cmd, ctx, slot) = match app.docker_prune.focused {
+                DockerPruneButton::Containers => (
+                    Command::PruneContainers,
+                    CmdContext::PruneContainers,
+                    &mut app.docker_prune.containers,
+                ),
+                DockerPruneButton::Volumes => (
+                    Command::PruneVolumes,
+                    CmdContext::PruneVolumes,
+                    &mut app.docker_prune.volumes,
+                ),
+                DockerPruneButton::Images => (
+                    Command::PruneImages,
+                    CmdContext::PruneImages,
+                    &mut app.docker_prune.images,
+                ),
+                DockerPruneButton::BuildCache => (
+                    Command::PruneBuildCache,
+                    CmdContext::PruneBuildCache,
+                    &mut app.docker_prune.build_cache,
+                ),
+            };
+            if *slot == PruneSlot::Running {
+                return;
+            }
+            *slot = PruneSlot::Running;
+            app.pending_commands.push(PendingCommand { command: cmd, context: ctx });
+        }
+        _ => {}
+    }
 }

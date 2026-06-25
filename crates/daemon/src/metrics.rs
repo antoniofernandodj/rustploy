@@ -1,8 +1,9 @@
 use crate::{db::Db, event_bus::EventBus};
 use bollard::Docker;
 use chrono::Utc;
-use shared::{ContainerMetricsPoint, Event};
+use shared::{ContainerMetricsPoint, Event, SystemMetricsPoint};
 use std::{collections::HashMap, sync::Arc, time::Duration};
+use sysinfo::System;
 use tokio::time::interval;
 use tracing::warn;
 
@@ -14,10 +15,15 @@ pub async fn collect_loop(
 ) {
     let mut ticker = interval(Duration::from_secs(interval_secs));
     let mut prev_cpu: HashMap<String, (u64, u64)> = HashMap::new();
+    let mut sys = System::new_all();
 
     loop {
         ticker.tick().await;
 
+        // ── Métricas do SO ───────────────────────────────────────────────────
+        bus.publish(Event::SystemMetrics(collect_system_metrics(&mut sys)));
+
+        // ── Métricas por container ───────────────────────────────────────────
         let services = match crate::db::services::get_running(&db).await {
             Ok(s) => s,
             Err(e) => {
@@ -40,6 +46,40 @@ pub async fn collect_loop(
                 ),
             }
         }
+    }
+}
+
+fn collect_system_metrics(sys: &mut System) -> SystemMetricsPoint {
+    sys.refresh_cpu_usage();
+    sys.refresh_memory();
+
+    let cpu_percent = sys.global_cpu_usage() as f64;
+    let mem_used = sys.used_memory();
+    let mem_total = sys.total_memory();
+
+    // Disco: usa o mount com mais espaço total (normalmente /)
+    let (disk_used, disk_total) = {
+        use sysinfo::Disks;
+        let disks = Disks::new_with_refreshed_list();
+        disks
+            .iter()
+            .max_by_key(|d| d.total_space() as u64)
+            .map(|d| (d.total_space() - d.available_space(), d.total_space()))
+            .unwrap_or((0u64, 0u64))
+    };
+
+    let load = System::load_average();
+
+    SystemMetricsPoint {
+        cpu_percent,
+        mem_used_bytes: mem_used,
+        mem_total_bytes: mem_total,
+        disk_used_bytes: disk_used,
+        disk_total_bytes: disk_total,
+        load_avg_1: load.one,
+        load_avg_5: load.five,
+        load_avg_15: load.fifteen,
+        timestamp: Utc::now(),
     }
 }
 

@@ -9,6 +9,22 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
         Err(e) => return RpResponse::err("DatabaseError", e.to_string()),
     };
 
+    // Marca o serviço como Stopping antes de qualquer operação bloqueante.
+    if let Err(e) = crate::db::services::update_status(
+        &state.db,
+        &service_id,
+        &ServiceStatus::Stopping,
+        svc.live_container_id.as_deref(),
+    )
+    .await
+    {
+        return RpResponse::err("DatabaseError", e.to_string());
+    }
+    state.bus.publish(Event::ServiceStatusChanged {
+        service_id: service_id.clone(),
+        status: ServiceStatus::Stopping,
+    });
+
     // Compose services are stopped via compose_down.
     if let ServiceSource::Compose(compose) = &svc.spec.source {
         let pid = &svc.spec.project_id;

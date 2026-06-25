@@ -1,4 +1,5 @@
 use crate::app::{AdvancedField, App, DbKind, EnvEditField, GeneralTabField, HcField, ServiceTab};
+use crate::ui::metrics::render_service_charts;
 use shared::ServiceSource;
 use ratatui::{
     Frame,
@@ -89,6 +90,11 @@ fn render_tab_content(f: &mut Frame, app: &App, area: Rect) {
         ServiceTab::Deployments => render_deployments_tab(f, app, area),
         ServiceTab::Healthcheck => render_healthcheck_tab(f, app, area),
         ServiceTab::Logs => render_logs_tab(f, app, area),
+        ServiceTab::Metrics => {
+            if let Some(svc) = app.current_service() {
+                render_service_charts(f, app, area, &svc.id.clone(), &svc.spec.name.clone());
+            }
+        }
         ServiceTab::Patches => render_patches_tab(f, area),
         ServiceTab::Advanced => render_advanced_tab(f, app, area),
     }

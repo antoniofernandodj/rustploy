@@ -437,6 +437,19 @@ pub struct ContainerMetricsPoint {
     pub timestamp: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemMetricsPoint {
+    pub cpu_percent: f64,
+    pub mem_used_bytes: u64,
+    pub mem_total_bytes: u64,
+    pub disk_used_bytes: u64,
+    pub disk_total_bytes: u64,
+    pub load_avg_1: f64,
+    pub load_avg_5: f64,
+    pub load_avg_15: f64,
+    pub timestamp: DateTime<Utc>,
+}
+
 #[cfg(test)]
 mod git_provider_tests {
     use super::*;

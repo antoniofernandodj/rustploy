@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
     }
     info!("docker engine connected");
 
-    let bus = Arc::new(EventBus::new());
+    let bus = Arc::new(EventBus::new(db.clone()));
     let ingress = Arc::new(IngressController::new());
 
     let master_key = resolve_master_key_path(&config.secrets.master_key_path);
@@ -134,6 +134,23 @@ async fn main() -> Result<()> {
         config.deploy.drain_secs,
         config.daemon.webhook_port,
     );
+
+    // Limpeza periódica do event_log (retém 30 dias)
+    {
+        let db2 = state.db.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(24 * 3600));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop {
+                interval.tick().await;
+                match crate::db::event_log::trim(&db2, 30).await {
+                    Ok(n) if n > 0 => tracing::info!(rows = n, "event_log: entradas antigas removidas"),
+                    Err(e) => tracing::warn!(error = %e, "event_log: falha no trim"),
+                    _ => {}
+                }
+            }
+        });
+    }
 
     // Watchdog: detecta containers parados/removidos, tenta restart e redeploy
     {

@@ -148,6 +148,7 @@ pub enum ServiceTab {
     Deployments,
     Healthcheck,
     Logs,
+    Metrics,
     Patches,
     Advanced,
 }
@@ -161,6 +162,7 @@ impl ServiceTab {
             ServiceTab::Deployments,
             ServiceTab::Healthcheck,
             ServiceTab::Logs,
+            ServiceTab::Metrics,
             ServiceTab::Patches,
             ServiceTab::Advanced,
         ]
@@ -175,6 +177,7 @@ impl ServiceTab {
             ServiceTab::Deployments,
             ServiceTab::Healthcheck,
             ServiceTab::Logs,
+            ServiceTab::Metrics,
             ServiceTab::Patches,
         ]
     }
@@ -188,6 +191,7 @@ impl ServiceTab {
             ServiceTab::Deployments => "Deployments",
             ServiceTab::Healthcheck => "Healthcheck",
             ServiceTab::Logs => "Logs",
+            ServiceTab::Metrics => "Metrics",
             ServiceTab::Patches => "Patches",
             ServiceTab::Advanced => "Advanced",
         }
@@ -1390,6 +1394,10 @@ pub enum CmdContext {
     LoadSecrets,
     SetSecret,
     DeleteSecret,
+    PruneContainers,
+    PruneVolumes,
+    PruneImages,
+    PruneBuildCache,
 }
 
 // ── Compose tab ───────────────────────────────────────────────────────────────
@@ -1498,4 +1506,52 @@ pub struct DeployProgressState {
     pub percent: u8,
     pub description: String,
     pub states_seen: Vec<DeployState>,
+}
+
+// ── Docker Cleanup ────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub enum PruneSlot {
+    #[default]
+    Idle,
+    Running,
+    Done { count: u32, reclaimed_bytes: u64 },
+    Error(String),
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct DockerPruneState {
+    pub focused: DockerPruneButton,
+    pub containers: PruneSlot,
+    pub volumes: PruneSlot,
+    pub images: PruneSlot,
+    pub build_cache: PruneSlot,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub enum DockerPruneButton {
+    #[default]
+    Containers,
+    Volumes,
+    Images,
+    BuildCache,
+}
+
+impl DockerPruneButton {
+    pub fn next(&self) -> Self {
+        match self {
+            Self::Containers => Self::Volumes,
+            Self::Volumes    => Self::Images,
+            Self::Images     => Self::BuildCache,
+            Self::BuildCache => Self::Containers,
+        }
+    }
+    pub fn prev(&self) -> Self {
+        match self {
+            Self::Containers => Self::BuildCache,
+            Self::Volumes    => Self::Containers,
+            Self::Images     => Self::Volumes,
+            Self::BuildCache => Self::Images,
+        }
+    }
 }

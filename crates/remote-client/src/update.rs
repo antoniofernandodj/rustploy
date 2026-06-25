@@ -183,7 +183,14 @@ impl App {
             // ── Service actions ───────────────────────────────────────────
             Message::SvcDeploy => self.service_action(Ctx::Deploy, |id| Command::DeployStart { service_id: id }, "Deploy"),
             Message::SvcReload => self.service_action(Ctx::Action("Reload".into()), |id| Command::ServiceReload { service_id: id }, "Reload"),
-            Message::SvcStop => self.service_action(Ctx::Action("Stop".into()), |id| Command::ServiceStop { service_id: id }, "Stop"),
+            Message::SvcStop => {
+                if let Some(id) = self.active_service_id.clone() {
+                    if let Some(svc) = self.services.iter_mut().find(|s| s.id == id) {
+                        svc.status = ServiceStatus::Stopping;
+                    }
+                }
+                self.service_action(Ctx::Action("Stop".into()), |id| Command::ServiceStop { service_id: id }, "Stop");
+            }
             Message::SvcRollback => self.service_action(Ctx::Action("Rollback".into()), |id| Command::DeployRollback { service_id: id }, "Rollback"),
 
             // ── General / git form ────────────────────────────────────────
@@ -846,6 +853,7 @@ impl App {
                 }
                 buf.push(m);
             }
+            Event::SystemMetrics(_) => {}
             Event::Error { message, .. } => self.notify(message, true),
             Event::DaemonReady { version } => self.notify(format!("daemon {version} ready"), false),
         }

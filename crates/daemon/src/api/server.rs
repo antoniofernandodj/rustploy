@@ -43,29 +43,56 @@ async fn write_frame(stream: &mut UnixStream, data: &[u8]) -> Result<()> {
 }
 
 async fn stream_events(mut stream: UnixStream, state: AppState, service_id: Option<String>) {
-    let mut rx: tokio::sync::broadcast::Receiver<Event> = state.bus.subscribe();
+    // Subscreve ao bus ANTES do replay para não perder eventos emitidos
+    // durante a janela entre buscar o histórico e começar a ouvir.
+    let mut rx = state.bus.subscribe();
+
+    // Replay: envia eventos persistidos desde o último restart.
+    let history = crate::db::event_log::recent(&state.db, service_id.as_deref(), 200)
+        .await
+        .unwrap_or_default();
+
+    for event in history {
+        if !passes_filter(&event, service_id.as_deref()) {
+            continue;
+        }
+        if send_event(&mut stream, &event).await.is_err() {
+            return;
+        }
+    }
+
+    // Stream live.
     loop {
         match rx.recv().await {
             Ok(event) => {
-                if let Some(ref sid) = service_id {
-                    if event.matches(sid) {
-                        continue;
-                    }
+                if !passes_filter(&event, service_id.as_deref()) {
+                    continue;
                 }
-                match postcard::to_allocvec(&event) {
-                    Ok(payload) => {
-                        let len: [u8; 4] = (payload.len() as u32).to_le_bytes();
-                        if stream.write_all(&len).await.is_err()
-                            || stream.write_all(&payload).await.is_err()
-                        {
-                            break;
-                        }
-                    }
-                    Err(e) => warn!(error = %e, "failed to serialize event"),
+                if send_event(&mut stream, &event).await.is_err() {
+                    break;
                 }
             }
             Err(RecvError::Lagged(_)) => continue,
             Err(RecvError::Closed) => break,
         }
     }
+}
+
+/// Retorna `true` se o evento deve ser enviado para esta subscrição.
+/// Sem filtro de serviço → todos os eventos passam.
+/// Com filtro → só eventos relevantes para aquele serviço (incluindo globais).
+fn passes_filter(event: &Event, service_id: Option<&str>) -> bool {
+    match service_id {
+        None => true,
+        Some(sid) => event.matches(sid),
+    }
+}
+
+async fn send_event(stream: &mut UnixStream, event: &Event) -> Result<()> {
+    let payload = postcard::to_allocvec(event)
+        .map_err(|e| { warn!(error = %e, "failed to serialize event"); e })?;
+    let len = (payload.len() as u32).to_le_bytes();
+    stream.write_all(&len).await?;
+    stream.write_all(&payload).await?;
+    Ok(())
 }

@@ -90,3 +90,6 @@ bytes = "1"
 # Performance
 mimalloc = { version = "0.1", default-features = false }
 socket2 = { version = "0.5", features = ["all"] }
+
+# System metrics
+sysinfo = { version = "0.33", default-features = false, features = ["system", "disk"] }

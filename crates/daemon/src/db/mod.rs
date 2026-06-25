@@ -1,5 +1,6 @@
 pub mod build_logs;
 pub mod daemon_settings;
+pub mod event_log;
 pub mod git_providers;
 pub mod deployments;
 pub mod projects;
@@ -114,6 +115,17 @@ async fn migrate(pool: &SqlitePool) -> Result<()> {
             account_avatar          TEXT,
             created_at              TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS event_log (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind       TEXT NOT NULL,
+            service_id TEXT,
+            payload    BLOB NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS ix_event_log_svc ON event_log(service_id, id DESC);
+        CREATE INDEX IF NOT EXISTS ix_event_log_id  ON event_log(id DESC);
         ",
     )
     .execute(pool)
