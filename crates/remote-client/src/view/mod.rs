@@ -12,9 +12,9 @@ mod wizard;
 use crate::model::{palette, ConfirmAction, View};
 use crate::{App, Message};
 use iced::widget::{
-    button, checkbox, column, container, row, stack, text, text_input, Space,
+    button, checkbox, column, container, mouse_area, row, stack, text, text_input, Space,
 };
-use iced::{Alignment, Element, Length};
+use iced::{Alignment, Background, Color, Element, Length};
 use widgets::*;
 
 pub fn view(app: &App) -> Element<'_, Message> {
@@ -184,30 +184,49 @@ fn connect_screen(app: &App) -> Element<'_, Message> {
 
 // ── Overlays ──────────────────────────────────────────────────────────────────
 
+fn backdrop() -> container::Style {
+    container::Style {
+        background: Some(Background::Color(Color::from_rgba(0.0, 0.0, 0.0, 0.55))),
+        ..Default::default()
+    }
+}
+
 fn modal(body: Element<'_, Message>) -> Element<'_, Message> {
-    container(
-        container(body)
-            .padding(32)
-            .max_width(720)
-            .style(container::rounded_box),
+    // mouse_area cobre o ecrã inteiro e captura todos os eventos de ponteiro,
+    // impedindo que o hover chegue aos elementos por baixo do modal.
+    mouse_area(
+        container(
+            container(body)
+                .padding(32)
+                .max_width(720)
+                .style(container::rounded_box),
+        )
+        .center_x(Length::Fill)
+        .center_y(Length::Fill)
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .padding(20)
+        .style(|_| backdrop()),
     )
-    .center_x(Length::Fill)
-    .center_y(Length::Fill)
-    .padding(20)
     .into()
 }
 
 fn wide_modal(body: Element<'_, Message>) -> Element<'_, Message> {
-    container(
-        container(body)
-            .padding(24)
-            .max_width(1200)
-            .width(Length::Fill)
-            .style(container::rounded_box),
+    mouse_area(
+        container(
+            container(body)
+                .padding(24)
+                .max_width(1200)
+                .width(Length::Fill)
+                .style(container::rounded_box),
+        )
+        .center_x(Length::Fill)
+        .center_y(Length::Fill)
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .padding(20)
+        .style(|_| backdrop()),
     )
-    .center_x(Length::Fill)
-    .center_y(Length::Fill)
-    .padding(20)
     .into()
 }
 
