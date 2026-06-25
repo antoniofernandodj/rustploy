@@ -84,6 +84,9 @@ impl App {
                     if let Some(sid) = self.active_service_id.clone() {
                         self.send(Ctx::Logs, Command::LogsGet { service_id: sid, tail: 500 });
                     }
+                    self.rebuild_log_editor();
+                } else if tab == ServiceTab::Deployments {
+                    self.rebuild_build_log_editor();
                 }
             }
 
@@ -205,6 +208,19 @@ impl App {
             Message::GenSave => self.general_save(),
             Message::ComposeAction(action) => self.compose_editor.perform(action),
             Message::ComposeSave => self.compose_save(),
+            // Logs são read-only: aplicamos apenas ações de seleção/cursor/scroll
+            // (cópia via Ctrl+C é tratada internamente pelo widget); ignoramos
+            // edições para que o texto continue espelhando o buffer.
+            Message::BuildLogAction(action) => {
+                if !action.is_edit() {
+                    self.build_log_editor.perform(action);
+                }
+            }
+            Message::LogAction(action) => {
+                if !action.is_edit() {
+                    self.log_editor.perform(action);
+                }
+            }
 
             // ── Service env ───────────────────────────────────────────────
             Message::SEnvOpen => {
@@ -277,6 +293,7 @@ impl App {
                 if let Some(dep) = self.service_deployments.get(i) {
                     self.send(Ctx::BuildLogs, Command::GetBuildLogs { deployment_id: dep.id.clone() });
                 }
+                self.rebuild_build_log_editor();
             }
             Message::WebhookRegen => {
                 if let Some(sid) = self.active_service_id.clone() {
@@ -513,12 +530,44 @@ impl App {
         self.s_env_editor.open = false;
         self.selected_deployment = 0;
         self.service_deployments.clear();
+        self.build_log_editor = iced::widget::text_editor::Content::new();
+        self.log_editor = iced::widget::text_editor::Content::new();
         self.webhook_url = None;
         self.send(Ctx::Deployments, Command::DeployHistory { service_id: svc.id.clone(), limit: 10 });
         self.send(Ctx::Logs, Command::LogsGet { service_id: svc.id.clone(), tail: 500 });
         if !matches!(svc.spec.source, ServiceSource::Compose(_)) {
             self.send(Ctx::WebhookUrl, Command::GetWebhookUrl { service_id: svc.id });
         }
+    }
+
+    /// Rebuild the read-only build-log editor from the currently selected
+    /// deployment's buffer, so the rendered text matches the live logs.
+    fn rebuild_build_log_editor(&mut self) {
+        let text = self
+            .service_deployments
+            .get(self.selected_deployment)
+            .and_then(|dep| self.build_logs.get(&dep.id))
+            .map(|buf| {
+                buf.iter().map(|l| l.text.as_str()).collect::<Vec<_>>().join("\n")
+            })
+            .unwrap_or_default();
+        self.build_log_editor = iced::widget::text_editor::Content::with_text(&text);
+    }
+
+    /// Rebuild the read-only service-log editor from the active service buffer.
+    fn rebuild_log_editor(&mut self) {
+        let text = self
+            .active_service_id
+            .as_ref()
+            .and_then(|sid| self.logs.get(sid))
+            .map(|buf| {
+                buf.iter()
+                    .map(|l| format!("{} {}", l.timestamp.format("%H:%M:%S%.3f"), l.text))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            })
+            .unwrap_or_default();
+        self.log_editor = iced::widget::text_editor::Content::with_text(&text);
     }
 
     // ── Worker / responses / events ───────────────────────────────────────
@@ -576,18 +625,27 @@ impl App {
                         buf.push(LogLine { timestamp: e.timestamp, text: e.line, is_stderr: false });
                     }
                 }
+                self.rebuild_build_log_editor();
             }
             (Ctx::Logs, Response::Logs(entries)) => {
+                // O daemon recarimba todas as linhas com `now()` a cada poll, então
+                // não dá pra confiar nos timestamps para detectar novidade. Fazemos
+                // um merge incremental por conteúdo: preservamos as linhas já vistas
+                // (e seus timestamps) e anexamos só as realmente novas. Quando nada
+                // muda, não reconstruímos o editor — preservando a seleção do usuário.
                 if !entries.is_empty() {
                     if let Some(sid) = self.active_service_id.clone() {
-                        let buf = self.logs.entry(sid).or_default();
-                        buf.clear();
-                        for e in entries {
-                            buf.push(LogLine {
+                        let incoming: Vec<LogLine> = entries
+                            .into_iter()
+                            .map(|e| LogLine {
                                 timestamp: e.timestamp,
                                 text: e.line,
                                 is_stderr: e.stream == shared::protocol::LogStream::Stderr,
-                            });
+                            })
+                            .collect();
+                        let buf = self.logs.entry(sid).or_default();
+                        if merge_logs(buf, incoming) {
+                            self.rebuild_log_editor();
                         }
                     }
                 }
@@ -743,13 +801,21 @@ impl App {
             }
             Event::DeployProgress { .. } => {}
             Event::BuildLog { deployment_id, line, timestamp, .. } => {
+                let displayed = self
+                    .service_deployments
+                    .get(self.selected_deployment)
+                    .is_some_and(|d| d.id == deployment_id);
                 let buf = self.build_logs.entry(deployment_id).or_default();
                 if buf.len() >= MAX_LOG_LINES {
                     buf.remove(0);
                 }
                 buf.push(LogLine { timestamp, text: line, is_stderr: false });
+                if displayed {
+                    self.rebuild_build_log_editor();
+                }
             }
             Event::LogLine { service_id, stream, line, timestamp, .. } => {
+                let displayed = self.active_service_id.as_deref() == Some(service_id.as_str());
                 let buf = self.logs.entry(service_id).or_default();
                 if buf.len() >= MAX_LOG_LINES {
                     buf.remove(0);
@@ -759,6 +825,9 @@ impl App {
                     text: line,
                     is_stderr: stream == shared::protocol::LogStream::Stderr,
                 });
+                if displayed {
+                    self.rebuild_log_editor();
+                }
             }
             Event::ContainerMetrics(m) => {
                 let buf = self.metrics.entry(m.service_id.clone()).or_default();
@@ -1022,3 +1091,105 @@ pub fn status_color(status: &ServiceStatus) -> iced::Color {
 
 #[allow(dead_code)]
 fn _assert_service(_s: &Service) {}
+
+/// Merge a freshly polled log tail into an existing buffer without duplicating
+/// lines that were already seen. Logs are append-only and both slices end at the
+/// most recent line, so we find the largest overlap where a suffix of `buf`
+/// matches a prefix of `incoming` (comparing text + stream only — timestamps are
+/// re-stamped by the daemon on every poll) and append just the new lines past it.
+/// Returns `true` if `buf` was modified (i.e. the editor needs rebuilding).
+fn merge_logs(buf: &mut Vec<LogLine>, incoming: Vec<LogLine>) -> bool {
+    let same = |a: &LogLine, b: &LogLine| a.text == b.text && a.is_stderr == b.is_stderr;
+
+    // Largest k such that the last k lines of `buf` equal the first k of `incoming`.
+    let max_k = buf.len().min(incoming.len());
+    let mut overlap = 0;
+    for k in (1..=max_k).rev() {
+        if buf[buf.len() - k..]
+            .iter()
+            .zip(&incoming[..k])
+            .all(|(a, b)| same(a, b))
+        {
+            overlap = k;
+            break;
+        }
+    }
+
+    if overlap == 0 {
+        // No common tail: either first load (empty buf) or full log turnover.
+        if buf.is_empty() && incoming.is_empty() {
+            return false;
+        }
+        *buf = incoming;
+    } else if overlap == incoming.len() {
+        // Everything in `incoming` is already present — nothing new.
+        return false;
+    } else {
+        buf.extend(incoming.into_iter().skip(overlap));
+    }
+
+    if buf.len() > MAX_LOG_LINES {
+        let excess = buf.len() - MAX_LOG_LINES;
+        buf.drain(..excess);
+    }
+    true
+}
+
+#[cfg(test)]
+mod merge_tests {
+    use super::merge_logs;
+    use crate::model::LogLine;
+
+    fn line(text: &str) -> LogLine {
+        LogLine { timestamp: chrono::Utc::now(), text: text.into(), is_stderr: false }
+    }
+    fn lines(texts: &[&str]) -> Vec<LogLine> {
+        texts.iter().map(|t| line(t)).collect()
+    }
+    fn texts(buf: &[LogLine]) -> Vec<String> {
+        buf.iter().map(|l| l.text.clone()).collect()
+    }
+
+    #[test]
+    fn first_load_takes_everything() {
+        let mut buf = vec![];
+        assert!(merge_logs(&mut buf, lines(&["a", "b", "c"])));
+        assert_eq!(texts(&buf), ["a", "b", "c"]);
+    }
+
+    #[test]
+    fn identical_poll_is_noop() {
+        let mut buf = lines(&["a", "b", "c"]);
+        assert!(!merge_logs(&mut buf, lines(&["a", "b", "c"])));
+        assert_eq!(texts(&buf), ["a", "b", "c"]);
+    }
+
+    #[test]
+    fn appends_only_new_lines() {
+        let mut buf = lines(&["a", "b", "c"]);
+        assert!(merge_logs(&mut buf, lines(&["a", "b", "c", "d", "e"])));
+        assert_eq!(texts(&buf), ["a", "b", "c", "d", "e"]);
+    }
+
+    #[test]
+    fn appends_with_truncated_window() {
+        // poll window dropped the oldest line but overlaps on the tail
+        let mut buf = lines(&["a", "b", "c"]);
+        assert!(merge_logs(&mut buf, lines(&["b", "c", "d"])));
+        assert_eq!(texts(&buf), ["a", "b", "c", "d"]);
+    }
+
+    #[test]
+    fn full_turnover_replaces() {
+        let mut buf = lines(&["a", "b", "c"]);
+        assert!(merge_logs(&mut buf, lines(&["x", "y", "z"])));
+        assert_eq!(texts(&buf), ["x", "y", "z"]);
+    }
+
+    #[test]
+    fn repeated_identical_lines_grow_by_one() {
+        let mut buf = lines(&["x", "x"]);
+        assert!(merge_logs(&mut buf, lines(&["x", "x", "x"])));
+        assert_eq!(texts(&buf), ["x", "x", "x"]);
+    }
+}
