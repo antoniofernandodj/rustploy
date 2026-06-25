@@ -502,8 +502,7 @@ impl NsForm {
         let img = &self.docker_image;
         match self.db_kind {
             Some(DbKind::Postgres) => format!(
-                "services:\n  postgres:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      POSTGRES_DB: {}\n      POSTGRES_USER: {}\n      POSTGRES_PASSWORD: {}\n    volumes:\n      - pgdata:/var/lib/postgresql\n\nvolumes:\n  pgdata:\n",
-                self.db_name, self.db_user, self.db_password
+                "services:\n  postgres:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      POSTGRES_DB: ${{POSTGRES_DB}}\n      POSTGRES_USER: ${{POSTGRES_USER}}\n      POSTGRES_PASSWORD: ${{POSTGRES_PASSWORD}}\n    volumes:\n      - pgdata:/var/lib/postgresql\n\nvolumes:\n  pgdata:\n"
             ),
             Some(DbKind::MongoDB) => {
                 let replica = if self.use_replica_sets {
@@ -512,23 +511,20 @@ impl NsForm {
                     ""
                 };
                 format!(
-                    "services:\n  mongo:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      MONGO_INITDB_ROOT_USERNAME: {}\n      MONGO_INITDB_ROOT_PASSWORD: {}\n{replica}    volumes:\n      - mongodata:/data/db\n\nvolumes:\n  mongodata:\n",
-                    self.db_user, self.db_password
+                    "services:\n  mongo:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      MONGO_INITDB_ROOT_USERNAME: ${{MONGO_INITDB_ROOT_USERNAME}}\n      MONGO_INITDB_ROOT_PASSWORD: ${{MONGO_INITDB_ROOT_PASSWORD}}\n{replica}    volumes:\n      - mongodata:/data/db\n\nvolumes:\n  mongodata:\n"
                 )
             }
             Some(DbKind::MariaDB) => format!(
-                "services:\n  mariadb:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      MYSQL_DATABASE: {}\n      MYSQL_USER: {}\n      MYSQL_PASSWORD: {}\n      MYSQL_ROOT_PASSWORD: {}\n    volumes:\n      - mariadbdata:/var/lib/mysql\n\nvolumes:\n  mariadbdata:\n",
-                self.db_name, self.db_user, self.db_password, self.db_root_password
+                "services:\n  mariadb:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      MYSQL_DATABASE: ${{MYSQL_DATABASE}}\n      MYSQL_USER: ${{MYSQL_USER}}\n      MYSQL_PASSWORD: ${{MYSQL_PASSWORD}}\n      MYSQL_ROOT_PASSWORD: ${{MYSQL_ROOT_PASSWORD}}\n    volumes:\n      - mariadbdata:/var/lib/mysql\n\nvolumes:\n  mariadbdata:\n"
             ),
             Some(DbKind::MySQL) => format!(
-                "services:\n  mysql:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      MYSQL_DATABASE: {}\n      MYSQL_USER: {}\n      MYSQL_PASSWORD: {}\n      MYSQL_ROOT_PASSWORD: {}\n    volumes:\n      - mysqldata:/var/lib/mysql\n\nvolumes:\n  mysqldata:\n",
-                self.db_name, self.db_user, self.db_password, self.db_root_password
+                "services:\n  mysql:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      MYSQL_DATABASE: ${{MYSQL_DATABASE}}\n      MYSQL_USER: ${{MYSQL_USER}}\n      MYSQL_PASSWORD: ${{MYSQL_PASSWORD}}\n      MYSQL_ROOT_PASSWORD: ${{MYSQL_ROOT_PASSWORD}}\n    volumes:\n      - mysqldata:/var/lib/mysql\n\nvolumes:\n  mysqldata:\n"
             ),
             Some(DbKind::Redis) => {
                 let cmd = if self.db_password.is_empty() {
                     String::new()
                 } else {
-                    format!("    command: redis-server --requirepass {}\n", self.db_password)
+                    "    command: redis-server --requirepass ${REDIS_PASSWORD}\n".to_string()
                 };
                 format!(
                     "services:\n  redis:\n    image: {img}\n    restart: unless-stopped\n{cmd}    volumes:\n      - redisdata:/data\n\nvolumes:\n  redisdata:\n"
