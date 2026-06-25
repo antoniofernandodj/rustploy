@@ -16,8 +16,11 @@ extended-description = "Rustploy remote GUI client — graphical interface for t
 section              = "admin"
 priority             = "optional"
 depends              = "$auto"
+maintainer-scripts   = "../../packaging/debian-remote-client"
 assets = [
-    ["target/release/rustploy-remote", "usr/bin/rustploy-remote", "755"],
+    ["target/release/rustploy-remote",                                    "usr/bin/rustploy-remote",                                          "755"],
+    ["../../packaging/remote-client/rustploy-remote.desktop",             "usr/share/applications/rustploy-remote.desktop",                   "644"],
+    ["../../packaging/remote-client/rustploy-remote.svg",                 "usr/share/icons/hicolor/scalable/apps/rustploy-remote.svg",         "644"],
 ]
 
 [dependencies]

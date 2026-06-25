@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Rustploy
+GenericName=PaaS Dashboard
+Comment=Manage deployments and services on Rustploy
+Exec=rustploy-remote
+Icon=rustploy-remote
+Categories=Development;System;
+Keywords=deploy;paas;docker;container;server;
+StartupNotify=true
+Terminal=false

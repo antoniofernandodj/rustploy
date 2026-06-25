@@ -62,9 +62,10 @@ deb-daemon: ## Compila e gera apenas o .deb do daemon
 	@ls -lh target/debian/rustployd_*.deb
 
 .PHONY: deb
-deb: build ## Gera os pacotes .deb (daemon + client)
+deb: build ## Gera os pacotes .deb (daemon + client + remote-client)
 	cargo deb -p daemon --no-build
 	cargo deb -p client --no-build
+	cargo deb -p remote-client --no-build
 	@echo ""
 	@echo "$(GREEN)Pacotes gerados:$(RESET)"
 	@ls -lh target/debian/*.deb
@@ -75,8 +76,9 @@ install-daemon: deb-daemon ## Compila, empacota e instala apenas o daemon
 
 .PHONY: install
 install: deb ## Instala os pacotes .deb via dpkg
-	sudo dpkg -i $$(ls target/debian/rustployd_*.deb | tail -1)
-	sudo dpkg -i $$(ls target/debian/rustploy_*.deb  | tail -1)
+	sudo dpkg -i $$(ls target/debian/rustployd_*.deb       | tail -1)
+	sudo dpkg -i $$(ls target/debian/rustploy_*.deb        | tail -1)
+	sudo dpkg -i $$(ls target/debian/rustploy-remote_*.deb | tail -1)
 
 .PHONY: install-client
 install-client: ## Instala apenas o client (requer make deb antes)
