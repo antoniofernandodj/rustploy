@@ -6,7 +6,7 @@ use super::widgets::*;
 use crate::model::{palette, ConfirmAction, ProjectTab};
 use crate::update::status_color;
 use crate::{App, Message};
-use iced::widget::{button, column, row, scrollable, text, Space};
+use iced::widget::{button, column, row, scrollable, text, text_editor, Space};
 use iced::{Alignment, Element, Length};
 use shared::EnvVarValue;
 
@@ -141,16 +141,34 @@ fn environment_tab(app: &App) -> Element<'_, Message> {
         None => return panel("Environment", text("—").into()),
     };
 
+    let text_btn_label = if app.p_env_text_open { "Fechar .env" } else { ".env" };
     let head = row![
         section("Environment — herdado por todos os serviços"),
         Space::with_width(Length::Fill),
+        ghost_btn("Exportar", Message::PEnvExport),
+        ghost_btn(text_btn_label, Message::PEnvTextOpen),
         ghost_btn("+ Adicionar", Message::PEnvOpen),
     ]
+    .spacing(6)
     .align_y(Alignment::Center);
 
     let mut col = column![head].spacing(6);
 
-    if app.p_env_editor.open {
+    if app.p_env_text_open {
+        col = col.push(
+            column![
+                muted("Cole ou edite no formato KEY=VALUE (# para comentários). Importar substitui todas as variáveis."),
+                text_editor(&app.p_env_text_editor)
+                    .on_action(Message::PEnvTextAction)
+                    .height(Length::Fixed(200.0)),
+                row![
+                    primary_btn("Importar", Message::PEnvImport),
+                    ghost_btn("Cancelar", Message::PEnvTextOpen),
+                ].spacing(8),
+            ]
+            .spacing(6),
+        );
+    } else if app.p_env_editor.open {
         col = col.push(kv_form(
             &app.p_env_editor.key,
             &app.p_env_editor.value,

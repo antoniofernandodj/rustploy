@@ -148,6 +148,42 @@ impl App {
             Message::PEnvCancel => self.p_env_editor.open = false,
             Message::PEnvSubmit => self.project_env_add(),
             Message::PEnvDelete(i) => self.project_env_delete(i),
+            Message::PEnvTextOpen => {
+                self.p_env_text_open = !self.p_env_text_open;
+                self.p_env_editor.open = false;
+                if self.p_env_text_open {
+                    let text = env_vars_to_dotenv(
+                        self.current_project().map(|p| p.env_vars.as_slice()).unwrap_or(&[])
+                    );
+                    self.p_env_text_editor = iced::widget::text_editor::Content::with_text(&text);
+                }
+            }
+            Message::PEnvTextAction(action) => self.p_env_text_editor.perform(action),
+            Message::PEnvImport => {
+                let text = self.p_env_text_editor.text();
+                let raw = parse_dotenv(&text);
+                let mut last_idx: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+                for (i, ev) in raw.iter().enumerate() {
+                    last_idx.insert(ev.key.clone(), i);
+                }
+                let parsed: Vec<shared::EnvVar> = raw.into_iter().enumerate()
+                    .filter(|(i, ev)| last_idx.get(&ev.key) == Some(i))
+                    .map(|(_, ev)| ev)
+                    .collect();
+                self.p_env_text_open = false;
+                if let Some(project) = self.current_project().cloned() {
+                    self.send(Ctx::UpdateProjectEnv, Command::ProjectEnvSet {
+                        project_id: project.id,
+                        env_vars: parsed,
+                    });
+                }
+            }
+            Message::PEnvExport => {
+                let text = env_vars_to_dotenv(
+                    self.current_project().map(|p| p.env_vars.as_slice()).unwrap_or(&[])
+                );
+                return iced::clipboard::write(text);
+            }
 
             // ── Secrets ───────────────────────────────────────────────────
             Message::SecretOpen => {
@@ -534,6 +570,7 @@ impl App {
             self.view = View::ProjectDetail;
             self.project_tab = ProjectTab::Services;
             self.p_env_editor.open = false;
+            self.p_env_text_open = false;
             self.secret_editor.open = false;
             self.send(Ctx::Services, Command::ServiceList { project_id: p.id });
         }
@@ -700,6 +737,7 @@ impl App {
                     *e = p;
                 }
                 self.p_env_editor.open = false;
+                self.p_env_text_open = false;
                 self.notify("Env vars atualizadas", false);
             }
             (Ctx::DeleteProject(id), Response::Ok) => {
