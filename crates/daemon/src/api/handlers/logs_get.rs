@@ -3,7 +3,7 @@ use bollard::container::{LogOutput, LogsOptions};
 use chrono::Utc;
 use futures::StreamExt;
 use shared::{
-    Response as RpResponse, ServiceSource,
+    EnvVarValue, Response as RpResponse, ServiceSource,
     protocol::{LogEntry, LogStream},
 };
 use tokio::io::AsyncWriteExt;
@@ -16,7 +16,19 @@ pub async fn handle(state: AppState, service_id: String, tail: usize) -> RpRespo
     };
 
     if let ServiceSource::Compose(compose) = &svc.spec.source {
-        return compose_logs(&svc.spec.name, &compose.content, tail).await;
+        let pid = &svc.spec.project_id;
+        let mut env_vars: Vec<(String, String)> = Vec::new();
+        for ev in &svc.spec.env_vars {
+            let value = match &ev.value {
+                EnvVarValue::Plain(v) => v.clone(),
+                EnvVarValue::Secret(name) => {
+                    state.secrets.get_raw(pid, name).await.unwrap_or_default()
+                }
+            };
+            env_vars.push((ev.key.clone(), value));
+        }
+        let project_name = crate::docker::compose::compose_project_name(&service_id, &svc.spec.name);
+        return compose_logs(&project_name, &compose.content, tail, &env_vars).await;
     }
 
     let container_id = match &svc.live_container_id {
@@ -61,23 +73,33 @@ pub async fn handle(state: AppState, service_id: String, tail: usize) -> RpRespo
     RpResponse::Logs(entries)
 }
 
-async fn compose_logs(service_name: &str, content: &str, tail: usize) -> RpResponse {
-    use tokio::process::Command;
+/// Extracts the RFC3339 timestamp from a `docker compose logs --timestamps` line.
+/// Format: `service-1  | 2026-06-26T22:24:58.123456789Z message`
+fn parse_compose_log_ts(line: &str) -> Option<chrono::DateTime<Utc>> {
+    // Find the `| ` separator and look for a timestamp immediately after it.
+    let after_pipe = line.split_once("| ")?.1;
+    // The timestamp ends at the first space.
+    let ts_str = after_pipe.split_whitespace().next()?;
+    ts_str.parse::<chrono::DateTime<Utc>>().ok()
+}
 
-    let project_name = format!("rp_{}", service_name);
+async fn compose_logs(project_name: &str, content: &str, tail: usize, env_vars: &[(String, String)]) -> RpResponse {
+    use tokio::process::Command;
 
     let mut child = match Command::new("docker")
         .args([
             "compose",
             "-p",
-            &project_name,
+            project_name,
             "-f",
             "-",
             "logs",
             "--no-color",
+            "--timestamps",
             "--tail",
             &tail.to_string(),
         ])
+        .envs(env_vars.iter().map(|(k, v)| (k.as_str(), v.as_str())))
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -97,21 +119,29 @@ async fn compose_logs(service_name: &str, content: &str, tail: usize) -> RpRespo
         Err(e) => return RpResponse::err("DockerError", e.to_string()),
     };
 
-    let combined = format!(
-        "{}{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr),
-    );
+    let stdout_str = String::from_utf8_lossy(&output.stdout);
+    let stderr_str = String::from_utf8_lossy(&output.stderr);
 
-    let entries: Vec<LogEntry> = combined
+    // stderr of `docker compose logs` contains only compose-level warnings (e.g. unset vars).
+    // With the env vars now passed correctly these should not appear; if they do, still show them.
+    let mut entries: Vec<LogEntry> = stdout_str
         .lines()
+        .chain(stderr_str.lines())
         .filter(|l| !l.trim().is_empty())
-        .map(|line| LogEntry {
-            stream: LogStream::Stdout,
-            line: line.to_string(),
-            timestamp: Utc::now(),
+        .map(|line| {
+            // docker compose logs --timestamps emits lines like:
+            //   service-1  | 2026-06-26T22:24:58.123Z message
+            // Parse the RFC3339 timestamp when present; fall back to now.
+            let timestamp = parse_compose_log_ts(line).unwrap_or_else(Utc::now);
+            LogEntry {
+                stream: LogStream::Stdout,
+                line: line.to_string(),
+                timestamp,
+            }
         })
         .collect();
+
+    entries.sort_by_key(|e| e.timestamp);
 
     RpResponse::Logs(entries)
 }

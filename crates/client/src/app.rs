@@ -825,7 +825,7 @@ impl App {
     pub fn visible_service_tabs(&self) -> &'static [ServiceTab] {
         let is_db = self
             .current_active_service()
-            .map(|s| DbKind::detect_from_env(&s.spec.env_vars).is_some())
+            .map(|s| DbKind::detect(s).is_some())
             .unwrap_or(false);
         if is_db {
             ServiceTab::all_with_connection()

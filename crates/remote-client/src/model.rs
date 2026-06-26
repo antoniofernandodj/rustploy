@@ -345,19 +345,28 @@ impl DbKind {
             Self::Redis => "redis",
         }
     }
-    pub fn detect_from_env(env_vars: &[EnvVar]) -> Option<Self> {
-        env_vars
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "postgres" => Some(Self::Postgres),
+            "mongodb" => Some(Self::MongoDB),
+            "mariadb" => Some(Self::MariaDB),
+            "mysql" => Some(Self::MySQL),
+            "redis" => Some(Self::Redis),
+            _ => None,
+        }
+    }
+
+    /// Detecta o tipo de banco: campo `db_kind` do spec tem precedência;
+    /// fallback para a env var legada `RUSTPLOY_DB_KIND`.
+    pub fn detect(svc: &Service) -> Option<Self> {
+        if let Some(kind) = &svc.spec.db_kind {
+            return Self::from_str(kind);
+        }
+        svc.spec.env_vars
             .iter()
             .find(|e| e.key == "RUSTPLOY_DB_KIND")
             .and_then(|e| match &e.value {
-                EnvVarValue::Plain(s) => match s.as_str() {
-                    "postgres" => Some(Self::Postgres),
-                    "mongodb" => Some(Self::MongoDB),
-                    "mariadb" => Some(Self::MariaDB),
-                    "mysql" => Some(Self::MySQL),
-                    "redis" => Some(Self::Redis),
-                    _ => None,
-                },
+                EnvVarValue::Plain(s) => Self::from_str(s),
                 _ => None,
             })
     }
@@ -471,7 +480,7 @@ impl NsForm {
         let Some(kind) = self.db_kind else {
             return vec![];
         };
-        let mut vars = vec![plain("RUSTPLOY_DB_KIND", kind.kind_id())];
+        let mut vars = vec![];
         match kind {
             DbKind::Postgres => {
                 vars.push(plain("POSTGRES_DB", &self.db_name));
@@ -544,7 +553,7 @@ impl NsForm {
         } else {
             self.name.clone()
         };
-        let base = |source: ServiceSource, port: u16, env: Vec<EnvVar>| ServiceSpec {
+        let base = |source: ServiceSource, port: u16, env: Vec<EnvVar>, db_kind: Option<String>| ServiceSpec {
             name: svc_name.clone(),
             project_id: self.project_id.clone(),
             source,
@@ -559,17 +568,20 @@ impl NsForm {
             resources: ResourceLimits::default(),
             run_command: None,
             run_args: vec![],
+            db_kind,
         };
         match self.step {
             NsStep::AppForm => Some(base(
                 ServiceSource::Registry { image: String::new() },
                 80,
                 vec![],
+                None,
             )),
             NsStep::ComposeForm => Some(base(
                 ServiceSource::Compose(ComposeSource { content: String::new() }),
                 80,
                 vec![],
+                None,
             )),
             NsStep::DbForm => Some(base(
                 ServiceSource::Compose(ComposeSource {
@@ -577,6 +589,7 @@ impl NsForm {
                 }),
                 self.db_kind.map(|d| d.default_port()).unwrap_or(5432),
                 self.db_env_vars(),
+                self.db_kind.map(|d| d.kind_id().to_string()),
             )),
             NsStep::TemplateForm => {
                 let t = self.selected_template?;
@@ -601,6 +614,7 @@ impl NsForm {
                     resources: ResourceLimits::default(),
                     run_command: None,
                     run_args: vec![],
+                    db_kind: None,
                 })
             }
             _ => None,
@@ -928,7 +942,7 @@ pub struct ConnInfo {
 
 impl ConnInfo {
     pub fn from_service(svc: &Service) -> Option<Self> {
-        let db = DbKind::detect_from_env(&svc.spec.env_vars)?;
+        let db = DbKind::detect(svc)?;
         let vars = &svc.spec.env_vars;
         let env_plain = |key: &str| -> String {
             vars.iter()
@@ -939,7 +953,8 @@ impl ConnInfo {
                 })
                 .unwrap_or_default()
         };
-        let host = format!("rp_{}-{}-1", svc.spec.name, db.yaml_service_name());
+        let project = shared::compose_project_name(&svc.id, &svc.spec.name);
+        let host = format!("{}-{}-1", project, db.yaml_service_name());
         let port = db.default_port();
         let (url, fields) = match db {
             DbKind::Postgres => {

@@ -1262,7 +1262,7 @@ fn render_connection_tab(f: &mut Frame, app: &App, area: Rect) {
         None => return,
     };
 
-    let db_kind = match DbKind::detect_from_env(&svc.spec.env_vars) {
+    let db_kind = match DbKind::detect(svc) {
         Some(k) => k,
         None => {
             let block = Block::default()

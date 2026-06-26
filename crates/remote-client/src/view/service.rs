@@ -19,7 +19,7 @@ pub fn detail(app: &App) -> Element<'_, Message> {
         return panel("Service", text("Nenhum serviço selecionado.").size(13).into());
     };
 
-    let is_db = DbKind::detect_from_env(&svc.spec.env_vars).is_some();
+    let is_db = DbKind::detect(svc).is_some();
     let mut tabs: Vec<(ServiceTab, &str)> = vec![(ServiceTab::General, "General")];
     if is_db {
         tabs.push((ServiceTab::Connection, "Connection"));

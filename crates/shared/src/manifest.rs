@@ -74,6 +74,9 @@ pub struct ServiceManifest {
     pub command: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub args: Vec<String>,
+    /// Tipo de banco: postgres | mongodb | mariadb | mysql | redis
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub db: Option<String>,
 }
 
 /// Origem do serviço: exatamente uma das três chaves deve estar presente.
@@ -266,6 +269,7 @@ impl ServiceManifest {
                 .unwrap_or_default(),
             run_command: self.command.clone(),
             run_args: self.args.clone(),
+            db_kind: self.db.clone(),
         }
     }
 
@@ -285,6 +289,7 @@ impl ServiceManifest {
             resources: ResourcesManifest::from_limits(&spec.resources),
             command: spec.run_command.clone(),
             args: spec.run_args.clone(),
+            db: spec.db_kind.clone(),
         }
     }
 }

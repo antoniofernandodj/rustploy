@@ -12,23 +12,8 @@ use tracing::{error, info};
 const PROJECT_NET_ALIAS: &str = "rp_project_net";
 
 /// Unique Docker Compose project name for a rustploy service.
-///
-/// Incorporates the first 8 chars of the service ULID so two services with the
-/// same user-facing name but in different projects never share a compose project
-/// (and therefore never share container names).
 pub fn compose_project_name(svc_id: &str, svc_name: &str) -> String {
-    let id_part = svc_id
-        .strip_prefix("svc_")
-        .unwrap_or(svc_id)
-        .get(..8)
-        .unwrap_or(svc_id)
-        .to_lowercase();
-    let safe: String = svc_name
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '_' })
-        .collect();
-    let safe = safe.trim_matches('_');
-    format!("rp_{id_part}_{safe}")
+    shared::compose_project_name(svc_id, svc_name)
 }
 
 /// Injects the project's (external) Docker network into a compose YAML so that

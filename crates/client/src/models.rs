@@ -838,23 +838,28 @@ impl DbKind {
         }
     }
 
-    pub fn detect_from_env(env_vars: &[EnvVar]) -> Option<Self> {
-        env_vars
+    fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "postgres" => Some(Self::Postgres),
+            "mongodb" => Some(Self::MongoDB),
+            "mariadb" => Some(Self::MariaDB),
+            "mysql" => Some(Self::MySQL),
+            "redis" => Some(Self::Redis),
+            _ => None,
+        }
+    }
+
+    /// Campo `db_kind` do spec tem precedência; fallback para env var legada.
+    pub fn detect(svc: &Service) -> Option<Self> {
+        if let Some(kind) = &svc.spec.db_kind {
+            return Self::from_str(kind);
+        }
+        svc.spec.env_vars
             .iter()
             .find(|e| e.key == "RUSTPLOY_DB_KIND")
-            .and_then(|e| {
-                if let EnvVarValue::Plain(ref s) = e.value {
-                    match s.as_str() {
-                        "postgres" => Some(DbKind::Postgres),
-                        "mongodb" => Some(DbKind::MongoDB),
-                        "mariadb" => Some(DbKind::MariaDB),
-                        "mysql" => Some(DbKind::MySQL),
-                        "redis" => Some(DbKind::Redis),
-                        _ => None,
-                    }
-                } else {
-                    None
-                }
+            .and_then(|e| match &e.value {
+                EnvVarValue::Plain(s) => Self::from_str(s),
+                _ => None,
             })
     }
 }
@@ -1059,7 +1064,7 @@ impl NewServiceState {
             Some(k) => k,
             None => return vec![],
         };
-        let mut vars = vec![plain("RUSTPLOY_DB_KIND", kind.kind_id())];
+        let mut vars = vec![];
         match kind {
             DbKind::Postgres => {
                 vars.push(plain("POSTGRES_DB", &self.db_name));
@@ -1175,6 +1180,7 @@ impl NewServiceState {
                 resources: ResourceLimits::default(),
                 run_command: None,
                 run_args: vec![],
+                db_kind: None,
             },
             NewServiceStep::ComposeForm => ServiceSpec {
                 name: svc_name,
@@ -1193,6 +1199,7 @@ impl NewServiceState {
                 resources: ResourceLimits::default(),
                 run_command: None,
                 run_args: vec![],
+                db_kind: None,
             },
             NewServiceStep::DatabaseForm => ServiceSpec {
                 name: svc_name,
@@ -1211,6 +1218,7 @@ impl NewServiceState {
                 resources: ResourceLimits::default(),
                 run_command: None,
                 run_args: vec![],
+                db_kind: self.db_kind.map(|d| d.kind_id().to_string()),
             },
             NewServiceStep::TemplateVarForm => {
                 let template = self.selected_template.expect("template selected");
@@ -1234,6 +1242,7 @@ impl NewServiceState {
                     resources: ResourceLimits::default(),
                     run_command: None,
                     run_args: vec![],
+                    db_kind: None,
                 }
             }
             _ => unreachable!(),
