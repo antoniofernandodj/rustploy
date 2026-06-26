@@ -1448,6 +1448,83 @@ impl Default for ComposeTabState {
     }
 }
 
+// ── Env text mode ─────────────────────────────────────────────────────────────
+
+pub struct EnvTextTabState {
+    pub editing: bool,
+    pub textarea: tui_textarea::TextArea<'static>,
+}
+
+impl EnvTextTabState {
+    pub fn from_env_vars(vars: &[EnvVar]) -> Self {
+        let lines: Vec<String> = if vars.is_empty() {
+            vec![String::new()]
+        } else {
+            vars.iter()
+                .map(|ev| {
+                    let v = match &ev.value {
+                        EnvVarValue::Plain(v) => v.clone(),
+                        EnvVarValue::Secret(s) => format!("secret:{s}"),
+                    };
+                    format!("{}={}", ev.key, v)
+                })
+                .collect()
+        };
+        let mut textarea = tui_textarea::TextArea::new(lines);
+        textarea.set_cursor_style(ratatui::style::Style::default());
+        textarea.set_line_number_style(
+            ratatui::style::Style::default().fg(ratatui::style::Color::DarkGray),
+        );
+        Self { editing: false, textarea }
+    }
+
+    pub fn set_editing(&mut self, editing: bool) {
+        use ratatui::style::{Modifier, Style};
+        self.editing = editing;
+        if editing {
+            self.textarea
+                .set_cursor_style(Style::default().add_modifier(Modifier::REVERSED));
+        } else {
+            self.textarea.set_cursor_style(Style::default());
+        }
+    }
+
+    pub fn parse_env_vars(&self) -> Vec<EnvVar> {
+        self.textarea
+            .lines()
+            .iter()
+            .filter_map(|line| {
+                let line = line.trim();
+                if line.is_empty() || line.starts_with('#') {
+                    return None;
+                }
+                let (k, v) = line.split_once('=')?;
+                let k = k.trim().to_string();
+                if k.is_empty() {
+                    return None;
+                }
+                let v = v.to_string();
+                let value = if let Some(n) = v.strip_prefix("secret:") {
+                    EnvVarValue::Secret(n.to_string())
+                } else {
+                    EnvVarValue::Plain(v)
+                };
+                Some(EnvVar { key: k, value })
+            })
+            .collect()
+    }
+
+    pub fn to_text(&self) -> String {
+        self.textarea.lines().join("\n")
+    }
+}
+
+impl Default for EnvTextTabState {
+    fn default() -> Self {
+        Self::from_env_vars(&[])
+    }
+}
+
 // ── Settings — Web Server ─────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, PartialEq, Default)]

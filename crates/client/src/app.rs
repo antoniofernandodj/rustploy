@@ -29,6 +29,7 @@ pub struct App {
 
     pub project_detail_tab: ProjectDetailTab,
     pub project_env_tab: EnvTabState,
+    pub project_env_text: EnvTextTabState,
     pub project_settings: ProjectSettingsState,
 
     pub service_tab: ServiceTab,
@@ -95,6 +96,7 @@ impl App {
 
             project_detail_tab: ProjectDetailTab::default(),
             project_env_tab: EnvTabState::default(),
+            project_env_text: EnvTextTabState::default(),
             project_settings: ProjectSettingsState::default(),
 
             service_tab: ServiceTab::General,
@@ -273,6 +275,7 @@ impl App {
             self.view = View::ProjectDetail;
             self.project_detail_tab = ProjectDetailTab::Services;
             self.project_env_tab = EnvTabState::default();
+            self.project_env_text = EnvTextTabState::default();
             self.service_cursor = 0;
             self.service_filter = String::new();
             self.service_filtering = false;

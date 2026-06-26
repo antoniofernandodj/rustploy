@@ -29,11 +29,16 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
         return;
     }
 
+    if app.project_env_text.editing {
+        handle_project_env_textarea(app, key);
+        return;
+    }
+
     match key.code {
         KeyCode::Tab => {
             // Cede o Tab quando algum formulário de edição está aberto
             // (env vars de serviço ou de projeto precisam de Tab para KEY→VALUE)
-            let editing = app.env_tab.editing || app.project_env_tab.editing || app.secrets_tab.adding;
+            let editing = app.env_tab.editing || app.project_env_tab.editing || app.project_env_text.editing || app.secrets_tab.adding;
             if !editing {
                 app.focus = match app.focus {
                     Focus::Sidebar => Focus::Content,
@@ -157,6 +162,7 @@ fn handle_projects_list(app: &mut App, key: KeyEvent) {
 fn handle_project_detail(app: &mut App, key: KeyEvent) {
     let is_editing = app.service_filtering
         || app.project_env_tab.editing
+        || app.project_env_text.editing
         || (app.project_detail_tab == ProjectDetailTab::Settings
             && app.project_settings.focused.clone().is_text())
         || (app.project_detail_tab == ProjectDetailTab::Secrets && app.secrets_tab.adding);
@@ -418,8 +424,65 @@ fn handle_project_env_tab(app: &mut App, key: KeyEvent) {
                 }
             }
         }
+        KeyCode::Char('t') => {
+            if let Some(pid) = &app.active_project_id {
+                if let Some(project) = app.projects.iter().find(|p| &p.id == pid) {
+                    app.project_env_text =
+                        crate::models::EnvTextTabState::from_env_vars(&project.env_vars);
+                    app.project_env_text.set_editing(true);
+                }
+            }
+        }
+        KeyCode::Char('c') => {
+            if let Some(pid) = &app.active_project_id {
+                if let Some(project) = app.projects.iter().find(|p| &p.id == pid) {
+                    let text: String = project
+                        .env_vars
+                        .iter()
+                        .map(|ev| {
+                            let v = match &ev.value {
+                                shared::EnvVarValue::Plain(v) => v.clone(),
+                                shared::EnvVarValue::Secret(s) => format!("secret:{s}"),
+                            };
+                            format!("{}={}\n", ev.key, v)
+                        })
+                        .collect();
+                    copy_to_clipboard(app, &text);
+                }
+            }
+        }
         _ => {}
     }
+}
+
+fn handle_project_env_textarea(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Esc => {
+            app.project_env_text.set_editing(false);
+        }
+        KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            save_project_env_text(app);
+        }
+        _ => {
+            app.project_env_text.textarea.input(key);
+        }
+    }
+}
+
+fn save_project_env_text(app: &mut App) {
+    let pid = match app.active_project_id.clone() {
+        Some(p) => p,
+        None => return,
+    };
+    let env_vars = app.project_env_text.parse_env_vars();
+    app.project_env_text.set_editing(false);
+    app.pending_commands.push(PendingCommand {
+        command: shared::Command::ProjectEnvSet {
+            project_id: pid,
+            env_vars,
+        },
+        context: CmdContext::UpdateProjectEnv,
+    });
 }
 
 fn handle_project_settings_tab(app: &mut App, key: KeyEvent) {

@@ -292,6 +292,18 @@ fn render_services_tab(f: &mut Frame, app: &App, area: Rect) {
 // ── Aba de env vars do projeto ────────────────────────────────────────────────
 
 pub fn render_project_env_tab(f: &mut Frame, app: &App, area: Rect) {
+    // ── Text mode (textarea KEY=VALUE) ────────────────────────────────────────
+    if app.project_env_text.editing {
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title(" Editar em texto — [Ctrl+S] salvar  [Esc] cancelar ")
+            .border_style(Style::default().fg(Color::Yellow));
+        let inner = block.inner(area);
+        f.render_widget(block, area);
+        f.render_widget(&app.project_env_text.textarea, inner);
+        return;
+    }
+
     let project = match app.current_project() {
         Some(p) => p,
         None => return,
@@ -419,6 +431,10 @@ pub fn render_project_env_tab(f: &mut Frame, app: &App, area: Rect) {
             Span::styled(" editar  ", Style::default().fg(Color::DarkGray)),
             Span::styled("[D]", Style::default().fg(Color::Red)),
             Span::styled(" remover  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[t]", Style::default().fg(Color::Cyan)),
+            Span::styled(" texto  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("[c]", Style::default().fg(Color::Cyan)),
+            Span::styled(" copiar  ", Style::default().fg(Color::DarkGray)),
             Span::styled("[←→]", Style::default().fg(Color::DarkGray)),
             Span::styled(" trocar aba", Style::default().fg(Color::DarkGray)),
         ]);
