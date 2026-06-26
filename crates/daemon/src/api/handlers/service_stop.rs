@@ -1,6 +1,6 @@
 use crate::{api::AppState, docker::containers};
 use chrono::Utc;
-use shared::{DeployState, Event, Response as RpResponse, ServiceSource, ServiceStatus};
+use shared::{DeployState, EnvVarValue, Event, Response as RpResponse, ServiceSource, ServiceStatus};
 
 pub async fn handle(state: AppState, service_id: String) -> RpResponse {
     let svc = match crate::db::services::get(&state.db, &service_id).await {
@@ -29,12 +29,23 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
     if let ServiceSource::Compose(compose) = &svc.spec.source {
         let pid = &svc.spec.project_id;
         let network_name = crate::docker::networks::project_net_for(pid);
+        let mut env_vars: Vec<(String, String)> = Vec::new();
+        for ev in &svc.spec.env_vars {
+            let value = match &ev.value {
+                EnvVarValue::Plain(v) => v.clone(),
+                EnvVarValue::Secret(name) => {
+                    state.secrets.get_raw(pid, name).await.unwrap_or_default()
+                }
+            };
+            env_vars.push((ev.key.clone(), value));
+        }
         return stop_compose(
             &state,
             &service_id,
             &svc.spec.name,
             &compose.content,
             &network_name,
+            &env_vars,
         )
         .await;
     }
@@ -84,9 +95,10 @@ async fn stop_compose(
     service_name: &str,
     content: &str,
     network_name: &str,
+    env_vars: &[(String, String)],
 ) -> RpResponse {
     if let Err(e) =
-        crate::docker::compose::compose_down(content, &crate::docker::compose::compose_project_name(service_id, service_name), network_name)
+        crate::docker::compose::compose_down(content, &crate::docker::compose::compose_project_name(service_id, service_name), network_name, env_vars)
             .await
     {
         return RpResponse::err("DockerError", e.to_string());

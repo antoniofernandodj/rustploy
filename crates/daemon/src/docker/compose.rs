@@ -246,7 +246,7 @@ pub async fn compose_up(
     Ok(())
 }
 
-pub async fn compose_down(content: &str, project_name: &str, _network_name: &str) -> Result<()> {
+pub async fn compose_down(content: &str, project_name: &str, _network_name: &str, env_vars: &[(String, String)]) -> Result<()> {
     info!(project = %project_name, "compose_down: iniciando");
 
     let mut child = Command::new("docker")
@@ -259,6 +259,7 @@ pub async fn compose_down(content: &str, project_name: &str, _network_name: &str
             "down",
             "--remove-orphans",
         ])
+        .envs(env_vars.iter().map(|(k, v)| (k.as_str(), v.as_str())))
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())

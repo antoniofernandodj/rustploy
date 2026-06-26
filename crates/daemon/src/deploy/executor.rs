@@ -680,10 +680,12 @@ impl DeployExecutor {
                         "step[RollingBack]: derrubando compose stack"
                     );
                     let network_name = self.network_name(&svc.spec.project_id);
+                    let env_vars = self.resolve_env(&svc).await.unwrap_or_default();
                     let _ = crate::docker::compose::compose_down(
                         &compose.content,
                         &project_name,
                         &network_name,
+                        &env_vars,
                     )
                     .await;
                     let err_status = ServiceStatus::Error("deploy failed".into());
