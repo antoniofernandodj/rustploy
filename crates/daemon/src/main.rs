@@ -2,6 +2,7 @@ mod api;
 mod db;
 mod deploy;
 mod docker;
+mod env_backup;
 mod event_bus;
 mod git_providers;
 mod health;
@@ -51,6 +52,14 @@ async fn main() -> Result<()> {
     let db = Arc::new(db::connect(&db_path).await?);
     info!("database connected");
 
+    // Directório de backups de env vars: config ou <db_path>/env_backups/
+    let backup_dir = config
+        .env_backup
+        .dir
+        .as_deref()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| db_path.join("env_backups"));
+
     // Docker
     let docker = Arc::new(docker::DockerClient::connect(&config.docker.socket_path)?);
     if let Err(e) = docker.ping().await {
@@ -98,6 +107,16 @@ async fn main() -> Result<()> {
     )
     .await;
 
+    // Env var backup loop
+    {
+        let db2 = db.clone();
+        let bdir = backup_dir.clone();
+        let interval_secs = config.env_backup.interval_secs;
+        tokio::spawn(async move {
+            env_backup::backup_loop(db2, bdir, interval_secs).await;
+        });
+    }
+
     // Metrics background task
     {
         let docker_inner = docker.inner.clone();
@@ -131,6 +150,7 @@ async fn main() -> Result<()> {
         secrets,
         tls.clone(),
         db_path,
+        backup_dir,
         config.deploy.drain_secs,
         config.daemon.webhook_port,
     );

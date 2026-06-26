@@ -155,6 +155,14 @@ pub enum Command {
     PruneImages,
     PruneBuildCache,
 
+    // Env var backup / restore
+    /// Lista os snapshots disponíveis (retorna Vec<String> com nomes de ficheiro).
+    EnvBackupList,
+    /// Restaura o snapshot com o nome dado (caminho relativo ao backup_dir).
+    EnvBackupRestore {
+        snapshot: String,
+    },
+
     // Infrastructure
     Ping,
     DaemonStatus,
@@ -309,6 +317,7 @@ pub enum Response {
     GitBranches(Vec<GitBranch>),
 
     PruneResult { count: u32, reclaimed_bytes: u64 },
+    EnvBackupSnapshots(Vec<String>),
 
     Err { code: String, message: String },
 }

@@ -6,6 +6,18 @@ use std::sync::OnceLock;
 /// access and shared everywhere via [`RustployConfig::global`].
 static CONFIG: OnceLock<RustployConfig> = OnceLock::new();
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct EnvBackupConfig {
+    /// Directório onde os snapshots são gravados.
+    /// Padrão: <db_path>/env_backups/
+    pub dir: Option<String>,
+    /// Intervalo entre backups em segundos. Padrão: 60.
+    #[serde(default = "default_env_backup_interval")]
+    pub interval_secs: u64,
+}
+
+fn default_env_backup_interval() -> u64 { 60 }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RustployConfig {
     pub daemon: DaemonConfig,
@@ -16,6 +28,8 @@ pub struct RustployConfig {
     pub secrets: SecretsConfig,
     #[serde(default)]
     pub rwp: RwpConfig,
+    #[serde(default)]
+    pub env_backup: EnvBackupConfig,
 }
 
 /// Configuration for the RWP remote administrative channel (TCP).
@@ -168,6 +182,7 @@ impl Default for RustployConfig {
                 master_key_path: "/etc/rustploy/master.key".into(),
             },
             rwp: RwpConfig::default(),
+            env_backup: EnvBackupConfig::default(),
         }
     }
 }

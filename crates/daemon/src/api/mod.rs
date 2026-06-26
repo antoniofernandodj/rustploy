@@ -30,6 +30,7 @@ pub struct AppState {
     pub secrets: Arc<SecretsManager>,
     pub tls: Arc<TlsManager>,
     pub db_path: PathBuf,
+    pub backup_dir: PathBuf,
     pub drain_secs: u64,
     pub webhook_port: u16,
     pub started_at: std::time::Instant,
@@ -46,6 +47,7 @@ impl AppState {
         secrets: Arc<SecretsManager>,
         tls: Arc<TlsManager>,
         db_path: PathBuf,
+        backup_dir: PathBuf,
         drain_secs: u64,
         webhook_port: u16,
     ) -> Self {
@@ -57,6 +59,7 @@ impl AppState {
             secrets,
             tls,
             db_path,
+            backup_dir,
             drain_secs,
             webhook_port,
             started_at: std::time::Instant::now(),

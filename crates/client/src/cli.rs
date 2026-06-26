@@ -300,3 +300,76 @@ fn print_export_help() {
          -o, --output <arquivo>  Grava no arquivo (padrão: stdout)"
     );
 }
+
+// --------------------------------------------------------------------------
+// env-backup
+
+pub fn run_env_backup(args: &[String]) -> Result<()> {
+    let sub = args.first().map(|s| s.as_str()).unwrap_or("list");
+    match sub {
+        "list" => cmd_backup_list(),
+        "restore" => {
+            let snapshot = args
+                .get(1)
+                .cloned()
+                .ok_or_else(|| anyhow!("uso: rustploy env-backup restore <snapshot>"))?;
+            cmd_backup_restore(snapshot)
+        }
+        "--help" | "-h" | "help" => {
+            print_env_backup_help();
+            Ok(())
+        }
+        _ => {
+            print_env_backup_help();
+            bail!("subcomando desconhecido: {sub}")
+        }
+    }
+}
+
+fn cmd_backup_list() -> Result<()> {
+    let sock = resolve_socket()?;
+    let client = DaemonClient::new(&sock);
+    match client.send(Command::EnvBackupList)? {
+        Response::EnvBackupSnapshots(names) => {
+            if names.is_empty() {
+                println!("Nenhum snapshot disponível.");
+            } else {
+                println!("Snapshots disponíveis ({}):", names.len());
+                for name in &names {
+                    println!("  {name}");
+                }
+            }
+            Ok(())
+        }
+        Response::Err { message, .. } => bail!("{message}"),
+        _ => bail!("resposta inesperada"),
+    }
+}
+
+fn cmd_backup_restore(snapshot: String) -> Result<()> {
+    let sock = resolve_socket()?;
+    let client = DaemonClient::new(&sock);
+    match client.send(Command::EnvBackupRestore { snapshot: snapshot.clone() })? {
+        Response::Ok => {
+            println!("✓ Env vars restauradas a partir de: {snapshot}");
+            println!("  Reinicia os serviços afectados para aplicar as novas vars.");
+            Ok(())
+        }
+        Response::Err { message, .. } => bail!("{message}"),
+        _ => bail!("resposta inesperada"),
+    }
+}
+
+fn print_env_backup_help() {
+    println!(
+        "rustploy env-backup — gerir snapshots de env vars\n\n\
+         USO:\n  \
+         rustploy env-backup list               Lista snapshots disponíveis\n  \
+         rustploy env-backup restore <snapshot> Restaura um snapshot específico\n\n\
+         Os snapshots são gravados automaticamente a cada minuto em <db_path>/env_backups/\n\
+         e podem ser configurados em /etc/rustploy/config.toml:\n\n  \
+         [env_backup]\n  \
+         dir = \"/caminho/para/backups\"  # opcional\n  \
+         interval_secs = 60             # padrão"
+    );
+}

@@ -36,6 +36,7 @@ fn main() -> anyhow::Result<()> {
             "import" => return handle_import(&args[2..]),
             "apply" => return cli::run_apply(&args[2..]),
             "export" => return cli::run_export(&args[2..]),
+            "env-backup" => return cli::run_env_backup(&args[2..]),
             _ => {}
         }
     }

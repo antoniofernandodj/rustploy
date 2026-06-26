@@ -42,6 +42,8 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::PruneVolumes => "PruneVolumes",
         Command::PruneImages => "PruneImages",
         Command::PruneBuildCache => "PruneBuildCache",
+        Command::EnvBackupList => "EnvBackupList",
+        Command::EnvBackupRestore { .. } => "EnvBackupRestore",
         Command::GitProviderList => "GitProviderList",
         Command::GitProviderCreate { .. } => "GitProviderCreate",
         Command::GitProviderDelete { .. } => "GitProviderDelete",
@@ -60,6 +62,8 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::PruneVolumes => handlers::docker_prune::prune_volumes(state).await,
         Command::PruneImages => handlers::docker_prune::prune_images(state).await,
         Command::PruneBuildCache => handlers::docker_prune::prune_build_cache(state).await,
+        Command::EnvBackupList => handlers::env_backup::list(state).await,
+        Command::EnvBackupRestore { snapshot } => handlers::env_backup::restore(state, snapshot).await,
         Command::ProjectCreate { name, description } => {
             handlers::project_create::handle(state, name, description).await
         }
