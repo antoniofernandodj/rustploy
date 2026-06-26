@@ -86,7 +86,7 @@ async fn stop_compose(
     network_name: &str,
 ) -> RpResponse {
     if let Err(e) =
-        crate::docker::compose::compose_down(content, &format!("rp_{}", service_name), network_name)
+        crate::docker::compose::compose_down(content, &crate::docker::compose::compose_project_name(service_id, service_name), network_name)
             .await
     {
         return RpResponse::err("DockerError", e.to_string());

@@ -196,7 +196,7 @@ pub async fn reconcile(
         }
 
         if backends.is_empty() {
-            let compose_prefix = format!("rp_{}-", svc.spec.name);
+            let compose_prefix = format!("{}-", crate::docker::compose::compose_project_name(&svc.id, &svc.spec.name));
             if let Ok(Some(cid)) =
                 containers::find_by_prefix(&docker.inner, &compose_prefix).await
             {
@@ -305,10 +305,10 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
             }
         }
 
-        // Fallback para Compose: encontra via prefixo do projeto (rp_<name>-)
+        // Fallback para Compose: encontra via prefixo do projeto.
         // O nome interno do serviço no compose file pode diferir do nome rustploy.
         if backends.is_empty() {
-            let compose_prefix = format!("rp_{}-", svc.spec.name);
+            let compose_prefix = format!("{}-", crate::docker::compose::compose_project_name(&svc.id, &svc.spec.name));
             if let Ok(Some(cid)) =
                 containers::find_by_prefix(&docker.inner, &compose_prefix).await
             {

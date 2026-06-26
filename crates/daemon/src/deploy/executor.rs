@@ -673,7 +673,7 @@ impl DeployExecutor {
             DeployState::RollingBack => {
                 self.log_step(&dep.id, &svc.id, "==> Deploy falhou — iniciando rollback").await;
                 if let ServiceSource::Compose(compose) = &svc.spec.source {
-                    let project_name = format!("rp_{}", &svc.spec.name);
+                    let project_name = crate::docker::compose::compose_project_name(&svc.id, &svc.spec.name);
                     info!(
                         deployment_id = %dep.id,
                         project = %project_name,
@@ -773,7 +773,7 @@ impl DeployExecutor {
                 let ServiceSource::Compose(compose) = &svc.spec.source else {
                     return Err(anyhow!("expected Compose source in ComposingUp"));
                 };
-                let project_name = format!("rp_{}", &svc.spec.name);
+                let project_name = crate::docker::compose::compose_project_name(&svc.id, &svc.spec.name);
                 info!(
                     deployment_id = %dep.id,
                     content_bytes = compose.content.len(),
