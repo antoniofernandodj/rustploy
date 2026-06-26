@@ -77,25 +77,42 @@ async fn apply_one(
         .find(|p| p.name == name);
 
     let (project_id, project_action) = match existing {
-        Some(p) if p.description == description && p.env_vars == env_vars => {
-            (p.id, ActionVerb::Unchanged)
+        Some(p) if p.description == description => {
+            // Só actualiza env vars se o manifesto declara pelo menos uma.
+            // Lista vazia significa "manifesto sem env vars" (ex: export sem secrets),
+            // não "apagar tudo" — preservar as existentes nesse caso.
+            if !env_vars.is_empty() && p.env_vars != env_vars {
+                crate::db::projects::update(&state.db, &p.id, name.clone(), description)
+                    .await
+                    .map_err(db_err)?;
+                crate::db::projects::update_env_vars(&state.db, &p.id, env_vars)
+                    .await
+                    .map_err(db_err)?;
+                (p.id, ActionVerb::Updated)
+            } else {
+                (p.id, ActionVerb::Unchanged)
+            }
         }
         Some(p) => {
             crate::db::projects::update(&state.db, &p.id, name.clone(), description)
                 .await
                 .map_err(db_err)?;
-            crate::db::projects::update_env_vars(&state.db, &p.id, env_vars)
-                .await
-                .map_err(db_err)?;
+            if !env_vars.is_empty() {
+                crate::db::projects::update_env_vars(&state.db, &p.id, env_vars)
+                    .await
+                    .map_err(db_err)?;
+            }
             (p.id, ActionVerb::Updated)
         }
         None => {
             let created = crate::db::projects::create(&state.db, name.clone(), description)
                 .await
                 .map_err(db_err)?;
-            crate::db::projects::update_env_vars(&state.db, &created.id, env_vars)
-                .await
-                .map_err(db_err)?;
+            if !env_vars.is_empty() {
+                crate::db::projects::update_env_vars(&state.db, &created.id, env_vars)
+                    .await
+                    .map_err(db_err)?;
+            }
             (created.id, ActionVerb::Created)
         }
     };
@@ -118,7 +135,13 @@ async fn apply_one(
         let (action, changed_id) = match existing_services.iter().find(|s| s.spec.name == svc_name) {
             Some(s) if &s.spec == spec => (ActionVerb::Unchanged, None),
             Some(s) => {
-                crate::db::services::update_spec(&state.db, &s.id, spec.clone())
+                // Se o manifesto não declara env vars, preservar as existentes para não
+                // apagar vars que foram definidas manualmente após o export.
+                let mut effective_spec = spec.clone();
+                if effective_spec.env_vars.is_empty() && !s.spec.env_vars.is_empty() {
+                    effective_spec.env_vars = s.spec.env_vars.clone();
+                }
+                crate::db::services::update_spec(&state.db, &s.id, effective_spec)
                     .await
                     .map_err(db_err)?;
                 (ActionVerb::Updated, Some(s.id.clone()))
