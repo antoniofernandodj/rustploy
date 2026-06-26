@@ -50,7 +50,10 @@ pub async fn check_http(url: &str, expected: u16, timeout: Duration) -> bool {
 
     match tokio::time::timeout(timeout, sender.send_request(req)).await {
         Ok(Ok(resp)) => {
+            use http_body_util::BodyExt;
             let status = resp.status().as_u16();
+            // Drain the body so the server can close gracefully instead of getting a TCP RST.
+            let _ = tokio::time::timeout(timeout, resp.into_body().collect()).await;
             if status != expected {
                 warn!(url = %url, got = status, expected = expected, "check_http: status inesperado");
             }
