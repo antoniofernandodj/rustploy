@@ -42,6 +42,21 @@ idle_timeout_secs = 120    # opcional
 EOF
 fi
 
+# Append [env_backup] block on first install (when section is absent).
+# Snapshots are written to <db_path>/env_backups/ every 60 s by default.
+# See docs/env-backup.md for details and restore instructions.
+if [ -f "$CONFIG" ] && ! grep -q '^\[env_backup\]' "$CONFIG"; then
+    cat >> "$CONFIG" <<'EOF'
+
+# Env var backup — snapshots automáticos de todas as env vars de projetos e serviços.
+# Restaurar: rustploy env-backup list | rustploy env-backup restore <snapshot>
+# Docs: /usr/share/doc/rustploy/env-backup.md
+[env_backup]
+# dir = "/var/lib/rustploy/db/env_backups"  # default: <db_path>/env_backups/
+interval_secs = 60
+EOF
+fi
+
 # config.toml now holds the RWP token — keep it readable only by rustploy.
 chown rustploy:rustploy "$CONFIG" 2>/dev/null || true
 chmod 640 "$CONFIG" 2>/dev/null || true
