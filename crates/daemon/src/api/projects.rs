@@ -31,6 +31,22 @@ pub async fn remove(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
+    // Check if there are any services associated with this project
+    match crate::db::services::count_by_project(&state.db, &id).await {
+        Ok(count) => {
+            if count > 0 {
+                return Bincode(Response::err(
+                    "ProjectNotEmpty",
+                    "project has associated services and cannot be deleted",
+                ))
+                .into_response();
+            }
+        }
+        Err(e) => {
+            return Bincode(Response::err("DatabaseError", e.to_string())).into_response();
+        }
+    }
+
     match crate::db::projects::delete(&state.db, &id).await {
         Ok(true) => Bincode(Response::Ok).into_response(),
         Ok(false) => Bincode(Response::err("NotFound", "project not found")).into_response(),

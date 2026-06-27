@@ -359,13 +359,12 @@ impl DbKind {
 
     /// Detecta o tipo de banco: campo `db_kind` do spec tem precedência;
     /// fallback para a env var legada `RUSTPLOY_DB_KIND`.
-    pub fn detect(svc: &Service) -> Option<Self> {
+    pub fn detect(resolved_env_vars: &HashMap<String, EnvVar>, svc: &Service) -> Option<Self> {
         if let Some(kind) = &svc.spec.db_kind {
             return Self::from_str(kind);
         }
-        svc.spec.env_vars
-            .iter()
-            .find(|e| e.key == "RUSTPLOY_DB_KIND")
+        resolved_env_vars
+            .get("RUSTPLOY_DB_KIND")
             .and_then(|e| match &e.value {
                 EnvVarValue::Plain(s) => Self::from_str(s),
                 _ => None,
@@ -942,20 +941,21 @@ pub struct ConnInfo {
 }
 
 impl ConnInfo {
-    pub fn from_service(svc: &Service) -> Option<Self> {
-        let db = DbKind::detect(svc)?;
-        let vars = &svc.spec.env_vars;
+    pub fn from_service(project: &Project, svc: &Service) -> Option<Self> {
+        let resolved_env_vars = shared::resolve_env_vars(project, svc);
+        let db = DbKind::detect(&resolved_env_vars, svc)?;
+
         let env_plain = |key: &str| -> String {
-            vars.iter()
-                .find(|e| e.key == key)
+            resolved_env_vars
+                .get(key)
                 .and_then(|e| match &e.value {
                     EnvVarValue::Plain(v) => Some(v.clone()),
                     _ => None,
                 })
                 .unwrap_or_default()
         };
-        let project = compose_project_name(&svc.id, &svc.spec.name);
-        let host = format!("{}-{}-1", project, db.yaml_service_name());
+        let project_name = compose_project_name(&svc.id, &svc.spec.name);
+        let host = format!("{}-{}-1", project_name, db.yaml_service_name());
         let port = db.default_port();
         let (url, fields) = match db {
             DbKind::Postgres => {

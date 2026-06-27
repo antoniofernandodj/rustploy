@@ -3,6 +3,7 @@ use std::path::Path;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tracing::{debug, info};
+use fs_extra::dir::{copy, CopyOptions};
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -35,6 +36,32 @@ pub async fn clone(
             .map_err(|e| anyhow!("falha ao limpar diretório de clone: {e}"))?;
     }
     std::fs::create_dir_all(opts.dir)?;
+
+    if let Some(local_path_str) = opts.url.strip_prefix("file://") {
+        let source_path = Path::new(local_path_str);
+        if !source_path.exists() {
+            return Err(anyhow!("repositório local não encontrado: {}", local_path_str));
+        }
+
+        info!(
+            url = %redact_url(opts.url),
+            dir = %opts.dir.display(),
+            "copiando repositório local"
+        );
+
+        let mut options = CopyOptions::new();
+        options.overwrite = true; // Sobrescrever se já existir
+        options.content_only = true; // Copiar apenas o conteúdo, não o diretório raiz
+        copy(source_path, opts.dir, &options)
+            .map_err(|e| anyhow!("falha ao copiar repositório local: {e}"))?;
+
+        info!(
+            url = %redact_url(opts.url),
+            dir = %opts.dir.display(),
+            "repositório local copiado com sucesso"
+        );
+        return Ok(());
+    }
 
     let effective_url = inject_token(opts.url, opts.token, opts.username);
     info!(

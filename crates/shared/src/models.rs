@@ -61,6 +61,24 @@ impl ServiceSpec {
     }
 }
 
+/// Resolve as variáveis de ambiente para um serviço, combinando as do projeto e as do serviço.
+/// As variáveis do serviço têm precedência sobre as do projeto.
+pub fn resolve_env_vars(project: &Project, service: &Service) -> std::collections::HashMap<String, EnvVar> {
+    let mut resolved = std::collections::HashMap::new();
+
+    // Adiciona as variáveis de ambiente do projeto
+    for env_var in &project.env_vars {
+        resolved.insert(env_var.key.clone(), env_var.clone());
+    }
+
+    // Adiciona/sobrescreve com as variáveis de ambiente do serviço
+    for env_var in &service.spec.env_vars {
+        resolved.insert(env_var.key.clone(), env_var.clone());
+    }
+
+    resolved
+}
+
 /// Heuristic used by the clients' General tab to decide whether a
 /// "Repository URL / Image" value denotes a Git source to clone+build, or a
 /// Docker image to pull. Recognizes the common git URL schemes, including

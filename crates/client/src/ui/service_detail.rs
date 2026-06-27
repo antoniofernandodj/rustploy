@@ -1262,7 +1262,13 @@ fn render_connection_tab(f: &mut Frame, app: &App, area: Rect) {
         None => return,
     };
 
-    let db_kind = match DbKind::detect(svc) {
+    let project = match app.current_project() {
+        Some(p) => p,
+        None => return, // Não deveria acontecer se há um serviço ativo
+    };
+    let resolved_vars = shared::resolve_env_vars(project, svc);
+
+    let db_kind = match DbKind::detect(&resolved_vars, svc) {
         Some(k) => k,
         None => {
             let block = Block::default()
@@ -1279,11 +1285,10 @@ fn render_connection_tab(f: &mut Frame, app: &App, area: Rect) {
         }
     };
 
-    fn env_plain<'a>(vars: &'a [shared::EnvVar], key: &str) -> &'a str {
-        vars.iter()
-            .find(|e| e.key == key)
+    fn env_plain<'a>(vars: &'a std::collections::HashMap<String, shared::EnvVar>, key: &str) -> &'a str {
+        vars.get(key)
             .and_then(|e| {
-                if let EnvVarValue::Plain(ref v) = e.value {
+                if let shared::EnvVarValue::Plain(ref v) = e.value {
                     Some(v.as_str())
                 } else {
                     None
@@ -1292,7 +1297,6 @@ fn render_connection_tab(f: &mut Frame, app: &App, area: Rect) {
             .unwrap_or("")
     }
 
-    let vars = &svc.spec.env_vars;
     let svc_name = &svc.spec.name;
     let yaml_svc = db_kind.yaml_service_name();
     let hostname = format!("rp_{svc_name}-{yaml_svc}-1");
@@ -1300,9 +1304,9 @@ fn render_connection_tab(f: &mut Frame, app: &App, area: Rect) {
 
     let (conn_url, extras) = match db_kind {
         DbKind::Postgres => {
-            let db = env_plain(vars, "POSTGRES_DB");
-            let user = env_plain(vars, "POSTGRES_USER");
-            let pass = env_plain(vars, "POSTGRES_PASSWORD");
+            let db = env_plain(&resolved_vars, "POSTGRES_DB");
+            let user = env_plain(&resolved_vars, "POSTGRES_USER");
+            let pass = env_plain(&resolved_vars, "POSTGRES_PASSWORD");
             let url = format!("postgresql://{user}:{pass}@{hostname}:{port}/{db}");
             let extra = vec![
                 ("Database", db.to_string()),
@@ -1312,16 +1316,16 @@ fn render_connection_tab(f: &mut Frame, app: &App, area: Rect) {
             (url, extra)
         }
         DbKind::MongoDB => {
-            let user = env_plain(vars, "MONGO_INITDB_ROOT_USERNAME");
-            let pass = env_plain(vars, "MONGO_INITDB_ROOT_PASSWORD");
+            let user = env_plain(&resolved_vars, "MONGO_INITDB_ROOT_USERNAME");
+            let pass = env_plain(&resolved_vars, "MONGO_INITDB_ROOT_PASSWORD");
             let url = format!("mongodb://{user}:{pass}@{hostname}:{port}");
             let extra = vec![("User", user.to_string()), ("Password", pass.to_string())];
             (url, extra)
         }
         DbKind::MariaDB | DbKind::MySQL => {
-            let db = env_plain(vars, "MYSQL_DATABASE");
-            let user = env_plain(vars, "MYSQL_USER");
-            let pass = env_plain(vars, "MYSQL_PASSWORD");
+            let db = env_plain(&resolved_vars, "MYSQL_DATABASE");
+            let user = env_plain(&resolved_vars, "MYSQL_USER");
+            let pass = env_plain(&resolved_vars, "MYSQL_PASSWORD");
             let url = format!("mysql://{user}:{pass}@{hostname}:{port}/{db}");
             let extra = vec![
                 ("Database", db.to_string()),
@@ -1331,7 +1335,7 @@ fn render_connection_tab(f: &mut Frame, app: &App, area: Rect) {
             (url, extra)
         }
         DbKind::Redis => {
-            let pass = env_plain(vars, "REDIS_PASSWORD");
+            let pass = env_plain(&resolved_vars, "REDIS_PASSWORD");
             let url = if pass.is_empty() {
                 format!("redis://{hostname}:{port}")
             } else {

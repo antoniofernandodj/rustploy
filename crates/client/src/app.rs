@@ -593,6 +593,9 @@ impl App {
                 self.view = View::Projects;
                 self.set_notification("Projeto removido", false);
             }
+            (Response::Err { code, message }, CmdContext::DeleteProject(_)) if code == "ProjectNotEmpty" => {
+                self.set_notification(&format!("Erro ao remover projeto: {message}"), true);
+            }
             (Response::Ok, CmdContext::DeleteService(sid)) => {
                 self.services.retain(|s| s.id != sid);
                 if self.active_service_id.as_deref() == Some(&sid) {
@@ -825,8 +828,12 @@ impl App {
     pub fn visible_service_tabs(&self) -> &'static [ServiceTab] {
         let is_db = self
             .current_active_service()
-            .map(|s| DbKind::detect(s).is_some())
-            .unwrap_or(false);
+            .and_then(|svc| {
+                self.current_project()
+                    .map(|proj| shared::resolve_env_vars(proj, svc))
+                    .and_then(|resolved_vars| DbKind::detect(&resolved_vars, svc))
+            })
+            .is_some();
         if is_db {
             ServiceTab::all_with_connection()
         } else {

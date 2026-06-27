@@ -602,7 +602,14 @@ impl App {
         self.active_service_id = Some(svc.id.clone());
         self.view = View::ServiceDetail;
         self.service_tab = ServiceTab::General;
-        self.conn_info = ConnInfo::from_service(&svc);
+
+        // Adicionar: obter o projeto ativo
+        let Some(project) = self.current_project().cloned() else {
+            self.notify("Projeto ativo não encontrado", true);
+            return;
+        };
+
+        self.conn_info = ConnInfo::from_service(&project, &svc);
         self.general = GeneralForm::from_service(&svc);
         self.gitea = GiteaForm::from_service(&svc);
         self.health = HealthForm::from_service(&svc);
@@ -759,10 +766,30 @@ impl App {
                 self.p_env_text_open = false;
                 self.notify("Env vars atualizadas", false);
             }
-            (Ctx::DeleteProject(id), Response::Ok) => {
-                self.projects.retain(|p| p.id != id);
-                self.view = View::Projects;
-                self.notify("Projeto removido", false);
+            (Ctx::DeleteProject(id), resp) => {
+                match resp {
+                    Response::Ok => {
+                        self.projects.retain(|p| p.id != id);
+                        // If the deleted project was the active one, clear context.
+                        if let Some(active) = self.active_project_id.clone() {
+                            if active == id {
+                                self.active_project_id = None;
+                                self.view = View::Projects;
+                            }
+                        }
+                        self.notify("Projeto removido", false);
+                    }
+                    Response::Err { code, message } if code == "ProjectNotEmpty" => {
+                        self.notify(message, true);
+                    }
+                    Response::Err { message, .. } => {
+                        self.notify(format!("Erro ao remover projeto: {message}"), true);
+                    }
+                    _ => self.notify(
+                        format!("Unexpected response for DeleteProject: {:?}", resp),
+                        true,
+                    ),
+                }
             }
             (Ctx::CreateService, Response::Service(s)) => {
                 self.services.push(s);

@@ -3,6 +3,7 @@ use shared::{
     Command, ComposeSource, DeployState, EnvVar, EnvVarValue, GitSource, Healthcheck,
     HealthcheckKind, Project, ResourceLimits, Service, ServiceSource, ServiceSpec,
 };
+use std::collections::HashMap;
 
 pub const MAX_LOG_LINES: usize = 2000;
 pub const MAX_METRIC_POINTS: usize = 60;
@@ -850,15 +851,14 @@ impl DbKind {
     }
 
     /// Campo `db_kind` do spec tem precedência; fallback para env var legada.
-    pub fn detect(svc: &Service) -> Option<Self> {
+    pub fn detect(resolved_env_vars: &HashMap<String, shared::EnvVar>, svc: &Service) -> Option<Self> {
         if let Some(kind) = &svc.spec.db_kind {
             return Self::from_str(kind);
         }
-        svc.spec.env_vars
-            .iter()
-            .find(|e| e.key == "RUSTPLOY_DB_KIND")
+        resolved_env_vars
+            .get("RUSTPLOY_DB_KIND")
             .and_then(|e| match &e.value {
-                EnvVarValue::Plain(s) => Self::from_str(s),
+                shared::EnvVarValue::Plain(s) => Self::from_str(&s),
                 _ => None,
             })
     }

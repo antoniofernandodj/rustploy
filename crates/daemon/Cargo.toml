@@ -25,6 +25,7 @@ assets = [
 ]
 
 [dependencies]
+fs_extra = "1.3.0" # Nova dependência para copiar diretórios
 shared = { path = "../shared" }
 
 # Async runtime
