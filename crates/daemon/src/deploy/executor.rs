@@ -1017,12 +1017,25 @@ impl DeployExecutor {
 
     async fn resolve_env(&self, svc: &Service) -> Result<Vec<(String, String)>> {
         // Env vars do projeto herdadas por todos os serviços (base)
-        let project_env = if let Ok(Some(project)) =
-            crate::db::projects::get(&self.db, &svc.spec.project_id).await
-        {
-            project.env_vars
-        } else {
-            vec![]
+        let project_env = match crate::db::projects::get(&self.db, &svc.spec.project_id).await {
+            Ok(Some(project)) => project.env_vars,
+            Ok(None) => {
+                warn!(
+                    service_id = %svc.id,
+                    project_id = %svc.spec.project_id,
+                    "resolve_env: projeto não encontrado no banco — env vars de projeto não serão injetadas"
+                );
+                vec![]
+            }
+            Err(e) => {
+                error!(
+                    service_id = %svc.id,
+                    project_id = %svc.spec.project_id,
+                    error = %e,
+                    "resolve_env: falha ao carregar projeto (possível erro de desserialização do JSON env_vars) — env vars de projeto não serão injetadas"
+                );
+                vec![]
+            }
         };
 
         // Mapa com precedência: projeto primeiro, service sobrescreve

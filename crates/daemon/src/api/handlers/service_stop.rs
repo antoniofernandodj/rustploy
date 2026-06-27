@@ -29,7 +29,22 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
     if let ServiceSource::Compose(compose) = &svc.spec.source {
         let pid = &svc.spec.project_id;
         let network_name = crate::docker::networks::project_net_for(pid);
-        let mut env_vars: Vec<(String, String)> = Vec::new();
+
+        // Build env map: project vars as base, service vars override (mirrors resolve_env in executor.rs).
+        let mut env_map: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+
+        if let Ok(Some(project)) = crate::db::projects::get(&state.db, pid).await {
+            for ev in &project.env_vars {
+                let value = match &ev.value {
+                    EnvVarValue::Plain(v) => v.clone(),
+                    EnvVarValue::Secret(name) => {
+                        state.secrets.get_raw(pid, name).await.unwrap_or_default()
+                    }
+                };
+                env_map.insert(ev.key.clone(), value);
+            }
+        }
+
         for ev in &svc.spec.env_vars {
             let value = match &ev.value {
                 EnvVarValue::Plain(v) => v.clone(),
@@ -37,8 +52,10 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
                     state.secrets.get_raw(pid, name).await.unwrap_or_default()
                 }
             };
-            env_vars.push((ev.key.clone(), value));
+            env_map.insert(ev.key.clone(), value);
         }
+
+        let env_vars: Vec<(String, String)> = env_map.into_iter().collect();
         return stop_compose(
             &state,
             &service_id,
