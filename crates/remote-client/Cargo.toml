@@ -26,6 +26,7 @@ assets = [
 [dependencies]
 regex = "1.x"
 shared = { path = "../shared" }
+strip-ansi-escapes = "0.2.1"
 
 # GUI
 iced = { version = "0.13", features = ["tokio"] }

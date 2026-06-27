@@ -2,6 +2,7 @@
 //! event application.
 
 use crate::model::*;
+use strip_ansi_escapes;
 use iced::Task;
 use crate::model;
 use shared::{
@@ -924,7 +925,7 @@ impl App {
                 }
                 buf.push(model::LogLine {
                     timestamp,
-                    text: shared::strip_ansi_escapes(&line),
+                    text: strip_ansi_escapes::strip_str(&line),
                     is_stderr: stream == protocol::LogStream::Stderr,
                 });
                 if displayed {
