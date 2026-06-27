@@ -8,7 +8,7 @@ use bollard::Docker;
 
 pub struct DockerClient {
     pub inner: Docker,
-    pub socket_path: String,
+    pub _socket_path: String,
 }
 
 impl DockerClient {
@@ -16,7 +16,7 @@ impl DockerClient {
         let docker = Docker::connect_with_unix(socket_path, 120, bollard::API_DEFAULT_VERSION)?;
         Ok(Self {
             inner: docker,
-            socket_path: socket_path.to_string(),
+            _socket_path: socket_path.to_string(),
         })
     }
 

@@ -73,6 +73,7 @@ deb: build ## Gera os pacotes .deb (daemon + client + remote-client)
 .PHONY: install-daemon
 install-daemon: deb-daemon ## Compila, empacota e instala apenas o daemon
 	sudo dpkg -i $$(ls target/debian/rustployd_*.deb | tail -1)
+	sudo systemctl restart rustployd
 
 .PHONY: install
 install: deb ## Instala os pacotes .deb via dpkg

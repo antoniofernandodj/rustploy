@@ -123,8 +123,15 @@ pub async fn update_status(
     status: &ServiceStatus,
     container_id: Option<&str>,
 ) -> Result<()> {
-    info!(service_id = %id, status = %status, container_id = ?container_id, "db::services:
-:update_status");
+
+    info!(
+        service_id = %id,
+        status = %status,
+        container_id = ?container_id.map(
+            |container_id| format!("...{}", &container_id[..container_id.len().min(10)])
+        ),
+        "db::services::update_status"
+    );
     let now = Utc::now();
     sqlx::query(
         "UPDATE service SET status = ?, live_container_id = ?, updated_at = ? WHERE id = ?",

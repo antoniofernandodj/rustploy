@@ -1,5 +1,6 @@
 use crate::{
     db::Db,
+    docker,
     docker::{DockerClient, containers, images, networks},
     event_bus::EventBus,
     ingress::{IngressController, TlsManager},
@@ -9,6 +10,7 @@ use anyhow::{Result, anyhow};
 use bollard::models::HealthStatusEnum;
 use chrono::Utc;
 use shared::{
+    compose_project_name,
     DeployState, Deployment, EnvVarValue, Event, HealthcheckKind, Service, ServiceSource,
     ServiceStatus,
 };
@@ -205,23 +207,32 @@ impl DeployExecutor {
                         }
                     }
                 } else if let Some(name) = &git.credentials {
-                    info!(deployment_id = %dep.id, secret = %name, "step[CloningRepo]: buscando token do secret");
+                    info!(
+                        deployment_id = %dep.id,
+                        secret = %name,
+                        "step[CloningRepo]: buscando token do secret"
+                    );
                     self.secrets.get_raw(&svc.spec.project_id, name).await.ok()
                 } else {
                     info!(deployment_id = %dep.id, "step[CloningRepo]: sem credenciais configuradas");
                     None
                 };
                 // Username: login da conta do provider tem precedência sobre o manual.
-                let clone_username = provider_login.as_deref().or(git.username.as_deref());
+                let clone_username = provider_login
+                    .as_deref()
+                    .or(git.username.as_deref());
+
                 let dir = self.clone_dir(&dep.id);
-                info!(
-                    deployment_id = %dep.id,
-                    dir = %dir.display(),
-                    "step[CloningRepo]: clonando para diretório"
-                );
                 let bus = self.bus.clone();
                 let sid = svc.id.clone();
                 let did = dep.id.clone();
+                
+                info!(
+                    deployment_id = %dep.id,
+                    dir = %dir.display(),
+                    git_url = &git.url,
+                    "step[CloningRepo]: clonando para diretório"
+                );
 
                 super::git::clone(
                     super::git::CloneOptions {
@@ -673,7 +684,7 @@ impl DeployExecutor {
             DeployState::RollingBack => {
                 self.log_step(&dep.id, &svc.id, "==> Deploy falhou — iniciando rollback").await;
                 if let ServiceSource::Compose(compose) = &svc.spec.source {
-                    let project_name = crate::docker::compose::compose_project_name(&svc.id, &svc.spec.name);
+                    let project_name = compose_project_name(&svc.id, &svc.spec.name);
                     info!(
                         deployment_id = %dep.id,
                         project = %project_name,
@@ -681,7 +692,7 @@ impl DeployExecutor {
                     );
                     let network_name = self.network_name(&svc.spec.project_id);
                     let env_vars = self.resolve_env(&svc).await.unwrap_or_default();
-                    let _ = crate::docker::compose::compose_down(
+                    let _ = docker::compose::down(
                         &compose.content,
                         &project_name,
                         &network_name,
@@ -775,7 +786,7 @@ impl DeployExecutor {
                 let ServiceSource::Compose(compose) = &svc.spec.source else {
                     return Err(anyhow!("expected Compose source in ComposingUp"));
                 };
-                let project_name = crate::docker::compose::compose_project_name(&svc.id, &svc.spec.name);
+                let project_name = compose_project_name(&svc.id, &svc.spec.name);
                 info!(
                     deployment_id = %dep.id,
                     content_bytes = compose.content.len(),
@@ -784,7 +795,7 @@ impl DeployExecutor {
                 );
                 let network_name = self.network_name(&svc.spec.project_id);
                 let env_vars = self.resolve_env(&svc).await.unwrap_or_default();
-                crate::docker::compose::compose_up(
+                docker::compose::up(
                     &compose.content,
                     &project_name,
                     &svc.id,

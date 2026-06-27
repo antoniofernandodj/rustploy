@@ -3,7 +3,26 @@
 
 use crate::model::*;
 use iced::Task;
-use shared::{Command, Event, Response, Service, ServiceSource, ServiceSpec, ServiceStatus};
+use shared::{
+    EnvVar,
+    Command,
+    Event,
+    Response,
+    Service,
+    Deployment,
+    ServiceSource,
+    ServiceSpec,
+    ServiceStatus,
+    GitProviderKind,
+    DeployState,
+    GitAuthMode,
+    // GitAuth,
+    ComposeSource,
+    EnvVarValue,
+    templates,
+    protocol,
+    looks_like_git_url
+};
 
 impl App {
     pub fn update(&mut self, message: Message) -> Task<Message> {
@@ -166,7 +185,7 @@ impl App {
                 for (i, ev) in raw.iter().enumerate() {
                     last_idx.insert(ev.key.clone(), i);
                 }
-                let parsed: Vec<shared::EnvVar> = raw.into_iter().enumerate()
+                let parsed: Vec<EnvVar> = raw.into_iter().enumerate()
                     .filter(|(i, ev)| last_idx.get(&ev.key) == Some(i))
                     .map(|(_, ev)| ev)
                     .collect();
@@ -294,7 +313,7 @@ impl App {
                 for (i, ev) in raw.iter().enumerate() {
                     last_idx.insert(ev.key.clone(), i);
                 }
-                let parsed: Vec<shared::EnvVar> = raw.into_iter().enumerate()
+                let parsed: Vec<EnvVar> = raw.into_iter().enumerate()
                     .filter(|(i, ev)| last_idx.get(&ev.key) == Some(i))
                     .map(|(_, ev)| ev)
                     .collect();
@@ -429,7 +448,7 @@ impl App {
                 }
             }
             Message::NsTemplateSelect(id) => {
-                if let Some(t) = shared::templates::all().iter().find(|t| t.id == id) {
+                if let Some(t) = templates::all().iter().find(|t| t.id == id) {
                     if let Some(ns) = &mut self.ns {
                         ns.select_template(t);
                     }
@@ -701,7 +720,7 @@ impl App {
                             .map(|e| LogLine {
                                 timestamp: e.timestamp,
                                 text: e.line,
-                                is_stderr: e.stream == shared::protocol::LogStream::Stderr,
+                                is_stderr: e.stream == protocol::LogStream::Stderr,
                             })
                             .collect();
                         let buf = self.logs.entry(sid).or_default();
@@ -781,7 +800,7 @@ impl App {
             // ── Git providers ─────────────────────────────────────────────
             (Ctx::GitProviders, Response::GitProviders(ps)) => self.git_providers = ps,
             (Ctx::CreateGitProvider, Response::GitProviderInfo(p)) => {
-                let is_oauth = matches!(p.auth_mode, shared::GitAuthMode::OAuth);
+                let is_oauth = matches!(p.auth_mode, GitAuthMode::OAuth);
                 let pid = p.id.clone();
                 if let Some(e) = self.git_providers.iter_mut().find(|x| x.id == p.id) {
                     *e = p;
@@ -840,7 +859,7 @@ impl App {
                 }
             }
             Event::DeployStateChanged { deployment_id, service_id, state, message, .. } => {
-                if matches!(state, shared::DeployState::RollingBack) {
+                if matches!(state, DeployState::RollingBack) {
                     let reason = message.as_deref().unwrap_or("motivo desconhecido");
                     self.notify(format!("Deploy falhou: {reason}"), true);
                 }
@@ -850,7 +869,7 @@ impl App {
                 if let Some(dep) = self.service_deployments.iter_mut().find(|d| d.id == deployment_id) {
                     dep.state = state.clone();
                 } else if self.active_service_id.as_deref() == Some(&service_id) {
-                    self.service_deployments.insert(0, shared::Deployment {
+                    self.service_deployments.insert(0, Deployment {
                         id: deployment_id,
                         service_id,
                         image: String::new(),
@@ -878,7 +897,7 @@ impl App {
                 buf.push(LogLine {
                     timestamp,
                     text: line,
-                    is_stderr: stream == shared::protocol::LogStream::Stderr,
+                    is_stderr: stream == protocol::LogStream::Stderr,
                 });
                 if displayed {
                     self.rebuild_log_editor();
@@ -979,7 +998,7 @@ impl App {
             // A registry-typed Application becomes a Git source when the URL
             // looks like a repository (https/ssh/git@/file:///…).
             ServiceSource::Registry { .. } => {
-                if shared::looks_like_git_url(&g.repo_url) {
+                if looks_like_git_url(&g.repo_url) {
                     ServiceSource::Git(g.to_git_source())
                 } else {
                     ServiceSource::Registry { image: g.repo_url.clone() }
@@ -1002,31 +1021,31 @@ impl App {
             f.name.trim().to_string()
         };
         let cmd = match f.mode {
-            shared::GitAuthMode::OAuth => {
+            GitAuthMode::OAuth => {
                 if f.client_id.trim().is_empty() || f.client_secret.trim().is_empty() {
                     self.notify("Client ID e Client Secret são obrigatórios", true);
                     return;
                 }
                 Command::GitProviderCreate {
-                    kind: shared::GitProviderKind::Gitea,
+                    kind: GitProviderKind::Gitea,
                     name,
                     base_url: f.base_url.trim().to_string(),
-                    auth_mode: shared::GitAuthMode::OAuth,
+                    auth_mode: GitAuthMode::OAuth,
                     oauth_client_id: Some(f.client_id.trim().to_string()),
                     oauth_client_secret: Some(f.client_secret.clone()),
                     pat: None,
                 }
             }
-            shared::GitAuthMode::Pat => {
+            GitAuthMode::Pat => {
                 if f.pat.trim().is_empty() {
                     self.notify("Informe o Personal Access Token", true);
                     return;
                 }
                 Command::GitProviderCreate {
-                    kind: shared::GitProviderKind::Gitea,
+                    kind: GitProviderKind::Gitea,
                     name,
                     base_url: f.base_url.trim().to_string(),
-                    auth_mode: shared::GitAuthMode::Pat,
+                    auth_mode: GitAuthMode::Pat,
                     oauth_client_id: None,
                     oauth_client_secret: None,
                     pat: Some(f.pat.clone()),
@@ -1054,7 +1073,7 @@ impl App {
 
     fn compose_save(&mut self) {
         let content = self.compose_editor.text();
-        self.update_spec(|s| s.source = ServiceSource::Compose(shared::ComposeSource { content }));
+        self.update_spec(|s| s.source = ServiceSource::Compose(ComposeSource { content }));
     }
 
     fn domains_save(&mut self) {
@@ -1073,13 +1092,13 @@ impl App {
         if key.is_empty() {
             return;
         }
-        let value = shared::EnvVarValue::Plain(self.s_env_editor.value.clone());
+        let value = EnvVarValue::Plain(self.s_env_editor.value.clone());
         self.s_env_editor.open = false;
         self.update_spec(move |s| {
             if let Some(ev) = s.env_vars.iter_mut().find(|e| e.key == key) {
                 ev.value = value;
             } else {
-                s.env_vars.push(shared::EnvVar { key, value });
+                s.env_vars.push(EnvVar { key, value });
             }
         });
     }
@@ -1099,11 +1118,11 @@ impl App {
         }
         let Some(project) = self.current_project().cloned() else { return };
         let mut env = project.env_vars.clone();
-        let value = shared::EnvVarValue::Plain(self.p_env_editor.value.clone());
+        let value = EnvVarValue::Plain(self.p_env_editor.value.clone());
         if let Some(ev) = env.iter_mut().find(|e| e.key == key) {
             ev.value = value;
         } else {
-            env.push(shared::EnvVar { key, value });
+            env.push(EnvVar { key, value });
         }
         self.send(Ctx::UpdateProjectEnv, Command::ProjectEnvSet { project_id: project.id, env_vars: env });
     }
@@ -1136,13 +1155,13 @@ impl App {
 
 /// Convenience used by the views to colour a service status.
 /// Converte uma lista de env vars para o formato de arquivo `.env`.
-pub fn env_vars_to_dotenv(env_vars: &[shared::EnvVar]) -> String {
+pub fn env_vars_to_dotenv(env_vars: &[EnvVar]) -> String {
     env_vars
         .iter()
         .map(|ev| {
             let val = match &ev.value {
-                shared::EnvVarValue::Plain(v) => v.clone(),
-                shared::EnvVarValue::Secret(s) => format!("<secret:{s}>"),
+                EnvVarValue::Plain(v) => v.clone(),
+                EnvVarValue::Secret(s) => format!("<secret:{s}>"),
             };
             format!("{}={}", ev.key, val)
         })
@@ -1152,7 +1171,7 @@ pub fn env_vars_to_dotenv(env_vars: &[shared::EnvVar]) -> String {
 
 /// Faz parse de texto no formato `.env` em uma lista de env vars.
 /// Ignora linhas vazias e comentários (`#`). Remove aspas simples/duplas do valor.
-pub fn parse_dotenv(text: &str) -> Vec<shared::EnvVar> {
+pub fn parse_dotenv(text: &str) -> Vec<EnvVar> {
     text.lines()
         .map(|l| l.trim())
         .filter(|l| !l.is_empty() && !l.starts_with('#'))
@@ -1171,10 +1190,12 @@ pub fn parse_dotenv(text: &str) -> Vec<shared::EnvVar> {
             } else {
                 v.to_string()
             };
-            Some(shared::EnvVar {
-                key,
-                value: shared::EnvVarValue::Plain(val),
-            })
+            Some(
+                EnvVar {
+                    key,
+                    value: EnvVarValue::Plain(val),
+                }
+            )
         })
         .collect()
 }

@@ -11,10 +11,6 @@ use tracing::{error, info};
 /// Local alias used inside the compose file to refer to the project network.
 const PROJECT_NET_ALIAS: &str = "rp_project_net";
 
-/// Unique Docker Compose project name for a rustploy service.
-pub fn compose_project_name(svc_id: &str, svc_name: &str) -> String {
-    shared::compose_project_name(svc_id, svc_name)
-}
 
 /// Injects the project's (external) Docker network into a compose YAML so that
 /// every service in the stack joins it automatically. The user writes a normal
@@ -123,7 +119,7 @@ pub fn inject_project_network(content: &str, network_name: &str) -> Result<Strin
     serde_yaml::to_string(&doc).map_err(|e| anyhow!("falha ao serializar compose YAML: {e}"))
 }
 
-pub async fn compose_up(
+pub async fn up(
     content: &str,
     project_name: &str,
     service_id: &str,
@@ -231,7 +227,7 @@ pub async fn compose_up(
     Ok(())
 }
 
-pub async fn compose_down(content: &str, project_name: &str, _network_name: &str, env_vars: &[(String, String)]) -> Result<()> {
+pub async fn down(content: &str, project_name: &str, _network_name: &str, env_vars: &[(String, String)]) -> Result<()> {
     info!(project = %project_name, "compose_down: iniciando");
 
     let mut child = Command::new("docker")

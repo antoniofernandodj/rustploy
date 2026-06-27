@@ -32,6 +32,7 @@ fn fake_service(id: &str, project_id: &str, db: bool) -> Service {
             project_id: project_id.into(),
             source,
             port: 8080,
+            db_kind: None,
             host_port: None,
             domain: None,
             tls_enabled: false,

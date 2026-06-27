@@ -153,7 +153,7 @@ async fn try_restart(
 
     info!(
         service = %svc.spec.name,
-        container_id = %container_id,
+        container_id = %format!("...{}", &container_id[..container_id.len().min(10)]),
         attempt,
         max = MAX_RESTART_ATTEMPTS,
         "watchdog: container parou, tentando restart ({attempt}/{MAX_RESTART_ATTEMPTS})"
@@ -180,7 +180,7 @@ async fn try_restart(
             // Container foi removido (docker rm) — não adianta tentar start, precisa redeployar
             warn!(
                 service = %svc.spec.name,
-                container_id = %container_id,
+                container_id = %format!("...{}", &container_id[..container_id.len().min(10)]),
                 "watchdog: container foi removido, disparando redeploy"
             );
             trigger_redeploy(state, svc).await;
@@ -189,7 +189,7 @@ async fn try_restart(
         Err(e) => {
             warn!(
                 service = %svc.spec.name,
-                container_id = %container_id,
+                container_id = %format!("...{}", &container_id[..container_id.len().min(10)]),
                 error = %e,
                 attempt,
                 "watchdog: docker start falhou"
@@ -208,7 +208,7 @@ async fn try_restart(
     if container_is_running(&state.docker.inner, container_id).await {
         info!(
             service = %svc.spec.name,
-            container_id = %container_id,
+            container_id = %format!("...{}", &container_id[..container_id.len().min(10)]),
             attempt,
             "watchdog: container reiniciado com sucesso"
         );
@@ -224,7 +224,7 @@ async fn try_restart(
     } else {
         warn!(
             service = %svc.spec.name,
-            container_id = %container_id,
+            container_id = %format!("...{}", &container_id[..container_id.len().min(10)]),
             attempt,
             "watchdog: container não ficou em pé após restart"
         );

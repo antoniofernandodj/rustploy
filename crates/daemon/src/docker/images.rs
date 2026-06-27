@@ -80,7 +80,7 @@ pub async fn pull(
     Ok(())
 }
 
-pub async fn exists(docker: &Docker, image: &str) -> bool {
+pub async fn _exists(docker: &Docker, image: &str) -> bool {
     docker.inspect_image(image).await.is_ok()
 }
 
@@ -185,7 +185,7 @@ fn append_dir_filtered(
     Ok(())
 }
 
-pub async fn prune_unused(docker: &Docker, keep_tags: &[&str]) -> Result<()> {
+pub async fn _prune_unused(docker: &Docker, keep_tags: &[&str]) -> Result<()> {
     let filters = std::collections::HashMap::from([("dangling", vec!["false"])]);
     let opts = bollard::image::ListImagesOptions {
         filters: filters

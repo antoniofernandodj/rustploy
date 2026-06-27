@@ -9,10 +9,10 @@ use std::{
 
 #[derive(Debug, Clone)]
 pub struct RouteEntry {
-    pub domain: String,
+    pub _domain: String,
     pub backends: Vec<String>,
     pub cursor: Arc<AtomicUsize>,
-    pub service_id: String,
+    pub _service_id: String,
 }
 
 impl RouteEntry {
@@ -91,10 +91,10 @@ impl IngressController {
         new_table.routes.insert(
             domain.to_string(),
             RouteEntry {
-                domain: domain.to_string(),
+                _domain: domain.to_string(),
                 backends,
                 cursor,
-                service_id: service_id.to_string(),
+                _service_id: service_id.to_string(),
             },
         );
         self.table.store(Arc::new(new_table));
@@ -107,7 +107,7 @@ impl IngressController {
         self.table.store(Arc::new(new_table));
     }
 
-    pub fn lookup(&self, domain: &str) -> Option<RouteEntry> {
+    pub fn _lookup(&self, domain: &str) -> Option<RouteEntry> {
         self.table.load().get(domain).cloned()
     }
 

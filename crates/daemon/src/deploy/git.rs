@@ -17,7 +17,7 @@ pub struct CloneOptions<'a> {
 }
 
 pub struct CloneProgress {
-    pub phase: String,
+    pub _phase: String,
     pub percent: u8,
     pub description: String,
 }
@@ -43,6 +43,18 @@ pub async fn clone(
         dir = %opts.dir.display(),
         "git::clone: iniciando"
     );
+
+    let msg = format!("{:?}", [
+        "clone",
+        "--branch",
+        opts.branch,
+        "--progress",
+        "--",
+        &effective_url,
+        ".",
+    ]);
+
+    info!(args = %msg);
 
     let mut child = Command::new("git")
         .args([
@@ -158,7 +170,7 @@ fn parse_progress(line: &str) -> CloneProgress {
     };
 
     CloneProgress {
-        phase: phase.to_string(),
+        _phase: phase.to_string(),
         percent,
         description: line.to_string(),
     }

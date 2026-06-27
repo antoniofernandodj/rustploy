@@ -4,6 +4,7 @@ use shared::{
     ComposeSource, ContainerMetricsPoint, DaemonStatus, DeployEngineSummary, Deployment,
     DeploymentSummary, EnvVar, EnvVarValue, GitAuthMode, GitBranch, GitProvider, GitRepo,
     GitSource, Healthcheck, HealthcheckKind, Project, ResourceLimits, Service, ServiceSource,
+    compose_project_name,
     ServiceSpec,
 };
 use std::collections::HashMap;
@@ -953,7 +954,7 @@ impl ConnInfo {
                 })
                 .unwrap_or_default()
         };
-        let project = shared::compose_project_name(&svc.id, &svc.spec.name);
+        let project = compose_project_name(&svc.id, &svc.spec.name);
         let host = format!("{}-{}-1", project, db.yaml_service_name());
         let port = db.default_port();
         let (url, fields) = match db {

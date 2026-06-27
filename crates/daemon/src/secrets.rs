@@ -1,4 +1,5 @@
 use anyhow::{Result, anyhow};
+use age::{secrecy::SecretString, Decryptor};
 use std::{
     io::{Read, Write},
     path::Path,
@@ -29,7 +30,7 @@ impl SecretsManager {
     }
 
     pub fn encrypt(&self, plaintext: &str) -> Result<String> {
-        let secret = age::secrecy::SecretString::new(self.passphrase.clone().into());
+        let secret = SecretString::new(self.passphrase.clone().into());
         let encryptor = age::Encryptor::with_user_passphrase(secret);
         let mut encrypted = Vec::new();
         {
@@ -42,11 +43,11 @@ impl SecretsManager {
 
     pub fn decrypt(&self, ciphertext_hex: &str) -> Result<String> {
         let ciphertext = hex::decode(ciphertext_hex)?;
-        let decryptor = match age::Decryptor::new(&ciphertext[..])? {
-            age::Decryptor::Passphrase(d) => d,
+        let decryptor = match Decryptor::new(&ciphertext[..])? {
+            Decryptor::Passphrase(d) => d,
             _ => return Err(anyhow!("unexpected decryptor type")),
         };
-        let secret = age::secrecy::SecretString::new(self.passphrase.clone().into());
+        let secret = SecretString::new(self.passphrase.clone().into());
         let mut decrypted = Vec::new();
         let mut reader = decryptor.decrypt(&secret, None)?;
         reader.read_to_end(&mut decrypted)?;

@@ -43,7 +43,7 @@ pub async fn ensure_project_network(docker: &Docker, project_id: &str) -> Result
     Ok(id)
 }
 
-pub async fn remove_project_network(docker: &Docker, project_id: &str) -> Result<()> {
+pub async fn _remove_project_network(docker: &Docker, project_id: &str) -> Result<()> {
     let pid = project_id.find('_').map(|i| &project_id[i + 1..]).unwrap_or(project_id);
     let short = &pid[..8.min(pid.len())];
     let name = project_network_name(short);
@@ -53,22 +53,22 @@ pub async fn remove_project_network(docker: &Docker, project_id: &str) -> Result
     Ok(())
 }
 
-pub async fn connect_container(
+pub async fn _connect_container(
     docker: &Docker,
     network_name: &str,
     container_id: &str,
 ) -> Result<()> {
-    info!(network = %network_name, container_id = %container_id, "networks::connect: conectando container");
+    info!(network = %network_name, container_id = %format!("...{}", &container_id[..container_id.len().min(10)]), "networks::connect: conectando container");
     let opts = ConnectNetworkOptions {
         container: container_id.to_string(),
         ..Default::default()
     };
     docker.connect_network(network_name, opts).await?;
-    info!(network = %network_name, container_id = %container_id, "networks::connect: container conectado");
+    info!(network = %network_name, container_id = %format!("...{}", &container_id[..container_id.len().min(10)]), "networks::connect: container conectado");
     Ok(())
 }
 
-pub async fn disconnect_container(
+pub async fn _disconnect_container(
     docker: &Docker,
     network_name: &str,
     container_id: &str,

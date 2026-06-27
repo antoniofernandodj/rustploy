@@ -52,7 +52,9 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::GitBranchList { .. } => "GitBranchList",
         _ => "Unknown",
     };
-    info!(command = cmd_name, "→ RPC recebido");
+    info!(
+        command = cmd_name, "→ Request"
+    );
 
     let resp = match cmd {
         Command::Ping => handlers::ping::handle(state).await,
@@ -183,6 +185,10 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
     };
 
     let ok = !matches!(resp, RpResponse::Err { .. });
-    info!(command = cmd_name, ok, "← RPC respondido");
+    info!(
+        ok,
+        command = cmd_name,
+        "← Response"
+    );
     resp
 }

@@ -27,7 +27,7 @@ pub async fn handle(state: AppState) -> RpResponse {
     let mut proj_cache: HashMap<String, String> = HashMap::new();
 
     let resolve = |svc_cache: &mut HashMap<String, (String, String)>,
-                   proj_cache: &mut HashMap<String, String>,
+                   _proj_cache: &mut HashMap<String, String>,
                    service_id: &str|
      -> (String, String) {
         if let Some(cached) = svc_cache.get(service_id) {

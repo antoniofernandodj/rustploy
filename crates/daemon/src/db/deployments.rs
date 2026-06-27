@@ -103,7 +103,7 @@ pub async fn list_for_service(db: &Db, service_id: &str, limit: usize) -> Result
     Ok(rows.into_iter().map(row_to_deployment).collect())
 }
 
-pub async fn latest_for_service(db: &Db, service_id: &str) -> Result<Option<Deployment>> {
+pub async fn _latest_for_service(db: &Db, service_id: &str) -> Result<Option<Deployment>> {
     let row = sqlx::query_as::<_, DeploymentRow>(&format!(
         "SELECT {SELECT_COLS} FROM deployment WHERE service_id = ? ORDER BY started_at DESC LIMIT 1"
     ))

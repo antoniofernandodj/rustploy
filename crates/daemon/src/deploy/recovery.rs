@@ -1,11 +1,12 @@
 use crate::{
     db::Db,
+    docker,
     docker::{DockerClient, containers},
     event_bus::EventBus,
     ingress::{IngressController, TlsManager},
     secrets::SecretsManager,
 };
-use shared::{DeployState, Service, ServiceStatus};
+use shared::{DeployState, Service, ServiceStatus, compose_project_name};
 use std::{path::PathBuf, sync::Arc};
 use tracing::{info, warn};
 
@@ -74,7 +75,7 @@ pub async fn recover(
                 );
                 // Remove staging container if it exists
                 let staging_name =
-                    containers::staging_name(&svc.spec.name, crate::docker::networks::id_short(&dep.id));
+                    containers::staging_name(&svc.spec.name, docker::networks::id_short(&dep.id));
                 if let Ok(Some(id)) = containers::find_by_name(&docker.inner, &staging_name).await {
                     let _ = containers::remove(&docker.inner, &id).await;
                 }
@@ -179,7 +180,7 @@ pub async fn reconcile(
         let replicas = svc.spec.replicas.max(1);
         let net = format!(
             "rp_net_{}",
-            crate::docker::networks::id_short(&svc.spec.project_id)
+            docker::networks::id_short(&svc.spec.project_id)
         );
 
         let mut backends: Vec<String> = Vec::new();
@@ -196,7 +197,7 @@ pub async fn reconcile(
         }
 
         if backends.is_empty() {
-            let compose_prefix = format!("{}-", crate::docker::compose::compose_project_name(&svc.id, &svc.spec.name));
+            let compose_prefix = format!("{}-", compose_project_name(&svc.id, &svc.spec.name));
             if let Ok(Some(cid)) =
                 containers::find_by_prefix(&docker.inner, &compose_prefix).await
             {
@@ -289,7 +290,7 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
         let replicas = svc.spec.replicas.max(1);
         let net = format!(
             "rp_net_{}",
-            crate::docker::networks::id_short(&svc.spec.project_id)
+            docker::networks::id_short(&svc.spec.project_id)
         );
 
         // Coleta IPs de todas as réplicas live (Git/Registry)
@@ -308,7 +309,7 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
         // Fallback para Compose: encontra via prefixo do projeto.
         // O nome interno do serviço no compose file pode diferir do nome rustploy.
         if backends.is_empty() {
-            let compose_prefix = format!("{}-", crate::docker::compose::compose_project_name(&svc.id, &svc.spec.name));
+            let compose_prefix = format!("{}-", compose_project_name(&svc.id, &svc.spec.name));
             if let Ok(Some(cid)) =
                 containers::find_by_prefix(&docker.inner, &compose_prefix).await
             {

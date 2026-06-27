@@ -1,6 +1,14 @@
-use crate::{api::AppState, docker::containers};
+use crate::{docker, api::AppState, docker::containers};
 use chrono::Utc;
-use shared::{DeployState, EnvVarValue, Event, Response as RpResponse, ServiceSource, ServiceStatus};
+use shared::{
+    DeployState,
+    EnvVarValue,
+    Event,
+    Response as RpResponse,
+    ServiceSource,
+    ServiceStatus,
+    compose_project_name
+};
 
 pub async fn handle(state: AppState, service_id: String) -> RpResponse {
     let svc = match crate::db::services::get(&state.db, &service_id).await {
@@ -28,7 +36,7 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
     // Compose services are stopped via compose_down.
     if let ServiceSource::Compose(compose) = &svc.spec.source {
         let pid = &svc.spec.project_id;
-        let network_name = crate::docker::networks::project_net_for(pid);
+        let network_name = docker::networks::project_net_for(pid);
 
         // Build env map: project vars as base, service vars override (mirrors resolve_env in executor.rs).
         let mut env_map: std::collections::HashMap<String, String> = std::collections::HashMap::new();
@@ -115,8 +123,13 @@ async fn stop_compose(
     env_vars: &[(String, String)],
 ) -> RpResponse {
     if let Err(e) =
-        crate::docker::compose::compose_down(content, &crate::docker::compose::compose_project_name(service_id, service_name), network_name, env_vars)
-            .await
+        docker::compose::down(
+            content,
+            &compose_project_name(service_id, service_name),
+            network_name,
+            env_vars
+        )
+        .await
     {
         return RpResponse::err("DockerError", e.to_string());
     }
@@ -145,13 +158,15 @@ async fn finish_stop(state: &AppState, service_id: &str, container_id: Option<&s
                 None,
             )
             .await;
-            state.bus.publish(Event::DeployStateChanged {
-                deployment_id: dep.id,
-                service_id: service_id.to_string(),
-                state: DeployState::Stopped,
-                timestamp: Utc::now(),
-                message: None,
-            });
+            state.bus.publish(
+                Event::DeployStateChanged {
+                    deployment_id: dep.id,
+                    service_id: service_id.to_string(),
+                    state: DeployState::Stopped,
+                    timestamp: Utc::now(),
+                    message: None,
+                }
+            );
         }
     }
 

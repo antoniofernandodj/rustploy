@@ -6,7 +6,7 @@
 ///      All older Live deployments for the same service → Pruning.
 ///   2. For the most recent Live deployment per service, verify its container
 ///      is actually running. If not → Stopped.
-use crate::api::AppState;
+use crate::{api::AppState, docker};
 use chrono::Utc;
 use shared::{DeployState, Deployment, Event, ServiceStatus};
 use std::collections::HashSet;
@@ -113,7 +113,7 @@ async fn is_container_running(state: &AppState, service_id: &str) -> bool {
         None => return false,
     };
 
-    match crate::docker::containers::inspect(&state.docker.inner, &container_id).await {
+    match docker::containers::inspect(&state.docker.inner, &container_id).await {
         Ok(info) => info.state.as_ref().and_then(|s| s.running).unwrap_or(false),
         Err(_) => false,
     }

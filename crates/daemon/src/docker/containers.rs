@@ -17,7 +17,7 @@ pub fn staging_name(service_name: &str, deployment_id_short: &str) -> String {
     replica_staging_name(service_name, deployment_id_short, 0)
 }
 
-pub fn live_name(service_name: &str) -> String {
+pub fn _live_name(service_name: &str) -> String {
     replica_live_name(service_name, 0)
 }
 
@@ -58,7 +58,7 @@ pub async fn create_staging(
         service_id = %service_id,
         port = spec.port,
         volumes = spec.volumes.len(),
-        "containers::create_staging: criando container"
+        "criando container"
     );
 
     let env: Vec<String> = resolved_env
@@ -69,7 +69,7 @@ pub async fn create_staging(
     debug!(
         name = %name,
         env_keys = ?resolved_env.iter().map(|(k, _)| k.as_str()).collect::<Vec<_>>(),
-        "containers::create_staging: env vars configuradas"
+        "env vars configuradas"
     );
 
     let mounts: Vec<Mount> = spec
@@ -80,7 +80,7 @@ pub async fn create_staging(
                 host = %v.host_path,
                 container = %v.container_path,
                 ro = v.read_only,
-                "containers::create_staging: montando volume"
+                "montando volume"
             );
             Mount {
                 target: Some(v.container_path.clone()),
@@ -115,7 +115,7 @@ pub async fn create_staging(
         name = %name,
         mem_limit = ?mem_limit,
         cpu_shares = ?cpu_shares,
-        "containers::create_staging: limites de recurso"
+        "limites de recurso"
     );
 
     let host_config = HostConfig {
@@ -168,57 +168,57 @@ pub async fn create_staging(
     };
 
     let opts = CreateContainerOptions {
-        name: name.clone(),
+        name: name,
         platform: None,
     };
     let response = docker.create_container(Some(opts), config).await?;
     info!(
         name = %name,
         container_id = %response.id,
-        "containers::create_staging: container criado com sucesso"
+        "container criado com sucesso"
     );
     if !response.warnings.is_empty() {
-        warn!(name = %name, warnings = ?response.warnings, "containers::create_staging: Docker retornou warnings");
+        warn!(name = %name, warnings = ?response.warnings, "Docker retornou warnings");
     }
     Ok(response.id)
 }
 
 pub async fn start(docker: &Docker, container_id: &str) -> Result<()> {
-    info!(container_id = %container_id, "containers::start: iniciando container");
+    info!(container_id = %format!("...{}", &container_id[..container_id.len().min(10)]), "iniciando container");
     docker
         .start_container(container_id, None::<StartContainerOptions<String>>)
         .await?;
-    info!(container_id = %container_id, "containers::start: container em execução");
+    info!(container_id = %format!("...{}", &container_id[..container_id.len().min(10)]), "container em execução");
     Ok(())
 }
 
 pub async fn stop_graceful(docker: &Docker, container_id: &str, timeout: i64) -> Result<()> {
-    info!(container_id = %container_id, timeout = timeout, "containers::stop_graceful: parando container");
+    info!(container_id = %format!("...{}", &container_id[..container_id.len().min(10)]), timeout = timeout, "parando container");
     let opts = StopContainerOptions { t: timeout };
     docker.stop_container(container_id, Some(opts)).await?;
-    info!(container_id = %container_id, "containers::stop_graceful: container parado");
+    info!(container_id = %format!("...{}", &container_id[..container_id.len().min(10)]), "container parado");
     Ok(())
 }
 
 pub async fn rename(docker: &Docker, container_id: &str, new_name: &str) -> Result<()> {
-    info!(container_id = %container_id, new_name = %new_name, "containers::rename: renomeando container");
+    info!(container_id = %format!("...{}", &container_id[..container_id.len().min(10)]), new_name = %new_name, "renomeando container");
     let opts = RenameContainerOptions {
         name: new_name.to_string(),
     };
     docker.rename_container(container_id, opts).await?;
-    info!(container_id = %container_id, new_name = %new_name, "containers::rename: renomeado");
+    info!(container_id = %format!("...{}", &container_id[..container_id.len().min(10)]), new_name = %new_name, "renomeado");
     Ok(())
 }
 
 pub async fn remove(docker: &Docker, container_id: &str) -> Result<()> {
-    info!(container_id = %container_id, "containers::remove: removendo container");
+    info!(container_id = %format!("...{}", &container_id[..container_id.len().min(10)]), "removendo container");
     let opts = RemoveContainerOptions {
         force: true,
         v: true,
         ..Default::default()
     };
     docker.remove_container(container_id, Some(opts)).await?;
-    info!(container_id = %container_id, "containers::remove: removido");
+    info!(container_id = %format!("...{}", &container_id[..container_id.len().min(10)]), "removido");
     Ok(())
 }
 
@@ -226,17 +226,17 @@ pub async fn inspect(
     docker: &Docker,
     container_id: &str,
 ) -> Result<bollard::models::ContainerInspectResponse> {
-    debug!(container_id = %container_id, "containers::inspect: inspecionando");
+    debug!(container_id = %format!("...{}", &container_id[..container_id.len().min(10)]), "inspecionando");
     let resp = docker
         .inspect_container(container_id, None::<InspectContainerOptions>)
         .await?;
     let running = resp.state.as_ref().and_then(|s| s.running).unwrap_or(false);
     let status = resp.state.as_ref().and_then(|s| s.status.clone());
     debug!(
-        container_id = %container_id,
+        container_id = %format!("...{}", &container_id[..container_id.len().min(10)]),
         running = running,
         status = ?status,
-        "containers::inspect: resultado"
+        "resultado"
     );
     Ok(resp)
 }
@@ -250,7 +250,7 @@ pub async fn get_container_ip(
     // `docker container inspect` (EndpointSettings.ip_address).
     // EndpointSettings.ip_address vem vazio em alguns Docker/bollard combos;
     // NetworkContainer.ipv4_address é uma struct diferente e mais confiável.
-    debug!(container_id = %container_id, network = %network_name, "containers::get_container_ip: inspecionando rede");
+    debug!(container_id = %format!("...{}", &container_id[..container_id.len().min(10)]), network = %network_name, "inspecionando rede");
 
     let net_info = docker
         .inspect_network::<String>(network_name, None)
@@ -260,11 +260,11 @@ pub async fn get_container_ip(
     let net_containers = net_info.containers.unwrap_or_default();
 
     info!(
-        container_id = %container_id,
+        container_id = %format!("...{}", &container_id[..container_id.len().min(10)]),
         network = %network_name,
         count = net_containers.len(),
         ids = ?net_containers.keys().map(|k| &k[..k.len().min(12)]).collect::<Vec<_>>(),
-        "containers::get_container_ip: containers encontrados na rede"
+        "containers encontrados na rede"
     );
 
     // Chave do mapa é o container ID completo (64 hex chars)
@@ -285,11 +285,11 @@ pub async fn get_container_ip(
         })?;
 
     info!(
-        container_id = %container_id,
+        container_id = %format!("...{}", &container_id[..container_id.len().min(10)]),
         network = %network_name,
         ipv4 = ?nc.ipv4_address,
         mac = ?nc.mac_address,
-        "containers::get_container_ip: NetworkContainer encontrado"
+        "NetworkContainer encontrado"
     );
 
     // ipv4_address vem no formato CIDR "172.18.0.2/16" — extrai só o IP
@@ -300,7 +300,11 @@ pub async fn get_container_ip(
         .map(|s| s.split('/').next().unwrap_or(s).to_string())
         .ok_or_else(|| anyhow!("sem IPv4 para container na rede {network_name}"))?;
 
-    info!(container_id = %container_id, network = %network_name, ip = %ip, "containers::get_container_ip: IP resolvido");
+    info!(
+        container_id = %format!("...{}", &container_id[..container_id.len().min(10)]),
+        network = %network_name,
+        ip = %ip, "IP resolvido"
+    );
     Ok(ip)
 }
 
@@ -327,13 +331,13 @@ pub async fn get_container_logs(docker: &Docker, container_id: &str, tail: usize
 
 pub async fn find_all_by_service_id(docker: &Docker, service_id: &str) -> Result<Vec<String>> {
     use bollard::container::ListContainersOptions;
-    debug!(service_id = %service_id, "containers::find_all_by_service_id: buscando");
+    debug!(service_id = %service_id, "buscando containers por service_id");
     let mut filters = HashMap::new();
     filters.insert("label".to_string(), vec![format!("rustploy.service_id={service_id}")]);
     let opts = ListContainersOptions { all: true, filters, ..Default::default() };
     let list = docker.list_containers(Some(opts)).await?;
     let ids: Vec<String> = list.into_iter().filter_map(|c| c.id).collect();
-    debug!(service_id = %service_id, count = ids.len(), "containers::find_all_by_service_id: encontrados");
+    debug!(service_id = %service_id, count = ids.len(), "containers encontrados");
     Ok(ids)
 }
 
@@ -360,13 +364,13 @@ pub async fn find_old_containers(
         })
         .filter_map(|c| c.id)
         .collect();
-    debug!(service_id = %service_id, count = ids.len(), "containers::find_old_containers: encontrados");
+    debug!(service_id = %service_id, count = ids.len(), "containers antigos encontrados");
     Ok(ids)
 }
 
 pub async fn find_by_name(docker: &Docker, name: &str) -> Result<Option<String>> {
     use bollard::container::ListContainersOptions;
-    debug!(name = %name, "containers::find_by_name: buscando container");
+    debug!(name = %name, "buscando container por nome");
     let mut filters = HashMap::new();
     filters.insert("name".to_string(), vec![format!("^/{name}$")]);
     let opts = ListContainersOptions {
@@ -378,16 +382,16 @@ pub async fn find_by_name(docker: &Docker, name: &str) -> Result<Option<String>>
     let found = containers.into_iter().next().and_then(|c| c.id);
     match &found {
         Some(id) => {
-            debug!(name = %name, container_id = %id, "containers::find_by_name: encontrado")
+            debug!(name = %name, container_id = %id, "container encontrado por nome")
         }
-        None => debug!(name = %name, "containers::find_by_name: não encontrado"),
+        None => debug!(name = %name, "container não encontrado"),
     }
     Ok(found)
 }
 
 pub async fn find_by_prefix(docker: &Docker, prefix: &str) -> Result<Option<String>> {
     use bollard::container::ListContainersOptions;
-    debug!(prefix = %prefix, "containers::find_by_prefix: buscando container");
+    debug!(prefix = %prefix, "buscando container por prefix");
     let mut filters = HashMap::new();
     filters.insert("name".to_string(), vec![format!("^/{prefix}")]);
     let opts = ListContainersOptions {

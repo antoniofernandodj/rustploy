@@ -26,7 +26,7 @@ pub async fn upsert(db: &Db, service_id: &str, token: &str) -> Result<()> {
     Ok(())
 }
 
-pub async fn delete(db: &Db, service_id: &str) -> Result<()> {
+pub async fn _delete(db: &Db, service_id: &str) -> Result<()> {
     sqlx::query("DELETE FROM webhook_token WHERE service_id = ?")
         .bind(service_id)
         .execute(db)
