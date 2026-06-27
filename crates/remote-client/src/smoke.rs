@@ -111,7 +111,7 @@ fn renders_all_service_tabs() {
     for sid in ["s1", "s2"] {
         app.active_service_id = Some(sid.into());
         let svc = app.services.iter().find(|s| s.id == sid).cloned().unwrap();
-        app.conn_info = ConnInfo::from_service(&svc);
+        app.conn_info = ConnInfo::from_service(app.current_project().unwrap(), &svc);
         app.general = GeneralForm::from_service(&svc);
         app.health = HealthForm::from_service(&svc);
         app.domains = DomainsForm::from_service(&svc);
