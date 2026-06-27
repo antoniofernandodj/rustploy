@@ -24,6 +24,7 @@ assets = [
 ]
 
 [dependencies]
+regex = "1.x"
 shared = { path = "../shared" }
 
 # GUI
