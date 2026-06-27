@@ -3,6 +3,7 @@
 
 use crate::model::*;
 use iced::Task;
+use crate::model;
 use shared::{
     EnvVar,
     Command,
@@ -921,9 +922,9 @@ impl App {
                 if buf.len() >= MAX_LOG_LINES {
                     buf.remove(0);
                 }
-                buf.push(LogLine {
+                buf.push(model::LogLine {
                     timestamp,
-                    text: line,
+                    text: shared::strip_ansi_escapes(&line),
                     is_stderr: stream == protocol::LogStream::Stderr,
                 });
                 if displayed {

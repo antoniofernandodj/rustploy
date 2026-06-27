@@ -1,5 +1,6 @@
 //! Service detail screen with all tabs, mirroring the TUI.
 
+use regex::Regex;
 use super::widgets::*;
 use crate::model::{
     palette, DbKind, GenField, HcField, ProviderChoice, ProviderTab, RepoChoice, ServiceTab,
@@ -673,23 +674,12 @@ pub fn build_log_modal_content(app: &App) -> Element<'_, Message> {
 }
 
 fn render_ansi_line(line: &str) -> Element<'static, Message> {
-    let spans = parse_ansi_spans(line);
-    if spans.is_empty() {
-        return text("").size(11).into();
-    }
-    iced::widget::rich_text(
-        spans
-            .into_iter()
-            .map(|(color, txt)| {
-                let s = iced::widget::span(txt).size(11.0);
-                match color {
-                    Some(c) => s.color(c),
-                    None => s,
-                }
-            })
-            .collect::<Vec<_>>(),
-    )
-    .into()
+    text(strip_ansi_codes(line)).size(11).into()
+}
+
+fn strip_ansi_codes(s: &str) -> String {
+    let pattern = Regex::new(r"\x1b\[[0-9;]*m").unwrap();
+    pattern.replace_all(s, "").to_string()
 }
 
 fn parse_ansi_spans(line: &str) -> Vec<(Option<Color>, String)> {

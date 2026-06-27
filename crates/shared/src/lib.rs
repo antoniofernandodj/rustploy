@@ -2,6 +2,10 @@ pub mod config;
 pub mod manifest;
 pub mod models;
 pub mod protocol;
+
+pub fn strip_ansi_escapes(s: &str) -> String {
+    strip_ansi_escapes::strip_str(s)
+}
 pub mod templates;
 
 pub use config::{fallback_data_dir, user_home, RustployConfig, RwpConfig};
