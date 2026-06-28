@@ -24,7 +24,7 @@ pub struct DokployApplication {
     #[sqlx(rename = "branch")]
     pub branch: Option<String>,
     #[sqlx(rename = "buildPath")]
-    pub build_path: Option<String>,
+    pub _build_path: Option<String>,
     #[sqlx(rename = "dockerfile")]
     pub dockerfile: Option<String>,
     #[sqlx(rename = "dockerContextPath")]

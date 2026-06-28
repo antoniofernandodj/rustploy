@@ -682,7 +682,7 @@ fn strip_ansi_codes(s: &str) -> String {
     pattern.replace_all(s, "").to_string()
 }
 
-fn parse_ansi_spans(line: &str) -> Vec<(Option<Color>, String)> {
+fn _parse_ansi_spans(line: &str) -> Vec<(Option<Color>, String)> {
     let mut spans: Vec<(Option<Color>, String)> = Vec::new();
     let mut current_color: Option<Color> = None;
     let mut current_text = String::new();
@@ -712,7 +712,7 @@ fn parse_ansi_spans(line: &str) -> Vec<(Option<Color>, String)> {
     spans
 }
 
-fn ansi_code_to_color(code: &str) -> Option<Option<Color>> {
+fn _ansi_code_to_color(code: &str) -> Option<Option<Color>> {
     let last = code.split(';').filter_map(|s| s.parse::<u8>().ok()).last()?;
     Some(match last {
         0 => None,

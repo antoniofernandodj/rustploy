@@ -50,7 +50,7 @@ pub enum View {
 pub enum ConfirmAction {
     DeleteProject(String),
     DeleteService(String),
-    AbortDeploy(String),
+    _AbortDeploy(String),
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -198,16 +198,16 @@ impl ServiceTab {
         }
     }
 
-    pub fn index(&self) -> usize {
+    pub fn _index(&self) -> usize {
         Self::all().iter().position(|t| t == self).unwrap_or(0)
     }
 
-    pub fn next(&self) -> ServiceTab {
+    pub fn _next(&self) -> ServiceTab {
         let all = Self::all();
         all[(self.index() + 1) % all.len()].clone()
     }
 
-    pub fn prev(&self) -> ServiceTab {
+    pub fn _prev(&self) -> ServiceTab {
         let all = Self::all();
         let idx = if self.index() == 0 {
             all.len() - 1
@@ -736,7 +736,7 @@ pub enum NewServiceStep {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ServiceKind {
+pub enum _ServiceKind {
     Application,
     Database,
     Compose,
@@ -744,7 +744,7 @@ pub enum ServiceKind {
 }
 
 impl ServiceKind {
-    pub fn label(self) -> &'static str {
+    pub fn _label(self) -> &'static str {
         match self {
             Self::Application => "Application",
             Self::Database => "Database",
@@ -879,7 +879,7 @@ pub struct NewServiceState {
     pub db_password: String,
     pub db_root_password: String,
     pub docker_image: String,
-    pub compose_file_path: String,
+    pub _compose_file_path: String,
     pub use_replica_sets: bool,
     pub focused_field: usize,
     pub form_scroll: usize,
@@ -1379,7 +1379,7 @@ pub struct PendingCommand {
 #[derive(Debug)]
 pub enum CmdContext {
     None,
-    LoadProjects,
+    _LoadProjects,
     LoadServices,
     LoadDeployments,
     LoadHomeDeployments,
@@ -1523,7 +1523,7 @@ impl EnvTextTabState {
             .collect()
     }
 
-    pub fn to_text(&self) -> String {
+    pub fn _to_text(&self) -> String {
         self.textarea.lines().join("\n")
     }
 }
@@ -1587,8 +1587,8 @@ pub struct Notification {
 
 #[derive(Debug, Clone)]
 pub struct DeployProgressState {
-    pub deployment_id: String,
-    pub service_id: String,
+    pub _deployment_id: String,
+    pub _service_id: String,
     pub current_state: DeployState,
     pub percent: u8,
     pub description: String,
