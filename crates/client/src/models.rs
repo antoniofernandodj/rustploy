@@ -753,7 +753,7 @@ impl ServiceKind {
         }
     }
 
-    pub fn description(self) -> &'static str {
+    pub fn _description(self) -> &'static str {
         match self {
             Self::Application => "Web app via Git ou imagem",
             Self::Database => "Banco de dados gerenciado",
