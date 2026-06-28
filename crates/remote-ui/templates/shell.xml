@@ -1,65 +1,65 @@
-<Row class="screen" width="fill" height="fill">
+<Row class="screen">
 
     <!-- ── Sidebar ────────────────────────────────────────────────────── -->
-    <Column class="sidebar" height="fill">
-        <Column spacing="2" padding="0 8 18 8">
+    <Column class="sidebar">
+        <Column class="brand_box">
             <Text class="brand" content="Rustploy Remote" />
             <Text class="brand_sub" content="PRODUCTION CLUSTER" />
         </Column>
 
         <Text class="nav_section" content="DEPLOYMENT OPS" />
         <if cond="{view}" equals="deployments">
-            <Button class="nav_item_on" text="  Deployments" onClick="nav_deployments" width="fill" />
+            <Button class="nav_item_on" text="  Deployments" onClick="nav_deployments" />
         </if>
         <else>
-            <Button class="nav_item" text="  Deployments" onClick="nav_deployments" width="fill" />
+            <Button class="nav_item" text="  Deployments" onClick="nav_deployments" />
         </else>
         <if cond="{view}" equals="monitoring">
-            <Button class="nav_item_on" text="  Monitoring" onClick="nav_monitoring" width="fill" />
+            <Button class="nav_item_on" text="  Monitoring" onClick="nav_monitoring" />
         </if>
         <else>
-            <Button class="nav_item" text="  Monitoring" onClick="nav_monitoring" width="fill" />
+            <Button class="nav_item" text="  Monitoring" onClick="nav_monitoring" />
         </else>
         <if cond="{view}" equals="schedules">
-            <Button class="nav_item_on" text="  Schedules" onClick="nav_schedules" width="fill" />
+            <Button class="nav_item_on" text="  Schedules" onClick="nav_schedules" />
         </if>
         <else>
-            <Button class="nav_item" text="  Schedules" onClick="nav_schedules" width="fill" />
+            <Button class="nav_item" text="  Schedules" onClick="nav_schedules" />
         </else>
         <if cond="{view}" equals="ingress">
-            <Button class="nav_item_on" text="  Ingress" onClick="nav_ingress" width="fill" />
+            <Button class="nav_item_on" text="  Ingress" onClick="nav_ingress" />
         </if>
         <else>
-            <Button class="nav_item" text="  Ingress" onClick="nav_ingress" width="fill" />
+            <Button class="nav_item" text="  Ingress" onClick="nav_ingress" />
         </else>
         <if cond="{view}" equals="docker">
-            <Button class="nav_item_on" text="  Docker" onClick="nav_docker" width="fill" />
+            <Button class="nav_item_on" text="  Docker" onClick="nav_docker" />
         </if>
         <else>
-            <Button class="nav_item" text="  Docker" onClick="nav_docker" width="fill" />
+            <Button class="nav_item" text="  Docker" onClick="nav_docker" />
         </else>
 
         <Text class="nav_section" content="MANAGEMENT" />
         <if cond="{view}" equals="projects">
-            <Button class="nav_item_on" text="  Projects ({projects_count})" onClick="nav_projects" width="fill" />
+            <Button class="nav_item_on" text="  Projects ({projects_count})" onClick="nav_projects" />
         </if>
         <else>
-            <Button class="nav_item" text="  Projects ({projects_count})" onClick="nav_projects" width="fill" />
+            <Button class="nav_item" text="  Projects ({projects_count})" onClick="nav_projects" />
         </else>
 
-        <Column height="fill" />
+        <Column class="nav_spacer" />
 
         <Rule />
-        <Button class="nav_item" text="  Settings" onClick="nav_settings" width="fill" />
-        <Button class="nav_item" text="  Support" onClick="nav_support" width="fill" />
+        <Button class="nav_item" text="  Settings" onClick="nav_settings" />
+        <Button class="nav_item" text="  Support" onClick="nav_support" />
     </Column>
 
     <!-- ── Main column ────────────────────────────────────────────────── -->
-    <Column width="fill" height="fill">
+    <Column class="main_col">
 
         <!-- Top bar -->
         <Row class="topbar">
-            <TextInput class="search" placeholder="Search deployments, nodes…" value="search" onChange="search_changed" width="fill" />
+            <TextInput class="search" placeholder="Search deployments, nodes…" value="search" onChange="search_changed" />
             <Text class="muted" content="● rwp · daemon v{daemon_version}" />
             <Button class="btn_primary" text="Deploy" onClick="deploy" />
             <Button class="btn_danger" text="Stop All" onClick="stop_all" />
@@ -70,45 +70,45 @@
 
         <!-- Content -->
         <if cond="{view}" equals="deployments">
-            <Column class="content" width="fill" height="fill">
-                <Row width="fill" alignY="start">
-                    <Column spacing="6" width="fill">
+            <Column class="content">
+                <Row class="header_row">
+                    <Column class="header_titles">
                         <Text class="title" content="Deployments" />
                         <Text class="subtitle" content="Real-time status of services in the cluster." />
                     </Column>
-                    <Row spacing="14">
-                        <Column class="stat_card" alignX="start">
+                    <Row class="stats_row">
+                        <Column class="stat_card">
                             <Text class="label_cap" content="STATUS" />
                             <Text class="stat_num_g" content="{services_label}" />
                         </Column>
-                        <Column class="stat_card" alignX="start">
+                        <Column class="stat_card">
                             <Text class="label_cap" content="UPTIME" />
                             <Text class="stat_num" content="{daemon_uptime}" />
                         </Column>
                     </Row>
                 </Row>
 
-                <Column class="panel" width="fill" height="fill">
+                <Column class="panel_fill">
                     <Row class="thead">
-                        <Text class="th" content="SERVIÇO" width="240" />
-                        <Text class="th" content="PROJETO" width="180" />
-                        <Text class="th" content="ESTADO" width="170" />
-                        <Text class="th" content="DURAÇÃO" width="150" />
-                        <Text class="th" content="INÍCIO" width="fill" />
+                        <Text class="th col_svc" content="SERVIÇO" />
+                        <Text class="th col_proj" content="PROJETO" />
+                        <Text class="th col_state" content="ESTADO" />
+                        <Text class="th col_dur" content="DURAÇÃO" />
+                        <Text class="th col_start" content="INÍCIO" />
                     </Row>
-                    <Scrollable direction="vertical" width="fill" height="fill">
-                        <Column width="fill">
+                    <Scrollable direction="vertical" class="scroll_fill">
+                        <Column class="table_body">
                             <ForEach items="deployments" var="d">
-                                <Column width="fill">
+                                <Column class="row_wrap">
                                     <Row class="trow">
-                                        <Text class="td_key" content="{d.service}" width="240" />
-                                        <Text class="td" content="{d.project}" width="180" />
-                                        <Row width="170" spacing="7" alignY="center">
-                                            <Text content="●" color="{d.state_dot}" size="11" />
-                                            <Text content="{d.state_label}" color="{d.state_color}" size="12" />
+                                        <Text class="td_key col_svc" content="{d.service}" />
+                                        <Text class="td col_proj" content="{d.project}" />
+                                        <Row class="state_cell">
+                                            <Text class="state_dot" content="●" color="{d.state_color}" />
+                                            <Text class="state_lbl" content="{d.state_label}" color="{d.state_color}" />
                                         </Row>
-                                        <Text class="td" content="{d.duration}" width="150" />
-                                        <Text class="muted" content="{d.start}" width="fill" />
+                                        <Text class="td col_dur" content="{d.duration}" />
+                                        <Text class="muted col_start" content="{d.start}" />
                                     </Row>
                                     <Rule />
                                 </Column>
@@ -119,7 +119,7 @@
             </Column>
         </if>
         <else>
-            <Column class="content" width="fill" height="fill" alignY="center" alignX="center">
+            <Column class="content_center">
                 <Text class="title" content="{view}" />
                 <Text class="subtitle" content="Tela em construção nesta versão da UI glacier." />
             </Column>

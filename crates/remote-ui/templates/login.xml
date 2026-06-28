@@ -1,30 +1,30 @@
 <Container class="login_wrap">
-    <Column class="login_card" alignX="start">
-        <Row spacing="14" alignY="center" width="fill">
+    <Column class="login_card">
+        <Row class="login_head">
             <Svg source="crates/remote-ui/assets/icons/terminal.svg" color="#2F81F7" width="34" height="34" />
-            <Column spacing="6" alignX="start" width="fill">
+            <Column class="login_brand">
                 <Text class="login_title" content="Rustploy Remote" />
                 <Text class="subtitle" content="Infrastructure management for professional teams" />
             </Column>
         </Row>
 
-        <Column spacing="6" width="fill">
-            <Row width="fill">
-                <Text class="field_label" content="SERVER URL" width="fill" />
+        <Column class="field_group">
+            <Row class="field_row">
+                <Text class="field_label_fill" content="SERVER URL" />
                 <Text class="field_label" content="ENDPOINT" />
             </Row>
             <TextInput class="field_input" placeholder="rwp://cluster.tech" value="url" onChange="url_changed" />
         </Column>
 
-        <Column spacing="6" width="fill">
-            <Row width="fill">
-                <Text class="field_label" content="ACCESS TOKEN" width="fill" />
+        <Column class="field_group">
+            <Row class="field_row">
+                <Text class="field_label_fill" content="ACCESS TOKEN" />
                 <Text class="field_label" content="SECURE" />
             </Row>
             <TextInput class="field_input" placeholder="token de acesso" value="token" onChange="token_changed" />
         </Column>
 
-        <Column spacing="8" width="fill" padding="4 0">
+        <Column class="login_checks">
             <Checkbox label="Remember server" checked="remember_url" onToggle="toggle_remember_url" />
             <Checkbox label="Remember token" checked="remember_token" onToggle="toggle_remember_token" />
         </Column>
@@ -36,7 +36,7 @@
         </if>
 
         <Rule />
-        <Row spacing="14" alignY="center">
+        <Row class="status_row">
             <Text class="ok" content="●" size="10" />
             <Text class="muted" content="{status_line}" />
         </Row>

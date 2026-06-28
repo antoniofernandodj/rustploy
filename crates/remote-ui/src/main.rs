@@ -5,6 +5,7 @@
 mod net;
 mod root;
 mod rwp;
+mod store;
 
 use glacier_ui::{EngineMessage, GlacierUI};
 use iced::{Element, Subscription, Task};

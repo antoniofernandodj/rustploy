@@ -2257,9 +2257,9 @@ dependencies = [
 
 [[package]]
 name = "glacier-ui"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8efab438794ff326d64d7fa39cf2f3f1c0b70698d3f7ee203aa00bdaaa5eb685"
+checksum = "06904fbd27c96cfe8c63f6b4d2566d4834b582a3548f5b866db84a6223c4d45f"
 dependencies = [
  "glacier-ui-macros",
  "iced",

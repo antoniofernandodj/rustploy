@@ -27,10 +27,18 @@ impl Component for Root {
     fn init(&mut self, ctx: &mut Context) {
         ctx.set("screen", "login");
         ctx.set("view", "deployments");
-        ctx.set("url", "rwp://127.0.0.1:8787");
-        ctx.set("token", "");
-        ctx.set("remember_url", "true");
-        ctx.set("remember_token", "false");
+
+        // Prefill from saved preferences (remembered URL/token).
+        let prefs = crate::store::Prefs::load();
+        let url = prefs
+            .url
+            .filter(|_| prefs.remember_url)
+            .unwrap_or_else(|| "rwp://127.0.0.1:8787".to_string());
+        let token = prefs.token.filter(|_| prefs.remember_token).unwrap_or_default();
+        ctx.set("url", url);
+        ctx.set("token", token);
+        ctx.set("remember_url", bool_str(prefs.remember_url));
+        ctx.set("remember_token", bool_str(prefs.remember_token));
         ctx.set("connected", "false");
         ctx.set("error", "");
         ctx.set("status_line", "aguardando conexão");
@@ -58,9 +66,11 @@ impl Component for Root {
             }
             "toggle_remember_url" => {
                 ctx.set("remember_url", flag(value));
+                save_prefs(ctx);
             }
             "toggle_remember_token" => {
                 ctx.set("remember_token", flag(value));
+                save_prefs(ctx);
             }
             "connect" => {
                 let url = ctx.get("url").cloned().unwrap_or_default();
@@ -71,6 +81,7 @@ impl Component for Root {
                 self.seq += 1;
                 ctx.set("error", "");
                 ctx.set("status_line", "conectando…");
+                save_prefs(ctx);
             }
             "disconnect" => {
                 self.active = false;
@@ -104,6 +115,26 @@ impl Component for Root {
             iced::Subscription::none()
         }
     }
+}
+
+/// Renders a bool as the context flag string.
+fn bool_str(b: bool) -> &'static str {
+    if b { "true" } else { "false" }
+}
+
+/// Persists the current login preferences from the context. The URL/token are
+/// only stored when their respective "remember" flag is on.
+fn save_prefs(ctx: &Context) {
+    let on = |k: &str| ctx.get(k).map(|v| v == "true").unwrap_or(false);
+    let remember_url = on("remember_url");
+    let remember_token = on("remember_token");
+    crate::store::Prefs {
+        remember_url,
+        remember_token,
+        url: if remember_url { ctx.get("url").cloned() } else { None },
+        token: if remember_token { ctx.get("token").cloned() } else { None },
+    }
+    .save();
 }
 
 /// Maps a checkbox/toggle payload (`"true"`/`"false"`) to a context flag.
