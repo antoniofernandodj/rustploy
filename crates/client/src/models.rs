@@ -50,7 +50,7 @@ pub enum View {
 pub enum ConfirmAction {
     DeleteProject(String),
     DeleteService(String),
-    _AbortDeploy(String),
+    AbortDeploy(String),
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -198,16 +198,16 @@ impl ServiceTab {
         }
     }
 
-    pub fn _index(&self) -> usize {
+    pub fn index(&self) -> usize {
         Self::all().iter().position(|t| t == self).unwrap_or(0)
     }
 
-    pub fn _next(&self) -> ServiceTab {
+    pub fn next(&self) -> ServiceTab {
         let all = Self::all();
         all[(self.index() + 1) % all.len()].clone()
     }
 
-    pub fn _prev(&self) -> ServiceTab {
+    pub fn prev(&self) -> ServiceTab {
         let all = Self::all();
         let idx = if self.index() == 0 {
             all.len() - 1
@@ -736,7 +736,7 @@ pub enum NewServiceStep {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum _ServiceKind {
+pub enum ServiceKind {
     Application,
     Database,
     Compose,
@@ -879,7 +879,7 @@ pub struct NewServiceState {
     pub db_password: String,
     pub db_root_password: String,
     pub docker_image: String,
-    pub _compose_file_path: String,
+    pub compose_file_path: String,
     pub use_replica_sets: bool,
     pub focused_field: usize,
     pub form_scroll: usize,
@@ -1379,7 +1379,7 @@ pub struct PendingCommand {
 #[derive(Debug)]
 pub enum CmdContext {
     None,
-    _LoadProjects,
+    LoadProjects,
     LoadServices,
     LoadDeployments,
     LoadHomeDeployments,
@@ -1587,8 +1587,8 @@ pub struct Notification {
 
 #[derive(Debug, Clone)]
 pub struct DeployProgressState {
-    pub _deployment_id: String,
-    pub _service_id: String,
+    pub deployment_id: String,
+    pub service_id: String,
     pub current_state: DeployState,
     pub percent: u8,
     pub description: String,

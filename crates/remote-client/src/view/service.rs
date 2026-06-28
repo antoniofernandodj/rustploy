@@ -712,7 +712,7 @@ fn _parse_ansi_spans(line: &str) -> Vec<(Option<Color>, String)> {
     spans
 }
 
-fn _ansi_code_to_color(code: &str) -> Option<Option<Color>> {
+fn ansi_code_to_color(code: &str) -> Option<Option<Color>> {
     let last = code.split(';').filter_map(|s| s.parse::<u8>().ok()).last()?;
     Some(match last {
         0 => None,
