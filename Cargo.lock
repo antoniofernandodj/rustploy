@@ -4650,11 +4650,13 @@ dependencies = [
  "open",
  "postcard",
  "regex",
+ "rustls",
  "serde",
  "serde_json",
  "shared",
  "strip-ansi-escapes",
  "tokio",
+ "tokio-rustls",
 ]
 
 [[package]]

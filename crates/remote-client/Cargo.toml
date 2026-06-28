@@ -33,6 +33,8 @@ iced = { version = "0.13", features = ["tokio"] }
 
 # Async / networking (runs on iced's tokio executor)
 tokio = { version = "1", features = ["net", "sync", "macros", "io-util", "rt", "time"] }
+rustls = { version = "0.23", features = ["ring"] }
+tokio-rustls = "0.26"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }

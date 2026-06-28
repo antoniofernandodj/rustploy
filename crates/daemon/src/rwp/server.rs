@@ -7,7 +7,96 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::Semaphore;
 use tokio::time::timeout;
+use tokio_rustls::TlsAcceptor;
 use tracing::{info, warn};
+
+enum RwpStream {
+    Plain(TcpStream),
+    Tls(tokio_rustls::server::TlsStream<TcpStream>),
+}
+
+impl tokio::io::AsyncRead for RwpStream {
+    fn poll_read(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Self::Plain(s) => std::pin::Pin::new(s).poll_read(cx, buf),
+            Self::Tls(s) => std::pin::Pin::new(s).poll_read(cx, buf),
+        }
+    }
+}
+
+impl tokio::io::AsyncWrite for RwpStream {
+    fn poll_write(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        match self.get_mut() {
+            Self::Plain(s) => std::pin::Pin::new(s).poll_write(cx, buf),
+            Self::Tls(s) => std::pin::Pin::new(s).poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Self::Plain(s) => std::pin::Pin::new(s).poll_flush(cx),
+            Self::Tls(s) => std::pin::Pin::new(s).poll_flush(cx),
+        }
+    }
+
+    fn poll_shutdown(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            Self::Plain(s) => std::pin::Pin::new(s).poll_shutdown(cx),
+            Self::Tls(s) => std::pin::Pin::new(s).poll_shutdown(cx),
+        }
+    }
+}
+
+fn get_rwp_tls_config(cfg: &RwpConfig) -> anyhow::Result<rustls::ServerConfig> {
+    let (cert_pem, key_pem) = if let (Some(cert_path), Some(key_path)) = (&cfg.tls_cert_path, &cfg.tls_key_path) {
+        info!(cert_path = %cert_path, key_path = %key_path, "RWP: Carregando certificado TLS configurado");
+        let cert_pem = std::fs::read_to_string(cert_path)?;
+        let key_pem = std::fs::read_to_string(key_path)?;
+        (cert_pem, key_pem)
+    } else {
+        info!("RWP: Gerando certificado TLS auto-assinado temporário");
+        use rcgen::{CertificateParams, DistinguishedName, KeyPair};
+        let key_pair = KeyPair::generate()?;
+        let mut params = CertificateParams::new(vec!["localhost".to_string(), "127.0.0.1".to_string()])?;
+        params.distinguished_name = DistinguishedName::new();
+        let cert = params.self_signed(&key_pair)?;
+        let cert_pem = cert.pem();
+        let key_pem = key_pair.serialize_pem();
+        (cert_pem, key_pem)
+    };
+
+    use rustls::pki_types::CertificateDer;
+    let certs: Vec<CertificateDer<'static>> = rustls_pemfile::certs(&mut cert_pem.as_bytes())
+        .collect::<Result<_, _>>()?;
+
+    if certs.is_empty() {
+        anyhow::bail!("Nenhum certificado encontrado no PEM");
+    }
+
+    let key = rustls_pemfile::private_key(&mut key_pem.as_bytes())?
+        .ok_or_else(|| anyhow::anyhow!("Nenhuma chave privada encontrada no PEM"))?;
+
+    let server_config = rustls::ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+        .with_safe_default_protocol_versions()?
+        .with_no_client_auth()
+        .with_single_cert(certs, key)?;
+
+    Ok(server_config)
+}
 
 /// Starts the RWP TCP listener. Returns once binding fails or never (the accept
 /// loop runs forever). Intended to be `tokio::spawn`ed from `main`.
@@ -22,6 +111,21 @@ pub async fn run(state: AppState, cfg: RwpConfig) {
         return;
     }
 
+    let tls_acceptor = if cfg.tls_enabled {
+        match get_rwp_tls_config(&cfg) {
+            Ok(sc) => {
+                info!("RWP: TLS habilitado");
+                Some(TlsAcceptor::from(Arc::new(sc)))
+            }
+            Err(e) => {
+                warn!(error = %e, "RWP: Falha ao inicializar TLS, listener desabilitado");
+                return;
+            }
+        }
+    } else {
+        None
+    };
+
     let addr = format!("{}:{}", cfg.bind_address, cfg.port);
     let listener = match TcpListener::bind(&addr).await {
         Ok(l) => l,
@@ -35,12 +139,14 @@ pub async fn run(state: AppState, cfg: RwpConfig) {
     info!(
         addr = %addr,
         auth = auth_required,
+        tls = cfg.tls_enabled,
         max_connections = cfg.max_connections,
         "RWP: ouvindo"
     );
 
     let cfg = Arc::new(cfg);
     let limiter = Arc::new(Semaphore::new(cfg.max_connections));
+    let tls_acceptor = tls_acceptor.map(Arc::new);
 
     loop {
         let (stream, peer) = match listener.accept().await {
@@ -63,9 +169,10 @@ pub async fn run(state: AppState, cfg: RwpConfig) {
 
         let state = state.clone();
         let cfg = cfg.clone();
+        let tls_acceptor = tls_acceptor.clone();
         tokio::spawn(async move {
             let _permit = permit; // held for the lifetime of the connection
-            if let Err(e) = handle_connection(stream, state, &cfg).await {
+            if let Err(e) = handle_connection(stream, state, &cfg, tls_acceptor.as_deref()).await {
                 warn!(peer = %peer, error = %e, "RWP: conexão encerrada com erro");
             }
         });
@@ -73,14 +180,29 @@ pub async fn run(state: AppState, cfg: RwpConfig) {
 }
 
 async fn handle_connection(
-    mut stream: TcpStream,
+    stream: TcpStream,
     state: AppState,
     cfg: &RwpConfig,
+    tls_acceptor: Option<&TlsAcceptor>,
 ) -> anyhow::Result<()> {
     let _ = stream.set_nodelay(true);
     let read_to = Duration::from_secs(cfg.read_timeout_secs.max(1));
     let idle_to = Duration::from_secs(cfg.idle_timeout_secs.max(1));
     let auth_required = !cfg.token.as_deref().unwrap_or("").is_empty();
+
+    let mut stream = if let Some(acceptor) = tls_acceptor {
+        match timeout(Duration::from_secs(10), acceptor.accept(stream)).await {
+            Ok(Ok(tls_stream)) => RwpStream::Tls(tls_stream),
+            Ok(Err(e)) => {
+                anyhow::bail!("RWP: TLS handshake falhou: {e}");
+            }
+            Err(_) => {
+                anyhow::bail!("RWP: TLS handshake timeout");
+            }
+        }
+    } else {
+        RwpStream::Plain(stream)
+    };
 
     // --- Handshake: expect Hello ---
     let first = read_frame_typed::<RwpFrame>(&mut stream, cfg.max_frame_size, read_to).await?;
@@ -198,7 +320,7 @@ async fn handle_connection(
 }
 
 async fn stream_events(
-    mut stream: TcpStream,
+    mut stream: RwpStream,
     state: AppState,
     service_id: Option<String>,
     max_frame: usize,
@@ -230,7 +352,7 @@ async fn stream_events(
 // --- Framing helpers ---------------------------------------------------------
 
 async fn read_frame_typed<T: serde::de::DeserializeOwned>(
-    stream: &mut TcpStream,
+    stream: &mut RwpStream,
     max_frame: usize,
     read_timeout: Duration,
 ) -> anyhow::Result<T> {
@@ -238,7 +360,7 @@ async fn read_frame_typed<T: serde::de::DeserializeOwned>(
     Ok(postcard::from_bytes::<T>(&buf)?)
 }
 
-async fn read_frame(stream: &mut TcpStream, max_frame: usize) -> anyhow::Result<Vec<u8>> {
+async fn read_frame(stream: &mut RwpStream, max_frame: usize) -> anyhow::Result<Vec<u8>> {
     let mut len_buf = [0u8; 4];
     stream.read_exact(&mut len_buf).await?;
     let len = u32::from_le_bytes(len_buf) as usize;
@@ -252,7 +374,7 @@ async fn read_frame(stream: &mut TcpStream, max_frame: usize) -> anyhow::Result<
 }
 
 async fn write_reply(
-    stream: &mut TcpStream,
+    stream: &mut RwpStream,
     reply: &RwpReply,
     max_frame: usize,
 ) -> anyhow::Result<()> {

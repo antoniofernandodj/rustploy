@@ -53,6 +53,12 @@ pub struct RwpConfig {
     pub read_timeout_secs: u64,
     #[serde(default = "default_rwp_idle_timeout_secs")]
     pub idle_timeout_secs: u64,
+    #[serde(default)]
+    pub tls_enabled: bool,
+    #[serde(default)]
+    pub tls_cert_path: Option<String>,
+    #[serde(default)]
+    pub tls_key_path: Option<String>,
 }
 
 fn default_rwp_bind() -> String {
@@ -85,6 +91,9 @@ impl Default for RwpConfig {
             max_frame_size: default_rwp_max_frame_size(),
             read_timeout_secs: default_rwp_read_timeout_secs(),
             idle_timeout_secs: default_rwp_idle_timeout_secs(),
+            tls_enabled: false,
+            tls_cert_path: None,
+            tls_key_path: None,
         }
     }
 }
@@ -251,6 +260,15 @@ impl RustployConfig {
         }
         if let Ok(v) = std::env::var("RUSTPLOY_RWP_TOKEN") {
             cfg.rwp.token = Some(v).filter(|s| !s.is_empty());
+        }
+        if let Ok(v) = std::env::var("RUSTPLOY_RWP_TLS_ENABLED") {
+            cfg.rwp.tls_enabled = matches!(v.as_str(), "1" | "true" | "yes" | "on");
+        }
+        if let Ok(v) = std::env::var("RUSTPLOY_RWP_TLS_CERT") {
+            cfg.rwp.tls_cert_path = Some(v).filter(|s| !s.is_empty());
+        }
+        if let Ok(v) = std::env::var("RUSTPLOY_RWP_TLS_KEY") {
+            cfg.rwp.tls_key_path = Some(v).filter(|s| !s.is_empty());
         }
         cfg
     }
