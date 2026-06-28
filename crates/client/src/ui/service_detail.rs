@@ -1268,23 +1268,6 @@ fn render_connection_tab(f: &mut Frame, app: &App, area: Rect) {
     };
     let resolved_vars = shared::resolve_env_vars(project, svc);
 
-    let db_kind = match DbKind::detect(&resolved_vars, svc) {
-        Some(k) => k,
-        None => {
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .title(" Connection ")
-                .border_style(Style::default().fg(Color::DarkGray));
-            let p = Paragraph::new(Span::styled(
-                "  Não é um serviço de banco de dados.",
-                Style::default().fg(Color::DarkGray),
-            ))
-            .block(block);
-            f.render_widget(p, area);
-            return;
-        }
-    };
-
     fn env_plain<'a>(vars: &'a std::collections::HashMap<String, shared::EnvVar>, key: &str) -> &'a str {
         vars.get(key)
             .and_then(|e| {
@@ -1297,56 +1280,76 @@ fn render_connection_tab(f: &mut Frame, app: &App, area: Rect) {
             .unwrap_or("")
     }
 
-    let svc_name = &svc.spec.name;
-    let yaml_svc = db_kind.yaml_service_name();
-    let hostname = format!("rp_{svc_name}-{yaml_svc}-1");
-    let port = db_kind.default_port();
+    let (hostname, port, conn_url, db_label, extras) = match DbKind::detect(&resolved_vars, svc) {
+        Some(db_kind) => {
+            let svc_name = &svc.spec.name;
+            let yaml_svc = db_kind.yaml_service_name();
+            let hostname = format!("rp_{svc_name}-{yaml_svc}-1");
+            let port = db_kind.default_port();
 
-    let (conn_url, extras) = match db_kind {
-        DbKind::Postgres => {
-            let db = env_plain(&resolved_vars, "POSTGRES_DB");
-            let user = env_plain(&resolved_vars, "POSTGRES_USER");
-            let pass = env_plain(&resolved_vars, "POSTGRES_PASSWORD");
-            let url = format!("postgresql://{user}:{pass}@{hostname}:{port}/{db}");
-            let extra = vec![
-                ("Database", db.to_string()),
-                ("User", user.to_string()),
-                ("Password", pass.to_string()),
-            ];
-            (url, extra)
-        }
-        DbKind::MongoDB => {
-            let user = env_plain(&resolved_vars, "MONGO_INITDB_ROOT_USERNAME");
-            let pass = env_plain(&resolved_vars, "MONGO_INITDB_ROOT_PASSWORD");
-            let url = format!("mongodb://{user}:{pass}@{hostname}:{port}");
-            let extra = vec![("User", user.to_string()), ("Password", pass.to_string())];
-            (url, extra)
-        }
-        DbKind::MariaDB | DbKind::MySQL => {
-            let db = env_plain(&resolved_vars, "MYSQL_DATABASE");
-            let user = env_plain(&resolved_vars, "MYSQL_USER");
-            let pass = env_plain(&resolved_vars, "MYSQL_PASSWORD");
-            let url = format!("mysql://{user}:{pass}@{hostname}:{port}/{db}");
-            let extra = vec![
-                ("Database", db.to_string()),
-                ("User", user.to_string()),
-                ("Password", pass.to_string()),
-            ];
-            (url, extra)
-        }
-        DbKind::Redis => {
-            let pass = env_plain(&resolved_vars, "REDIS_PASSWORD");
-            let url = if pass.is_empty() {
-                format!("redis://{hostname}:{port}")
-            } else {
-                format!("redis://:{pass}@{hostname}:{port}")
+            let (conn_url, extras) = match db_kind {
+                DbKind::Postgres => {
+                    let db = env_plain(&resolved_vars, "POSTGRES_DB");
+                    let user = env_plain(&resolved_vars, "POSTGRES_USER");
+                    let pass = env_plain(&resolved_vars, "POSTGRES_PASSWORD");
+                    let url = format!("postgresql://{user}:{pass}@{hostname}:{port}/{db}");
+                    let extra = vec![
+                        ("Database", db.to_string()),
+                        ("User", user.to_string()),
+                        ("Password", pass.to_string()),
+                    ];
+                    (url, extra)
+                }
+                DbKind::MongoDB => {
+                    let user = env_plain(&resolved_vars, "MONGO_INITDB_ROOT_USERNAME");
+                    let pass = env_plain(&resolved_vars, "MONGO_INITDB_ROOT_PASSWORD");
+                    let url = format!("mongodb://{user}:{pass}@{hostname}:{port}");
+                    let extra = vec![("User", user.to_string()), ("Password", pass.to_string())];
+                    (url, extra)
+                }
+                DbKind::MariaDB | DbKind::MySQL => {
+                    let db = env_plain(&resolved_vars, "MYSQL_DATABASE");
+                    let user = env_plain(&resolved_vars, "MYSQL_USER");
+                    let pass = env_plain(&resolved_vars, "MYSQL_PASSWORD");
+                    let url = format!("mysql://{user}:{pass}@{hostname}:{port}/{db}");
+                    let extra = vec![
+                        ("Database", db.to_string()),
+                        ("User", user.to_string()),
+                        ("Password", pass.to_string()),
+                    ];
+                    (url, extra)
+                }
+                DbKind::Redis => {
+                    let pass = env_plain(&resolved_vars, "REDIS_PASSWORD");
+                    let url = if pass.is_empty() {
+                        format!("redis://{hostname}:{port}")
+                    } else {
+                        format!("redis://:{pass}@{hostname}:{port}")
+                    };
+                    let extra = if pass.is_empty() {
+                        vec![]
+                    } else {
+                        vec![("Password", pass.to_string())]
+                    };
+                    (url, extra)
+                }
             };
-            let extra = if pass.is_empty() {
-                vec![]
-            } else {
-                vec![("Password", pass.to_string())]
+            (hostname, port, conn_url, db_kind.label().to_string(), extras)
+        }
+        None => {
+            let host = match &svc.spec.source {
+                shared::models::ServiceSource::Compose(_) => {
+                    let project_name = shared::compose_project_name(&svc.id, &svc.spec.name);
+                    format!("{}-<service-name>-1", project_name)
+                }
+                _ => {
+                    let safe_name = shared::normalize_name(&svc.spec.name);
+                    format!("rp_{safe_name}")
+                }
             };
-            (url, extra)
+            let port = svc.spec.port;
+            let url = format!("http://{host}:{port}");
+            (host, port, url, "Serviço Web / API".to_string(), vec![])
         }
     };
 
@@ -1360,7 +1363,7 @@ fn render_connection_tab(f: &mut Frame, app: &App, area: Rect) {
         Line::from(vec![
             Span::raw("  "),
             Span::styled(
-                format!(" {} ", db_kind.label()),
+                format!(" {} ", db_label),
                 Style::default()
                     .fg(Color::Black)
                     .bg(Color::Cyan)
@@ -1368,7 +1371,7 @@ fn render_connection_tab(f: &mut Frame, app: &App, area: Rect) {
             ),
             Span::raw("  "),
             Span::styled(
-                format!("{} gerenciado pelo Rustploy", db_kind.label()),
+                format!("{} gerenciado pelo Rustploy", db_label),
                 Style::default().fg(Color::DarkGray),
             ),
         ]),

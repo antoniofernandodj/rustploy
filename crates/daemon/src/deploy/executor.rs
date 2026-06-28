@@ -804,6 +804,7 @@ impl DeployExecutor {
                     &self.bus,
                     &self.db,
                     &env_vars,
+                    &self.clone_dir(&dep.id),
                 )
                 .await?;
 
@@ -1085,6 +1086,11 @@ impl DeployExecutor {
             keys = ?keys,
             "resolve_env: vars resolvidas (projeto + serviço)"
         );
+
+        // DEBUG: Imprimir todas as variáveis resolvidas
+        for (k, v) in &env_map {
+            debug!(service_id = %svc.id, key = %k, value = %v, "resolve_env: debug var");
+        }
 
         Ok(env_map.into_iter().collect())
     }

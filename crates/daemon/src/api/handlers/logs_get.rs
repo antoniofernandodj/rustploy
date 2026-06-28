@@ -18,7 +18,22 @@ pub async fn handle(state: AppState, service_id: String, tail: usize) -> RpRespo
 
     if let ServiceSource::Compose(compose) = &svc.spec.source {
         let pid = &svc.spec.project_id;
-        let mut env_vars: Vec<(String, String)> = Vec::new();
+        let mut env_map = std::collections::HashMap::new();
+
+        // 1. Carregar variáveis do Projeto
+        if let Ok(Some(project)) = crate::db::projects::get(&state.db, pid).await {
+            for ev in &project.env_vars {
+                let value = match &ev.value {
+                    EnvVarValue::Plain(v) => v.clone(),
+                    EnvVarValue::Secret(name) => {
+                        state.secrets.get_raw(pid, name).await.unwrap_or_default()
+                    }
+                };
+                env_map.insert(ev.key.clone(), value);
+            }
+        }
+
+        // 2. Carregar e sobrescrever com as variáveis do Serviço
         for ev in &svc.spec.env_vars {
             let value = match &ev.value {
                 EnvVarValue::Plain(v) => v.clone(),
@@ -26,8 +41,10 @@ pub async fn handle(state: AppState, service_id: String, tail: usize) -> RpRespo
                     state.secrets.get_raw(pid, name).await.unwrap_or_default()
                 }
             };
-            env_vars.push((ev.key.clone(), value));
+            env_map.insert(ev.key.clone(), value);
         }
+
+        let env_vars: Vec<(String, String)> = env_map.into_iter().collect();
         let project_name = compose_project_name(&service_id, &svc.spec.name);
         return compose_logs(&project_name, &compose.content, tail, &env_vars).await;
     }
