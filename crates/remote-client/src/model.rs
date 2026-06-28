@@ -45,8 +45,8 @@ pub fn connect_target(url: &str) -> anyhow::Result<String> {
     let authority = match a.split_once("://") {
         Some((scheme, rest)) => {
             anyhow::ensure!(
-                scheme.eq_ignore_ascii_case("rwp"),
-                "esquema não suportado: {scheme}:// — use rwp://"
+                scheme.eq_ignore_ascii_case("rwp") || scheme.eq_ignore_ascii_case("rwps"),
+                "esquema não suportado: {scheme}:// — use rwp:// ou rwps://"
             );
             rest
         }
@@ -943,7 +943,7 @@ pub struct ConnInfo {
 impl ConnInfo {
     pub fn from_service(project: &Project, svc: &Service) -> Option<Self> {
         let resolved_env_vars = shared::resolve_env_vars(project, svc);
-        let db = DbKind::detect(&resolved_env_vars, svc)?;
+        let db = DbKind::detect(&resolved_env_vars, svc);
 
         let env_plain = |key: &str| -> String {
             resolved_env_vars
@@ -954,49 +954,72 @@ impl ConnInfo {
                 })
                 .unwrap_or_default()
         };
-        let project_name = compose_project_name(&svc.id, &svc.spec.name);
-        let host = format!("{}-{}-1", project_name, db.yaml_service_name());
-        let port = db.default_port();
-        let (url, fields) = match db {
-            DbKind::Postgres => {
-                let (d, u, p) = (env_plain("POSTGRES_DB"), env_plain("POSTGRES_USER"), env_plain("POSTGRES_PASSWORD"));
-                (
-                    format!("postgresql://{u}:{p}@{host}:{port}/{d}"),
-                    vec![("Database".into(), d), ("User".into(), u), ("Password".into(), p)],
-                )
-            }
-            DbKind::MongoDB => {
-                let (u, p) = (env_plain("MONGO_INITDB_ROOT_USERNAME"), env_plain("MONGO_INITDB_ROOT_PASSWORD"));
-                (
-                    format!("mongodb://{u}:{p}@{host}:{port}"),
-                    vec![("User".into(), u), ("Password".into(), p)],
-                )
-            }
-            DbKind::MariaDB | DbKind::MySQL => {
-                let (d, u, p) = (env_plain("MYSQL_DATABASE"), env_plain("MYSQL_USER"), env_plain("MYSQL_PASSWORD"));
-                (
-                    format!("mysql://{u}:{p}@{host}:{port}/{d}"),
-                    vec![("Database".into(), d), ("User".into(), u), ("Password".into(), p)],
-                )
-            }
-            DbKind::Redis => {
-                let p = env_plain("REDIS_PASSWORD");
-                let url = if p.is_empty() {
-                    format!("redis://{host}:{port}")
-                } else {
-                    format!("redis://:{p}@{host}:{port}")
-                };
-                let fields = if p.is_empty() { vec![] } else { vec![("Password".into(), p)] };
-                (url, fields)
-            }
-        };
-        Some(ConnInfo {
-            db_label: db.label().to_string(),
-            host,
-            port: port.to_string(),
-            url,
-            fields,
-        })
+
+        if let Some(db) = db {
+            let project_name = compose_project_name(&svc.id, &svc.spec.name);
+            let host = format!("{}-{}-1", project_name, db.yaml_service_name());
+            let port = db.default_port();
+            let (url, fields) = match db {
+                DbKind::Postgres => {
+                    let (d, u, p) = (env_plain("POSTGRES_DB"), env_plain("POSTGRES_USER"), env_plain("POSTGRES_PASSWORD"));
+                    (
+                        format!("postgresql://{u}:{p}@{host}:{port}/{d}"),
+                        vec![("Database".into(), d), ("User".into(), u), ("Password".into(), p)],
+                    )
+                }
+                DbKind::MongoDB => {
+                    let (u, p) = (env_plain("MONGO_INITDB_ROOT_USERNAME"), env_plain("MONGO_INITDB_ROOT_PASSWORD"));
+                    (
+                        format!("mongodb://{u}:{p}@{host}:{port}"),
+                        vec![("User".into(), u), ("Password".into(), p)],
+                    )
+                }
+                DbKind::MariaDB | DbKind::MySQL => {
+                    let (d, u, p) = (env_plain("MYSQL_DATABASE"), env_plain("MYSQL_USER"), env_plain("MYSQL_PASSWORD"));
+                    (
+                        format!("mysql://{u}:{p}@{host}:{port}/{d}"),
+                        vec![("Database".into(), d), ("User".into(), u), ("Password".into(), p)],
+                    )
+                }
+                DbKind::Redis => {
+                    let p = env_plain("REDIS_PASSWORD");
+                    let url = if p.is_empty() {
+                        format!("redis://{host}:{port}")
+                    } else {
+                        format!("redis://:{p}@{host}:{port}")
+                    };
+                    let fields = if p.is_empty() { vec![] } else { vec![("Password".into(), p)] };
+                    (url, fields)
+                }
+            };
+            Some(ConnInfo {
+                db_label: db.label().to_string(),
+                host,
+                port: port.to_string(),
+                url,
+                fields,
+            })
+        } else {
+            let host = match &svc.spec.source {
+                ServiceSource::Compose(_) => {
+                    let project_name = compose_project_name(&svc.id, &svc.spec.name);
+                    format!("{}-<service-name>-1", project_name)
+                }
+                _ => {
+                    let safe_name = shared::normalize_name(&svc.spec.name);
+                    format!("rp_{safe_name}")
+                }
+            };
+            let port = svc.spec.port.to_string();
+            let url = format!("http://{host}:{port}");
+            Some(ConnInfo {
+                db_label: "Serviço Web / API".to_string(),
+                host,
+                port,
+                url,
+                fields: vec![],
+            })
+        }
     }
 }
 

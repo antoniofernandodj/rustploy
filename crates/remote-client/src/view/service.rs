@@ -23,11 +23,8 @@ pub fn detail(app: &App) -> Element<'_, Message> {
         return panel("Service", text("Projeto não encontrado para o serviço.").size(13).into());
     };
     let resolved_env_vars = shared::resolve_env_vars(proj, svc);
-    let is_db = DbKind::detect(&resolved_env_vars, svc).is_some();
     let mut tabs: Vec<(ServiceTab, &str)> = vec![(ServiceTab::General, "General")];
-    if is_db {
-        tabs.push((ServiceTab::Connection, "Connection"));
-    }
+    tabs.push((ServiceTab::Connection, "Connection"));
     tabs.extend([
         (ServiceTab::Environment, "Environment"),
         (ServiceTab::Domains, "Domains"),

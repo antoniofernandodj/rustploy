@@ -66,7 +66,7 @@ impl App {
                 } else {
                     Some(self.token.clone())
                 };
-                self.session = Some(Session { addr: target, token });
+                self.session = Some(Session { addr: self.url.clone(), token });
             }
             Message::Disconnect => {
                 self.session = None;

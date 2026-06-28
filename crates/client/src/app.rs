@@ -826,19 +826,7 @@ impl App {
     }
 
     pub fn visible_service_tabs(&self) -> &'static [ServiceTab] {
-        let is_db = self
-            .current_active_service()
-            .and_then(|svc| {
-                self.current_project()
-                    .map(|proj| shared::resolve_env_vars(proj, svc))
-                    .and_then(|resolved_vars| DbKind::detect(&resolved_vars, svc))
-            })
-            .is_some();
-        if is_db {
-            ServiceTab::all_with_connection()
-        } else {
-            ServiceTab::all()
-        }
+        ServiceTab::all_with_connection()
     }
 
     pub fn next_service_tab(&self) -> ServiceTab {
