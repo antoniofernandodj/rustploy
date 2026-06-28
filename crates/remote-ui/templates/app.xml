@@ -1,0 +1,12 @@
+<Column class="screen" width="fill" height="fill">
+    <if cond="{screen}" equals="login">
+        <Login />
+    </if>
+    <else>
+        <Shell />
+    </else>
+</Column>
+
+<link rel="theme" href="crates/remote-ui/styles/theme.json" />
+<import name="Login" from="crates/remote-ui/templates/login.xml" />
+<import name="Shell" from="crates/remote-ui/templates/shell.xml" />

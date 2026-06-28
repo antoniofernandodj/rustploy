@@ -1,0 +1,32 @@
+[package]
+name = "remote-ui"
+version = "0.1.0"
+edition = "2024"
+default-run = "rustploy-remote-ui"
+
+[[bin]]
+name = "rustploy-remote-ui"
+path = "src/main.rs"
+
+[dependencies]
+# Declarative XML UI engine (published, with the async bridge + new widgets).
+glacier-ui = "0.2.0"
+
+shared = { path = "../shared" }
+
+# GUI — features must stay compatible with glacier-ui's iced.
+iced = { version = "0.13", features = ["image", "svg", "tokio"] }
+
+# Async / networking (runs on iced's tokio executor)
+tokio = { version = "1", features = ["net", "sync", "macros", "io-util", "rt", "time"] }
+rustls = { version = "0.23", features = ["ring"] }
+tokio-rustls = "0.26"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+postcard = { version = "1", features = ["alloc"] }
+
+# Errors / Time
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
