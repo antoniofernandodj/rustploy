@@ -19,6 +19,8 @@ pub struct Root {
     /// Shared with the network subscription so the live log stream knows which
     /// service's `LogLine` events to surface, without restarting the stream.
     selected_shared: Arc<Mutex<String>>,
+    /// Same, for the deployment whose `BuildLog` events feed the Deployments tab.
+    selected_deploy_shared: Arc<Mutex<String>>,
 }
 
 impl Root {
@@ -266,6 +268,9 @@ impl Component for Root {
                     if let Ok(mut sel) = self.selected_shared.lock() {
                         sel.clear();
                     }
+                    if let Ok(mut d) = self.selected_deploy_shared.lock() {
+                        d.clear();
+                    }
                     return;
                 }
                 // `open_service:<id>` — open the detail view and fetch its data.
@@ -280,6 +285,9 @@ impl Component for Root {
                     ctx.set("svc_loading", "true");
                     ctx.set("svc_error", "");
                     ctx.set("dep_selected", "");
+                    if let Ok(mut d) = self.selected_deploy_shared.lock() {
+                        d.clear();
+                    }
                     let (addr, token, sid) =
                         (self.addr.clone(), self.token.clone(), id.to_string());
                     if !addr.is_empty() {
@@ -292,11 +300,14 @@ impl Component for Root {
                     ctx.set("tab", tab);
                     return;
                 }
-                // `dep_logs:<id>` — load a deployment's build log.
+                // `dep_logs:<id>` — load a deployment's build log (and stream it).
                 if let Some(id) = action.strip_prefix("dep_logs:") {
                     ctx.set("dep_selected", id);
                     ctx.set("dep_build_logs", "[]");
                     ctx.set("dep_build_count", "0");
+                    if let Ok(mut sel) = self.selected_deploy_shared.lock() {
+                        *sel = id.to_string();
+                    }
                     if !self.addr.is_empty() {
                         ctx.perform(crate::net::fetch_build_logs(
                             self.addr.clone(),
@@ -354,6 +365,7 @@ impl Component for Root {
                     self.addr.clone(),
                     self.token.clone(),
                     self.selected_shared.clone(),
+                    self.selected_deploy_shared.clone(),
                 ),
             )
         } else {

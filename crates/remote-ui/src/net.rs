@@ -26,6 +26,8 @@ use std::sync::{Arc, Mutex};
 const GRID_COLS: usize = 3;
 /// Max log lines kept per service in the live ring buffer.
 const LOG_RING: usize = 200;
+/// Max build-log lines kept per deployment (builds can be verbose).
+const BUILD_RING: usize = 2000;
 
 /// One-shot: open a fresh connection, run `cmd`, return the response.
 /// Used by `ctx.perform` action effects (deploy/stop/reload).
@@ -299,10 +301,12 @@ pub async fn fetch_build_logs(
 ///
 /// `selected` mirrors the service open in the detail view; the live log stream
 /// reads it to decide which `LogLine` events to surface as `svc_logs`.
+/// `selected_deploy` does the same for `BuildLog` events → `dep_build_logs`.
 pub fn poll_stream(
     addr: String,
     token: Option<String>,
     selected: Arc<Mutex<String>>,
+    selected_deploy: Arc<Mutex<String>>,
 ) -> impl Stream<Item = EngineMessage> {
     iced::stream::channel(64, move |mut output| async move {
         macro_rules! patch {
@@ -362,6 +366,9 @@ pub fn poll_stream(
         let mut logs: HashMap<String, VecDeque<LogEntry>> = HashMap::new();
         // Service whose buffer we last seeded; detects selection changes.
         let mut seeded: String = String::new();
+        // Same, for deployment build logs (`Event::BuildLog` → `dep_build_logs`).
+        let mut blogs: HashMap<String, VecDeque<BuildLogLine>> = HashMap::new();
+        let mut deploy_seeded: String = String::new();
 
         loop {
             tokio::select! {
@@ -439,6 +446,27 @@ pub fn poll_stream(
                             ]);
                         }
                     }
+
+                    // Same seed-on-change for the selected deployment's build log.
+                    let cur_dep = selected_deploy.lock().map(|s| s.clone()).unwrap_or_default();
+                    if cur_dep != deploy_seeded {
+                        deploy_seeded = cur_dep.clone();
+                        if !cur_dep.is_empty()
+                            && let Ok(Response::BuildLogs(tail)) = rwp::rpc(
+                                &mut cmd,
+                                Command::GetBuildLogs { deployment_id: cur_dep.clone() },
+                            ).await
+                        {
+                            let buf: VecDeque<BuildLogLine> = tail.into_iter().collect();
+                            let snapshot = build_logs_json_buf(&buf);
+                            let count = buf.len().to_string();
+                            blogs.insert(cur_dep.clone(), buf);
+                            patch!(vec![
+                                ("dep_build_logs".into(), snapshot),
+                                ("dep_build_count".into(), count),
+                            ]);
+                        }
+                    }
                 }
                 frame = rwp::read_frame::<RwpReply>(&mut evt) => match frame {
                     // Cache the freshest metrics; next poll re-renders the grid.
@@ -460,6 +488,22 @@ pub fn poll_stream(
                             patch!(vec![
                                 ("svc_logs".into(), logs_json_buf(buf)),
                                 ("svc_logs_count".into(), buf.len().to_string()),
+                            ]);
+                        }
+                    }
+                    // Append live build-log lines (no stream split on the wire →
+                    // treated as stdout); re-render when it's the open deployment.
+                    Ok(RwpReply::Event(Event::BuildLog { deployment_id, line, timestamp, .. })) => {
+                        let buf = blogs.entry(deployment_id.clone()).or_default();
+                        buf.push_back(BuildLogLine { stream: LogStream::Stdout, line, timestamp });
+                        while buf.len() > BUILD_RING {
+                            buf.pop_front();
+                        }
+                        let cur_dep = selected_deploy.lock().map(|s| s.clone()).unwrap_or_default();
+                        if deployment_id == cur_dep {
+                            patch!(vec![
+                                ("dep_build_logs".into(), build_logs_json_buf(buf)),
+                                ("dep_build_count".into(), buf.len().to_string()),
                             ]);
                         }
                     }
@@ -718,10 +762,18 @@ fn logs_json_buf(buf: &VecDeque<LogEntry>) -> String {
     logs_json_iter(buf.iter())
 }
 
-/// Build log lines (one-shot) as JSON rows, colored by stream.
+/// Build log lines as JSON rows, colored by stream.
 fn build_logs_json(lines: &[BuildLogLine]) -> String {
-    let rows: Vec<serde_json::Value> = lines
-        .iter()
+    build_logs_json_iter(lines.iter())
+}
+
+/// Same as [`build_logs_json`] over the live ring buffer.
+fn build_logs_json_buf(buf: &VecDeque<BuildLogLine>) -> String {
+    build_logs_json_iter(buf.iter())
+}
+
+fn build_logs_json_iter<'a>(it: impl Iterator<Item = &'a BuildLogLine>) -> String {
+    let rows: Vec<serde_json::Value> = it
         .map(|e| {
             let color = match e.stream {
                 LogStream::Stderr => "#F85149",
