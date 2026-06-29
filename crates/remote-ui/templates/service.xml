@@ -1,0 +1,172 @@
+<Column class="content">
+
+    <!-- ── Header: nome + estado + ações ────────────────────────────────── -->
+    <Row class="svc_head">
+        <Column class="header_titles">
+            <Row class="svc_title_row">
+                <Button class="btn_ghost" text="‹ Projects" onClick="nav_projects" />
+                <Text class="title" content="{svc_name}" />
+                <Row class="badge">
+                    <Text class="state_dot" content="●" color="{svc_status_color}" />
+                    <Text class="badge_lbl" content="{svc_status_label}" color="{svc_status_color}" />
+                </Row>
+            </Row>
+            <Text class="subtitle" content="{svc_project}  ·  {svc_source_kind}" />
+            <if cond="{svc_action_msg}" not_equals="">
+                <Text class="muted" content="{svc_action_msg}" />
+            </if>
+        </Column>
+        <Row class="svc_actions">
+            <Button class="btn_primary" text="Deploy" onClick="svc_deploy" />
+            <Button class="btn_blue" text="Reload" onClick="svc_reload" />
+            <Button class="btn_blue" text="Rebuild" onClick="svc_rebuild" />
+            <Button class="btn_danger" text="Stop" onClick="svc_stop" />
+        </Row>
+    </Row>
+
+    <!-- ── Abas ─────────────────────────────────────────────────────────── -->
+    <Row class="tabs">
+        <if cond="{tab}" equals="general">
+            <Button class="tab_on" text="General" onClick="tab:general" />
+        </if>
+        <else>
+            <Button class="tab" text="General" onClick="tab:general" />
+        </else>
+        <if cond="{tab}" equals="connection">
+            <Button class="tab_on" text="Connection" onClick="tab:connection" />
+        </if>
+        <else>
+            <Button class="tab" text="Connection" onClick="tab:connection" />
+        </else>
+        <if cond="{tab}" equals="environment">
+            <Button class="tab_on" text="Environment" onClick="tab:environment" />
+        </if>
+        <else>
+            <Button class="tab" text="Environment" onClick="tab:environment" />
+        </else>
+        <if cond="{tab}" equals="healthcheck">
+            <Button class="tab_on" text="Healthcheck" onClick="tab:healthcheck" />
+        </if>
+        <else>
+            <Button class="tab" text="Healthcheck" onClick="tab:healthcheck" />
+        </else>
+        <if cond="{tab}" equals="logs">
+            <Button class="tab_on" text="Logs" onClick="tab:logs" />
+        </if>
+        <else>
+            <Button class="tab" text="Logs" onClick="tab:logs" />
+        </else>
+    </Row>
+
+    <Rule />
+
+    <!-- ── Corpo: conteúdo da aba + painel lateral ──────────────────────── -->
+    <Row class="svc_body">
+
+        <Column class="svc_main">
+            <if cond="{svc_error}" not_equals="">
+                <Text class="svc_err" content="{svc_error}" />
+            </if>
+
+            <!-- General -->
+            <if cond="{tab}" equals="general">
+                <Column class="svc_panels">
+                    <Column class="panel_pad">
+                        <Text class="label_cap" content="SOURCE PROVIDER" />
+                        <Text class="kv_val" content="{svc_source_kind}" />
+                        <Text class="muted" content="{svc_source_detail}" />
+                    </Column>
+                    <Column class="panel_pad">
+                        <Text class="label_cap" content="BUILD ENGINE" />
+                        <Text class="kv_val" content="{svc_build}" />
+                    </Column>
+                    <Column class="panel_pad">
+                        <Text class="label_cap" content="REPLICAS" />
+                        <Text class="kv_val" content="{svc_replicas}" />
+                    </Column>
+                </Column>
+            </if>
+            <else>
+                <!-- Connection -->
+                <if cond="{tab}" equals="connection">
+                    <Column class="kv_list">
+                        <Row class="kv_row"><Text class="kv_key" content="Container port" /><Text class="kv_val_fill" content="{svc_port}" /></Row>
+                        <Row class="kv_row"><Text class="kv_key" content="Host port" /><Text class="kv_val_fill" content="{svc_host_port}" /></Row>
+                        <Row class="kv_row"><Text class="kv_key" content="Domain" /><Text class="kv_val_fill" content="{svc_domain}" /></Row>
+                        <Row class="kv_row"><Text class="kv_key" content="TLS" /><Text class="kv_val_fill" content="{svc_tls}" /></Row>
+                        <Row class="kv_row"><Text class="kv_key" content="Database" /><Text class="kv_val_fill" content="{svc_db_kind}" /></Row>
+                    </Column>
+                </if>
+                <else>
+                    <!-- Environment -->
+                    <if cond="{tab}" equals="environment">
+                        <Column class="kv_list">
+                            <Text class="muted" content="{svc_env_count} variável(eis)" />
+                            <ForEach items="svc_env" var="e">
+                                <Row class="kv_row">
+                                    <Text class="kv_key" content="{e.key}" />
+                                    <Text class="kv_val_fill" content="{e.value}" />
+                                </Row>
+                            </ForEach>
+                        </Column>
+                    </if>
+                    <else>
+                        <!-- Healthcheck -->
+                        <if cond="{tab}" equals="healthcheck">
+                            <Column class="panel_pad">
+                                <Text class="label_cap" content="HEALTHCHECK" />
+                                <Text class="kv_val" content="{svc_hc}" />
+                            </Column>
+                        </if>
+                        <else>
+                            <!-- Logs (default) -->
+                            <Column class="log_panel">
+                                <Text class="muted" content="{svc_logs_count} linhas" />
+                                <Scrollable direction="vertical" class="scroll_fill">
+                                    <Column class="log_body">
+                                        <ForEach items="svc_logs" var="l">
+                                            <Row class="log_line">
+                                                <Text class="log_time" content="{l.time}" />
+                                                <Text class="log_text" content="{l.line}" color="{l.color}" />
+                                            </Row>
+                                        </ForEach>
+                                    </Column>
+                                </Scrollable>
+                            </Column>
+                        </else>
+                    </else>
+                </else>
+            </else>
+        </Column>
+
+        <!-- Painel lateral: status + live output -->
+        <Column class="svc_aside">
+            <Column class="aside_panel">
+                <Text class="label_cap" content="STATUS" />
+                <Row class="badge">
+                    <Text class="state_dot" content="●" color="{svc_status_color}" />
+                    <Text class="badge_lbl" content="{svc_status_label}" color="{svc_status_color}" />
+                </Row>
+                <Text class="label_cap" content="UPTIME" />
+                <Text class="kv_val" content="{daemon_uptime}" />
+                <Text class="label_cap" content="SERVICES" />
+                <Text class="kv_val" content="{services_label}" />
+            </Column>
+
+            <Column class="aside_panel_fill">
+                <Text class="label_cap" content="LIVE OUTPUT" />
+                <Scrollable direction="vertical" class="scroll_fill">
+                    <Column class="log_body">
+                        <ForEach items="svc_logs" var="l">
+                            <Row class="log_line">
+                                <Text class="log_time" content="{l.time}" />
+                                <Text class="log_text" content="{l.line}" color="{l.color}" />
+                            </Row>
+                        </ForEach>
+                    </Column>
+                </Scrollable>
+            </Column>
+        </Column>
+
+    </Row>
+</Column>

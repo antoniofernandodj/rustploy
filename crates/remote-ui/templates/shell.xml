@@ -168,6 +168,7 @@
                                                         <Text class="card_stat_num" content="{c.mem}" />
                                                     </Column>
                                                 </Row>
+                                                <Button class="card_open" text="Open  ›" onClick="open_service:{c.id}" />
                                             </Column>
                                         </else>
                                     </ForEach>
@@ -178,11 +179,19 @@
                 </Column>
             </if>
             <else>
-                <Column class="content_center">
-                    <Text class="title" content="{view}" />
-                    <Text class="subtitle" content="Tela em construção nesta versão da UI glacier." />
-                </Column>
+                <!-- ── Service detail (img 4) ───────────────────────────── -->
+                <if cond="{view}" equals="service">
+                    <ServiceDetail />
+                </if>
+                <else>
+                    <Column class="content_center">
+                        <Text class="title" content="{view}" />
+                        <Text class="subtitle" content="Tela em construção nesta versão da UI glacier." />
+                    </Column>
+                </else>
             </else>
         </else>
     </Column>
 </Row>
+
+<import name="ServiceDetail" from="crates/remote-ui/templates/service.xml" />

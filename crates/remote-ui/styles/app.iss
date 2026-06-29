@@ -17,8 +17,8 @@
 /* ── Top bar ──────────────────────────────────────────────────────────── */
 .topbar     { width: fill; padding: 18 28; spacing: 18; align-y: center; }
 .search     { width: fill; padding: 11 14; }
-.tab        { color: #0D1117; padding: 8 6; }
-.tab_on     { color: #0D1117; padding: 8 6; }
+.tab        { color: #0D1117; padding: 9 16; }
+.tab_on     { color: #1F6FEB; padding: 9 16; }
 
 /* ── Buttons ──────────────────────────────────────────────────────────── */
 .btn_primary { color: #238636; padding: 11 20; }
@@ -78,6 +78,31 @@
 .card_stats    { width: fill; spacing: 12; }
 .card_stat     { width: fill; spacing: 4; }
 .card_stat_num { size: 18; bold: true; color: #C9D1D9; }
+.card_open     { width: fill; color: #21262D; padding: 9 14; text-align: center; }
+
+/* ── Service detail ───────────────────────────────────────────────────── */
+.svc_head      { width: fill; align-y: start; }
+.svc_title_row { width: fill; spacing: 14; align-y: center; }
+.svc_actions   { spacing: 10; align-y: center; }
+.tabs          { width: fill; spacing: 4; }
+.svc_body      { width: fill; height: fill; spacing: 20; }
+.svc_main      { width: fill; height: fill; spacing: 16; }
+.svc_aside     { width: 360; height: fill; spacing: 16; }
+.svc_panels    { width: fill; spacing: 14; }
+.panel_pad     { width: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 18; spacing: 8; }
+.kv_val        { size: 16; bold: true; color: #E6EDF3; }
+.kv_list       { width: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 8 18; spacing: 0; }
+.kv_row        { width: fill; padding: 12 0; align-y: center; }
+.kv_key        { width: fill; size: 13; color: #8B949E; }
+.kv_val_fill   { size: 13; bold: true; color: #C9D1D9; }
+.svc_err       { size: 13; color: #F85149; }
+.log_panel     { width: fill; height: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 14 16; spacing: 8; }
+.log_body      { width: fill; spacing: 2; }
+.log_line      { width: fill; spacing: 12; }
+.log_time      { width: 76; size: 11; color: #6E7681; }
+.log_text      { width: fill; size: 12; color: #9DA7B3; }
+.aside_panel   { width: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 18; spacing: 8; }
+.aside_panel_fill { width: fill; height: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 14 16; spacing: 8; }
 
 /* ── Login ────────────────────────────────────────────────────────────── */
 .login_wrap   { width: fill; height: fill; align-x: center; align-y: center; background: #0A0E14; }

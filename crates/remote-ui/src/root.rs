@@ -13,6 +13,31 @@ pub struct Root {
     active: bool,
     /// Bumped on every (re)connect so the subscription gets a fresh id.
     seq: u64,
+    /// Id of the service currently open in the detail view (`view=service`).
+    selected_service: String,
+}
+
+impl Root {
+    /// Fires a lifecycle command for the currently-selected service through the
+    /// async bridge, then refreshes the detail panel. No-op without a selection.
+    fn service_action(
+        &self,
+        ctx: &mut Context,
+        make: impl FnOnce(String) -> shared::Command,
+    ) {
+        if self.selected_service.is_empty() || self.addr.is_empty() {
+            return;
+        }
+        let id = self.selected_service.clone();
+        let cmd = make(id.clone());
+        ctx.set("svc_action_msg", "enviando…");
+        ctx.perform(crate::net::run_service_action(
+            self.addr.clone(),
+            self.token.clone(),
+            cmd,
+            id,
+        ));
+    }
 }
 
 impl Component for Root {
@@ -53,6 +78,29 @@ impl Component for Root {
         ctx.set("services", "[]");
         ctx.set("services_count", "0");
         ctx.set("service_rows", "[]");
+        // Service detail (view=service) defaults.
+        ctx.set("tab", "general");
+        ctx.set("svc_loading", "false");
+        ctx.set("svc_error", "");
+        ctx.set("svc_name", "—");
+        ctx.set("svc_project", "—");
+        ctx.set("svc_status_label", "—");
+        ctx.set("svc_status_color", "#8B949E");
+        ctx.set("svc_source_kind", "—");
+        ctx.set("svc_source_detail", "—");
+        ctx.set("svc_build", "—");
+        ctx.set("svc_port", "—");
+        ctx.set("svc_host_port", "—");
+        ctx.set("svc_domain", "—");
+        ctx.set("svc_tls", "—");
+        ctx.set("svc_replicas", "—");
+        ctx.set("svc_db_kind", "—");
+        ctx.set("svc_hc", "—");
+        ctx.set("svc_env", "[]");
+        ctx.set("svc_env_count", "0");
+        ctx.set("svc_logs", "[]");
+        ctx.set("svc_logs_count", "0");
+        ctx.set("svc_action_msg", "");
     }
 
     fn update(&mut self, action: &str, value: Option<&str>, ctx: &mut Context) {
@@ -99,10 +147,40 @@ impl Component for Root {
                     ctx.set("view", v);
                 }
             }
+            // Service lifecycle actions (operate on the open service).
+            "svc_deploy" | "svc_rebuild" => {
+                self.service_action(ctx, |id| shared::Command::DeployStart { service_id: id });
+            }
+            "svc_reload" => {
+                self.service_action(ctx, |id| shared::Command::ServiceReload { service_id: id });
+            }
+            "svc_stop" => {
+                self.service_action(ctx, |id| shared::Command::ServiceStop { service_id: id });
+            }
             _ => {
                 // `nav_<view>` shorthand from buttons without a value payload.
                 if let Some(view) = action.strip_prefix("nav_") {
                     ctx.set("view", view);
+                    return;
+                }
+                // `open_service:<id>` — open the detail view and fetch its data.
+                if let Some(id) = action.strip_prefix("open_service:") {
+                    self.selected_service = id.to_string();
+                    ctx.set("selected_service", id);
+                    ctx.set("view", "service");
+                    ctx.set("tab", "general");
+                    ctx.set("svc_loading", "true");
+                    ctx.set("svc_error", "");
+                    let (addr, token, sid) =
+                        (self.addr.clone(), self.token.clone(), id.to_string());
+                    if !addr.is_empty() {
+                        ctx.perform(crate::net::fetch_service_detail(addr, token, sid));
+                    }
+                    return;
+                }
+                // `tab:<name>` — switch the active sub-tab in the detail view.
+                if let Some(tab) = action.strip_prefix("tab:") {
+                    ctx.set("tab", tab);
                 }
             }
         }

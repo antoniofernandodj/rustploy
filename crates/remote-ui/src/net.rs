@@ -13,9 +13,11 @@ use crate::rwp;
 use chrono::{Local, Utc};
 use glacier_ui::EngineMessage;
 use iced::futures::{SinkExt, Stream};
+use shared::protocol::{LogEntry, LogStream};
 use shared::{
-    Command, ContainerMetricsPoint, DeploymentSummary, DeployState, Event, Project, Response,
-    RwpFrame, RwpReply, Service, ServiceStatus,
+    Command, ContainerMetricsPoint, DeploymentSummary, DeployState, EnvVar, EnvVarValue, Event,
+    Healthcheck, HealthcheckKind, Project, Response, RwpFrame, RwpReply, Service, ServiceSource,
+    ServiceStatus,
 };
 use std::collections::HashMap;
 
@@ -23,8 +25,7 @@ use std::collections::HashMap;
 const GRID_COLS: usize = 3;
 
 /// One-shot: open a fresh connection, run `cmd`, return the response.
-/// Used by `ctx.perform` action effects (deploy/stop/reload) as screens land.
-#[allow(dead_code)]
+/// Used by `ctx.perform` action effects (deploy/stop/reload).
 pub async fn run_command(
     addr: String,
     token: Option<String>,
@@ -32,6 +33,99 @@ pub async fn run_command(
 ) -> anyhow::Result<Response> {
     let mut conn = rwp::connect(&addr, token.as_deref()).await?;
     rwp::rpc(&mut conn, cmd).await
+}
+
+/// Runs a lifecycle command against the selected service, then re-fetches its
+/// detail so the panel reflects the new state. Surfaces a one-line outcome in
+/// `svc_action_msg`.
+pub async fn run_service_action(
+    addr: String,
+    token: Option<String>,
+    cmd: Command,
+    service_id: String,
+) -> Vec<(String, String)> {
+    let msg = match run_command(addr.clone(), token.clone(), cmd).await {
+        Ok(Response::Ok) => "ação concluída".to_string(),
+        Ok(Response::Deployment(d)) => format!("deploy iniciado · {}", d.state.label()),
+        Ok(other) => format!("{other:?}"),
+        Err(e) => format!("erro: {e}"),
+    };
+    let mut pairs = fetch_service_detail(addr, token, service_id).await;
+    pairs.push(("svc_action_msg".into(), msg));
+    pairs
+}
+
+/// One-shot fetch of everything the Service detail screen needs: the full
+/// `Service` spec/status, its project name and the most recent container logs.
+/// Returns context pairs (`svc_*`) merged by a `ctx.perform` effect.
+pub async fn fetch_service_detail(
+    addr: String,
+    token: Option<String>,
+    service_id: String,
+) -> Vec<(String, String)> {
+    match fetch_service_detail_inner(&addr, token.as_deref(), &service_id).await {
+        Ok(pairs) => pairs,
+        Err(e) => vec![
+            ("svc_loading".into(), "false".into()),
+            ("svc_error".into(), e.to_string()),
+        ],
+    }
+}
+
+async fn fetch_service_detail_inner(
+    addr: &str,
+    token: Option<&str>,
+    service_id: &str,
+) -> anyhow::Result<Vec<(String, String)>> {
+    let mut conn = rwp::connect(addr, token).await?;
+
+    let svc = match rwp::rpc(&mut conn, Command::ServiceGet { id: service_id.into() }).await? {
+        Response::Service(s) => s,
+        other => anyhow::bail!("resposta inesperada para ServiceGet: {other:?}"),
+    };
+
+    // Resolve the project name (ServiceGet only carries the id).
+    let mut project_name = svc.spec.project_id.clone();
+    if let Ok(Response::Projects(list)) = rwp::rpc(&mut conn, Command::ProjectList).await
+        && let Some(p) = list.iter().find(|p| p.id == svc.spec.project_id)
+    {
+        project_name = p.name.clone();
+    }
+
+    // Recent stdout/stderr for the LIVE OUTPUT panel (one-shot tail; live
+    // streaming is a later step).
+    let logs = match rwp::rpc(&mut conn, Command::LogsGet { service_id: service_id.into(), tail: 200 }).await {
+        Ok(Response::Logs(l)) => l,
+        _ => Vec::new(),
+    };
+
+    let (status_label, status_color) = service_status_label_color(&svc.status);
+    let (source_kind, source_detail, build_engine) = source_summary(&svc.spec.source);
+    let spec = &svc.spec;
+
+    Ok(vec![
+        ("svc_loading".into(), "false".into()),
+        ("svc_error".into(), String::new()),
+        ("svc_id".into(), svc.id.clone()),
+        ("svc_name".into(), spec.name.clone()),
+        ("svc_project".into(), project_name),
+        ("svc_status_label".into(), status_label.into()),
+        ("svc_status_color".into(), status_color.into()),
+        ("svc_source_kind".into(), source_kind.into()),
+        ("svc_source_detail".into(), source_detail),
+        ("svc_build".into(), build_engine),
+        ("svc_port".into(), spec.port.to_string()),
+        ("svc_host_port".into(), spec.host_port.map(|p| p.to_string()).unwrap_or_else(|| "—".into())),
+        ("svc_domain".into(), spec.domain.clone().unwrap_or_else(|| "—".into())),
+        ("svc_tls".into(), if spec.tls_enabled { "enabled" } else { "disabled" }.into()),
+        ("svc_replicas".into(), spec.replicas.to_string()),
+        ("svc_db_kind".into(), spec.db_kind.clone().unwrap_or_else(|| "—".into())),
+        ("svc_hc".into(), healthcheck_summary(&spec.healthcheck)),
+        ("svc_env".into(), env_json(&spec.env_vars)),
+        ("svc_env_count".into(), spec.env_vars.len().to_string()),
+        ("svc_logs".into(), logs_json(&logs)),
+        ("svc_logs_count".into(), logs.len().to_string()),
+    ])
 }
 
 /// Long-lived polling + event stream feeding the context. Yields
@@ -223,6 +317,67 @@ fn service_status_label_color(status: &ServiceStatus) -> (&'static str, &'static
         ServiceStatus::Stopped => ("Stopped", "#8B949E"),
         ServiceStatus::Error(_) => ("Error", "#F85149"),
     }
+}
+
+/// `(kind, detail, build_engine)` describing where a service is built from.
+fn source_summary(source: &ServiceSource) -> (&'static str, String, String) {
+    match source {
+        ServiceSource::Registry { image } => ("Registry", image.clone(), "—".into()),
+        ServiceSource::Git(g) => (
+            "Git",
+            format!("{} @ {}", g.url, g.branch),
+            g.dockerfile_path.clone(),
+        ),
+        ServiceSource::Compose(_) => ("Compose", "docker-compose".into(), "Compose".into()),
+    }
+}
+
+/// One-line summary of the healthcheck policy for the detail panel.
+fn healthcheck_summary(hc: &Healthcheck) -> String {
+    let kind = match &hc.kind {
+        HealthcheckKind::None => return "disabled".into(),
+        HealthcheckKind::Tcp => "TCP".to_string(),
+        HealthcheckKind::DockerNative => "Docker".to_string(),
+        HealthcheckKind::Http { path, expected_status } => format!("HTTP {path} → {expected_status}"),
+    };
+    format!(
+        "{kind} · every {}s · timeout {}s · {} retries",
+        hc.interval_secs, hc.timeout_secs, hc.retries
+    )
+}
+
+/// Environment variables as JSON card rows (secrets shown by reference only).
+fn env_json(vars: &[EnvVar]) -> String {
+    let rows: Vec<serde_json::Value> = vars
+        .iter()
+        .map(|v| {
+            let (value, kind) = match &v.value {
+                EnvVarValue::Plain(s) => (s.clone(), "plain"),
+                EnvVarValue::Secret(name) => (format!("secret:{name}"), "secret"),
+            };
+            serde_json::json!({ "key": v.key, "value": value, "kind": kind })
+        })
+        .collect();
+    serde_json::Value::Array(rows).to_string()
+}
+
+/// Recent log lines as JSON rows, colored by stream.
+fn logs_json(logs: &[LogEntry]) -> String {
+    let rows: Vec<serde_json::Value> = logs
+        .iter()
+        .map(|e| {
+            let color = match e.stream {
+                LogStream::Stderr => "#F85149",
+                LogStream::Stdout => "#9DA7B3",
+            };
+            serde_json::json!({
+                "time": e.timestamp.with_timezone(&Local).format("%H:%M:%S").to_string(),
+                "line": e.line,
+                "color": color,
+            })
+        })
+        .collect();
+    serde_json::Value::Array(rows).to_string()
 }
 
 /// Human-readable byte size for the memory stat on a card.

@@ -11,9 +11,22 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
   ponte async (`ContextPatch`, `ctx.perform`, `dispatch -> iced::Task`,
   `Component::subscription` + `GlacierUI::subscription`); `Button` centraliza
   rótulo via `textAlign`.
-- **Login** (design img 5), **Deployments** (img 3) e **Projects** (img 2)
-  prontos, com dados reais do daemon via polling RWP. Persistência de "remember
-  server/token" (`store.rs`).
+- **Login** (img 5), **Deployments** (img 3), **Projects** (img 2) e
+  **Service detail** (img 4) prontos, com dados reais do daemon via polling RWP.
+  Persistência de "remember server/token" (`store.rs`).
+- **Service detail** (`view=service`, sub-`{tab}`): clicar "Open" num card →
+  `open_service:<id>` (id codificado na própria ação, pois `onClick` vira
+  `XmlClick(String)` sem payload, e é template-processado). `Root` guarda
+  `selected_service` e dispara `ctx.perform(net::fetch_service_detail)` que faz
+  `ServiceGet` + `ProjectList` (p/ nome) + `LogsGet` (tail 200) → keys `svc_*`.
+  Abas General/Connection/Environment/Healthcheck/Logs + painel lateral
+  STATUS/UPTIME/SERVICES + LIVE OUTPUT. Template extraído em
+  `templates/service.xml` (importado no `shell.xml`).
+- **Ações reais**: botões Deploy/Reload/Rebuild/Stop do detail ligados via
+  `Root::service_action` → `net::run_service_action` (roda `DeployStart`/
+  `ServiceReload`/`ServiceStop` e re-busca o detail; resultado em
+  `svc_action_msg`). Falta ligar Deploy/Stop All do topbar (precisam de
+  contexto/seleção global).
 - **Projects**: grid de cards de serviço (nome, badge de status, CPU%, MEM).
   `net.rs` faz fan-out de `ServiceList` por projeto a cada poll; CPU/MEM vêm do
   stream de eventos (`ContainerMetrics`, publicado p/ todos os serviços rodando
@@ -29,17 +42,15 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
   TODO layout fica nas classes `.iss` (não inline no XML).
 
 ## Próximos passos (em ordem)
-1. **Service detail** (design img 4): header (nome + estado + botões Deploy/
-   Reload/Rebuild/Stop), abas (General/Connection/Environment/Domains/
-   Healthcheck/Logs/...), painel Source Provider/Build Engine, painel lateral
-   UPTIME/SERVICES + LIVE OUTPUT (logs). Usar `view=service` + sub-`{tab}`.
-2. **Ações reais**: ligar botões Deploy/Stop All/Stop/Reload a `ctx.perform`
-   + `net::run_command` (já existe, hoje `#[allow(dead_code)]`). Precisa de
-   seleção de serviço (clicar num card/linha → `view=service`, guardar id).
-3. **Monitoring/Schedules/Ingress/Docker/Settings/Support**: telas restantes.
-4. Sidebar com ícones SVG (já em `assets/icons/`). Botão gradiente real (hoje
+1. **Logs ao vivo no detail**: hoje `LIVE OUTPUT` é um tail one-shot (`LogsGet`)
+   buscado ao abrir/agir. Ligar streaming real (`LogsSubscribe` no stream de
+   eventos → acumular `Event::LogLine` por service e mesclar no `svc_logs`
+   quando `selected_service` casar). Tabs Domains/Environment-edit ainda faltam.
+2. **Monitoring/Schedules/Ingress/Docker/Settings/Support**: telas restantes.
+   Topbar Deploy/Stop All ainda inertes (precisam de contexto/seleção global).
+3. Sidebar com ícones SVG (já em `assets/icons/`). Botão gradiente real (hoje
    `<Button>` só cor sólida; gradiente já funciona em containers).
-5. **Fonte mono** do design: JetBrains Mono está em `assets/fonts/` com o
+4. **Fonte mono** do design: JetBrains Mono está em `assets/fonts/` com o
    `.font()/.default_font()` COMENTADO no `main.rs`. Reabilitar quando
    descobrirmos por que a fonte custom sumia (provável: registrar a fonte e
    garantir que o iced a use; testar `WGPU_BACKEND=gl`).
@@ -57,6 +68,13 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
 - **`ForEach` aninhado** funciona: um item-objeto cujo valor é array vira string
   JSON na chave `var.campo` (ex.: `r.cards`), e o `ForEach` interno aceita
   `items="r.cards"`. Útil p/ simular grid (sem widget de wrap no glacier).
+- **`onClick` não tem payload** — vira `XmlClick(String)` e o `value` no
+  `update` é sempre `None` em cliques. Para passar dado (ex.: id da linha),
+  codifique na própria ação: `onClick="open_service:{c.id}"` (a ação é
+  template-processada no eval) e faça `action.strip_prefix("open_service:")` no
+  `update`. Mesmo padrão p/ `tab:<nome>`.
+- `Column`/`Row` não têm `onClick`; só `Button` clica. Card clicável = um
+  `<Button>` dentro do card (ou o card inteiro vira Button text-only).
 - Não consigo screenshot (Wayland sem grim; `import`/D-Bus negados) — depender
   do usuário enviar imagem.
 - Disco do `/` enche fácil; `target/` do glacier chegou a 19G. `cargo clean` lá
