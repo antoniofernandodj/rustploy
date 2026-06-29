@@ -10,7 +10,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Declarative XML UI engine (published, with the async bridge + new widgets).
-glacier-ui = "0.2.1"
+glacier-ui = "0.2.2"
 
 shared = { path = "../shared" }
 
