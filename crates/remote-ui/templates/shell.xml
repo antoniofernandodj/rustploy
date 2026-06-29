@@ -1,3 +1,6 @@
+<link rel="import" href="crates/remote-ui/templates/service.xml" as="ServiceDetail" />
+<link rel="import" href="crates/remote-ui/templates/home.xml" as="HomeViews" />
+
 <Row class="screen">
 
     <!-- ── Sidebar ────────────────────────────────────────────────────── -->
@@ -163,6 +166,3 @@
         </else>
     </Column>
 </Row>
-
-<import name="ServiceDetail" from="crates/remote-ui/templates/service.xml" />
-<import name="HomeViews" from="crates/remote-ui/templates/home.xml" />
