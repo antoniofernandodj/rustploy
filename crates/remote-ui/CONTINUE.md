@@ -38,8 +38,16 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
   populados no fetch, inputs com `onChange="field:<key>"` (handler genérico que
   faz `ctx.set`), Toggle TLS, seletor de kind (`hckind:<k>`), Save → `SpecOp`
   (`net::run_spec_op`: `ServiceGet` → muta spec → `ServiceUpdate` → re-fetch).
-  **General** (source provider/build engine) ainda é leitura — é form de wizard
-  (Git vs Registry + provider), o mais complexo, deixado por último.
+  **General** (source/build) também é editável: form genérico Git/Registry
+  (repo_url/image, branch, port, user/credentials, build path, watch paths,
+  submodules, dockerfile/context/stage) → `SpecOp::General` reconstrói o
+  `ServiceSource` (mantém Git se já era ou se a URL parece repo via
+  `looks_like_git_url`, senão Registry; preserva `provider_id`). Falta só o
+  **picker Gitea** (OAuth/repos/branches via `GitProvider*`).
+- **Validação headless**: `tests/templates_render.rs` registra os templates a
+  partir da raiz do workspace e renderiza login + todas as views + todas as abas
+  do service (incl. editor `.env` e painel de build log) — pega XML malformado e
+  propriedade `.iss` desconhecida sem precisar de display. (`cargo test -p remote-ui`.)
 - **Copiar / selecionar**: glacier 0.2.4 tem ação `clipboard:<key>`. Aba Logs é
   um `<TextArea value="svc_logs_text">` (selecionável/Ctrl+C) + "Copiar tudo";
   Connection tem "Copiar" por valor (`clipboard:svc_port` etc.).
@@ -89,10 +97,9 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
   `theme.json`. TODO layout fica nas classes `.iss` (não inline no XML).
 
 ## Próximos passos (em ordem)
-1. **General editável** (source provider/build engine): form estilo wizard —
-   Git (provider/url/branch/dockerfile/context) vs Registry (image). Reusar
-   `SpecOp`/`run_spec_op`. Inclui integração com Git providers (`GitProviderList`,
-   OAuth). É o maior pedaço restante das abas do detail.
+1. **Picker Gitea no General**: sub-aba que lista contas/repos/branches de um
+   Git provider conectado (`GitProviderList`/`GitRepoList`/`GitBranchList` +
+   OAuth via `GitOAuthStart`). Hoje só o form Git/Registry genérico.
 2. **Aba Patches** do remote-client; **Schedules** sem backend (placeholder).
    Settings só tem Web Server (remote-client tem Git/Registry/Certs… quase todas
    placeholder lá também).
