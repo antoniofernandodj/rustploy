@@ -3,6 +3,23 @@ import "Login" from="crates/remote-ui/templates/login.kdl"
 import "Shell" from="crates/remote-ui/templates/shell.kdl"
 
 Column class="screen" width="fill" height="fill" {
+
+    // ── Custom titlebar (window is borderless: decorations=false) ──────────
+    // The left region is the drag handle (onPress="window:drag"); the right
+    // region holds the window controls. All wired via glacier-ui's built-in
+    // `window:` actions — no Rust handler needed.
+    Row class="titlebar" width="fill" {
+        Row class="titlebar_drag" width="fill" on_press="window:drag" {
+            Text "●" class="titlebar_dot"
+            Text "Rustploy Remote" class="titlebar_title"
+        }
+        Row class="window_controls" {
+            Button "—" class="win_btn" onClick="window:minimize"
+            Button "▢" class="win_btn" onClick="window:maximize"
+            Button "✕" class="win_close" onClick="window:close"
+        }
+    }
+
     if cond="{screen}" equals="login" { Login }
     else { Shell }
 }

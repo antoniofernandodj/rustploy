@@ -5,6 +5,15 @@
 .mono       { }
 .screen     { width: fill; height: fill; background: #0A0E14; }
 
+/* ── Custom titlebar (borderless window) ──────────────────────────────── */
+.titlebar       { width: fill; height: 38; background: #0D1117; align-y: center; padding: 0 0 0 16; }
+.titlebar_drag  { width: fill; height: fill; align-y: center; spacing: 9; }
+.titlebar_dot   { size: 10; color: #1F6FEB; }
+.titlebar_title { size: 12; bold: true; color: #8B949E; }
+.window_controls{ height: fill; align-y: center; }
+.win_btn        { color: #161B22; padding: 9 17; text-align: center; }
+.win_close      { color: #DA3633; padding: 9 17; text-align: center; }
+
 /* ── Sidebar ──────────────────────────────────────────────────────────── */
 .sidebar        { width: 264; height: fill; background: #0D1117; padding: 28 20; spacing: 6; }
 .brand_box      { spacing: 2; padding: 0 8 18 8; }

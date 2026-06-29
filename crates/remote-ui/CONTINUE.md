@@ -19,7 +19,15 @@ conferir:
 - **Telas**: Monitoring (métricas host+container), Ingress, Docker.
 
 ## Estado atual (funcionando)
-- **glacier-ui 0.2.7** publicado no crates.io. 0.2.7: `<TextInput secure="true">`
+- **glacier-ui 0.2.9** publicado no crates.io. 0.2.9: **controles de janela
+  built-in** (`window:minimize`/`maximize`/`close`/`drag` no dispatch, resolvem o
+  `window::Id` via `get_latest`) + atributo universal **`onPress`** (envolve
+  qualquer elemento num `mouse_area`, dispara no pressionar — base do arraste).
+  Usado aqui para a **barra de título customizada**: `main.rs` abre a janela com
+  `decorations: false` e `templates/app.kdl` desenha a titlebar (região de
+  arraste `on_press="window:drag"` + botões `—`/`▢`/`✕` via `onClick="window:*"`;
+  classes `.titlebar*`/`.win_btn`/`.win_close` no `.iss`). Sem código no `Root`.
+- **glacier-ui 0.2.7**: `<TextInput secure="true">`
   (mascara senhas/tokens). 0.2.6: **widget `<Select>`** (dropdown `pick_list`,
   opções de array JSON do contexto, estilizável via `.iss`; aliases
   `Dropdown`/`PickList`/`ComboBox`/`Seletor`). 0.2.4: ação built-in
@@ -188,8 +196,10 @@ conferir:
   se faltar espaço.
 
 ## Publicar nova versão do glacier
-`cd glacier-ui && cargo build && cargo test && cargo publish -p glacier-ui --allow-dirty`
-(token já configurado). Depois bump `glacier-ui = "0.2.x"` no `remote-ui/Cargo.toml`.
+`cd glacier-ui && cargo build && cargo test && cargo publish` (token já
+configurado; o working dir precisa estar limpo — se houver arquivo solto não
+relacionado, `git stash` antes ou `--allow-dirty`). Depois bump
+`glacier-ui = "0.2.x"` no `remote-ui/Cargo.toml`.
 
 ## Repos (ambos na branch main, commitar direto)
 - glacier-ui: github.com/antoniofernandodj/xml-ui

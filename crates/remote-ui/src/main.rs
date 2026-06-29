@@ -95,6 +95,10 @@ fn main() -> iced::Result {
         .window(iced::window::Settings {
             size: iced::Size::new(1280.0, 820.0),
             min_size: Some(iced::Size::new(1000.0, 680.0)),
+            // Borderless: the OS titlebar is replaced by a custom one defined in
+            // `templates/app.kdl` (drag region + minimize/maximize/close), wired
+            // through glacier-ui's built-in `window:` actions.
+            decorations: false,
             platform_specific: iced::window::settings::PlatformSpecific {
                 application_id: "rustploy-remote-ui".to_string(),
                 ..Default::default()
