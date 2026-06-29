@@ -96,7 +96,7 @@
                         <TextInput class="env_in_val" placeholder="value" value="env_new_val" onChange="env_new_val_changed" />
                         <Button class="btn_primary" text="Adicionar" onClick="env_add" />
                     </Row>
-                    <Scrollable direction="vertical" class="scroll_fill">
+                    <Scrollable direction="vertical" class="env_list_scroll">
                         <Column class="kv_list">
                             <ForEach items="svc_env" var="e">
                                 <Row class="kv_row">
@@ -107,6 +107,14 @@
                             </ForEach>
                         </Column>
                     </Scrollable>
+
+                    <Row class="env_head">
+                        <Text class="label_cap" content=".ENV — EDITAR (IMPORTAR SUBSTITUI TUDO)" />
+                    </Row>
+                    <TextArea class="env_editor" font="mono" value="svc_env_text" placeholder="KEY=VALUE   (# comentário)" />
+                    <Row class="env_add">
+                        <Button class="btn_primary" text="Importar .env" onClick="env_import" />
+                    </Row>
                 </Column>
             </if>
 

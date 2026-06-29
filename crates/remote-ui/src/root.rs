@@ -244,6 +244,12 @@ impl Component for Root {
                     self.env_op(ctx, crate::net::EnvOp::Delete { key: key.to_string() });
                     return;
                 }
+                // `env_import` — replace all vars with the edited `.env` blob.
+                if action == "env_import" {
+                    let text = ctx.get("svc_env_text").cloned().unwrap_or_default();
+                    self.env_op(ctx, crate::net::EnvOp::ImportDotenv(text));
+                    return;
+                }
                 // `env_export` — dump the current `.env` blob to a file.
                 if action == "env_export" {
                     let body = ctx.get("svc_env_text").cloned().unwrap_or_default();

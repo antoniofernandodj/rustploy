@@ -152,6 +152,32 @@ pub enum EnvOp {
     Set { key: String, value: String },
     /// Remove `key`.
     Delete { key: String },
+    /// Replace ALL variables with the parsed contents of a `.env` blob.
+    ImportDotenv(String),
+}
+
+/// Parses a `.env` blob (`KEY=VALUE`, `#` comments, blanks ignored). A value of
+/// the form `<secret:NAME>` round-trips back to a secret reference.
+fn parse_dotenv(text: &str) -> Vec<EnvVar> {
+    text.lines()
+        .filter_map(|line| {
+            let l = line.trim();
+            if l.is_empty() || l.starts_with('#') {
+                return None;
+            }
+            let (k, v) = l.split_once('=')?;
+            let key = k.trim().to_string();
+            if key.is_empty() {
+                return None;
+            }
+            let v = v.trim();
+            let value = match v.strip_prefix("<secret:").and_then(|s| s.strip_suffix('>')) {
+                Some(name) => EnvVarValue::Secret(name.to_string()),
+                None => EnvVarValue::Plain(v.to_string()),
+            };
+            Some(EnvVar { key, value })
+        })
+        .collect()
 }
 
 /// Applies an [`EnvOp`] to the service (fetch fresh spec → mutate → update),
@@ -189,6 +215,7 @@ async fn apply_env_op(
             spec.env_vars.push(EnvVar { key, value: EnvVarValue::Plain(value) });
         }
         EnvOp::Delete { key } => spec.env_vars.retain(|v| v.key != key),
+        EnvOp::ImportDotenv(text) => spec.env_vars = parse_dotenv(&text),
     }
     match rwp::rpc(&mut conn, Command::ServiceUpdate { id: service_id.into(), spec }).await? {
         Response::Ok | Response::Service(_) => Ok(()),

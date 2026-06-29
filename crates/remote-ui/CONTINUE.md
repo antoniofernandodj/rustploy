@@ -6,9 +6,13 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
 `cargo run -p remote-ui` (paths de template são relativos ao CWD).
 
 ## Estado atual (funcionando)
-- **glacier-ui 0.2.2** publicado no crates.io. 0.2.2: **fix `if/else` e `ForEach`
-  aninhados dentro de `ForEach`** (antes ambos os ramos de um if/else dentro de
-  um ForEach renderizavam — era o que deixava o grid Projects invisível). 0.2.0:
+- **glacier-ui 0.2.3** publicado no crates.io. 0.2.3: **widget `<TextArea>`**
+  (editor multiline stateful). Como o `text_editor` do iced é stateful
+  (`Content`), o `GlacierUI` mantém um `EditorMap` (binding→`Content`) +
+  `editor_synced`; `sync_editors()` (fim de `reevaluate_all`) cria/recarrega o
+  buffer a partir do contexto em mudança externa, e `XmlEditorAction` aplica a
+  edição e espelha o texto de volta no contexto. 0.2.2: **fix `if/else`/`ForEach`
+  aninhados dentro de `ForEach`** (deixava o grid Projects invisível). 0.2.0:
   widgets `Svg/Scrollable/Checkbox/Toggle/Rule`; atributos `font`/`gradient`/
   `textAlign`; ponte async (`ContextPatch`, `ctx.perform`, `dispatch -> Task`,
   `Component::subscription` + `GlacierUI::subscription`).
@@ -27,13 +31,12 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
   Environment/Domains/Deployments/Healthcheck/Logs/Advanced. Switch via `<if>`
   independentes (sem else-chain). Deployments usa `DeployHistory`. Domains/
   Advanced são leitura do spec.
-- **Edição de env vars**: aba Environment tem form Adicionar (KEY+value) e ✕ por
-  linha → `net::run_env_op` (`ServiceGet` → muta `env_vars` → `ServiceUpdate` →
-  re-fetch). "Adicionar" com KEY existente substitui (é como editar). "Exportar
-  .env" grava `~/<svc>.env`. **Falta**: import/edição do `.env` como blob
-  multiline — o `text_editor` do iced é stateful (`Content`), não encaixa no
-  modelo stateless do glacier; precisaria de um widget `TextArea` com estado de
-  editor gerido pelo engine (feature do glacier).
+- **Edição de env vars**: aba Environment tem (a) form Adicionar (KEY+value) e ✕
+  por linha → `net::run_env_op` (`ServiceGet` → muta `env_vars` → `ServiceUpdate`
+  → re-fetch); (b) **editor `.env`** (`<TextArea value="svc_env_text">`) com
+  "Importar .env" → `EnvOp::ImportDotenv` (parse `KEY=VALUE`, `#` comentário,
+  `<secret:NAME>` volta a Secret) que **substitui todas** as vars; e "Exportar
+  .env" grava `~/<svc>.env`. "Adicionar" com KEY existente substitui (= editar).
 - **Ações reais**: botões Deploy/Reload/Rebuild/Stop do detail ligados via
   `Root::service_action` → `net::run_service_action` (roda `DeployStart`/
   `ServiceReload`/`ServiceStop` e re-busca o detail; resultado em
@@ -62,9 +65,10 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
   TODO layout fica nas classes `.iss` (não inline no XML).
 
 ## Próximos passos (em ordem)
-1. **Widget `TextArea` no glacier** (multiline, stateful) → desbloqueia editar/
-   importar `.env` como blob e formulários ricos (Domains/Healthcheck/Advanced
-   editáveis com Save). Hoje só add/remover env var (single-line).
+1. **Formulários editáveis com Save** nas abas Domains/Healthcheck/Advanced
+   (hoje leitura). Agora dá com `TextInput`/`TextArea` + `ServiceUpdate` (já há
+   `net::run_env_op` como molde; generalizar p/ um spec-update). Falta tb a aba
+   **Patches** do remote-client.
 2. **Monitoring/Schedules/Ingress/Docker/Settings/Support**: telas restantes.
    Topbar Deploy/Stop All ainda inertes (precisam de contexto/seleção global).
    Tabs Domains/Environment-edit do detail ainda faltam.
