@@ -18,7 +18,8 @@ pub struct RemotePrefs {
 }
 
 fn prefs_path() -> PathBuf {
-    shared::fallback_data_dir().join("remote-client.json")
+    let data_dir = shared::fallback_data_dir();
+    data_dir.join("remote-client.json")
 }
 
 impl RemotePrefs {
