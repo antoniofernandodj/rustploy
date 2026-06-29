@@ -13,7 +13,14 @@ use crate::rwp;
 use chrono::{Local, Utc};
 use glacier_ui::EngineMessage;
 use iced::futures::{SinkExt, Stream};
-use shared::{Command, DeploymentSummary, DeployState, Project, Response, RwpFrame};
+use shared::{
+    Command, ContainerMetricsPoint, DeploymentSummary, DeployState, Event, Project, Response,
+    RwpFrame, RwpReply, Service, ServiceStatus,
+};
+use std::collections::HashMap;
+
+/// How many service cards sit side by side in the Projects grid.
+const GRID_COLS: usize = 3;
 
 /// One-shot: open a fresh connection, run `cmd`, return the response.
 /// Used by `ctx.perform` action effects (deploy/stop/reload) as screens land.
@@ -66,6 +73,10 @@ pub fn poll_stream(addr: String, token: Option<String>) -> impl Stream<Item = En
         let mut poll = tokio::time::interval(std::time::Duration::from_secs(2));
         poll.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
+        // Latest per-service container metrics, fed by the live event stream and
+        // merged into the Projects grid cards on each poll tick.
+        let mut metrics: HashMap<String, ContainerMetricsPoint> = HashMap::new();
+
         loop {
             tokio::select! {
                 _ = poll.tick() => {
@@ -86,13 +97,34 @@ pub fn poll_stream(addr: String, token: Option<String>) -> impl Stream<Item = En
                     if let Ok(Response::Projects(list)) = rwp::rpc(&mut cmd, Command::ProjectList).await {
                         pairs.push(("projects".into(), projects_json(&list)));
                         pairs.push(("projects_count".into(), list.len().to_string()));
+
+                        // Fan out one ServiceList per project, tagging each
+                        // service with its project name for the grid cards.
+                        let mut all: Vec<(Service, String)> = Vec::new();
+                        for p in &list {
+                            if let Ok(Response::Services(svcs)) = rwp::rpc(
+                                &mut cmd,
+                                Command::ServiceList { project_id: p.id.clone() },
+                            ).await {
+                                for s in svcs {
+                                    all.push((s, p.name.clone()));
+                                }
+                            }
+                        }
+                        pairs.push(("services".into(), services_json(&all, &metrics)));
+                        pairs.push(("services_count".into(), all.len().to_string()));
+                        pairs.push(("service_rows".into(), service_rows_json(&all, &metrics)));
                     }
                     if !pairs.is_empty() {
                         patch!(pairs);
                     }
                 }
-                frame = rwp::read_frame::<shared::RwpReply>(&mut evt) => match frame {
-                    Ok(_) => { /* live event: next poll picks up fresh data */ }
+                frame = rwp::read_frame::<RwpReply>(&mut evt) => match frame {
+                    // Cache the freshest metrics; next poll re-renders the grid.
+                    Ok(RwpReply::Event(Event::ContainerMetrics(p))) => {
+                        metrics.insert(p.service_id.clone(), p);
+                    }
+                    Ok(_) => { /* other live event: next poll picks up fresh data */ }
                     Err(_) => {
                         patch!(vec![
                             ("connected".into(), "false".into()),
@@ -127,6 +159,87 @@ fn deployments_json(list: &[DeploymentSummary]) -> String {
         })
         .collect();
     serde_json::Value::Array(rows).to_string()
+}
+
+/// One JSON card object per service, with live CPU/memory merged in. Shared by
+/// the flat `services` key and the chunked `service_rows` grid.
+fn service_card(svc: &Service, project: &str, m: Option<&ContainerMetricsPoint>) -> serde_json::Value {
+    let (status_label, status_color) = service_status_label_color(&svc.status);
+    let (cpu, mem) = match m {
+        Some(p) => (format!("{:.1}%", p.cpu_percent), fmt_bytes(p.mem_used_bytes)),
+        None => ("—".to_string(), "—".to_string()),
+    };
+    serde_json::json!({
+        "filler": "0",
+        "id": svc.id,
+        "name": svc.spec.name,
+        "project": project,
+        "port": svc.spec.port.to_string(),
+        "status_label": status_label,
+        "status_color": status_color,
+        "cpu": cpu,
+        "mem": mem,
+    })
+}
+
+/// Flat array of service cards (used for selection / counts).
+fn services_json(all: &[(Service, String)], metrics: &HashMap<String, ContainerMetricsPoint>) -> String {
+    let rows: Vec<serde_json::Value> = all
+        .iter()
+        .map(|(s, proj)| service_card(s, proj, metrics.get(&s.id)))
+        .collect();
+    serde_json::Value::Array(rows).to_string()
+}
+
+/// Service cards chunked into rows of [`GRID_COLS`], each padded with invisible
+/// filler cards so every row keeps the same column widths. glacier-ui has no
+/// wrapping grid, so the layout is materialised here as `[{ "cards": [...] }]`
+/// and rendered with a nested `<ForEach>`.
+fn service_rows_json(all: &[(Service, String)], metrics: &HashMap<String, ContainerMetricsPoint>) -> String {
+    let filler = serde_json::json!({ "filler": "1" });
+    let rows: Vec<serde_json::Value> = all
+        .chunks(GRID_COLS)
+        .map(|chunk| {
+            let mut cards: Vec<serde_json::Value> = chunk
+                .iter()
+                .map(|(s, proj)| service_card(s, proj, metrics.get(&s.id)))
+                .collect();
+            while cards.len() < GRID_COLS {
+                cards.push(filler.clone());
+            }
+            serde_json::json!({ "cards": cards })
+        })
+        .collect();
+    serde_json::Value::Array(rows).to_string()
+}
+
+/// Status pill label plus the accent color used by the design.
+fn service_status_label_color(status: &ServiceStatus) -> (&'static str, &'static str) {
+    match status {
+        ServiceStatus::Running => ("Running", "#3FB950"),
+        ServiceStatus::Deploying => ("Deploying", "#58A6FF"),
+        ServiceStatus::Degraded => ("Degraded", "#D29922"),
+        ServiceStatus::Stopping => ("Stopping", "#8B949E"),
+        ServiceStatus::Stopped => ("Stopped", "#8B949E"),
+        ServiceStatus::Error(_) => ("Error", "#F85149"),
+    }
+}
+
+/// Human-readable byte size for the memory stat on a card.
+fn fmt_bytes(b: u64) -> String {
+    const KB: f64 = 1024.0;
+    const MB: f64 = KB * 1024.0;
+    const GB: f64 = MB * 1024.0;
+    let f = b as f64;
+    if b == 0 {
+        "—".to_string()
+    } else if f >= GB {
+        format!("{:.1} GB", f / GB)
+    } else if f >= MB {
+        format!("{:.0} MB", f / MB)
+    } else {
+        format!("{:.0} KB", f / KB)
+    }
 }
 
 fn projects_json(list: &[Project]) -> String {

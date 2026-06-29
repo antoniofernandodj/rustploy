@@ -29,7 +29,7 @@
 /* ── Panels & cards ───────────────────────────────────────────────────── */
 .content    { width: fill; height: fill; padding: 28 32; spacing: 22; background: #0A0E14; }
 .panel      { background: #0D1117; border-radius: 14; border-width: 1; border-color: #21262D; padding: 4; }
-.card       { background: #161B22; border-radius: 12; border-width: 1; border-color: #21262D; padding: 18; spacing: 10; }
+.card       { width: fill; background: #161B22; border-radius: 12; border-width: 1; border-color: #21262D; padding: 18; spacing: 10; }
 .stat_card  { background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 16 22; spacing: 6; }
 
 /* ── Typography ───────────────────────────────────────────────────────── */
@@ -66,6 +66,18 @@
 .state_cell { width: 170; spacing: 7; align-y: center; }
 .state_dot  { size: 11; }
 .state_lbl  { size: 12; }
+
+/* ── Projects grid ────────────────────────────────────────────────────── */
+.grid          { width: fill; spacing: 16; }
+.card_row      { width: fill; spacing: 16; }
+.card_filler   { width: fill; }
+.card_head     { width: fill; align-y: center; }
+.card_name     { width: fill; size: 16; bold: true; color: #E6EDF3; }
+.badge         { spacing: 7; align-y: center; }
+.badge_lbl     { size: 12; bold: true; }
+.card_stats    { width: fill; spacing: 12; }
+.card_stat     { width: fill; spacing: 4; }
+.card_stat_num { size: 18; bold: true; color: #C9D1D9; }
 
 /* ── Login ────────────────────────────────────────────────────────────── */
 .login_wrap   { width: fill; height: fill; align-x: center; align-y: center; background: #0A0E14; }

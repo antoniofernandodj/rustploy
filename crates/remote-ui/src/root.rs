@@ -50,6 +50,9 @@ impl Component for Root {
         ctx.set("deployments_count", "0");
         ctx.set("projects", "[]");
         ctx.set("projects_count", "0");
+        ctx.set("services", "[]");
+        ctx.set("services_count", "0");
+        ctx.set("service_rows", "[]");
     }
 
     fn update(&mut self, action: &str, value: Option<&str>, ctx: &mut Context) {

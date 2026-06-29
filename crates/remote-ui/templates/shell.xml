@@ -119,10 +119,70 @@
             </Column>
         </if>
         <else>
-            <Column class="content_center">
-                <Text class="title" content="{view}" />
-                <Text class="subtitle" content="Tela em construção nesta versão da UI glacier." />
-            </Column>
+            <!-- ── Projects (grid de cards de serviço) ──────────────────── -->
+            <if cond="{view}" equals="projects">
+                <Column class="content">
+                    <Row class="header_row">
+                        <Column class="header_titles">
+                            <Text class="title" content="Projects" />
+                            <Text class="subtitle" content="Services across every project, with live resource usage." />
+                        </Column>
+                        <Row class="stats_row">
+                            <Column class="stat_card">
+                                <Text class="label_cap" content="SERVICES" />
+                                <Text class="stat_num" content="{services_count}" />
+                            </Column>
+                            <Column class="stat_card">
+                                <Text class="label_cap" content="PROJECTS" />
+                                <Text class="stat_num_g" content="{projects_count}" />
+                            </Column>
+                        </Row>
+                    </Row>
+
+                    <Scrollable direction="vertical" class="scroll_fill">
+                        <Column class="grid">
+                            <ForEach items="service_rows" var="r">
+                                <Row class="card_row">
+                                    <ForEach items="r.cards" var="c">
+                                        <if cond="{c.filler}" equals="1">
+                                            <Column class="card_filler" />
+                                        </if>
+                                        <else>
+                                            <Column class="card">
+                                                <Row class="card_head">
+                                                    <Text class="card_name" content="{c.name}" />
+                                                    <Row class="badge">
+                                                        <Text class="state_dot" content="●" color="{c.status_color}" />
+                                                        <Text class="badge_lbl" content="{c.status_label}" color="{c.status_color}" />
+                                                    </Row>
+                                                </Row>
+                                                <Text class="muted" content="{c.project} · :{c.port}" />
+                                                <Rule />
+                                                <Row class="card_stats">
+                                                    <Column class="card_stat">
+                                                        <Text class="label_cap" content="CPU" />
+                                                        <Text class="card_stat_num" content="{c.cpu}" />
+                                                    </Column>
+                                                    <Column class="card_stat">
+                                                        <Text class="label_cap" content="MEM" />
+                                                        <Text class="card_stat_num" content="{c.mem}" />
+                                                    </Column>
+                                                </Row>
+                                            </Column>
+                                        </else>
+                                    </ForEach>
+                                </Row>
+                            </ForEach>
+                        </Column>
+                    </Scrollable>
+                </Column>
+            </if>
+            <else>
+                <Column class="content_center">
+                    <Text class="title" content="{view}" />
+                    <Text class="subtitle" content="Tela em construção nesta versão da UI glacier." />
+                </Column>
+            </else>
         </else>
     </Column>
 </Row>
