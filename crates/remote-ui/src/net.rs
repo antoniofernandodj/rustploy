@@ -13,7 +13,7 @@ use crate::rwp;
 use chrono::{Local, Utc};
 use glacier_ui::EngineMessage;
 use iced::futures::{SinkExt, Stream};
-use shared::protocol::{LogEntry, LogStream};
+use shared::protocol::{BuildLogLine, LogEntry, LogStream};
 use shared::{
     Command, ContainerMetricsPoint, DeploymentSummary, DeployState, EnvVar, EnvVarValue, Event,
     Healthcheck, HealthcheckKind, Project, Response, RwpFrame, RwpReply, Service, ServiceSource,
@@ -275,6 +275,23 @@ async fn apply_env_op(
         Response::Err { code, message } => anyhow::bail!("{code}: {message}"),
         other => anyhow::bail!("resposta inesperada para ServiceUpdate: {other:?}"),
     }
+}
+
+/// Fetches the build log of a single deployment for the Deployments tab.
+pub async fn fetch_build_logs(
+    addr: String,
+    token: Option<String>,
+    deployment_id: String,
+) -> Vec<(String, String)> {
+    let lines = match run_command(addr, token, Command::GetBuildLogs { deployment_id: deployment_id.clone() }).await {
+        Ok(Response::BuildLogs(l)) => l,
+        _ => Vec::new(),
+    };
+    vec![
+        ("dep_selected".into(), deployment_id),
+        ("dep_build_logs".into(), build_logs_json(&lines)),
+        ("dep_build_count".into(), lines.len().to_string()),
+    ]
 }
 
 /// Long-lived polling + event stream feeding the context. Yields
@@ -650,6 +667,7 @@ fn deployments_detail_json(list: &[shared::Deployment]) -> String {
             let (label, color) = state_label_color(&d.state);
             serde_json::json!({
                 "id": d.id.chars().take(12).collect::<String>(),
+                "id_full": d.id,
                 "image": d.image,
                 "state_label": label,
                 "state_color": color,
@@ -698,6 +716,25 @@ fn logs_json(logs: &[LogEntry]) -> String {
 /// Same as [`logs_json`] over the live ring buffer.
 fn logs_json_buf(buf: &VecDeque<LogEntry>) -> String {
     logs_json_iter(buf.iter())
+}
+
+/// Build log lines (one-shot) as JSON rows, colored by stream.
+fn build_logs_json(lines: &[BuildLogLine]) -> String {
+    let rows: Vec<serde_json::Value> = lines
+        .iter()
+        .map(|e| {
+            let color = match e.stream {
+                LogStream::Stderr => "#F85149",
+                LogStream::Stdout => "#9DA7B3",
+            };
+            serde_json::json!({
+                "time": e.timestamp.with_timezone(&Local).format("%H:%M:%S").to_string(),
+                "line": e.line,
+                "color": color,
+            })
+        })
+        .collect();
+    serde_json::Value::Array(rows).to_string()
 }
 
 fn logs_json_iter<'a>(it: impl Iterator<Item = &'a LogEntry>) -> String {

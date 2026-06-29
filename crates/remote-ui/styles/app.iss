@@ -108,7 +108,11 @@
 .env_list_scroll { width: fill; height: fill; }
 .env_editor    { width: fill; height: 200; padding: 10 12; font: mono; }
 .col_dep_id    { width: 130; }
+.col_dep_start { width: fill; }
 .dep_image     { size: 11; color: #6E7681; padding: 2 0 0 0; }
+.dep_wrap      { width: fill; height: fill; spacing: 8; }
+.dep_list_scroll { width: fill; height: 240; }
+.dep_logs_btn  { color: #21262D; padding: 5 12; }
 .log_panel     { width: fill; height: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 14 16; spacing: 8; }
 .log_body      { width: fill; spacing: 2; }
 .log_line      { width: fill; spacing: 12; }

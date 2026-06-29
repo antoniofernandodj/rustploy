@@ -137,6 +137,9 @@ impl Component for Root {
         ctx.set("svc_deployments", "[]");
         ctx.set("svc_deployments_count", "0");
         ctx.set("svc_action_msg", "");
+        ctx.set("dep_selected", "");
+        ctx.set("dep_build_logs", "[]");
+        ctx.set("dep_build_count", "0");
         ctx.set("env_new_key", "");
         ctx.set("env_new_val", "");
         ctx.set("env_text_open", "false");
@@ -276,6 +279,7 @@ impl Component for Root {
                     ctx.set("tab", "general");
                     ctx.set("svc_loading", "true");
                     ctx.set("svc_error", "");
+                    ctx.set("dep_selected", "");
                     let (addr, token, sid) =
                         (self.addr.clone(), self.token.clone(), id.to_string());
                     if !addr.is_empty() {
@@ -286,6 +290,20 @@ impl Component for Root {
                 // `tab:<name>` — switch the active sub-tab in the detail view.
                 if let Some(tab) = action.strip_prefix("tab:") {
                     ctx.set("tab", tab);
+                    return;
+                }
+                // `dep_logs:<id>` — load a deployment's build log.
+                if let Some(id) = action.strip_prefix("dep_logs:") {
+                    ctx.set("dep_selected", id);
+                    ctx.set("dep_build_logs", "[]");
+                    ctx.set("dep_build_count", "0");
+                    if !self.addr.is_empty() {
+                        ctx.perform(crate::net::fetch_build_logs(
+                            self.addr.clone(),
+                            self.token.clone(),
+                            id.to_string(),
+                        ));
+                    }
                     return;
                 }
                 // `env_del:<key>` — remove an environment variable.

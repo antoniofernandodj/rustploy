@@ -29,8 +29,10 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
   `templates/service.xml` (importado no `shell.xml`).
 - **Abas do detail** (9 no remote-client; faltam só Patches): General/Connection/
   Environment/Domains/Deployments/Healthcheck/Logs/Advanced. Switch via `<if>`
-  independentes (sem else-chain). Deployments usa `DeployHistory`. Domains/
-  Advanced são leitura do spec.
+  independentes (sem else-chain). Deployments usa `DeployHistory`; clicar
+  "Build log" numa linha (`dep_logs:{id_full}`) → `net::fetch_build_logs`
+  (`GetBuildLogs`, one-shot) preenche `dep_build_logs` e mostra o painel.
+  Domains/Advanced são leitura do spec.
 - **Edição de env vars**: aba Environment tem (a) form Adicionar (KEY+value) e ✕
   por linha → `net::run_env_op` (`ServiceGet` → muta `env_vars` → `ServiceUpdate`
   → re-fetch); (b) **editor `.env`** colapsável: botão `.env`/`Fechar .env`
