@@ -16,8 +16,8 @@ use iced::futures::{SinkExt, Stream};
 use shared::protocol::{BuildLogLine, LogEntry, LogStream};
 use shared::{
     Command, ContainerMetricsPoint, DeploymentSummary, DeployState, EnvVar, EnvVarValue, Event,
-    Healthcheck, HealthcheckKind, Project, Response, RwpFrame, RwpReply, Service, ServiceSource,
-    ServiceStatus, SystemMetricsPoint,
+    GitSource, Healthcheck, HealthcheckKind, Project, Response, RwpFrame, RwpReply, Service,
+    ServiceSource, ServiceStatus, SystemMetricsPoint, looks_like_git_url,
 };
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -58,6 +58,21 @@ pub async fn run_service_action(
     let mut pairs = fetch_service_detail(addr, token, service_id).await;
     pairs.push(("svc_action_msg".into(), msg));
     pairs
+}
+
+/// Editable General-tab fields extracted from a `ServiceSource`.
+#[derive(Default)]
+struct GeneralFields {
+    repo_url: String,
+    branch: String,
+    username: String,
+    credentials: String,
+    build_path: String,
+    watch_paths: String,
+    submodules: bool,
+    dockerfile: String,
+    context_path: String,
+    build_stage: String,
 }
 
 /// One-shot fetch of everything the Service detail screen needs: the full
@@ -118,6 +133,27 @@ async fn fetch_service_detail_inner(
     let spec = &svc.spec;
     let run_args = if spec.run_args.is_empty() { "—".to_string() } else { spec.run_args.join(" ") };
 
+    // General (source) editable fields.
+    let g = match &spec.source {
+        ServiceSource::Git(g) => GeneralFields {
+            repo_url: g.url.clone(),
+            branch: g.branch.clone(),
+            username: g.username.clone().unwrap_or_default(),
+            credentials: g.credentials.clone().unwrap_or_default(),
+            build_path: g.root_path.clone(),
+            watch_paths: g.watch_paths.join(", "),
+            submodules: g.submodules,
+            dockerfile: g.dockerfile_path.clone(),
+            context_path: g.build_context.clone(),
+            build_stage: g.build_stage.clone().unwrap_or_default(),
+        },
+        ServiceSource::Registry { image } => GeneralFields {
+            repo_url: image.clone(),
+            ..GeneralFields::default()
+        },
+        ServiceSource::Compose(_) => GeneralFields::default(),
+    };
+
     // Editable form fields (Domains / Healthcheck / Advanced) — empty when unset.
     let hc = &spec.healthcheck;
     let (hc_kind, hc_path, hc_status) = match &hc.kind {
@@ -170,6 +206,18 @@ async fn fetch_service_detail_inner(
         ("f_hc_start".into(), hc.start_period_secs.to_string()),
         ("f_replicas".into(), spec.replicas.to_string()),
         ("f_run_command".into(), spec.run_command.clone().unwrap_or_default()),
+        // General (source) fields.
+        ("f_repo_url".into(), g.repo_url),
+        ("f_branch".into(), g.branch),
+        ("f_username".into(), g.username),
+        ("f_credentials".into(), g.credentials),
+        ("f_build_path".into(), g.build_path),
+        ("f_watch_paths".into(), g.watch_paths),
+        ("f_submodules".into(), if g.submodules { "true" } else { "false" }.into()),
+        ("f_dockerfile".into(), g.dockerfile),
+        ("f_context_path".into(), g.context_path),
+        ("f_build_stage".into(), g.build_stage),
+        ("f_gen_port".into(), spec.port.to_string()),
     ])
 }
 
@@ -238,6 +286,19 @@ pub enum SpecOp {
         start_period: String,
     },
     Advanced { replicas: String, run_command: String },
+    General {
+        repo_url: String,
+        branch: String,
+        username: String,
+        credentials: String,
+        build_path: String,
+        watch_paths: String,
+        submodules: bool,
+        dockerfile: String,
+        context_path: String,
+        build_stage: String,
+        port: String,
+    },
 }
 
 /// Applies a [`SpecOp`] to the service (fetch fresh spec → mutate → update),
@@ -301,6 +362,49 @@ async fn apply_spec_op(
         SpecOp::Advanced { replicas, run_command } => {
             spec.replicas = replicas.trim().parse::<u32>().unwrap_or(1).max(1);
             spec.run_command = trimmed(run_command);
+        }
+        SpecOp::General {
+            repo_url, branch, username, credentials, build_path, watch_paths,
+            submodules, dockerfile, context_path, build_stage, port,
+        } => {
+            if let Ok(p) = port.trim().parse::<u16>() {
+                spec.port = p;
+            }
+            let non_empty = |s: String, d: &str| {
+                let t = s.trim().to_string();
+                if t.is_empty() { d.to_string() } else { t }
+            };
+            // Preserve a connected Git provider when staying on a Git source.
+            let provider_id = match &spec.source {
+                ServiceSource::Git(g) => g.provider_id.clone(),
+                _ => None,
+            };
+            let git = ServiceSource::Git(GitSource {
+                url: repo_url.trim().to_string(),
+                branch: non_empty(branch, "main"),
+                root_path: non_empty(build_path, "."),
+                watch_paths: watch_paths
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect(),
+                submodules,
+                dockerfile_path: non_empty(dockerfile, "Dockerfile"),
+                build_context: non_empty(context_path, "."),
+                build_stage: trimmed(build_stage),
+                credentials: trimmed(credentials),
+                username: trimmed(username),
+                provider_id,
+            });
+            // Registry stays a registry unless the URL clearly points at a repo;
+            // a Git source rebuilds from the form. Compose is left untouched.
+            spec.source = if matches!(spec.source, ServiceSource::Compose(_)) {
+                spec.source.clone()
+            } else if matches!(spec.source, ServiceSource::Git(_)) || looks_like_git_url(repo_url.trim()) {
+                git
+            } else {
+                ServiceSource::Registry { image: repo_url.trim().to_string() }
+            };
         }
     }
     match rwp::rpc(&mut conn, Command::ServiceUpdate { id: service_id.into(), spec }).await? {

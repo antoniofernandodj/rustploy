@@ -176,6 +176,17 @@ impl Component for Root {
         ctx.set("f_hc_start", "");
         ctx.set("f_replicas", "");
         ctx.set("f_run_command", "");
+        ctx.set("f_repo_url", "");
+        ctx.set("f_branch", "");
+        ctx.set("f_username", "");
+        ctx.set("f_credentials", "");
+        ctx.set("f_build_path", "");
+        ctx.set("f_watch_paths", "");
+        ctx.set("f_submodules", "false");
+        ctx.set("f_dockerfile", "");
+        ctx.set("f_context_path", "");
+        ctx.set("f_build_stage", "");
+        ctx.set("f_gen_port", "");
     }
 
     fn update(&mut self, action: &str, value: Option<&str>, ctx: &mut Context) {
@@ -315,6 +326,23 @@ impl Component for Root {
                 let op = crate::net::SpecOp::Advanced {
                     replicas: ctx.get("f_replicas").cloned().unwrap_or_default(),
                     run_command: ctx.get("f_run_command").cloned().unwrap_or_default(),
+                };
+                self.spec_op(ctx, op);
+            }
+            "gen_save" => {
+                let g = |k: &str| ctx.get(k).cloned().unwrap_or_default();
+                let op = crate::net::SpecOp::General {
+                    repo_url: g("f_repo_url"),
+                    branch: g("f_branch"),
+                    username: g("f_username"),
+                    credentials: g("f_credentials"),
+                    build_path: g("f_build_path"),
+                    watch_paths: g("f_watch_paths"),
+                    submodules: ctx.get("f_submodules").map(|v| v == "true").unwrap_or(false),
+                    dockerfile: g("f_dockerfile"),
+                    context_path: g("f_context_path"),
+                    build_stage: g("f_build_stage"),
+                    port: g("f_gen_port"),
                 };
                 self.spec_op(ctx, op);
             }
