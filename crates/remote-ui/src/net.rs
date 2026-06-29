@@ -145,6 +145,7 @@ async fn fetch_service_detail_inner(
         ("svc_env_text_orig".into(), env_dotenv(&spec.env_vars)),
         ("svc_logs".into(), logs_json(&logs)),
         ("svc_logs_count".into(), logs.len().to_string()),
+        ("svc_logs_text".into(), join_log_lines(logs.iter().map(|e| (&e.timestamp, e.line.as_str())))),
         ("svc_deployments".into(), deployments_detail_json(&deployments)),
         ("svc_deployments_count".into(), deployments.len().to_string()),
     ])
@@ -293,6 +294,7 @@ pub async fn fetch_build_logs(
         ("dep_selected".into(), deployment_id),
         ("dep_build_logs".into(), build_logs_json(&lines)),
         ("dep_build_count".into(), lines.len().to_string()),
+        ("dep_build_text".into(), join_log_lines(lines.iter().map(|e| (&e.timestamp, e.line.as_str())))),
     ]
 }
 
@@ -438,11 +440,13 @@ pub fn poll_stream(
                         {
                             let buf: VecDeque<LogEntry> = tail.into_iter().collect();
                             let snapshot = logs_json_buf(&buf);
+                            let text = join_log_lines(buf.iter().map(|e| (&e.timestamp, e.line.as_str())));
                             let count = buf.len().to_string();
                             logs.insert(current.clone(), buf);
                             patch!(vec![
                                 ("svc_logs".into(), snapshot),
                                 ("svc_logs_count".into(), count),
+                                ("svc_logs_text".into(), text),
                             ]);
                         }
                     }
@@ -459,11 +463,13 @@ pub fn poll_stream(
                         {
                             let buf: VecDeque<BuildLogLine> = tail.into_iter().collect();
                             let snapshot = build_logs_json_buf(&buf);
+                            let text = join_log_lines(buf.iter().map(|e| (&e.timestamp, e.line.as_str())));
                             let count = buf.len().to_string();
                             blogs.insert(cur_dep.clone(), buf);
                             patch!(vec![
                                 ("dep_build_logs".into(), snapshot),
                                 ("dep_build_count".into(), count),
+                                ("dep_build_text".into(), text),
                             ]);
                         }
                     }
@@ -488,6 +494,7 @@ pub fn poll_stream(
                             patch!(vec![
                                 ("svc_logs".into(), logs_json_buf(buf)),
                                 ("svc_logs_count".into(), buf.len().to_string()),
+                                ("svc_logs_text".into(), join_log_lines(buf.iter().map(|e| (&e.timestamp, e.line.as_str())))),
                             ]);
                         }
                     }
@@ -504,6 +511,7 @@ pub fn poll_stream(
                             patch!(vec![
                                 ("dep_build_logs".into(), build_logs_json_buf(buf)),
                                 ("dep_build_count".into(), buf.len().to_string()),
+                                ("dep_build_text".into(), join_log_lines(buf.iter().map(|e| (&e.timestamp, e.line.as_str())))),
                             ]);
                         }
                     }
@@ -787,6 +795,16 @@ fn build_logs_json_iter<'a>(it: impl Iterator<Item = &'a BuildLogLine>) -> Strin
         })
         .collect();
     serde_json::Value::Array(rows).to_string()
+}
+
+/// Joins log lines into a plain-text blob (`HH:MM:SS line`) for the selectable
+/// `<TextArea>` view and the "copy all" clipboard action.
+fn join_log_lines<'a>(
+    it: impl Iterator<Item = (&'a chrono::DateTime<Utc>, &'a str)>,
+) -> String {
+    it.map(|(ts, line)| format!("{} {}", ts.with_timezone(&Local).format("%H:%M:%S"), line))
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn logs_json_iter<'a>(it: impl Iterator<Item = &'a LogEntry>) -> String {

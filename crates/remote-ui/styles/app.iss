@@ -107,6 +107,9 @@
 .env_key       { size: 13; bold: true; color: #58A6FF; width: 200; }
 .env_list_scroll { width: fill; height: fill; }
 .env_editor    { width: fill; height: 200; padding: 10 12; font: mono; }
+.log_editor    { width: fill; height: fill; padding: 10 12; font: mono; }
+.label_cap_fill { width: fill; size: 11; bold: true; color: #6E7681; }
+.copy_btn      { color: #21262D; padding: 5 12; }
 .col_dep_id    { width: 130; }
 .col_dep_start { width: fill; }
 .dep_image     { size: 11; color: #6E7681; padding: 2 0 0 0; }

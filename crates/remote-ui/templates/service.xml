@@ -73,12 +73,12 @@
                 </Column>
             </if>
 
-            <!-- Connection -->
+            <!-- Connection (valores copiáveis) -->
             <if cond="{tab}" equals="connection">
                 <Column class="kv_list">
-                    <Row class="kv_row"><Text class="kv_key" content="Container port" /><Text class="kv_val_fill" content="{svc_port}" /></Row>
-                    <Row class="kv_row"><Text class="kv_key" content="Host port" /><Text class="kv_val_fill" content="{svc_host_port}" /></Row>
-                    <Row class="kv_row"><Text class="kv_key" content="Domain" /><Text class="kv_val_fill" content="{svc_domain}" /></Row>
+                    <Row class="kv_row"><Text class="kv_key" content="Container port" /><Text class="kv_val_fill" content="{svc_port}" /><Button class="copy_btn" text="Copiar" onClick="clipboard:svc_port" /></Row>
+                    <Row class="kv_row"><Text class="kv_key" content="Host port" /><Text class="kv_val_fill" content="{svc_host_port}" /><Button class="copy_btn" text="Copiar" onClick="clipboard:svc_host_port" /></Row>
+                    <Row class="kv_row"><Text class="kv_key" content="Domain" /><Text class="kv_val_fill" content="{svc_domain}" /><Button class="copy_btn" text="Copiar" onClick="clipboard:svc_domain" /></Row>
                     <Row class="kv_row"><Text class="kv_key" content="TLS" /><Text class="kv_val_fill" content="{svc_tls}" /></Row>
                     <Row class="kv_row"><Text class="kv_key" content="Database" /><Text class="kv_val_fill" content="{svc_db_kind}" /></Row>
                 </Column>
@@ -160,7 +160,10 @@
                     </Scrollable>
 
                     <if cond="{dep_selected}" not_equals="">
-                        <Text class="label_cap" content="BUILD LOG · {dep_build_count} linhas" />
+                        <Row class="env_head">
+                            <Text class="label_cap_fill" content="BUILD LOG · {dep_build_count} linhas" />
+                            <Button class="tab" text="Copiar tudo" onClick="clipboard:dep_build_text" />
+                        </Row>
                         <Column class="log_panel">
                             <Scrollable direction="vertical" class="scroll_fill">
                                 <Column class="log_body">
@@ -185,20 +188,14 @@
                 </Column>
             </if>
 
-            <!-- Logs -->
+            <!-- Logs (texto selecionável + copiar) -->
             <if cond="{tab}" equals="logs">
                 <Column class="log_panel">
-                    <Text class="muted" content="{svc_logs_count} linhas" />
-                    <Scrollable direction="vertical" class="scroll_fill">
-                        <Column class="log_body">
-                            <ForEach items="svc_logs" var="l">
-                                <Row class="log_line">
-                                    <Text class="log_time" content="{l.time}" />
-                                    <Text class="log_text" content="{l.line}" color="{l.color}" />
-                                </Row>
-                            </ForEach>
-                        </Column>
-                    </Scrollable>
+                    <Row class="env_head">
+                        <Text class="muted_fill" content="{svc_logs_count} linhas — selecione para copiar (Ctrl+C)" />
+                        <Button class="tab" text="Copiar tudo" onClick="clipboard:svc_logs_text" />
+                    </Row>
+                    <TextArea class="log_editor" font="mono" value="svc_logs_text" placeholder="(sem logs — o serviço precisa estar Running)" />
                 </Column>
             </if>
 

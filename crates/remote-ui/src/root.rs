@@ -136,6 +136,8 @@ impl Component for Root {
         ctx.set("svc_env_text", "");
         ctx.set("svc_logs", "[]");
         ctx.set("svc_logs_count", "0");
+        ctx.set("svc_logs_text", "");
+        ctx.set("dep_build_text", "");
         ctx.set("svc_deployments", "[]");
         ctx.set("svc_deployments_count", "0");
         ctx.set("svc_action_msg", "");
