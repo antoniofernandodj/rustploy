@@ -31,9 +31,7 @@
 
         <Button class="connect_btn" text="Connect" onClick="connect" />
 
-        <if cond="{error}" notEquals="">
-            <Text class="err" content="⚠ {error}" />
-        </if>
+        <Text if="{error}" notEquals="" class="err" content="⚠ {error}" />
 
         <Rule />
         <Row class="status_row">

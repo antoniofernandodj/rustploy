@@ -1,6 +1,8 @@
 <Column class="content">
 
     <!-- ── Monitoring ───────────────────────────────────────────────────── -->
+    <!-- Bloco com múltiplos filhos condicionais: precisa da TAG <if>, não do -->
+    <!-- atributo if= (que só condiciona o próprio elemento). -->
     <if cond="{view}" equals="monitoring">
         <Row class="header_row">
             <Column class="header_titles">
@@ -138,16 +140,13 @@
     </if>
 
     <!-- ── Schedules / Support (placeholders) ───────────────────────────── -->
-    <if cond="{view}" equals="schedules">
-        <Column class="content_center">
-            <Text class="title" content="Schedules" />
-            <Text class="subtitle" content="Agendamentos de auto-deploy — em breve." />
-        </Column>
-    </if>
-    <if cond="{view}" equals="support">
-        <Column class="content_center">
-            <Text class="title" content="Support" />
-            <Text class="subtitle" content="github.com/antoniofernandodj/rustploy" />
-        </Column>
-    </if>
+    <Column class="content_center" if="{view}" equals="schedules">
+        <Text class="title" content="Schedules" />
+        <Text class="subtitle" content="Agendamentos de auto-deploy — em breve." />
+    </Column>
+    <Column class="content_center" if="{view}" equals="support">
+        <Text class="title" content="Support" />
+        <Text class="subtitle" content="github.com/antoniofernandodj/rustploy" />
+    </Column>
+
 </Column>

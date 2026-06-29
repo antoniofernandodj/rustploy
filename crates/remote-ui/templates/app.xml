@@ -1,10 +1,6 @@
 <Column class="screen" width="fill" height="fill">
-    <if cond="{screen}" equals="login">
-        <Login />
-    </if>
-    <else>
-        <Shell />
-    </else>
+    <Login if="{screen}" equals="login" />
+    <Shell else />
 </Column>
 
 <link rel="theme" href="crates/remote-ui/styles/theme.json" />

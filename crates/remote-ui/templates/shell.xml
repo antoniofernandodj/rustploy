@@ -8,45 +8,27 @@
         </Column>
 
         <Text class="nav_section" content="DEPLOYMENT OPS" />
-        <if cond="{view}" equals="deployments">
-            <Button class="nav_item_on" text="  Deployments" onClick="nav_deployments" />
-        </if>
-        <else>
-            <Button class="nav_item" text="  Deployments" onClick="nav_deployments" />
-        </else>
-        <if cond="{view}" equals="monitoring">
-            <Button class="nav_item_on" text="  Monitoring" onClick="nav_monitoring" />
-        </if>
-        <else>
-            <Button class="nav_item" text="  Monitoring" onClick="nav_monitoring" />
-        </else>
-        <if cond="{view}" equals="schedules">
-            <Button class="nav_item_on" text="  Schedules" onClick="nav_schedules" />
-        </if>
-        <else>
-            <Button class="nav_item" text="  Schedules" onClick="nav_schedules" />
-        </else>
-        <if cond="{view}" equals="ingress">
-            <Button class="nav_item_on" text="  Ingress" onClick="nav_ingress" />
-        </if>
-        <else>
-            <Button class="nav_item" text="  Ingress" onClick="nav_ingress" />
-        </else>
-        <if cond="{view}" equals="docker">
-            <Button class="nav_item_on" text="  Docker" onClick="nav_docker" />
-        </if>
-        <else>
-            <Button class="nav_item" text="  Docker" onClick="nav_docker" />
-        </else>
+
+        <Button if="{view}" equals="deployments" class="nav_item_on" text="  Deployments" onClick="nav_deployments" />
+        <Button else class="nav_item" text="  Deployments" onClick="nav_deployments" />
+
+        <Button if="{view}" equals="monitoring" class="nav_item_on" text="  Monitoring" onClick="nav_monitoring" />
+        <Button else class="nav_item" text="  Monitoring" onClick="nav_monitoring" />
+
+        <Button if="{view}" equals="schedules" class="nav_item_on" text="  Schedules" onClick="nav_schedules" />
+        <Button else class="nav_item" text="  Schedules" onClick="nav_schedules" />
+
+        <Button if="{view}" equals="ingress" class="nav_item_on" text="  Ingress" onClick="nav_ingress" />
+        <Button else class="nav_item" text="  Ingress" onClick="nav_ingress" />
+
+        <Button if="{view}" equals="docker" class="nav_item_on" text="  Docker" onClick="nav_docker" />
+        <Button else class="nav_item" text="  Docker" onClick="nav_docker" />
 
         <Text class="nav_section" content="MANAGEMENT" />
-        <if cond="{view}" equals="projects">
-            <Button class="nav_item_on" text="  Projects ({projects_count})" onClick="nav_projects" />
-        </if>
-        <else>
-            <Button class="nav_item" text="  Projects ({projects_count})" onClick="nav_projects" />
-        </else>
 
+        <Button if="{view}" equals="projects" class="nav_item_on" text="  Projects ({projects_count})" onClick="nav_projects" />
+
+        <Button else class="nav_item" text="  Projects ({projects_count})" onClick="nav_projects" />
         <Column class="nav_spacer" />
 
         <Rule />
@@ -141,51 +123,42 @@
 
                     <Scrollable direction="vertical" class="scroll_fill">
                         <Column class="grid">
-                            <ForEach items="service_rows" var="r">
-                                <Row class="card_row">
-                                    <ForEach items="r.cards" var="c">
-                                        <if cond="{c.filler}" equals="1">
-                                            <Column class="card_filler" />
-                                        </if>
-                                        <else>
-                                            <Column class="card">
-                                                <Row class="card_head">
-                                                    <Text class="card_name" content="{c.name}" />
-                                                    <Row class="badge">
-                                                        <Text class="state_dot" content="●" color="{c.status_color}" />
-                                                        <Text class="badge_lbl" content="{c.status_label}" color="{c.status_color}" />
-                                                    </Row>
-                                                </Row>
-                                                <Text class="muted" content="{c.project} · :{c.port}" />
-                                                <Rule />
-                                                <Row class="card_stats">
-                                                    <Column class="card_stat">
-                                                        <Text class="label_cap" content="CPU" />
-                                                        <Text class="card_stat_num" content="{c.cpu}" />
-                                                    </Column>
-                                                    <Column class="card_stat">
-                                                        <Text class="label_cap" content="MEM" />
-                                                        <Text class="card_stat_num" content="{c.mem}" />
-                                                    </Column>
-                                                </Row>
-                                                <Button class="card_open" text="Open  ›" onClick="open_service:{c.id}" />
+                            <Row for-each="service_rows" var="r" class="card_row">
+                                <ForEach items="r.cards" var="c">
+                                    <Column if="{c.filler}" equals="1" class="card_filler" />
+
+                                    <Column else class="card">
+                                        <Row class="card_head">
+                                            <Text class="card_name" content="{c.name}" />
+                                            <Row class="badge">
+                                                <Text class="state_dot" content="●" color="{c.status_color}" />
+                                                <Text class="badge_lbl" content="{c.status_label}" color="{c.status_color}" />
+                                            </Row>
+                                        </Row>
+                                        <Text class="muted" content="{c.project} · :{c.port}" />
+                                        <Rule />
+                                        <Row class="card_stats">
+                                            <Column class="card_stat">
+                                                <Text class="label_cap" content="CPU" />
+                                                <Text class="card_stat_num" content="{c.cpu}" />
                                             </Column>
-                                        </else>
-                                    </ForEach>
-                                </Row>
-                            </ForEach>
+                                            <Column class="card_stat">
+                                                <Text class="label_cap" content="MEM" />
+                                                <Text class="card_stat_num" content="{c.mem}" />
+                                            </Column>
+                                        </Row>
+                                        <Button class="card_open" text="Open  ›" onClick="open_service:{c.id}" />
+                                    </Column>
+                                </ForEach>
+                            </Row>
                         </Column>
                     </Scrollable>
                 </Column>
             </if>
             <else>
                 <!-- ── Service detail (img 4) ───────────────────────────── -->
-                <if cond="{view}" equals="service">
-                    <ServiceDetail />
-                </if>
-                <else>
-                    <HomeViews />
-                </else>
+                <ServiceDetail if="{view}" equals="service" />
+                <HomeViews else />
             </else>
         </else>
     </Column>
