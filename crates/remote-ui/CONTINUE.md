@@ -6,11 +6,12 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
 `cargo run -p remote-ui` (paths de template são relativos ao CWD).
 
 ## Estado atual (funcionando)
-- **glacier-ui 0.2.1** publicado no crates.io. Adições sobre a 0.1.2: widgets
-  `Svg/Scrollable/Checkbox/Toggle/Rule`; atributos `font`/`gradient`/`textAlign`;
-  ponte async (`ContextPatch`, `ctx.perform`, `dispatch -> iced::Task`,
-  `Component::subscription` + `GlacierUI::subscription`); `Button` centraliza
-  rótulo via `textAlign`.
+- **glacier-ui 0.2.2** publicado no crates.io. 0.2.2: **fix `if/else` e `ForEach`
+  aninhados dentro de `ForEach`** (antes ambos os ramos de um if/else dentro de
+  um ForEach renderizavam — era o que deixava o grid Projects invisível). 0.2.0:
+  widgets `Svg/Scrollable/Checkbox/Toggle/Rule`; atributos `font`/`gradient`/
+  `textAlign`; ponte async (`ContextPatch`, `ctx.perform`, `dispatch -> Task`,
+  `Component::subscription` + `GlacierUI::subscription`).
 - **Login** (img 5), **Deployments** (img 3), **Projects** (img 2) e
   **Service detail** (img 4) prontos, com dados reais do daemon via polling RWP.
   Persistência de "remember server/token" (`store.rs`).
@@ -27,6 +28,14 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
   `ServiceReload`/`ServiceStop` e re-busca o detail; resultado em
   `svc_action_msg`). Falta ligar Deploy/Stop All do topbar (precisam de
   contexto/seleção global).
+- **Logs ao vivo** (LIVE OUTPUT): o daemon (`logs.rs::stream_loop`) já faz tail
+  de todos os containers rodando e publica `Event::LogLine` no bus, sem precisar
+  de `LogsSubscribe` — então a conexão de eventos (`Subscribe None`) já recebe.
+  `Root` compartilha `selected_service` com o stream via `Arc<Mutex<String>>`
+  (sem reiniciar a subscription ao trocar de serviço). O stream mantém um ring
+  buffer por serviço (`LOG_RING=200`), faz seed do histórico (`LogsGet`) quando
+  a seleção muda, e a cada `LogLine` do serviço selecionado re-emite `svc_logs`.
+  Sai do detail (`nav_*`) → limpa a seleção e para de emitir.
 - **Projects**: grid de cards de serviço (nome, badge de status, CPU%, MEM).
   `net.rs` faz fan-out de `ServiceList` por projeto a cada poll; CPU/MEM vêm do
   stream de eventos (`ContainerMetrics`, publicado p/ todos os serviços rodando
@@ -42,12 +51,9 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
   TODO layout fica nas classes `.iss` (não inline no XML).
 
 ## Próximos passos (em ordem)
-1. **Logs ao vivo no detail**: hoje `LIVE OUTPUT` é um tail one-shot (`LogsGet`)
-   buscado ao abrir/agir. Ligar streaming real (`LogsSubscribe` no stream de
-   eventos → acumular `Event::LogLine` por service e mesclar no `svc_logs`
-   quando `selected_service` casar). Tabs Domains/Environment-edit ainda faltam.
-2. **Monitoring/Schedules/Ingress/Docker/Settings/Support**: telas restantes.
+1. **Monitoring/Schedules/Ingress/Docker/Settings/Support**: telas restantes.
    Topbar Deploy/Stop All ainda inertes (precisam de contexto/seleção global).
+   Tabs Domains/Environment-edit do detail ainda faltam.
 3. Sidebar com ícones SVG (já em `assets/icons/`). Botão gradiente real (hoje
    `<Button>` só cor sólida; gradiente já funciona em containers).
 4. **Fonte mono** do design: JetBrains Mono está em `assets/fonts/` com o

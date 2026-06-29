@@ -19,10 +19,13 @@ use shared::{
     Healthcheck, HealthcheckKind, Project, Response, RwpFrame, RwpReply, Service, ServiceSource,
     ServiceStatus,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex};
 
 /// How many service cards sit side by side in the Projects grid.
 const GRID_COLS: usize = 3;
+/// Max log lines kept per service in the live ring buffer.
+const LOG_RING: usize = 200;
 
 /// One-shot: open a fresh connection, run `cmd`, return the response.
 /// Used by `ctx.perform` action effects (deploy/stop/reload).
@@ -130,7 +133,14 @@ async fn fetch_service_detail_inner(
 
 /// Long-lived polling + event stream feeding the context. Yields
 /// `EngineMessage::ContextPatch` items.
-pub fn poll_stream(addr: String, token: Option<String>) -> impl Stream<Item = EngineMessage> {
+///
+/// `selected` mirrors the service open in the detail view; the live log stream
+/// reads it to decide which `LogLine` events to surface as `svc_logs`.
+pub fn poll_stream(
+    addr: String,
+    token: Option<String>,
+    selected: Arc<Mutex<String>>,
+) -> impl Stream<Item = EngineMessage> {
     iced::stream::channel(64, move |mut output| async move {
         macro_rules! patch {
             ($pairs:expr) => {
@@ -170,6 +180,12 @@ pub fn poll_stream(addr: String, token: Option<String>) -> impl Stream<Item = En
         // Latest per-service container metrics, fed by the live event stream and
         // merged into the Projects grid cards on each poll tick.
         let mut metrics: HashMap<String, ContainerMetricsPoint> = HashMap::new();
+
+        // Live log ring buffer per service, fed by `Event::LogLine`. Only the
+        // selected service's buffer is rendered (`svc_logs`).
+        let mut logs: HashMap<String, VecDeque<LogEntry>> = HashMap::new();
+        // Service whose buffer we last seeded; detects selection changes.
+        let mut seeded: String = String::new();
 
         loop {
             tokio::select! {
@@ -212,11 +228,48 @@ pub fn poll_stream(addr: String, token: Option<String>) -> impl Stream<Item = En
                     if !pairs.is_empty() {
                         patch!(pairs);
                     }
+
+                    // Seed the live buffer from the historical tail whenever the
+                    // selected service changes, so live lines continue from it.
+                    let current = selected.lock().map(|s| s.clone()).unwrap_or_default();
+                    if current != seeded {
+                        seeded = current.clone();
+                        if !current.is_empty()
+                            && let Ok(Response::Logs(tail)) = rwp::rpc(
+                                &mut cmd,
+                                Command::LogsGet { service_id: current.clone(), tail: LOG_RING },
+                            ).await
+                        {
+                            let buf: VecDeque<LogEntry> = tail.into_iter().collect();
+                            let snapshot = logs_json_buf(&buf);
+                            let count = buf.len().to_string();
+                            logs.insert(current.clone(), buf);
+                            patch!(vec![
+                                ("svc_logs".into(), snapshot),
+                                ("svc_logs_count".into(), count),
+                            ]);
+                        }
+                    }
                 }
                 frame = rwp::read_frame::<RwpReply>(&mut evt) => match frame {
                     // Cache the freshest metrics; next poll re-renders the grid.
                     Ok(RwpReply::Event(Event::ContainerMetrics(p))) => {
                         metrics.insert(p.service_id.clone(), p);
+                    }
+                    // Append live log lines; re-render when it's the open service.
+                    Ok(RwpReply::Event(Event::LogLine { service_id, stream, line, timestamp, .. })) => {
+                        let buf = logs.entry(service_id.clone()).or_default();
+                        buf.push_back(LogEntry { stream, line, timestamp });
+                        while buf.len() > LOG_RING {
+                            buf.pop_front();
+                        }
+                        let current = selected.lock().map(|s| s.clone()).unwrap_or_default();
+                        if service_id == current {
+                            patch!(vec![
+                                ("svc_logs".into(), logs_json_buf(buf)),
+                                ("svc_logs_count".into(), buf.len().to_string()),
+                            ]);
+                        }
                     }
                     Ok(_) => { /* other live event: next poll picks up fresh data */ }
                     Err(_) => {
@@ -363,8 +416,16 @@ fn env_json(vars: &[EnvVar]) -> String {
 
 /// Recent log lines as JSON rows, colored by stream.
 fn logs_json(logs: &[LogEntry]) -> String {
-    let rows: Vec<serde_json::Value> = logs
-        .iter()
+    logs_json_iter(logs.iter())
+}
+
+/// Same as [`logs_json`] over the live ring buffer.
+fn logs_json_buf(buf: &VecDeque<LogEntry>) -> String {
+    logs_json_iter(buf.iter())
+}
+
+fn logs_json_iter<'a>(it: impl Iterator<Item = &'a LogEntry>) -> String {
+    let rows: Vec<serde_json::Value> = it
         .map(|e| {
             let color = match e.stream {
                 LogStream::Stderr => "#F85149",

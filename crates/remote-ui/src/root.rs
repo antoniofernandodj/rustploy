@@ -3,6 +3,7 @@
 //! and switch on the `screen`/`view` context keys.
 
 use glacier_ui::{Component, Context, EngineMessage, Template};
+use std::sync::{Arc, Mutex};
 
 #[derive(Default)]
 pub struct Root {
@@ -15,6 +16,9 @@ pub struct Root {
     seq: u64,
     /// Id of the service currently open in the detail view (`view=service`).
     selected_service: String,
+    /// Shared with the network subscription so the live log stream knows which
+    /// service's `LogLine` events to surface, without restarting the stream.
+    selected_shared: Arc<Mutex<String>>,
 }
 
 impl Root {
@@ -161,11 +165,19 @@ impl Component for Root {
                 // `nav_<view>` shorthand from buttons without a value payload.
                 if let Some(view) = action.strip_prefix("nav_") {
                     ctx.set("view", view);
+                    // Leaving the detail view: stop surfacing its live logs.
+                    self.selected_service.clear();
+                    if let Ok(mut sel) = self.selected_shared.lock() {
+                        sel.clear();
+                    }
                     return;
                 }
                 // `open_service:<id>` — open the detail view and fetch its data.
                 if let Some(id) = action.strip_prefix("open_service:") {
                     self.selected_service = id.to_string();
+                    if let Ok(mut sel) = self.selected_shared.lock() {
+                        *sel = id.to_string();
+                    }
                     ctx.set("selected_service", id);
                     ctx.set("view", "service");
                     ctx.set("tab", "general");
@@ -190,7 +202,11 @@ impl Component for Root {
         if self.active && !self.addr.is_empty() {
             iced::Subscription::run_with_id(
                 self.seq,
-                crate::net::poll_stream(self.addr.clone(), self.token.clone()),
+                crate::net::poll_stream(
+                    self.addr.clone(),
+                    self.token.clone(),
+                    self.selected_shared.clone(),
+                ),
             )
         } else {
             iced::Subscription::none()
