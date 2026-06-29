@@ -59,6 +59,21 @@ impl Root {
             op,
         ));
     }
+
+    /// Applies a form-driven spec edit (Domains/Healthcheck/Advanced) and
+    /// refreshes the detail panel.
+    fn spec_op(&self, ctx: &mut Context, op: crate::net::SpecOp) {
+        if self.selected_service.is_empty() || self.addr.is_empty() {
+            return;
+        }
+        ctx.set("svc_action_msg", "salvando…");
+        ctx.perform(crate::net::run_spec_op(
+            self.addr.clone(),
+            self.token.clone(),
+            self.selected_service.clone(),
+            op,
+        ));
+    }
 }
 
 impl Component for Root {
@@ -148,6 +163,19 @@ impl Component for Root {
         ctx.set("env_new_val", "");
         ctx.set("env_text_open", "false");
         ctx.set("svc_env_text_orig", "");
+        // Editable spec form fields.
+        ctx.set("f_domain", "");
+        ctx.set("f_host_port", "");
+        ctx.set("f_tls", "false");
+        ctx.set("f_hc_kind", "tcp");
+        ctx.set("f_hc_path", "");
+        ctx.set("f_hc_status", "");
+        ctx.set("f_hc_interval", "");
+        ctx.set("f_hc_timeout", "");
+        ctx.set("f_hc_retries", "");
+        ctx.set("f_hc_start", "");
+        ctx.set("f_replicas", "");
+        ctx.set("f_run_command", "");
     }
 
     fn update(&mut self, action: &str, value: Option<&str>, ctx: &mut Context) {
@@ -261,6 +289,35 @@ impl Component for Root {
             "svc_stop" => {
                 self.service_action(ctx, |id| shared::Command::ServiceStop { service_id: id });
             }
+            // Save handlers for the editable spec forms.
+            "dom_save" => {
+                let op = crate::net::SpecOp::Domains {
+                    domain: ctx.get("f_domain").cloned().unwrap_or_default(),
+                    host_port: ctx.get("f_host_port").cloned().unwrap_or_default(),
+                    tls: ctx.get("f_tls").map(|v| v == "true").unwrap_or(false),
+                };
+                self.spec_op(ctx, op);
+            }
+            "hc_save" => {
+                let g = |k: &str| ctx.get(k).cloned().unwrap_or_default();
+                let op = crate::net::SpecOp::Healthcheck {
+                    kind: g("f_hc_kind"),
+                    http_path: g("f_hc_path"),
+                    expected_status: g("f_hc_status"),
+                    interval: g("f_hc_interval"),
+                    timeout: g("f_hc_timeout"),
+                    retries: g("f_hc_retries"),
+                    start_period: g("f_hc_start"),
+                };
+                self.spec_op(ctx, op);
+            }
+            "adv_save" => {
+                let op = crate::net::SpecOp::Advanced {
+                    replicas: ctx.get("f_replicas").cloned().unwrap_or_default(),
+                    run_command: ctx.get("f_run_command").cloned().unwrap_or_default(),
+                };
+                self.spec_op(ctx, op);
+            }
             _ => {
                 // `nav_<view>` shorthand from buttons without a value payload.
                 if let Some(view) = action.strip_prefix("nav_") {
@@ -300,6 +357,18 @@ impl Component for Root {
                 // `tab:<name>` — switch the active sub-tab in the detail view.
                 if let Some(tab) = action.strip_prefix("tab:") {
                     ctx.set("tab", tab);
+                    return;
+                }
+                // `field:<key>` — generic form input/toggle → set the context key.
+                if let Some(key) = action.strip_prefix("field:") {
+                    if let Some(v) = value {
+                        ctx.set(key, v);
+                    }
+                    return;
+                }
+                // `hckind:<kind>` — pick the healthcheck kind.
+                if let Some(kind) = action.strip_prefix("hckind:") {
+                    ctx.set("f_hc_kind", kind);
                     return;
                 }
                 // `dep_logs:<id>` — load a deployment's build log (and stream it).

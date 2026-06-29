@@ -33,7 +33,16 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
   "Build log" numa linha (`dep_logs:{id_full}`) seleciona o deployment
   (`selected_deploy_shared`) → stream faz seed (`GetBuildLogs`) + acumula
   `Event::BuildLog` **ao vivo** (ring `BUILD_RING=2000`) em `dep_build_logs`.
-  Domains/Advanced são leitura do spec.
+  Cada painel de log tem "Copiar tudo" (`clipboard:` + `*_text` plano).
+- **Formulários editáveis** (Domains/Healthcheck/Advanced): campos `f_*`
+  populados no fetch, inputs com `onChange="field:<key>"` (handler genérico que
+  faz `ctx.set`), Toggle TLS, seletor de kind (`hckind:<k>`), Save → `SpecOp`
+  (`net::run_spec_op`: `ServiceGet` → muta spec → `ServiceUpdate` → re-fetch).
+  **General** (source provider/build engine) ainda é leitura — é form de wizard
+  (Git vs Registry + provider), o mais complexo, deixado por último.
+- **Copiar / selecionar**: glacier 0.2.4 tem ação `clipboard:<key>`. Aba Logs é
+  um `<TextArea value="svc_logs_text">` (selecionável/Ctrl+C) + "Copiar tudo";
+  Connection tem "Copiar" por valor (`clipboard:svc_port` etc.).
 - **Edição de env vars**: aba Environment tem (a) form Adicionar (KEY+value) e ✕
   por linha → `net::run_env_op` (`ServiceGet` → muta `env_vars` → `ServiceUpdate`
   → re-fetch); (b) **editor `.env`** colapsável: botão `.env`/`Fechar .env`
@@ -80,13 +89,13 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
   `theme.json`. TODO layout fica nas classes `.iss` (não inline no XML).
 
 ## Próximos passos (em ordem)
-1. **Formulários editáveis com Save** nas abas Domains/Healthcheck/Advanced
-   (hoje leitura). Agora dá com `TextInput`/`TextArea` + `ServiceUpdate` (já há
-   `net::run_env_op` como molde; generalizar p/ um spec-update). Falta tb a aba
-   **Patches** do remote-client.
-2. **Schedules**: sem backend ainda (placeholder). Settings só tem Web Server —
-   o remote-client tem mais sub-telas (Git/Registry/Certs…), quase todas
-   placeholder lá também.
+1. **General editável** (source provider/build engine): form estilo wizard —
+   Git (provider/url/branch/dockerfile/context) vs Registry (image). Reusar
+   `SpecOp`/`run_spec_op`. Inclui integração com Git providers (`GitProviderList`,
+   OAuth). É o maior pedaço restante das abas do detail.
+2. **Aba Patches** do remote-client; **Schedules** sem backend (placeholder).
+   Settings só tem Web Server (remote-client tem Git/Registry/Certs… quase todas
+   placeholder lá também).
    Topbar Deploy/Stop All ainda inertes (precisam de contexto/seleção global).
    Tabs Domains/Environment-edit do detail ainda faltam.
 3. Sidebar com ícones SVG (já em `assets/icons/`). Botão gradiente real (hoje

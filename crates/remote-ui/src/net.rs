@@ -118,6 +118,15 @@ async fn fetch_service_detail_inner(
     let spec = &svc.spec;
     let run_args = if spec.run_args.is_empty() { "—".to_string() } else { spec.run_args.join(" ") };
 
+    // Editable form fields (Domains / Healthcheck / Advanced) — empty when unset.
+    let hc = &spec.healthcheck;
+    let (hc_kind, hc_path, hc_status) = match &hc.kind {
+        HealthcheckKind::None => ("none", String::new(), String::new()),
+        HealthcheckKind::Tcp => ("tcp", String::new(), String::new()),
+        HealthcheckKind::DockerNative => ("docker", String::new(), String::new()),
+        HealthcheckKind::Http { path, expected_status } => ("http", path.clone(), expected_status.to_string()),
+    };
+
     Ok(vec![
         ("svc_loading".into(), "false".into()),
         ("svc_error".into(), String::new()),
@@ -148,6 +157,19 @@ async fn fetch_service_detail_inner(
         ("svc_logs_text".into(), join_log_lines(logs.iter().map(|e| (&e.timestamp, e.line.as_str())))),
         ("svc_deployments".into(), deployments_detail_json(&deployments)),
         ("svc_deployments_count".into(), deployments.len().to_string()),
+        // Editable fields.
+        ("f_domain".into(), spec.domain.clone().unwrap_or_default()),
+        ("f_host_port".into(), spec.host_port.map(|p| p.to_string()).unwrap_or_default()),
+        ("f_tls".into(), if spec.tls_enabled { "true" } else { "false" }.into()),
+        ("f_hc_kind".into(), hc_kind.into()),
+        ("f_hc_path".into(), hc_path),
+        ("f_hc_status".into(), hc_status),
+        ("f_hc_interval".into(), hc.interval_secs.to_string()),
+        ("f_hc_timeout".into(), hc.timeout_secs.to_string()),
+        ("f_hc_retries".into(), hc.retries.to_string()),
+        ("f_hc_start".into(), hc.start_period_secs.to_string()),
+        ("f_replicas".into(), spec.replicas.to_string()),
+        ("f_run_command".into(), spec.run_command.clone().unwrap_or_default()),
     ])
 }
 
@@ -200,6 +222,92 @@ pub async fn save_settings(
         Err(e) => format!("erro: {e}"),
     };
     vec![("settings_msg".into(), msg)]
+}
+
+/// A form-driven edit to a service spec (Domains / Healthcheck / Advanced tabs).
+/// Fields arrive as strings from the UI and are parsed here.
+pub enum SpecOp {
+    Domains { domain: String, host_port: String, tls: bool },
+    Healthcheck {
+        kind: String,
+        http_path: String,
+        expected_status: String,
+        interval: String,
+        timeout: String,
+        retries: String,
+        start_period: String,
+    },
+    Advanced { replicas: String, run_command: String },
+}
+
+/// Applies a [`SpecOp`] to the service (fetch fresh spec → mutate → update),
+/// then re-fetches the detail so the panel reflects the change.
+pub async fn run_spec_op(
+    addr: String,
+    token: Option<String>,
+    service_id: String,
+    op: SpecOp,
+) -> Vec<(String, String)> {
+    let msg = match apply_spec_op(&addr, token.as_deref(), &service_id, op).await {
+        Ok(_) => "salvo".to_string(),
+        Err(e) => format!("erro: {e}"),
+    };
+    let mut pairs = fetch_service_detail(addr, token, service_id).await;
+    pairs.push(("svc_action_msg".into(), msg));
+    pairs
+}
+
+async fn apply_spec_op(
+    addr: &str,
+    token: Option<&str>,
+    service_id: &str,
+    op: SpecOp,
+) -> anyhow::Result<()> {
+    let mut conn = rwp::connect(addr, token).await?;
+    let svc = match rwp::rpc(&mut conn, Command::ServiceGet { id: service_id.into() }).await? {
+        Response::Service(s) => s,
+        other => anyhow::bail!("resposta inesperada para ServiceGet: {other:?}"),
+    };
+    let mut spec = svc.spec;
+    let trimmed = |s: String| {
+        let t = s.trim().to_string();
+        if t.is_empty() { None } else { Some(t) }
+    };
+    match op {
+        SpecOp::Domains { domain, host_port, tls } => {
+            spec.domain = trimmed(domain);
+            spec.host_port = host_port.trim().parse::<u16>().ok();
+            spec.tls_enabled = tls;
+        }
+        SpecOp::Healthcheck { kind, http_path, expected_status, interval, timeout, retries, start_period } => {
+            let cur = &spec.healthcheck;
+            let num = |s: String, d: u32| s.trim().parse::<u32>().unwrap_or(d);
+            spec.healthcheck = Healthcheck {
+                kind: match kind.as_str() {
+                    "none" => HealthcheckKind::None,
+                    "http" => HealthcheckKind::Http {
+                        path: if http_path.trim().is_empty() { "/".into() } else { http_path.trim().into() },
+                        expected_status: expected_status.trim().parse::<u16>().unwrap_or(200),
+                    },
+                    "docker" => HealthcheckKind::DockerNative,
+                    _ => HealthcheckKind::Tcp,
+                },
+                interval_secs: num(interval, cur.interval_secs),
+                timeout_secs: num(timeout, cur.timeout_secs),
+                retries: num(retries, cur.retries),
+                start_period_secs: num(start_period, cur.start_period_secs),
+            };
+        }
+        SpecOp::Advanced { replicas, run_command } => {
+            spec.replicas = replicas.trim().parse::<u32>().unwrap_or(1).max(1);
+            spec.run_command = trimmed(run_command);
+        }
+    }
+    match rwp::rpc(&mut conn, Command::ServiceUpdate { id: service_id.into(), spec }).await? {
+        Response::Ok | Response::Service(_) => Ok(()),
+        Response::Err { code, message } => anyhow::bail!("{code}: {message}"),
+        other => anyhow::bail!("resposta inesperada para ServiceUpdate: {other:?}"),
+    }
 }
 
 /// An edit to a service's environment variables.

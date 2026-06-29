@@ -125,12 +125,18 @@
                 </Column>
             </if>
 
-            <!-- Domains -->
+            <!-- Domains (editável) -->
             <if cond="{tab}" equals="domains">
-                <Column class="kv_list">
-                    <Row class="kv_row"><Text class="kv_key" content="Domain" /><Text class="kv_val_fill" content="{svc_domain}" /></Row>
-                    <Row class="kv_row"><Text class="kv_key" content="Host port" /><Text class="kv_val_fill" content="{svc_host_port}" /></Row>
-                    <Row class="kv_row"><Text class="kv_key" content="TLS" /><Text class="kv_val_fill" content="{svc_tls}" /></Row>
+                <Column class="form_panel">
+                    <Text class="label_cap" content="DOMÍNIO" />
+                    <TextInput class="field_input" placeholder="app.exemplo.com" value="f_domain" onChange="field:f_domain" />
+                    <Text class="label_cap" content="HOST PORT (externa, opcional)" />
+                    <TextInput class="field_input" placeholder="(padrão do serviço)" value="f_host_port" onChange="field:f_host_port" />
+                    <Toggle label="  HTTPS / TLS" checked="f_tls" onToggle="field:f_tls" />
+                    <Row class="env_add">
+                        <Button class="btn_primary" text="Save" onClick="dom_save" />
+                        <Text class="muted" content="{svc_action_msg}" />
+                    </Row>
                 </Column>
             </if>
 
@@ -180,11 +186,38 @@
                 </Column>
             </if>
 
-            <!-- Healthcheck -->
+            <!-- Healthcheck (editável) -->
             <if cond="{tab}" equals="healthcheck">
-                <Column class="panel_pad">
-                    <Text class="label_cap" content="HEALTHCHECK" />
-                    <Text class="kv_val" content="{svc_hc}" />
+                <Column class="form_panel">
+                    <Text class="label_cap" content="KIND" />
+                    <Row class="tabs">
+                        <if cond="{f_hc_kind}" equals="none"><Button class="tab_on" text="None" onClick="hckind:none" /></if>
+                        <else><Button class="tab" text="None" onClick="hckind:none" /></else>
+                        <if cond="{f_hc_kind}" equals="tcp"><Button class="tab_on" text="Tcp" onClick="hckind:tcp" /></if>
+                        <else><Button class="tab" text="Tcp" onClick="hckind:tcp" /></else>
+                        <if cond="{f_hc_kind}" equals="http"><Button class="tab_on" text="Http" onClick="hckind:http" /></if>
+                        <else><Button class="tab" text="Http" onClick="hckind:http" /></else>
+                        <if cond="{f_hc_kind}" equals="docker"><Button class="tab_on" text="Docker" onClick="hckind:docker" /></if>
+                        <else><Button class="tab" text="Docker" onClick="hckind:docker" /></else>
+                    </Row>
+                    <if cond="{f_hc_kind}" equals="http">
+                        <Text class="label_cap" content="HTTP PATH" />
+                        <TextInput class="field_input" placeholder="/health" value="f_hc_path" onChange="field:f_hc_path" />
+                        <Text class="label_cap" content="EXPECTED STATUS" />
+                        <TextInput class="field_input" placeholder="200" value="f_hc_status" onChange="field:f_hc_status" />
+                    </if>
+                    <Row class="hc_grid">
+                        <Column class="hc_field"><Text class="label_cap" content="INTERVAL (s)" /><TextInput class="field_input" value="f_hc_interval" onChange="field:f_hc_interval" /></Column>
+                        <Column class="hc_field"><Text class="label_cap" content="TIMEOUT (s)" /><TextInput class="field_input" value="f_hc_timeout" onChange="field:f_hc_timeout" /></Column>
+                    </Row>
+                    <Row class="hc_grid">
+                        <Column class="hc_field"><Text class="label_cap" content="RETRIES" /><TextInput class="field_input" value="f_hc_retries" onChange="field:f_hc_retries" /></Column>
+                        <Column class="hc_field"><Text class="label_cap" content="START PERIOD (s)" /><TextInput class="field_input" value="f_hc_start" onChange="field:f_hc_start" /></Column>
+                    </Row>
+                    <Row class="env_add">
+                        <Button class="btn_primary" text="Save" onClick="hc_save" />
+                        <Text class="muted" content="{svc_action_msg}" />
+                    </Row>
                 </Column>
             </if>
 
@@ -199,12 +232,18 @@
                 </Column>
             </if>
 
-            <!-- Advanced -->
+            <!-- Advanced (editável) -->
             <if cond="{tab}" equals="advanced">
-                <Column class="kv_list">
-                    <Row class="kv_row"><Text class="kv_key" content="Replicas" /><Text class="kv_val_fill" content="{svc_replicas}" /></Row>
-                    <Row class="kv_row"><Text class="kv_key" content="Run command" /><Text class="kv_val_fill" content="{svc_run_command}" /></Row>
-                    <Row class="kv_row"><Text class="kv_key" content="Run args" /><Text class="kv_val_fill" content="{svc_run_args}" /></Row>
+                <Column class="form_panel">
+                    <Text class="label_cap" content="REPLICAS" />
+                    <TextInput class="field_input" placeholder="1" value="f_replicas" onChange="field:f_replicas" />
+                    <Text class="label_cap" content="RUN COMMAND" />
+                    <TextInput class="field_input" placeholder="(padrão da imagem)" value="f_run_command" onChange="field:f_run_command" />
+                    <Text class="muted" content="Run args atuais: {svc_run_args}" />
+                    <Row class="env_add">
+                        <Button class="btn_primary" text="Save" onClick="adv_save" />
+                        <Text class="muted" content="{svc_action_msg}" />
+                    </Row>
                 </Column>
             </if>
         </Column>
