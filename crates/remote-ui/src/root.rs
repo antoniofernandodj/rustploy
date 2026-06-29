@@ -127,6 +127,8 @@ impl Component for Root {
         ctx.set("svc_action_msg", "");
         ctx.set("env_new_key", "");
         ctx.set("env_new_val", "");
+        ctx.set("env_text_open", "false");
+        ctx.set("svc_env_text_orig", "");
     }
 
     fn update(&mut self, action: &str, value: Option<&str>, ctx: &mut Context) {
@@ -244,9 +246,23 @@ impl Component for Root {
                     self.env_op(ctx, crate::net::EnvOp::Delete { key: key.to_string() });
                     return;
                 }
+                // `env_text_toggle` — open/close the `.env` editor.
+                if action == "env_text_toggle" {
+                    let open = ctx.get("env_text_open").map(|v| v == "true").unwrap_or(false);
+                    ctx.set("env_text_open", if open { "false" } else { "true" });
+                    return;
+                }
+                // `env_text_cancel` — close the editor and discard edits.
+                if action == "env_text_cancel" {
+                    let orig = ctx.get("svc_env_text_orig").cloned().unwrap_or_default();
+                    ctx.set("svc_env_text", orig);
+                    ctx.set("env_text_open", "false");
+                    return;
+                }
                 // `env_import` — replace all vars with the edited `.env` blob.
                 if action == "env_import" {
                     let text = ctx.get("svc_env_text").cloned().unwrap_or_default();
+                    ctx.set("env_text_open", "false");
                     self.env_op(ctx, crate::net::EnvOp::ImportDotenv(text));
                     return;
                 }

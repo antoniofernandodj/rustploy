@@ -90,6 +90,12 @@
                     <Row class="env_head">
                         <Text class="muted_fill" content="{svc_env_count} variável(eis)" />
                         <Button class="tab" text="Exportar .env" onClick="env_export" />
+                        <if cond="{env_text_open}" equals="true">
+                            <Button class="tab_on" text="Fechar .env" onClick="env_text_toggle" />
+                        </if>
+                        <else>
+                            <Button class="tab" text=".env" onClick="env_text_toggle" />
+                        </else>
                     </Row>
                     <Row class="env_add">
                         <TextInput class="env_in_key" placeholder="KEY" value="env_new_key" onChange="env_new_key_changed" />
@@ -108,13 +114,14 @@
                         </Column>
                     </Scrollable>
 
-                    <Row class="env_head">
-                        <Text class="label_cap" content=".ENV — EDITAR (IMPORTAR SUBSTITUI TUDO)" />
-                    </Row>
-                    <TextArea class="env_editor" font="mono" value="svc_env_text" placeholder="KEY=VALUE   (# comentário)" />
-                    <Row class="env_add">
-                        <Button class="btn_primary" text="Importar .env" onClick="env_import" />
-                    </Row>
+                    <if cond="{env_text_open}" equals="true">
+                        <Text class="muted" content="Cole/edite no formato KEY=VALUE (# comentário). Importar substitui todas as variáveis." />
+                        <TextArea class="env_editor" font="mono" value="svc_env_text" placeholder="KEY=VALUE   (# comentário)" />
+                        <Row class="env_add">
+                            <Button class="btn_primary" text="Importar" onClick="env_import" />
+                            <Button class="btn_ghost" text="Cancelar" onClick="env_text_cancel" />
+                        </Row>
+                    </if>
                 </Column>
             </if>
 

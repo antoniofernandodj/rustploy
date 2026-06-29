@@ -139,6 +139,8 @@ async fn fetch_service_detail_inner(
         ("svc_env".into(), env_json(&spec.env_vars)),
         ("svc_env_count".into(), spec.env_vars.len().to_string()),
         ("svc_env_text".into(), env_dotenv(&spec.env_vars)),
+        // Pristine copy so the editor's Cancel can discard edits offline.
+        ("svc_env_text_orig".into(), env_dotenv(&spec.env_vars)),
         ("svc_logs".into(), logs_json(&logs)),
         ("svc_logs_count".into(), logs.len().to_string()),
         ("svc_deployments".into(), deployments_detail_json(&deployments)),

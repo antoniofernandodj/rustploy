@@ -33,10 +33,12 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
   Advanced são leitura do spec.
 - **Edição de env vars**: aba Environment tem (a) form Adicionar (KEY+value) e ✕
   por linha → `net::run_env_op` (`ServiceGet` → muta `env_vars` → `ServiceUpdate`
-  → re-fetch); (b) **editor `.env`** (`<TextArea value="svc_env_text">`) com
-  "Importar .env" → `EnvOp::ImportDotenv` (parse `KEY=VALUE`, `#` comentário,
-  `<secret:NAME>` volta a Secret) que **substitui todas** as vars; e "Exportar
-  .env" grava `~/<svc>.env`. "Adicionar" com KEY existente substitui (= editar).
+  → re-fetch); (b) **editor `.env`** colapsável: botão `.env`/`Fechar .env`
+  (`env_text_open`) revela um `<TextArea value="svc_env_text">` com botões
+  Importar (`EnvOp::ImportDotenv`: parse `KEY=VALUE`, `#` comentário,
+  `<secret:NAME>` volta a Secret, **substitui todas**) e Cancelar (descarta via
+  `svc_env_text_orig`, cópia pristina salva no fetch); e "Exportar .env" grava
+  `~/<svc>.env`. "Adicionar" com KEY existente substitui (= editar).
 - **Ações reais**: botões Deploy/Reload/Rebuild/Stop do detail ligados via
   `Root::service_action` → `net::run_service_action` (roda `DeployStart`/
   `ServiceReload`/`ServiceStop` e re-busca o detail; resultado em

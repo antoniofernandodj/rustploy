@@ -104,7 +104,7 @@
 .env_in_val    { width: fill; padding: 9 12; }
 .env_del       { color: #DA3633; padding: 4 10; }
 .env_key       { size: 13; bold: true; color: #58A6FF; width: 200; }
-.env_list_scroll { width: fill; height: 220; }
+.env_list_scroll { width: fill; height: fill; }
 .env_editor    { width: fill; height: 200; padding: 10 12; font: mono; }
 .col_dep_id    { width: 130; }
 .dep_image     { size: 11; color: #6E7681; padding: 2 0 0 0; }
