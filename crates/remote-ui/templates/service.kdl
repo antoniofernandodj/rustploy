@@ -1,0 +1,459 @@
+Column class="content" {
+
+  // ── Header: nome + estado + ações ──────────────────────────────────
+  Row class="svc_head" {
+    Column class="header_titles" {
+      Row class="svc_title_row" {
+        Button "‹ Projects" class="btn_ghost" onClick="nav_projects"
+        Text "{svc_name}" class="title"
+        Row class="badge" {
+          Text "●" class="state_dot" color="{svc_status_color}"
+          Text "{svc_status_label}" class="badge_lbl" color="{svc_status_color}"
+        }
+      }
+      Text "{svc_project}  ·  {svc_source_kind}" class="subtitle"
+      Text "{svc_action_msg}" if="{svc_action_msg}" not_equals="" class="muted"
+    }
+    Row class="svc_actions" {
+      Button "Deploy" class="btn_primary" onClick="svc_deploy"
+      Button "Reload" class="btn_blue" onClick="svc_reload"
+      Button "Rebuild" class="btn_blue" onClick="svc_rebuild"
+      Button "Stop" class="btn_danger" onClick="svc_stop"
+    }
+  }
+
+  // ── Abas ───────────────────────────────────────────────────────────
+  Row class="tabs" {
+    if cond="{tab}" equals="general" { Button "General" class="tab_on" onClick="tab:general" }
+    else { Button "General" class="tab" onClick="tab:general" }
+
+    if cond="{tab}" equals="connection" { Button "Connection" class="tab_on" onClick="tab:connection" }
+    else { Button "Connection" class="tab" onClick="tab:connection" }
+
+    if cond="{tab}" equals="environment" { Button "Environment" class="tab_on" onClick="tab:environment" }
+    else { Button "Environment" class="tab" onClick="tab:environment" }
+
+    if cond="{tab}" equals="domains" { Button "Domains" class="tab_on" onClick="tab:domains" }
+    else { Button "Domains" class="tab" onClick="tab:domains" }
+
+    if cond="{tab}" equals="deployments" { Button "Deployments" class="tab_on" onClick="tab:deployments" }
+    else { Button "Deployments" class="tab" onClick="tab:deployments" }
+
+    if cond="{tab}" equals="healthcheck" { Button "Healthcheck" class="tab_on" onClick="tab:healthcheck" }
+    else { Button "Healthcheck" class="tab" onClick="tab:healthcheck" }
+
+    if cond="{tab}" equals="logs" { Button "Logs" class="tab_on" onClick="tab:logs" }
+    else { Button "Logs" class="tab" onClick="tab:logs" }
+
+    if cond="{tab}" equals="advanced" { Button "Advanced" class="tab_on" onClick="tab:advanced" }
+    else { Button "Advanced" class="tab" onClick="tab:advanced" }
+  }
+
+  Rule
+
+  // ── Corpo: conteúdo da aba + painel lateral ────────────────────────
+  Row class="svc_body" {
+    Column class="svc_main" {
+      Text "{svc_error}" if="{svc_error}" not_equals="" class="svc_err"
+
+      // General (source / build, editável)
+      Scrollable if="{tab}" equals="general" direction=vertical class="scroll_fill" {
+        Column class="form_panel" {
+
+          Text "PROVIDER" class="label_cap"
+          Row class="tabs" {
+            Button "Git" if="{prov_tab}" equals="git" class="tab_on" onClick="prov:git"
+            Button "Git" else class="tab" onClick="prov:git"
+            if cond="{gitea_count}" not_equals="0" {
+              Button "Gitea" if="{prov_tab}" equals="gitea" class="tab_on" onClick="prov:gitea"
+              Button "Gitea" else class="tab" onClick="prov:gitea"
+            }
+          }
+          Rule
+
+          // ── Sub-aba Git: form de URL/imagem crua ───────────────
+          if cond="{prov_tab}" equals="git" {
+            Text "SOURCE — REPOSITORY URL / IMAGE" class="label_cap"
+            TextInput "github.com/user/repo  ou  nginx:latest" \
+              class="field_input" \
+              value="f_repo_url" \
+              onChange="field:f_repo_url"
+
+            Text "URL de repositório vira Git; caso contrário é imagem de registry." class="muted"
+            Row class="hc_grid" {
+              Column class="hc_field" {
+                Text "BRANCH" class="label_cap"
+                TextInput "main" class="field_input" value="f_branch" onChange="field:f_branch"
+              }
+              Column class="hc_field" {
+                Text "PORT" class="label_cap"
+                TextInput "80" class="field_input" value="f_gen_port" onChange="field:f_gen_port"
+              }
+            }
+            Row class="hc_grid" {
+              Column class="hc_field" {
+                Text "USERNAME" class="label_cap"
+                TextInput "(opcional)" \
+                  class="field_input" \
+                  value="f_username" \
+                  onChange="field:f_username"
+              }
+              Column class="hc_field" {
+                Text "CREDENTIALS (secret)" class="label_cap"
+                TextInput "(opcional)" \
+                  class="field_input" \
+                  value="f_credentials" \
+                  onChange="field:f_credentials"
+              }
+            }
+
+            Text "BUILD PATH (root)" class="label_cap"
+            TextInput "." class="field_input" value="f_build_path" onChange="field:f_build_path"
+            Text "WATCH PATHS (separados por vírgula)" class="label_cap"
+
+            TextInput "src, Cargo.toml" \
+              class="field_input" \
+              value="f_watch_paths" \
+              onChange="field:f_watch_paths"
+            Toggle "  Enable submodules" checked="f_submodules" onToggle="field:f_submodules"
+
+            Text "BUILD ENGINE: DOCKERFILE" class="label_cap"
+            Row class="hc_grid" {
+              Column class="hc_field" {
+                Text "DOCKERFILE" class="label_cap"
+                TextInput "Dockerfile" class="field_input" value="f_dockerfile" onChange="field:f_dockerfile"
+              }
+              Column class="hc_field" {
+                Text "CONTEXT PATH" class="label_cap"
+                TextInput "." class="field_input" value="f_context_path" onChange="field:f_context_path"
+              }
+            }
+
+            Text "BUILD STAGE (opcional)" class="label_cap"
+
+            TextInput "(multi-stage target)" \
+              class="field_input" \
+              value="f_build_stage" \
+              onChange="field:f_build_stage"
+
+            Row class="env_add" {
+              Button "Save" class="btn_primary" onClick="gen_save"
+              Text "{svc_action_msg}" class="muted"
+            }
+          }
+
+          // ── Sub-aba Gitea: picker de conta/repo/branch conectados ─
+          if cond="{prov_tab}" equals="gitea" {
+            Text "Selecione a conta conectada, o repositório e a branch a implantar." class="muted"
+            Text "{gitea_msg}" if="{gitea_msg}" not_equals="" class="muted"
+            Text "CONTA GITEA" class="label_cap"
+            Select \
+              class="select" \
+              options="gitea_providers" \
+              value="gitea_provider_id" \
+              onChange="gitea_provider_pick" \
+              placeholder="selecione a conta" \
+              labelField="display" \
+              valueField="id"
+
+            Text "Conecte contas em Settings → Git." class="muted"
+
+            Text "REPOSITÓRIO" class="label_cap"
+            Select \
+              class="select" \
+              options="gitea_repos" \
+              value="gitea_repo" \
+              onChange="gitea_repo_pick" \
+              placeholder="selecione o repositório" \
+              labelField="full_name" \
+              valueField="full_name"
+
+            Text "BRANCH" class="label_cap"
+            Select \
+              class="select" \
+              options="gitea_branches" \
+              value="f_branch" \
+              onChange="field:f_branch" \
+              placeholder="selecione a branch" \
+              labelField="name" \
+              valueField="name"
+
+            Text "SELEÇÃO ATUAL" class="label_cap"
+            Row class="kv_row" {
+              Text "Repo (clone URL)" class="kv_key"
+              Text "{f_repo_url}" class="kv_val_fill"
+            }
+
+            Text "BUILD" class="label_cap"
+            Row class="hc_grid" {
+              Column class="hc_field" {
+                Text "BUILD PATH (root)" class="label_cap"
+                TextInput "." class="field_input" value="f_build_path" onChange="field:f_build_path"
+              }
+              Column class="hc_field" {
+                Text "PORT" class="label_cap"
+                TextInput "80" class="field_input" value="f_gen_port" onChange="field:f_gen_port"
+              }
+            }
+            Row class="hc_grid" {
+              Column class="hc_field" {
+                Text "DOCKERFILE" class="label_cap"
+                TextInput "Dockerfile" class="field_input" value="f_dockerfile" onChange="field:f_dockerfile"
+              }
+              Column class="hc_field" {
+                Text "CONTEXT PATH" class="label_cap"
+                TextInput "." class="field_input" value="f_context_path" onChange="field:f_context_path"
+              }
+            }
+            Text "WATCH PATHS (separados por vírgula)" class="label_cap"
+            TextInput "src, Cargo.toml" class="field_input" value="f_watch_paths" onChange="field:f_watch_paths"
+            Toggle "  Enable submodules" checked="f_submodules" onToggle="field:f_submodules"
+            Row class="env_add" {
+              Button "Save" class="btn_primary" onClick="gen_save"
+              Text "{svc_action_msg}" class="muted"
+            }
+          }
+        }
+      }
+
+      // Connection (valores copiáveis)
+      Column if="{tab}" equals="connection" class="kv_list" {
+        Row class="kv_row" {
+          Text "Container port" class="kv_key"
+          Text "{svc_port}" class="kv_val_fill"
+          Button "Copiar" class="copy_btn" onClick="clipboard:svc_port"
+        }
+        Row class="kv_row" {
+          Text "Host port" class="kv_key"
+          Text "{svc_host_port}" class="kv_val_fill"
+          Button "Copiar" class="copy_btn" onClick="clipboard:svc_host_port"
+        }
+        Row class="kv_row" {
+          Text "Domain" class="kv_key"
+          Text "{svc_domain}" class="kv_val_fill"
+          Button "Copiar" class="copy_btn" onClick="clipboard:svc_domain"
+        }
+        Row class="kv_row" {
+          Text "TLS" class="kv_key"
+          Text "{svc_tls}" class="kv_val_fill"
+        }
+        Row class="kv_row" {
+          Text "Database" class="kv_key"
+          Text "{svc_db_kind}" class="kv_val_fill"
+        }
+      }
+
+      // Environment
+      Column if="{tab}" equals="environment" class="env_wrap" {
+        Row class="env_head" {
+          Text "{svc_env_count} variável(eis)" class="muted_fill"
+          Button "Exportar .env" class="tab" onClick="env_export"
+          Button "Fechar .env" if="{env_text_open}" equals="true" class="tab_on" onClick="env_text_toggle"
+          Button ".env" else class="tab" onClick="env_text_toggle"
+        }
+        Row class="env_add" {
+          TextInput "KEY" class="env_in_key" value="env_new_key" onChange="env_new_key_changed"
+          TextInput "value" class="env_in_val" value="env_new_val" onChange="env_new_val_changed"
+          Button "Adicionar" class="btn_primary" onClick="env_add"
+        }
+        Scrollable direction=vertical class="env_list_scroll" {
+          Column class="kv_list" {
+            ForEach items="svc_env" var="e" {
+              Row class="kv_row" {
+                Button "✕" class="env_del" onClick="env_del:{e.key}"
+                Text "{e.key}" class="env_key"
+                Text "{e.value}" class="kv_val_fill"
+              }
+            }
+          }
+        }
+        // Editor .env: vários filhos condicionais → TAG if (o atributo
+        // if= só esconderia o Text, deixando TextArea/botões sempre visíveis).
+        if cond="{env_text_open}" equals="true" {
+          Text "Cole/edite no formato KEY=VALUE (# comentário). Importar substitui todas as variáveis." \
+            class="muted"
+
+          TextArea "KEY=VALUE   (# comentário)" \
+            class="env_editor" \
+            font=mono \
+            value="svc_env_text"
+
+          Row class="env_add" {
+            Button "Importar" \
+              class="btn_primary" \
+              onClick="env_import"
+            Button "Cancelar" \
+              class="btn_ghost" \
+              onClick="env_text_cancel"
+          }
+        }
+      }
+
+      // Domains (editável)
+      Column if="{tab}" equals="domains" class="form_panel" {
+        Text "DOMÍNIO" class="label_cap"
+        TextInput "app.exemplo.com" \
+          class="field_input" \
+          value="f_domain" \
+          onChange="field:f_domain"
+        Text "HOST PORT (externa, opcional)" class="label_cap"
+        TextInput "(padrão do serviço)" \
+          class="field_input" \
+          value="f_host_port" \
+          onChange="field:f_host_port"
+        Toggle "  HTTPS / TLS" checked="f_tls" onToggle="field:f_tls"
+        Row class="env_add" {
+          Button "Save" class="btn_primary" onClick="dom_save"
+          Text "{svc_action_msg}" class="muted"
+        }
+      }
+
+      // Deployments
+      Column if="{tab}" equals="deployments" class="dep_wrap" {
+        Text "{svc_deployments_count} deployments" class="muted"
+        Scrollable direction=vertical class="dep_list_scroll" {
+          Column class="table_body" {
+            Column class="row_wrap" for-each="svc_deployments" var="d" {
+              Row class="trow" {
+                Text "{d.id}" class="td_key col_dep_id"
+                Row class="state_cell" {
+                  Text "●" class="state_dot" color="{d.state_color}"
+                  Text "{d.state_label}" \
+                    class="state_lbl" \
+                    color="{d.state_color}"
+                }
+                Text "{d.duration}" class="td col_dur"
+                Text "{d.start}" class="muted col_dep_start"
+                Button "Build log" \
+                  class="dep_logs_btn" \
+                  onClick="dep_logs:{d.id_full}"
+              }
+              Text "{d.image}" class="dep_image"
+              Rule
+            }
+          }
+        }
+
+        // Cabeçalho + painel do build log: dois filhos condicionais → TAG if
+        // (o atributo if= só esconderia o Row, deixando o log sempre visível).
+        if cond="{dep_selected}" not_equals="" {
+          Row class="env_head" {
+            Text "BUILD LOG · {dep_build_count} linhas" class="label_cap_fill"
+            Button "Copiar tudo" class="tab" onClick="clipboard:dep_build_text"
+          }
+          Column class="log_panel" {
+            Scrollable direction=vertical class="scroll_fill" {
+              Column class="log_body" {
+                Row class="log_line" for-each="dep_build_logs" var="l" {
+                  Text "{l.time}" class="log_time"
+                  Text "{l.line}" class="log_text" color="{l.color}"
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Healthcheck (editável)
+      Column if="{tab}" equals="healthcheck" class="form_panel" {
+        Text "KIND" class="label_cap"
+        Row class="tabs" {
+          if cond="{f_hc_kind}" equals="none" { Button "None" class="tab_on" onClick="hckind:none" }
+          else { Button "None" class="tab" onClick="hckind:none" }
+
+          if cond="{f_hc_kind}" equals="tcp" { Button "Tcp" class="tab_on" onClick="hckind:tcp" }
+          else { Button "Tcp" class="tab" onClick="hckind:tcp" }
+
+          if cond="{f_hc_kind}" equals="http" { Button "Http" class="tab_on" onClick="hckind:http" }
+          else { Button "Http" class="tab" onClick="hckind:http" }
+
+          if cond="{f_hc_kind}" equals="docker" { Button "Docker" class="tab_on" onClick="hckind:docker" }
+          else { Button "Docker" class="tab" onClick="hckind:docker" }
+        }
+        if cond="{f_hc_kind}" equals="http" {
+          Text "HTTP PATH" class="label_cap"
+          TextInput "/health" class="field_input" value="f_hc_path" onChange="field:f_hc_path"
+          Text "EXPECTED STATUS" class="label_cap"
+          TextInput "200" class="field_input" value="f_hc_status" onChange="field:f_hc_status"
+        }
+        Row class="hc_grid" {
+          Column class="hc_field" {
+            Text "INTERVAL (s)" class="label_cap"
+            TextInput "" class="field_input" value="f_hc_interval" onChange="field:f_hc_interval"
+          }
+          Column class="hc_field" {
+            Text "TIMEOUT (s)" class="label_cap"
+            TextInput "" class="field_input" value="f_hc_timeout" onChange="field:f_hc_timeout"
+          }
+        }
+        Row class="hc_grid" {
+          Column class="hc_field" {
+            Text "RETRIES" class="label_cap"
+            TextInput "" class="field_input" value="f_hc_retries" onChange="field:f_hc_retries"
+          }
+          Column class="hc_field" {
+            Text "START PERIOD (s)" class="label_cap"
+            TextInput "" class="field_input" value="f_hc_start" onChange="field:f_hc_start"
+          }
+        }
+        Row class="env_add" {
+          Button "Save" class="btn_primary" onClick="hc_save"
+          Text "{svc_action_msg}" class="muted"
+        }
+      }
+
+      // Logs (texto selecionável + copiar)
+      Column if="{tab}" equals="logs" class="log_panel" {
+        Row class="env_head" {
+          Text "{svc_logs_count} linhas — selecione para copiar (Ctrl+C)" class="muted_fill"
+          Button "Copiar tudo" class="tab" onClick="clipboard:svc_logs_text"
+        }
+        TextArea "(sem logs — o serviço precisa estar Running)" \
+          class="log_editor" \
+          font=mono \
+          value="svc_logs_text"
+      }
+
+      // Advanced (editável)
+      Column if="{tab}" equals="advanced" class="form_panel" {
+        Text "REPLICAS" class="label_cap"
+        TextInput "1" class="field_input" value="f_replicas" onChange="field:f_replicas"
+        Text "RUN COMMAND" class="label_cap"
+        TextInput "(padrão da imagem)" class="field_input" value="f_run_command" onChange="field:f_run_command"
+        Text "Run args atuais: {svc_run_args}" class="muted"
+
+        Row class="env_add" {
+          Button "Save" class="btn_primary" onClick="adv_save"
+          Text "{svc_action_msg}" class="muted"
+        }
+      }
+    }
+
+    // Painel lateral: status + live output
+    Column class="svc_aside" {
+      Column class="aside_panel" {
+        Text "STATUS" class="label_cap"
+        Row class="badge" {
+          Text "●" class="state_dot" color="{svc_status_color}"
+          Text "{svc_status_label}" class="badge_lbl" color="{svc_status_color}"
+        }
+        Text "UPTIME" class="label_cap"
+        Text "{daemon_uptime}" class="kv_val"
+        Text "SERVICES" class="label_cap"
+        Text "{services_label}" class="kv_val"
+      }
+
+      Column class="aside_panel_fill" {
+        Text "LIVE OUTPUT" class="label_cap"
+        Scrollable direction=vertical class="scroll_fill" {
+          Column class="log_body" {
+            Row class="log_line" for-each="svc_logs" var="l" {
+              Text "{l.time}" class="log_time"
+              Text "{l.line}" class="log_text" color="{l.color}"
+            }
+          }
+        }
+      }
+    }
+  }
+}

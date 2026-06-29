@@ -1,8 +1,0 @@
-<link rel="theme" href="crates/remote-ui/styles/theme.json" />
-<link rel="import" href="crates/remote-ui/templates/login.xml" as="Login" />
-<link rel="import" href="crates/remote-ui/templates/shell.xml" as="Shell" />
-
-<Column class="screen" width="fill" height="fill">
-    <Login if="{screen}" equals="login" />
-    <Shell else />
-</Column>

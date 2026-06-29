@@ -9,8 +9,8 @@ name = "rustploy-remote-ui"
 path = "src/main.rs"
 
 [dependencies]
-# Declarative XML UI engine (published, with the async bridge + new widgets).
-glacier-ui = "0.2.7"
+# Declarative UI engine (published; KDL templates + async bridge + widgets).
+glacier-ui = "0.2.8"
 
 shared = { path = "../shared" }
 

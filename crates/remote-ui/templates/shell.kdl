@@ -1,0 +1,169 @@
+import "ServiceDetail" from="crates/remote-ui/templates/service.kdl"
+import "HomeViews" from="crates/remote-ui/templates/home.kdl"
+
+Row class="screen" {
+
+  // ── Sidebar ────────────────────────────────────────────────────────
+  Column class="sidebar" {
+    Column class="brand_box" {
+      Text "Rustploy Remote" class="brand"
+      Text "PRODUCTION CLUSTER" class="brand_sub"
+    }
+
+    Text "DEPLOYMENT OPS" class="nav_section"
+
+    Button "  Deployments" if="{view}" equals="deployments" class="nav_item_on" onClick="nav_deployments"
+    Button "  Deployments" else class="nav_item" onClick="nav_deployments"
+
+    Button "  Monitoring" if="{view}" equals="monitoring" class="nav_item_on" onClick="nav_monitoring"
+    Button "  Monitoring" else class="nav_item" onClick="nav_monitoring"
+
+    Button "  Schedules" if="{view}" equals="schedules" class="nav_item_on" onClick="nav_schedules"
+    Button "  Schedules" else class="nav_item" onClick="nav_schedules"
+
+    Button "  Ingress" if="{view}" equals="ingress" class="nav_item_on" onClick="nav_ingress"
+    Button "  Ingress" else class="nav_item" onClick="nav_ingress"
+
+    Button "  Docker" if="{view}" equals="docker" class="nav_item_on" onClick="nav_docker"
+    Button "  Docker" else class="nav_item" onClick="nav_docker"
+
+    Text "MANAGEMENT" class="nav_section"
+
+    Button "  Projects ({projects_count})" if="{view}" equals="projects" class="nav_item_on" onClick="nav_projects"
+    Button "  Projects ({projects_count})" else class="nav_item" onClick="nav_projects"
+
+    Column class="nav_spacer"
+
+    Rule
+    Button "  Settings" class="nav_item" onClick="nav_settings"
+    Button "  Support" class="nav_item" onClick="nav_support"
+  }
+
+  // ── Main column ────────────────────────────────────────────────────
+  Column class="main_col" {
+
+    // Top bar
+    Row class="topbar" {
+      TextInput "Search deployments, nodes…" \
+        class="search" \
+        value="search" \
+        onChange="search_changed"
+      Text "● rwp · daemon v{daemon_version}" class="muted"
+      Button "Deploy" class="btn_primary" onClick="deploy"
+      Button "Stop All" class="btn_danger" onClick="stop_all"
+      Button "Disconnect" class="btn_ghost" onClick="disconnect"
+    }
+
+    Rule
+
+    // Content
+    if cond="{view}" equals="deployments" {
+      Column class="content" {
+        Row class="header_row" {
+          Column class="header_titles" {
+            Text "Deployments" class="title"
+            Text "Real-time status of services in the cluster." class="subtitle"
+          }
+          Row class="stats_row" {
+            Column class="stat_card" {
+              Text "STATUS" class="label_cap"
+              Text "{services_label}" class="stat_num_g"
+            }
+            Column class="stat_card" {
+              Text "UPTIME" class="label_cap"
+              Text "{daemon_uptime}" class="stat_num"
+            }
+          }
+        }
+
+        Column class="panel_fill" {
+          Row class="thead" {
+            Text "SERVIÇO" class="th col_svc"
+            Text "PROJETO" class="th col_proj"
+            Text "ESTADO" class="th col_state"
+            Text "DURAÇÃO" class="th col_dur"
+            Text "INÍCIO" class="th col_start"
+          }
+          Scrollable direction=vertical class="scroll_fill" {
+            Column class="table_body" {
+              Column class="row_wrap" for-each="deployments" var="d" {
+                Row class="trow" {
+                  Text "{d.service}" class="td_key col_svc"
+                  Text "{d.project}" class="td col_proj"
+                  Row class="state_cell" {
+                    Text "●" class="state_dot" color="{d.state_color}"
+                    Text "{d.state_label}" class="state_lbl" color="{d.state_color}"
+                  }
+                  Text "{d.duration}" class="td col_dur"
+                  Text "{d.start}" class="muted col_start"
+                }
+                Rule
+              }
+            }
+          }
+        }
+      }
+    }
+    else {
+      // ── Projects (grid de cards de serviço) ───────────────────────
+      if cond="{view}" equals="projects" {
+        Column class="content" {
+          Row class="header_row" {
+            Column class="header_titles" {
+              Text "Projects" class="title"
+              Text "Services across every project, with live resource usage." class="subtitle"
+            }
+            Row class="stats_row" {
+              Column class="stat_card" {
+                Text "SERVICES" class="label_cap"
+                Text "{services_count}" class="stat_num"
+              }
+              Column class="stat_card" {
+                Text "PROJECTS" class="label_cap"
+                Text "{projects_count}" class="stat_num_g"
+              }
+            }
+          }
+
+          Scrollable direction=vertical class="scroll_fill" {
+            Column class="grid" {
+              Row class="card_row" for-each="service_rows" var="r" {
+                ForEach items="r.cards" var="c" {
+                  Column if="{c.filler}" equals="1" class="card_filler"
+
+                  Column else class="card" {
+                    Row class="card_head" {
+                      Text "{c.name}" class="card_name"
+                      Row class="badge" {
+                        Text "●" class="state_dot" color="{c.status_color}"
+                        Text "{c.status_label}" class="badge_lbl" color="{c.status_color}"
+                      }
+                    }
+                    Text "{c.project} · :{c.port}" class="muted"
+                    Rule
+                    Row class="card_stats" {
+                      Column class="card_stat" {
+                        Text "CPU" class="label_cap"
+                        Text "{c.cpu}" class="card_stat_num"
+                      }
+                      Column class="card_stat" {
+                        Text "MEM" class="label_cap"
+                        Text "{c.mem}" class="card_stat_num"
+                      }
+                    }
+                    Button "Open  ›" class="card_open" onClick="open_service:{c.id}"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      else {
+        // ── Service detail / demais views (home) ────────────────────
+        ServiceDetail if="{view}" equals="service"
+        HomeViews else
+      }
+    }
+  }
+}

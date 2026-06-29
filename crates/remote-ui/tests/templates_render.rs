@@ -1,5 +1,5 @@
 //! Headless validation: every template parses, every screen/tab evaluates and
-//! builds an iced element tree without error. Catches malformed XML and unknown
+//! builds an iced element tree without error. Catches malformed KDL and unknown
 //! `.iss` properties (which would drop a whole stylesheet) without a display.
 
 use glacier_ui::GlacierUI;
@@ -17,8 +17,8 @@ fn boot() -> GlacierUI {
     let mut m = GlacierUI::new();
     m.load_stylesheet("crates/remote-ui/styles/app.iss")
         .expect("app.iss must parse (an unknown property drops the whole sheet)");
-    m.register_component("app", "crates/remote-ui/templates/app.xml")
-        .expect("app.xml + imports must register");
+    m.register_component("app", "crates/remote-ui/templates/app.kdl")
+        .expect("app.kdl + imports must register");
     m.set_initial_screen("app");
     m
 }

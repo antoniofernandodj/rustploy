@@ -1,6 +1,6 @@
 # remote-ui — plano de continuação
 
-UI nova do client remoto, em **glacier-ui** (XML declarativo → iced), seguindo
+UI nova do client remoto, em **glacier-ui** (KDL declarativo → iced), seguindo
 `design/*.png`. Crate nova `crates/remote-ui` (binário `rustploy-remote-ui`),
 sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
 `cargo run -p remote-ui` (paths de template são relativos ao CWD).
@@ -44,7 +44,7 @@ conferir:
   `ServiceGet` + `ProjectList` (p/ nome) + `LogsGet` (tail 200) → keys `svc_*`.
   Abas General/Connection/Environment/Healthcheck/Logs + painel lateral
   STATUS/UPTIME/SERVICES + LIVE OUTPUT. Template extraído em
-  `templates/service.xml` (importado no `shell.xml`).
+  `templates/service.kdl` (importado no `shell.kdl`).
 - **Abas do detail** (9 no remote-client; faltam só Patches): General/Connection/
   Environment/Domains/Deployments/Healthcheck/Logs/Advanced. Switch via `<if>`
   independentes (sem else-chain). Deployments usa `DeployHistory`; clicar
@@ -101,7 +101,7 @@ conferir:
   `secure` usam o `<TextInput secure="true">` do glacier 0.2.7.
 - **Validação headless**: `tests/templates_render.rs` registra os templates a
   partir da raiz do workspace e renderiza login + todas as views + todas as abas
-  do service (incl. editor `.env` e painel de build log) — pega XML malformado e
+  do service (incl. editor `.env` e painel de build log) — pega KDL malformado e
   propriedade `.iss` desconhecida sem precisar de display. (`cargo test -p remote-ui`.)
 - **Copiar / selecionar**: glacier 0.2.4 tem ação `clipboard:<key>`. Aba Logs é
   um `<TextArea value="svc_logs_text">` (selecionável/Ctrl+C) + "Copiar tudo";
@@ -135,7 +135,7 @@ conferir:
   (`GRID_COLS`) no `service_rows_json` (`[{"cards":[…]}]`) e renderizo com
   `<ForEach>` aninhado (`items="r.cards"`); fillers invisíveis (`filler="1"`)
   mantêm as colunas alinhadas. Classes `.card`/`.grid`/`.card_*` no `.iss`.
-- **Home screens** (`templates/home.xml`, importado no `shell.xml`; ifs
+- **Home screens** (`templates/home.kdl`, importado no `shell.kdl`; ifs
   independentes por `{view}`): **Monitoring** (stat cards de host CPU/MEM/DISK/
   LOAD via `Event::SystemMetrics` + tabela por container via `ContainerMetrics`),
   **Ingress** (rotas derivadas dos serviços com domínio), **Docker** (containers
@@ -147,9 +147,9 @@ conferir:
 - Arquitetura: `Root` (Component único) detém estado + subscription de rede;
   `net.rs` faz polling (DaemonStatus/RecentDeployments/ProjectList+ServiceList) →
   `ContextPatch`; settings buscado 1x no connect (não no poll, p/ não sobrescrever
-  edição). `rwp.rs` = transporte. Telas: `app.xml` (switch `{screen}`), `login.xml`,
-  `shell.xml` (switch `{view}`), `service.xml`, `home.xml`. Estilo: `app.iss` +
-  `theme.json`. TODO layout fica nas classes `.iss` (não inline no XML).
+  edição). `rwp.rs` = transporte. Telas: `app.kdl` (switch `{screen}`), `login.kdl`,
+  `shell.kdl` (switch `{view}`), `service.kdl`, `home.kdl`. Estilo: `app.iss` +
+  `theme.json`. TODO layout fica nas classes `.iss` (não inline no KDL).
 
 ## Próximos passos (em ordem)
 1. **Aba Patches** do remote-client; **Schedules** sem backend (placeholder).
@@ -171,7 +171,7 @@ conferir:
 - **`<else>` só liga ao `<if>` imediatamente anterior** (irmão). Não dá pra
   encadear `if A / if B / else` esperando um switch — o `else` casaria com `B`
   e renderizaria junto com `A`. Para 3+ ramos, **aninhe**: `if A / else (if B /
-  else …)`. (É como o switch `{view}` no `shell.xml` cresce.)
+  else …)`. (É como o switch `{view}` no `shell.kdl` cresce.)
 - **`ForEach` aninhado** funciona: um item-objeto cujo valor é array vira string
   JSON na chave `var.campo` (ex.: `r.cards`), e o `ForEach` interno aceita
   `items="r.cards"`. Útil p/ simular grid (sem widget de wrap no glacier).

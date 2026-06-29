@@ -2257,13 +2257,14 @@ dependencies = [
 
 [[package]]
 name = "glacier-ui"
-version = "0.2.7"
+version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bfbfce1a112dcd70244e5f149cb59c438b0c6e24eb41c4411c0e22838cb5011"
+checksum = "66a125ba74be9d0f1c867baa8317cfbb8b14c2dfc6ec55e3b3427c485b69025c"
 dependencies = [
  "glacier-ui-macros",
  "iced",
  "image 0.25.10",
+ "kdl",
  "roxmltree 0.21.1",
  "serde_json",
 ]
@@ -3420,6 +3421,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "kdl"
+version = "6.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "082ddf81b2acd76fe04412655d17befedfff1837db772f8e74c38050d25ed670"
+dependencies = [
+ "miette",
+ "num-traits",
+ "serde",
+ "winnow 0.7.15",
+]
+
+[[package]]
 name = "khronos-egl"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3690,6 +3703,16 @@ dependencies = [
  "log",
  "objc",
  "paste",
+]
+
+[[package]]
+name = "miette"
+version = "7.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f98efec8807c63c752b5bd61f862c165c115b0a35685bdcfd9238c7aeb592b7"
+dependencies = [
+ "cfg-if",
+ "unicode-width",
 ]
 
 [[package]]

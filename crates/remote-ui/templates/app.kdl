@@ -1,0 +1,8 @@
+theme "crates/remote-ui/styles/theme.json"
+import "Login" from="crates/remote-ui/templates/login.kdl"
+import "Shell" from="crates/remote-ui/templates/shell.kdl"
+
+Column class="screen" width="fill" height="fill" {
+    if cond="{screen}" equals="login" { Login }
+    else { Shell }
+}

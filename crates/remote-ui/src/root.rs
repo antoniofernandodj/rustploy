@@ -1,5 +1,5 @@
 //! The single root component: owns connection state, routes UI actions and
-//! exposes the network subscription. All screens live in `templates/app.xml`
+//! exposes the network subscription. All screens live in `templates/app.kdl`
 //! and switch on the `screen`/`view` context keys.
 
 use glacier_ui::{Component, Context, EngineMessage, Template};
@@ -82,7 +82,7 @@ impl Component for Root {
     }
 
     fn template(&self) -> Template {
-        Template::File("crates/remote-ui/templates/app.xml".into())
+        Template::File("crates/remote-ui/templates/app.kdl".into())
     }
 
     fn init(&mut self, ctx: &mut Context) {
