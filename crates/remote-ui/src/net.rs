@@ -841,7 +841,7 @@ pub fn poll_stream(
     selected: Arc<Mutex<String>>,
     selected_deploy: Arc<Mutex<String>>,
 ) -> impl Stream<Item = EngineMessage> {
-    iced::stream::channel(64, move |mut output| async move {
+    iced::stream::channel(64, move |mut output: iced::futures::channel::mpsc::Sender<EngineMessage>| async move {
         macro_rules! patch {
             ($pairs:expr) => {
                 let _ = output.send(EngineMessage::ContextPatch($pairs)).await;

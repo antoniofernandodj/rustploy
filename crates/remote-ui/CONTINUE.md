@@ -19,17 +19,26 @@ conferir:
 - **Telas**: Monitoring (métricas host+container), Ingress, Docker.
 
 ## Estado atual (funcionando)
-- **glacier-ui 0.2.9** publicado no crates.io. 0.2.9: **controles de janela
-  built-in** (`window:minimize`/`maximize`/`close`/`drag` no dispatch, resolvem o
-  `window::Id` via `get_latest`) + atributo universal **`onPress`** (envolve
-  qualquer elemento num `mouse_area`, dispara no pressionar — base do arraste).
-  Usado aqui para a **barra de título customizada**: `main.rs` abre a janela com
-  `decorations: false` e `templates/app.kdl` desenha a titlebar (região de
-  arraste `on_press="window:drag"` + botões `—`/`▢`/`✕` via `onClick="window:*"`;
-  classes `.titlebar*`/`.win_btn`/`.win_close` no `.iss`). Sem código no `Root`.
+- **glacier-ui 0.3.1** publicado no crates.io (iced **0.14**). 0.3.1: atributo
+  universal **`onDoubleClick`** (duplo-clique → ação; usado na titlebar para
+  maximizar/restaurar via `onDoubleClick="window:maximize"`). 0.3.0 (breaking,
+  iced 0.14): **resize de janela interativo** (`window:resize:<dir>` →
+  `window::drag_resize`) + atributo universal **`cursor`** (mostra o ícone de
+  redimensionar no hover via `mouse::Interaction`). 0.2.9: **controles de janela
+  built-in** (`window:minimize`/`maximize`/`close`/`drag`) + atributo universal
+  **`onPress`** (envolve em `mouse_area`, dispara no pressionar — base do arraste).
+  - **Janela sem borda** (`decorations:false` no `main.rs`): a **titlebar
+    customizada** (região de arraste `on_press="window:drag"` + botões `—`/`▢`/`✕`)
+    e uma **moldura de 6px de alças de resize** (bordas/cantos com `cursor` +
+    `on_press="window:resize:<dir>"`) ficam em `templates/app.kdl`. Os controles
+    `window:*` são tratados no `main.rs` **contra o `window::Id` cacheado** (no
+    boot via `window::latest`): no Wayland, adiar via `latest()` perde o serial
+    do grab e o drag/resize não pegam. iced 0.14: `iced::application(boot, …)
+    .title(…).run()`; `Subscription::run_with(key, fn(&key)->stream)` (chave
+    `PollKey`, Hash só do `seq`); `stream::channel` com `Sender` anotado.
 - **glacier-ui 0.2.7**: `<TextInput secure="true">`
   (mascara senhas/tokens). 0.2.6: **widget `<Select>`** (dropdown `pick_list`,
-  opções de array JSON do contexto, estilizável via `.iss`; aliases
+  opções de array JSON do contexto, estilizável via `.gss`; aliases
   `Dropdown`/`PickList`/`ComboBox`/`Seletor`). 0.2.4: ação built-in
   `clipboard:<key>` (copia valor do contexto p/ a área de transferência).
   0.2.3: **widget `<TextArea>`**
@@ -86,7 +95,7 @@ conferir:
   - **Widget `<Select>` (glacier 0.2.6)**: dropdown `pick_list` que lê um array
     JSON do contexto (mesmo formato do ForEach), com `labelField`/`valueField`,
     valor selecionado via chave, emite `onChange` com o valor escolhido;
-    estilizável via `.iss` (classe `.select`: background/border/color). Antes era
+    estilizável via `.gss` (classe `.select`: background/border/color). Antes era
     lista de botões (feio); agora são selects de verdade, como no remote-client.
   - `gen_save` (ambas as abas) lê `prov_tab`: Gitea passa `gitea_provider_id`,
     Git passa vazio → em `apply_spec_op` vazio = `provider_id: None` (desvincula),
@@ -110,7 +119,7 @@ conferir:
 - **Validação headless**: `tests/templates_render.rs` registra os templates a
   partir da raiz do workspace e renderiza login + todas as views + todas as abas
   do service (incl. editor `.env` e painel de build log) — pega KDL malformado e
-  propriedade `.iss` desconhecida sem precisar de display. (`cargo test -p remote-ui`.)
+  propriedade `.gss` desconhecida sem precisar de display. (`cargo test -p remote-ui`.)
 - **Copiar / selecionar**: glacier 0.2.4 tem ação `clipboard:<key>`. Aba Logs é
   um `<TextArea value="svc_logs_text">` (selecionável/Ctrl+C) + "Copiar tudo";
   Connection tem "Copiar" por valor (`clipboard:svc_port` etc.).
@@ -142,7 +151,7 @@ conferir:
   mesclados nos cards. glacier não tem grid com wrap → fatiei em linhas de 3
   (`GRID_COLS`) no `service_rows_json` (`[{"cards":[…]}]`) e renderizo com
   `<ForEach>` aninhado (`items="r.cards"`); fillers invisíveis (`filler="1"`)
-  mantêm as colunas alinhadas. Classes `.card`/`.grid`/`.card_*` no `.iss`.
+  mantêm as colunas alinhadas. Classes `.card`/`.grid`/`.card_*` no `.gss`.
 - **Home screens** (`templates/home.kdl`, importado no `shell.kdl`; ifs
   independentes por `{view}`): **Monitoring** (stat cards de host CPU/MEM/DISK/
   LOAD via `Event::SystemMetrics` + tabela por container via `ContainerMetrics`),
@@ -156,8 +165,8 @@ conferir:
   `net.rs` faz polling (DaemonStatus/RecentDeployments/ProjectList+ServiceList) →
   `ContextPatch`; settings buscado 1x no connect (não no poll, p/ não sobrescrever
   edição). `rwp.rs` = transporte. Telas: `app.kdl` (switch `{screen}`), `login.kdl`,
-  `shell.kdl` (switch `{view}`), `service.kdl`, `home.kdl`. Estilo: `app.iss` +
-  `theme.json`. TODO layout fica nas classes `.iss` (não inline no KDL).
+  `shell.kdl` (switch `{view}`), `service.kdl`, `home.kdl`. Estilo: `app.gss` +
+  `theme.json`. TODO layout fica nas classes `.gss` (não inline no KDL).
 
 ## Próximos passos (em ordem)
 1. **Aba Patches** do remote-client; **Schedules** sem backend (placeholder).
@@ -175,7 +184,7 @@ conferir:
   COLAPSA o filho → texto quebra 1 letra/linha (vira "invisível" e estica o
   pai). Regra: toda Row com filho fill precisa `width: fill`. (Foi o que
   quebrava o login — NÃO era fonte.)
-- `parse_iss` é estrito: 1 propriedade desconhecida derruba a folha toda.
+- `parse_gss` é estrito: 1 propriedade desconhecida derruba a folha toda.
 - **`<else>` só liga ao `<if>` imediatamente anterior** (irmão). Não dá pra
   encadear `if A / if B / else` esperando um switch — o `else` casaria com `B`
   e renderizaria junto com `A`. Para 3+ ramos, **aninhe**: `if A / else (if B /

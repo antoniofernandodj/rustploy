@@ -5,14 +5,22 @@
 .mono       { }
 .screen     { width: fill; height: fill; background: #0A0E14; }
 
+/* ── Resize handles (6px frame around the borderless window) ───────────── */
+.rz_top    { width: fill; height: 6; }
+.rz_bottom { width: fill; height: 6; }
+.rz_mid    { width: fill; height: fill; }
+.rz_body   { width: fill; height: fill; }
+.rz_corner { width: 6; height: fill; }
+.rz_h      { width: fill; height: fill; }
+.rz_v      { width: 6; height: fill; }
+
 /* ── Custom titlebar (borderless window) ──────────────────────────────── */
-.titlebar       { width: fill; height: 38; background: #0D1117; align-y: center; padding: 0 0 0 16; }
-.titlebar_drag  { width: fill; height: fill; align-y: center; spacing: 9; }
+.titlebar       { width: fill; height: 32; background: #0D1117; align-y: center; }
+.titlebar_drag  { width: fill; height: fill; align-y: center; padding: 0 0 0 16; spacing: 9; }
 .titlebar_dot   { size: 10; color: #1F6FEB; }
 .titlebar_title { size: 12; bold: true; color: #8B949E; }
-.window_controls{ height: fill; align-y: center; }
-.win_btn        { color: #161B22; padding: 9 17; text-align: center; }
-.win_close      { color: #DA3633; padding: 9 17; text-align: center; }
+.win_btn        { width: 48; padding: 7 0; color: #21262D; text-align: center; }
+.win_close      { width: 48; padding: 7 0; color: #DA3633; text-align: center; }
 
 /* ── Sidebar ──────────────────────────────────────────────────────────── */
 .sidebar        { width: 264; height: fill; background: #0D1117; padding: 28 20; spacing: 6; }

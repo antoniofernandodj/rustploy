@@ -42,38 +42,76 @@ pub fn connect_target(url: &str) -> anyhow::Result<String> {
     })
 }
 
+/// App-level message: either an engine event from glacier-ui, or the resolved
+/// id of our (single) window, cached on startup so the custom titlebar can
+/// drive window controls synchronously.
+#[derive(Debug, Clone)]
+enum Message {
+    Engine(EngineMessage),
+    WindowReady(Option<iced::window::Id>),
+}
+
 struct App {
     motor: GlacierUI,
+    /// Cached id of the main window. We resolve it once at boot instead of
+    /// per-action: on Wayland, deferring window controls through a `get_latest`
+    /// round-trip loses the pointer-grab serial, so `window:drag` silently
+    /// no-ops. Handling them synchronously against the cached id makes the
+    /// borderless titlebar actually draggable.
+    window_id: Option<iced::window::Id>,
 }
 
 impl App {
-    fn boot() -> (Self, Task<EngineMessage>) {
+    fn boot() -> (Self, Task<Message>) {
         let mut motor = GlacierUI::new();
-        if let Err(e) = motor.load_stylesheet("crates/remote-ui/styles/app.iss") {
+        if let Err(e) = motor.load_stylesheet("crates/remote-ui/styles/app.gss") {
             eprintln!("stylesheet: {e}");
         }
         if let Err(e) = motor.register(Box::new(root::Root::default())) {
             eprintln!("register: {e}");
         }
         motor.set_initial_screen("app");
-        (Self { motor }, Task::none())
+        (
+            Self { motor, window_id: None },
+            iced::window::latest().map(Message::WindowReady),
+        )
     }
 
-    fn update(&mut self, msg: EngineMessage) -> Task<EngineMessage> {
-        self.motor.dispatch(&msg)
+    fn update(&mut self, msg: Message) -> Task<Message> {
+        match msg {
+            Message::WindowReady(id) => {
+                self.window_id = id;
+                Task::none()
+            }
+            Message::Engine(event) => {
+                // Intercept the built-in `window:*` actions emitted by the
+                // custom titlebar and run them against the cached window id
+                // (see `window_id`). Everything else is a normal engine event.
+                if let EngineMessage::XmlClick(action) = &event {
+                    if let (Some(cmd), Some(id)) =
+                        (action.strip_prefix("window:"), self.window_id)
+                    {
+                        return window_control(id, cmd);
+                    }
+                }
+                self.motor.dispatch(&event).map(Message::Engine)
+            }
+        }
     }
 
-    fn view(&self) -> Element<'_, EngineMessage> {
-        self.motor.render_current().unwrap_or_else(|e| {
-            iced::widget::text(e).into()
-        })
+    fn view(&self) -> Element<'_, Message> {
+        self.motor
+            .render_current()
+            .unwrap_or_else(|e| iced::widget::text(e).into())
+            .map(Message::Engine)
     }
 
-    fn subscription(&self) -> Subscription<EngineMessage> {
+    fn subscription(&self) -> Subscription<Message> {
         Subscription::batch([
             self.motor.subscription(),
             GlacierUI::reload_subscription(Duration::from_millis(500)),
         ])
+        .map(Message::Engine)
     }
 
     fn theme(&self) -> iced::Theme {
@@ -81,8 +119,48 @@ impl App {
     }
 }
 
+/// Maps a `window:<cmd>` action to its iced window task, driven against the
+/// known window id (so drag/resize keep the live pointer-grab serial on
+/// Wayland — a deferred `latest()` round-trip would lose it). `resize:<dir>`
+/// starts an interactive border/corner resize (`drag_resize`).
+fn window_control(id: iced::window::Id, cmd: &str) -> Task<Message> {
+    use iced::window;
+    if let Some(dir) = cmd.strip_prefix("resize:") {
+        return match resize_direction(dir) {
+            Some(d) => window::drag_resize(id, d),
+            None => Task::none(),
+        };
+    }
+    match cmd {
+        "minimize" => window::minimize(id, true),
+        "maximize" | "toggle_maximize" => window::toggle_maximize(id),
+        "close" => window::close(id),
+        "drag" => window::drag(id),
+        _ => Task::none(),
+    }
+}
+
+/// Parses a resize-handle direction token (`se`, `e`, `s`, …) into the iced
+/// window `Direction`. Mirrors the tokens used by the resize handles in
+/// `templates/app.kdl`.
+fn resize_direction(s: &str) -> Option<iced::window::Direction> {
+    use iced::window::Direction::*;
+    Some(match s {
+        "n" => North,
+        "s" => South,
+        "e" => East,
+        "w" => West,
+        "ne" => NorthEast,
+        "nw" => NorthWest,
+        "se" => SouthEast,
+        "sw" => SouthWest,
+        _ => return None,
+    })
+}
+
 fn main() -> iced::Result {
-    iced::application("Rustploy Remote", App::update, App::view)
+    iced::application(App::boot, App::update, App::view)
+        .title("Rustploy Remote")
         .subscription(App::subscription)
         .theme(App::theme)
         // TODO(fonte): retomar a fonte monoespaçada do design (JetBrains Mono,
@@ -96,8 +174,9 @@ fn main() -> iced::Result {
             size: iced::Size::new(1280.0, 820.0),
             min_size: Some(iced::Size::new(1000.0, 680.0)),
             // Borderless: the OS titlebar is replaced by a custom one defined in
-            // `templates/app.kdl` (drag region + minimize/maximize/close), wired
-            // through glacier-ui's built-in `window:` actions.
+            // `templates/app.kdl` (drag region + minimize/maximize/close). The
+            // `window:*` actions it emits are handled in `update` against the
+            // cached window id (see `App::window_id`).
             decorations: false,
             platform_specific: iced::window::settings::PlatformSpecific {
                 application_id: "rustploy-remote-ui".to_string(),
@@ -105,5 +184,5 @@ fn main() -> iced::Result {
             },
             ..Default::default()
         })
-        .run_with(App::boot)
+        .run()
 }

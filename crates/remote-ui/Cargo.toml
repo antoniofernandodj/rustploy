@@ -10,12 +10,12 @@ path = "src/main.rs"
 
 [dependencies]
 # Declarative UI engine (published; KDL templates + async bridge + widgets).
-glacier-ui = "0.2.9"
+glacier-ui = "0.3.1"
 
 shared = { path = "../shared" }
 
 # GUI — features must stay compatible with glacier-ui's iced.
-iced = { version = "0.13", features = ["image", "svg", "tokio"] }
+iced = { version = "0.14", features = ["image", "svg", "tokio"] }
 
 # Async / networking (runs on iced's tokio executor)
 tokio = { version = "1", features = ["net", "sync", "macros", "io-util", "rt", "time"] }

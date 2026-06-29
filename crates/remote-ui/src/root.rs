@@ -3,7 +3,28 @@
 //! and switch on the `screen`/`view` context keys.
 
 use glacier_ui::{Component, Context, EngineMessage, Template};
+use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
+
+/// Identity + payload for the network subscription. iced 0.14's
+/// `Subscription::run_with` takes `(data, fn(&data) -> Stream)` where `data`
+/// must be `Hash` (it decides when to restart the subscription) and the builder
+/// is a non-capturing `fn`. We hash only `seq` — bumped on every (re)connect —
+/// and carry the connection details for the builder to clone.
+#[derive(Clone)]
+struct PollKey {
+    seq: u64,
+    addr: String,
+    token: Option<String>,
+    selected: Arc<Mutex<String>>,
+    selected_deploy: Arc<Mutex<String>>,
+}
+
+impl Hash for PollKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.seq.hash(state);
+    }
+}
 
 #[derive(Default)]
 pub struct Root {
@@ -601,15 +622,21 @@ impl Component for Root {
 
     fn subscription(&self) -> iced::Subscription<EngineMessage> {
         if self.active && !self.addr.is_empty() {
-            iced::Subscription::run_with_id(
-                self.seq,
+            let key = PollKey {
+                seq: self.seq,
+                addr: self.addr.clone(),
+                token: self.token.clone(),
+                selected: self.selected_shared.clone(),
+                selected_deploy: self.selected_deploy_shared.clone(),
+            };
+            iced::Subscription::run_with(key, |k: &PollKey| {
                 crate::net::poll_stream(
-                    self.addr.clone(),
-                    self.token.clone(),
-                    self.selected_shared.clone(),
-                    self.selected_deploy_shared.clone(),
-                ),
-            )
+                    k.addr.clone(),
+                    k.token.clone(),
+                    k.selected.clone(),
+                    k.selected_deploy.clone(),
+                )
+            })
         } else {
             iced::Subscription::none()
         }
