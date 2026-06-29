@@ -146,6 +146,57 @@ async fn fetch_service_detail_inner(
     ])
 }
 
+/// An edit to a service's environment variables.
+pub enum EnvOp {
+    /// Add or replace `key` with a plain value.
+    Set { key: String, value: String },
+    /// Remove `key`.
+    Delete { key: String },
+}
+
+/// Applies an [`EnvOp`] to the service (fetch fresh spec → mutate → update),
+/// then re-fetches the detail so the panel reflects the change.
+pub async fn run_env_op(
+    addr: String,
+    token: Option<String>,
+    service_id: String,
+    op: EnvOp,
+) -> Vec<(String, String)> {
+    let msg = match apply_env_op(&addr, token.as_deref(), &service_id, op).await {
+        Ok(_) => "env atualizado".to_string(),
+        Err(e) => format!("erro: {e}"),
+    };
+    let mut pairs = fetch_service_detail(addr, token, service_id).await;
+    pairs.push(("svc_action_msg".into(), msg));
+    pairs
+}
+
+async fn apply_env_op(
+    addr: &str,
+    token: Option<&str>,
+    service_id: &str,
+    op: EnvOp,
+) -> anyhow::Result<()> {
+    let mut conn = rwp::connect(addr, token).await?;
+    let svc = match rwp::rpc(&mut conn, Command::ServiceGet { id: service_id.into() }).await? {
+        Response::Service(s) => s,
+        other => anyhow::bail!("resposta inesperada para ServiceGet: {other:?}"),
+    };
+    let mut spec = svc.spec;
+    match op {
+        EnvOp::Set { key, value } => {
+            spec.env_vars.retain(|v| v.key != key);
+            spec.env_vars.push(EnvVar { key, value: EnvVarValue::Plain(value) });
+        }
+        EnvOp::Delete { key } => spec.env_vars.retain(|v| v.key != key),
+    }
+    match rwp::rpc(&mut conn, Command::ServiceUpdate { id: service_id.into(), spec }).await? {
+        Response::Ok | Response::Service(_) => Ok(()),
+        Response::Err { code, message } => anyhow::bail!("{code}: {message}"),
+        other => anyhow::bail!("resposta inesperada para ServiceUpdate: {other:?}"),
+    }
+}
+
 /// Long-lived polling + event stream feeding the context. Yields
 /// `EngineMessage::ContextPatch` items.
 ///

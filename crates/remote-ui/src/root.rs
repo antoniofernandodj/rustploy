@@ -42,6 +42,21 @@ impl Root {
             id,
         ));
     }
+
+    /// Applies an environment-variable edit to the selected service through the
+    /// async bridge, then refreshes the detail panel.
+    fn env_op(&self, ctx: &mut Context, op: crate::net::EnvOp) {
+        if self.selected_service.is_empty() || self.addr.is_empty() {
+            return;
+        }
+        ctx.set("svc_action_msg", "salvando…");
+        ctx.perform(crate::net::run_env_op(
+            self.addr.clone(),
+            self.token.clone(),
+            self.selected_service.clone(),
+            op,
+        ));
+    }
 }
 
 impl Component for Root {
@@ -110,6 +125,8 @@ impl Component for Root {
         ctx.set("svc_deployments", "[]");
         ctx.set("svc_deployments_count", "0");
         ctx.set("svc_action_msg", "");
+        ctx.set("env_new_key", "");
+        ctx.set("env_new_val", "");
     }
 
     fn update(&mut self, action: &str, value: Option<&str>, ctx: &mut Context) {
@@ -122,6 +139,28 @@ impl Component for Root {
             "token_changed" => {
                 if let Some(v) = value {
                     ctx.set("token", v);
+                }
+            }
+            "env_new_key_changed" => {
+                if let Some(v) = value {
+                    ctx.set("env_new_key", v);
+                }
+            }
+            "env_new_val_changed" => {
+                if let Some(v) = value {
+                    ctx.set("env_new_val", v);
+                }
+            }
+            "env_add" => {
+                let key = ctx.get("env_new_key").cloned().unwrap_or_default();
+                let value = ctx.get("env_new_val").cloned().unwrap_or_default();
+                if !key.trim().is_empty() {
+                    self.env_op(ctx, crate::net::EnvOp::Set {
+                        key: key.trim().to_string(),
+                        value,
+                    });
+                    ctx.set("env_new_key", "");
+                    ctx.set("env_new_val", "");
                 }
             }
             "toggle_remember_url" => {
@@ -198,6 +237,11 @@ impl Component for Root {
                 // `tab:<name>` — switch the active sub-tab in the detail view.
                 if let Some(tab) = action.strip_prefix("tab:") {
                     ctx.set("tab", tab);
+                    return;
+                }
+                // `env_del:<key>` — remove an environment variable.
+                if let Some(key) = action.strip_prefix("env_del:") {
+                    self.env_op(ctx, crate::net::EnvOp::Delete { key: key.to_string() });
                     return;
                 }
                 // `env_export` — dump the current `.env` blob to a file.

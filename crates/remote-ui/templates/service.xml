@@ -91,14 +91,22 @@
                         <Text class="muted_fill" content="{svc_env_count} variável(eis)" />
                         <Button class="tab" text="Exportar .env" onClick="env_export" />
                     </Row>
-                    <Column class="kv_list">
-                        <ForEach items="svc_env" var="e">
-                            <Row class="kv_row">
-                                <Text class="kv_key" content="{e.key}" />
-                                <Text class="kv_val_fill" content="{e.value}" />
-                            </Row>
-                        </ForEach>
-                    </Column>
+                    <Row class="env_add">
+                        <TextInput class="env_in_key" placeholder="KEY" value="env_new_key" onChange="env_new_key_changed" />
+                        <TextInput class="env_in_val" placeholder="value" value="env_new_val" onChange="env_new_val_changed" />
+                        <Button class="btn_primary" text="Adicionar" onClick="env_add" />
+                    </Row>
+                    <Scrollable direction="vertical" class="scroll_fill">
+                        <Column class="kv_list">
+                            <ForEach items="svc_env" var="e">
+                                <Row class="kv_row">
+                                    <Button class="env_del" text="✕" onClick="env_del:{e.key}" />
+                                    <Text class="env_key" content="{e.key}" />
+                                    <Text class="kv_val_fill" content="{e.value}" />
+                                </Row>
+                            </ForEach>
+                        </Column>
+                    </Scrollable>
                 </Column>
             </if>
 

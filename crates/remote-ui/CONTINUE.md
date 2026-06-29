@@ -23,6 +23,17 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
   Abas General/Connection/Environment/Healthcheck/Logs + painel lateral
   STATUS/UPTIME/SERVICES + LIVE OUTPUT. Template extraído em
   `templates/service.xml` (importado no `shell.xml`).
+- **Abas do detail** (9 no remote-client; faltam só Patches): General/Connection/
+  Environment/Domains/Deployments/Healthcheck/Logs/Advanced. Switch via `<if>`
+  independentes (sem else-chain). Deployments usa `DeployHistory`. Domains/
+  Advanced são leitura do spec.
+- **Edição de env vars**: aba Environment tem form Adicionar (KEY+value) e ✕ por
+  linha → `net::run_env_op` (`ServiceGet` → muta `env_vars` → `ServiceUpdate` →
+  re-fetch). "Adicionar" com KEY existente substitui (é como editar). "Exportar
+  .env" grava `~/<svc>.env`. **Falta**: import/edição do `.env` como blob
+  multiline — o `text_editor` do iced é stateful (`Content`), não encaixa no
+  modelo stateless do glacier; precisaria de um widget `TextArea` com estado de
+  editor gerido pelo engine (feature do glacier).
 - **Ações reais**: botões Deploy/Reload/Rebuild/Stop do detail ligados via
   `Root::service_action` → `net::run_service_action` (roda `DeployStart`/
   `ServiceReload`/`ServiceStop` e re-busca o detail; resultado em
@@ -51,7 +62,10 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
   TODO layout fica nas classes `.iss` (não inline no XML).
 
 ## Próximos passos (em ordem)
-1. **Monitoring/Schedules/Ingress/Docker/Settings/Support**: telas restantes.
+1. **Widget `TextArea` no glacier** (multiline, stateful) → desbloqueia editar/
+   importar `.env` como blob e formulários ricos (Domains/Healthcheck/Advanced
+   editáveis com Save). Hoje só add/remover env var (single-line).
+2. **Monitoring/Schedules/Ingress/Docker/Settings/Support**: telas restantes.
    Topbar Deploy/Stop All ainda inertes (precisam de contexto/seleção global).
    Tabs Domains/Environment-edit do detail ainda faltam.
 3. Sidebar com ícones SVG (já em `assets/icons/`). Botão gradiente real (hoje

@@ -99,6 +99,11 @@
 .env_wrap      { width: fill; height: fill; spacing: 10; }
 .env_head      { width: fill; align-y: center; }
 .muted_fill    { width: fill; size: 12; color: #8B949E; }
+.env_add       { width: fill; spacing: 8; align-y: center; }
+.env_in_key    { width: 220; padding: 9 12; }
+.env_in_val    { width: fill; padding: 9 12; }
+.env_del       { color: #DA3633; padding: 4 10; }
+.env_key       { size: 13; bold: true; color: #58A6FF; width: 200; }
 .col_dep_id    { width: 130; }
 .dep_image     { size: 11; color: #6E7681; padding: 2 0 0 0; }
 .log_panel     { width: fill; height: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 14 16; spacing: 8; }
