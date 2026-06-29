@@ -95,16 +95,26 @@ async fn fetch_service_detail_inner(
         project_name = p.name.clone();
     }
 
-    // Recent stdout/stderr for the LIVE OUTPUT panel (one-shot tail; live
-    // streaming is a later step).
+    // Recent stdout/stderr for the LIVE OUTPUT panel (one-shot tail; the live
+    // stream takes over via `poll_stream`).
     let logs = match rwp::rpc(&mut conn, Command::LogsGet { service_id: service_id.into(), tail: 200 }).await {
         Ok(Response::Logs(l)) => l,
+        _ => Vec::new(),
+    };
+
+    // Recent deployments for the Deployments tab.
+    let deployments = match rwp::rpc(
+        &mut conn,
+        Command::DeployHistory { service_id: service_id.into(), limit: 30 },
+    ).await {
+        Ok(Response::Deployments(d)) => d,
         _ => Vec::new(),
     };
 
     let (status_label, status_color) = service_status_label_color(&svc.status);
     let (source_kind, source_detail, build_engine) = source_summary(&svc.spec.source);
     let spec = &svc.spec;
+    let run_args = if spec.run_args.is_empty() { "—".to_string() } else { spec.run_args.join(" ") };
 
     Ok(vec![
         ("svc_loading".into(), "false".into()),
@@ -124,10 +134,15 @@ async fn fetch_service_detail_inner(
         ("svc_replicas".into(), spec.replicas.to_string()),
         ("svc_db_kind".into(), spec.db_kind.clone().unwrap_or_else(|| "—".into())),
         ("svc_hc".into(), healthcheck_summary(&spec.healthcheck)),
+        ("svc_run_command".into(), spec.run_command.clone().unwrap_or_else(|| "—".into())),
+        ("svc_run_args".into(), run_args),
         ("svc_env".into(), env_json(&spec.env_vars)),
         ("svc_env_count".into(), spec.env_vars.len().to_string()),
+        ("svc_env_text".into(), env_dotenv(&spec.env_vars)),
         ("svc_logs".into(), logs_json(&logs)),
         ("svc_logs_count".into(), logs.len().to_string()),
+        ("svc_deployments".into(), deployments_detail_json(&deployments)),
+        ("svc_deployments_count".into(), deployments.len().to_string()),
     ])
 }
 
@@ -397,6 +412,39 @@ fn healthcheck_summary(hc: &Healthcheck) -> String {
         "{kind} · every {}s · timeout {}s · {} retries",
         hc.interval_secs, hc.timeout_secs, hc.retries
     )
+}
+
+/// Per-service deployment history rows for the Deployments tab.
+fn deployments_detail_json(list: &[shared::Deployment]) -> String {
+    let rows: Vec<serde_json::Value> = list
+        .iter()
+        .map(|d| {
+            let (label, color) = state_label_color(&d.state);
+            serde_json::json!({
+                "id": d.id.chars().take(12).collect::<String>(),
+                "image": d.image,
+                "state_label": label,
+                "state_color": color,
+                "duration": fmt_duration(d),
+                "start": d.started_at.with_timezone(&Local).format("%d/%m %H:%M:%S").to_string(),
+            })
+        })
+        .collect();
+    serde_json::Value::Array(rows).to_string()
+}
+
+/// Env vars rendered as a `.env` text blob (KEY=VALUE, secrets by reference).
+fn env_dotenv(vars: &[EnvVar]) -> String {
+    vars.iter()
+        .map(|v| {
+            let val = match &v.value {
+                EnvVarValue::Plain(s) => s.clone(),
+                EnvVarValue::Secret(name) => format!("<secret:{name}>"),
+            };
+            format!("{}={}", v.key, val)
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Environment variables as JSON card rows (secrets shown by reference only).

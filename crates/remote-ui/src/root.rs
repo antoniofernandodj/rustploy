@@ -100,10 +100,15 @@ impl Component for Root {
         ctx.set("svc_replicas", "—");
         ctx.set("svc_db_kind", "—");
         ctx.set("svc_hc", "—");
+        ctx.set("svc_run_command", "—");
+        ctx.set("svc_run_args", "—");
         ctx.set("svc_env", "[]");
         ctx.set("svc_env_count", "0");
+        ctx.set("svc_env_text", "");
         ctx.set("svc_logs", "[]");
         ctx.set("svc_logs_count", "0");
+        ctx.set("svc_deployments", "[]");
+        ctx.set("svc_deployments_count", "0");
         ctx.set("svc_action_msg", "");
     }
 
@@ -193,6 +198,18 @@ impl Component for Root {
                 // `tab:<name>` — switch the active sub-tab in the detail view.
                 if let Some(tab) = action.strip_prefix("tab:") {
                     ctx.set("tab", tab);
+                    return;
+                }
+                // `env_export` — dump the current `.env` blob to a file.
+                if action == "env_export" {
+                    let body = ctx.get("svc_env_text").cloned().unwrap_or_default();
+                    let name = ctx.get("svc_name").cloned().unwrap_or_else(|| "service".into());
+                    let dir = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+                    let path = format!("{dir}/{name}.env");
+                    match std::fs::write(&path, body) {
+                        Ok(_) => ctx.set("svc_action_msg", format!("exportado para {path}")),
+                        Err(e) => ctx.set("svc_action_msg", format!("erro ao exportar: {e}")),
+                    }
                 }
             }
         }

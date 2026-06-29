@@ -96,6 +96,11 @@
 .kv_key        { width: fill; size: 13; color: #8B949E; }
 .kv_val_fill   { size: 13; bold: true; color: #C9D1D9; }
 .svc_err       { size: 13; color: #F85149; }
+.env_wrap      { width: fill; height: fill; spacing: 10; }
+.env_head      { width: fill; align-y: center; }
+.muted_fill    { width: fill; size: 12; color: #8B949E; }
+.col_dep_id    { width: 130; }
+.dep_image     { size: 11; color: #6E7681; padding: 2 0 0 0; }
 .log_panel     { width: fill; height: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 14 16; spacing: 8; }
 .log_body      { width: fill; spacing: 2; }
 .log_line      { width: fill; spacing: 12; }
