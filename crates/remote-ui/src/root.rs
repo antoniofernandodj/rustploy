@@ -126,6 +126,16 @@ impl Component for Root {
         ctx.set("ss_domain", "");
         ctx.set("ss_email", "");
         ctx.set("settings_msg", "");
+        // Settings → Git (provider management).
+        ctx.set("settings_tab", "web");
+        ctx.set("gp_name", "");
+        ctx.set("gp_base_url", "");
+        ctx.set("gp_mode", "oauth");
+        ctx.set("gp_client_id", "");
+        ctx.set("gp_client_secret", "");
+        ctx.set("gp_pat", "");
+        ctx.set("gp_redirect", crate::net::oauth_redirect_uri(""));
+        ctx.set("gp_msg", "");
         // Service detail (view=service) defaults.
         ctx.set("tab", "general");
         ctx.set("svc_loading", "false");
@@ -187,6 +197,15 @@ impl Component for Root {
         ctx.set("f_context_path", "");
         ctx.set("f_build_stage", "");
         ctx.set("f_gen_port", "");
+        // General provider sub-tab (Git | Gitea) + Gitea picker.
+        ctx.set("prov_tab", "git");
+        ctx.set("gitea_providers", "[]");
+        ctx.set("gitea_count", "0");
+        ctx.set("gitea_repos", "[]");
+        ctx.set("gitea_branches", "[]");
+        ctx.set("gitea_provider_id", "");
+        ctx.set("gitea_repo", "");
+        ctx.set("gitea_msg", "");
     }
 
     fn update(&mut self, action: &str, value: Option<&str>, ctx: &mut Context) {
@@ -216,6 +235,8 @@ impl Component for Root {
             "ss_domain_changed" => {
                 if let Some(v) = value {
                     ctx.set("ss_domain", v);
+                    // Keep the OAuth Redirect URI shown in Settings → Git in sync.
+                    ctx.set("gp_redirect", crate::net::oauth_redirect_uri(v));
                 }
             }
             "ss_email_changed" => {
@@ -343,8 +364,81 @@ impl Component for Root {
                     context_path: g("f_context_path"),
                     build_stage: g("f_build_stage"),
                     port: g("f_gen_port"),
+                    // Git sub-tab detaches (empty); Gitea sub-tab binds the id.
+                    provider_id: if ctx.get("prov_tab").map(|v| v == "gitea").unwrap_or(false) {
+                        g("gitea_provider_id")
+                    } else {
+                        String::new()
+                    },
                 };
                 self.spec_op(ctx, op);
+            }
+            // Gitea picker (Select-based): account → repos → branches.
+            "gitea_provider_pick" => {
+                if let Some(id) = value {
+                    ctx.set("gitea_provider_id", id);
+                    ctx.set("gitea_repo", "");
+                    ctx.set("gitea_repos", "[]");
+                    ctx.set("gitea_branches", "[]");
+                    if !self.addr.is_empty() && !id.is_empty() {
+                        ctx.set("gitea_msg", "carregando repositórios…");
+                        ctx.perform(crate::net::fetch_git_repos(
+                            self.addr.clone(),
+                            self.token.clone(),
+                            id.to_string(),
+                        ));
+                    }
+                }
+            }
+            "gitea_repo_pick" => {
+                if let Some(full_name) = value {
+                    // Resolve clone_url + default_branch from the loaded repo list
+                    // (the Select only carries the chosen value = full_name).
+                    let repos = ctx.get("gitea_repos").cloned().unwrap_or_default();
+                    let (clone_url, default_branch) = find_repo(&repos, full_name);
+                    ctx.set("gitea_repo", full_name);
+                    if !clone_url.is_empty() {
+                        ctx.set("f_repo_url", clone_url);
+                    }
+                    if !default_branch.is_empty() {
+                        ctx.set("f_branch", default_branch);
+                    }
+                    ctx.set("gitea_branches", "[]");
+                    let pid = ctx.get("gitea_provider_id").cloned().unwrap_or_default();
+                    if !self.addr.is_empty() && !pid.is_empty() {
+                        ctx.set("gitea_msg", "carregando branches…");
+                        ctx.perform(crate::net::fetch_git_branches(
+                            self.addr.clone(),
+                            self.token.clone(),
+                            pid,
+                            full_name.to_string(),
+                        ));
+                    }
+                }
+            }
+            // Settings → Git: connect a provider, refresh, switch method.
+            "gp_connect" => {
+                if !self.addr.is_empty() {
+                    let g = |k: &str| ctx.get(k).cloned().unwrap_or_default();
+                    let (name, base_url, mode, client_id, client_secret, pat) = (
+                        g("gp_name"), g("gp_base_url"), g("gp_mode"),
+                        g("gp_client_id"), g("gp_client_secret"), g("gp_pat"),
+                    );
+                    ctx.set("gp_msg", "conectando…");
+                    ctx.perform(crate::net::git_provider_connect(
+                        self.addr.clone(),
+                        self.token.clone(),
+                        name, base_url, mode, client_id, client_secret, pat,
+                    ));
+                }
+            }
+            "gp_refresh" => {
+                if !self.addr.is_empty() {
+                    ctx.perform(crate::net::git_providers_only(
+                        self.addr.clone(),
+                        self.token.clone(),
+                    ));
+                }
             }
             _ => {
                 // `nav_<view>` shorthand from buttons without a value payload.
@@ -378,7 +472,13 @@ impl Component for Root {
                     let (addr, token, sid) =
                         (self.addr.clone(), self.token.clone(), id.to_string());
                     if !addr.is_empty() {
-                        ctx.perform(crate::net::fetch_service_detail(addr, token, sid));
+                        ctx.perform(crate::net::fetch_service_detail(
+                            addr.clone(),
+                            token.clone(),
+                            sid,
+                        ));
+                        // Load connected providers so the Gitea sub-tab can show.
+                        ctx.perform(crate::net::fetch_git_providers(addr, token));
                     }
                     return;
                 }
@@ -409,6 +509,49 @@ impl Component for Root {
                     }
                     if !self.addr.is_empty() {
                         ctx.perform(crate::net::fetch_build_logs(
+                            self.addr.clone(),
+                            self.token.clone(),
+                            id.to_string(),
+                        ));
+                    }
+                    return;
+                }
+                // `prov:<git|gitea>` — switch the General provider sub-tab. On
+                // entering Gitea with a provider already chosen, load its repos.
+                if let Some(which) = action.strip_prefix("prov:") {
+                    ctx.set("prov_tab", which);
+                    if which == "gitea" {
+                        let pid = ctx.get("gitea_provider_id").cloned().unwrap_or_default();
+                        let repos = ctx.get("gitea_repos").cloned().unwrap_or_default();
+                        if !self.addr.is_empty()
+                            && !pid.is_empty()
+                            && (repos.is_empty() || repos == "[]")
+                        {
+                            ctx.set("gitea_msg", "carregando repositórios…");
+                            ctx.perform(crate::net::fetch_git_repos(
+                                self.addr.clone(),
+                                self.token.clone(),
+                                pid,
+                            ));
+                        }
+                    }
+                    return;
+                }
+                // `settings_tab:<web|git>` — switch the Settings sub-tab.
+                if let Some(t) = action.strip_prefix("settings_tab:") {
+                    ctx.set("settings_tab", t);
+                    return;
+                }
+                // `gp_mode:<oauth|pat>` — pick the Git connect method.
+                if let Some(m) = action.strip_prefix("gp_mode:") {
+                    ctx.set("gp_mode", m);
+                    return;
+                }
+                // `gp_delete:<id>` — remove a connected Git provider.
+                if let Some(id) = action.strip_prefix("gp_delete:") {
+                    if !self.addr.is_empty() {
+                        ctx.set("gp_msg", "removendo…");
+                        ctx.perform(crate::net::git_provider_delete(
                             self.addr.clone(),
                             self.token.clone(),
                             id.to_string(),
@@ -471,6 +614,24 @@ impl Component for Root {
             iced::Subscription::none()
         }
     }
+}
+
+/// Looks up `(clone_url, default_branch)` for `full_name` in the `gitea_repos`
+/// JSON array. Returns empty strings when not found.
+fn find_repo(repos_json: &str, full_name: &str) -> (String, String) {
+    serde_json::from_str::<serde_json::Value>(repos_json)
+        .ok()
+        .and_then(|v| v.as_array().cloned())
+        .and_then(|arr| {
+            arr.into_iter().find(|r| {
+                r.get("full_name").and_then(|n| n.as_str()) == Some(full_name)
+            })
+        })
+        .map(|r| {
+            let s = |k: &str| r.get(k).and_then(|v| v.as_str()).unwrap_or_default().to_string();
+            (s("clone_url"), s("default_branch"))
+        })
+        .unwrap_or_default()
 }
 
 /// Renders a bool as the context flag string.

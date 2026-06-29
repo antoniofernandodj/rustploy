@@ -42,6 +42,16 @@ fn all_screens_and_service_tabs_render() {
         assert!(m.render("app").is_ok(), "render view {view}");
     }
 
+    // Settings → Git sub-tab (provider list + connect form, both methods).
+    m.define_data("view", "settings");
+    m.define_data("gitea_count", "1");
+    for mode in ["oauth", "pat"] {
+        m.define_data("settings_tab", "git");
+        m.define_data("gp_mode", mode);
+        m.reevaluate_all().unwrap_or_else(|e| panic!("eval settings/git {mode}: {e}"));
+        assert!(m.render("app").is_ok(), "render settings/git {mode}");
+    }
+
     // Service detail tabs (the editable forms + log views).
     for tab in [
         "general", "connection", "environment", "domains", "deployments",
@@ -50,9 +60,12 @@ fn all_screens_and_service_tabs_render() {
         m.define_data("screen", "shell");
         m.define_data("view", "service");
         m.define_data("tab", tab);
-        // Exercise the env editor + build-log panel branches too.
+        // Exercise the env editor + build-log panel + Gitea sub-tab branches too.
         m.define_data("env_text_open", "true");
         m.define_data("dep_selected", "abc123");
+        // Show the Gitea sub-tab and render its picker body.
+        m.define_data("gitea_count", "1");
+        m.define_data("prov_tab", "gitea");
         m.reevaluate_all().unwrap_or_else(|e| panic!("eval tab {tab}: {e}"));
         assert!(m.render("app").is_ok(), "render tab {tab}");
     }

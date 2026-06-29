@@ -117,26 +117,101 @@
         </Column>
     </if>
 
-    <!-- ── Settings (Web Server) ────────────────────────────────────────── -->
+    <!-- ── Settings: sub-abas Web Server | Git ──────────────────────────── -->
     <if cond="{view}" equals="settings">
         <Row class="header_row">
             <Column class="header_titles">
                 <Text class="title" content="Settings" />
-                <Text class="subtitle" content="Daemon web server and HTTPS." />
+                <Text class="subtitle" content="Daemon web server, HTTPS e contas Git." />
             </Column>
         </Row>
-        <Column class="form_panel">
-            <Text class="label_cap" content="DOMÍNIO / URL BASE" />
-            <TextInput class="field_input" placeholder="https://rustploy.meusite.com" value="ss_domain" onChange="ss_domain_changed" />
-            <Text class="muted" content="Base das URLs de webhook dos serviços." />
-            <Text class="label_cap" content="E-MAIL LET'S ENCRYPT (HTTPS AUTOMÁTICO)" />
-            <TextInput class="field_input" placeholder="voce@exemplo.com" value="ss_email" onChange="ss_email_changed" />
-            <Text class="muted" content="Certificados TLS emitidos automaticamente. Requer restart do daemon." />
-            <Row class="env_add">
-                <Button class="btn_primary" text="Save" onClick="settings_save" />
-                <Text class="muted" content="{settings_msg}" />
-            </Row>
-        </Column>
+        <Row class="tabs">
+            <Button if="{settings_tab}" equals="git" class="tab" text="Web Server" onClick="settings_tab:web" />
+            <Button else class="tab_on" text="Web Server" onClick="settings_tab:web" />
+            <Button if="{settings_tab}" equals="git" class="tab_on" text="Git" onClick="settings_tab:git" />
+            <Button else class="tab" text="Git" onClick="settings_tab:git" />
+        </Row>
+        <Rule />
+
+        <!-- Web Server (default) -->
+        <if cond="{settings_tab}" not_equals="git">
+            <Column class="form_panel">
+                <Text class="label_cap" content="DOMÍNIO / URL BASE" />
+                <TextInput class="field_input" placeholder="https://rustploy.meusite.com" value="ss_domain" onChange="ss_domain_changed" />
+                <Text class="muted" content="Base das URLs de webhook dos serviços e do callback OAuth." />
+                <Text class="label_cap" content="E-MAIL LET'S ENCRYPT (HTTPS AUTOMÁTICO)" />
+                <TextInput class="field_input" placeholder="voce@exemplo.com" value="ss_email" onChange="ss_email_changed" />
+                <Text class="muted" content="Certificados TLS emitidos automaticamente. Requer restart do daemon." />
+                <Row class="env_add">
+                    <Button class="btn_primary" text="Save" onClick="settings_save" />
+                    <Text class="muted" content="{settings_msg}" />
+                </Row>
+            </Column>
+        </if>
+
+        <!-- Git: contas conectadas + formulário de conexão -->
+        <if cond="{settings_tab}" equals="git">
+            <Scrollable direction="vertical" class="scroll_fill">
+                <Column class="form_panel">
+                    <Text class="label_cap" content="CONTAS CONECTADAS ({gitea_count})" />
+                    <Text if="{gitea_count}" equals="0" class="muted" content="Nenhuma conta Gitea conectada ainda." />
+                    <Column class="kv_list">
+                        <ForEach items="gitea_providers" var="p">
+                            <Row class="kv_row">
+                                <Column class="header_titles">
+                                    <Text class="env_key" content="{p.name}" />
+                                    <Text class="muted" content="{p.base_url}  ·  {p.auth_mode}  ·  {p.account}" />
+                                </Column>
+                                <Button class="btn_danger" text="Remover" onClick="gp_delete:{p.id}" />
+                            </Row>
+                        </ForEach>
+                    </Column>
+
+                    <Rule />
+                    <Text class="label_cap" content="CONECTAR CONTA GITEA" />
+                    <Text if="{gp_msg}" not_equals="" class="muted" content="{gp_msg}" />
+
+                    <Row class="hc_grid">
+                        <Column class="hc_field"><Text class="label_cap" content="NOME" /><TextInput class="field_input" placeholder="Meu Gitea" value="gp_name" onChange="field:gp_name" /></Column>
+                        <Column class="hc_field"><Text class="label_cap" content="BASE URL" /><TextInput class="field_input" placeholder="https://gitea.exemplo.com" value="gp_base_url" onChange="field:gp_base_url" /></Column>
+                    </Row>
+
+                    <Text class="label_cap" content="MÉTODO" />
+                    <Row class="tabs">
+                        <Button if="{gp_mode}" equals="pat" class="tab" text="OAuth2" onClick="gp_mode:oauth" />
+                        <Button else class="tab_on" text="OAuth2" onClick="gp_mode:oauth" />
+                        <Button if="{gp_mode}" equals="pat" class="tab_on" text="Token (PAT)" onClick="gp_mode:pat" />
+                        <Button else class="tab" text="Token (PAT)" onClick="gp_mode:pat" />
+                    </Row>
+
+                    <!-- OAuth2 -->
+                    <if cond="{gp_mode}" not_equals="pat">
+                        <Text class="label_cap" content="CLIENT ID" />
+                        <TextInput class="field_input" placeholder="" value="gp_client_id" onChange="field:gp_client_id" />
+                        <Text class="label_cap" content="CLIENT SECRET" />
+                        <TextInput class="field_input" secure="true" placeholder="" value="gp_client_secret" onChange="field:gp_client_secret" />
+                        <Text class="label_cap" content="REDIRECT URI (cole no app OAuth do Gitea)" />
+                        <Row class="kv_row">
+                            <Text class="kv_val_fill" content="{gp_redirect}" />
+                            <Button class="copy_btn" text="Copiar" onClick="clipboard:gp_redirect" />
+                        </Row>
+                        <Text class="muted" content="No Gitea: Settings → Applications → crie um OAuth2 app e cole a Redirect URI acima." />
+                    </if>
+
+                    <!-- PAT -->
+                    <if cond="{gp_mode}" equals="pat">
+                        <Text class="label_cap" content="PERSONAL ACCESS TOKEN" />
+                        <TextInput class="field_input" secure="true" placeholder="" value="gp_pat" onChange="field:gp_pat" />
+                        <Text class="muted" content="No Gitea: Settings → Applications → Generate New Token (escopo: repo)." />
+                    </if>
+
+                    <Row class="env_add">
+                        <Button class="btn_primary" text="Conectar" onClick="gp_connect" />
+                        <Button class="tab" text="Atualizar lista" onClick="gp_refresh" />
+                    </Row>
+                </Column>
+            </Scrollable>
+        </if>
     </if>
 
     <!-- ── Schedules / Support (placeholders) ───────────────────────────── -->

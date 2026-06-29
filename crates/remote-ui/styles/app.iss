@@ -139,6 +139,7 @@
 .field_label  { size: 11; bold: true; color: #8B949E; }
 .field_label_fill { width: fill; size: 11; bold: true; color: #8B949E; }
 .field_input  { width: fill; padding: 13 14; }
+.select       { width: fill; padding: 12 14; background: #161B22; border-radius: 8; border-width: 1; border-color: #30363D; color: #C9D1D9; }
 .connect_btn  { width: fill; color: #2F81F7; padding: 14; text-align: center; }
 
 /* ── Status badge text colors (used inline on the dot/label) ──────────── */

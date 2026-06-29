@@ -56,33 +56,86 @@
             <!-- General (source / build, editável) -->
             <Scrollable if="{tab}" equals="general" direction="vertical" class="scroll_fill">
                 <Column class="form_panel">
-                    <Text class="label_cap" content="SOURCE — REPOSITORY URL / IMAGE" />
-                    <TextInput class="field_input" placeholder="github.com/user/repo  ou  nginx:latest" value="f_repo_url" onChange="field:f_repo_url" />
-                    <Text class="muted" content="URL de repositório vira Git; caso contrário é imagem de registry." />
-                    <Row class="hc_grid">
-                        <Column class="hc_field"><Text class="label_cap" content="BRANCH" /><TextInput class="field_input" placeholder="main" value="f_branch" onChange="field:f_branch" /></Column>
-                        <Column class="hc_field"><Text class="label_cap" content="PORT" /><TextInput class="field_input" placeholder="80" value="f_gen_port" onChange="field:f_gen_port" /></Column>
+
+                    <!-- Provider: sub-abas Git (URL crua) | Gitea (conta conectada). -->
+                    <!-- A sub-aba Gitea só aparece com ao menos um provider conectado. -->
+                    <Text class="label_cap" content="PROVIDER" />
+                    <Row class="tabs">
+                        <Button if="{prov_tab}" equals="git" class="tab_on" text="Git" onClick="prov:git" />
+                        <Button else class="tab" text="Git" onClick="prov:git" />
+                        <if cond="{gitea_count}" not_equals="0">
+                            <Button if="{prov_tab}" equals="gitea" class="tab_on" text="Gitea" onClick="prov:gitea" />
+                            <Button else class="tab" text="Gitea" onClick="prov:gitea" />
+                        </if>
                     </Row>
-                    <Row class="hc_grid">
-                        <Column class="hc_field"><Text class="label_cap" content="USERNAME" /><TextInput class="field_input" placeholder="(opcional)" value="f_username" onChange="field:f_username" /></Column>
-                        <Column class="hc_field"><Text class="label_cap" content="CREDENTIALS (secret)" /><TextInput class="field_input" placeholder="(opcional)" value="f_credentials" onChange="field:f_credentials" /></Column>
-                    </Row>
-                    <Text class="label_cap" content="BUILD PATH (root)" />
-                    <TextInput class="field_input" placeholder="." value="f_build_path" onChange="field:f_build_path" />
-                    <Text class="label_cap" content="WATCH PATHS (separados por vírgula)" />
-                    <TextInput class="field_input" placeholder="src, Cargo.toml" value="f_watch_paths" onChange="field:f_watch_paths" />
-                    <Toggle label="  Enable submodules" checked="f_submodules" onToggle="field:f_submodules" />
-                    <Text class="label_cap" content="BUILD ENGINE: DOCKERFILE" />
-                    <Row class="hc_grid">
-                        <Column class="hc_field"><Text class="label_cap" content="DOCKERFILE" /><TextInput class="field_input" placeholder="Dockerfile" value="f_dockerfile" onChange="field:f_dockerfile" /></Column>
-                        <Column class="hc_field"><Text class="label_cap" content="CONTEXT PATH" /><TextInput class="field_input" placeholder="." value="f_context_path" onChange="field:f_context_path" /></Column>
-                    </Row>
-                    <Text class="label_cap" content="BUILD STAGE (opcional)" />
-                    <TextInput class="field_input" placeholder="(multi-stage target)" value="f_build_stage" onChange="field:f_build_stage" />
-                    <Row class="env_add">
-                        <Button class="btn_primary" text="Save" onClick="gen_save" />
-                        <Text class="muted" content="{svc_action_msg}" />
-                    </Row>
+                    <Rule />
+
+                    <!-- ── Sub-aba Git: form de URL/imagem crua ──────────────── -->
+                    <if cond="{prov_tab}" equals="git">
+                        <Text class="label_cap" content="SOURCE — REPOSITORY URL / IMAGE" />
+                        <TextInput class="field_input" placeholder="github.com/user/repo  ou  nginx:latest" value="f_repo_url" onChange="field:f_repo_url" />
+                        <Text class="muted" content="URL de repositório vira Git; caso contrário é imagem de registry." />
+                        <Row class="hc_grid">
+                            <Column class="hc_field"><Text class="label_cap" content="BRANCH" /><TextInput class="field_input" placeholder="main" value="f_branch" onChange="field:f_branch" /></Column>
+                            <Column class="hc_field"><Text class="label_cap" content="PORT" /><TextInput class="field_input" placeholder="80" value="f_gen_port" onChange="field:f_gen_port" /></Column>
+                        </Row>
+                        <Row class="hc_grid">
+                            <Column class="hc_field"><Text class="label_cap" content="USERNAME" /><TextInput class="field_input" placeholder="(opcional)" value="f_username" onChange="field:f_username" /></Column>
+                            <Column class="hc_field"><Text class="label_cap" content="CREDENTIALS (secret)" /><TextInput class="field_input" placeholder="(opcional)" value="f_credentials" onChange="field:f_credentials" /></Column>
+                        </Row>
+                        <Text class="label_cap" content="BUILD PATH (root)" />
+                        <TextInput class="field_input" placeholder="." value="f_build_path" onChange="field:f_build_path" />
+                        <Text class="label_cap" content="WATCH PATHS (separados por vírgula)" />
+                        <TextInput class="field_input" placeholder="src, Cargo.toml" value="f_watch_paths" onChange="field:f_watch_paths" />
+                        <Toggle label="  Enable submodules" checked="f_submodules" onToggle="field:f_submodules" />
+                        <Text class="label_cap" content="BUILD ENGINE: DOCKERFILE" />
+                        <Row class="hc_grid">
+                            <Column class="hc_field"><Text class="label_cap" content="DOCKERFILE" /><TextInput class="field_input" placeholder="Dockerfile" value="f_dockerfile" onChange="field:f_dockerfile" /></Column>
+                            <Column class="hc_field"><Text class="label_cap" content="CONTEXT PATH" /><TextInput class="field_input" placeholder="." value="f_context_path" onChange="field:f_context_path" /></Column>
+                        </Row>
+                        <Text class="label_cap" content="BUILD STAGE (opcional)" />
+                        <TextInput class="field_input" placeholder="(multi-stage target)" value="f_build_stage" onChange="field:f_build_stage" />
+                        <Row class="env_add">
+                            <Button class="btn_primary" text="Save" onClick="gen_save" />
+                            <Text class="muted" content="{svc_action_msg}" />
+                        </Row>
+                    </if>
+
+                    <!-- ── Sub-aba Gitea: picker de conta/repo/branch conectados ─ -->
+                    <if cond="{prov_tab}" equals="gitea">
+                        <Text class="muted" content="Selecione a conta conectada, o repositório e a branch a implantar." />
+                        <Text if="{gitea_msg}" not_equals="" class="muted" content="{gitea_msg}" />
+
+                        <Text class="label_cap" content="CONTA GITEA" />
+                        <Select class="select" options="gitea_providers" value="gitea_provider_id" onChange="gitea_provider_pick" placeholder="selecione a conta" labelField="display" valueField="id" />
+                        <Text class="muted" content="Conecte contas em Settings → Git." />
+
+                        <Text class="label_cap" content="REPOSITÓRIO" />
+                        <Select class="select" options="gitea_repos" value="gitea_repo" onChange="gitea_repo_pick" placeholder="selecione o repositório" labelField="full_name" valueField="full_name" />
+
+                        <Text class="label_cap" content="BRANCH" />
+                        <Select class="select" options="gitea_branches" value="f_branch" onChange="field:f_branch" placeholder="selecione a branch" labelField="name" valueField="name" />
+
+                        <Text class="label_cap" content="SELEÇÃO ATUAL" />
+                        <Row class="kv_row"><Text class="kv_key" content="Repo (clone URL)" /><Text class="kv_val_fill" content="{f_repo_url}" /></Row>
+
+                        <Text class="label_cap" content="BUILD" />
+                        <Row class="hc_grid">
+                            <Column class="hc_field"><Text class="label_cap" content="BUILD PATH (root)" /><TextInput class="field_input" placeholder="." value="f_build_path" onChange="field:f_build_path" /></Column>
+                            <Column class="hc_field"><Text class="label_cap" content="PORT" /><TextInput class="field_input" placeholder="80" value="f_gen_port" onChange="field:f_gen_port" /></Column>
+                        </Row>
+                        <Row class="hc_grid">
+                            <Column class="hc_field"><Text class="label_cap" content="DOCKERFILE" /><TextInput class="field_input" placeholder="Dockerfile" value="f_dockerfile" onChange="field:f_dockerfile" /></Column>
+                            <Column class="hc_field"><Text class="label_cap" content="CONTEXT PATH" /><TextInput class="field_input" placeholder="." value="f_context_path" onChange="field:f_context_path" /></Column>
+                        </Row>
+                        <Text class="label_cap" content="WATCH PATHS (separados por vírgula)" />
+                        <TextInput class="field_input" placeholder="src, Cargo.toml" value="f_watch_paths" onChange="field:f_watch_paths" />
+                        <Toggle label="  Enable submodules" checked="f_submodules" onToggle="field:f_submodules" />
+                        <Row class="env_add">
+                            <Button class="btn_primary" text="Save" onClick="gen_save" />
+                            <Text class="muted" content="{svc_action_msg}" />
+                        </Row>
+                    </if>
                 </Column>
             </Scrollable>
 

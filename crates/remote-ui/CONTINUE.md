@@ -19,7 +19,10 @@ conferir:
 - **Telas**: Monitoring (métricas host+container), Ingress, Docker.
 
 ## Estado atual (funcionando)
-- **glacier-ui 0.2.4** publicado no crates.io. 0.2.4: ação built-in
+- **glacier-ui 0.2.7** publicado no crates.io. 0.2.7: `<TextInput secure="true">`
+  (mascara senhas/tokens). 0.2.6: **widget `<Select>`** (dropdown `pick_list`,
+  opções de array JSON do contexto, estilizável via `.iss`; aliases
+  `Dropdown`/`PickList`/`ComboBox`/`Seletor`). 0.2.4: ação built-in
   `clipboard:<key>` (copia valor do contexto p/ a área de transferência).
   0.2.3: **widget `<TextArea>`**
   (editor multiline stateful). Como o `text_editor` do iced é stateful
@@ -57,8 +60,45 @@ conferir:
   (repo_url/image, branch, port, user/credentials, build path, watch paths,
   submodules, dockerfile/context/stage) → `SpecOp::General` reconstrói o
   `ServiceSource` (mantém Git se já era ou se a URL parece repo via
-  `looks_like_git_url`, senão Registry; preserva `provider_id`). Falta só o
-  **picker Gitea** (OAuth/repos/branches via `GitProvider*`).
+  `looks_like_git_url`, senão Registry; preserva `provider_id`).
+- **Provider sub-abas Git | Gitea no General** (feito, fiel ao remote-client):
+  `prov_tab` (`git`/`gitea`) controla um sub-tab bar no topo do form General; a
+  aba **Gitea só aparece quando há provider conectado** (`<if cond="{gitea_count}"
+  not_equals="0">`). `open_service` dispara `fetch_git_providers` (popula
+  `gitea_count`/`gitea_providers`); `fetch_service_detail` define `prov_tab` =
+  `gitea` quando o source já tem `provider_id` (e ecoa `gitea_provider_id`).
+  - **Git**: form de URL/imagem crua (o de antes).
+  - **Gitea**: APENAS seleciona contas já conectadas (cadastro/conexão é em
+    Settings → Git). Três `<Select>` (dropdowns) — conta (`gitea_providers`,
+    onChange `gitea_provider_pick` → `GitRepoList`), repositório (`gitea_repos`,
+    onChange `gitea_repo_pick`: `find_repo` resolve clone_url/default_branch do
+    JSON, preenche `f_repo_url`/`f_branch` → `GitBranchList`) e branch
+    (`gitea_branches`, onChange `field:f_branch`). Sem botão de OAuth aqui. +
+    campos de build.
+  - **Widget `<Select>` (glacier 0.2.6)**: dropdown `pick_list` que lê um array
+    JSON do contexto (mesmo formato do ForEach), com `labelField`/`valueField`,
+    valor selecionado via chave, emite `onChange` com o valor escolhido;
+    estilizável via `.iss` (classe `.select`: background/border/color). Antes era
+    lista de botões (feio); agora são selects de verdade, como no remote-client.
+  - `gen_save` (ambas as abas) lê `prov_tab`: Gitea passa `gitea_provider_id`,
+    Git passa vazio → em `apply_spec_op` vazio = `provider_id: None` (desvincula),
+    preenchido = vincula. `prov:<git|gitea>` troca a sub-aba (entrar em Gitea com
+    conta já escolhida recarrega repos).
+  - **Auto-load**: ao abrir um serviço já gitea-bound, `fetch_service_detail`
+    pré-carrega `gitea_repos` (+ `gitea_branches` do repo casado por `clone_url`).
+    `gitea_providers`/`gitea_count` são buscados no connect (poll_stream) e em
+    `open_service`. Daemon: `GitRepoList` exige token OAuth (`usable_token`);
+    erros legíveis via `resp_msg` (`erro: <code>: <message>`).
+- **Settings → Git** (cadastro/conexão de contas, sub-aba ao lado de Web Server;
+  `settings_tab` = `web`/`git`): lista contas conectadas (`gitea_providers`:
+  nome · base_url · método · @login) com "Remover" (`gp_delete:<id>` →
+  `GitProviderDelete`); formulário "Conectar conta Gitea" — Nome, Base URL,
+  Método (`gp_mode` oauth/pat), e por método: OAuth (Client ID, Client Secret
+  `secure`, Redirect URI copiável `{gp_redirect}` = `{domain}/oauth/gitea/callback`)
+  ou PAT (token `secure`). "Conectar" (`gp_connect` → `net::git_provider_connect`:
+  `GitProviderCreate`; se OAuth dispara `GitOAuthStart` e abre o navegador via
+  `xdg-open`; PAT já fica usável) e "Atualizar lista" (`gp_refresh`). Campos
+  `secure` usam o `<TextInput secure="true">` do glacier 0.2.7.
 - **Validação headless**: `tests/templates_render.rs` registra os templates a
   partir da raiz do workspace e renderiza login + todas as views + todas as abas
   do service (incl. editor `.env` e painel de build log) — pega XML malformado e
@@ -112,17 +152,12 @@ conferir:
   `theme.json`. TODO layout fica nas classes `.iss` (não inline no XML).
 
 ## Próximos passos (em ordem)
-1. **Picker Gitea no General**: sub-aba que lista contas/repos/branches de um
-   Git provider conectado (`GitProviderList`/`GitRepoList`/`GitBranchList` +
-   OAuth via `GitOAuthStart`). Hoje só o form Git/Registry genérico.
-2. **Aba Patches** do remote-client; **Schedules** sem backend (placeholder).
+1. **Aba Patches** do remote-client; **Schedules** sem backend (placeholder).
    Settings só tem Web Server (remote-client tem Git/Registry/Certs… quase todas
    placeholder lá também).
-   Topbar Deploy/Stop All ainda inertes (precisam de contexto/seleção global).
-   Tabs Domains/Environment-edit do detail ainda faltam.
-3. Sidebar com ícones SVG (já em `assets/icons/`). Botão gradiente real (hoje
+2. Sidebar com ícones SVG (já em `assets/icons/`). Botão gradiente real (hoje
    `<Button>` só cor sólida; gradiente já funciona em containers).
-4. **Fonte mono** do design: JetBrains Mono está em `assets/fonts/` com o
+3. **Fonte mono** do design: JetBrains Mono está em `assets/fonts/` com o
    `.font()/.default_font()` COMENTADO no `main.rs`. Reabilitar quando
    descobrirmos por que a fonte custom sumia (provável: registrar a fonte e
    garantir que o iced a use; testar `WGPU_BACKEND=gl`).

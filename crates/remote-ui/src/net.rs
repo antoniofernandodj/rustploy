@@ -16,8 +16,8 @@ use iced::futures::{SinkExt, Stream};
 use shared::protocol::{BuildLogLine, LogEntry, LogStream};
 use shared::{
     Command, ContainerMetricsPoint, DeploymentSummary, DeployState, EnvVar, EnvVarValue, Event,
-    GitSource, Healthcheck, HealthcheckKind, Project, Response, RwpFrame, RwpReply, Service,
-    ServiceSource, ServiceStatus, SystemMetricsPoint, looks_like_git_url,
+    GitBranch, GitProvider, GitRepo, GitSource, Healthcheck, HealthcheckKind, Project, Response,
+    RwpFrame, RwpReply, Service, ServiceSource, ServiceStatus, SystemMetricsPoint, looks_like_git_url,
 };
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -155,6 +155,42 @@ async fn fetch_service_detail_inner(
     };
 
     // Editable form fields (Domains / Healthcheck / Advanced) — empty when unset.
+    // Source provider binding drives the General sub-tab (Git vs Gitea) and the
+    // provider id carried through a Gitea-bound save.
+    let (prov_tab, gen_provider_id, bound_url) = match &spec.source {
+        ServiceSource::Git(g) if g.provider_id.is_some() => {
+            ("gitea", g.provider_id.clone().unwrap_or_default(), g.url.clone())
+        }
+        _ => ("git", String::new(), String::new()),
+    };
+
+    // For a Gitea-bound service, pre-load the provider's repos (and the bound
+    // repo's branches) so the picker lists are populated on first paint instead
+    // of only after a manual click.
+    let mut gitea_extra: Vec<(String, String)> = Vec::new();
+    if !gen_provider_id.is_empty()
+        && let Ok(Response::GitRepos(repos)) = rwp::rpc(
+            &mut conn,
+            Command::GitRepoList { provider_id: gen_provider_id.clone() },
+        ).await
+    {
+        let repo_full = repos
+            .iter()
+            .find(|r| r.clone_url == bound_url)
+            .map(|r| r.full_name.clone());
+        gitea_extra.push(("gitea_repos".into(), git_repos_json(&repos)));
+        gitea_extra.push(("gitea_msg".into(), format!("{} repositório(s)", repos.len())));
+        if let Some(full) = repo_full {
+            gitea_extra.push(("gitea_repo".into(), full.clone()));
+            if let Ok(Response::GitBranches(brs)) = rwp::rpc(
+                &mut conn,
+                Command::GitBranchList { provider_id: gen_provider_id.clone(), repo_full_name: full },
+            ).await {
+                gitea_extra.push(("gitea_branches".into(), git_branches_json(&brs)));
+            }
+        }
+    }
+
     let hc = &spec.healthcheck;
     let (hc_kind, hc_path, hc_status) = match &hc.kind {
         HealthcheckKind::None => ("none", String::new(), String::new()),
@@ -163,7 +199,7 @@ async fn fetch_service_detail_inner(
         HealthcheckKind::Http { path, expected_status } => ("http", path.clone(), expected_status.to_string()),
     };
 
-    Ok(vec![
+    let mut pairs = vec![
         ("svc_loading".into(), "false".into()),
         ("svc_error".into(), String::new()),
         ("svc_id".into(), svc.id.clone()),
@@ -218,7 +254,12 @@ async fn fetch_service_detail_inner(
         ("f_context_path".into(), g.context_path),
         ("f_build_stage".into(), g.build_stage),
         ("f_gen_port".into(), spec.port.to_string()),
-    ])
+        // Provider sub-tab state (Git vs connected Gitea).
+        ("prov_tab".into(), prov_tab.into()),
+        ("gitea_provider_id".into(), gen_provider_id),
+    ];
+    pairs.extend(gitea_extra);
+    Ok(pairs)
 }
 
 /// Stops every running service across all projects (topbar "Stop All").
@@ -298,6 +339,9 @@ pub enum SpecOp {
         context_path: String,
         build_stage: String,
         port: String,
+        /// When non-empty, binds the source to this connected Git provider
+        /// (set by the Gitea picker); empty keeps whatever was there.
+        provider_id: String,
     },
 }
 
@@ -365,7 +409,7 @@ async fn apply_spec_op(
         }
         SpecOp::General {
             repo_url, branch, username, credentials, build_path, watch_paths,
-            submodules, dockerfile, context_path, build_stage, port,
+            submodules, dockerfile, context_path, build_stage, port, provider_id,
         } => {
             if let Ok(p) = port.trim().parse::<u16>() {
                 spec.port = p;
@@ -374,10 +418,12 @@ async fn apply_spec_op(
                 let t = s.trim().to_string();
                 if t.is_empty() { d.to_string() } else { t }
             };
-            // Preserve a connected Git provider when staying on a Git source.
-            let provider_id = match &spec.source {
-                ServiceSource::Git(g) => g.provider_id.clone(),
-                _ => None,
+            // The Gitea sub-tab binds a provider id; the Git sub-tab sends an
+            // empty id, detaching the source from any provider (raw URL).
+            let provider_id = if provider_id.trim().is_empty() {
+                None
+            } else {
+                Some(provider_id.trim().to_string())
             };
             let git = ServiceSource::Git(GitSource {
                 url: repo_url.trim().to_string(),
@@ -510,6 +556,279 @@ pub async fn fetch_build_logs(
     ]
 }
 
+// ── Gitea picker (General tab) ──────────────────────────────────────────────
+
+/// Renders an unexpected/`Err` response into a one-line, human-readable message.
+fn resp_msg(r: &Response) -> String {
+    match r {
+        Response::Err { code, message } => format!("erro: {code}: {message}"),
+        other => format!("resposta inesperada: {other:?}"),
+    }
+}
+
+/// Lists the connected Git providers for the General-tab picker.
+pub async fn fetch_git_providers(addr: String, token: Option<String>) -> Vec<(String, String)> {
+    match run_command(addr, token, Command::GitProviderList).await {
+        Ok(Response::GitProviders(list)) => {
+            let msg = if list.is_empty() {
+                "nenhum provider conectado — configure em Settings".to_string()
+            } else {
+                String::new()
+            };
+            vec![
+                ("gitea_providers".into(), git_providers_json(&list)),
+                ("gitea_count".into(), list.len().to_string()),
+                ("gitea_msg".into(), msg),
+            ]
+        }
+        Ok(other) => vec![("gitea_msg".into(), resp_msg(&other))],
+        Err(e) => vec![("gitea_msg".into(), format!("erro: {e}"))],
+    }
+}
+
+/// Lists the repositories of a provider; resets the repo/branch selection.
+pub async fn fetch_git_repos(
+    addr: String,
+    token: Option<String>,
+    provider_id: String,
+) -> Vec<(String, String)> {
+    let pid = provider_id.clone();
+    match run_command(addr, token, Command::GitRepoList { provider_id }).await {
+        Ok(Response::GitRepos(list)) => vec![
+            ("gitea_provider_id".into(), pid),
+            ("gitea_repos".into(), git_repos_json(&list)),
+            ("gitea_branches".into(), "[]".into()),
+            ("gitea_repo".into(), String::new()),
+            ("gitea_msg".into(), format!("{} repositório(s)", list.len())),
+        ],
+        Ok(other) => vec![("gitea_msg".into(), resp_msg(&other))],
+        Err(e) => vec![("gitea_msg".into(), format!("erro: {e}"))],
+    }
+}
+
+/// Lists the branches of a repository for the branch picker.
+pub async fn fetch_git_branches(
+    addr: String,
+    token: Option<String>,
+    provider_id: String,
+    repo_full_name: String,
+) -> Vec<(String, String)> {
+    match run_command(addr, token, Command::GitBranchList { provider_id, repo_full_name }).await {
+        Ok(Response::GitBranches(list)) => vec![
+            ("gitea_branches".into(), git_branches_json(&list)),
+            ("gitea_msg".into(), format!("{} branch(es)", list.len())),
+        ],
+        Ok(other) => vec![("gitea_msg".into(), resp_msg(&other))],
+        Err(e) => vec![("gitea_msg".into(), format!("erro: {e}"))],
+    }
+}
+
+/// Re-fetches the provider list and returns the context pairs (`gitea_*`) plus
+/// `gp_msg`. Shared by connect/delete/refresh so the list stays in one place.
+async fn providers_refresh_pairs(
+    conn: &mut rwp::RwpStream,
+    msg: String,
+) -> Vec<(String, String)> {
+    let mut pairs = vec![("gp_msg".into(), msg)];
+    if let Ok(Response::GitProviders(list)) = rwp::rpc(conn, Command::GitProviderList).await {
+        pairs.push(("gitea_providers".into(), git_providers_json(&list)));
+        pairs.push(("gitea_count".into(), list.len().to_string()));
+    }
+    pairs
+}
+
+/// Registers a new Gitea provider (Settings → Git). On OAuth it then starts the
+/// authorization flow and opens the browser; on PAT the account is usable at
+/// once. Clears the form fields and refreshes the connected list.
+#[allow(clippy::too_many_arguments)]
+pub async fn git_provider_connect(
+    addr: String,
+    token: Option<String>,
+    name: String,
+    base_url: String,
+    mode: String,
+    client_id: String,
+    client_secret: String,
+    pat: String,
+) -> Vec<(String, String)> {
+    if base_url.trim().is_empty() {
+        return vec![("gp_msg".into(), "informe a Base URL do Gitea".into())];
+    }
+    let name = if name.trim().is_empty() { "Gitea".to_string() } else { name.trim().to_string() };
+    let is_oauth = mode != "pat";
+
+    let cmd = if is_oauth {
+        if client_id.trim().is_empty() || client_secret.trim().is_empty() {
+            return vec![("gp_msg".into(), "Client ID e Client Secret são obrigatórios".into())];
+        }
+        Command::GitProviderCreate {
+            kind: shared::GitProviderKind::Gitea,
+            name,
+            base_url: base_url.trim().to_string(),
+            auth_mode: shared::GitAuthMode::OAuth,
+            oauth_client_id: Some(client_id.trim().to_string()),
+            oauth_client_secret: Some(client_secret.clone()),
+            pat: None,
+        }
+    } else {
+        if pat.trim().is_empty() {
+            return vec![("gp_msg".into(), "informe o Personal Access Token".into())];
+        }
+        Command::GitProviderCreate {
+            kind: shared::GitProviderKind::Gitea,
+            name,
+            base_url: base_url.trim().to_string(),
+            auth_mode: shared::GitAuthMode::Pat,
+            oauth_client_id: None,
+            oauth_client_secret: None,
+            pat: Some(pat.clone()),
+        }
+    };
+
+    let mut conn = match rwp::connect(&addr, token.as_deref()).await {
+        Ok(c) => c,
+        Err(e) => return vec![("gp_msg".into(), format!("erro: {e}"))],
+    };
+
+    let provider_id = match rwp::rpc(&mut conn, cmd).await {
+        Ok(Response::GitProviderInfo(p)) => p.id,
+        Ok(other) => return vec![("gp_msg".into(), resp_msg(&other))],
+        Err(e) => return vec![("gp_msg".into(), format!("erro: {e}"))],
+    };
+
+    // OAuth needs a browser round-trip; PAT is immediately usable.
+    let msg = if is_oauth {
+        match rwp::rpc(&mut conn, Command::GitOAuthStart { provider_id }).await {
+            Ok(Response::OAuthUrl(url)) => {
+                if open_in_browser(&url) {
+                    "navegador aberto — autorize e clique em Atualizar lista".to_string()
+                } else {
+                    format!("abra para autorizar: {url}")
+                }
+            }
+            Ok(other) => resp_msg(&other),
+            Err(e) => format!("erro: {e}"),
+        }
+    } else {
+        "conta Gitea conectada ✓".to_string()
+    };
+
+    let mut pairs = providers_refresh_pairs(&mut conn, msg).await;
+    // Clear the connect form.
+    for k in ["gp_name", "gp_base_url", "gp_client_id", "gp_client_secret", "gp_pat"] {
+        pairs.push((k.into(), String::new()));
+    }
+    pairs
+}
+
+/// Removes a connected provider and refreshes the list.
+pub async fn git_provider_delete(
+    addr: String,
+    token: Option<String>,
+    id: String,
+) -> Vec<(String, String)> {
+    let mut conn = match rwp::connect(&addr, token.as_deref()).await {
+        Ok(c) => c,
+        Err(e) => return vec![("gp_msg".into(), format!("erro: {e}"))],
+    };
+    let msg = match rwp::rpc(&mut conn, Command::GitProviderDelete { id }).await {
+        Ok(Response::Ok) => "provider removido".to_string(),
+        Ok(other) => resp_msg(&other),
+        Err(e) => format!("erro: {e}"),
+    };
+    providers_refresh_pairs(&mut conn, msg).await
+}
+
+/// One-shot provider list refresh for the "Atualizar lista" button.
+pub async fn git_providers_only(addr: String, token: Option<String>) -> Vec<(String, String)> {
+    let mut conn = match rwp::connect(&addr, token.as_deref()).await {
+        Ok(c) => c,
+        Err(e) => return vec![("gp_msg".into(), format!("erro: {e}"))],
+    };
+    providers_refresh_pairs(&mut conn, String::new()).await
+}
+
+/// The Gitea OAuth callback URI the user must register in their Gitea app:
+/// `{domain}/oauth/gitea/callback` (matches the daemon's webhook server).
+/// Empty domain yields a hint placeholder.
+pub fn oauth_redirect_uri(domain: &str) -> String {
+    let d = domain.trim().trim_end_matches('/');
+    if d.is_empty() {
+        "<configure o domínio em Web Server>/oauth/gitea/callback".to_string()
+    } else {
+        format!("{d}/oauth/gitea/callback")
+    }
+}
+
+/// Best-effort: opens `url` in the user's default browser (`xdg-open`).
+fn open_in_browser(url: &str) -> bool {
+    std::process::Command::new("xdg-open")
+        .arg(url)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .is_ok()
+}
+
+fn git_providers_json(list: &[GitProvider]) -> String {
+    let rows: Vec<serde_json::Value> = list
+        .iter()
+        .map(|p| {
+            let (account, connected) = match &p.account {
+                Some(a) => (a.login.clone(), "true"),
+                None => ("não conectado".to_string(), "false"),
+            };
+            // Label shown in the account <Select>: "name (@login)" when connected.
+            let display = match &p.account {
+                Some(a) => format!("{} (@{})", p.name, a.login),
+                None => format!("{} — não conectado", p.name),
+            };
+            let auth_mode = match p.auth_mode {
+                shared::GitAuthMode::OAuth => "OAuth2",
+                shared::GitAuthMode::Pat => "PAT",
+            };
+            let account_lbl = match &p.account {
+                Some(a) => format!("@{}", a.login),
+                None => "(pendente — autorize no navegador)".to_string(),
+            };
+            serde_json::json!({
+                "id": p.id,
+                "name": p.name,
+                "display": display,
+                "base_url": p.base_url,
+                "auth_mode": auth_mode,
+                "account": account_lbl,
+                "account_login": account,
+                "connected": connected,
+            })
+        })
+        .collect();
+    serde_json::Value::Array(rows).to_string()
+}
+
+fn git_repos_json(list: &[GitRepo]) -> String {
+    let rows: Vec<serde_json::Value> = list
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "full_name": r.full_name,
+                "clone_url": r.clone_url,
+                "default_branch": r.default_branch,
+                "private": if r.private { "private" } else { "public" },
+            })
+        })
+        .collect();
+    serde_json::Value::Array(rows).to_string()
+}
+
+fn git_branches_json(list: &[GitBranch]) -> String {
+    let rows: Vec<serde_json::Value> = list
+        .iter()
+        .map(|b| serde_json::json!({ "name": b.name }))
+        .collect();
+    serde_json::Value::Array(rows).to_string()
+}
+
 /// Long-lived polling + event stream feeding the context. Yields
 /// `EngineMessage::ContextPatch` items.
 ///
@@ -560,9 +879,22 @@ pub fn poll_stream(
         if let Ok(Response::DaemonSettings { webhook_base_url, acme_email }) =
             rwp::rpc(&mut cmd, Command::GetDaemonSettings).await
         {
+            let domain = webhook_base_url.unwrap_or_default();
             patch!(vec![
-                ("ss_domain".into(), webhook_base_url.unwrap_or_default()),
+                ("ss_domain".into(), domain.clone()),
                 ("ss_email".into(), acme_email.unwrap_or_default()),
+                ("gp_redirect".into(), oauth_redirect_uri(&domain)),
+            ]);
+        }
+
+        // Connected Git providers, fetched once on connect for the Settings → Git
+        // list and the service General → Gitea account picker.
+        if let Ok(Response::GitProviders(list)) =
+            rwp::rpc(&mut cmd, Command::GitProviderList).await
+        {
+            patch!(vec![
+                ("gitea_providers".into(), git_providers_json(&list)),
+                ("gitea_count".into(), list.len().to_string()),
             ]);
         }
 
