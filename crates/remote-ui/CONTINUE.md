@@ -5,8 +5,23 @@ UI nova do client remoto, em **glacier-ui** (XML declarativo → iced), seguindo
 sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
 `cargo run -p remote-ui` (paths de template são relativos ao CWD).
 
+## ⚠️ PENDENTE — teste manual (não feito ainda)
+A validação automática é só headless (`tests/templates_render.rs`: parse + render
+da árvore, sem display). **Falta testar em runtime contra um daemon** — não dá
+pra capturar tela aqui (Wayland). Rodar `cargo run -p remote-ui`, conectar e
+conferir:
+- **Saves** persistem de fato (re-fetch após `ServiceUpdate`): General (editar
+  branch/imagem), Domains, Healthcheck, Advanced, Settings (web server).
+- **Env**: adicionar/remover var, editar/Importar `.env`, Exportar `.env`.
+- **Logs ao vivo**: aba Logs / LIVE OUTPUT (runtime) e Build log (deployment em
+  andamento) crescendo em tempo real; "Copiar tudo" e seleção/Ctrl+C.
+- **Ações**: Deploy/Reload/Rebuild/Stop, Stop All do topbar.
+- **Telas**: Monitoring (métricas host+container), Ingress, Docker.
+
 ## Estado atual (funcionando)
-- **glacier-ui 0.2.3** publicado no crates.io. 0.2.3: **widget `<TextArea>`**
+- **glacier-ui 0.2.4** publicado no crates.io. 0.2.4: ação built-in
+  `clipboard:<key>` (copia valor do contexto p/ a área de transferência).
+  0.2.3: **widget `<TextArea>`**
   (editor multiline stateful). Como o `text_editor` do iced é stateful
   (`Content`), o `GlacierUI` mantém um `EditorMap` (binding→`Content`) +
   `editor_synced`; `sync_editors()` (fim de `reevaluate_all`) cria/recarrega o
