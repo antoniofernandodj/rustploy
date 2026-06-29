@@ -63,6 +63,7 @@
 .col_start  { width: fill; }
 .content_center { width: fill; height: fill; align-x: center; align-y: center; }
 .panel_fill { width: fill; height: fill; background: #0D1117; border-radius: 14; border-width: 1; border-color: #21262D; padding: 4; }
+.form_panel { width: 640; background: #0D1117; border-radius: 14; border-width: 1; border-color: #21262D; padding: 24; spacing: 10; }
 .state_cell { width: 170; spacing: 7; align-y: center; }
 .state_dot  { size: 11; }
 .state_lbl  { size: 12; }

@@ -184,10 +184,7 @@
                     <ServiceDetail />
                 </if>
                 <else>
-                    <Column class="content_center">
-                        <Text class="title" content="{view}" />
-                        <Text class="subtitle" content="Tela em construção nesta versão da UI glacier." />
-                    </Column>
+                    <HomeViews />
                 </else>
             </else>
         </else>
@@ -195,3 +192,4 @@
 </Row>
 
 <import name="ServiceDetail" from="crates/remote-ui/templates/service.xml" />
+<import name="HomeViews" from="crates/remote-ui/templates/home.xml" />

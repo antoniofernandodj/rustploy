@@ -97,6 +97,18 @@ impl Component for Root {
         ctx.set("services", "[]");
         ctx.set("services_count", "0");
         ctx.set("service_rows", "[]");
+        // Home screens (Monitoring / Ingress / Docker / Settings).
+        ctx.set("ingress", "[]");
+        ctx.set("ingress_count", "0");
+        ctx.set("docker_rows", "[]");
+        ctx.set("monitoring", "[]");
+        ctx.set("sys_cpu", "—");
+        ctx.set("sys_mem", "—");
+        ctx.set("sys_disk", "—");
+        ctx.set("sys_load", "—");
+        ctx.set("ss_domain", "");
+        ctx.set("ss_email", "");
+        ctx.set("settings_msg", "");
         // Service detail (view=service) defaults.
         ctx.set("tab", "general");
         ctx.set("svc_loading", "false");
@@ -141,6 +153,41 @@ impl Component for Root {
             "token_changed" => {
                 if let Some(v) = value {
                     ctx.set("token", v);
+                }
+            }
+            // Topbar: Deploy points the user at the project grid to pick a
+            // service; Stop All stops every running service.
+            "deploy" => {
+                ctx.set("view", "projects");
+            }
+            "stop_all" => {
+                if !self.addr.is_empty() {
+                    ctx.set("status_line", "parando todos…");
+                    ctx.perform(crate::net::stop_all(self.addr.clone(), self.token.clone()));
+                }
+            }
+            // Settings (daemon web server) fields + save.
+            "ss_domain_changed" => {
+                if let Some(v) = value {
+                    ctx.set("ss_domain", v);
+                }
+            }
+            "ss_email_changed" => {
+                if let Some(v) = value {
+                    ctx.set("ss_email", v);
+                }
+            }
+            "settings_save" => {
+                if !self.addr.is_empty() {
+                    let domain = ctx.get("ss_domain").cloned().unwrap_or_default();
+                    let email = ctx.get("ss_email").cloned().unwrap_or_default();
+                    ctx.set("settings_msg", "salvando…");
+                    ctx.perform(crate::net::save_settings(
+                        self.addr.clone(),
+                        self.token.clone(),
+                        domain,
+                        email,
+                    ));
                 }
             }
             "env_new_key_changed" => {

@@ -1,0 +1,153 @@
+<Column class="content">
+
+    <!-- ── Monitoring ───────────────────────────────────────────────────── -->
+    <if cond="{view}" equals="monitoring">
+        <Row class="header_row">
+            <Column class="header_titles">
+                <Text class="title" content="Monitoring" />
+                <Text class="subtitle" content="Host and per-container resource usage." />
+            </Column>
+        </Row>
+        <Row class="stats_row">
+            <Column class="stat_card"><Text class="label_cap" content="CPU" /><Text class="stat_num" content="{sys_cpu}" /></Column>
+            <Column class="stat_card"><Text class="label_cap" content="MEMORY" /><Text class="stat_num_g" content="{sys_mem}" /></Column>
+            <Column class="stat_card"><Text class="label_cap" content="DISK" /><Text class="stat_num" content="{sys_disk}" /></Column>
+            <Column class="stat_card"><Text class="label_cap" content="LOAD" /><Text class="stat_num" content="{sys_load}" /></Column>
+        </Row>
+        <Column class="panel_fill">
+            <Row class="thead">
+                <Text class="th col_svc" content="CONTAINER" />
+                <Text class="th col_proj" content="PROJETO" />
+                <Text class="th col_dur" content="CPU" />
+                <Text class="th col_dur" content="MEM" />
+                <Text class="th col_dur" content="RX" />
+                <Text class="th col_start" content="TX" />
+            </Row>
+            <Scrollable direction="vertical" class="scroll_fill">
+                <Column class="table_body">
+                    <ForEach items="monitoring" var="m">
+                        <Column class="row_wrap">
+                            <Row class="trow">
+                                <Text class="td_key col_svc" content="{m.name}" />
+                                <Text class="td col_proj" content="{m.project}" />
+                                <Text class="td col_dur" content="{m.cpu}" />
+                                <Text class="td col_dur" content="{m.mem}" />
+                                <Text class="muted col_dur" content="{m.rx}" />
+                                <Text class="muted col_start" content="{m.tx}" />
+                            </Row>
+                            <Rule />
+                        </Column>
+                    </ForEach>
+                </Column>
+            </Scrollable>
+        </Column>
+    </if>
+
+    <!-- ── Ingress ──────────────────────────────────────────────────────── -->
+    <if cond="{view}" equals="ingress">
+        <Row class="header_row">
+            <Column class="header_titles">
+                <Text class="title" content="Ingress" />
+                <Text class="subtitle" content="Active routes in the reverse proxy." />
+            </Column>
+            <Row class="stats_row">
+                <Column class="stat_card"><Text class="label_cap" content="ROUTES" /><Text class="stat_num" content="{ingress_count}" /></Column>
+            </Row>
+        </Row>
+        <Column class="panel_fill">
+            <Row class="thead">
+                <Text class="th col_svc" content="DOMÍNIO" />
+                <Text class="th col_proj" content="SERVIÇO" />
+                <Text class="th col_dur" content="UPSTREAM" />
+                <Text class="th col_start" content="TLS" />
+            </Row>
+            <Scrollable direction="vertical" class="scroll_fill">
+                <Column class="table_body">
+                    <ForEach items="ingress" var="i">
+                        <Column class="row_wrap">
+                            <Row class="trow">
+                                <Text class="td_key col_svc" content="{i.domain}" />
+                                <Text class="td col_proj" content="{i.service}" />
+                                <Text class="td col_dur" content="{i.upstream}" />
+                                <Text class="muted col_start" content="{i.tls}" />
+                            </Row>
+                            <Rule />
+                        </Column>
+                    </ForEach>
+                </Column>
+            </Scrollable>
+        </Column>
+    </if>
+
+    <!-- ── Docker ───────────────────────────────────────────────────────── -->
+    <if cond="{view}" equals="docker">
+        <Row class="header_row">
+            <Column class="header_titles">
+                <Text class="title" content="Docker" />
+                <Text class="subtitle" content="Containers managed by Rustploy." />
+            </Column>
+        </Row>
+        <Column class="panel_fill">
+            <Row class="thead">
+                <Text class="th col_svc" content="SERVIÇO" />
+                <Text class="th col_proj" content="IMAGEM" />
+                <Text class="th col_state" content="ESTADO" />
+                <Text class="th col_start" content="CONTAINER" />
+            </Row>
+            <Scrollable direction="vertical" class="scroll_fill">
+                <Column class="table_body">
+                    <ForEach items="docker_rows" var="c">
+                        <Column class="row_wrap">
+                            <Row class="trow">
+                                <Text class="td_key col_svc" content="{c.name}" />
+                                <Text class="td col_proj" content="{c.image}" />
+                                <Row class="state_cell">
+                                    <Text class="state_dot" content="●" color="{c.status_color}" />
+                                    <Text class="state_lbl" content="{c.status_label}" color="{c.status_color}" />
+                                </Row>
+                                <Text class="muted col_start" content="{c.container}" />
+                            </Row>
+                            <Rule />
+                        </Column>
+                    </ForEach>
+                </Column>
+            </Scrollable>
+        </Column>
+    </if>
+
+    <!-- ── Settings (Web Server) ────────────────────────────────────────── -->
+    <if cond="{view}" equals="settings">
+        <Row class="header_row">
+            <Column class="header_titles">
+                <Text class="title" content="Settings" />
+                <Text class="subtitle" content="Daemon web server and HTTPS." />
+            </Column>
+        </Row>
+        <Column class="form_panel">
+            <Text class="label_cap" content="DOMÍNIO / URL BASE" />
+            <TextInput class="field_input" placeholder="https://rustploy.meusite.com" value="ss_domain" onChange="ss_domain_changed" />
+            <Text class="muted" content="Base das URLs de webhook dos serviços." />
+            <Text class="label_cap" content="E-MAIL LET'S ENCRYPT (HTTPS AUTOMÁTICO)" />
+            <TextInput class="field_input" placeholder="voce@exemplo.com" value="ss_email" onChange="ss_email_changed" />
+            <Text class="muted" content="Certificados TLS emitidos automaticamente. Requer restart do daemon." />
+            <Row class="env_add">
+                <Button class="btn_primary" text="Save" onClick="settings_save" />
+                <Text class="muted" content="{settings_msg}" />
+            </Row>
+        </Column>
+    </if>
+
+    <!-- ── Schedules / Support (placeholders) ───────────────────────────── -->
+    <if cond="{view}" equals="schedules">
+        <Column class="content_center">
+            <Text class="title" content="Schedules" />
+            <Text class="subtitle" content="Agendamentos de auto-deploy — em breve." />
+        </Column>
+    </if>
+    <if cond="{view}" equals="support">
+        <Column class="content_center">
+            <Text class="title" content="Support" />
+            <Text class="subtitle" content="github.com/antoniofernandodj/rustploy" />
+        </Column>
+    </if>
+</Column>

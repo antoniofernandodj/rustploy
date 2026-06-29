@@ -60,18 +60,30 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
   (`GRID_COLS`) no `service_rows_json` (`[{"cards":[…]}]`) e renderizo com
   `<ForEach>` aninhado (`items="r.cards"`); fillers invisíveis (`filler="1"`)
   mantêm as colunas alinhadas. Classes `.card`/`.grid`/`.card_*` no `.iss`.
+- **Home screens** (`templates/home.xml`, importado no `shell.xml`; ifs
+  independentes por `{view}`): **Monitoring** (stat cards de host CPU/MEM/DISK/
+  LOAD via `Event::SystemMetrics` + tabela por container via `ContainerMetrics`),
+  **Ingress** (rotas derivadas dos serviços com domínio), **Docker** (containers
+  derivados dos serviços: imagem/estado/container id), **Settings** (web server
+  do daemon: `GetDaemonSettings` no connect → `ss_domain`/`ss_email` editáveis →
+  `settings_save` → `SetDaemonSettings`). Schedules/Support são placeholders.
+- **Topbar**: `Deploy` leva ao grid Projects (seleção); `Stop All` →
+  `net::stop_all` (para todos Running/Degraded).
 - Arquitetura: `Root` (Component único) detém estado + subscription de rede;
-  `net.rs` faz polling (DaemonStatus/RecentDeployments/ProjectList) → `ContextPatch`;
-  `rwp.rs` = transporte. Telas: `templates/app.xml` (switch `{screen}` login/shell),
-  `login.xml`, `shell.xml` (switch `{view}`). Estilo: `styles/app.iss` + `theme.json`.
-  TODO layout fica nas classes `.iss` (não inline no XML).
+  `net.rs` faz polling (DaemonStatus/RecentDeployments/ProjectList+ServiceList) →
+  `ContextPatch`; settings buscado 1x no connect (não no poll, p/ não sobrescrever
+  edição). `rwp.rs` = transporte. Telas: `app.xml` (switch `{screen}`), `login.xml`,
+  `shell.xml` (switch `{view}`), `service.xml`, `home.xml`. Estilo: `app.iss` +
+  `theme.json`. TODO layout fica nas classes `.iss` (não inline no XML).
 
 ## Próximos passos (em ordem)
 1. **Formulários editáveis com Save** nas abas Domains/Healthcheck/Advanced
    (hoje leitura). Agora dá com `TextInput`/`TextArea` + `ServiceUpdate` (já há
    `net::run_env_op` como molde; generalizar p/ um spec-update). Falta tb a aba
    **Patches** do remote-client.
-2. **Monitoring/Schedules/Ingress/Docker/Settings/Support**: telas restantes.
+2. **Schedules**: sem backend ainda (placeholder). Settings só tem Web Server —
+   o remote-client tem mais sub-telas (Git/Registry/Certs…), quase todas
+   placeholder lá também.
    Topbar Deploy/Stop All ainda inertes (precisam de contexto/seleção global).
    Tabs Domains/Environment-edit do detail ainda faltam.
 3. Sidebar com ícones SVG (já em `assets/icons/`). Botão gradiente real (hoje

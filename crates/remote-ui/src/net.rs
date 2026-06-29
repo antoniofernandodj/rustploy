@@ -17,7 +17,7 @@ use shared::protocol::{LogEntry, LogStream};
 use shared::{
     Command, ContainerMetricsPoint, DeploymentSummary, DeployState, EnvVar, EnvVarValue, Event,
     Healthcheck, HealthcheckKind, Project, Response, RwpFrame, RwpReply, Service, ServiceSource,
-    ServiceStatus,
+    ServiceStatus, SystemMetricsPoint,
 };
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -148,6 +148,57 @@ async fn fetch_service_detail_inner(
     ])
 }
 
+/// Stops every running service across all projects (topbar "Stop All").
+pub async fn stop_all(addr: String, token: Option<String>) -> Vec<(String, String)> {
+    let msg = match stop_all_inner(&addr, token.as_deref()).await {
+        Ok(n) => format!("{n} serviço(s) parado(s)"),
+        Err(e) => format!("erro: {e}"),
+    };
+    vec![("status_line".into(), msg)]
+}
+
+async fn stop_all_inner(addr: &str, token: Option<&str>) -> anyhow::Result<usize> {
+    let mut conn = rwp::connect(addr, token).await?;
+    let projects = match rwp::rpc(&mut conn, Command::ProjectList).await? {
+        Response::Projects(p) => p,
+        other => anyhow::bail!("resposta inesperada: {other:?}"),
+    };
+    let mut stopped = 0usize;
+    for p in &projects {
+        if let Ok(Response::Services(svcs)) =
+            rwp::rpc(&mut conn, Command::ServiceList { project_id: p.id.clone() }).await
+        {
+            for s in svcs {
+                if s.status == ServiceStatus::Running || s.status == ServiceStatus::Degraded {
+                    let _ = rwp::rpc(&mut conn, Command::ServiceStop { service_id: s.id }).await;
+                    stopped += 1;
+                }
+            }
+        }
+    }
+    Ok(stopped)
+}
+
+/// Persists the daemon settings (Settings screen). Empty strings clear a field.
+pub async fn save_settings(
+    addr: String,
+    token: Option<String>,
+    domain: String,
+    email: String,
+) -> Vec<(String, String)> {
+    let opt = |s: String| if s.trim().is_empty() { None } else { Some(s) };
+    let cmd = Command::SetDaemonSettings {
+        webhook_base_url: opt(domain),
+        acme_email: opt(email),
+    };
+    let msg = match run_command(addr, token, cmd).await {
+        Ok(Response::Ok) => "configurações salvas".to_string(),
+        Ok(other) => format!("{other:?}"),
+        Err(e) => format!("erro: {e}"),
+    };
+    vec![("settings_msg".into(), msg)]
+}
+
 /// An edit to a service's environment variables.
 pub enum EnvOp {
     /// Add or replace `key` with a plain value.
@@ -269,12 +320,25 @@ pub fn poll_stream(
             ("status_line".into(), "conectado".into()),
         ]);
 
+        // Daemon settings fetched once on connect so the editable fields are not
+        // clobbered by polling while the user types.
+        if let Ok(Response::DaemonSettings { webhook_base_url, acme_email }) =
+            rwp::rpc(&mut cmd, Command::GetDaemonSettings).await
+        {
+            patch!(vec![
+                ("ss_domain".into(), webhook_base_url.unwrap_or_default()),
+                ("ss_email".into(), acme_email.unwrap_or_default()),
+            ]);
+        }
+
         let mut poll = tokio::time::interval(std::time::Duration::from_secs(2));
         poll.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
         // Latest per-service container metrics, fed by the live event stream and
         // merged into the Projects grid cards on each poll tick.
         let mut metrics: HashMap<String, ContainerMetricsPoint> = HashMap::new();
+        // Latest host metrics, fed by `Event::SystemMetrics`.
+        let mut sysm: Option<SystemMetricsPoint> = None;
 
         // Live log ring buffer per service, fed by `Event::LogLine`. Only the
         // selected service's buffer is rendered (`svc_logs`).
@@ -319,6 +383,19 @@ pub fn poll_stream(
                         pairs.push(("services".into(), services_json(&all, &metrics)));
                         pairs.push(("services_count".into(), all.len().to_string()));
                         pairs.push(("service_rows".into(), service_rows_json(&all, &metrics)));
+
+                        // Derived home screens (Ingress routes, Docker, Monitoring).
+                        let (ingress, ingress_count) = ingress_json(&all);
+                        pairs.push(("ingress".into(), ingress));
+                        pairs.push(("ingress_count".into(), ingress_count.to_string()));
+                        pairs.push(("docker_rows".into(), docker_json(&all)));
+                        pairs.push(("monitoring".into(), monitoring_json(&all, &metrics)));
+                    }
+                    if let Some(s) = &sysm {
+                        pairs.push(("sys_cpu".into(), format!("{:.0}%", s.cpu_percent)));
+                        pairs.push(("sys_mem".into(), format!("{} / {}", fmt_bytes(s.mem_used_bytes), fmt_bytes(s.mem_total_bytes))));
+                        pairs.push(("sys_disk".into(), format!("{} / {}", fmt_bytes(s.disk_used_bytes), fmt_bytes(s.disk_total_bytes))));
+                        pairs.push(("sys_load".into(), format!("{:.2} {:.2} {:.2}", s.load_avg_1, s.load_avg_5, s.load_avg_15)));
                     }
                     if !pairs.is_empty() {
                         patch!(pairs);
@@ -350,6 +427,9 @@ pub fn poll_stream(
                     // Cache the freshest metrics; next poll re-renders the grid.
                     Ok(RwpReply::Event(Event::ContainerMetrics(p))) => {
                         metrics.insert(p.service_id.clone(), p);
+                    }
+                    Ok(RwpReply::Event(Event::SystemMetrics(p))) => {
+                        sysm = Some(p);
                     }
                     // Append live log lines; re-render when it's the open service.
                     Ok(RwpReply::Event(Event::LogLine { service_id, stream, line, timestamp, .. })) => {
@@ -492,6 +572,74 @@ fn healthcheck_summary(hc: &Healthcheck) -> String {
         "{kind} · every {}s · timeout {}s · {} retries",
         hc.interval_secs, hc.timeout_secs, hc.retries
     )
+}
+
+/// Ingress route rows derived from services that expose a domain.
+/// Returns `(json, count)`.
+fn ingress_json(all: &[(Service, String)]) -> (String, usize) {
+    let rows: Vec<serde_json::Value> = all
+        .iter()
+        .filter_map(|(s, proj)| {
+            let domain = s.spec.domain.clone()?;
+            if domain.trim().is_empty() {
+                return None;
+            }
+            let scheme = if s.spec.tls_enabled { "https" } else { "http" };
+            Some(serde_json::json!({
+                "domain": domain,
+                "url": format!("{scheme}://{domain}"),
+                "service": s.spec.name,
+                "project": proj,
+                "upstream": format!(":{}", s.spec.port),
+                "tls": if s.spec.tls_enabled { "TLS" } else { "—" },
+            }))
+        })
+        .collect();
+    let count = rows.len();
+    (serde_json::Value::Array(rows).to_string(), count)
+}
+
+/// Docker container rows derived from services (one per managed service).
+fn docker_json(all: &[(Service, String)]) -> String {
+    let rows: Vec<serde_json::Value> = all
+        .iter()
+        .map(|(s, proj)| {
+            let (status_label, status_color) = service_status_label_color(&s.status);
+            let container = s
+                .live_container_id
+                .as_deref()
+                .map(|c| c.chars().take(12).collect::<String>())
+                .unwrap_or_else(|| "—".into());
+            serde_json::json!({
+                "name": s.spec.name,
+                "project": proj,
+                "image": source_summary(&s.spec.source).1,
+                "container": container,
+                "status_label": status_label,
+                "status_color": status_color,
+            })
+        })
+        .collect();
+    serde_json::Value::Array(rows).to_string()
+}
+
+/// Per-container live metrics rows for the Monitoring screen.
+fn monitoring_json(all: &[(Service, String)], metrics: &HashMap<String, ContainerMetricsPoint>) -> String {
+    let rows: Vec<serde_json::Value> = all
+        .iter()
+        .filter_map(|(s, proj)| {
+            let m = metrics.get(&s.id)?;
+            Some(serde_json::json!({
+                "name": s.spec.name,
+                "project": proj,
+                "cpu": format!("{:.1}%", m.cpu_percent),
+                "mem": fmt_bytes(m.mem_used_bytes),
+                "rx": fmt_bytes(m.net_rx_bytes),
+                "tx": fmt_bytes(m.net_tx_bytes),
+            }))
+        })
+        .collect();
+    serde_json::Value::Array(rows).to_string()
 }
 
 /// Per-service deployment history rows for the Deployments tab.
