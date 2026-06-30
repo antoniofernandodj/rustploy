@@ -61,7 +61,6 @@ impl tokio::io::AsyncWrite for RwpStream {
 
 #[derive(Debug)]
 struct NoVerifier;
-
 impl rustls::client::danger::ServerCertVerifier for NoVerifier {
     fn verify_server_cert(
         &self,
@@ -133,14 +132,15 @@ pub async fn connect(url: &str, token: Option<&str>) -> anyhow::Result<RwpStream
         let _ = rustls::crypto::ring::default_provider().install_default();
     });
 
-    let target = crate::connect_target(url)?;
+    let target = super::connect_target(url)?;
     let raw_stream = TcpStream::connect(&target).await?;
     raw_stream.set_nodelay(true).ok();
 
     let use_tls = url.starts_with("rwps://");
 
     let mut s = if use_tls {
-        let mut client_config = rustls::ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+        let ring_provider = Arc::new(rustls::crypto::ring::default_provider());
+        let mut client_config = rustls::ClientConfig::builder_with_provider(ring_provider)
             .with_safe_default_protocol_versions()?
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(NoVerifier))

@@ -9,7 +9,7 @@
 //! - [`run_command`] — a one-shot RPC used by `ctx.perform` effects (connect
 //!   test, deploy, stop, …).
 
-use crate::rwp;
+use super::rwp;
 use chrono::{DateTime, Local, Utc};
 use glacier_ui::EngineMessage;
 use iced::futures::{SinkExt, Stream};

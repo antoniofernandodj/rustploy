@@ -18,7 +18,7 @@ struct PollKey {
     token: Option<String>,
     selected: Arc<Mutex<String>>,
     selected_deploy: Arc<Mutex<String>>,
-    deploy_track: Arc<Mutex<crate::net::DeployTrack>>,
+    deploy_track: Arc<Mutex<super::net::DeployTrack>>,
 }
 
 impl Hash for PollKey {
@@ -46,7 +46,7 @@ pub struct Root {
     /// Identity + `started_at` of the deploy started from the open service's
     /// detail panel. Set by `start_deploy`'s `ctx.perform` future; read by the
     /// poll loop to tick `svc_deploy_elapsed` (1Hz) and detect completion.
-    deploy_shared: Arc<Mutex<crate::net::DeployTrack>>,
+    deploy_shared: Arc<Mutex<super::net::DeployTrack>>,
 }
 
 impl Root {
@@ -64,7 +64,7 @@ impl Root {
         let cmd = make(id.clone());
         ctx.set("svc_action_msg", "enviando…");
         ctx.set("svc_action_color", "#8B949E");
-        ctx.perform(crate::net::run_service_action(
+        ctx.perform(super::net::run_service_action(
             self.addr.clone(),
             self.token.clone(),
             cmd,
@@ -82,7 +82,7 @@ impl Root {
         }
         ctx.set("svc_action_msg", "enviando…");
         ctx.set("svc_action_color", "#8B949E");
-        ctx.perform(crate::net::start_deploy(
+        ctx.perform(super::net::start_deploy(
             self.addr.clone(),
             self.token.clone(),
             self.selected_service.clone(),
@@ -92,13 +92,13 @@ impl Root {
 
     /// Applies an environment-variable edit to the selected service through the
     /// async bridge, then refreshes the detail panel.
-    fn env_op(&self, ctx: &mut Context, op: crate::net::EnvOp) {
+    fn env_op(&self, ctx: &mut Context, op: super::net::EnvOp) {
         if self.selected_service.is_empty() || self.addr.is_empty() {
             return;
         }
         ctx.set("svc_action_msg", "salvando…");
         ctx.set("svc_action_color", "#8B949E");
-        ctx.perform(crate::net::run_env_op(
+        ctx.perform(super::net::run_env_op(
             self.addr.clone(),
             self.token.clone(),
             self.selected_service.clone(),
@@ -108,13 +108,13 @@ impl Root {
 
     /// Applies a form-driven spec edit (Domains/Healthcheck/Advanced) and
     /// refreshes the detail panel.
-    fn spec_op(&self, ctx: &mut Context, op: crate::net::SpecOp) {
+    fn spec_op(&self, ctx: &mut Context, op: super::net::SpecOp) {
         if self.selected_service.is_empty() || self.addr.is_empty() {
             return;
         }
         ctx.set("svc_action_msg", "salvando…");
         ctx.set("svc_action_color", "#8B949E");
-        ctx.perform(crate::net::run_spec_op(
+        ctx.perform(super::net::run_spec_op(
             self.addr.clone(),
             self.token.clone(),
             self.selected_service.clone(),
@@ -137,7 +137,7 @@ impl Component for Root {
         ctx.set("view", "deployments");
 
         // Prefill from saved preferences (remembered URL/token).
-        let prefs = crate::store::Prefs::load();
+        let prefs = super::store::Prefs::load();
         let url = prefs
             .url
             .filter(|_| prefs.remember_url)
@@ -181,7 +181,7 @@ impl Component for Root {
         ctx.set("gp_client_id", "");
         ctx.set("gp_client_secret", "");
         ctx.set("gp_pat", "");
-        ctx.set("gp_redirect", crate::net::oauth_redirect_uri(""));
+        ctx.set("gp_redirect", super::net::oauth_redirect_uri(""));
         ctx.set("gp_msg", "");
         // Service detail (view=service) defaults.
         ctx.set("tab", "general");
@@ -281,7 +281,7 @@ impl Component for Root {
             "stop_all" => {
                 if !self.addr.is_empty() {
                     ctx.set("status_line", "parando todos…");
-                    ctx.perform(crate::net::stop_all(self.addr.clone(), self.token.clone()));
+                    ctx.perform(super::net::stop_all(self.addr.clone(), self.token.clone()));
                 }
             }
             // Settings (daemon web server) fields + save.
@@ -289,7 +289,7 @@ impl Component for Root {
                 if let Some(v) = value {
                     ctx.set("ss_domain", v);
                     // Keep the OAuth Redirect URI shown in Settings → Git in sync.
-                    ctx.set("gp_redirect", crate::net::oauth_redirect_uri(v));
+                    ctx.set("gp_redirect", super::net::oauth_redirect_uri(v));
                 }
             }
             "ss_email_changed" => {
@@ -302,7 +302,7 @@ impl Component for Root {
                     let domain = ctx.get("ss_domain").cloned().unwrap_or_default();
                     let email = ctx.get("ss_email").cloned().unwrap_or_default();
                     ctx.set("settings_msg", "salvando…");
-                    ctx.perform(crate::net::save_settings(
+                    ctx.perform(super::net::save_settings(
                         self.addr.clone(),
                         self.token.clone(),
                         domain,
@@ -324,7 +324,7 @@ impl Component for Root {
                 let key = ctx.get("env_new_key").cloned().unwrap_or_default();
                 let value = ctx.get("env_new_val").cloned().unwrap_or_default();
                 if !key.trim().is_empty() {
-                    self.env_op(ctx, crate::net::EnvOp::Set {
+                    self.env_op(ctx, super::net::EnvOp::Set {
                         key: key.trim().to_string(),
                         value,
                     });
@@ -376,7 +376,7 @@ impl Component for Root {
             }
             // Save handlers for the editable spec forms.
             "dom_save" => {
-                let op = crate::net::SpecOp::Domains {
+                let op = super::net::SpecOp::Domains {
                     domain: ctx.get("f_domain").cloned().unwrap_or_default(),
                     host_port: ctx.get("f_host_port").cloned().unwrap_or_default(),
                     tls: ctx.get("f_tls").map(|v| v == "true").unwrap_or(false),
@@ -385,7 +385,7 @@ impl Component for Root {
             }
             "hc_save" => {
                 let g = |k: &str| ctx.get(k).cloned().unwrap_or_default();
-                let op = crate::net::SpecOp::Healthcheck {
+                let op = super::net::SpecOp::Healthcheck {
                     kind: g("f_hc_kind"),
                     http_path: g("f_hc_path"),
                     expected_status: g("f_hc_status"),
@@ -397,7 +397,7 @@ impl Component for Root {
                 self.spec_op(ctx, op);
             }
             "adv_save" => {
-                let op = crate::net::SpecOp::Advanced {
+                let op = super::net::SpecOp::Advanced {
                     replicas: ctx.get("f_replicas").cloned().unwrap_or_default(),
                     run_command: ctx.get("f_run_command").cloned().unwrap_or_default(),
                 };
@@ -405,7 +405,7 @@ impl Component for Root {
             }
             "gen_save" => {
                 let g = |k: &str| ctx.get(k).cloned().unwrap_or_default();
-                let op = crate::net::SpecOp::General {
+                let op = super::net::SpecOp::General {
                     repo_url: g("f_repo_url"),
                     branch: g("f_branch"),
                     username: g("f_username"),
@@ -435,7 +435,7 @@ impl Component for Root {
                     ctx.set("gitea_branches", "[]");
                     if !self.addr.is_empty() && !id.is_empty() {
                         ctx.set("gitea_msg", "carregando repositórios…");
-                        ctx.perform(crate::net::fetch_git_repos(
+                        ctx.perform(super::net::fetch_git_repos(
                             self.addr.clone(),
                             self.token.clone(),
                             id.to_string(),
@@ -460,7 +460,7 @@ impl Component for Root {
                     let pid = ctx.get("gitea_provider_id").cloned().unwrap_or_default();
                     if !self.addr.is_empty() && !pid.is_empty() {
                         ctx.set("gitea_msg", "carregando branches…");
-                        ctx.perform(crate::net::fetch_git_branches(
+                        ctx.perform(super::net::fetch_git_branches(
                             self.addr.clone(),
                             self.token.clone(),
                             pid,
@@ -478,7 +478,7 @@ impl Component for Root {
                         g("gp_client_id"), g("gp_client_secret"), g("gp_pat"),
                     );
                     ctx.set("gp_msg", "conectando…");
-                    ctx.perform(crate::net::git_provider_connect(
+                    ctx.perform(super::net::git_provider_connect(
                         self.addr.clone(),
                         self.token.clone(),
                         name, base_url, mode, client_id, client_secret, pat,
@@ -487,7 +487,7 @@ impl Component for Root {
             }
             "gp_refresh" => {
                 if !self.addr.is_empty() {
-                    ctx.perform(crate::net::git_providers_only(
+                    ctx.perform(super::net::git_providers_only(
                         self.addr.clone(),
                         self.token.clone(),
                     ));
@@ -544,7 +544,7 @@ impl Component for Root {
                         // One-shot load of everything the detail needs — including
                         // the Gitea provider/repo/branch lists — so `svc_loading`
                         // only clears once the General-tab selects can be populated.
-                        ctx.perform(crate::net::fetch_service_detail(
+                        ctx.perform(super::net::fetch_service_detail(
                             addr.clone(),
                             token.clone(),
                             sid,
@@ -578,7 +578,7 @@ impl Component for Root {
                         *sel = id.to_string();
                     }
                     if !self.addr.is_empty() {
-                        ctx.perform(crate::net::fetch_build_logs(
+                        ctx.perform(super::net::fetch_build_logs(
                             self.addr.clone(),
                             self.token.clone(),
                             id.to_string(),
@@ -598,7 +598,7 @@ impl Component for Root {
                             && (repos.is_empty() || repos == "[]")
                         {
                             ctx.set("gitea_msg", "carregando repositórios…");
-                            ctx.perform(crate::net::fetch_git_repos(
+                            ctx.perform(super::net::fetch_git_repos(
                                 self.addr.clone(),
                                 self.token.clone(),
                                 pid,
@@ -621,7 +621,7 @@ impl Component for Root {
                 if let Some(id) = action.strip_prefix("gp_delete:") {
                     if !self.addr.is_empty() {
                         ctx.set("gp_msg", "removendo…");
-                        ctx.perform(crate::net::git_provider_delete(
+                        ctx.perform(super::net::git_provider_delete(
                             self.addr.clone(),
                             self.token.clone(),
                             id.to_string(),
@@ -631,7 +631,7 @@ impl Component for Root {
                 }
                 // `env_del:<key>` — remove an environment variable.
                 if let Some(key) = action.strip_prefix("env_del:") {
-                    self.env_op(ctx, crate::net::EnvOp::Delete { key: key.to_string() });
+                    self.env_op(ctx, super::net::EnvOp::Delete { key: key.to_string() });
                     return;
                 }
                 // `env_text_toggle` — open/close the `.env` editor.
@@ -651,7 +651,7 @@ impl Component for Root {
                 if action == "env_import" {
                     let text = ctx.get("svc_env_text").cloned().unwrap_or_default();
                     ctx.set("env_text_open", "false");
-                    self.env_op(ctx, crate::net::EnvOp::ImportDotenv(text));
+                    self.env_op(ctx, super::net::EnvOp::ImportDotenv(text));
                     return;
                 }
                 // `env_export` — dump the current `.env` blob to a file.
@@ -680,7 +680,7 @@ impl Component for Root {
                 deploy_track: self.deploy_shared.clone(),
             };
             iced::Subscription::run_with(key, |k: &PollKey| {
-                crate::net::poll_stream(
+                super::net::poll_stream(
                     k.addr.clone(),
                     k.token.clone(),
                     k.selected.clone(),
@@ -723,7 +723,7 @@ fn save_prefs(ctx: &Context) {
     let on = |k: &str| ctx.get(k).map(|v| v == "true").unwrap_or(false);
     let remember_url = on("remember_url");
     let remember_token = on("remember_token");
-    crate::store::Prefs {
+    super::store::Prefs {
         remember_url,
         remember_token,
         url: if remember_url { ctx.get("url").cloned() } else { None },
