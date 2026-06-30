@@ -45,7 +45,7 @@ conferir:
   (editor multiline stateful). Como o `text_editor` do iced é stateful
   (`Content`), o `GlacierUI` mantém um `EditorMap` (binding→`Content`) +
   `editor_synced`; `sync_editors()` (fim de `reevaluate_all`) cria/recarrega o
-  buffer a partir do contexto em mudança externa, e `XmlEditorAction` aplica a
+  buffer a partir do contexto em mudança externa, e `UiEditorAction` aplica a
   edição e espelha o texto de volta no contexto. 0.2.2: **fix `if/else`/`ForEach`
   aninhados dentro de `ForEach`** (deixava o grid Projects invisível). 0.2.0:
   widgets `Svg/Scrollable/Checkbox/Toggle/Rule`; atributos `font`/`gradient`/
@@ -56,7 +56,7 @@ conferir:
   Persistência de "remember server/token" (`store.rs`).
 - **Service detail** (`view=service`, sub-`{tab}`): clicar "Open" num card →
   `open_service:<id>` (id codificado na própria ação, pois `onClick` vira
-  `XmlClick(String)` sem payload, e é template-processado). `Root` guarda
+  `UiClick(String)` sem payload, e é template-processado). `Root` guarda
   `selected_service` e dispara `ctx.perform(net::fetch_service_detail)` que faz
   `ServiceGet` + `ProjectList` (p/ nome) + `LogsGet` (tail 200) → keys `svc_*`.
   Abas General/Connection/Environment/Healthcheck/Logs + painel lateral
@@ -192,7 +192,7 @@ conferir:
 - **`ForEach` aninhado** funciona: um item-objeto cujo valor é array vira string
   JSON na chave `var.campo` (ex.: `r.cards`), e o `ForEach` interno aceita
   `items="r.cards"`. Útil p/ simular grid (sem widget de wrap no glacier).
-- **`onClick` não tem payload** — vira `XmlClick(String)` e o `value` no
+- **`onClick` não tem payload** — vira `UiClick(String)` e o `value` no
   `update` é sempre `None` em cliques. Para passar dado (ex.: id da linha),
   codifique na própria ação: `onClick="open_service:{c.id}"` (a ação é
   template-processada no eval) e faça `action.strip_prefix("open_service:")` no
