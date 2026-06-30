@@ -1,4 +1,4 @@
-//! Rustploy Remote (glacier-ui) — desktop client whose UI is described in XML
+//! Rustploy Remote (glacier-ui) — desktop client whose UI is described in KDL
 //! templates and rendered by the published `glacier-ui` engine. The network
 //! layer runs through glacier-ui's async bridge (effects + subscriptions).
 
@@ -87,7 +87,7 @@ impl App {
                 // Intercept the built-in `window:*` actions emitted by the
                 // custom titlebar and run them against the cached window id
                 // (see `window_id`). Everything else is a normal engine event.
-                if let EngineMessage::XmlClick(action) = &event {
+                if let EngineMessage::UiClick(action) = &event {
                     if let (Some(cmd), Some(id)) =
                         (action.strip_prefix("window:"), self.window_id)
                     {
