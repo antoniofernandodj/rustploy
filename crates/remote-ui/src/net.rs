@@ -10,7 +10,7 @@
 //!   test, deploy, stop, …).
 
 use crate::rwp;
-use chrono::{Local, Utc};
+use chrono::{DateTime, Local, Utc};
 use glacier_ui::EngineMessage;
 use iced::futures::{SinkExt, Stream};
 use shared::protocol::{BuildLogLine, LogEntry, LogStream};
@@ -57,6 +57,67 @@ pub async fn run_service_action(
     };
     let mut pairs = fetch_service_detail(addr, token, service_id).await;
     pairs.push(("svc_action_msg".into(), msg));
+    pairs
+}
+
+/// Identity of the deploy currently being watched, shared between the action
+/// that starts it ([`start_deploy`]) and the poll loop ([`poll_stream`]) that
+/// ticks its elapsed time and detects completion. `started_at` cached here
+/// means the 1Hz tick costs no RPC; `service_id` lets the poll loop only patch
+/// `svc_deploy_*` while the *same* service's detail panel is open.
+#[derive(Clone, Default)]
+pub struct DeployTrack {
+    pub(crate) service_id: String,
+    pub(crate) deployment_id: String,
+    pub(crate) started_at: Option<DateTime<Utc>>,
+    pub(crate) running: bool,
+}
+
+/// Starts a deploy (`Command::DeployStart`) for `service_id` and arms
+/// `deploy_shared` so [`poll_stream`] takes over: ticking `svc_deploy_elapsed`
+/// once a second while it runs, and surfacing the final outcome (success/
+/// failure, with total elapsed time) once the deployment reaches a terminal
+/// state. Mirrors the old `remote-client`'s `Deployment.started_at`-based
+/// duration display, but driven by context patches instead of a view redraw.
+pub async fn start_deploy(
+    addr: String,
+    token: Option<String>,
+    service_id: String,
+    deploy_shared: Arc<Mutex<DeployTrack>>,
+) -> Vec<(String, String)> {
+    let resp = run_command(
+        addr.clone(),
+        token.clone(),
+        Command::DeployStart { service_id: service_id.clone() },
+    )
+    .await;
+
+    let mut pairs = Vec::new();
+    match &resp {
+        Ok(Response::Deployment(d)) => {
+            if let Ok(mut t) = deploy_shared.lock() {
+                *t = DeployTrack {
+                    service_id: service_id.clone(),
+                    deployment_id: d.id.clone(),
+                    started_at: Some(d.started_at),
+                    running: true,
+                };
+            }
+            pairs.push(("svc_deploy_running".into(), "true".into()));
+            pairs.push(("svc_deploy_elapsed".into(), "0s".into()));
+            pairs.push(("svc_action_msg".into(), format!("deploy iniciado · {}", d.state.label())));
+            pairs.push(("svc_action_color".into(), "#58A6FF".into()));
+        }
+        Ok(other) => {
+            pairs.push(("svc_action_msg".into(), resp_msg(other)));
+            pairs.push(("svc_action_color".into(), "#F85149".into()));
+        }
+        Err(e) => {
+            pairs.push(("svc_action_msg".into(), format!("erro: {e}")));
+            pairs.push(("svc_action_color".into(), "#F85149".into()));
+        }
+    }
+    pairs.extend(fetch_service_detail(addr, token, service_id).await);
     pairs
 }
 
@@ -164,10 +225,20 @@ async fn fetch_service_detail_inner(
         _ => ("git", String::new(), String::new()),
     };
 
+    // Connected providers for the CONTA GITEA picker, folded into this one-shot
+    // load (reusing the open connection) so `svc_loading` only clears once every
+    // picker list is ready — the selects never paint empty before their data.
+    let mut gitea_extra: Vec<(String, String)> = Vec::new();
+    if let Ok(Response::GitProviders(provs)) =
+        rwp::rpc(&mut conn, Command::GitProviderList).await
+    {
+        gitea_extra.push(("gitea_providers".into(), git_providers_json(&provs)));
+        gitea_extra.push(("gitea_count".into(), provs.len().to_string()));
+    }
+
     // For a Gitea-bound service, pre-load the provider's repos (and the bound
     // repo's branches) so the picker lists are populated on first paint instead
     // of only after a manual click.
-    let mut gitea_extra: Vec<(String, String)> = Vec::new();
     if !gen_provider_id.is_empty()
         && let Ok(Response::GitRepos(repos)) = rwp::rpc(
             &mut conn,
@@ -566,7 +637,12 @@ fn resp_msg(r: &Response) -> String {
     }
 }
 
+// TODO(reusar): carregamento isolado da lista de providers para a aba General.
+// Ficou órfão quando o load dos providers foi dobrado para dentro de
+// `fetch_service_detail` (para `svc_loading` gatear os Selects). Mantido para um
+// futuro caminho que precise só dos providers sem o detalhe completo do serviço.
 /// Lists the connected Git providers for the General-tab picker.
+#[allow(dead_code)]
 pub async fn fetch_git_providers(addr: String, token: Option<String>) -> Vec<(String, String)> {
     match run_command(addr, token, Command::GitProviderList).await {
         Ok(Response::GitProviders(list)) => {
@@ -840,6 +916,7 @@ pub fn poll_stream(
     token: Option<String>,
     selected: Arc<Mutex<String>>,
     selected_deploy: Arc<Mutex<String>>,
+    deploy_track: Arc<Mutex<DeployTrack>>,
 ) -> impl Stream<Item = EngineMessage> {
     iced::stream::channel(64, move |mut output: iced::futures::channel::mpsc::Sender<EngineMessage>| async move {
         macro_rules! patch {
@@ -900,6 +977,10 @@ pub fn poll_stream(
 
         let mut poll = tokio::time::interval(std::time::Duration::from_secs(2));
         poll.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        // Drives the live "1s, 2s, 3s…" deploy timer: cheap (no RPC), so it can
+        // run at 1Hz independently of the heavier 2s status poll above.
+        let mut sec_tick = tokio::time::interval(std::time::Duration::from_secs(1));
+        sec_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
         // Latest per-service container metrics, fed by the live event stream and
         // merged into the Projects grid cards on each poll tick.
@@ -918,6 +999,21 @@ pub fn poll_stream(
 
         loop {
             tokio::select! {
+                // Live "1s, 2s, 3s…" tick for the deploy started from the open
+                // service's detail panel. Purely local (no RPC): `started_at`
+                // is cached in `deploy_track` from the `DeployStart` response.
+                // Gated on `current == track.service_id` so navigating away
+                // from the deploying service doesn't keep ticking its old timer.
+                _ = sec_tick.tick() => {
+                    let track = deploy_track.lock().map(|t| t.clone()).unwrap_or_default();
+                    let current = selected.lock().map(|s| s.clone()).unwrap_or_default();
+                    if track.running && track.service_id == current
+                        && let Some(started) = track.started_at
+                    {
+                        let secs = (Utc::now() - started).num_seconds().max(0) as u64;
+                        patch!(vec![("svc_deploy_elapsed".into(), fmt_secs(secs))]);
+                    }
+                }
                 _ = poll.tick() => {
                     let mut pairs = Vec::new();
                     if let Ok(Response::DaemonStatus(d)) = rwp::rpc(&mut cmd, Command::DaemonStatus).await {
@@ -971,9 +1067,49 @@ pub fn poll_stream(
                         patch!(pairs);
                     }
 
+                    let current = selected.lock().map(|s| s.clone()).unwrap_or_default();
+
+                    // Watch the in-flight deploy (if any) for completion: stop the
+                    // 1Hz ticker and surface the final outcome (with total elapsed
+                    // time) once it reaches a terminal state. The book-keeping
+                    // (`deploy_track.running = false`) always runs so a finished
+                    // deploy doesn't appear to "resume" if the user reopens its
+                    // service later; the `svc_deploy_*`/`svc_action_*` patch only
+                    // fires while that service's detail panel is still open.
+                    let track = deploy_track.lock().map(|t| t.clone()).unwrap_or_default();
+                    if track.running && !track.service_id.is_empty()
+                        && let Ok(Response::Deployments(history)) = rwp::rpc(
+                            &mut cmd,
+                            Command::DeployHistory { service_id: track.service_id.clone(), limit: 1 },
+                        ).await
+                        && let Some(dep) = history.into_iter().next()
+                        && dep.id == track.deployment_id
+                        && dep.state.is_terminal()
+                    {
+                        let secs = dep.finished_at
+                            .map(|f| (f - dep.started_at).num_seconds())
+                            .unwrap_or(0)
+                            .max(0) as u64;
+                        if let Ok(mut t) = deploy_track.lock() {
+                            t.running = false;
+                        }
+                        if track.service_id == current {
+                            let (msg, color) = if dep.state == DeployState::Live {
+                                (format!("deploy concluído em {}", fmt_secs(secs)), "#3FB950")
+                            } else {
+                                (format!("deploy falhou após {} · {}", fmt_secs(secs), dep.state.label()), "#F85149")
+                            };
+                            patch!(vec![
+                                ("svc_deploy_running".into(), "false".into()),
+                                ("svc_deploy_elapsed".into(), fmt_secs(secs)),
+                                ("svc_action_msg".into(), msg),
+                                ("svc_action_color".into(), color.into()),
+                            ]);
+                        }
+                    }
+
                     // Seed the live buffer from the historical tail whenever the
                     // selected service changes, so live lines continue from it.
-                    let current = selected.lock().map(|s| s.clone()).unwrap_or_default();
                     if current != seeded {
                         seeded = current.clone();
                         if !current.is_empty()
@@ -1424,6 +1560,13 @@ fn state_label_color(state: &DeployState) -> (&'static str, &'static str) {
 fn fmt_duration(d: &shared::Deployment) -> String {
     let end = d.finished_at.unwrap_or_else(Utc::now);
     let secs = (end - d.started_at).num_seconds().max(0) as u64;
+    fmt_secs(secs)
+}
+
+/// Formats a second count as `Ns` or `Mm Ns`, used for both the deployments
+/// tables (recomputed on each poll) and the live deploy timer (recomputed
+/// every second by `poll_stream`'s `sec_tick`).
+fn fmt_secs(secs: u64) -> String {
     let m = secs / 60;
     let s = secs % 60;
     if m > 0 { format!("{m}m {s}s") } else { format!("{s}s") }

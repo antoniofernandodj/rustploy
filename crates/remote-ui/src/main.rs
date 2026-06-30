@@ -8,8 +8,10 @@ mod rwp;
 mod store;
 
 use glacier_ui::{EngineMessage, GlacierUI};
-use iced::{Element, Subscription, Task};
+use iced::{Element, Subscription, Task, Font, window, Size};
 use std::time::Duration;
+use root::Root;
+use window::settings::PlatformSpecific;
 
 const DEFAULT_RWP_PORT: u16 = 8787;
 
@@ -20,17 +22,26 @@ pub fn connect_target(url: &str) -> anyhow::Result<String> {
     let authority = match a.split_once("://") {
         Some((scheme, rest)) => {
             anyhow::ensure!(
-                scheme.eq_ignore_ascii_case("rwp") || scheme.eq_ignore_ascii_case("rwps"),
+                scheme.eq_ignore_ascii_case("rwp") ||
+                scheme.eq_ignore_ascii_case("rwps"),
                 "esquema não suportado: {scheme}:// — use rwp:// ou rwps://"
             );
             rest
         }
         None => a,
     };
-    let authority = authority.split(['/', '?', '#']).next().unwrap_or("").trim();
+
+    let authority = authority
+        .split(['/', '?', '#'])
+        .next()
+        .unwrap_or("")
+        .trim();
+
     anyhow::ensure!(!authority.is_empty(), "URL sem host");
     let has_port = match authority.rfind(':') {
-        Some(idx) => authority[idx + 1..].chars().all(|c| c.is_ascii_digit())
+        Some(idx) => authority[idx + 1..]
+            .chars()
+            .all(|c| c.is_ascii_digit())
             && !authority[idx + 1..].is_empty()
             && !authority.contains(']'), // crude IPv6 guard
         None => false,
@@ -48,7 +59,7 @@ pub fn connect_target(url: &str) -> anyhow::Result<String> {
 #[derive(Debug, Clone)]
 enum Message {
     Engine(EngineMessage),
-    WindowReady(Option<iced::window::Id>),
+    WindowReady(Option<window::Id>),
 }
 
 struct App {
@@ -58,22 +69,30 @@ struct App {
     /// round-trip loses the pointer-grab serial, so `window:drag` silently
     /// no-ops. Handling them synchronously against the cached id makes the
     /// borderless titlebar actually draggable.
-    window_id: Option<iced::window::Id>,
+    window_id: Option<window::Id>,
 }
 
 impl App {
     fn boot() -> (Self, Task<Message>) {
+        // Flags bare a nível de aplicação que nossos templates colocam na própria
+        // linha (continuação): o glacier-ui já conhece os flags de framework/widget
+        // (`bold`, `secure`, `navigateBack`), mas a diretiva `else` é nossa, então
+        // registramos antes de parsear qualquer template — senão um `else` solto
+        // viraria um nó irmão espúrio que engole as propriedades seguintes
+        // (class/onClick).
+        glacier_ui::register_bare_flags(["else", "senao"]);
+
         let mut motor = GlacierUI::new();
         if let Err(e) = motor.load_stylesheet("crates/remote-ui/styles/app.gss") {
             eprintln!("stylesheet: {e}");
         }
-        if let Err(e) = motor.register(Box::new(root::Root::default())) {
+        if let Err(e) = motor.register(Box::new(Root::default())) {
             eprintln!("register: {e}");
         }
         motor.set_initial_screen("app");
         (
             Self { motor, window_id: None },
-            iced::window::latest().map(Message::WindowReady),
+            window::latest().map(Message::WindowReady),
         )
     }
 
@@ -123,11 +142,13 @@ impl App {
 /// known window id (so drag/resize keep the live pointer-grab serial on
 /// Wayland — a deferred `latest()` round-trip would lose it). `resize:<dir>`
 /// starts an interactive border/corner resize (`drag_resize`).
-fn window_control(id: iced::window::Id, cmd: &str) -> Task<Message> {
-    use iced::window;
+fn window_control(id: window::Id, cmd: &str) -> Task<Message> {
     if let Some(dir) = cmd.strip_prefix("resize:") {
         return match resize_direction(dir) {
-            Some(d) => window::drag_resize(id, d),
+            Some(d) => {
+                println!("resize: {:?}, {:?}", dir, d);
+                window::drag_resize(id, d)
+            },
             None => Task::none(),
         };
     }
@@ -163,22 +184,18 @@ fn main() -> iced::Result {
         .title("Rustploy Remote")
         .subscription(App::subscription)
         .theme(App::theme)
-        // TODO(fonte): retomar a fonte monoespaçada do design (JetBrains Mono,
-        // em assets/fonts/) quando resolvermos por que a fonte custom some neste
-        // ambiente (iced/wgpu não desenhava os glifos). Por ora usamos a fonte
-        // interna do iced, que renderiza de forma confiável.
-        // .font(include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf").as_slice())
-        // .font(include_bytes!("../assets/fonts/JetBrainsMono-Bold.ttf").as_slice())
-        // .default_font(iced::Font::with_name("JetBrains Mono"))
-        .window(iced::window::Settings {
-            size: iced::Size::new(1280.0, 820.0),
-            min_size: Some(iced::Size::new(1000.0, 680.0)),
+        .font(include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf").as_slice())
+        .font(include_bytes!("../assets/fonts/JetBrainsMono-Bold.ttf").as_slice())
+        .default_font(Font::with_name("JetBrains Mono"))
+        .window(window::Settings {
+            size: Size::new(1280.0, 820.0),
+            min_size: Some(Size::new(1000.0, 680.0)),
             // Borderless: the OS titlebar is replaced by a custom one defined in
             // `templates/app.kdl` (drag region + minimize/maximize/close). The
             // `window:*` actions it emits are handled in `update` against the
             // cached window id (see `App::window_id`).
             decorations: false,
-            platform_specific: iced::window::settings::PlatformSpecific {
+            platform_specific: PlatformSpecific {
                 application_id: "rustploy-remote-ui".to_string(),
                 ..Default::default()
             },

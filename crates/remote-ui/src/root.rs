@@ -18,6 +18,7 @@ struct PollKey {
     token: Option<String>,
     selected: Arc<Mutex<String>>,
     selected_deploy: Arc<Mutex<String>>,
+    deploy_track: Arc<Mutex<crate::net::DeployTrack>>,
 }
 
 impl Hash for PollKey {
@@ -42,6 +43,10 @@ pub struct Root {
     selected_shared: Arc<Mutex<String>>,
     /// Same, for the deployment whose `BuildLog` events feed the Deployments tab.
     selected_deploy_shared: Arc<Mutex<String>>,
+    /// Identity + `started_at` of the deploy started from the open service's
+    /// detail panel. Set by `start_deploy`'s `ctx.perform` future; read by the
+    /// poll loop to tick `svc_deploy_elapsed` (1Hz) and detect completion.
+    deploy_shared: Arc<Mutex<crate::net::DeployTrack>>,
 }
 
 impl Root {
@@ -58,11 +63,30 @@ impl Root {
         let id = self.selected_service.clone();
         let cmd = make(id.clone());
         ctx.set("svc_action_msg", "enviando…");
+        ctx.set("svc_action_color", "#8B949E");
         ctx.perform(crate::net::run_service_action(
             self.addr.clone(),
             self.token.clone(),
             cmd,
             id,
+        ));
+    }
+
+    /// Starts a deploy for the currently-selected service and arms the live
+    /// "1s, 2s, 3s…" elapsed timer (ticked by the poll subscription via
+    /// `deploy_shared`), mirroring the old `remote-client`'s deploy duration
+    /// display. No-op without a selection.
+    fn start_deploy(&self, ctx: &mut Context) {
+        if self.selected_service.is_empty() || self.addr.is_empty() {
+            return;
+        }
+        ctx.set("svc_action_msg", "enviando…");
+        ctx.set("svc_action_color", "#8B949E");
+        ctx.perform(crate::net::start_deploy(
+            self.addr.clone(),
+            self.token.clone(),
+            self.selected_service.clone(),
+            self.deploy_shared.clone(),
         ));
     }
 
@@ -73,6 +97,7 @@ impl Root {
             return;
         }
         ctx.set("svc_action_msg", "salvando…");
+        ctx.set("svc_action_color", "#8B949E");
         ctx.perform(crate::net::run_env_op(
             self.addr.clone(),
             self.token.clone(),
@@ -88,6 +113,7 @@ impl Root {
             return;
         }
         ctx.set("svc_action_msg", "salvando…");
+        ctx.set("svc_action_color", "#8B949E");
         ctx.perform(crate::net::run_spec_op(
             self.addr.clone(),
             self.token.clone(),
@@ -187,6 +213,12 @@ impl Component for Root {
         ctx.set("svc_deployments", "[]");
         ctx.set("svc_deployments_count", "0");
         ctx.set("svc_action_msg", "");
+        ctx.set("svc_action_color", "#8B949E");
+        // Live deploy timer ("1s, 2s, 3s…" while a deploy started from this
+        // panel is running; frozen + colored once it finishes — see
+        // `start_deploy`/`poll_stream`).
+        ctx.set("svc_deploy_running", "false");
+        ctx.set("svc_deploy_elapsed", "");
         ctx.set("dep_selected", "");
         ctx.set("dep_build_logs", "[]");
         ctx.set("dep_build_count", "0");
@@ -334,7 +366,7 @@ impl Component for Root {
             }
             // Service lifecycle actions (operate on the open service).
             "svc_deploy" | "svc_rebuild" => {
-                self.service_action(ctx, |id| shared::Command::DeployStart { service_id: id });
+                self.start_deploy(ctx);
             }
             "svc_reload" => {
                 self.service_action(ctx, |id| shared::Command::ServiceReload { service_id: id });
@@ -490,16 +522,33 @@ impl Component for Root {
                     if let Ok(mut d) = self.selected_deploy_shared.lock() {
                         d.clear();
                     }
+                    // Deploy timer: keep ticking if this exact service still has
+                    // the tracked deploy running (e.g. the user navigated away
+                    // and back); otherwise clear the stale message/timer from
+                    // whatever was last open — the poll loop only re-populates
+                    // these keys while `deploy_shared.service_id` matches.
+                    let still_running = self
+                        .deploy_shared
+                        .lock()
+                        .map(|t| t.service_id == id && t.running)
+                        .unwrap_or(false);
+                    if !still_running {
+                        ctx.set("svc_action_msg", "");
+                        ctx.set("svc_action_color", "#8B949E");
+                        ctx.set("svc_deploy_running", "false");
+                        ctx.set("svc_deploy_elapsed", "");
+                    }
                     let (addr, token, sid) =
                         (self.addr.clone(), self.token.clone(), id.to_string());
                     if !addr.is_empty() {
+                        // One-shot load of everything the detail needs — including
+                        // the Gitea provider/repo/branch lists — so `svc_loading`
+                        // only clears once the General-tab selects can be populated.
                         ctx.perform(crate::net::fetch_service_detail(
                             addr.clone(),
                             token.clone(),
                             sid,
                         ));
-                        // Load connected providers so the Gitea sub-tab can show.
-                        ctx.perform(crate::net::fetch_git_providers(addr, token));
                     }
                     return;
                 }
@@ -628,6 +677,7 @@ impl Component for Root {
                 token: self.token.clone(),
                 selected: self.selected_shared.clone(),
                 selected_deploy: self.selected_deploy_shared.clone(),
+                deploy_track: self.deploy_shared.clone(),
             };
             iced::Subscription::run_with(key, |k: &PollKey| {
                 crate::net::poll_stream(
@@ -635,6 +685,7 @@ impl Component for Root {
                     k.token.clone(),
                     k.selected.clone(),
                     k.selected_deploy.clone(),
+                    k.deploy_track.clone(),
                 )
             })
         } else {

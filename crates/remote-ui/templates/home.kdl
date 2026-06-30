@@ -11,10 +11,22 @@ Column class="content" {
       }
     }
     Row class="stats_row" {
-      Column class="stat_card" { Text "CPU" class="label_cap"; Text "{sys_cpu}" class="stat_num" }
-      Column class="stat_card" { Text "MEMORY" class="label_cap"; Text "{sys_mem}" class="stat_num_g" }
-      Column class="stat_card" { Text "DISK" class="label_cap"; Text "{sys_disk}" class="stat_num" }
-      Column class="stat_card" { Text "LOAD" class="label_cap"; Text "{sys_load}" class="stat_num" }
+      Column class="stat_card" {
+        Text "CPU" class="label_cap"
+        Text "{sys_cpu}" class="stat_num"
+      }
+      Column class="stat_card" {
+        Text "MEMORY" class="label_cap"
+        Text "{sys_mem}" class="stat_num_g"
+      }
+      Column class="stat_card" {
+        Text "DISK" class="label_cap"
+        Text "{sys_disk}" class="stat_num"
+      }
+      Column class="stat_card" {
+        Text "LOAD" class="label_cap"
+        Text "{sys_load}" class="stat_num"
+      }
     }
     Column class="panel_fill" {
       Row class="thead" {
@@ -53,7 +65,10 @@ Column class="content" {
         Text "Active routes in the reverse proxy." class="subtitle"
       }
       Row class="stats_row" {
-        Column class="stat_card" { Text "ROUTES" class="label_cap"; Text "{ingress_count}" class="stat_num" }
+        Column class="stat_card" {
+          Text "ROUTES" class="label_cap"
+          Text "{ingress_count}" class="stat_num"
+        }
       }
     }
     Column class="panel_fill" {
@@ -126,10 +141,19 @@ Column class="content" {
       }
     }
     Row class="tabs" {
-      Button "Web Server" if="{settings_tab}" equals="git" class="tab" onClick="settings_tab:web"
-      Button "Web Server" else class="tab_on" onClick="settings_tab:web"
-      Button "Git" if="{settings_tab}" equals="git" class="tab_on" onClick="settings_tab:git"
-      Button "Git" else class="tab" onClick="settings_tab:git"
+
+      if cond="{settings_tab}" equals="git" {
+        Button "Web Server" class="tab" onClick="settings_tab:web"
+      } else {
+        Button "Web Server" class="tab_on" onClick="settings_tab:web"
+      }
+      
+      if cond="{settings_tab}" equals="git" {
+        Button "Git" class="tab_on" onClick="settings_tab:git"
+      } else {
+        Button "Git" class="tab" onClick="settings_tab:git"
+      }
+
     }
     Rule
 
@@ -137,11 +161,22 @@ Column class="content" {
     if cond="{settings_tab}" not_equals="git" {
       Column class="form_panel" {
         Text "DOMÍNIO / URL BASE" class="label_cap"
-        TextInput "https://rustploy.meusite.com" class="field_input" value="ss_domain" onChange="ss_domain_changed"
+        TextInput "https://rustploy.meusite.com"
+          class="field_input"
+          value="ss_domain"
+          onChange="ss_domain_changed"
+
         Text "Base das URLs de webhook dos serviços e do callback OAuth." class="muted"
         Text "E-MAIL LET'S ENCRYPT (HTTPS AUTOMÁTICO)" class="label_cap"
-        TextInput "voce@exemplo.com" class="field_input" value="ss_email" onChange="ss_email_changed"
-        Text "Certificados TLS emitidos automaticamente. Requer restart do daemon." class="muted"
+        TextInput "voce@exemplo.com"
+          class="field_input"
+          value="ss_email"
+          onChange="ss_email_changed"
+
+        Text
+          "Certificados TLS emitidos automaticamente. Requer restart do daemon."
+          class="muted"
+
         Row class="env_add" {
           Button "Save" class="btn_primary" onClick="settings_save"
           Text "{settings_msg}" class="muted"
@@ -154,7 +189,11 @@ Column class="content" {
       Scrollable direction=vertical class="scroll_fill" {
         Column class="form_panel" {
           Text "CONTAS CONECTADAS ({gitea_count})" class="label_cap"
-          Text "Nenhuma conta Gitea conectada ainda." if="{gitea_count}" equals="0" class="muted"
+          Text "Nenhuma conta Gitea conectada ainda."
+            if="{gitea_count}"
+            equals="0"
+            class="muted"
+
           Column class="kv_list" {
             ForEach items="gitea_providers" var="p" {
               Row class="kv_row" {
@@ -172,40 +211,87 @@ Column class="content" {
           Text "{gp_msg}" if="{gp_msg}" not_equals="" class="muted"
 
           Row class="hc_grid" {
-            Column class="hc_field" { Text "NOME" class="label_cap"; TextInput "Meu Gitea" class="field_input" value="gp_name" onChange="field:gp_name" }
-            Column class="hc_field" { Text "BASE URL" class="label_cap"; TextInput "https://gitea.exemplo.com" class="field_input" value="gp_base_url" onChange="field:gp_base_url" }
+            Column class="hc_field" {
+              Text "NOME" class="label_cap"
+              TextInput "Meu Gitea"
+                class="field_input"
+                value="gp_name"
+                onChange="field:gp_name"
+            }
+            Column class="hc_field" {
+              Text "BASE URL" class="label_cap"
+              TextInput "https://gitea.exemplo.com"
+                class="field_input"
+                value="gp_base_url"
+                onChange="field:gp_base_url"
+            }
           }
 
           Text "MÉTODO" class="label_cap"
           Row class="tabs" {
-            Button "OAuth2" if="{gp_mode}" equals="pat" class="tab" onClick="gp_mode:oauth"
-            Button "OAuth2" else class="tab_on" onClick="gp_mode:oauth"
-            Button "Token (PAT)" if="{gp_mode}" equals="pat" class="tab_on" onClick="gp_mode:pat"
-            Button "Token (PAT)" else class="tab" onClick="gp_mode:pat"
+
+            Button "OAuth2"
+              if="{gp_mode}"
+              equals="pat"
+              class="tab"
+              onClick="gp_mode:oauth"
+
+            Button "OAuth2"
+              else class="tab_on"
+              onClick="gp_mode:oauth"
+
+            Button "Token (PAT)"
+              if="{gp_mode}"
+              equals="pat" class="tab_on" onClick="gp_mode:pat"
+
+            Button "Token (PAT)"
+              else class="tab"
+              onClick="gp_mode:pat"
+
           }
 
           // OAuth2
           if cond="{gp_mode}" not_equals="pat" {
             Text "CLIENT ID" class="label_cap"
-            TextInput "" class="field_input" value="gp_client_id" onChange="field:gp_client_id"
+            TextInput ""
+              class="field_input"
+              value="gp_client_id"
+              onChange="field:gp_client_id"
+
             Text "CLIENT SECRET" class="label_cap"
-            TextInput "" secure class="field_input" value="gp_client_secret" onChange="field:gp_client_secret"
+            TextInput ""
+              secure
+              class="field_input"
+              value="gp_client_secret"
+              onChange="field:gp_client_secret"
+
             Text "REDIRECT URI (cole no app OAuth do Gitea)" class="label_cap"
             Row class="kv_row" {
               Text "{gp_redirect}" class="kv_val_fill"
-              Button "Copiar" class="copy_btn" onClick="clipboard:gp_redirect"
+              Button "Copiar"
+                class="copy_btn"
+                onClick="clipboard:gp_redirect"
             }
-            Text "No Gitea: Settings → Applications → crie um OAuth2 app e cole a Redirect URI acima." class="muted"
+            Text "No Gitea: Settings → Applications → crie um OAuth2 app e cole a Redirect URI acima."
+              class="muted"
+
           }
 
           // PAT
           if cond="{gp_mode}" equals="pat" {
             Text "PERSONAL ACCESS TOKEN" class="label_cap"
-            TextInput "" secure class="field_input" value="gp_pat" onChange="field:gp_pat"
-            Text "No Gitea: Settings → Applications → Generate New Token (escopo: repo)." class="muted"
+            TextInput ""
+              secure
+              class="field_input"
+              value="gp_pat"
+              onChange="field:gp_pat"
+
+            Text "No Gitea: Settings → Applications → Generate New Token (escopo: repo)."
+              class="muted"
           }
 
-          Row class="env_add" {
+          Row
+            class="env_add" {
             Button "Conectar" class="btn_primary" onClick="gp_connect"
             Button "Atualizar lista" class="tab" onClick="gp_refresh"
           }

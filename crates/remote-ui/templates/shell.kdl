@@ -12,29 +12,49 @@ Row class="screen" {
 
     Text "DEPLOYMENT OPS" class="nav_section"
 
-    Button "  Deployments" if="{view}" equals="deployments" class="nav_item_on" onClick="nav_deployments"
-    Button "  Deployments" else class="nav_item" onClick="nav_deployments"
+    if cond="{view}" equals="deployments" {
+      Button "  Deployments" class="nav_item_on" onClick="nav_deployments"
+    } else {
+      Button "  Deployments" class="nav_item" onClick="nav_deployments"
+    }
+    
+    if cond="{view}" equals="monitoring" {
+      Button "  Monitoring" class="nav_item_on" onClick="nav_monitoring"
+    } else {
+      Button "  Monitoring" class="nav_item" onClick="nav_monitoring"
+    }
 
-    Button "  Monitoring" if="{view}" equals="monitoring" class="nav_item_on" onClick="nav_monitoring"
-    Button "  Monitoring" else class="nav_item" onClick="nav_monitoring"
+    if cond="{view}" equals="schedules" {
+      Button "  Schedules" class="nav_item_on" onClick="nav_schedules"
+    } else {
+      Button "  Schedules" class="nav_item" onClick="nav_schedules"
+    }
+    
+    if cond="{view}" equals="ingress" {
+      Button "  Ingress" class="nav_item_on" onClick="nav_ingress"
+    } else {
+      Button "  Ingress" class="nav_item" onClick="nav_ingress"
+    }
 
-    Button "  Schedules" if="{view}" equals="schedules" class="nav_item_on" onClick="nav_schedules"
-    Button "  Schedules" else class="nav_item" onClick="nav_schedules"
-
-    Button "  Ingress" if="{view}" equals="ingress" class="nav_item_on" onClick="nav_ingress"
-    Button "  Ingress" else class="nav_item" onClick="nav_ingress"
-
-    Button "  Docker" if="{view}" equals="docker" class="nav_item_on" onClick="nav_docker"
-    Button "  Docker" else class="nav_item" onClick="nav_docker"
+    if cond="{view}" equals="docker" {
+      Button "  Docker" class="nav_item_on" onClick="nav_docker"
+    } else {
+      Button "  Docker" class="nav_item" onClick="nav_docker"
+    }
 
     Text "MANAGEMENT" class="nav_section"
 
-    Button "  Projects ({projects_count})" if="{view}" equals="projects" class="nav_item_on" onClick="nav_projects"
-    Button "  Projects ({projects_count})" else class="nav_item" onClick="nav_projects"
+    if cond="{view}" equals="projects" {
+      Button "  Projects ({projects_count})" class="nav_item_on" onClick="nav_projects"
+    } else {
+      Button "  Projects ({projects_count})" class="nav_item" onClick="nav_projects"
+    }
+    
 
     Column class="nav_spacer"
 
     Rule
+
     Button "  Settings" class="nav_item" onClick="nav_settings"
     Button "  Support" class="nav_item" onClick="nav_support"
   }
@@ -44,9 +64,9 @@ Row class="screen" {
 
     // Top bar
     Row class="topbar" {
-      TextInput "Search deployments, nodes…" \
-        class="search" \
-        value="search" \
+      TextInput "Search deployments, nodes…"
+        class="search"
+        value="search"
         onChange="search_changed"
       Text "● rwp · daemon v{daemon_version}" class="muted"
       Button "Deploy" class="btn_primary" onClick="deploy"
@@ -111,7 +131,8 @@ Row class="screen" {
           Row class="header_row" {
             Column class="header_titles" {
               Text "Projects" class="title"
-              Text "Services across every project, with live resource usage." class="subtitle"
+              Text "Services across every project, with live resource usage."
+                class="subtitle"
             }
             Row class="stats_row" {
               Column class="stat_card" {
@@ -136,7 +157,9 @@ Row class="screen" {
                       Text "{c.name}" class="card_name"
                       Row class="badge" {
                         Text "●" class="state_dot" color="{c.status_color}"
-                        Text "{c.status_label}" class="badge_lbl" color="{c.status_color}"
+                        Text "{c.status_label}"
+                          class="badge_lbl"
+                          color="{c.status_color}"
                       }
                     }
                     Text "{c.project} · :{c.port}" class="muted"
