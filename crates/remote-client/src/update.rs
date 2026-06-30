@@ -45,7 +45,7 @@ impl App {
                 // (no port baked in); resolve the TCP target separately. Prefs are
                 // only persisted once the connection actually succeeds.
                 self.url = crate::model::normalize_url(&self.url);
-                let target = match crate::model::connect_target(&self.url) {
+                let _target = match crate::model::connect_target(&self.url) {
                     Ok(t) => t,
                     Err(e) => {
                         self.session = None;
