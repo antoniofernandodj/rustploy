@@ -14,7 +14,7 @@ Container class="login_wrap" {
       }
     }
 
-    Form name="login" onSubmit="connect" {
+    Form name="login" onSubmit="connect" spacing=16 width="fill" {
 
       Column class="field_group" {
 

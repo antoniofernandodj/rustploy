@@ -387,7 +387,7 @@ Column class="content" {
 
     // Web Server (default)
     if cond="{settings_tab}" not_equals="git" {
-      Form name="settings" onSubmit="settings_save" {
+      Form name="settings" onSubmit="settings_save" width="fill" {
         Column class="form_panel" {
           Text "DOMÍNIO / URL BASE" class="label_cap"
           TextInput "https://rustploy.meusite.com"
@@ -437,7 +437,7 @@ Column class="content" {
           Text "CONECTAR CONTA GITEA" class="label_cap"
           Text "{gp_msg}" if="{gp_msg}" not_equals="" class="muted"
 
-          Form name="git_provider" onSubmit="gp_connect" {
+          Form name="git_provider" onSubmit="gp_connect" spacing=10 width="fill" {
             Row class="hc_grid" {
               Column class="hc_field" {
                 Text "NOME" class="label_cap"

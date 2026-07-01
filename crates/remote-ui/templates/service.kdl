@@ -395,7 +395,7 @@ Column class="content" {
             onClick="env_text_toggle"
         }
 
-        Form name="env_add" onSubmit="env_add" {
+        Form name="env_add" onSubmit="env_add" width="fill" {
           Row class="env_add" {
             TextInput "KEY"
               class="env_in_key"

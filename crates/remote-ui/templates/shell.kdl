@@ -149,7 +149,7 @@ Row class="screen" {
             }
           }
 
-          Form name="new_project" onSubmit="create_project" {
+          Form name="new_project" onSubmit="create_project" width="fill" {
             Row class="env_add" {
               TextInput "Nome do projeto"
                 class="env_in_key"
@@ -208,7 +208,7 @@ Row class="screen" {
                 Button "‹ Projetos" class="btn_ghost" onClick="nav_projects"
 
                 if cond="{editing_project}" equals="true" {
-                  Form name="edit_project" onSubmit="save_project_edit" {
+                  Form name="edit_project" onSubmit="save_project_edit" spacing=6 width="fill" {
                     TextInput "Nome do projeto"
                       class="field_input"
                       formControl="edit_proj_name"
