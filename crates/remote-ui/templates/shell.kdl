@@ -149,17 +149,22 @@ Row class="screen" {
             }
           }
 
-          Row class="env_add" {
-            TextInput "Nome do projeto"
-              class="env_in_key"
-              value="new_proj_name"
-              onChange="field:new_proj_name"
-            TextInput "Descrição (opcional)"
-              class="env_in_val"
-              value="new_proj_desc"
-              onChange="field:new_proj_desc"
-            Button "Criar projeto" class="btn_primary" onClick="create_project"
+          Form name="new_project" onSubmit="create_project" {
+            Row class="env_add" {
+              TextInput "Nome do projeto"
+                class="env_in_key"
+                formControl="new_proj_name"
+                value="new_proj_name"
+                onChange="field:new_proj_name"
+              TextInput "Descrição (opcional)"
+                class="env_in_val"
+                formControl="new_proj_desc"
+                value="new_proj_desc"
+                onChange="field:new_proj_desc"
+              Button "Criar projeto" class="btn_primary" onClick="create_project"
+            }
           }
+          Text "{erro_new_proj_name}" if="{erro_new_proj_name}" notEquals="" class="err"
           Text "{new_proj_msg}" class="muted" if="{new_proj_msg}" not_equals=""
 
           Row class="loading_row" if="{data_loading}" equals="true" {
@@ -203,18 +208,19 @@ Row class="screen" {
                 Button "‹ Projetos" class="btn_ghost" onClick="nav_projects"
 
                 if cond="{editing_project}" equals="true" {
-                  TextInput "Nome do projeto"
-                    class="field_input"
-                    value="edit_proj_name"
-                    onChange="field:edit_proj_name"
-                  TextInput "Descrição (opcional)"
-                    class="field_input"
-                    value="edit_proj_desc"
-                    onChange="field:edit_proj_desc"
-                  Row class="env_add" {
-                    Button "Salvar" class="btn_primary" onClick="save_project_edit"
-                    Button "Cancelar" class="btn_ghost" onClick="cancel_project_edit"
-                    Text "{proj_action_msg}" class="muted"
+                  Form name="edit_project" onSubmit="save_project_edit" {
+                    TextInput "Nome do projeto"
+                      class="field_input"
+                      formControl="edit_proj_name"
+                    Text "{erro_edit_proj_name}" if="{erro_edit_proj_name}" notEquals="" class="err"
+                    TextInput "Descrição (opcional)"
+                      class="field_input"
+                      formControl="edit_proj_desc"
+                    Row class="env_add" {
+                      Button "Salvar" class="btn_primary" onClick="save_project_edit"
+                      Button "Cancelar" class="btn_ghost" onClick="cancel_project_edit"
+                      Text "{proj_action_msg}" class="muted"
+                    }
                   }
                 } else {
                   Text "{proj_name}" class="title"

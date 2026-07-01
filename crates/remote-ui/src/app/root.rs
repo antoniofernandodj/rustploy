@@ -3,7 +3,8 @@
 //! and switch on the `screen`/`view` context keys.
 
 use glacier_ui::{
-    ButtonRole, Component, Context, DialogButton, DialogIcon, DialogSpec, EngineMessage, Template,
+    ButtonRole, Component, Context, DialogButton, DialogIcon, DialogSpec, EngineMessage, Form,
+    FormBuilder, FormControl, Template,
 };
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
@@ -31,7 +32,6 @@ impl Hash for PollKey {
     }
 }
 
-#[derive(Default)]
 pub struct Root {
     /// Normalized `rwp://…` URL (mirror of the `url` context key on connect).
     addr: String,
@@ -59,6 +59,103 @@ pub struct Root {
     /// Shared with the poll loop so it can keep re-filtering `project_services`
     /// from the same `all` it already fetches, without a dedicated RPC.
     selected_project_shared: Arc<Mutex<String>>,
+
+    // ── glacier-ui `Form`s (validated field groups) ────────────────────
+    //
+    // Only forms whose fields are NEVER repopulated by an async fetch outside
+    // `update()` (a `ctx.perform` result lands via `EngineMessage::ContextPatch`,
+    // which `GlacierUI::dispatch` merges straight into its own context and
+    // *never* routes through `Component::update` — a `Form` living on `Root`
+    // has no way to learn about it) get a real, persistent `Form` here, driven
+    // generically by `has_control`/`set_value` in `update()`. Screens whose
+    // fields DO get repopulated that way (Settings, Git provider connect, new
+    // project, and every service-detail form) validate ad hoc instead, with a
+    // throwaway `Form` built from the live context at submit time (see
+    // `validate_ad_hoc`) — a persistent `Form` there would go stale the moment
+    // a fetch lands, and the next keystroke would flush its stale values back
+    // over context, clobbering whatever the fetch just wrote.
+    login_form: Form,
+    edit_project_form: Form,
+    env_add_form: Form,
+}
+
+impl Default for Root {
+    fn default() -> Self {
+        Self {
+            addr: String::default(),
+            token: None,
+            active: false,
+            seq: 0,
+            selected_service: String::default(),
+            selected_shared: Arc::default(),
+            selected_deploy_shared: Arc::default(),
+            deploy_shared: Arc::default(),
+            search_shared: Arc::default(),
+            selected_project_shared: Arc::default(),
+            login_form: FormBuilder::new("login")
+                .control(FormControl::new("url", "").required())
+                .control(FormControl::new("token", ""))
+                .on_submit(|form, ctx| {
+                    form.validate();
+                    form.errors_to_context(ctx, "erro_");
+                })
+                .build(),
+            edit_project_form: FormBuilder::new("edit_project")
+                .control(FormControl::new("edit_proj_name", "").required())
+                .control(FormControl::new("edit_proj_desc", ""))
+                .on_submit(|form, ctx| {
+                    form.validate();
+                    form.errors_to_context(ctx, "erro_");
+                })
+                .build(),
+            env_add_form: FormBuilder::new("env_add")
+                .control(FormControl::new("env_new_key", "").required())
+                .control(FormControl::new("env_new_val", ""))
+                .on_submit(|form, ctx| {
+                    form.validate();
+                    form.errors_to_context(ctx, "erro_");
+                })
+                .build(),
+        }
+    }
+}
+
+/// Validates `controls` (built fresh from the live context by the caller)
+/// against their validators and publishes the first error of each under
+/// `"{error_prefix}{control name}"` — the ad hoc counterpart of a persistent
+/// `Form` for screens whose fields can be repopulated by an async fetch (see
+/// the comment on `Root`'s `Form` fields for why those can't own a real one).
+/// Returns whether every control passed.
+fn validate_ad_hoc(ctx: &mut Context, error_prefix: &str, controls: Vec<FormControl>) -> bool {
+    let mut builder = FormBuilder::new(error_prefix);
+    for c in controls {
+        builder = builder.control(c);
+    }
+    let mut form = builder.build();
+    let ok = form.validate();
+    form.errors_to_context(ctx, error_prefix);
+    ok
+}
+
+/// A `FormControl` seeded from the current value of context key `key`,
+/// required (non-empty).
+fn required_field(ctx: &Context, key: &str) -> FormControl {
+    FormControl::new(key, ctx.get(key).cloned().unwrap_or_default()).required()
+}
+
+/// A `FormControl` seeded from the current value of context key `key`,
+/// optional but must be numeric if non-empty (used for port/replica/interval
+/// -style fields where the daemon expects an integer).
+fn optional_numeric_field(ctx: &Context, key: &str) -> FormControl {
+    FormControl::new(key, ctx.get(key).cloned().unwrap_or_default()).pattern(r"^$|^[0-9]+$")
+}
+
+/// Publishes a persistent `Form`'s values and cached errors into the
+/// context, under `"{control name}"` / `"erro_{control name}"` — same
+/// convention `validate_ad_hoc` uses for the non-persistent forms.
+fn sync_form(form: &Form, ctx: &mut Context) {
+    form.sync_to_context(ctx);
+    form.errors_to_context(ctx, "erro_");
 }
 
 impl Root {
@@ -133,6 +230,227 @@ impl Root {
             op,
         ));
     }
+
+    /// `Root`'s persistent `Form`s (see the field-level comment on why only
+    /// these three get one), for the generic `has_control`-driven field
+    /// routing in `update()`.
+    fn forms_mut(&mut self) -> [&mut Form; 3] {
+        [&mut self.login_form, &mut self.edit_project_form, &mut self.env_add_form]
+    }
+
+    /// Runs the login form's validator, and on success connects — the body of
+    /// the old `"connect"` action, now gated on `Form::is_valid` instead of a
+    /// bare empty-string check.
+    fn submit_login(&mut self, ctx: &mut Context) {
+        self.login_form.submit(ctx);
+        if !self.login_form.is_valid() {
+            return;
+        }
+        let url = self.login_form.value("url").to_string();
+        let tok = self.login_form.value("token").to_string();
+        self.addr = normalize_url(&url);
+        self.token = if tok.trim().is_empty() { None } else { Some(tok) };
+        self.active = true;
+        self.seq += 1;
+        ctx.set("error", "");
+        ctx.set("status_line", "conectando…");
+        ctx.set("data_loading", "true");
+        save_prefs(ctx);
+    }
+
+    /// Runs the project-edit form's validator, and on success saves — the
+    /// body of the old `"save_project_edit"` action.
+    fn submit_edit_project(&mut self, ctx: &mut Context) {
+        self.edit_project_form.submit(ctx);
+        if !self.edit_project_form.is_valid() {
+            return;
+        }
+        let id = ctx.get("selected_project_id").cloned().unwrap_or_default();
+        let name = self.edit_project_form.value("edit_proj_name").to_string();
+        let desc = self.edit_project_form.value("edit_proj_desc").to_string();
+        if !id.is_empty() && !self.addr.is_empty() {
+            ctx.set("proj_action_msg", "salvando…");
+            ctx.perform(super::net::update_project(
+                self.addr.clone(),
+                self.token.clone(),
+                id,
+                name,
+                desc,
+            ));
+        }
+    }
+
+    /// Runs the env-var-add form's validator, and on success adds the
+    /// variable and clears the form — the body of the old `"env_add"` action.
+    fn submit_env_add(&mut self, ctx: &mut Context) {
+        self.env_add_form.submit(ctx);
+        if !self.env_add_form.is_valid() {
+            return;
+        }
+        let key = self.env_add_form.value("env_new_key").trim().to_string();
+        let value = self.env_add_form.value("env_new_val").to_string();
+        self.env_op(ctx, super::net::EnvOp::Set { key, value });
+        self.env_add_form.set_value("env_new_key", "");
+        self.env_add_form.set_value("env_new_val", "");
+        self.env_add_form.sync_to_context(ctx);
+    }
+
+    /// Validates `ss_email` ad hoc (see the comment on `Root`'s `Form`
+    /// fields — Settings is repopulated by an async fetch on connect, so it
+    /// can't own a persistent `Form`), and on success saves — the body of the
+    /// old `"settings_save"` action.
+    fn submit_settings(&mut self, ctx: &mut Context) {
+        if self.addr.is_empty() {
+            return;
+        }
+        let domain = ctx.get("ss_domain").cloned().unwrap_or_default();
+        let email = ctx.get("ss_email").cloned().unwrap_or_default();
+        let email_field = FormControl::new("ss_email", email.clone())
+            .pattern(r"^$|^[^@\s]+@[^@\s]+\.[^@\s]+$");
+        if !validate_ad_hoc(ctx, "erro_", vec![email_field]) {
+            return;
+        }
+        ctx.set("settings_msg", "salvando…");
+        ctx.perform(super::net::save_settings(
+            self.addr.clone(),
+            self.token.clone(),
+            domain,
+            email,
+        ));
+    }
+
+    /// Validates `gp_name` ad hoc (Git provider connect is cleared by an
+    /// async fetch on success, same reasoning as Settings), and on success
+    /// connects — the body of the old `"gp_connect"` action.
+    fn submit_git_provider(&mut self, ctx: &mut Context) {
+        if self.addr.is_empty() {
+            return;
+        }
+        let g = |k: &str| ctx.get(k).cloned().unwrap_or_default();
+        let (name, base_url, mode, client_id, client_secret, pat) = (
+            g("gp_name"), g("gp_base_url"), g("gp_mode"),
+            g("gp_client_id"), g("gp_client_secret"), g("gp_pat"),
+        );
+        if !validate_ad_hoc(ctx, "erro_", vec![required_field(ctx, "gp_name")]) {
+            return;
+        }
+        ctx.set("gp_msg", "conectando…");
+        ctx.perform(super::net::git_provider_connect(
+            self.addr.clone(),
+            self.token.clone(),
+            name, base_url, mode, client_id, client_secret, pat,
+        ));
+    }
+
+    /// Validates `new_proj_name` ad hoc (the fields are cleared by an async
+    /// fetch on success, same reasoning as Settings), and on success creates
+    /// the project — the body of the old `"create_project"` action.
+    fn submit_new_project(&mut self, ctx: &mut Context) {
+        if self.addr.is_empty() {
+            return;
+        }
+        let name = ctx.get("new_proj_name").cloned().unwrap_or_default();
+        let desc = ctx.get("new_proj_desc").cloned().unwrap_or_default();
+        if !validate_ad_hoc(ctx, "erro_", vec![required_field(ctx, "new_proj_name")]) {
+            return;
+        }
+        ctx.perform(super::net::create_project(
+            self.addr.clone(),
+            self.token.clone(),
+            name,
+            desc,
+        ));
+    }
+
+    /// Validates `f_host_port` ad hoc (service-detail forms are repopulated
+    /// by `open_service`'s fetch, so they can't own a persistent `Form` — see
+    /// the comment on `Root`'s `Form` fields), and on success saves — the
+    /// body of the old `"dom_save"` action.
+    fn submit_domains(&mut self, ctx: &mut Context) {
+        let fields = vec![optional_numeric_field(ctx, "f_host_port")];
+        if !validate_ad_hoc(ctx, "erro_", fields) {
+            return;
+        }
+        let op = super::net::SpecOp::Domains {
+            domain: ctx.get("f_domain").cloned().unwrap_or_default(),
+            host_port: ctx.get("f_host_port").cloned().unwrap_or_default(),
+            tls: ctx.get("f_tls").map(|v| v == "true").unwrap_or(false),
+        };
+        self.spec_op(ctx, op);
+    }
+
+    /// Validates the numeric healthcheck fields ad hoc, and on success saves
+    /// — the body of the old `"hc_save"` action.
+    fn submit_healthcheck(&mut self, ctx: &mut Context) {
+        let fields = vec![
+            optional_numeric_field(ctx, "f_hc_status"),
+            optional_numeric_field(ctx, "f_hc_interval"),
+            optional_numeric_field(ctx, "f_hc_timeout"),
+            optional_numeric_field(ctx, "f_hc_retries"),
+            optional_numeric_field(ctx, "f_hc_start"),
+        ];
+        if !validate_ad_hoc(ctx, "erro_", fields) {
+            return;
+        }
+        let g = |k: &str| ctx.get(k).cloned().unwrap_or_default();
+        let op = super::net::SpecOp::Healthcheck {
+            kind: g("f_hc_kind"),
+            http_path: g("f_hc_path"),
+            expected_status: g("f_hc_status"),
+            interval: g("f_hc_interval"),
+            timeout: g("f_hc_timeout"),
+            retries: g("f_hc_retries"),
+            start_period: g("f_hc_start"),
+        };
+        self.spec_op(ctx, op);
+    }
+
+    /// Validates `f_replicas` ad hoc, and on success saves — the body of the
+    /// old `"adv_save"` action.
+    fn submit_advanced(&mut self, ctx: &mut Context) {
+        let fields = vec![optional_numeric_field(ctx, "f_replicas")];
+        if !validate_ad_hoc(ctx, "erro_", fields) {
+            return;
+        }
+        let op = super::net::SpecOp::Advanced {
+            replicas: ctx.get("f_replicas").cloned().unwrap_or_default(),
+            run_command: ctx.get("f_run_command").cloned().unwrap_or_default(),
+        };
+        self.spec_op(ctx, op);
+    }
+
+    /// Validates `f_gen_port` ad hoc, and on success saves — the body of the
+    /// old `"gen_save"` action. No validators beyond that: the Git and Gitea
+    /// sub-tabs share these keys but populate `f_repo_url`/`f_branch`
+    /// differently (typed vs. derived from a picker), so a stricter
+    /// `required()` here could reject a legitimate Gitea-derived save.
+    fn submit_general(&mut self, ctx: &mut Context) {
+        let fields = vec![optional_numeric_field(ctx, "f_gen_port")];
+        if !validate_ad_hoc(ctx, "erro_", fields) {
+            return;
+        }
+        let g = |k: &str| ctx.get(k).cloned().unwrap_or_default();
+        let op = super::net::SpecOp::General {
+            repo_url: g("f_repo_url"),
+            branch: g("f_branch"),
+            username: g("f_username"),
+            credentials: g("f_credentials"),
+            build_path: g("f_build_path"),
+            watch_paths: g("f_watch_paths"),
+            submodules: ctx.get("f_submodules").map(|v| v == "true").unwrap_or(false),
+            dockerfile: g("f_dockerfile"),
+            context_path: g("f_context_path"),
+            build_stage: g("f_build_stage"),
+            port: g("f_gen_port"),
+            // Git sub-tab detaches (empty); Gitea sub-tab binds the id.
+            provider_id: if ctx.get("prov_tab").map(|v| v == "gitea").unwrap_or(false) {
+                g("gitea_provider_id")
+            } else {
+                String::new()
+            },
+        };
+        self.spec_op(ctx, op);
+    }
 }
 
 impl Component for Root {
@@ -155,8 +473,11 @@ impl Component for Root {
             .filter(|_| prefs.remember_url)
             .unwrap_or_else(|| "rwp://127.0.0.1:8787".to_string());
         let token = prefs.token.filter(|_| prefs.remember_token).unwrap_or_default();
-        ctx.set("url", url);
-        ctx.set("token", token);
+        self.login_form.set_value("url", url);
+        self.login_form.set_value("token", token);
+        sync_form(&self.login_form, ctx);
+        sync_form(&self.edit_project_form, ctx);
+        sync_form(&self.env_add_form, ctx);
         ctx.set("remember_url", bool_str(prefs.remember_url));
         ctx.set("remember_token", bool_str(prefs.remember_token));
         ctx.set("connected", "false");
@@ -259,8 +580,6 @@ impl Component for Root {
         ctx.set("dep_selected", "");
         ctx.set("dep_build_logs", "[]");
         ctx.set("dep_build_count", "0");
-        ctx.set("env_new_key", "");
-        ctx.set("env_new_val", "");
         ctx.set("env_text_open", "false");
         ctx.set("svc_env_text_orig", "");
         // Editable spec form fields.
@@ -299,17 +618,30 @@ impl Component for Root {
     }
 
     fn update(&mut self, action: &str, value: Option<&str>, ctx: &mut Context) {
+        // `ss_domain` also keeps the OAuth Redirect URI (Settings → Git) in
+        // sync — special-cased ahead of the generic form-field loop below
+        // since `ss_domain`/`ss_email` aren't a persistent `Form` (see the
+        // comment on `Root`'s `Form` fields): they're repopulated by an async
+        // fetch on connect, so they're just plain context keys here, same as
+        // before.
+        if action == "ss_domain" {
+            if let Some(v) = value {
+                ctx.set("ss_domain", v);
+                ctx.set("gp_redirect", super::net::oauth_redirect_uri(v));
+            }
+            return;
+        }
+        // Generic routing for `Root`'s persistent `Form`s: any action that
+        // names one of their controls updates it and re-publishes the form's
+        // values/errors, without a per-field match arm.
+        for form in self.forms_mut() {
+            if form.has_control(action) {
+                form.set_value(action, value.unwrap_or_default());
+                sync_form(form, ctx);
+                return;
+            }
+        }
         match action {
-            "url_changed" => {
-                if let Some(v) = value {
-                    ctx.set("url", v);
-                }
-            }
-            "token_changed" => {
-                if let Some(v) = value {
-                    ctx.set("token", v);
-                }
-            }
             // Topbar: Deploy points the user at the project grid to pick a
             // service; Stop All stops every running service.
             "deploy" => {
@@ -403,46 +735,13 @@ impl Component for Root {
                     ctx.set("gp_redirect", super::net::oauth_redirect_uri(v));
                 }
             }
-            "ss_email_changed" => {
+            "ss_email" => {
                 if let Some(v) = value {
                     ctx.set("ss_email", v);
                 }
             }
-            "settings_save" => {
-                if !self.addr.is_empty() {
-                    let domain = ctx.get("ss_domain").cloned().unwrap_or_default();
-                    let email = ctx.get("ss_email").cloned().unwrap_or_default();
-                    ctx.set("settings_msg", "salvando…");
-                    ctx.perform(super::net::save_settings(
-                        self.addr.clone(),
-                        self.token.clone(),
-                        domain,
-                        email,
-                    ));
-                }
-            }
-            "env_new_key_changed" => {
-                if let Some(v) = value {
-                    ctx.set("env_new_key", v);
-                }
-            }
-            "env_new_val_changed" => {
-                if let Some(v) = value {
-                    ctx.set("env_new_val", v);
-                }
-            }
-            "env_add" => {
-                let key = ctx.get("env_new_key").cloned().unwrap_or_default();
-                let value = ctx.get("env_new_val").cloned().unwrap_or_default();
-                if !key.trim().is_empty() {
-                    self.env_op(ctx, super::net::EnvOp::Set {
-                        key: key.trim().to_string(),
-                        value,
-                    });
-                    ctx.set("env_new_key", "");
-                    ctx.set("env_new_val", "");
-                }
-            }
+            "settings_save" => self.submit_settings(ctx),
+            "env_add" => self.submit_env_add(ctx),
             // `env_reorder` — the glacier-ui drag-and-drop `onReorder` action
             // for the Environment tab's `kv_list` (see `service.kdl`), value
             // is a JSON array of `key`s in their new order.
@@ -461,18 +760,7 @@ impl Component for Root {
                 ctx.set("remember_token", flag(value));
                 save_prefs(ctx);
             }
-            "connect" => {
-                let url = ctx.get("url").cloned().unwrap_or_default();
-                self.addr = normalize_url(&url);
-                let tok = ctx.get("token").cloned().unwrap_or_default();
-                self.token = if tok.trim().is_empty() { None } else { Some(tok) };
-                self.active = true;
-                self.seq += 1;
-                ctx.set("error", "");
-                ctx.set("status_line", "conectando…");
-                ctx.set("data_loading", "true");
-                save_prefs(ctx);
-            }
+            "connect" => self.submit_login(ctx),
             "disconnect" => {
                 self.active = false;
                 self.seq += 1;
@@ -505,57 +793,10 @@ impl Component for Root {
                 self.service_action(ctx, |id| shared::Command::ServiceStop { service_id: id });
             }
             // Save handlers for the editable spec forms.
-            "dom_save" => {
-                let op = super::net::SpecOp::Domains {
-                    domain: ctx.get("f_domain").cloned().unwrap_or_default(),
-                    host_port: ctx.get("f_host_port").cloned().unwrap_or_default(),
-                    tls: ctx.get("f_tls").map(|v| v == "true").unwrap_or(false),
-                };
-                self.spec_op(ctx, op);
-            }
-            "hc_save" => {
-                let g = |k: &str| ctx.get(k).cloned().unwrap_or_default();
-                let op = super::net::SpecOp::Healthcheck {
-                    kind: g("f_hc_kind"),
-                    http_path: g("f_hc_path"),
-                    expected_status: g("f_hc_status"),
-                    interval: g("f_hc_interval"),
-                    timeout: g("f_hc_timeout"),
-                    retries: g("f_hc_retries"),
-                    start_period: g("f_hc_start"),
-                };
-                self.spec_op(ctx, op);
-            }
-            "adv_save" => {
-                let op = super::net::SpecOp::Advanced {
-                    replicas: ctx.get("f_replicas").cloned().unwrap_or_default(),
-                    run_command: ctx.get("f_run_command").cloned().unwrap_or_default(),
-                };
-                self.spec_op(ctx, op);
-            }
-            "gen_save" => {
-                let g = |k: &str| ctx.get(k).cloned().unwrap_or_default();
-                let op = super::net::SpecOp::General {
-                    repo_url: g("f_repo_url"),
-                    branch: g("f_branch"),
-                    username: g("f_username"),
-                    credentials: g("f_credentials"),
-                    build_path: g("f_build_path"),
-                    watch_paths: g("f_watch_paths"),
-                    submodules: ctx.get("f_submodules").map(|v| v == "true").unwrap_or(false),
-                    dockerfile: g("f_dockerfile"),
-                    context_path: g("f_context_path"),
-                    build_stage: g("f_build_stage"),
-                    port: g("f_gen_port"),
-                    // Git sub-tab detaches (empty); Gitea sub-tab binds the id.
-                    provider_id: if ctx.get("prov_tab").map(|v| v == "gitea").unwrap_or(false) {
-                        g("gitea_provider_id")
-                    } else {
-                        String::new()
-                    },
-                };
-                self.spec_op(ctx, op);
-            }
+            "dom_save" => self.submit_domains(ctx),
+            "hc_save" => self.submit_healthcheck(ctx),
+            "adv_save" => self.submit_advanced(ctx),
+            "gen_save" => self.submit_general(ctx),
             // Gitea picker (Select-based): account → repos → branches.
             "gitea_provider_pick" => {
                 if let Some(id) = value {
@@ -600,21 +841,7 @@ impl Component for Root {
                 }
             }
             // Settings → Git: connect a provider, refresh, switch method.
-            "gp_connect" => {
-                if !self.addr.is_empty() {
-                    let g = |k: &str| ctx.get(k).cloned().unwrap_or_default();
-                    let (name, base_url, mode, client_id, client_secret, pat) = (
-                        g("gp_name"), g("gp_base_url"), g("gp_mode"),
-                        g("gp_client_id"), g("gp_client_secret"), g("gp_pat"),
-                    );
-                    ctx.set("gp_msg", "conectando…");
-                    ctx.perform(super::net::git_provider_connect(
-                        self.addr.clone(),
-                        self.token.clone(),
-                        name, base_url, mode, client_id, client_secret, pat,
-                    ));
-                }
-            }
+            "gp_connect" => self.submit_git_provider(ctx),
             "gp_refresh" => {
                 if !self.addr.is_empty() {
                     ctx.perform(super::net::git_providers_only(
@@ -720,8 +947,9 @@ impl Component for Root {
                 // `edit_project_toggle` — reveal the inline name/description form,
                 // seeded from the currently displayed project.
                 if action == "edit_project_toggle" {
-                    ctx.set("edit_proj_name", ctx.get("proj_name").cloned().unwrap_or_default());
-                    ctx.set("edit_proj_desc", ctx.get("proj_description").cloned().unwrap_or_default());
+                    self.edit_project_form.set_value("edit_proj_name", ctx.get("proj_name").cloned().unwrap_or_default());
+                    self.edit_project_form.set_value("edit_proj_desc", ctx.get("proj_description").cloned().unwrap_or_default());
+                    sync_form(&self.edit_project_form, ctx);
                     ctx.set("editing_project", "true");
                     return;
                 }
@@ -730,33 +958,12 @@ impl Component for Root {
                     return;
                 }
                 if action == "save_project_edit" {
-                    let id = ctx.get("selected_project_id").cloned().unwrap_or_default();
-                    let name = ctx.get("edit_proj_name").cloned().unwrap_or_default();
-                    let desc = ctx.get("edit_proj_desc").cloned().unwrap_or_default();
-                    if !id.is_empty() && !name.trim().is_empty() && !self.addr.is_empty() {
-                        ctx.set("proj_action_msg", "salvando…");
-                        ctx.perform(super::net::update_project(
-                            self.addr.clone(),
-                            self.token.clone(),
-                            id,
-                            name,
-                            desc,
-                        ));
-                    }
+                    self.submit_edit_project(ctx);
                     return;
                 }
                 // `create_project` — Projects tab "Novo projeto" bar.
                 if action == "create_project" {
-                    let name = ctx.get("new_proj_name").cloned().unwrap_or_default();
-                    let desc = ctx.get("new_proj_desc").cloned().unwrap_or_default();
-                    if !name.trim().is_empty() && !self.addr.is_empty() {
-                        ctx.perform(super::net::create_project(
-                            self.addr.clone(),
-                            self.token.clone(),
-                            name,
-                            desc,
-                        ));
-                    }
+                    self.submit_new_project(ctx);
                     return;
                 }
                 // `svc_stop_id:<id>` — "Parar" a service listed under a project
@@ -993,6 +1200,28 @@ impl Component for Root {
                     }
                 }
             }
+        }
+    }
+
+    /// Enter-triggered submit of any `<Form>` (a `formControl`-bound
+    /// `TextInput`'s Enter key always dispatches its enclosing `Form`'s
+    /// `onSubmit`, routed here instead of `update()` — see
+    /// `glacier_ui::Component::on_form_submit`). Each arm mirrors the
+    /// corresponding Save/Connect/Criar button's `onClick` in `update()`, so
+    /// pressing Enter and clicking the button behave identically.
+    fn on_form_submit(&mut self, action: &str, ctx: &mut Context) {
+        match action {
+            "connect" => self.submit_login(ctx),
+            "save_project_edit" => self.submit_edit_project(ctx),
+            "env_add" => self.submit_env_add(ctx),
+            "settings_save" => self.submit_settings(ctx),
+            "gp_connect" => self.submit_git_provider(ctx),
+            "create_project" => self.submit_new_project(ctx),
+            "dom_save" => self.submit_domains(ctx),
+            "hc_save" => self.submit_healthcheck(ctx),
+            "adv_save" => self.submit_advanced(ctx),
+            "gen_save" => self.submit_general(ctx),
+            _ => {}
         }
     }
 

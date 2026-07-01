@@ -110,7 +110,7 @@ Column class="content" {
             }
           }
 
-          Column class="form_panel" if="{svc_loading}" not_equals="true" {
+          Form class="form_panel" if="{svc_loading}" not_equals="true" name="general" onSubmit="gen_save" {
 
             Text "PROVIDER" class="label_cap"
             Row class="tabs" {
@@ -138,6 +138,7 @@ Column class="content" {
               Text "SOURCE — REPOSITORY URL / IMAGE" class="label_cap"
               TextInput "github.com/user/repo  ou  nginx:latest"
                 class="field_input"
+                formControl="f_repo_url"
                 value="f_repo_url"
                 onChange="field:f_repo_url"
 
@@ -148,6 +149,7 @@ Column class="content" {
                   Text "BRANCH" class="label_cap"
                   TextInput "main"
                     class="field_input"
+                    formControl="f_branch"
                     value="f_branch"
                     onChange="field:f_branch"
                 }
@@ -155,8 +157,10 @@ Column class="content" {
                   Text "PORT" class="label_cap"
                   TextInput "80"
                     class="field_input"
+                    formControl="f_gen_port"
                     value="f_gen_port"
                     onChange="field:f_gen_port"
+                  Text "{erro_f_gen_port}" if="{erro_f_gen_port}" notEquals="" class="err"
                 }
               }
               Row class="hc_grid" {
@@ -164,6 +168,7 @@ Column class="content" {
                   Text "USERNAME" class="label_cap"
                   TextInput "(opcional)"
                     class="field_input"
+                    formControl="f_username"
                     value="f_username"
                     onChange="field:f_username"
                 }
@@ -171,6 +176,7 @@ Column class="content" {
                   Text "CREDENTIALS (secret)" class="label_cap"
                   TextInput "(opcional)"
                     class="field_input"
+                    formControl="f_credentials"
                     value="f_credentials"
                     onChange="field:f_credentials"
                 }
@@ -179,6 +185,7 @@ Column class="content" {
               Text "BUILD PATH (root)" class="label_cap"
               TextInput "."
                 class="field_input"
+                formControl="f_build_path"
                 value="f_build_path"
                 onChange="field:f_build_path"
 
@@ -186,6 +193,7 @@ Column class="content" {
 
               TextInput "src, Cargo.toml"
                 class="field_input"
+                formControl="f_watch_paths"
                 value="f_watch_paths"
                 onChange="field:f_watch_paths"
 
@@ -200,6 +208,7 @@ Column class="content" {
                     class="label_cap"
                   TextInput "Dockerfile"
                     class="field_input"
+                    formControl="f_dockerfile"
                     value="f_dockerfile"
                     onChange="field:f_dockerfile"
                 }
@@ -207,6 +216,7 @@ Column class="content" {
                   Text "CONTEXT PATH" class="label_cap"
                   TextInput "."
                     class="field_input"
+                    formControl="f_context_path"
                     value="f_context_path"
                     onChange="field:f_context_path"
                 }
@@ -216,6 +226,7 @@ Column class="content" {
 
               TextInput "(multi-stage target)"
                 class="field_input"
+                formControl="f_build_stage"
                 value="f_build_stage"
                 onChange="field:f_build_stage"
 
@@ -277,6 +288,7 @@ Column class="content" {
                   Text "BUILD PATH (root)" class="label_cap"
                   TextInput "."
                     class="field_input"
+                    formControl="f_build_path"
                     value="f_build_path"
                     onChange="field:f_build_path"
                 }
@@ -284,8 +296,10 @@ Column class="content" {
                   Text "PORT" class="label_cap"
                   TextInput "80"
                     class="field_input"
+                    formControl="f_gen_port"
                     value="f_gen_port"
                     onChange="field:f_gen_port"
+                  Text "{erro_f_gen_port}" if="{erro_f_gen_port}" notEquals="" class="err"
                 }
               }
               Row class="hc_grid" {
@@ -293,6 +307,7 @@ Column class="content" {
                   Text "DOCKERFILE" class="label_cap"
                   TextInput "Dockerfile"
                     class="field_input"
+                    formControl="f_dockerfile"
                     value="f_dockerfile"
                     onChange="field:f_dockerfile"
                 }
@@ -300,6 +315,7 @@ Column class="content" {
                   Text "CONTEXT PATH" class="label_cap"
                   TextInput "."
                     class="field_input"
+                    formControl="f_context_path"
                     value="f_context_path"
                     onChange="field:f_context_path"
                 }
@@ -307,6 +323,7 @@ Column class="content" {
               Text "WATCH PATHS (separados por vírgula)" class="label_cap"
               TextInput "src, Cargo.toml"
                 class="field_input"
+                formControl="f_watch_paths"
                 value="f_watch_paths"
                 onChange="field:f_watch_paths"
 
@@ -378,22 +395,22 @@ Column class="content" {
             onClick="env_text_toggle"
         }
 
-        Row class="env_add" {
-          TextInput "KEY"
-            class="env_in_key"
-            value="env_new_key"
-            onChange="env_new_key_changed"
+        Form name="env_add" onSubmit="env_add" {
+          Row class="env_add" {
+            TextInput "KEY"
+              class="env_in_key"
+              formControl="env_new_key"
 
-          TextInput "value"
-            class="env_in_val"
-            value="env_new_val"
-            onChange="env_new_val_changed"
-  
-          Button "Adicionar"
-            class="btn_primary"
-            onClick="env_add"
+            TextInput "value"
+              class="env_in_val"
+              formControl="env_new_val"
 
+            Button "Adicionar"
+              class="btn_primary"
+              onClick="env_add"
+          }
         }
+        Text "{erro_env_new_key}" if="{erro_env_new_key}" notEquals="" class="err"
         Scrollable direction=vertical class="env_list_scroll" {
           Column class="kv_list" {
             ForEach items="svc_env" var="e" onReorder="env_reorder" reorderKey="key" {
@@ -430,19 +447,22 @@ Column class="content" {
       }
 
       // Domains (editável)
-      Column if="{tab}" equals="domains" class="form_panel" {
+      Form if="{tab}" equals="domains" class="form_panel" name="domains" onSubmit="dom_save" {
         Text "DOMÍNIO" class="label_cap"
         TextInput "app.exemplo.com"
           class="field_input"
+          formControl="f_domain"
           value="f_domain"
           onChange="field:f_domain"
 
         Text "HOST PORT (externa, opcional)" class="label_cap"
         TextInput "(padrão do serviço)"
           class="field_input"
+          formControl="f_host_port"
           value="f_host_port"
           onChange="field:f_host_port"
 
+        Text "{erro_f_host_port}" if="{erro_f_host_port}" notEquals="" class="err"
         Toggle "  HTTPS / TLS" checked="f_tls" onToggle="field:f_tls"
         Row class="env_add" {
           Button "Save" class="btn_primary" onClick="dom_save"
@@ -504,7 +524,7 @@ Column class="content" {
       }
 
       // Healthcheck (editável)
-      Column if="{tab}" equals="healthcheck" class="form_panel" {
+      Form if="{tab}" equals="healthcheck" class="form_panel" name="healthcheck" onSubmit="hc_save" {
         Text "KIND" class="label_cap"
         Row class="tabs" {
 
@@ -537,28 +557,35 @@ Column class="content" {
           Text "HTTP PATH" class="label_cap"
           TextInput "/health"
             class="field_input"
+            formControl="f_hc_path"
             value="f_hc_path"
             onChange="field:f_hc_path"
           Text "EXPECTED STATUS" class="label_cap"
           TextInput "200"
             class="field_input"
+            formControl="f_hc_status"
             value="f_hc_status"
             onChange="field:f_hc_status"
+          Text "{erro_f_hc_status}" if="{erro_f_hc_status}" notEquals="" class="err"
         }
         Row class="hc_grid" {
           Column class="hc_field" {
             Text "INTERVAL (s)" class="label_cap"
             TextInput ""
               class="field_input"
+              formControl="f_hc_interval"
               value="f_hc_interval"
               onChange="field:f_hc_interval"
+            Text "{erro_f_hc_interval}" if="{erro_f_hc_interval}" notEquals="" class="err"
           }
           Column class="hc_field" {
             Text "TIMEOUT (s)" class="label_cap"
             TextInput ""
               class="field_input"
+              formControl="f_hc_timeout"
               value="f_hc_timeout"
               onChange="field:f_hc_timeout"
+            Text "{erro_f_hc_timeout}" if="{erro_f_hc_timeout}" notEquals="" class="err"
           }
         }
         Row class="hc_grid" {
@@ -566,15 +593,19 @@ Column class="content" {
             Text "RETRIES" class="label_cap"
             TextInput ""
               class="field_input"
+              formControl="f_hc_retries"
               value="f_hc_retries"
               onChange="field:f_hc_retries"
+            Text "{erro_f_hc_retries}" if="{erro_f_hc_retries}" notEquals="" class="err"
           }
           Column class="hc_field" {
             Text "START PERIOD (s)" class="label_cap"
             TextInput ""
               class="field_input"
+              formControl="f_hc_start"
               value="f_hc_start"
               onChange="field:f_hc_start"
+            Text "{erro_f_hc_start}" if="{erro_f_hc_start}" notEquals="" class="err"
           }
         }
         Row class="env_add" {
@@ -599,16 +630,19 @@ Column class="content" {
       }
 
       // Advanced (editável)
-      Column if="{tab}" equals="advanced" class="form_panel" {
+      Form if="{tab}" equals="advanced" class="form_panel" name="advanced" onSubmit="adv_save" {
         Text "REPLICAS" class="label_cap"
         TextInput "1"
           class="field_input"
+          formControl="f_replicas"
           value="f_replicas"
           onChange="field:f_replicas"
 
+        Text "{erro_f_replicas}" if="{erro_f_replicas}" notEquals="" class="err"
         Text "RUN COMMAND" class="label_cap"
         TextInput "(padrão da imagem)"
           class="field_input"
+          formControl="f_run_command"
           value="f_run_command"
           onChange="field:f_run_command"
 

@@ -387,27 +387,26 @@ Column class="content" {
 
     // Web Server (default)
     if cond="{settings_tab}" not_equals="git" {
-      Column class="form_panel" {
-        Text "DOMÍNIO / URL BASE" class="label_cap"
-        TextInput "https://rustploy.meusite.com"
-          class="field_input"
-          value="ss_domain"
-          onChange="ss_domain_changed"
+      Form name="settings" onSubmit="settings_save" {
+        Column class="form_panel" {
+          Text "DOMÍNIO / URL BASE" class="label_cap"
+          TextInput "https://rustploy.meusite.com"
+            class="field_input"
+            formControl="ss_domain"
 
-        Text "Base das URLs de webhook dos serviços e do callback OAuth." class="muted"
-        Text "E-MAIL LET'S ENCRYPT (HTTPS AUTOMÁTICO)" class="label_cap"
-        TextInput "voce@exemplo.com"
-          class="field_input"
-          value="ss_email"
-          onChange="ss_email_changed"
+          Text "Base das URLs de webhook dos serviços e do callback OAuth." class="muted"
+          Text "E-MAIL LET'S ENCRYPT (HTTPS AUTOMÁTICO)" class="label_cap"
+          TextInput "voce@exemplo.com"
+            class="field_input"
+            formControl="ss_email"
 
-        Text
-          "Certificados TLS emitidos automaticamente. Requer restart do daemon."
-          class="muted"
+          Text "{erro_ss_email}" if="{erro_ss_email}" notEquals="" class="err"
+          Text "Certificados TLS emitidos automaticamente. Requer restart do daemon." class="muted"
 
-        Row class="env_add" {
-          Button "Save" class="btn_primary" onClick="settings_save"
-          Text "{settings_msg}" class="muted"
+          Row class="env_add" {
+            Button "Save" class="btn_primary" onClick="settings_save"
+            Text "{settings_msg}" class="muted"
+          }
         }
       }
     }
@@ -438,90 +437,98 @@ Column class="content" {
           Text "CONECTAR CONTA GITEA" class="label_cap"
           Text "{gp_msg}" if="{gp_msg}" not_equals="" class="muted"
 
-          Row class="hc_grid" {
-            Column class="hc_field" {
-              Text "NOME" class="label_cap"
-              TextInput "Meu Gitea"
+          Form name="git_provider" onSubmit="gp_connect" {
+            Row class="hc_grid" {
+              Column class="hc_field" {
+                Text "NOME" class="label_cap"
+                TextInput "Meu Gitea"
+                  class="field_input"
+                  formControl="gp_name"
+                  value="gp_name"
+                  onChange="field:gp_name"
+                Text "{erro_gp_name}" if="{erro_gp_name}" notEquals="" class="err"
+              }
+              Column class="hc_field" {
+                Text "BASE URL" class="label_cap"
+                TextInput "https://gitea.exemplo.com"
+                  class="field_input"
+                  formControl="gp_base_url"
+                  value="gp_base_url"
+                  onChange="field:gp_base_url"
+              }
+            }
+
+            Text "MÉTODO" class="label_cap"
+            Row class="tabs" {
+
+              Button "OAuth2"
+                if="{gp_mode}"
+                equals="pat"
+                class="tab"
+                onClick="gp_mode:oauth"
+
+              Button "OAuth2"
+                else class="tab_on"
+                onClick="gp_mode:oauth"
+
+              Button "Token (PAT)"
+                if="{gp_mode}"
+                equals="pat" class="tab_on" onClick="gp_mode:pat"
+
+              Button "Token (PAT)"
+                else class="tab"
+                onClick="gp_mode:pat"
+
+            }
+
+            // OAuth2
+            if cond="{gp_mode}" not_equals="pat" {
+              Text "CLIENT ID" class="label_cap"
+              TextInput ""
                 class="field_input"
-                value="gp_name"
-                onChange="field:gp_name"
-            }
-            Column class="hc_field" {
-              Text "BASE URL" class="label_cap"
-              TextInput "https://gitea.exemplo.com"
+                formControl="gp_client_id"
+                value="gp_client_id"
+                onChange="field:gp_client_id"
+
+              Text "CLIENT SECRET" class="label_cap"
+              TextInput ""
+                secure
                 class="field_input"
-                value="gp_base_url"
-                onChange="field:gp_base_url"
+                formControl="gp_client_secret"
+                value="gp_client_secret"
+                onChange="field:gp_client_secret"
+
+              Text "REDIRECT URI (cole no app OAuth do Gitea)" class="label_cap"
+              Row class="kv_row" {
+                Text "{gp_redirect}" class="kv_val_fill"
+                Button "Copiar"
+                  class="copy_btn"
+                  onClick="clipboard:gp_redirect"
+              }
+              Text "No Gitea: Settings → Applications → crie um OAuth2 app e cole a Redirect URI acima."
+                class="muted"
+
             }
-          }
 
-          Text "MÉTODO" class="label_cap"
-          Row class="tabs" {
+            // PAT
+            if cond="{gp_mode}" equals="pat" {
+              Text "PERSONAL ACCESS TOKEN" class="label_cap"
+              TextInput ""
+                secure
+                class="field_input"
+                formControl="gp_pat"
+                value="gp_pat"
+                onChange="field:gp_pat"
 
-            Button "OAuth2"
-              if="{gp_mode}"
-              equals="pat"
-              class="tab"
-              onClick="gp_mode:oauth"
-
-            Button "OAuth2"
-              else class="tab_on"
-              onClick="gp_mode:oauth"
-
-            Button "Token (PAT)"
-              if="{gp_mode}"
-              equals="pat" class="tab_on" onClick="gp_mode:pat"
-
-            Button "Token (PAT)"
-              else class="tab"
-              onClick="gp_mode:pat"
-
-          }
-
-          // OAuth2
-          if cond="{gp_mode}" not_equals="pat" {
-            Text "CLIENT ID" class="label_cap"
-            TextInput ""
-              class="field_input"
-              value="gp_client_id"
-              onChange="field:gp_client_id"
-
-            Text "CLIENT SECRET" class="label_cap"
-            TextInput ""
-              secure
-              class="field_input"
-              value="gp_client_secret"
-              onChange="field:gp_client_secret"
-
-            Text "REDIRECT URI (cole no app OAuth do Gitea)" class="label_cap"
-            Row class="kv_row" {
-              Text "{gp_redirect}" class="kv_val_fill"
-              Button "Copiar"
-                class="copy_btn"
-                onClick="clipboard:gp_redirect"
+              Text "No Gitea: Settings → Applications → Generate New Token (escopo: repo)."
+                class="muted"
             }
-            Text "No Gitea: Settings → Applications → crie um OAuth2 app e cole a Redirect URI acima."
-              class="muted"
 
-          }
-
-          // PAT
-          if cond="{gp_mode}" equals="pat" {
-            Text "PERSONAL ACCESS TOKEN" class="label_cap"
-            TextInput ""
-              secure
-              class="field_input"
-              value="gp_pat"
-              onChange="field:gp_pat"
-
-            Text "No Gitea: Settings → Applications → Generate New Token (escopo: repo)."
-              class="muted"
-          }
-
-          Row
-            class="env_add" {
-            Button "Conectar" class="btn_primary" onClick="gp_connect"
-            Button "Atualizar lista" class="tab" onClick="gp_refresh"
+            Row
+              class="env_add" {
+              Button "Conectar" class="btn_primary" onClick="gp_connect"
+              Button "Atualizar lista" class="tab" onClick="gp_refresh"
+            }
           }
         }
       }
