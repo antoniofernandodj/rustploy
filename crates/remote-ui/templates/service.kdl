@@ -4,7 +4,7 @@ Column class="content" {
   Row class="svc_head" {
     Column class="header_titles" {
       Row class="svc_title_row" {
-        Button "‹ Projects" class="btn_ghost" onClick="nav_projects"
+        Button "‹ {svc_project}" class="btn_ghost" onClick="open_project:{svc_project_id}"
         Text "{svc_name}" class="title"
         Row class="badge" {
           Text "●" class="state_dot" color="{svc_status_color}"
@@ -20,7 +20,6 @@ Column class="content" {
           Text "{svc_deploy_elapsed}" class="badge_lbl" color="#58A6FF"
         }
       }
-      Text "{svc_project}  ·  {svc_source_kind}" class="subtitle"
       Text "{svc_action_msg}"
         if="{svc_action_msg}"
         not_equals=""

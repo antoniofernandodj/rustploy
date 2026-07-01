@@ -2,7 +2,9 @@
 //! exposes the network subscription. All screens live in `templates/app.kdl`
 //! and switch on the `screen`/`view` context keys.
 
-use glacier_ui::{Component, Context, EngineMessage, Template};
+use glacier_ui::{
+    ButtonRole, Component, Context, DialogButton, DialogIcon, DialogSpec, EngineMessage, Template,
+};
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
 
@@ -222,6 +224,7 @@ impl Component for Root {
         ctx.set("svc_error", "");
         ctx.set("svc_name", "—");
         ctx.set("svc_project", "—");
+        ctx.set("svc_project_id", "");
         ctx.set("svc_status_label", "—");
         ctx.set("svc_status_color", "#8B949E");
         ctx.set("svc_source_kind", "—");
@@ -314,6 +317,16 @@ impl Component for Root {
             }
             "stop_all" => {
                 if !self.addr.is_empty() {
+                    ctx.show_dialog(confirm_dialog(
+                        "Parar todos os serviços?",
+                        "Todos os serviços em execução serão parados agora. Você pode reiniciá-los depois com um novo deploy.",
+                        "Parar todos",
+                        "do_stop_all",
+                    ));
+                }
+            }
+            "do_stop_all" => {
+                if !self.addr.is_empty() {
                     ctx.set("status_line", "parando todos…");
                     ctx.perform(super::net::stop_all(self.addr.clone(), self.token.clone()));
                 }
@@ -334,6 +347,16 @@ impl Component for Root {
             // no need to wait for the next poll tick).
             "docker_prune_images" => {
                 if !self.addr.is_empty() {
+                    ctx.show_dialog(confirm_dialog(
+                        "Limpar imagens sem uso?",
+                        "As imagens Docker sem uso serão removidas agora. Essa limpeza não pode ser desfeita.",
+                        "Limpar",
+                        "do_docker_prune_images",
+                    ));
+                }
+            }
+            "do_docker_prune_images" => {
+                if !self.addr.is_empty() {
                     let all = ctx.get("docker_prune_all_images").map(|v| v == "true").unwrap_or(false);
                     ctx.set("docker_msg", if all { "removendo TODAS as imagens sem uso…" } else { "removendo imagens dangling…" });
                     ctx.perform(super::net::prune_docker_images(self.addr.clone(), self.token.clone(), all));
@@ -341,12 +364,32 @@ impl Component for Root {
             }
             "docker_prune_volumes" => {
                 if !self.addr.is_empty() {
+                    ctx.show_dialog(confirm_dialog(
+                        "Limpar volumes sem uso?",
+                        "Os volumes Docker sem uso serão removidos agora. Essa limpeza não pode ser desfeita.",
+                        "Limpar",
+                        "do_docker_prune_volumes",
+                    ));
+                }
+            }
+            "do_docker_prune_volumes" => {
+                if !self.addr.is_empty() {
                     let all = ctx.get("docker_prune_all_volumes").map(|v| v == "true").unwrap_or(false);
                     ctx.set("docker_msg", "removendo volumes sem uso…");
                     ctx.perform(super::net::prune_docker_volumes(self.addr.clone(), self.token.clone(), all));
                 }
             }
             "docker_prune_networks" => {
+                if !self.addr.is_empty() {
+                    ctx.show_dialog(confirm_dialog(
+                        "Limpar redes sem uso?",
+                        "As redes Docker sem uso serão removidas agora. Essa limpeza não pode ser desfeita.",
+                        "Limpar",
+                        "do_docker_prune_networks",
+                    ));
+                }
+            }
+            "do_docker_prune_networks" => {
                 if !self.addr.is_empty() {
                     ctx.set("docker_msg", "removendo redes sem uso…");
                     ctx.perform(super::net::prune_docker_networks(self.addr.clone(), self.token.clone()));
@@ -451,6 +494,14 @@ impl Component for Root {
                 self.service_action(ctx, |id| shared::Command::ServiceReload { service_id: id });
             }
             "svc_stop" => {
+                ctx.show_dialog(confirm_dialog(
+                    "Parar serviço?",
+                    "O tráfego para este serviço será interrompido até um novo deploy.",
+                    "Parar",
+                    "do_svc_stop",
+                ));
+            }
+            "do_svc_stop" => {
                 self.service_action(ctx, |id| shared::Command::ServiceStop { service_id: id });
             }
             // Save handlers for the editable spec forms.
@@ -588,8 +639,7 @@ impl Component for Root {
                     if let Ok(mut p) = self.selected_project_shared.lock() {
                         p.clear();
                     }
-                    ctx.set("confirm_target", "");
-                    ctx.set("confirm_label", "");
+                    ctx.close_dialog();
                     return;
                 }
                 // `open_service:<id>` — open the detail view and fetch its data.
@@ -638,7 +688,18 @@ impl Component for Root {
                     return;
                 }
                 // `open_project:<id>` — open a project's service list and fetch it.
+                // Also reachable as the service detail's "‹ Projects" back button
+                // (with the open service's own project id), so it clears the
+                // detail view's selection too — same cleanup as `nav_*` — in case
+                // it's navigating away from `view=service`, not just the grid.
                 if let Some(id) = action.strip_prefix("open_project:") {
+                    self.selected_service.clear();
+                    if let Ok(mut sel) = self.selected_shared.lock() {
+                        sel.clear();
+                    }
+                    if let Ok(mut d) = self.selected_deploy_shared.lock() {
+                        d.clear();
+                    }
                     if let Ok(mut sel) = self.selected_project_shared.lock() {
                         *sel = id.to_string();
                     }
@@ -701,6 +762,15 @@ impl Component for Root {
                 // `svc_stop_id:<id>` — "Parar" a service listed under a project
                 // (any card, not just the one open in the detail view).
                 if let Some(id) = action.strip_prefix("svc_stop_id:") {
+                    ctx.show_dialog(confirm_dialog(
+                        "Parar serviço?",
+                        "O tráfego para este serviço será interrompido até um novo deploy.",
+                        "Parar",
+                        format!("do_svc_stop_id:{id}"),
+                    ));
+                    return;
+                }
+                if let Some(id) = action.strip_prefix("do_svc_stop_id:") {
                     if !self.addr.is_empty() {
                         ctx.set("proj_action_msg", "enviando…");
                         ctx.perform(super::net::run_project_service_action(
@@ -711,66 +781,77 @@ impl Component for Root {
                     }
                     return;
                 }
-                // Destructive actions go through a one-line inline confirm bar
-                // (glacier-ui has no dialog/overlay) instead of running immediately.
+                // Destructive actions show a confirmation dialog (glacier-ui's
+                // `dialogs` module) instead of running immediately; the dialog's
+                // confirm button carries the `do_*`-prefixed action below.
                 if let Some(id) = action.strip_prefix("delete_project:") {
-                    ctx.set("confirm_target", format!("delete_project:{id}"));
-                    ctx.set("confirm_label", "Remover este projeto? Esta ação não pode ser desfeita.");
+                    ctx.show_dialog(confirm_dialog(
+                        "Remover projeto?",
+                        "Essa ação não pode ser desfeita.",
+                        "Remover",
+                        format!("do_delete_project:{id}"),
+                    ));
+                    return;
+                }
+                if let Some(id) = action.strip_prefix("do_delete_project:") {
+                    if !self.addr.is_empty() {
+                        ctx.set("proj_action_msg", "removendo…");
+                        ctx.perform(super::net::delete_project(
+                            self.addr.clone(),
+                            self.token.clone(),
+                            id.to_string(),
+                        ));
+                    }
                     return;
                 }
                 if let Some(id) = action.strip_prefix("stop_delete_service:") {
-                    ctx.set("confirm_target", format!("stop_delete_service:{id}"));
-                    ctx.set("confirm_label", "Parar e remover este serviço? Esta ação não pode ser desfeita.");
+                    ctx.show_dialog(confirm_dialog(
+                        "Parar e remover serviço?",
+                        "Essa ação não pode ser desfeita.",
+                        "Remover",
+                        format!("do_stop_delete_service:{id}"),
+                    ));
+                    return;
+                }
+                if let Some(id) = action.strip_prefix("do_stop_delete_service:") {
+                    if !self.addr.is_empty() {
+                        ctx.set("proj_action_msg", "removendo…");
+                        ctx.perform(super::net::stop_and_delete_service(
+                            self.addr.clone(),
+                            self.token.clone(),
+                            id.to_string(),
+                        ));
+                    }
                     return;
                 }
                 if let Some(id) = action.strip_prefix("delete_deployment:") {
-                    ctx.set("confirm_target", format!("delete_deployment:{id}"));
-                    ctx.set("confirm_label", "Remover este deployment e seus logs de build? Esta ação não pode ser desfeita.");
+                    ctx.show_dialog(confirm_dialog(
+                        "Remover deployment?",
+                        "Os logs de build deste deployment também serão apagados. Essa ação não pode ser desfeita.",
+                        "Remover",
+                        format!("do_delete_deployment:{id}"),
+                    ));
                     return;
                 }
-                if action == "confirm_no" {
-                    ctx.set("confirm_target", "");
-                    ctx.set("confirm_label", "");
-                    return;
-                }
-                if action == "confirm_yes" {
-                    let target = ctx.get("confirm_target").cloned().unwrap_or_default();
-                    ctx.set("confirm_target", "");
-                    ctx.set("confirm_label", "");
+                if let Some(id) = action.strip_prefix("do_delete_deployment:") {
                     if !self.addr.is_empty() {
-                        if let Some(id) = target.strip_prefix("delete_project:") {
-                            ctx.set("proj_action_msg", "removendo…");
-                            ctx.perform(super::net::delete_project(
-                                self.addr.clone(),
-                                self.token.clone(),
-                                id.to_string(),
-                            ));
-                        } else if let Some(id) = target.strip_prefix("stop_delete_service:") {
-                            ctx.set("proj_action_msg", "removendo…");
-                            ctx.perform(super::net::stop_and_delete_service(
-                                self.addr.clone(),
-                                self.token.clone(),
-                                id.to_string(),
-                            ));
-                        } else if let Some(id) = target.strip_prefix("delete_deployment:") {
-                            // Close the build-log panel if it's open for the
-                            // deployment being removed — its content is gone.
-                            if ctx.get("dep_selected").map(|s| s == id).unwrap_or(false) {
-                                ctx.set("dep_selected", "");
-                                ctx.set("dep_build_logs", "[]");
-                                ctx.set("dep_build_count", "0");
-                                if let Ok(mut sel) = self.selected_deploy_shared.lock() {
-                                    sel.clear();
-                                }
+                        // Close the build-log panel if it's open for the
+                        // deployment being removed — its content is gone.
+                        if ctx.get("dep_selected").map(|s| s == id).unwrap_or(false) {
+                            ctx.set("dep_selected", "");
+                            ctx.set("dep_build_logs", "[]");
+                            ctx.set("dep_build_count", "0");
+                            if let Ok(mut sel) = self.selected_deploy_shared.lock() {
+                                sel.clear();
                             }
-                            ctx.set("svc_action_msg", "removendo…");
-                            ctx.perform(super::net::delete_deployment(
-                                self.addr.clone(),
-                                self.token.clone(),
-                                self.selected_service.clone(),
-                                id.to_string(),
-                            ));
                         }
+                        ctx.set("svc_action_msg", "removendo…");
+                        ctx.perform(super::net::delete_deployment(
+                            self.addr.clone(),
+                            self.token.clone(),
+                            self.selected_service.clone(),
+                            id.to_string(),
+                        ));
                     }
                     return;
                 }
@@ -847,6 +928,15 @@ impl Component for Root {
                 }
                 // `gp_delete:<id>` — remove a connected Git provider.
                 if let Some(id) = action.strip_prefix("gp_delete:") {
+                    ctx.show_dialog(confirm_dialog(
+                        "Remover provedor Git?",
+                        "Serviços vinculados a esta conta perdem a integração de auto-deploy.",
+                        "Remover",
+                        format!("do_gp_delete:{id}"),
+                    ));
+                    return;
+                }
+                if let Some(id) = action.strip_prefix("do_gp_delete:") {
                     if !self.addr.is_empty() {
                         ctx.set("gp_msg", "removendo…");
                         ctx.perform(super::net::git_provider_delete(
@@ -877,6 +967,15 @@ impl Component for Root {
                 }
                 // `env_import` — replace all vars with the edited `.env` blob.
                 if action == "env_import" {
+                    ctx.show_dialog(confirm_dialog(
+                        "Sobrescrever variáveis de ambiente?",
+                        "O conteúdo do editor vai substituir TODAS as variáveis atuais deste serviço.",
+                        "Sobrescrever",
+                        "do_env_import",
+                    ));
+                    return;
+                }
+                if action == "do_env_import" {
                     let text = ctx.get("svc_env_text").cloned().unwrap_or_default();
                     ctx.set("env_text_open", "false");
                     self.env_op(ctx, super::net::EnvOp::ImportDotenv(text));
@@ -970,6 +1069,22 @@ fn flag(value: Option<&str>) -> &'static str {
         Some(v) if v.eq_ignore_ascii_case("true") || v == "1" => "true",
         _ => "false",
     }
+}
+
+/// Builds a confirmation dialog for a destructive/disruptive action:
+/// "Cancelar" (no-op, matches nothing in `Root::update`) plus a labeled
+/// confirm button whose `action` is only reached if the user actually
+/// clicks it — dismissing (backdrop click) or "Cancelar" never fires it.
+fn confirm_dialog(
+    title: &str,
+    message: &str,
+    confirm_label: &str,
+    confirm_action: impl Into<String>,
+) -> DialogSpec {
+    DialogSpec::new(DialogIcon::Warning, title, message)
+        .dismissible(true)
+        .with_button(DialogButton::new("Cancelar", "noop", ButtonRole::Neutral))
+        .with_button(DialogButton::new(confirm_label, confirm_action, ButtonRole::Destructive))
 }
 
 /// Adds the `rwp://` scheme when the user typed a bare authority.

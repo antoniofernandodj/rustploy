@@ -75,15 +75,6 @@ Row class="screen" {
 
     Rule
 
-    // Inline confirm bar for destructive Projects/Services actions (remove
-    // project, stop+remove service) — glacier-ui has no dialog/overlay, so
-    // this is a plain conditional row instead of a modal.
-    Row class="confirm_bar" if="{confirm_target}" not_equals="" {
-      Text "{confirm_label}" class="muted_fill"
-      Button "Confirmar" class="btn_danger" onClick="confirm_yes"
-      Button "Cancelar" class="btn_ghost" onClick="confirm_no"
-    }
-
     // Content
     if cond="{view}" equals="deployments" {
       Column class="content" {
@@ -274,9 +265,9 @@ Row class="screen" {
                         }
                       }
                       Row class="card_actions" {
-                        Button "Editar" class="card_edit" onClick="open_service:{c.id}"
+                        Button "Abrir  ›" class="card_open" onClick="open_service:{c.id}"
                         Button "Parar" class="card_stop" onClick="svc_stop_id:{c.id}"
-                        Button "Parar e remover" class="card_remove" onClick="stop_delete_service:{c.id}"
+                        Button "Remover" class="card_remove" onClick="stop_delete_service:{c.id}"
                       }
                     }
                   }

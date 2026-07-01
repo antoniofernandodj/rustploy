@@ -276,6 +276,7 @@ async fn fetch_service_detail_inner(
         ("svc_id".into(), svc.id.clone()),
         ("svc_name".into(), spec.name.clone()),
         ("svc_project".into(), project_name),
+        ("svc_project_id".into(), spec.project_id.clone()),
         ("svc_status_label".into(), status_label.into()),
         ("svc_status_color".into(), status_color.into()),
         ("svc_source_kind".into(), source_kind.into()),

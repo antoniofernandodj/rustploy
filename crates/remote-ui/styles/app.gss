@@ -105,9 +105,6 @@
 .card_stop     { width: fill; color: #21262D; padding: 9 10; text-align: center; }
 .card_remove   { width: fill; color: #DA3633; padding: 9 10; text-align: center; }
 
-/* ── Confirm bar (inline, no dialog/overlay in glacier-ui) ──────────────── */
-.confirm_bar   { width: fill; spacing: 12; align-y: center; padding: 10 16; background: #21262D; border-radius: 8; }
-
 /* ── Service detail ───────────────────────────────────────────────────── */
 .svc_head      { width: fill; align-y: start; }
 .svc_title_row { width: fill; spacing: 14; align-y: center; }
