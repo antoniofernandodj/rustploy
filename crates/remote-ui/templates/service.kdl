@@ -393,8 +393,9 @@ Column class="content" {
         }
         Scrollable direction=vertical class="env_list_scroll" {
           Column class="kv_list" {
-            ForEach items="svc_env" var="e" {
+            ForEach items="svc_env" var="e" onReorder="env_reorder" reorderKey="key" {
               Row class="kv_row" {
+                Text "⋮⋮" class="env_drag_handle" dragHandle="true" cursor="grab"
                 Button "✕" class="env_del" onClick="env_del:{e.key}"
                 Text "{e.key}" class="env_key"
                 Text "{e.value}" class="kv_val_fill"

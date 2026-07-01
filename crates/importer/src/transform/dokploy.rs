@@ -88,6 +88,7 @@ pub fn transform(data: DokployData, gitea_url: Option<&str>) -> (TransformedData
                 domain,
                 tls_enabled,
                 env_vars,
+                env_comments: vec![],
                 volumes: vec![], // TODO: Implement volumes mapping
                 healthcheck: Healthcheck::default(),
                 replicas: 1,
@@ -136,6 +137,7 @@ pub fn transform(data: DokployData, gitea_url: Option<&str>) -> (TransformedData
                 domain,
                 tls_enabled,
                 env_vars,
+                env_comments: vec![],
                 volumes: vec![],
                 healthcheck: Healthcheck::default(),
                 replicas: 1,

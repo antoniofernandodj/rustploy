@@ -400,6 +400,16 @@ impl Component for Root {
                     ctx.set("env_new_val", "");
                 }
             }
+            // `env_reorder` — the glacier-ui drag-and-drop `onReorder` action
+            // for the Environment tab's `kv_list` (see `service.kdl`), value
+            // is a JSON array of `key`s in their new order.
+            "env_reorder" => {
+                if let Some(v) = value {
+                    if let Ok(keys) = serde_json::from_str::<Vec<String>>(v) {
+                        self.env_op(ctx, super::net::EnvOp::Reorder(keys));
+                    }
+                }
+            }
             "toggle_remember_url" => {
                 ctx.set("remember_url", flag(value));
                 save_prefs(ctx);

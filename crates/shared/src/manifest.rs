@@ -255,6 +255,7 @@ impl ServiceManifest {
             domain: self.domain.clone(),
             tls_enabled: self.tls,
             env_vars: env_map_to_vars(&self.env),
+            env_comments: Vec::new(),
             volumes: self.volumes.iter().filter_map(|v| parse_volume(v)).collect(),
             healthcheck: self
                 .healthcheck

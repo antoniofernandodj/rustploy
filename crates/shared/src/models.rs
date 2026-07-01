@@ -24,6 +24,12 @@ pub struct ServiceSpec {
     #[serde(default)]
     pub tls_enabled: bool,
     pub env_vars: Vec<EnvVar>,
+    /// Comentários (`# ...`) do editor `.env`, ancorados por `key` (posição
+    /// preservada mesmo que as vars sejam reordenadas). Não participa da
+    /// construção do ambiente do container — só a lista/edição via UI olha
+    /// pra isso.
+    #[serde(default)]
+    pub env_comments: Vec<EnvComment>,
     pub volumes: Vec<VolumeMount>,
     pub healthcheck: Healthcheck,
     pub replicas: u32,
@@ -358,6 +364,16 @@ pub struct StateTransition {
 pub struct EnvVar {
     pub key: String,
     pub value: EnvVarValue,
+}
+
+/// Uma linha de comentário do editor `.env`, ancorada à var que a segue (por
+/// `key`, não por posição) — assim ela sobrevive a uma reordenação de vars.
+/// `before_key: None` é um comentário solto/final, sem var associada.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct EnvComment {
+    /// Linha completa, incluindo o `#`.
+    pub text: String,
+    pub before_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

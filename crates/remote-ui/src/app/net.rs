@@ -15,7 +15,7 @@ use glacier_ui::EngineMessage;
 use iced::futures::{SinkExt, Stream};
 use shared::protocol::{BuildLogLine, LogEntry, LogStream};
 use shared::{
-    Command, ContainerMetricsPoint, DeploymentSummary, DeployState, EnvVar, EnvVarValue, Event,
+    Command, ContainerMetricsPoint, DeploymentSummary, DeployState, EnvComment, EnvVar, EnvVarValue, Event,
     GitBranch, GitProvider, GitRepo, GitSource, Healthcheck, HealthcheckKind, Project, Response,
     RwpFrame, RwpReply, Service, ServiceSource, ServiceStatus, SystemMetricsPoint, looks_like_git_url,
 };
@@ -297,9 +297,9 @@ async fn fetch_service_detail_inner(
         ("svc_run_args".into(), run_args),
         ("svc_env".into(), env_json(&spec.env_vars)),
         ("svc_env_count".into(), spec.env_vars.len().to_string()),
-        ("svc_env_text".into(), env_dotenv(&spec.env_vars)),
+        ("svc_env_text".into(), env_dotenv_with_comments(&spec.env_vars, &spec.env_comments)),
         // Pristine copy so the editor's Cancel can discard edits offline.
-        ("svc_env_text_orig".into(), env_dotenv(&spec.env_vars)),
+        ("svc_env_text_orig".into(), env_dotenv_with_comments(&spec.env_vars, &spec.env_comments)),
         ("svc_logs".into(), logs_json(&logs)),
         ("svc_logs_count".into(), logs.len().to_string()),
         ("svc_logs_text".into(), join_log_lines(logs.iter().map(|e| (&e.timestamp, e.line.as_str())))),
@@ -746,30 +746,50 @@ pub enum EnvOp {
     Delete { key: String },
     /// Replace ALL variables with the parsed contents of a `.env` blob.
     ImportDotenv(String),
+    /// Reorder variables to match this sequence of keys (drag-and-drop on the
+    /// Environment tab). Keys not mentioned keep their relative order, appended
+    /// at the end — a defensive fallback, since `keys` should always be a full
+    /// permutation of the current `env_vars`.
+    Reorder(Vec<String>),
 }
 
-/// Parses a `.env` blob (`KEY=VALUE`, `#` comments, blanks ignored). A value of
-/// the form `<secret:NAME>` round-trips back to a secret reference.
-fn parse_dotenv(text: &str) -> Vec<EnvVar> {
-    text.lines()
-        .filter_map(|line| {
-            let l = line.trim();
-            if l.is_empty() || l.starts_with('#') {
-                return None;
-            }
-            let (k, v) = l.split_once('=')?;
-            let key = k.trim().to_string();
-            if key.is_empty() {
-                return None;
-            }
-            let v = v.trim();
-            let value = match v.strip_prefix("<secret:").and_then(|s| s.strip_suffix('>')) {
-                Some(name) => EnvVarValue::Secret(name.to_string()),
-                None => EnvVarValue::Plain(v.to_string()),
-            };
-            Some(EnvVar { key, value })
-        })
-        .collect()
+/// Parses a `.env` blob (`KEY=VALUE`, `#` comments, blanks ignored) into its
+/// vars and, separately, its `#` comment lines — each anchored to the var
+/// that immediately follows it (`before_key`), or `None` for a trailing/orphan
+/// comment at the end of the text with no var after it. A value of the form
+/// `<secret:NAME>` round-trips back to a secret reference.
+fn parse_dotenv_with_comments(text: &str) -> (Vec<EnvVar>, Vec<EnvComment>) {
+    let mut vars = Vec::new();
+    let mut comments = Vec::new();
+    let mut pending: Vec<String> = Vec::new();
+    for line in text.lines() {
+        let l = line.trim();
+        if l.is_empty() {
+            continue;
+        }
+        if l.starts_with('#') {
+            pending.push(l.to_string());
+            continue;
+        }
+        let Some((k, v)) = l.split_once('=') else { continue };
+        let key = k.trim().to_string();
+        if key.is_empty() {
+            continue;
+        }
+        for text in pending.drain(..) {
+            comments.push(EnvComment { text, before_key: Some(key.clone()) });
+        }
+        let v = v.trim();
+        let value = match v.strip_prefix("<secret:").and_then(|s| s.strip_suffix('>')) {
+            Some(name) => EnvVarValue::Secret(name.to_string()),
+            None => EnvVarValue::Plain(v.to_string()),
+        };
+        vars.push(EnvVar { key, value });
+    }
+    for text in pending {
+        comments.push(EnvComment { text, before_key: None });
+    }
+    (vars, comments)
 }
 
 /// Applies an [`EnvOp`] to the service (fetch fresh spec → mutate → update),
@@ -806,8 +826,24 @@ async fn apply_env_op(
             spec.env_vars.retain(|v| v.key != key);
             spec.env_vars.push(EnvVar { key, value: EnvVarValue::Plain(value) });
         }
-        EnvOp::Delete { key } => spec.env_vars.retain(|v| v.key != key),
-        EnvOp::ImportDotenv(text) => spec.env_vars = parse_dotenv(&text),
+        EnvOp::Delete { key } => {
+            spec.env_vars.retain(|v| v.key != key);
+            // A comment about a var that no longer exists is meaningless.
+            spec.env_comments.retain(|c| c.before_key.as_deref() != Some(key.as_str()));
+        }
+        EnvOp::ImportDotenv(text) => {
+            let (vars, comments) = parse_dotenv_with_comments(&text);
+            spec.env_vars = vars;
+            spec.env_comments = comments;
+        }
+        EnvOp::Reorder(keys) => {
+            let mut by_key: HashMap<String, EnvVar> =
+                spec.env_vars.drain(..).map(|v| (v.key.clone(), v)).collect();
+            let mut reordered: Vec<EnvVar> = keys.iter().filter_map(|k| by_key.remove(k)).collect();
+            reordered.extend(by_key.into_values());
+            spec.env_vars = reordered;
+            // Comments stay anchored by key — no reordering needed here.
+        }
     }
     match rwp::rpc(&mut conn, Command::ServiceUpdate { id: service_id.into(), spec }).await? {
         Response::Ok | Response::Service(_) => Ok(()),
@@ -1753,17 +1789,25 @@ fn deployments_detail_json(list: &[shared::Deployment]) -> String {
 }
 
 /// Env vars rendered as a `.env` text blob (KEY=VALUE, secrets by reference).
-fn env_dotenv(vars: &[EnvVar]) -> String {
-    vars.iter()
-        .map(|v| {
-            let val = match &v.value {
-                EnvVarValue::Plain(s) => s.clone(),
-                EnvVarValue::Secret(name) => format!("<secret:{name}>"),
-            };
-            format!("{}={}", v.key, val)
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
+/// Renders vars back to a `.env` blob, re-interleaving `comments` at their
+/// anchored position: right before the var named by `before_key`, or at the
+/// end for `before_key: None` — the inverse of [`parse_dotenv_with_comments`].
+fn env_dotenv_with_comments(vars: &[EnvVar], comments: &[EnvComment]) -> String {
+    let mut lines = Vec::new();
+    for v in vars {
+        for c in comments.iter().filter(|c| c.before_key.as_deref() == Some(v.key.as_str())) {
+            lines.push(c.text.clone());
+        }
+        let val = match &v.value {
+            EnvVarValue::Plain(s) => s.clone(),
+            EnvVarValue::Secret(name) => format!("<secret:{name}>"),
+        };
+        lines.push(format!("{}={}", v.key, val));
+    }
+    for c in comments.iter().filter(|c| c.before_key.is_none()) {
+        lines.push(c.text.clone());
+    }
+    lines.join("\n")
 }
 
 /// Environment variables as JSON card rows (secrets shown by reference only).
