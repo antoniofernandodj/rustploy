@@ -34,14 +34,14 @@
 /* ── Top bar ──────────────────────────────────────────────────────────── */
 .topbar     { width: fill; padding: 18 28; spacing: 18; align-y: center; }
 .search     { width: fill; padding: 11 14; }
-.tab        { color: #0D1117; padding: 9 16; }
-.tab_on     { color: #1F6FEB; padding: 9 16; }
+.tab        { color: #0D1117; padding: 9 16; border-radius: 10 }
+.tab_on     { color: #1F6FEB; padding: 9 16; border-radius: 10 }
 
 /* ── Buttons ──────────────────────────────────────────────────────────── */
-.btn_primary { color: #238636; padding: 11 20; }
-.btn_blue    { color: #1F6FEB; padding: 11 22; }
-.btn_danger  { color: #DA3633; padding: 11 20; }
-.btn_ghost   { color: #21262D; padding: 11 18; }
+.btn_primary { color: #238636; padding: 11 20; border-radius: 10 }
+.btn_blue    { color: #1F6FEB; padding: 11 22; border-radius: 10 }
+.btn_danger  { color: #DA3633; padding: 11 20; border-radius: 10 }
+.btn_ghost   { color: #21262D; padding: 11 18; border-radius: 10 }
 
 /* ── Panels & cards ───────────────────────────────────────────────────── */
 .content    { width: fill; height: fill; padding: 28 32; spacing: 22; background: #0A0E14; }
@@ -99,11 +99,11 @@
 .card_stats    { width: fill; spacing: 12; }
 .card_stat     { width: fill; spacing: 4; }
 .card_stat_num { size: 18; bold: true; color: #C9D1D9; }
-.card_open     { width: fill; color: #21262D; padding: 9 14; text-align: center; }
+.card_open     { width: fill; color: #21262D; padding: 9 14; text-align: center; border-radius: 10 }
 .card_actions  { width: fill; spacing: 8; }
-.card_edit     { width: fill; color: #21262D; padding: 9 10; text-align: center; }
-.card_stop     { width: fill; color: #21262D; padding: 9 10; text-align: center; }
-.card_remove   { width: fill; color: #DA3633; padding: 9 10; text-align: center; }
+.card_edit     { width: fill; color: #21262D; padding: 9 10; text-align: center; border-radius: 10 }
+.card_stop     { width: fill; color: #21262D; padding: 9 10; text-align: center; border-radius: 10 }
+.card_remove   { width: fill; color: #DA3633; padding: 9 10; text-align: center; border-radius: 10 }
 
 /* ── Service detail ───────────────────────────────────────────────────── */
 .svc_head      { width: fill; align-y: start; }
@@ -134,7 +134,7 @@
 .env_editor    { width: fill; height: 200; padding: 10 12; font: mono; }
 .log_editor    { width: fill; height: fill; padding: 10 12; font: mono; }
 .label_cap_fill { width: fill; size: 11; bold: true; color: #6E7681; }
-.copy_btn      { color: #21262D; padding: 5 12; }
+.copy_btn      { color: #21262D; padding: 5 12; border-radius: 8 }
 .hc_grid       { width: fill; spacing: 14; }
 .hc_field      { width: fill; spacing: 6; }
 .col_dep_id    { width: 130; }
@@ -143,8 +143,8 @@
 .dep_wrap      { width: fill; height: fill; spacing: 8; }
 .dep_list_scroll { width: fill; height: 240; }
 .dep_actions   { spacing: 8; }
-.dep_logs_btn  { color: #21262D; padding: 5 12; }
-.dep_del_btn   { color: #DA3633; padding: 5 12; }
+.dep_logs_btn  { color: #21262D; padding: 7 15; border-radius: 6 }
+.dep_del_btn   { color: #DA3633; padding: 7 15; border-radius: 6 }
 .log_panel     { width: fill; height: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 14 16; spacing: 8; }
 .log_body      { width: fill; spacing: 2; }
 .log_line      { width: fill; spacing: 12; }

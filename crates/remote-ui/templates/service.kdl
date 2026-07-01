@@ -327,16 +327,19 @@ Column class="content" {
         Row class="kv_row" {
           Text "Container port" class="kv_key"
           Text "{svc_port}" class="kv_val_fill"
+          Text " "
           Button "Copiar" class="copy_btn" onClick="clipboard:svc_port"
         }
         Row class="kv_row" {
           Text "Host port" class="kv_key"
           Text "{svc_host_port}" class="kv_val_fill"
+          Text " "
           Button "Copiar" class="copy_btn" onClick="clipboard:svc_host_port"
         }
         Row class="kv_row" {
           Text "Domain" class="kv_key"
           Text "{svc_domain}" class="kv_val_fill"
+          Text " "
           Button "Copiar" class="copy_btn" onClick="clipboard:svc_domain"
         }
         Row class="kv_row" {
@@ -346,6 +349,7 @@ Column class="content" {
         Row class="kv_row" {
           Text "Internal URL" class="kv_key"
           Text "{svc_internal_url}" class="kv_val_fill"
+          Text " "
           Button "Copiar" class="copy_btn" onClick="clipboard:svc_internal_url"
         }
         Row class="kv_row" if="{svc_db_kind}" notEquals="—" {
