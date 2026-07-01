@@ -462,9 +462,16 @@ Column class="content" {
                 }
                 Text "{d.duration}" class="td col_dur"
                 Text "{d.start}" class="muted col_dep_start"
-                Button "Build log"
-                  class="dep_logs_btn"
-                  onClick="dep_logs:{d.id_full}"
+                Row class="dep_actions" {
+                  Button "Build log"
+                    class="dep_logs_btn"
+                    onClick="dep_logs:{d.id_full}"
+                  Button "Remover"
+                    if="{d.can_delete}"
+                    equals="1"
+                    class="dep_del_btn"
+                    onClick="delete_deployment:{d.id_full}"
+                }
               }
               Text "{d.image}" class="dep_image"
               Rule

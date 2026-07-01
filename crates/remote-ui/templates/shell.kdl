@@ -75,6 +75,15 @@ Row class="screen" {
 
     Rule
 
+    // Inline confirm bar for destructive Projects/Services actions (remove
+    // project, stop+remove service) — glacier-ui has no dialog/overlay, so
+    // this is a plain conditional row instead of a modal.
+    Row class="confirm_bar" if="{confirm_target}" not_equals="" {
+      Text "{confirm_label}" class="muted_fill"
+      Button "Confirmar" class="btn_danger" onClick="confirm_yes"
+      Button "Cancelar" class="btn_ghost" onClick="confirm_no"
+    }
+
     // Content
     if cond="{view}" equals="deployments" {
       Column class="content" {
@@ -128,13 +137,13 @@ Row class="screen" {
       }
     }
     else {
-      // ── Projects (grid de cards de serviço) ───────────────────────
+      // ── Projects (lista de projetos) ──────────────────────────────
       if cond="{view}" equals="projects" {
         Column class="content" {
           Row class="header_row" {
             Column class="header_titles" {
               Text "Projects" class="title"
-              Text "Services across every project, with live resource usage."
+              Text "Projetos do cluster e a contagem de serviços de cada um."
                 class="subtitle"
             }
             Row class="stats_row" {
@@ -149,39 +158,44 @@ Row class="screen" {
             }
           }
 
+          Row class="env_add" {
+            TextInput "Nome do projeto"
+              class="env_in_key"
+              value="new_proj_name"
+              onChange="field:new_proj_name"
+            TextInput "Descrição (opcional)"
+              class="env_in_val"
+              value="new_proj_desc"
+              onChange="field:new_proj_desc"
+            Button "Criar projeto" class="btn_primary" onClick="create_project"
+          }
+          Text "{new_proj_msg}" class="muted" if="{new_proj_msg}" not_equals=""
+
           Row class="loading_row" if="{data_loading}" equals="true" {
             Text "⟳" class="loading_spin"
             Text "Carregando dados…" class="loading_note"
           }
           Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
             Column class="grid" {
-              Row class="card_row" for-each="service_rows" var="r" {
+              Row class="card_row" for-each="project_rows" var="r" {
                 ForEach items="r.cards" var="c" {
                   Column if="{c.filler}" equals="1" class="card_filler"
 
                   Column else class="card" {
                     Row class="card_head" {
                       Text "{c.name}" class="card_name"
-                      Row class="badge" {
-                        Text "●" class="state_dot" color="{c.status_color}"
-                        Text "{c.status_label}"
-                          class="badge_lbl"
-                          color="{c.status_color}"
-                      }
                     }
-                    Text "{c.project} · :{c.port}" class="muted"
+                    Text "{c.service_count} serviço(s) · {c.running_count} rodando" class="muted"
+                    // Sempre renderizado (mesmo vazio) para que todo card da
+                    // mesma fileira reserve a mesma altura, com ou sem
+                    // descrição — senão a fileira fica desalinhada.
+                    Text "{c.description}" class="muted"
                     Rule
-                    Row class="card_stats" {
-                      Column class="card_stat" {
-                        Text "CPU" class="label_cap"
-                        Text "{c.cpu}" class="card_stat_num"
-                      }
-                      Column class="card_stat" {
-                        Text "MEM" class="label_cap"
-                        Text "{c.mem}" class="card_stat_num"
-                      }
+                    Row class="card_actions" {
+                      Button "Abrir  ›" class="card_edit" onClick="open_project:{c.id}"
+                      Button "Remover" if="{c.can_delete}" equals="1" class="card_remove" onClick="delete_project:{c.id}"
+                      Text "Tem serviços" if="{c.can_delete}" not_equals="1" class="muted"
                     }
-                    Button "Open  ›" class="card_open" onClick="open_service:{c.id}"
                   }
                 }
               }
@@ -190,9 +204,92 @@ Row class="screen" {
         }
       }
       else {
-        // ── Service detail / demais views (home) ────────────────────
-        ServiceDetail if="{view}" equals="service"
-        HomeViews else
+        // ── Projeto: serviços de um projeto ──────────────────────────
+        if cond="{view}" equals="project_services" {
+          Column class="content" {
+            Row class="header_row" {
+              Column class="header_titles" {
+                Button "‹ Projetos" class="btn_ghost" onClick="nav_projects"
+
+                if cond="{editing_project}" equals="true" {
+                  TextInput "Nome do projeto"
+                    class="field_input"
+                    value="edit_proj_name"
+                    onChange="field:edit_proj_name"
+                  TextInput "Descrição (opcional)"
+                    class="field_input"
+                    value="edit_proj_desc"
+                    onChange="field:edit_proj_desc"
+                  Row class="env_add" {
+                    Button "Salvar" class="btn_primary" onClick="save_project_edit"
+                    Button "Cancelar" class="btn_ghost" onClick="cancel_project_edit"
+                    Text "{proj_action_msg}" class="muted"
+                  }
+                } else {
+                  Text "{proj_name}" class="title"
+                  Text "{proj_description}" class="subtitle"
+                  Row class="env_add" {
+                    Button "Editar projeto" class="btn_ghost" onClick="edit_project_toggle"
+                    Button "Remover projeto"
+                      if="{proj_can_delete}"
+                      equals="1"
+                      class="btn_danger"
+                      onClick="delete_project:{selected_project_id}"
+                    Text "{proj_action_msg}" class="muted"
+                  }
+                }
+              }
+            }
+
+            Row class="loading_row" if="{proj_loading}" equals="true" {
+              Text "⟳" class="loading_spin"
+              Text "Carregando dados…" class="loading_note"
+            }
+            Scrollable if="{proj_loading}" not_equals="true" direction=vertical class="scroll_fill" {
+              Column class="grid" {
+                Row class="card_row" for-each="project_services" var="r" {
+                  ForEach items="r.cards" var="c" {
+                    Column if="{c.filler}" equals="1" class="card_filler"
+
+                    Column else class="card" {
+                      Row class="card_head" {
+                        Text "{c.name}" class="card_name"
+                        Row class="badge" {
+                          Text "●" class="state_dot" color="{c.status_color}"
+                          Text "{c.status_label}"
+                            class="badge_lbl"
+                            color="{c.status_color}"
+                        }
+                      }
+                      Text ":{c.port}" class="muted"
+                      Rule
+                      Row class="card_stats" {
+                        Column class="card_stat" {
+                          Text "CPU" class="label_cap"
+                          Text "{c.cpu}" class="card_stat_num"
+                        }
+                        Column class="card_stat" {
+                          Text "MEM" class="label_cap"
+                          Text "{c.mem}" class="card_stat_num"
+                        }
+                      }
+                      Row class="card_actions" {
+                        Button "Editar" class="card_edit" onClick="open_service:{c.id}"
+                        Button "Parar" class="card_stop" onClick="svc_stop_id:{c.id}"
+                        Button "Parar e remover" class="card_remove" onClick="stop_delete_service:{c.id}"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        else {
+          // ── Service detail / demais views (home) ──────────────────
+          ServiceDetail if="{view}" equals="service"
+          HomeViews else
+        }
       }
     }
   }

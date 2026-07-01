@@ -338,6 +338,60 @@ async fn fetch_service_detail_inner(
     Ok(pairs)
 }
 
+/// One-shot load for the `project_services` detail view: the project's own
+/// name/description plus its service cards. Mirrors [`fetch_service_detail`]
+/// (fetch-on-open so the view doesn't wait for the next poll tick; the poll
+/// loop then keeps it live via `selected_project_shared`).
+pub async fn fetch_project_services(
+    addr: String,
+    token: Option<String>,
+    project_id: String,
+) -> Vec<(String, String)> {
+    match fetch_project_services_inner(&addr, token.as_deref(), &project_id).await {
+        Ok(pairs) => pairs,
+        Err(e) => vec![
+            ("proj_loading".into(), "false".into()),
+            ("proj_action_msg".into(), format!("erro: {e}")),
+        ],
+    }
+}
+
+async fn fetch_project_services_inner(
+    addr: &str,
+    token: Option<&str>,
+    project_id: &str,
+) -> anyhow::Result<Vec<(String, String)>> {
+    let mut conn = rwp::connect(addr, token).await?;
+
+    let list = match rwp::rpc(&mut conn, Command::ProjectList).await? {
+        Response::Projects(list) => list,
+        other => anyhow::bail!("resposta inesperada para ProjectList: {other:?}"),
+    };
+    let proj = list
+        .iter()
+        .find(|p| p.id == project_id)
+        .ok_or_else(|| anyhow::anyhow!("projeto não encontrado"))?;
+
+    let svcs = match rwp::rpc(
+        &mut conn,
+        Command::ServiceList { project_id: project_id.to_string() },
+    ).await? {
+        Response::Services(s) => s,
+        other => anyhow::bail!("resposta inesperada para ServiceList: {other:?}"),
+    };
+    let count = svcs.len();
+    let all: Vec<(Service, String)> = svcs.into_iter().map(|s| (s, proj.name.clone())).collect();
+
+    Ok(vec![
+        ("proj_loading".into(), "false".into()),
+        ("proj_action_msg".into(), String::new()),
+        ("proj_name".into(), proj.name.clone()),
+        ("proj_description".into(), proj.description.clone().unwrap_or_default()),
+        ("proj_can_delete".into(), if count == 0 { "1" } else { "0" }.into()),
+        ("project_services".into(), service_rows_json(&all, &HashMap::new(), "")),
+    ])
+}
+
 /// Stops every running service across all projects (topbar "Stop All").
 /// Stops every rustploy-managed service in one round trip
 /// (`Command::StopAllManaged`) — the daemon reuses `service_stop`'s real
@@ -351,6 +405,114 @@ pub async fn stop_all(addr: String, token: Option<String>) -> Vec<(String, Strin
         Err(e) => format!("erro: {e}"),
     };
     vec![("status_line".into(), msg)]
+}
+
+/// Creates a project (Projects tab "Novo projeto" bar). The poll loop picks up
+/// the new project on its next 2s tick — no immediate refetch needed here,
+/// matching how other list-mutating actions (e.g. `stop_all`) behave.
+pub async fn create_project(
+    addr: String,
+    token: Option<String>,
+    name: String,
+    description: String,
+) -> Vec<(String, String)> {
+    let description = if description.trim().is_empty() { None } else { Some(description) };
+    let msg = match run_command(addr, token, Command::ProjectCreate { name, description }).await {
+        Ok(Response::Project(p)) => format!("projeto \"{}\" criado", p.name),
+        Ok(other) => resp_msg(&other),
+        Err(e) => format!("erro: {e}"),
+    };
+    vec![("new_proj_msg".into(), msg), ("new_proj_name".into(), String::new()), ("new_proj_desc".into(), String::new())]
+}
+
+/// Renames/redescribes the project open in `project_services`.
+pub async fn update_project(
+    addr: String,
+    token: Option<String>,
+    id: String,
+    name: String,
+    description: String,
+) -> Vec<(String, String)> {
+    let description = if description.trim().is_empty() { None } else { Some(description) };
+    match run_command(addr, token, Command::ProjectUpdate { id, name, description }).await {
+        Ok(Response::Project(p)) => vec![
+            ("proj_action_msg".into(), "salvo".into()),
+            ("proj_name".into(), p.name),
+            ("proj_description".into(), p.description.unwrap_or_default()),
+        ],
+        Ok(other) => vec![("proj_action_msg".into(), resp_msg(&other))],
+        Err(e) => vec![("proj_action_msg".into(), format!("erro: {e}"))],
+    }
+}
+
+/// Deletes a project — the daemon refuses (with a user-facing message) if it
+/// still has services, so no client-side re-validation is needed here.
+pub async fn delete_project(addr: String, token: Option<String>, id: String) -> Vec<(String, String)> {
+    let msg = match run_command(addr, token, Command::ProjectDelete { id }).await {
+        Ok(Response::Ok) => "projeto removido".to_string(),
+        Ok(other) => resp_msg(&other),
+        Err(e) => format!("erro: {e}"),
+    };
+    vec![("proj_action_msg".into(), msg)]
+}
+
+/// Deletes a deployment's history record and its build logs (Deployments tab,
+/// "Remover"). The daemon refuses non-terminal deployments on its own
+/// (`DEPLOY_ACTIVE`), so no client-side re-validation beyond hiding the
+/// button (`can_delete`, see [`deployments_detail_json`]) is needed. Refetches
+/// the service detail afterwards so `svc_deployments` drops the removed row.
+pub async fn delete_deployment(
+    addr: String,
+    token: Option<String>,
+    service_id: String,
+    deployment_id: String,
+) -> Vec<(String, String)> {
+    let msg = match run_command(addr.clone(), token.clone(), Command::DeployDelete { deployment_id }).await {
+        Ok(Response::Ok) => "deployment removido".to_string(),
+        Ok(other) => resp_msg(&other),
+        Err(e) => format!("erro: {e}"),
+    };
+    let mut pairs = fetch_service_detail(addr, token, service_id).await;
+    pairs.push(("svc_action_msg".into(), msg));
+    pairs
+}
+
+/// Runs a lifecycle command against an arbitrary service id from the
+/// `project_services` grid (as opposed to [`run_service_action`], which acts
+/// on the single service open in the detail view). No detail refetch — the
+/// poll loop refreshes `project_services` on its own next tick.
+pub async fn run_project_service_action(
+    addr: String,
+    token: Option<String>,
+    cmd: Command,
+) -> Vec<(String, String)> {
+    let msg = match run_command(addr, token, cmd).await {
+        Ok(Response::Ok) => "ação concluída".to_string(),
+        Ok(other) => resp_msg(&other),
+        Err(e) => format!("erro: {e}"),
+    };
+    vec![("proj_action_msg".into(), msg)]
+}
+
+/// "Parar e remover": stops the service, then deletes it once stopped. Bails
+/// out (without deleting) if the stop itself fails, so a service that refused
+/// to stop isn't silently removed from the DB while its container lingers.
+pub async fn stop_and_delete_service(
+    addr: String,
+    token: Option<String>,
+    service_id: String,
+) -> Vec<(String, String)> {
+    match run_command(addr.clone(), token.clone(), Command::ServiceStop { service_id: service_id.clone() }).await {
+        Ok(Response::Ok) => {}
+        Ok(other) => return vec![("proj_action_msg".into(), format!("erro ao parar: {}", resp_msg(&other)))],
+        Err(e) => return vec![("proj_action_msg".into(), format!("erro ao parar: {e}"))],
+    }
+    let msg = match run_command(addr, token, Command::ServiceDelete { id: service_id }).await {
+        Ok(Response::Ok) => "serviço parado e removido".to_string(),
+        Ok(other) => resp_msg(&other),
+        Err(e) => format!("erro ao remover: {e}"),
+    };
+    vec![("proj_action_msg".into(), msg)]
 }
 
 /// Removes unused (untagged, or referenced by no container) images — or, with
@@ -963,6 +1125,7 @@ pub fn poll_stream(
     selected_deploy: Arc<Mutex<String>>,
     deploy_track: Arc<Mutex<DeployTrack>>,
     search: Arc<Mutex<String>>,
+    selected_project: Arc<Mutex<String>>,
 ) -> impl Stream<Item = EngineMessage> {
     iced::stream::channel(64, move |mut output: iced::futures::channel::mpsc::Sender<EngineMessage>| async move {
         macro_rules! patch {
@@ -1077,9 +1240,6 @@ pub fn poll_stream(
                         pairs.push(("deployments_count".into(), list.len().to_string()));
                     }
                     if let Ok(Response::Projects(list)) = rwp::rpc(&mut cmd, Command::ProjectList).await {
-                        pairs.push(("projects".into(), projects_json(&list)));
-                        pairs.push(("projects_count".into(), list.len().to_string()));
-
                         // Fan out one ServiceList per project, tagging each
                         // service with its project name for the grid cards.
                         let mut all: Vec<(Service, String)> = Vec::new();
@@ -1093,6 +1253,11 @@ pub fn poll_stream(
                                 }
                             }
                         }
+
+                        pairs.push(("projects".into(), projects_json(&list, &all, &term)));
+                        pairs.push(("projects_count".into(), list.len().to_string()));
+                        pairs.push(("project_rows".into(), project_rows_json(&list, &all, &term)));
+
                         pairs.push(("services".into(), services_json(&all, &metrics, &term)));
                         pairs.push(("services_count".into(), all.len().to_string()));
                         pairs.push(("service_rows".into(), service_rows_json(&all, &metrics, &term)));
@@ -1103,6 +1268,21 @@ pub fn poll_stream(
                         pairs.push(("ingress_count".into(), ingress_count.to_string()));
                         pairs.push(("docker_rows".into(), docker_json(&all, &term)));
                         pairs.push(("monitoring".into(), monitoring_json(&all, &metrics)));
+
+                        // Keep the open `project_services` detail view live: it's
+                        // just a filter over the same `all` we already fetched, so
+                        // this costs no extra RPC round trip.
+                        let pid = selected_project.lock().map(|s| s.clone()).unwrap_or_default();
+                        if !pid.is_empty()
+                            && let Some(proj) = list.iter().find(|p| p.id == pid)
+                        {
+                            let proj_all: Vec<(Service, String)> =
+                                all.iter().filter(|(s, _)| s.spec.project_id == pid).cloned().collect();
+                            pairs.push(("proj_name".into(), proj.name.clone()));
+                            pairs.push(("proj_description".into(), proj.description.clone().unwrap_or_default()));
+                            pairs.push(("proj_can_delete".into(), if proj_all.is_empty() { "1" } else { "0" }.into()));
+                            pairs.push(("project_services".into(), service_rows_json(&proj_all, &metrics, &term)));
+                        }
                     }
                     // Docker tab: images/volumes/networks across the whole host
                     // (not just rustploy-managed services — see docker_inventory
@@ -1562,6 +1742,10 @@ fn deployments_detail_json(list: &[shared::Deployment]) -> String {
                 "state_color": color,
                 "duration": fmt_duration(d),
                 "start": d.started_at.with_timezone(&Local).format("%d/%m %H:%M:%S").to_string(),
+                // The daemon refuses to delete a non-terminal deployment
+                // (`DeployDelete` → "DEPLOY_ACTIVE") — hide the button instead
+                // of round-tripping into a doomed request.
+                "can_delete": if d.state.is_terminal() { "1" } else { "0" },
             })
         })
         .collect();
@@ -1678,15 +1862,56 @@ fn fmt_bytes(b: u64) -> String {
     }
 }
 
-fn projects_json(list: &[Project]) -> String {
+/// One JSON card object per project, with service counts aggregated from the
+/// already-fetched `all` (every service across every project). `can_delete`
+/// mirrors the daemon's own rule (`project_delete` refuses non-empty
+/// projects) so the Projects grid can hide the button instead of round-
+/// tripping into a doomed request.
+fn project_card(p: &Project, all: &[(Service, String)]) -> serde_json::Value {
+    let (mut count, mut running) = (0usize, 0usize);
+    for (s, _) in all.iter().filter(|(s, _)| s.spec.project_id == p.id) {
+        count += 1;
+        if matches!(s.status, ServiceStatus::Running) {
+            running += 1;
+        }
+    }
+    serde_json::json!({
+        "filler": "0",
+        "id": p.id,
+        "name": p.name,
+        "description": p.description.clone().unwrap_or_default(),
+        "service_count": count.to_string(),
+        "running_count": running.to_string(),
+        "can_delete": if count == 0 { "1" } else { "0" },
+    })
+}
+
+/// Flat array of project cards (used for the stat counts).
+fn projects_json(list: &[Project], all: &[(Service, String)], search: &str) -> String {
     let rows: Vec<serde_json::Value> = list
         .iter()
-        .map(|p| {
-            serde_json::json!({
-                "id": p.id,
-                "name": p.name,
-                "description": p.description.clone().unwrap_or_default(),
-            })
+        .filter(|p| matches_search(search, &[&p.name, p.description.as_deref().unwrap_or("")]))
+        .map(|p| project_card(p, all))
+        .collect();
+    serde_json::Value::Array(rows).to_string()
+}
+
+/// Project cards chunked into rows of [`GRID_COLS`] for the Projects grid,
+/// mirroring [`service_rows_json`] (glacier-ui has no wrapping grid).
+fn project_rows_json(list: &[Project], all: &[(Service, String)], search: &str) -> String {
+    let filler = serde_json::json!({ "filler": "1" });
+    let rows: Vec<serde_json::Value> = list
+        .iter()
+        .filter(|p| matches_search(search, &[&p.name, p.description.as_deref().unwrap_or("")]))
+        .collect::<Vec<_>>()
+        .chunks(GRID_COLS)
+        .map(|chunk| {
+            let mut cards: Vec<serde_json::Value> =
+                chunk.iter().copied().map(|p| project_card(p, all)).collect();
+            while cards.len() < GRID_COLS {
+                cards.push(filler.clone());
+            }
+            serde_json::json!({ "cards": cards })
         })
         .collect();
     serde_json::Value::Array(rows).to_string()

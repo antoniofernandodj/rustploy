@@ -20,6 +20,7 @@ struct PollKey {
     selected_deploy: Arc<Mutex<String>>,
     deploy_track: Arc<Mutex<super::net::DeployTrack>>,
     search: Arc<Mutex<String>>,
+    selected_project: Arc<Mutex<String>>,
 }
 
 impl Hash for PollKey {
@@ -52,6 +53,10 @@ pub struct Root {
     /// deployments/services/Docker rows without a context round-trip (the
     /// poll loop never sees the live `Context`, only what it patches into it).
     search_shared: Arc<Mutex<String>>,
+    /// Id of the project currently open in the detail view (`view=project_services`).
+    /// Shared with the poll loop so it can keep re-filtering `project_services`
+    /// from the same `all` it already fetches, without a dedicated RPC.
+    selected_project_shared: Arc<Mutex<String>>,
 }
 
 impl Root {
@@ -569,6 +574,12 @@ impl Component for Root {
                     if let Ok(mut d) = self.selected_deploy_shared.lock() {
                         d.clear();
                     }
+                    // Leaving `project_services`: stop re-filtering it on every tick.
+                    if let Ok(mut p) = self.selected_project_shared.lock() {
+                        p.clear();
+                    }
+                    ctx.set("confirm_target", "");
+                    ctx.set("confirm_label", "");
                     return;
                 }
                 // `open_service:<id>` — open the detail view and fetch its data.
@@ -613,6 +624,143 @@ impl Component for Root {
                             token.clone(),
                             sid,
                         ));
+                    }
+                    return;
+                }
+                // `open_project:<id>` — open a project's service list and fetch it.
+                if let Some(id) = action.strip_prefix("open_project:") {
+                    if let Ok(mut sel) = self.selected_project_shared.lock() {
+                        *sel = id.to_string();
+                    }
+                    ctx.set("selected_project_id", id);
+                    ctx.set("view", "project_services");
+                    ctx.set("editing_project", "false");
+                    ctx.set("proj_loading", "true");
+                    ctx.set("proj_action_msg", "");
+                    if !self.addr.is_empty() {
+                        ctx.perform(super::net::fetch_project_services(
+                            self.addr.clone(),
+                            self.token.clone(),
+                            id.to_string(),
+                        ));
+                    }
+                    return;
+                }
+                // `edit_project_toggle` — reveal the inline name/description form,
+                // seeded from the currently displayed project.
+                if action == "edit_project_toggle" {
+                    ctx.set("edit_proj_name", ctx.get("proj_name").cloned().unwrap_or_default());
+                    ctx.set("edit_proj_desc", ctx.get("proj_description").cloned().unwrap_or_default());
+                    ctx.set("editing_project", "true");
+                    return;
+                }
+                if action == "cancel_project_edit" {
+                    ctx.set("editing_project", "false");
+                    return;
+                }
+                if action == "save_project_edit" {
+                    let id = ctx.get("selected_project_id").cloned().unwrap_or_default();
+                    let name = ctx.get("edit_proj_name").cloned().unwrap_or_default();
+                    let desc = ctx.get("edit_proj_desc").cloned().unwrap_or_default();
+                    if !id.is_empty() && !name.trim().is_empty() && !self.addr.is_empty() {
+                        ctx.set("proj_action_msg", "salvando…");
+                        ctx.perform(super::net::update_project(
+                            self.addr.clone(),
+                            self.token.clone(),
+                            id,
+                            name,
+                            desc,
+                        ));
+                    }
+                    return;
+                }
+                // `create_project` — Projects tab "Novo projeto" bar.
+                if action == "create_project" {
+                    let name = ctx.get("new_proj_name").cloned().unwrap_or_default();
+                    let desc = ctx.get("new_proj_desc").cloned().unwrap_or_default();
+                    if !name.trim().is_empty() && !self.addr.is_empty() {
+                        ctx.perform(super::net::create_project(
+                            self.addr.clone(),
+                            self.token.clone(),
+                            name,
+                            desc,
+                        ));
+                    }
+                    return;
+                }
+                // `svc_stop_id:<id>` — "Parar" a service listed under a project
+                // (any card, not just the one open in the detail view).
+                if let Some(id) = action.strip_prefix("svc_stop_id:") {
+                    if !self.addr.is_empty() {
+                        ctx.set("proj_action_msg", "enviando…");
+                        ctx.perform(super::net::run_project_service_action(
+                            self.addr.clone(),
+                            self.token.clone(),
+                            shared::Command::ServiceStop { service_id: id.to_string() },
+                        ));
+                    }
+                    return;
+                }
+                // Destructive actions go through a one-line inline confirm bar
+                // (glacier-ui has no dialog/overlay) instead of running immediately.
+                if let Some(id) = action.strip_prefix("delete_project:") {
+                    ctx.set("confirm_target", format!("delete_project:{id}"));
+                    ctx.set("confirm_label", "Remover este projeto? Esta ação não pode ser desfeita.");
+                    return;
+                }
+                if let Some(id) = action.strip_prefix("stop_delete_service:") {
+                    ctx.set("confirm_target", format!("stop_delete_service:{id}"));
+                    ctx.set("confirm_label", "Parar e remover este serviço? Esta ação não pode ser desfeita.");
+                    return;
+                }
+                if let Some(id) = action.strip_prefix("delete_deployment:") {
+                    ctx.set("confirm_target", format!("delete_deployment:{id}"));
+                    ctx.set("confirm_label", "Remover este deployment e seus logs de build? Esta ação não pode ser desfeita.");
+                    return;
+                }
+                if action == "confirm_no" {
+                    ctx.set("confirm_target", "");
+                    ctx.set("confirm_label", "");
+                    return;
+                }
+                if action == "confirm_yes" {
+                    let target = ctx.get("confirm_target").cloned().unwrap_or_default();
+                    ctx.set("confirm_target", "");
+                    ctx.set("confirm_label", "");
+                    if !self.addr.is_empty() {
+                        if let Some(id) = target.strip_prefix("delete_project:") {
+                            ctx.set("proj_action_msg", "removendo…");
+                            ctx.perform(super::net::delete_project(
+                                self.addr.clone(),
+                                self.token.clone(),
+                                id.to_string(),
+                            ));
+                        } else if let Some(id) = target.strip_prefix("stop_delete_service:") {
+                            ctx.set("proj_action_msg", "removendo…");
+                            ctx.perform(super::net::stop_and_delete_service(
+                                self.addr.clone(),
+                                self.token.clone(),
+                                id.to_string(),
+                            ));
+                        } else if let Some(id) = target.strip_prefix("delete_deployment:") {
+                            // Close the build-log panel if it's open for the
+                            // deployment being removed — its content is gone.
+                            if ctx.get("dep_selected").map(|s| s == id).unwrap_or(false) {
+                                ctx.set("dep_selected", "");
+                                ctx.set("dep_build_logs", "[]");
+                                ctx.set("dep_build_count", "0");
+                                if let Ok(mut sel) = self.selected_deploy_shared.lock() {
+                                    sel.clear();
+                                }
+                            }
+                            ctx.set("svc_action_msg", "removendo…");
+                            ctx.perform(super::net::delete_deployment(
+                                self.addr.clone(),
+                                self.token.clone(),
+                                self.selected_service.clone(),
+                                id.to_string(),
+                            ));
+                        }
                     }
                     return;
                 }
@@ -749,6 +897,7 @@ impl Component for Root {
                 selected_deploy: self.selected_deploy_shared.clone(),
                 deploy_track: self.deploy_shared.clone(),
                 search: self.search_shared.clone(),
+                selected_project: self.selected_project_shared.clone(),
             };
             iced::Subscription::run_with(key, |k: &PollKey| {
                 super::net::poll_stream(
@@ -758,6 +907,7 @@ impl Component for Root {
                     k.selected_deploy.clone(),
                     k.deploy_track.clone(),
                     k.search.clone(),
+                    k.selected_project.clone(),
                 )
             })
         } else {

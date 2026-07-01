@@ -100,6 +100,13 @@
 .card_stat     { width: fill; spacing: 4; }
 .card_stat_num { size: 18; bold: true; color: #C9D1D9; }
 .card_open     { width: fill; color: #21262D; padding: 9 14; text-align: center; }
+.card_actions  { width: fill; spacing: 8; }
+.card_edit     { width: fill; color: #21262D; padding: 9 10; text-align: center; }
+.card_stop     { width: fill; color: #21262D; padding: 9 10; text-align: center; }
+.card_remove   { width: fill; color: #DA3633; padding: 9 10; text-align: center; }
+
+/* ── Confirm bar (inline, no dialog/overlay in glacier-ui) ──────────────── */
+.confirm_bar   { width: fill; spacing: 12; align-y: center; padding: 10 16; background: #21262D; border-radius: 8; }
 
 /* ── Service detail ───────────────────────────────────────────────────── */
 .svc_head      { width: fill; align-y: start; }
@@ -137,7 +144,9 @@
 .dep_image     { size: 11; color: #6E7681; padding: 2 0 0 0; }
 .dep_wrap      { width: fill; height: fill; spacing: 8; }
 .dep_list_scroll { width: fill; height: 240; }
+.dep_actions   { spacing: 8; }
 .dep_logs_btn  { color: #21262D; padding: 5 12; }
+.dep_del_btn   { color: #DA3633; padding: 5 12; }
 .log_panel     { width: fill; height: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 14 16; spacing: 8; }
 .log_body      { width: fill; spacing: 2; }
 .log_line      { width: fill; spacing: 12; }
