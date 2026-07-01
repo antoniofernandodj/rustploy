@@ -155,6 +155,10 @@ impl Component for Root {
         ctx.set("connected", "false");
         ctx.set("error", "");
         ctx.set("status_line", "aguardando conexão");
+        // Cleared by the poll loop's first successful tick; while true, every
+        // data-driven screen (Deployments/Projects/Monitoring/Ingress/Docker)
+        // shows a "Carregando dados…" placeholder instead of an empty table.
+        ctx.set("data_loading", "true");
         // Sensible defaults so the shell renders before the first poll lands.
         ctx.set("daemon_version", "—");
         ctx.set("daemon_uptime", "—");
@@ -177,10 +181,15 @@ impl Component for Root {
         ctx.set("docker_msg", "");
         ctx.set("docker_images", "[]");
         ctx.set("docker_images_count", "0");
+        ctx.set("docker_images_only_used", "false");
+        ctx.set("docker_prune_all_images", "false");
         ctx.set("docker_volumes", "[]");
         ctx.set("docker_volumes_count", "0");
+        ctx.set("docker_volumes_only_used", "false");
+        ctx.set("docker_prune_all_volumes", "false");
         ctx.set("docker_networks", "[]");
         ctx.set("docker_networks_count", "0");
+        ctx.set("docker_networks_only_used", "false");
         ctx.set("monitoring", "[]");
         // Topbar search: filters deployments/services/Docker rows (see
         // `search_changed` and `net::poll_stream`'s `search` parameter).
@@ -314,26 +323,21 @@ impl Component for Root {
                     }
                 }
             }
-            // Docker tab: switches the active sub-tab (Containers/Images/
-            // Volumes/Networks).
-            "docker_tab" => {
-                if let Some(v) = value {
-                    ctx.set("docker_tab", v);
-                }
-            }
             // Docker tab: remove unused images/volumes/networks, then refresh
             // that sub-tab immediately (the perform's own pairs include it —
             // no need to wait for the next poll tick).
             "docker_prune_images" => {
                 if !self.addr.is_empty() {
-                    ctx.set("docker_msg", "removendo imagens sem uso…");
-                    ctx.perform(super::net::prune_docker_images(self.addr.clone(), self.token.clone()));
+                    let all = ctx.get("docker_prune_all_images").map(|v| v == "true").unwrap_or(false);
+                    ctx.set("docker_msg", if all { "removendo TODAS as imagens sem uso…" } else { "removendo imagens dangling…" });
+                    ctx.perform(super::net::prune_docker_images(self.addr.clone(), self.token.clone(), all));
                 }
             }
             "docker_prune_volumes" => {
                 if !self.addr.is_empty() {
+                    let all = ctx.get("docker_prune_all_volumes").map(|v| v == "true").unwrap_or(false);
                     ctx.set("docker_msg", "removendo volumes sem uso…");
-                    ctx.perform(super::net::prune_docker_volumes(self.addr.clone(), self.token.clone()));
+                    ctx.perform(super::net::prune_docker_volumes(self.addr.clone(), self.token.clone(), all));
                 }
             }
             "docker_prune_networks" => {
@@ -407,6 +411,7 @@ impl Component for Root {
                 self.seq += 1;
                 ctx.set("error", "");
                 ctx.set("status_line", "conectando…");
+                ctx.set("data_loading", "true");
                 save_prefs(ctx);
             }
             "disconnect" => {
@@ -663,6 +668,12 @@ impl Component for Root {
                             ));
                         }
                     }
+                    return;
+                }
+                // `docker_tab:<containers|images|volumes|networks>` — switch the
+                // active Docker sub-tab.
+                if let Some(t) = action.strip_prefix("docker_tab:") {
+                    ctx.set("docker_tab", t);
                     return;
                 }
                 // `settings_tab:<web|git>` — switch the Settings sub-tab.

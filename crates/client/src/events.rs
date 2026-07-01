@@ -1996,12 +1996,12 @@ fn handle_docker_cleanup(app: &mut App, key: KeyEvent) {
                     &mut app.docker_prune.containers,
                 ),
                 DockerPruneButton::Volumes => (
-                    Command::PruneVolumes,
+                    Command::PruneVolumes { all: false },
                     CmdContext::PruneVolumes,
                     &mut app.docker_prune.volumes,
                 ),
                 DockerPruneButton::Images => (
-                    Command::PruneImages,
+                    Command::PruneImages { all: false },
                     CmdContext::PruneImages,
                     &mut app.docker_prune.images,
                 ),

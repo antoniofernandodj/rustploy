@@ -151,8 +151,16 @@ pub enum Command {
 
     // Docker cleanup
     PruneContainers,
-    PruneVolumes,
-    PruneImages,
+    /// `all=true` remove volumes mesmo que não sejam anônimos (equivalente ao
+    /// `docker volume prune --all`); `false` é o padrão do Docker.
+    PruneVolumes {
+        all: bool,
+    },
+    /// `all=true` remove toda imagem sem uso, não só as dangling/untagged
+    /// (equivalente ao `docker image prune -a`); `false` é o padrão do Docker.
+    PruneImages {
+        all: bool,
+    },
     PruneBuildCache,
     PruneNetworks,
 

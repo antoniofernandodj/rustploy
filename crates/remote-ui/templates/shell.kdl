@@ -103,7 +103,11 @@ Row class="screen" {
             Text "DURAÇÃO" class="th col_dur"
             Text "INÍCIO" class="th col_start"
           }
-          Scrollable direction=vertical class="scroll_fill" {
+          Row class="loading_row" if="{data_loading}" equals="true" {
+            Text "⟳" class="loading_spin"
+            Text "Carregando dados…" class="loading_note"
+          }
+          Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
             Column class="table_body" {
               Column class="row_wrap" for-each="deployments" var="d" {
                 Row class="trow" {
@@ -145,7 +149,11 @@ Row class="screen" {
             }
           }
 
-          Scrollable direction=vertical class="scroll_fill" {
+          Row class="loading_row" if="{data_loading}" equals="true" {
+            Text "⟳" class="loading_spin"
+            Text "Carregando dados…" class="loading_note"
+          }
+          Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
             Column class="grid" {
               Row class="card_row" for-each="service_rows" var="r" {
                 ForEach items="r.cards" var="c" {

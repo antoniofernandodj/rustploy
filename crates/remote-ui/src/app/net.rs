@@ -348,11 +348,12 @@ pub async fn stop_all(addr: String, token: Option<String>) -> Vec<(String, Strin
     vec![("status_line".into(), msg)]
 }
 
-/// Removes unused (untagged, or referenced by no container) images and
+/// Removes unused (untagged, or referenced by no container) images — or, with
+/// `all`, every image unused by any container (`docker image prune -a`) — and
 /// refreshes the Images sub-tab so the result shows up immediately, without
 /// waiting for the next 2s poll tick.
-pub async fn prune_docker_images(addr: String, token: Option<String>) -> Vec<(String, String)> {
-    let msg = match run_command(addr.clone(), token.clone(), Command::PruneImages).await {
+pub async fn prune_docker_images(addr: String, token: Option<String>, all: bool) -> Vec<(String, String)> {
+    let msg = match run_command(addr.clone(), token.clone(), Command::PruneImages { all }).await {
         Ok(Response::PruneResult { count, reclaimed_bytes }) => {
             format!("{count} imagem(ns) removida(s) · {} liberados", fmt_bytes(reclaimed_bytes))
         }
@@ -367,10 +368,11 @@ pub async fn prune_docker_images(addr: String, token: Option<String>) -> Vec<(St
     pairs
 }
 
-/// Removes volumes referenced by no container and refreshes the Volumes
-/// sub-tab.
-pub async fn prune_docker_volumes(addr: String, token: Option<String>) -> Vec<(String, String)> {
-    let msg = match run_command(addr.clone(), token.clone(), Command::PruneVolumes).await {
+/// Removes volumes referenced by no container — or, with `all`, every unused
+/// volume rather than just anonymous ones (`docker volume prune --all`) — and
+/// refreshes the Volumes sub-tab.
+pub async fn prune_docker_volumes(addr: String, token: Option<String>, all: bool) -> Vec<(String, String)> {
+    let msg = match run_command(addr.clone(), token.clone(), Command::PruneVolumes { all }).await {
         Ok(Response::PruneResult { count, reclaimed_bytes }) => {
             format!("{count} volume(s) removido(s) · {} liberados", fmt_bytes(reclaimed_bytes))
         }
@@ -1118,9 +1120,8 @@ pub fn poll_stream(
                         pairs.push(("sys_disk".into(), format!("{} / {}", fmt_bytes(s.disk_used_bytes), fmt_bytes(s.disk_total_bytes))));
                         pairs.push(("sys_load".into(), format!("{:.2} {:.2} {:.2}", s.load_avg_1, s.load_avg_5, s.load_avg_15)));
                     }
-                    if !pairs.is_empty() {
-                        patch!(pairs);
-                    }
+                    pairs.push(("data_loading".into(), "false".into()));
+                    patch!(pairs);
 
                     let current = selected.lock().map(|s| s.clone()).unwrap_or_default();
 
@@ -1417,7 +1418,12 @@ fn ingress_json(all: &[(Service, String)]) -> (String, usize) {
 }
 
 /// Docker container rows derived from services (one per managed service).
+/// Sorted by name — the underlying `all` list is rebuilt from scratch every
+/// poll tick, and without a stable order the table reshuffles on each
+/// refresh.
 fn docker_json(all: &[(Service, String)], search: &str) -> String {
+    let mut all: Vec<_> = all.iter().collect();
+    all.sort_by(|a, b| a.0.spec.name.cmp(&b.0.spec.name));
     let rows: Vec<serde_json::Value> = all
         .iter()
         .filter(|(s, proj)| matches_search(search, &[&s.spec.name, proj]))
@@ -1446,6 +1452,8 @@ fn docker_json(all: &[(Service, String)], search: &str) -> String {
 /// (running or stopped) currently references it (see
 /// `DockerImageInfo::containers`, computed daemon-side via `docker system df`).
 fn docker_images_json(list: &[shared::DockerImageInfo], search: &str) -> String {
+    let mut list: Vec<_> = list.iter().collect();
+    list.sort_by(|a, b| a.tags.join(",").cmp(&b.tags.join(",")).then(a.id.cmp(&b.id)));
     let rows: Vec<serde_json::Value> = list
         .iter()
         .filter(|img| {
@@ -1475,6 +1483,8 @@ fn docker_images_json(list: &[shared::DockerImageInfo], search: &str) -> String 
 
 /// Docker volume rows for the Volumes sub-tab.
 fn docker_volumes_json(list: &[shared::DockerVolumeInfo], search: &str) -> String {
+    let mut list: Vec<_> = list.iter().collect();
+    list.sort_by(|a, b| a.name.cmp(&b.name));
     let rows: Vec<serde_json::Value> = list
         .iter()
         .filter(|v| matches_search(search, &[&v.name, &v.driver]))
@@ -1494,6 +1504,8 @@ fn docker_volumes_json(list: &[shared::DockerVolumeInfo], search: &str) -> Strin
 
 /// Docker network rows for the Networks sub-tab.
 fn docker_networks_json(list: &[shared::DockerNetworkInfo], search: &str) -> String {
+    let mut list: Vec<_> = list.iter().collect();
+    list.sort_by(|a, b| a.name.cmp(&b.name));
     let rows: Vec<serde_json::Value> = list
         .iter()
         .filter(|n| matches_search(search, &[&n.name, n.project.as_deref().unwrap_or("")]))

@@ -22,11 +22,19 @@ pub async fn prune_containers(state: AppState) -> RpResponse {
     }
 }
 
-pub async fn prune_volumes(state: AppState) -> RpResponse {
+/// `all=true` mirrors `docker volume prune --all`: considers every unused
+/// volume, not just anonymous ones. The `all` filter isn't in bollard
+/// 0.17.1's documented list for this endpoint, but `filters` is a plain
+/// map serialized straight to JSON, so the Engine API (1.42+) still honors it.
+pub async fn prune_volumes(state: AppState, all: bool) -> RpResponse {
+    let mut filters = std::collections::HashMap::new();
+    if all {
+        filters.insert("all", vec!["true"]);
+    }
     match state
         .docker
         .inner
-        .prune_volumes(None::<PruneVolumesOptions<String>>)
+        .prune_volumes(Some(PruneVolumesOptions { filters }))
         .await
     {
         Ok(r) => RpResponse::PruneResult {
@@ -37,11 +45,18 @@ pub async fn prune_volumes(state: AppState) -> RpResponse {
     }
 }
 
-pub async fn prune_images(state: AppState) -> RpResponse {
+/// `all=true` mirrors `docker image prune -a`: removes every image unused by
+/// any container, not just dangling/untagged ones (`dangling=true` is
+/// Docker's own default when the filter is omitted).
+pub async fn prune_images(state: AppState, all: bool) -> RpResponse {
+    let mut filters = std::collections::HashMap::new();
+    if all {
+        filters.insert("dangling", vec!["false"]);
+    }
     match state
         .docker
         .inner
-        .prune_images(None::<PruneImagesOptions<String>>)
+        .prune_images(Some(PruneImagesOptions { filters }))
         .await
     {
         Ok(r) => RpResponse::PruneResult {
