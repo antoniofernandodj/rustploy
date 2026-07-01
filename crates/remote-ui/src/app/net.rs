@@ -286,6 +286,11 @@ async fn fetch_service_detail_inner(
         ("svc_domain".into(), spec.domain.clone().unwrap_or_else(|| "—".into())),
         ("svc_tls".into(), if spec.tls_enabled { "enabled" } else { "disabled" }.into()),
         ("svc_replicas".into(), spec.replicas.to_string()),
+        // Docker DNS name of the live container, resolvable by any other
+        // service in the same project (they share the `rp_net_<project_id>`
+        // bridge network) — the value to paste into another service's env
+        // vars (e.g. `API_URL=rp_api:3000`) for internal-only communication.
+        ("svc_internal_url".into(), format!("rp_{}:{}", spec.safe_name(), spec.port)),
         ("svc_db_kind".into(), spec.db_kind.clone().unwrap_or_else(|| "—".into())),
         ("svc_hc".into(), healthcheck_summary(&spec.healthcheck)),
         ("svc_run_command".into(), spec.run_command.clone().unwrap_or_else(|| "—".into())),

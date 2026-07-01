@@ -227,6 +227,7 @@ impl Component for Root {
         ctx.set("svc_domain", "—");
         ctx.set("svc_tls", "—");
         ctx.set("svc_replicas", "—");
+        ctx.set("svc_internal_url", "—");
         ctx.set("svc_db_kind", "—");
         ctx.set("svc_hc", "—");
         ctx.set("svc_run_command", "—");

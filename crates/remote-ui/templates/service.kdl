@@ -345,6 +345,11 @@ Column class="content" {
           Text "{svc_tls}" class="kv_val_fill"
         }
         Row class="kv_row" {
+          Text "Internal URL" class="kv_key"
+          Text "{svc_internal_url}" class="kv_val_fill"
+          Button "Copiar" class="copy_btn" onClick="clipboard:svc_internal_url"
+        }
+        Row class="kv_row" if="{svc_db_kind}" notEquals="—" {
           Text "Database" class="kv_key"
           Text "{svc_db_kind}" class="kv_val_fill"
         }
