@@ -39,18 +39,16 @@ Column class="content" {
       }
       Scrollable direction=vertical class="scroll_fill" {
         Column class="table_body" {
-          ForEach items="monitoring" var="m" {
-            Column class="row_wrap" {
-              Row class="trow" {
-                Text "{m.name}" class="td_key col_svc"
-                Text "{m.project}" class="td col_proj"
-                Text "{m.cpu}" class="td col_dur"
-                Text "{m.mem}" class="td col_dur"
-                Text "{m.rx}" class="muted col_dur"
-                Text "{m.tx}" class="muted col_start"
-              }
-              Rule
+          Column class="row_wrap" for-each="monitoring" var="m" {
+            Row class="trow" {
+              Text "{m.name}" class="td_key col_svc"
+              Text "{m.project}" class="td col_proj"
+              Text "{m.cpu}" class="td col_dur"
+              Text "{m.mem}" class="td col_dur"
+              Text "{m.rx}" class="muted col_dur"
+              Text "{m.tx}" class="muted col_start"
             }
+            Rule
           }
         }
       }
