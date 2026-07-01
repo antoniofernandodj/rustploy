@@ -97,14 +97,59 @@ Column class="content" {
   }
 
   // ── Docker ─────────────────────────────────────────────────────────
+  // Sub-abas Containers / Images / Volumes / Networks. As três últimas
+  // listam TODO o host Docker (não só recursos geridos pelo Rustploy — ver
+  // `docker_inventory` no daemon), com indicação de uso e botão de limpar
+  // as que estão sem uso.
   if cond="{view}" equals="docker" {
     Row class="header_row" {
       Column class="header_titles" {
         Text "Docker" class="title"
-        Text "Containers managed by Rustploy." class="subtitle"
+        Text "Containers, imagens, volumes e networks do host." class="subtitle"
+      }
+      Row class="stats_row" {
+        Column class="stat_card" {
+          Text "IMAGENS" class="label_cap"
+          Text "{docker_images_count}" class="stat_num"
+        }
+        Column class="stat_card" {
+          Text "VOLUMES" class="label_cap"
+          Text "{docker_volumes_count}" class="stat_num"
+        }
+        Column class="stat_card" {
+          Text "NETWORKS" class="label_cap"
+          Text "{docker_networks_count}" class="stat_num_g"
+        }
       }
     }
-    Column class="panel_fill" {
+
+    Row class="tabs" {
+      if cond="{docker_tab}" equals="containers" {
+        Button "Containers" class="tab_on" onClick="docker_tab:containers"
+      } else {
+        Button "Containers" class="tab" onClick="docker_tab:containers"
+      }
+      if cond="{docker_tab}" equals="images" {
+        Button "Images" class="tab_on" onClick="docker_tab:images"
+      } else {
+        Button "Images" class="tab" onClick="docker_tab:images"
+      }
+      if cond="{docker_tab}" equals="volumes" {
+        Button "Volumes" class="tab_on" onClick="docker_tab:volumes"
+      } else {
+        Button "Volumes" class="tab" onClick="docker_tab:volumes"
+      }
+      if cond="{docker_tab}" equals="networks" {
+        Button "Networks" class="tab_on" onClick="docker_tab:networks"
+      } else {
+        Button "Networks" class="tab" onClick="docker_tab:networks"
+      }
+    }
+    Rule
+
+    // Containers — um por serviço gerido pelo Rustploy (ligação com
+    // projeto/serviço é direta, já que o container nasce de um Service).
+    Column class="panel_fill" if="{docker_tab}" equals="containers" {
       Row class="thead" {
         Text "SERVIÇO" class="th col_svc"
         Text "IMAGEM" class="th col_proj"
@@ -123,6 +168,111 @@ Column class="content" {
                   Text "{c.status_label}" class="state_lbl" color="{c.status_color}"
                 }
                 Text "{c.container}" class="muted col_start"
+              }
+              Rule
+            }
+          }
+        }
+      }
+    }
+
+    // Images — projeto/serviço é melhor esforço (inferido pela tag; imagens
+    // manuais/de terceiros ficam com "—").
+    Column class="panel_fill" if="{docker_tab}" equals="images" {
+      Row class="env_head" {
+        Text "{docker_images_count} imagem(ns)" class="muted_fill"
+        Button "Limpar sem uso" class="btn_danger" onClick="docker_prune_images"
+      }
+      Text "{docker_msg}" if="{docker_msg}" not_equals="" class="muted"
+      Row class="thead" {
+        Text "TAGS" class="th col_svc"
+        Text "PROJETO / SERVIÇO" class="th col_proj"
+        Text "TAMANHO" class="th col_dur"
+        Text "CRIADA" class="th col_dur"
+        Text "USO" class="th col_start"
+      }
+      Scrollable direction=vertical class="scroll_fill" {
+        Column class="table_body" {
+          ForEach items="docker_images" var="i" {
+            Column class="row_wrap" {
+              Row class="trow" {
+                Text "{i.tags}" class="td_key col_svc"
+                Text "{i.project} / {i.service}" class="td col_proj"
+                Text "{i.size}" class="muted col_dur"
+                Text "{i.created}" class="muted col_dur"
+                Row class="state_cell" {
+                  Text "●" class="state_dot" color="{i.in_use_color}"
+                  Text "{i.in_use_label}" class="state_lbl" color="{i.in_use_color}"
+                }
+              }
+              Rule
+            }
+          }
+        }
+      }
+    }
+
+    // Volumes — Rustploy só usa bind mounts, então volumes nomeados aqui são
+    // sempre externos ao Rustploy (criados manualmente ou por VOLUME da imagem).
+    Column class="panel_fill" if="{docker_tab}" equals="volumes" {
+      Row class="env_head" {
+        Text "{docker_volumes_count} volume(s)" class="muted_fill"
+        Button "Limpar sem uso" class="btn_danger" onClick="docker_prune_volumes"
+      }
+      Text "{docker_msg}" if="{docker_msg}" not_equals="" class="muted"
+      Row class="thead" {
+        Text "NOME" class="th col_svc"
+        Text "DRIVER" class="th col_proj"
+        Text "TAMANHO" class="th col_dur"
+        Text "USO" class="th col_start"
+      }
+      Scrollable direction=vertical class="scroll_fill" {
+        Column class="table_body" {
+          ForEach items="docker_volumes" var="v" {
+            Column class="row_wrap" {
+              Row class="trow" {
+                Text "{v.name}" class="td_key col_svc"
+                Text "{v.driver}" class="td col_proj"
+                Text "{v.size}" class="muted col_dur"
+                Row class="state_cell" {
+                  Text "●" class="state_dot" color="{v.in_use_color}"
+                  Text "{v.in_use_label}" class="state_lbl" color="{v.in_use_color}"
+                }
+              }
+              Rule
+            }
+          }
+        }
+      }
+    }
+
+    // Networks — projeto reconhecido pela convenção rp_net_<id curto>.
+    Column class="panel_fill" if="{docker_tab}" equals="networks" {
+      Row class="env_head" {
+        Text "{docker_networks_count} network(s)" class="muted_fill"
+        Button "Limpar sem uso" class="btn_danger" onClick="docker_prune_networks"
+      }
+      Text "{docker_msg}" if="{docker_msg}" not_equals="" class="muted"
+      Row class="thead" {
+        Text "NOME" class="th col_svc"
+        Text "PROJETO" class="th col_proj"
+        Text "DRIVER" class="th col_dur"
+        Text "CONTAINERS" class="th col_dur"
+        Text "USO" class="th col_start"
+      }
+      Scrollable direction=vertical class="scroll_fill" {
+        Column class="table_body" {
+          ForEach items="docker_networks" var="n" {
+            Column class="row_wrap" {
+              Row class="trow" {
+                Text "{n.name}" class="td_key col_svc"
+                Text "{n.project}" class="td col_proj"
+                Text "{n.driver}" class="muted col_dur"
+                Text "{n.containers}" class="muted col_dur"
+                Row class="state_cell" {
+                  Text "●" class="state_dot" color="{n.in_use_color}"
+                  Text "{n.in_use_label}" class="state_lbl" color="{n.in_use_color}"
+                }
               }
               Rule
             }

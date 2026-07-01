@@ -15,10 +15,66 @@ conferir:
 - **Env**: adicionar/remover var, editar/Importar `.env`, Exportar `.env`.
 - **Logs ao vivo**: aba Logs / LIVE OUTPUT (runtime) e Build log (deployment em
   andamento) crescendo em tempo real; "Copiar tudo" e seleção/Ctrl+C.
-- **Ações**: Deploy/Reload/Rebuild/Stop, Stop All do topbar.
-- **Telas**: Monitoring (métricas host+container), Ingress, Docker.
+- **Ações**: Deploy/Reload/Rebuild/Stop, Stop All do topbar (agora `Command::StopAllManaged`,
+  ver seção "Docker: inventário + limpeza" abaixo — confirmar que realmente para todo
+  serviço, mesmo um com status desatualizado no banco).
+- **Telas**: Monitoring (métricas host+container), Ingress, Docker (as 4 sub-abas:
+  Containers/Images/Volumes/Networks — nunca rodei contra um daemon real com imagens/
+  volumes/networks de verdade pra conferir os dados e os botões "Limpar sem uso").
+- **Timer de deploy** (badge "⏱ Ns" no header do serviço): confirmar visualmente que
+  tickar 1s/2s/3s… funciona e que trava certo no sucesso/falha.
+- **Busca do topbar**: confirmar que filtra Deployments/Projects/Docker em tempo real.
+- **Tamanho/posição da janela**: redimensionar, fechar pelo X, reabrir — size deve
+  bater; position fica sempre em branco no Wayland (ver "Armadilhas aprendidas").
 
 ## Estado atual (funcionando)
+- **glacier-ui atualmente na 0.4.3** (subiu de 0.3.1 desde a última vez que esta seção
+  foi escrita — ver changelog logo abaixo pras versões intermediárias). Principais
+  mudanças 0.4.x:
+  - **0.4.3**: `secure`/`password` (flags nuas do `TextInput`) viraram built-in do
+    framework — não precisam mais ser registrados pelo app.
+  - **0.4.2 → 0.4.3**: correção do pré-processador KDL — um flag nu (`secure`, `else`)
+    numa linha de continuação própria (não colada no nó) virava um nó-filho espúrio que
+    engolia as propriedades seguintes (`value`/`onChange`/`class`). Flags de aplicação
+    (não intrínsecas a um widget) precisam ser registrados via
+    `glacier_ui::register_bare_flags([...])` — em `remote-ui` isso é feito no topo de
+    `App::boot()` (`["else", "senao"]`).
+  - Loading gate na aba **General** do detalhe do serviço: enquanto o fetch (spec +
+    contas/repos/branches Gitea) não completa, mostra "Carregando…" em vez dos
+    `<Select>` piscarem vazios antes de terem opções.
+  - **Timer de deploy ao vivo**: `Deploy`/`Rebuild` armam um `DeployTrack` (id do
+    deployment + `started_at` do servidor); um badge "⏱ Ns" no header do serviço
+    atualiza a cada segundo (tick de 1Hz local, sem RPC) enquanto o deploy roda; ao
+    chegar num estado terminal (detectado no tick de 2s já existente), o badge some e
+    o resultado final ("deploy concluído em Xs" / "deploy falhou após Xs · ESTADO")
+    aparece colorido (verde/vermelho) onde antes só tinha `svc_action_msg` cinza.
+    `Reload` não dispara o timer (não é um deploy — só stop/start do container).
+  - **Tamanho/posição da janela lembrados**: `store::WindowState` persistido em
+    `~/.local/share/rustploy/remote-ui-window.json`. `main.rs` chama
+    `app::window_settings()` (lê o JSON) **antes** de o iced criar a janela; o
+    salvamento consulta `window::size`/`window::position` **na hora exata do
+    fechamento** (`app.rs::close_and_save`, via `Task::then` encadeado), tanto no botão
+    "X" da titlebar quanto num `CloseRequested` do SO/WM (`exit_on_close_request(false)`
+    habilitado pra isso). Ver "Armadilhas aprendidas" abaixo pro porquê de NÃO rastrear
+    via `Event::Resized`/`Moved` acumulados.
+  - **Aba Docker com sub-abas Containers/Images/Volumes/Networks**: as 3 novas listam
+    todo o host Docker (não só recursos do Rustploy), com "EM USO"/"SEM USO" por linha e
+    botão "Limpar sem uso" cada. Daemon: `docker_inventory.rs` novo (`docker system df`
+    pra imagens/volumes com contagem de uso de graça; networks cruzadas manualmente
+    contra `list_containers`). Ver `AGENTS.md` §17 pro detalhe completo (fonte dos
+    dados, como a atribuição de projeto/serviço é inferida, o que não é possível pra
+    volumes).
+  - **Topbar**: busca (`search_changed`) agora filtra de verdade
+    (Deployments/Projects/Docker, case-insensitive, ao vivo) — antes só capturava o
+    texto sem efeito nenhum. Botão "Deploy" removido (só navegava pra Projects). "Stop
+    All" virou 1 RPC (`Command::StopAllManaged`) que para todo serviço do Rustploy
+    reaplicando a lógica real de `service_stop` por serviço, sem depender do status
+    atual no banco — mas **continua restrito a containers com label
+    `rustploy.managed=true`**, nunca mexe em containers de fora do Rustploy no mesmo
+    host.
+  - Todas essas mudanças (exceto a fixação do glacier-ui em si) só existem no
+    working tree — **não foram testadas contra um daemon rodando de verdade** (ver
+    "PENDENTE — teste manual" no topo deste arquivo).
 - **glacier-ui 0.3.1** publicado no crates.io (iced **0.14**). 0.3.1: atributo
   universal **`onDoubleClick`** (duplo-clique → ação; usado na titlebar para
   maximizar/restaurar via `onDoubleClick="window:maximize"`). 0.3.0 (breaking,
@@ -203,6 +259,27 @@ conferir:
   do usuário enviar imagem.
 - Disco do `/` enche fácil; `target/` do glacier chegou a 19G. `cargo clean` lá
   se faltar espaço.
+- **Não confiar em `Event::Resized`/`Moved` acumulados pra saber "o tamanho/posição
+  atual da janela" no Wayland/GNOME deste ambiente**: um `Resized` espúrio chega logo no
+  início (durante a negociação xdg-shell da janela) reportando o `min_size` em vez do
+  tamanho real — se você guarda isso num campo e usa o último valor visto ao fechar, o
+  valor salvo fica preso no mínimo pra sempre, mesmo que o usuário tenha redimensionado
+  de verdade depois. A correção foi trocar por uma consulta ativa
+  (`window::size(id)`/`window::position(id)`, via `Task::then` encadeado) bem no momento
+  do fechamento — pergunta "qual é o tamanho AGORA" em vez de confiar em histórico de
+  eventos. Também: GNOME faz snap automático (estica pra altura cheia da tela) quando a
+  largura pedida bate com a largura da tela — não é bug do app, é o WM reagindo a uma
+  janela "encostada na borda".
+- **Fechar de verdade requer `exit_on_close_request(false)` no builder do
+  `iced::application`** — sem isso, o clique em "X" (que já chama `window::close`
+  diretamente) funciona, mas um `CloseRequested` vindo do SO/WM (Alt+F4, sessão
+  encerrando) fecha a janela **sem rodar nenhum código do app antes** — não dá pra
+  interceptar pra salvar estado nesse caminho por padrão.
+- Testar via `timeout N ./binário` só prova que não deu panic — `timeout` manda SIGTERM,
+  que NÃO passa pelo `CloseRequested`/clique no X, então nada que dependa de um
+  fechamento "de verdade" (como salvar geometria da janela) roda nesse teste. Pra validar
+  de fato: rodar em background (`nohup ... &`), pedir pro usuário interagir com a janela
+  real na tela dele (mesma máquina/display), e inspecionar os arquivos/logs depois.
 
 ## Publicar nova versão do glacier
 `cd glacier-ui && cargo build && cargo test && cargo publish` (token já

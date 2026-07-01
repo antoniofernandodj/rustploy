@@ -334,34 +334,72 @@ async fn fetch_service_detail_inner(
 }
 
 /// Stops every running service across all projects (topbar "Stop All").
+/// Stops every rustploy-managed service in one round trip
+/// (`Command::StopAllManaged`) — the daemon reuses `service_stop`'s real
+/// Docker-level container lookup for each one, so it doesn't miss services
+/// whose DB status has drifted from what's actually running. Never touches
+/// containers unrelated to rustploy on the same Docker host.
 pub async fn stop_all(addr: String, token: Option<String>) -> Vec<(String, String)> {
-    let msg = match stop_all_inner(&addr, token.as_deref()).await {
-        Ok(n) => format!("{n} serviço(s) parado(s)"),
+    let msg = match run_command(addr, token, Command::StopAllManaged).await {
+        Ok(Response::StopAllResult { count }) => format!("{count} serviço(s) parado(s)"),
+        Ok(other) => resp_msg(&other),
         Err(e) => format!("erro: {e}"),
     };
     vec![("status_line".into(), msg)]
 }
 
-async fn stop_all_inner(addr: &str, token: Option<&str>) -> anyhow::Result<usize> {
-    let mut conn = rwp::connect(addr, token).await?;
-    let projects = match rwp::rpc(&mut conn, Command::ProjectList).await? {
-        Response::Projects(p) => p,
-        other => anyhow::bail!("resposta inesperada: {other:?}"),
-    };
-    let mut stopped = 0usize;
-    for p in &projects {
-        if let Ok(Response::Services(svcs)) =
-            rwp::rpc(&mut conn, Command::ServiceList { project_id: p.id.clone() }).await
-        {
-            for s in svcs {
-                if s.status == ServiceStatus::Running || s.status == ServiceStatus::Degraded {
-                    let _ = rwp::rpc(&mut conn, Command::ServiceStop { service_id: s.id }).await;
-                    stopped += 1;
-                }
-            }
+/// Removes unused (untagged, or referenced by no container) images and
+/// refreshes the Images sub-tab so the result shows up immediately, without
+/// waiting for the next 2s poll tick.
+pub async fn prune_docker_images(addr: String, token: Option<String>) -> Vec<(String, String)> {
+    let msg = match run_command(addr.clone(), token.clone(), Command::PruneImages).await {
+        Ok(Response::PruneResult { count, reclaimed_bytes }) => {
+            format!("{count} imagem(ns) removida(s) · {} liberados", fmt_bytes(reclaimed_bytes))
         }
+        Ok(other) => resp_msg(&other),
+        Err(e) => format!("erro: {e}"),
+    };
+    let mut pairs = vec![("docker_msg".into(), msg)];
+    if let Ok(Response::DockerImages(list)) = run_command(addr, token, Command::DockerImages).await {
+        pairs.push(("docker_images".into(), docker_images_json(&list, "")));
+        pairs.push(("docker_images_count".into(), list.len().to_string()));
     }
-    Ok(stopped)
+    pairs
+}
+
+/// Removes volumes referenced by no container and refreshes the Volumes
+/// sub-tab.
+pub async fn prune_docker_volumes(addr: String, token: Option<String>) -> Vec<(String, String)> {
+    let msg = match run_command(addr.clone(), token.clone(), Command::PruneVolumes).await {
+        Ok(Response::PruneResult { count, reclaimed_bytes }) => {
+            format!("{count} volume(s) removido(s) · {} liberados", fmt_bytes(reclaimed_bytes))
+        }
+        Ok(other) => resp_msg(&other),
+        Err(e) => format!("erro: {e}"),
+    };
+    let mut pairs = vec![("docker_msg".into(), msg)];
+    if let Ok(Response::DockerVolumes(list)) = run_command(addr, token, Command::DockerVolumes).await {
+        pairs.push(("docker_volumes".into(), docker_volumes_json(&list, "")));
+        pairs.push(("docker_volumes_count".into(), list.len().to_string()));
+    }
+    pairs
+}
+
+/// Removes networks attached to no container (rustploy's own per-project
+/// networks included, once their last service is gone) and refreshes the
+/// Networks sub-tab.
+pub async fn prune_docker_networks(addr: String, token: Option<String>) -> Vec<(String, String)> {
+    let msg = match run_command(addr.clone(), token.clone(), Command::PruneNetworks).await {
+        Ok(Response::PruneResult { count, .. }) => format!("{count} rede(s) removida(s)"),
+        Ok(other) => resp_msg(&other),
+        Err(e) => format!("erro: {e}"),
+    };
+    let mut pairs = vec![("docker_msg".into(), msg)];
+    if let Ok(Response::DockerNetworks(list)) = run_command(addr, token, Command::DockerNetworks).await {
+        pairs.push(("docker_networks".into(), docker_networks_json(&list, "")));
+        pairs.push(("docker_networks_count".into(), list.len().to_string()));
+    }
+    pairs
 }
 
 /// Persists the daemon settings (Settings screen). Empty strings clear a field.
@@ -917,6 +955,7 @@ pub fn poll_stream(
     selected: Arc<Mutex<String>>,
     selected_deploy: Arc<Mutex<String>>,
     deploy_track: Arc<Mutex<DeployTrack>>,
+    search: Arc<Mutex<String>>,
 ) -> impl Stream<Item = EngineMessage> {
     iced::stream::channel(64, move |mut output: iced::futures::channel::mpsc::Sender<EngineMessage>| async move {
         macro_rules! patch {
@@ -1016,6 +1055,7 @@ pub fn poll_stream(
                 }
                 _ = poll.tick() => {
                     let mut pairs = Vec::new();
+                    let term = search.lock().map(|s| s.trim().to_lowercase()).unwrap_or_default();
                     if let Ok(Response::DaemonStatus(d)) = rwp::rpc(&mut cmd, Command::DaemonStatus).await {
                         pairs.push(("daemon_version".into(), d.version.clone()));
                         pairs.push(("daemon_uptime".into(), fmt_uptime(d.uptime_secs)));
@@ -1026,7 +1066,7 @@ pub fn poll_stream(
                     if let Ok(Response::DeploymentSummaries(list)) =
                         rwp::rpc(&mut cmd, Command::RecentDeployments { limit: 40 }).await
                     {
-                        pairs.push(("deployments".into(), deployments_json(&list)));
+                        pairs.push(("deployments".into(), deployments_json(&list, &term)));
                         pairs.push(("deployments_count".into(), list.len().to_string()));
                     }
                     if let Ok(Response::Projects(list)) = rwp::rpc(&mut cmd, Command::ProjectList).await {
@@ -1046,16 +1086,31 @@ pub fn poll_stream(
                                 }
                             }
                         }
-                        pairs.push(("services".into(), services_json(&all, &metrics)));
+                        pairs.push(("services".into(), services_json(&all, &metrics, &term)));
                         pairs.push(("services_count".into(), all.len().to_string()));
-                        pairs.push(("service_rows".into(), service_rows_json(&all, &metrics)));
+                        pairs.push(("service_rows".into(), service_rows_json(&all, &metrics, &term)));
 
                         // Derived home screens (Ingress routes, Docker, Monitoring).
                         let (ingress, ingress_count) = ingress_json(&all);
                         pairs.push(("ingress".into(), ingress));
                         pairs.push(("ingress_count".into(), ingress_count.to_string()));
-                        pairs.push(("docker_rows".into(), docker_json(&all)));
+                        pairs.push(("docker_rows".into(), docker_json(&all, &term)));
                         pairs.push(("monitoring".into(), monitoring_json(&all, &metrics)));
+                    }
+                    // Docker tab: images/volumes/networks across the whole host
+                    // (not just rustploy-managed services — see docker_inventory
+                    // on the daemon side).
+                    if let Ok(Response::DockerImages(list)) = rwp::rpc(&mut cmd, Command::DockerImages).await {
+                        pairs.push(("docker_images".into(), docker_images_json(&list, &term)));
+                        pairs.push(("docker_images_count".into(), list.len().to_string()));
+                    }
+                    if let Ok(Response::DockerVolumes(list)) = rwp::rpc(&mut cmd, Command::DockerVolumes).await {
+                        pairs.push(("docker_volumes".into(), docker_volumes_json(&list, &term)));
+                        pairs.push(("docker_volumes_count".into(), list.len().to_string()));
+                    }
+                    if let Ok(Response::DockerNetworks(list)) = rwp::rpc(&mut cmd, Command::DockerNetworks).await {
+                        pairs.push(("docker_networks".into(), docker_networks_json(&list, &term)));
+                        pairs.push(("docker_networks_count".into(), list.len().to_string()));
                     }
                     if let Some(s) = &sysm {
                         pairs.push(("sys_cpu".into(), format!("{:.0}%", s.cpu_percent)));
@@ -1212,9 +1267,17 @@ pub fn poll_stream(
 
 // ── Formatting helpers (model → context strings) ────────────────────────────
 
-fn deployments_json(list: &[DeploymentSummary]) -> String {
+/// Whether any of `fields` contains `term` (case-insensitive substring). An
+/// empty `term` always matches — the topbar search is a filter, not a
+/// requirement, so a blank box shows everything.
+fn matches_search(term: &str, fields: &[&str]) -> bool {
+    term.is_empty() || fields.iter().any(|f| f.to_lowercase().contains(term))
+}
+
+fn deployments_json(list: &[DeploymentSummary], search: &str) -> String {
     let rows: Vec<serde_json::Value> = list
         .iter()
+        .filter(|s| matches_search(search, &[&s.service_name, &s.project_name]))
         .map(|s| {
             let d = &s.deployment;
             let (label, color) = state_label_color(&d.state);
@@ -1254,9 +1317,10 @@ fn service_card(svc: &Service, project: &str, m: Option<&ContainerMetricsPoint>)
 }
 
 /// Flat array of service cards (used for selection / counts).
-fn services_json(all: &[(Service, String)], metrics: &HashMap<String, ContainerMetricsPoint>) -> String {
+fn services_json(all: &[(Service, String)], metrics: &HashMap<String, ContainerMetricsPoint>, search: &str) -> String {
     let rows: Vec<serde_json::Value> = all
         .iter()
+        .filter(|(s, proj)| matches_search(search, &[&s.spec.name, proj]))
         .map(|(s, proj)| service_card(s, proj, metrics.get(&s.id)))
         .collect();
     serde_json::Value::Array(rows).to_string()
@@ -1266,13 +1330,17 @@ fn services_json(all: &[(Service, String)], metrics: &HashMap<String, ContainerM
 /// filler cards so every row keeps the same column widths. glacier-ui has no
 /// wrapping grid, so the layout is materialised here as `[{ "cards": [...] }]`
 /// and rendered with a nested `<ForEach>`.
-fn service_rows_json(all: &[(Service, String)], metrics: &HashMap<String, ContainerMetricsPoint>) -> String {
+fn service_rows_json(all: &[(Service, String)], metrics: &HashMap<String, ContainerMetricsPoint>, search: &str) -> String {
     let filler = serde_json::json!({ "filler": "1" });
     let rows: Vec<serde_json::Value> = all
+        .iter()
+        .filter(|(s, proj)| matches_search(search, &[&s.spec.name, proj]))
+        .collect::<Vec<_>>()
         .chunks(GRID_COLS)
         .map(|chunk| {
             let mut cards: Vec<serde_json::Value> = chunk
                 .iter()
+                .copied()
                 .map(|(s, proj)| service_card(s, proj, metrics.get(&s.id)))
                 .collect();
             while cards.len() < GRID_COLS {
@@ -1349,9 +1417,10 @@ fn ingress_json(all: &[(Service, String)]) -> (String, usize) {
 }
 
 /// Docker container rows derived from services (one per managed service).
-fn docker_json(all: &[(Service, String)]) -> String {
+fn docker_json(all: &[(Service, String)], search: &str) -> String {
     let rows: Vec<serde_json::Value> = all
         .iter()
+        .filter(|(s, proj)| matches_search(search, &[&s.spec.name, proj]))
         .map(|(s, proj)| {
             let (status_label, status_color) = service_status_label_color(&s.status);
             let container = s
@@ -1366,6 +1435,77 @@ fn docker_json(all: &[(Service, String)]) -> String {
                 "container": container,
                 "status_label": status_label,
                 "status_color": status_color,
+            })
+        })
+        .collect();
+    serde_json::Value::Array(rows).to_string()
+}
+
+/// Docker image rows for the Images sub-tab — every image on the host, not
+/// just ones rustploy built/pulled. `in_use` reflects whether any container
+/// (running or stopped) currently references it (see
+/// `DockerImageInfo::containers`, computed daemon-side via `docker system df`).
+fn docker_images_json(list: &[shared::DockerImageInfo], search: &str) -> String {
+    let rows: Vec<serde_json::Value> = list
+        .iter()
+        .filter(|img| {
+            let tags = img.tags.join(" ");
+            matches_search(
+                search,
+                &[&tags, img.project.as_deref().unwrap_or(""), img.service.as_deref().unwrap_or("")],
+            )
+        })
+        .map(|img| {
+            let in_use = img.containers > 0;
+            let tags = if img.tags.is_empty() { "<none>".to_string() } else { img.tags.join(", ") };
+            serde_json::json!({
+                "id": img.id.trim_start_matches("sha256:").chars().take(12).collect::<String>(),
+                "tags": tags,
+                "size": fmt_bytes(img.size_bytes),
+                "created": img.created.with_timezone(&Local).format("%d/%m %H:%M").to_string(),
+                "project": img.project.clone().unwrap_or_else(|| "—".into()),
+                "service": img.service.clone().unwrap_or_else(|| "—".into()),
+                "in_use_label": if in_use { "EM USO" } else { "SEM USO" },
+                "in_use_color": if in_use { "#3FB950" } else { "#8B949E" },
+            })
+        })
+        .collect();
+    serde_json::Value::Array(rows).to_string()
+}
+
+/// Docker volume rows for the Volumes sub-tab.
+fn docker_volumes_json(list: &[shared::DockerVolumeInfo], search: &str) -> String {
+    let rows: Vec<serde_json::Value> = list
+        .iter()
+        .filter(|v| matches_search(search, &[&v.name, &v.driver]))
+        .map(|v| {
+            serde_json::json!({
+                "name": v.name,
+                "driver": v.driver,
+                "mountpoint": v.mountpoint,
+                "size": if v.size_bytes >= 0 { fmt_bytes(v.size_bytes as u64) } else { "—".to_string() },
+                "in_use_label": if v.in_use { "EM USO" } else { "SEM USO" },
+                "in_use_color": if v.in_use { "#3FB950" } else { "#8B949E" },
+            })
+        })
+        .collect();
+    serde_json::Value::Array(rows).to_string()
+}
+
+/// Docker network rows for the Networks sub-tab.
+fn docker_networks_json(list: &[shared::DockerNetworkInfo], search: &str) -> String {
+    let rows: Vec<serde_json::Value> = list
+        .iter()
+        .filter(|n| matches_search(search, &[&n.name, n.project.as_deref().unwrap_or("")]))
+        .map(|n| {
+            serde_json::json!({
+                "name": n.name,
+                "driver": n.driver,
+                "scope": n.scope,
+                "project": n.project.clone().unwrap_or_else(|| "—".into()),
+                "containers": n.container_count.to_string(),
+                "in_use_label": if n.in_use { "EM USO" } else { "SEM USO" },
+                "in_use_color": if n.in_use { "#3FB950" } else { "#8B949E" },
             })
         })
         .collect();

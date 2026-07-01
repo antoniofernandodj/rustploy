@@ -154,6 +154,19 @@ pub enum Command {
     PruneVolumes,
     PruneImages,
     PruneBuildCache,
+    PruneNetworks,
+
+    // Docker inventory (every image/volume/network on the host, not just
+    // rustploy-managed ones — see `shared::DockerImageInfo` etc.)
+    DockerImages,
+    DockerVolumes,
+    DockerNetworks,
+    /// Stops every container labeled `rustploy.managed=true`, regardless of
+    /// what the DB's service status currently says (more robust than
+    /// looping over `Service` rows one `ServiceStop` at a time — see
+    /// `Command::ServiceStop`). Scoped to rustploy's own containers; never
+    /// touches unrelated containers on the same Docker host.
+    StopAllManaged,
 
     // Env var backup / restore
     /// Lista os snapshots disponíveis (retorna Vec<String> com nomes de ficheiro).
@@ -318,6 +331,13 @@ pub enum Response {
 
     PruneResult { count: u32, reclaimed_bytes: u64 },
     EnvBackupSnapshots(Vec<String>),
+
+    // Docker inventory
+    DockerImages(Vec<DockerImageInfo>),
+    DockerVolumes(Vec<DockerVolumeInfo>),
+    DockerNetworks(Vec<DockerNetworkInfo>),
+    /// Count of rustploy-managed containers stopped (resposta de `StopAllManaged`).
+    StopAllResult { count: u32 },
 
     Err { code: String, message: String },
 }

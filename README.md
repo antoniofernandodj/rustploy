@@ -31,6 +31,16 @@ Um único binário (`rustployd`) substitui o PaaS inteiro. O cliente TUI (`rustp
 - Recovery automático de deploys interrompidos ao reiniciar o daemon
 - **Webhooks de CI/CD**: endpoint `POST /webhook/{service_id}/{token}` gerado automaticamente no primeiro deploy; compatível com GitHub, GitLab, Gitea e Docker Hub (veja [`docs/webhooks.md`](docs/webhooks.md))
 - **Infra-as-Code**: descreva projetos e serviços em `rustploy.yml` versionável e aplique de forma declarativa e idempotente com `rustploy apply -f`; exporte projetos existentes com `rustploy export` (veja [`docs/infra-as-code.md`](docs/infra-as-code.md))
+- **Inventário Docker do host**: lista imagens, volumes e networks de todo o Docker Engine (não só recursos geridos pelo Rustploy), com indicação de uso/não uso e limpeza de não usados (`docker system df` como fonte, sem custo extra de round-trip)
+
+## Clientes
+
+Além do TUI (`rustploy`, interface primária), existe um cliente desktop GUI opcional,
+**`remote-ui`** (binário `rustploy-remote-ui`, crate `crates/remote-ui`), construído com
+o framework próprio `glacier-ui` (UI declarativa em KDL → iced). Conecta ao daemon via
+**RWP** (protocolo administrativo sobre TCP, `rwp://`/`rwps://`) em vez do UDS local — não
+precisa rodar na mesma máquina do daemon. `cargo run -p remote-ui` a partir da raiz do
+workspace.
 
 ## Não-objetivos
 
@@ -144,9 +154,10 @@ Cada transição é persistida no SurrealDB. Ao reiniciar, deploys interrompidos
 
 ```
 crates/
-├── shared/   # Command, Event, Response, modelos de domínio, RustployConfig
-├── daemon/   # rustployd — API Axum/UDS, SurrealDB, Docker, ingress, deploy engine
-└── client/   # rustploy — TUI Ratatui
+├── shared/     # Command, Event, Response, modelos de domínio, RustployConfig
+├── daemon/     # rustployd — API Axum/UDS, SQLite (sqlx), Docker, ingress, deploy engine
+├── client/     # rustploy — TUI Ratatui (interface primária)
+└── remote-ui/  # rustploy-remote-ui — cliente GUI opcional (glacier-ui/KDL→iced), fala RWP/TCP
 ```
 
 Comunicação: HTTP sobre Unix Domain Socket com payload postcard (serialização binária compacta via varint).  

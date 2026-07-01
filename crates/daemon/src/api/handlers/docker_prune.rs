@@ -95,7 +95,7 @@ fn parse_reclaimed_space(output: &str) -> u64 {
     0
 }
 
-pub async fn _prune_networks(state: AppState) -> RpResponse {
+pub async fn prune_networks(state: AppState) -> RpResponse {
     match state
         .docker
         .inner

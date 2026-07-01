@@ -155,10 +155,6 @@ impl App {
         ])
         .map(Message::Engine);
         let close_requests = window::close_requests().map(Message::CloseRequested);
-        // TEMP DEBUG: prints every window Event (Opened/Resized/Moved/…) to
-        // stderr so we can see live what the drag-resize handles actually
-        // report, while diagnosing why the saved size matches `min_size`
-        // regardless of the dragged size. Remove once root-caused.
         let debug_events = window::events().map(|(id, event)| {
             eprintln!("[window-debug] id={id:?} event={event:?}");
             Message::DebugIgnore

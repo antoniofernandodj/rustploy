@@ -472,6 +472,68 @@ pub struct SystemMetricsPoint {
     pub timestamp: DateTime<Utc>,
 }
 
+/// One Docker image (from `docker system df`), independent of whether it's
+/// currently used by any service the daemon manages — the Docker tab lists
+/// every image on the host, not just rustploy's own.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DockerImageInfo {
+    pub id: String,
+    /// Repo:tag references; empty when the image is untagged (`<none>`, a
+    /// dangling layer left behind by a superseded build).
+    pub tags: Vec<String>,
+    pub size_bytes: u64,
+    pub created: DateTime<Utc>,
+    /// Containers (running or stopped) referencing this image. `docker
+    /// system df` always computes this (unlike the plain image-list
+    /// endpoint, which leaves it `-1` unless asked).
+    pub containers: i64,
+    /// Best-effort project/service this image belongs to, inferred from its
+    /// tag (`rp_<safe_name>:...` for Git builds, exact string match for
+    /// registry images). `None` when nothing in the daemon's DB matches —
+    /// e.g. a manually-pulled image, or one left over from a deleted service.
+    pub project: Option<String>,
+    pub service: Option<String>,
+}
+
+/// One Docker volume, independent of rustploy ownership (rustploy itself
+/// only ever bind-mounts host paths — see `docker/containers.rs` — so named
+/// volumes here are either created by the user directly or implicitly by an
+/// image's own `VOLUME` directive).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DockerVolumeInfo {
+    pub name: String,
+    pub driver: String,
+    pub mountpoint: String,
+    /// `false` when no container currently references the volume — the
+    /// "unused" set `docker volume prune` would remove.
+    pub in_use: bool,
+    /// Containers referencing this volume, when Docker reports it (`-1`
+    /// when not computed/available for this driver).
+    pub ref_count: i64,
+    /// Disk usage in bytes, when available (`-1` otherwise — e.g. non-`local`
+    /// drivers never report a size).
+    pub size_bytes: i64,
+}
+
+/// One Docker network.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DockerNetworkInfo {
+    pub id: String,
+    pub name: String,
+    pub driver: String,
+    pub scope: String,
+    /// `false` when no container is attached — the "unused" set `docker
+    /// network prune` would remove (rustploy's own per-project networks
+    /// included, once their last service is gone).
+    pub in_use: bool,
+    pub container_count: usize,
+    /// Project this network belongs to, inferred from the
+    /// `rp_net_<project_id_short>` naming convention (see
+    /// `docker/networks.rs::project_network_name`). `None` for non-rustploy
+    /// networks (the built-in `bridge`/`host`/`none`, or manually created ones).
+    pub project: Option<String>,
+}
+
 #[cfg(test)]
 mod git_provider_tests {
     use super::*;

@@ -69,7 +69,6 @@ Row class="screen" {
         value="search"
         onChange="search_changed"
       Text "● rwp · daemon v{daemon_version}" class="muted"
-      Button "Deploy" class="btn_primary" onClick="deploy"
       Button "Stop All" class="btn_danger" onClick="stop_all"
       Button "Disconnect" class="btn_ghost" onClick="disconnect"
     }

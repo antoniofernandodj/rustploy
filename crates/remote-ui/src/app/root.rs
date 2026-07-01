@@ -19,6 +19,7 @@ struct PollKey {
     selected: Arc<Mutex<String>>,
     selected_deploy: Arc<Mutex<String>>,
     deploy_track: Arc<Mutex<super::net::DeployTrack>>,
+    search: Arc<Mutex<String>>,
 }
 
 impl Hash for PollKey {
@@ -47,6 +48,10 @@ pub struct Root {
     /// detail panel. Set by `start_deploy`'s `ctx.perform` future; read by the
     /// poll loop to tick `svc_deploy_elapsed` (1Hz) and detect completion.
     deploy_shared: Arc<Mutex<super::net::DeployTrack>>,
+    /// Current topbar search term, shared with the poll loop so it can filter
+    /// deployments/services/Docker rows without a context round-trip (the
+    /// poll loop never sees the live `Context`, only what it patches into it).
+    search_shared: Arc<Mutex<String>>,
 }
 
 impl Root {
@@ -165,7 +170,21 @@ impl Component for Root {
         ctx.set("ingress", "[]");
         ctx.set("ingress_count", "0");
         ctx.set("docker_rows", "[]");
+        // Docker tab sub-tabs: Containers (docker_rows, above) / Images /
+        // Volumes / Networks — the whole host's inventory, not just
+        // rustploy-managed resources (see `docker_inventory` on the daemon).
+        ctx.set("docker_tab", "containers");
+        ctx.set("docker_msg", "");
+        ctx.set("docker_images", "[]");
+        ctx.set("docker_images_count", "0");
+        ctx.set("docker_volumes", "[]");
+        ctx.set("docker_volumes_count", "0");
+        ctx.set("docker_networks", "[]");
+        ctx.set("docker_networks_count", "0");
         ctx.set("monitoring", "[]");
+        // Topbar search: filters deployments/services/Docker rows (see
+        // `search_changed` and `net::poll_stream`'s `search` parameter).
+        ctx.set("search", "");
         ctx.set("sys_cpu", "—");
         ctx.set("sys_mem", "—");
         ctx.set("sys_disk", "—");
@@ -282,6 +301,45 @@ impl Component for Root {
                 if !self.addr.is_empty() {
                     ctx.set("status_line", "parando todos…");
                     ctx.perform(super::net::stop_all(self.addr.clone(), self.token.clone()));
+                }
+            }
+            // Topbar search: filters deployments/services/Docker rows. The
+            // poll loop (not the live Context) builds those rows, so the term
+            // is mirrored into `search_shared` for it to read each tick.
+            "search_changed" => {
+                if let Some(v) = value {
+                    ctx.set("search", v);
+                    if let Ok(mut s) = self.search_shared.lock() {
+                        *s = v.to_string();
+                    }
+                }
+            }
+            // Docker tab: switches the active sub-tab (Containers/Images/
+            // Volumes/Networks).
+            "docker_tab" => {
+                if let Some(v) = value {
+                    ctx.set("docker_tab", v);
+                }
+            }
+            // Docker tab: remove unused images/volumes/networks, then refresh
+            // that sub-tab immediately (the perform's own pairs include it —
+            // no need to wait for the next poll tick).
+            "docker_prune_images" => {
+                if !self.addr.is_empty() {
+                    ctx.set("docker_msg", "removendo imagens sem uso…");
+                    ctx.perform(super::net::prune_docker_images(self.addr.clone(), self.token.clone()));
+                }
+            }
+            "docker_prune_volumes" => {
+                if !self.addr.is_empty() {
+                    ctx.set("docker_msg", "removendo volumes sem uso…");
+                    ctx.perform(super::net::prune_docker_volumes(self.addr.clone(), self.token.clone()));
+                }
+            }
+            "docker_prune_networks" => {
+                if !self.addr.is_empty() {
+                    ctx.set("docker_msg", "removendo redes sem uso…");
+                    ctx.perform(super::net::prune_docker_networks(self.addr.clone(), self.token.clone()));
                 }
             }
             // Settings (daemon web server) fields + save.
@@ -678,6 +736,7 @@ impl Component for Root {
                 selected: self.selected_shared.clone(),
                 selected_deploy: self.selected_deploy_shared.clone(),
                 deploy_track: self.deploy_shared.clone(),
+                search: self.search_shared.clone(),
             };
             iced::Subscription::run_with(key, |k: &PollKey| {
                 super::net::poll_stream(
@@ -686,6 +745,7 @@ impl Component for Root {
                     k.selected.clone(),
                     k.selected_deploy.clone(),
                     k.deploy_track.clone(),
+                    k.search.clone(),
                 )
             })
         } else {

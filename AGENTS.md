@@ -1138,3 +1138,81 @@ Placeholder para histórico de patches de configuração (v2).
 | Use Case | Descrição |
 |---|---|
 | Ver informações da conta | Exibe o usuário atual, uptime do daemon e versão |
+
+---
+
+## 17. `remote-ui` — cliente GUI (glacier-ui) e funcionalidades recentes
+
+> **Nota de desatualização:** este documento (§1–16) descreve a especificação original,
+> anterior à implementação real — por exemplo, o banco embarcado hoje é **SQLite via
+> `sqlx`**, não SurrealDB (ver `CLAUDE.md`), e o cliente GUI `remote-ui` (crate
+> `crates/remote-ui`, binário `rustploy-remote-ui`) nem existia quando §1–16 foram
+> escritas. Esta seção documenta apenas o que foi implementado de fato nele.
+
+`remote-ui` é um cliente desktop separado do TUI (`client`), construído com o framework
+próprio **glacier-ui** (UI declarativa em KDL → iced). Conecta ao daemon via **RWP**
+(protocolo administrativo remoto sobre TCP, `rwp://`/`rwps://` — distinto do UDS local
+usado pelo TUI), não precisa rodar na mesma máquina do daemon.
+
+### 17.1 Timer de deploy ao vivo
+
+Ao clicar Deploy/Rebuild no detalhe de um serviço, um badge "⏱ Ns" ao lado do status
+atualiza a cada segundo (1s, 2s, 3s, …) enquanto o deploy roda. Ao concluir ou falhar, o
+badge some e a mensagem de resultado mostra o tempo total ("deploy concluído em Xs" em
+verde, ou "deploy falhou após Xs · ESTADO" em vermelho). Implementado com um tick de 1Hz
+local (sem RPC — só recalcula `agora - started_at`) mais um tick de 2s que detecta quando
+o deploy chega a um estado terminal. Timer não dispara em Reload (não passa pelo pipeline
+de deploy, é só stop/start de container).
+
+### 17.2 Lembrar tamanho/posição da janela
+
+A janela reabre no último tamanho salvo. Persistido em
+`~/.local/share/rustploy/remote-ui-window.json`, lido uma vez antes de a janela ser
+criada e salvo consultando o tamanho/posição **reais** no momento exato do fechamento
+(não um valor cacheado de eventos anteriores — essa abordagem inicial mostrou-se não
+confiável neste ambiente Wayland/GNOME: um evento `Resized` espúrio durante a negociação
+inicial da janela reportava o tamanho mínimo em vez do real). **Posição nunca é
+restaurada no Wayland** — o protocolo não expõe posição de janela ao cliente, por design
+(isolamento entre apps); não há solução possível do lado da aplicação.
+
+### 17.3 Aba Docker — inventário e limpeza
+
+A aba Docker ganhou sub-abas: **Containers** (como já era — um por serviço gerido pelo
+Rustploy) mais **Images**, **Volumes** e **Networks**, novas, listando **tudo o que
+existe no host Docker** (não só recursos do Rustploy), com indicador "EM USO"/"SEM USO"
+por linha e um botão "Limpar sem uso" em cada uma das três novas sub-abas.
+
+- **Fonte dos dados**: `docker system df` (`Command::DockerImages`/`DockerVolumes`) — o
+  único endpoint do Docker Engine que já calcula quantos containers referenciam cada
+  imagem/volume, sem custo extra. Networks são cruzadas manualmente com a lista de
+  containers (`Command::DockerNetworks`), já que o endpoint de listagem de networks não
+  preenche esse dado sozinho.
+- **Atribuição de projeto/serviço** (melhor esforço, nem sempre possível):
+  - Imagens: por tag — `rp_<nome_normalizado>:...` para builds Git, correspondência
+    exata de string para imagens de registry.
+  - Networks: pela convenção de nome `rp_net_<id_curto_do_projeto>`.
+  - Volumes: **sem atribuição** — o Rustploy só usa bind mount (nunca cria volume
+    nomeado), então não há label ou convenção pra correlacionar.
+- **Limpar sem uso**: botões chamam `Command::PruneImages`/`PruneVolumes`/`PruneNetworks`
+  — o próprio Docker só remove o que estiver sem uso (comportamento nativo do
+  `docker prune`), então não há risco de apagar algo em uso por engano.
+
+### 17.4 Busca do topbar
+
+A caixa "Search deployments, nodes…" agora filtra de verdade (antes só capturava o
+texto sem nenhum efeito): Deployments, o grid de Projects/Services e as 4 tabelas da
+aba Docker, todos em tempo real, por substring case-insensitive.
+
+### 17.5 Topbar — Stop All e remoção do Deploy
+
+O botão "Deploy" do topbar foi removido (não fazia deploy nenhum, só navegava para
+Projects — redundante com abrir um serviço e clicar Deploy lá). Restam **Stop All** e
+**Disconnect**.
+
+`Stop All` deixou de ser um loop client-side por projeto/serviço (que só considerava
+serviços com status `Running`/`Degraded` no banco) e virou um único comando
+(`Command::StopAllManaged`): o daemon reaplica a lógica real de `service_stop` em
+**todo** serviço do Rustploy, independente do status atual no banco — cobre o caso de
+um container que está de fato rodando mas cujo status ficou desatualizado. **Escopo
+deliberadamente restrito**: só containers com label `rustploy.managed=true`; nunca
+mexe em containers do mesmo host Docker que não pertençam ao Rustploy.

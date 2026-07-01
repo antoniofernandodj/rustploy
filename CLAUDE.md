@@ -59,6 +59,7 @@ Default master key: `/etc/rustploy/master.key`
 | `shared` | — | Models, protocol types, config structs shared by both sides |
 | `daemon` | `rustployd` | Long-running server: API, DB, Docker, ingress, deploy engine |
 | `client` | `rustploy` | Ratatui TUI that talks to the daemon |
+| `remote-ui` | `rustploy-remote-ui` | glacier-ui (KDL→iced) desktop client, talks to the daemon over RWP (TCP, see below) instead of the local UDS |
 
 ### IPC protocol
 
@@ -73,7 +74,9 @@ Postcard uses varint encoding: small integers and short strings produce fewer by
 - **`api/handlers/`** — one file per command (e.g. `deploy_start.rs`, `project_create.rs`).
 - **`db/`** — SQLite (via `sqlx`) wrappers for projects, services, deployments.
 - **`deploy/executor.rs`** — `DeployExecutor` drives the deploy state machine in a `tokio::spawn`. States: `Pending → ResolvingDeps → PullingImage | CloningRepo → BuildingImage → Staging → HealthcheckPolling → SwappingIn → Draining → Promoting → Live`. Rollback lands at `Failed`.
-- **`docker/`** — bollard wrappers: `images` (pull/build), `containers` (create/start/stop/rename/remove), `networks` (per-project bridge networks named `rp_<project_id_prefix>`).
+- **`docker/`** — bollard wrappers: `images` (pull/build), `containers` (create/start/stop/rename/remove), `networks` (per-project bridge networks named `rp_<project_id_prefix>`). No `volumes.rs` — rustploy never creates named volumes, only bind mounts (`ServiceSpec.volumes`).
+- **`api/handlers/docker_inventory.rs`** — host-wide Docker listing for the Docker tab (`Command::DockerImages/Volumes/Networks`), not just rustploy-managed resources. Images/volumes come from a single `docker system df` call (the only Docker Engine endpoint that computes in-use/reference counts for free); networks are cross-referenced against `list_containers(all: true)` by hand (list-networks never populates its own `Containers` field). Project/service attribution is best-effort: images by tag (`rp_<safe_name>:...` for Git builds, exact string match for registry images), networks by the `rp_net_<project_id_short>` naming convention; volumes get none (no label to key off). Also has `stop_all_managed` (`Command::StopAllManaged`) — stops every rustploy service by replaying `service_stop::handle` for each one regardless of what the DB's status column currently says, so state drift can't leave a container running.
+- **`api/handlers/docker_prune.rs`** — removes unused images/volumes/networks/containers/build cache (`Command::PruneImages/Volumes/Networks/Containers/BuildCache`, all through `Response::PruneResult`).
 - **`ingress/proxy.rs`** — hyper-based reverse proxy; route table is an `arc-swap`-protected `HashMap<domain, upstream>` updated live by the deploy executor.
 - **`event_bus.rs`** — in-process broadcast channel; daemon modules publish `Event` values; `/stream` handler fans them out to connected clients.
 - **`secrets.rs`** — `age`-based encryption; secrets stored by name, referenced in `ServiceSpec.env_vars` as `EnvVarValue::Secret(name)`.
@@ -86,6 +89,17 @@ Postcard uses varint encoding: small integers and short strings produce fewer by
 - **`transport.rs`** — sync UDS client (`std::os::unix::net::UnixStream`, no tokio); exposes `send(Command) → Response` and a blocking stream subscription (run on a dedicated thread).
 - **`ui/mod.rs`** — top-level render dispatcher; delegates to sub-modules by current `View`.
 - **`ui/sidebar.rs`**, **`ui/projects.rs`**, **`ui/service_detail.rs`**, **`ui/deploy_log.rs`**, **`ui/metrics.rs`**, **`ui/settings.rs`** — individual screen renderers.
+
+### remote-ui internals (`crates/remote-ui/src/`)
+
+UI declared in KDL templates (`templates/*.kdl`) and rendered by the published `glacier-ui` crate (see the rule above — never a local `path`/`[patch]` dependency). Run from the workspace root (`cargo run -p remote-ui`): template paths are relative to CWD.
+
+- **`main.rs`** — just the `iced::application(...)` bootstrap; everything else lives in `app.rs` and its children.
+- **`app.rs`** — the iced `App`/`Message` types and the window chrome: the borderless custom titlebar's `window:*` actions (drag/resize/minimize/maximize/close), and window-geometry persistence. Geometry is **queried fresh** (`window::size`/`window::position`) at the moment of closing (`close_and_save`, chained via `Task::then`), not tracked from `Event::Resized`/`Moved` — an earlier event-tracking version reliably saved the window's `min_size` instead of its real size, because an early spurious `Resized` event during the Wayland xdg-shell configure handshake got cached and never overwritten. `window::position` is always `None` on Wayland (the protocol never exposes it to clients — not fixable client-side); size persistence works. `exit_on_close_request(false)` + `Command::CloseRequested` handling means both the titlebar's own close button and an OS/WM-level close request save before actually closing.
+- **`app/store.rs`** — local JSON persistence under `shared::fallback_data_dir()`: `Prefs` (remembered login URL/token) and `WindowState` (remembered size/position, see above).
+- **`app/root.rs`** — `Root`, the single `glacier_ui::Component` that owns connection state and routes every UI action (`Component::update`'s big string match). Several pieces of state need to be visible to the network subscription (which never sees the live `Context`, only what it patches into it) without restarting the stream on every change — the pattern is always an `Arc<Mutex<T>>` field on `Root`, threaded through `PollKey` into `net::poll_stream`: `selected_shared`/`selected_deploy_shared` (which service/deployment's live logs to surface), `deploy_shared: DeployTrack` (the in-flight deploy's `started_at`, for the live elapsed timer), `search_shared` (the topbar search term, used to filter deployments/services/Docker rows).
+- **`app/net.rs`** — `poll_stream` is the long-lived subscription: a 2s `tokio::interval` that re-fetches daemon status/deployments/projects/services/Docker inventory and patches the results into context (each JSON-array key gets a matching `fn foo_json(&[T], search: &str) -> String` builder — `search` filters case-insensitively before serializing), plus an independent 1Hz tick that only recomputes `svc_deploy_elapsed` from the cached `started_at` (no RPC) while a deploy is in flight, gated on the open service matching `deploy_track.service_id` so navigating away doesn't keep ticking a stale timer. `run_command`/`ctx.perform`-style one-shot async functions (`start_deploy`, `stop_all`, `prune_docker_images/volumes/networks`, ...) drive user-triggered actions and return the context pairs to merge.
+- **`templates/`** — `app.kdl` (titlebar + resize handles, switches on `screen`), `login.kdl`, `shell.kdl` (sidebar + topbar, switches on `view`; topbar keeps only the search box, daemon status, Stop All and Disconnect), `home.kdl` (Deployments/Projects/Monitoring/Ingress/Docker/Settings views — Docker has Containers/Images/Volumes/Networks sub-tabs, the last three with a "clear unused" button each), `service.kdl` (service detail, its own sub-tabs). Styled by `styles/app.gss`.
 
 ### Deploy pipeline detail
 
