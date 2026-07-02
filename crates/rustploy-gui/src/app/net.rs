@@ -742,12 +742,18 @@ pub async fn delete_project(
             return with_outcome_toast(vec![("proj_action_msg".into(), msg.clone())], &msg);
         }
     };
-    let msg = match rwp::rpc(&mut conn, Command::ProjectDelete { id }).await {
-        Ok(Response::Ok) => "projeto removido".to_string(),
-        Ok(other) => resp_msg(&other),
-        Err(e) => format!("erro: {e}"),
+    let (msg, ok) = match rwp::rpc(&mut conn, Command::ProjectDelete { id }).await {
+        Ok(Response::Ok) => ("projeto removido".to_string(), true),
+        Ok(other) => (resp_msg(&other), false),
+        Err(e) => (format!("erro: {e}"), false),
     };
     let mut pairs = vec![("proj_action_msg".into(), msg.clone())];
+    // Se a remoção veio de DENTRO do projeto (view=project_services), ele não
+    // existe mais — volta para a grade de projetos. Deletar pela grade já está
+    // em view=projects, então é no-op nesse caso.
+    if ok {
+        pairs.push(("view".into(), "projects".into()));
+    }
     pairs.extend(projects_grid_pairs(&mut conn, &search).await);
     with_outcome_toast(pairs, &msg)
 }
