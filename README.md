@@ -36,10 +36,10 @@ Um único binário (`rustployd`) substitui o PaaS inteiro. O cliente TUI (`rustp
 ## Clientes
 
 Além do TUI (`rustploy`, interface primária), existe um cliente desktop GUI opcional,
-**`remote-ui`** (binário `rustploy-remote-ui`, crate `crates/remote-ui`), construído com
+**`rustploy-gui`** (binário `rustploy-gui`, crate `crates/rustploy-gui`), construído com
 o framework próprio `glacier-ui` (UI declarativa em KDL → iced). Conecta ao daemon via
 **RWP** (protocolo administrativo sobre TCP, `rwp://`/`rwps://`) em vez do UDS local — não
-precisa rodar na mesma máquina do daemon. `cargo run -p remote-ui` a partir da raiz do
+precisa rodar na mesma máquina do daemon. `cargo run -p rustploy-gui` a partir da raiz do
 workspace.
 
 ## Não-objetivos
@@ -157,7 +157,7 @@ crates/
 ├── shared/     # Command, Event, Response, modelos de domínio, RustployConfig
 ├── daemon/     # rustployd — API Axum/UDS, SQLite (sqlx), Docker, ingress, deploy engine
 ├── client/     # rustploy — TUI Ratatui (interface primária)
-└── remote-ui/  # rustploy-remote-ui — cliente GUI opcional (glacier-ui/KDL→iced), fala RWP/TCP
+└── rustploy-gui/  # rustploy-gui — cliente GUI opcional (glacier-ui/KDL→iced), fala RWP/TCP
 ```
 
 Comunicação: HTTP sobre Unix Domain Socket com payload postcard (serialização binária compacta via varint).  

@@ -8,12 +8,15 @@ use bollard::{
 use shared::Response as RpResponse;
 
 pub async fn prune_containers(state: AppState) -> RpResponse {
-    match state
+    let result = state
         .docker
         .inner
         .prune_containers(None::<PruneContainersOptions<String>>)
-        .await
-    {
+        .await;
+    // Removing containers changes image in-use counts and network attachments.
+    state.docker_cache.df.invalidate().await;
+    state.docker_cache.networks.invalidate().await;
+    match result {
         Ok(r) => RpResponse::PruneResult {
             count: r.containers_deleted.map(|v| v.len() as u32).unwrap_or(0),
             reclaimed_bytes: r.space_reclaimed.unwrap_or(0) as u64,
@@ -31,12 +34,13 @@ pub async fn prune_volumes(state: AppState, all: bool) -> RpResponse {
     if all {
         filters.insert("all", vec!["true"]);
     }
-    match state
+    let result = state
         .docker
         .inner
         .prune_volumes(Some(PruneVolumesOptions { filters }))
-        .await
-    {
+        .await;
+    state.docker_cache.df.invalidate().await;
+    match result {
         Ok(r) => RpResponse::PruneResult {
             count: r.volumes_deleted.map(|v| v.len() as u32).unwrap_or(0),
             reclaimed_bytes: r.space_reclaimed.unwrap_or(0) as u64,
@@ -53,12 +57,13 @@ pub async fn prune_images(state: AppState, all: bool) -> RpResponse {
     if all {
         filters.insert("dangling", vec!["false"]);
     }
-    match state
+    let result = state
         .docker
         .inner
         .prune_images(Some(PruneImagesOptions { filters }))
-        .await
-    {
+        .await;
+    state.docker_cache.df.invalidate().await;
+    match result {
         Ok(r) => RpResponse::PruneResult {
             count: r.images_deleted.map(|v| v.len() as u32).unwrap_or(0),
             reclaimed_bytes: r.space_reclaimed.unwrap_or(0) as u64,
@@ -111,12 +116,13 @@ fn parse_reclaimed_space(output: &str) -> u64 {
 }
 
 pub async fn prune_networks(state: AppState) -> RpResponse {
-    match state
+    let result = state
         .docker
         .inner
         .prune_networks(None::<PruneNetworksOptions<String>>)
-        .await
-    {
+        .await;
+    state.docker_cache.networks.invalidate().await;
+    match result {
         Ok(r) => RpResponse::PruneResult {
             count: r.networks_deleted.map(|v| v.len() as u32).unwrap_or(0),
             reclaimed_bytes: 0,

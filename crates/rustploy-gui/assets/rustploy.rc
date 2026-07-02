@@ -1,0 +1,3 @@
+// Windows resource script: embeds the application icon into the .exe so it
+// shows in Explorer and the taskbar. Icon id 1 is the app default icon.
+1 ICON "rustploy.ico"

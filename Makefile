@@ -15,7 +15,7 @@ export CARGO_TERM_COLOR := never
 # ── Build ──────────────────────────────────────────────────────────────────────
 
 .PHONY: build
-build: ## Compila daemon e client em modo release
+build: ## Compila daemon, tui e gui em modo release
 	cargo build --release --workspace
 
 .PHONY: check
@@ -26,8 +26,8 @@ check: ## Verifica o workspace sem linkar (mais rápido)
 dev-daemon: ## Roda o daemon em modo debug (para desenvolvimento)
 	cargo run -p daemon
 
-.PHONY: dev-client
-dev-client: ## Roda o TUI client em modo debug
+.PHONY: dev-tui
+dev-tui: ## Roda o TUI tui em modo debug
 	cargo run -p client
 
 # ── Qualidade ─────────────────────────────────────────────────────────────────
@@ -51,6 +51,69 @@ clippy: ## Roda o clippy em todo o workspace
 .PHONY: lint
 lint: fmt-check clippy ## fmt-check + clippy
 
+# ── Cross-compile (Windows) ───────────────────────────────────────────────────
+
+WIN_TARGET   := x86_64-pc-windows-msvc
+WIN_BIN      := target/$(WIN_TARGET)/release/rustploy-gui.exe
+
+.PHONY: rustploy-gui-windows
+rustploy-gui-windows: ## Compila o rustploy-gui para Windows (.exe) via cargo-xwin
+	@command -v cargo-xwin >/dev/null 2>&1 || \
+		(echo "$(BOLD)Instalando cargo-xwin...$(RESET)" && cargo install cargo-xwin)
+	@rustup target list --installed | grep -q '^$(WIN_TARGET)$$' || \
+		rustup target add $(WIN_TARGET)
+	cargo xwin build --release -p rustploy-gui --target $(WIN_TARGET)
+	@echo ""
+	@echo "$(GREEN)Executável Windows gerado:$(RESET)"
+	@ls -lh $(WIN_BIN)
+
+WIN_DIST_DIR := dist/rustploy-gui-windows
+WIN_DIST_ZIP := dist/rustploy-gui-windows.zip
+
+.PHONY: rustploy-gui-windows-dist
+rustploy-gui-windows-dist: ## Pacote .zip do rustploy-gui p/ Windows (apaga dist e regera)
+	@command -v cargo-xwin >/dev/null 2>&1 || \
+		(echo "$(BOLD)Instalando cargo-xwin...$(RESET)" && cargo install cargo-xwin)
+	@rustup target list --installed | grep -q '^$(WIN_TARGET)$$' || \
+		rustup target add $(WIN_TARGET)
+	@command -v zip >/dev/null 2>&1 || \
+		(echo "$(BOLD)Instale 'zip' (sudo apt install zip)$(RESET)" && exit 1)
+	# CRT estática (+crt-static) para não depender do Visual C++ Redistributable
+	# na máquina Windows de destino. O ícone do .exe é embutido pelo build.rs.
+	RUSTFLAGS="-C target-feature=+crt-static" \
+		cargo xwin build --release -p rustploy-gui --target $(WIN_TARGET)
+	@echo "$(BOLD)Apagando dist/ e montando $(WIN_DIST_DIR)...$(RESET)"
+	@rm -rf dist
+	@mkdir -p $(WIN_DIST_DIR)/crates/rustploy-gui $(WIN_DIST_DIR)/crates/shared/templates
+	@cp $(WIN_BIN) $(WIN_DIST_DIR)/
+	# Assets lidos em runtime por caminho relativo ao CWD (o exe faz chdir p/ a
+	# própria pasta no startup — ver src/assets.rs): mesma estrutura de pastas.
+	@cp -r crates/rustploy-gui/templates $(WIN_DIST_DIR)/crates/rustploy-gui/
+	@cp -r crates/rustploy-gui/styles    $(WIN_DIST_DIR)/crates/rustploy-gui/
+	@mkdir -p $(WIN_DIST_DIR)/crates/rustploy-gui/assets
+	@cp -r crates/rustploy-gui/assets/icons $(WIN_DIST_DIR)/crates/rustploy-gui/assets/
+	@cp -r crates/shared/templates/blueprints $(WIN_DIST_DIR)/crates/shared/templates/
+	@printf 'Descompacte e rode rustploy-gui.exe (duplo-clique).\r\n' \
+		> $(WIN_DIST_DIR)/LEIA-ME.txt
+	@cd dist && zip -qr rustploy-gui-windows.zip rustploy-gui-windows
+	@echo ""
+	@echo "$(GREEN)Pacote Windows gerado:$(RESET)"
+	@ls -lh $(WIN_DIST_ZIP)
+
+.PHONY: deb-gui
+deb-gui: ## Pacote .deb do remote-gui p/ Linux (apaga dist e regera)
+	@command -v cargo-deb >/dev/null 2>&1 || \
+		(echo "$(BOLD)Instalando cargo-deb...$(RESET)" && cargo install cargo-deb)
+	@echo "$(BOLD)Apagando dist/ e gerando .deb do rustploy-gui...$(RESET)"
+	@rm -rf dist
+	@mkdir -p dist
+	# --separate-debug-symbols mantém o binário enxuto; assets vão p/
+	# /usr/share/rustploy e o .desktop/ícones p/ o desktop (ver Cargo.toml).
+	cargo deb -p rustploy-gui -o dist/
+	@echo ""
+	@echo "$(GREEN)Pacote Linux (.deb) gerado:$(RESET)"
+	@ls -lh dist/*.deb
+
 # ── Packaging ─────────────────────────────────────────────────────────────────
 
 .PHONY: deb-daemon
@@ -61,14 +124,6 @@ deb-daemon: ## Compila e gera apenas o .deb do daemon
 	@echo "$(GREEN)Pacote gerado:$(RESET)"
 	@ls -lh target/debian/rustployd_*.deb
 
-.PHONY: deb
-deb: build ## Gera os pacotes .deb (daemon + client + remote-client)
-	cargo deb -p daemon --no-build
-	cargo deb -p client --no-build
-	cargo deb -p remote-client --no-build
-	@echo ""
-	@echo "$(GREEN)Pacotes gerados:$(RESET)"
-	@ls -lh target/debian/*.deb
 
 .PHONY: install-daemon
 install-daemon: deb-daemon ## Compila, empacota e instala apenas o daemon
@@ -82,22 +137,17 @@ install: deb ## Instala os pacotes .deb via dpkg
 	sudo dpkg -i $$(ls target/debian/rustployd_*.deb       | tail -1)
 	sudo dpkg -i $$(ls target/debian/rustploy_*.deb        | tail -1)
 	sudo dpkg -i $$(ls target/debian/rustploy-remote_*.deb | tail -1)
+	@command -v update-desktop-database >/dev/null 2>&1 && sudo update-desktop-database /usr/share/applications || true
 
-.PHONY: install-client
-install-client: ## Instala apenas o client (requer make deb antes)
+.PHONY: install-tui
+install-tui: ## Instala apenas o tui (requer make deb antes)
 	sudo dpkg -i $$(ls target/debian/rustploy_*.deb | tail -1)
 
-.PHONY: deb-remote-client
-deb-remote-client: ## Compila e gera apenas o .deb do remote-client
-	cargo build --release -p remote-client
-	cargo deb -p remote-client --no-build
-	@echo ""
-	@echo "$(GREEN)Pacote gerado:$(RESET)"
-	@ls -lh target/debian/rustploy-remote_*.deb
-
-.PHONY: install-remote-client
-install-remote-client: deb-remote-client ## Compila, empacota e instala o remote-client
-	sudo dpkg -i $$(ls target/debian/rustploy-remote_*.deb | tail -1)
+.PHONY: install-gui
+install-gui: deb-gui ## Compila, empacota e instala o rustploy-gui
+	sudo dpkg -i $$(ls ./dist/rustploy-gui_*.deb | tail -1)
+	sudo rm -f $$(ls ./dist/rustploy-gui_*.deb | tail -1)
+	@command -v update-desktop-database >/dev/null 2>&1 && sudo update-desktop-database /usr/share/applications || true
 
 .PHONY: uninstall
 uninstall: ## Remove os pacotes instalados

@@ -27,17 +27,17 @@ cargo check --workspace
 
 The daemon binary is `rustployd`; the client binary is `rustploy`.
 
-## glacier-ui (dependência da crate remote-ui)
+## glacier-ui (dependência da crate rustploy-gui)
 
-A crate `remote-ui` consome `glacier-ui` **do crates.io** (versão fixada no `Cargo.toml`), não o código-fonte local em `~/Development/rust/glacier-ui`.
+A crate `rustploy-gui` consome `glacier-ui` **do crates.io** (versão fixada no `Cargo.toml`), não o código-fonte local em `~/Development/rust/glacier-ui`.
 
 **Regra (sempre):** quando uma mudança no `glacier-ui` for necessária (renomear um item público, corrigir bug, adicionar recurso), o fluxo é **sempre publicar uma nova versão e subir a dependência** — nunca usar `[patch.crates-io]` ou dependência por `path` para contornar:
 
 1. Aplicar a mudança em `~/Development/rust/glacier-ui`.
 2. Bump da versão em `glacier-ui/Cargo.toml` (ex.: `0.3.1` → `0.3.2`).
 3. `cargo publish` (validar antes com `cargo publish --dry-run`).
-4. Subir a versão de `glacier-ui` no `crates/remote-ui/Cargo.toml` para a recém-publicada.
-5. `cargo check -p remote-ui` para confirmar.
+4. Subir a versão de `glacier-ui` no `crates/rustploy-gui/Cargo.toml` para a recém-publicada.
+5. `cargo check -p rustploy-gui` para confirmar.
 
 ## Configuration
 
@@ -59,7 +59,7 @@ Default master key: `/etc/rustploy/master.key`
 | `shared` | — | Models, protocol types, config structs shared by both sides |
 | `daemon` | `rustployd` | Long-running server: API, DB, Docker, ingress, deploy engine |
 | `client` | `rustploy` | Ratatui TUI that talks to the daemon |
-| `remote-ui` | `rustploy-remote-ui` | glacier-ui (KDL→iced) desktop client, talks to the daemon over RWP (TCP, see below) instead of the local UDS |
+| `rustploy-gui` | `rustploy-gui` | glacier-ui (KDL→iced) desktop client, talks to the daemon over RWP (TCP, see below) instead of the local UDS |
 
 ### IPC protocol
 
@@ -90,9 +90,9 @@ Postcard uses varint encoding: small integers and short strings produce fewer by
 - **`ui/mod.rs`** — top-level render dispatcher; delegates to sub-modules by current `View`.
 - **`ui/sidebar.rs`**, **`ui/projects.rs`**, **`ui/service_detail.rs`**, **`ui/deploy_log.rs`**, **`ui/metrics.rs`**, **`ui/settings.rs`** — individual screen renderers.
 
-### remote-ui internals (`crates/remote-ui/src/`)
+### rustploy-gui internals (`crates/rustploy-gui/src/`)
 
-UI declared in KDL templates (`templates/*.kdl`) and rendered by the published `glacier-ui` crate (see the rule above — never a local `path`/`[patch]` dependency). Run from the workspace root (`cargo run -p remote-ui`): template paths are relative to CWD.
+UI declared in KDL templates (`templates/*.kdl`) and rendered by the published `glacier-ui` crate (see the rule above — never a local `path`/`[patch]` dependency). Run from the workspace root (`cargo run -p rustploy-gui`): template paths are relative to CWD.
 
 - **`main.rs`** — just the `iced::application(...)` bootstrap; everything else lives in `app.rs` and its children.
 - **`app.rs`** — the iced `App`/`Message` types and the window chrome: the borderless custom titlebar's `window:*` actions (drag/resize/minimize/maximize/close), and window-geometry persistence. Geometry is **queried fresh** (`window::size`/`window::position`) at the moment of closing (`close_and_save`, chained via `Task::then`), not tracked from `Event::Resized`/`Moved` — an earlier event-tracking version reliably saved the window's `min_size` instead of its real size, because an early spurious `Resized` event during the Wayland xdg-shell configure handshake got cached and never overwritten. `window::position` is always `None` on Wayland (the protocol never exposes it to clients — not fixable client-side); size persistence works. `exit_on_close_request(false)` + `Command::CloseRequested` handling means both the titlebar's own close button and an OS/WM-level close request save before actually closing.

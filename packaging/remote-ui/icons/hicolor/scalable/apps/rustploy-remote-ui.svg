@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- background -->
+  <rect width="64" height="64" rx="12" fill="#1b1d22"/>
+  <!-- rocket body -->
+  <path d="M32 8 C32 8 44 18 44 34 L32 44 L20 34 C20 18 32 8 32 8Z" fill="#4ccfe6"/>
+  <!-- rocket window -->
+  <circle cx="32" cy="28" r="5" fill="#1b1d22"/>
+  <circle cx="32" cy="28" r="3" fill="#4ccfe6" opacity="0.5"/>
+  <!-- fins -->
+  <path d="M20 34 L14 44 L22 40Z" fill="#3ab8cf"/>
+  <path d="M44 34 L50 44 L42 40Z" fill="#3ab8cf"/>
+  <!-- exhaust -->
+  <ellipse cx="32" cy="45" rx="5" ry="3" fill="#e6a040" opacity="0.9"/>
+  <ellipse cx="32" cy="49" rx="3" ry="4" fill="#e67840" opacity="0.6"/>
+</svg>

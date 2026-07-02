@@ -7,17 +7,17 @@
 
 ## 0. Convenções de Trabalho
 
-### glacier-ui (dependência da crate `remote-ui`)
+### glacier-ui (dependência da crate `rustploy-gui`)
 
-A crate `remote-ui` consome `glacier-ui` **do crates.io** (versão fixada no `Cargo.toml`), não o código-fonte local em `~/Development/rust/glacier-ui`.
+A crate `rustploy-gui` consome `glacier-ui` **do crates.io** (versão fixada no `Cargo.toml`), não o código-fonte local em `~/Development/rust/glacier-ui`.
 
 **Regra (sempre):** quando uma mudança no `glacier-ui` for necessária (renomear um item público, corrigir bug, adicionar recurso), o fluxo é **sempre publicar uma nova versão e subir a dependência** — nunca usar `[patch.crates-io]` ou dependência por `path` para contornar:
 
 1. Aplicar a mudança em `~/Development/rust/glacier-ui`.
 2. Bump da versão em `glacier-ui/Cargo.toml` (ex.: `0.3.1` → `0.3.2`).
 3. `cargo publish` (validar antes com `cargo publish --dry-run`).
-4. Subir a versão de `glacier-ui` no `crates/remote-ui/Cargo.toml` para a recém-publicada.
-5. `cargo check -p remote-ui` para confirmar.
+4. Subir a versão de `glacier-ui` no `crates/rustploy-gui/Cargo.toml` para a recém-publicada.
+5. `cargo check -p rustploy-gui` para confirmar.
 
 ---
 
@@ -1141,15 +1141,15 @@ Placeholder para histórico de patches de configuração (v2).
 
 ---
 
-## 17. `remote-ui` — cliente GUI (glacier-ui) e funcionalidades recentes
+## 17. `rustploy-gui` — cliente GUI (glacier-ui) e funcionalidades recentes
 
 > **Nota de desatualização:** este documento (§1–16) descreve a especificação original,
 > anterior à implementação real — por exemplo, o banco embarcado hoje é **SQLite via
-> `sqlx`**, não SurrealDB (ver `CLAUDE.md`), e o cliente GUI `remote-ui` (crate
-> `crates/remote-ui`, binário `rustploy-remote-ui`) nem existia quando §1–16 foram
+> `sqlx`**, não SurrealDB (ver `CLAUDE.md`), e o cliente GUI `rustploy-gui` (crate
+> `crates/rustploy-gui`, binário `rustploy-gui`) nem existia quando §1–16 foram
 > escritas. Esta seção documenta apenas o que foi implementado de fato nele.
 
-`remote-ui` é um cliente desktop separado do TUI (`client`), construído com o framework
+`rustploy-gui` é um cliente desktop separado do TUI (`client`), construído com o framework
 próprio **glacier-ui** (UI declarativa em KDL → iced). Conecta ao daemon via **RWP**
 (protocolo administrativo remoto sobre TCP, `rwp://`/`rwps://` — distinto do UDS local
 usado pelo TUI), não precisa rodar na mesma máquina do daemon.
@@ -1167,7 +1167,7 @@ de deploy, é só stop/start de container).
 ### 17.2 Lembrar tamanho/posição da janela
 
 A janela reabre no último tamanho salvo. Persistido em
-`~/.local/share/rustploy/remote-ui-window.json`, lido uma vez antes de a janela ser
+`~/.local/share/rustploy/rustploy-gui-window.json`, lido uma vez antes de a janela ser
 criada e salvo consultando o tamanho/posição **reais** no momento exato do fechamento
 (não um valor cacheado de eventos anteriores — essa abordagem inicial mostrou-se não
 confiável neste ambiente Wayland/GNOME: um evento `Resized` espúrio durante a negociação

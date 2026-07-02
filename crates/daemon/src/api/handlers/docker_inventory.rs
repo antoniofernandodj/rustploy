@@ -80,13 +80,35 @@ impl ServiceIndex {
 /// Lists every image on the host via `docker system df`, the one Docker
 /// Engine endpoint that always computes `Containers` (in-use count) — the
 /// plain image-list endpoint leaves it `-1` unless separately requested.
+/// Served from the TTL cache (`state.docker_cache.df`) so the 2s status poll
+/// doesn't re-run `docker system df` every tick.
 pub async fn list_images(state: AppState) -> RpResponse {
-    let df = match state.docker.inner.df().await {
-        Ok(d) => d,
-        Err(e) => return RpResponse::err("DockerError", e.to_string()),
-    };
-    let idx = ServiceIndex::build(&state).await;
-    let infos: Vec<DockerImageInfo> = df
+    match state.docker_cache.df.get_or_refresh(|| compute_df_inventory(&state)).await {
+        Ok((images, _)) => RpResponse::DockerImages(images),
+        Err(e) => RpResponse::err("DockerError", e),
+    }
+}
+
+/// Lists every volume on the host via `docker system df`, which (unlike the
+/// plain volume-list endpoint) populates `UsageData` — the reference count
+/// that determines whether a volume is "in use". Shares the cached `df` snapshot
+/// with [`list_images`].
+pub async fn list_volumes(state: AppState) -> RpResponse {
+    match state.docker_cache.df.get_or_refresh(|| compute_df_inventory(&state)).await {
+        Ok((_, volumes)) => RpResponse::DockerVolumes(volumes),
+        Err(e) => RpResponse::err("DockerError", e),
+    }
+}
+
+/// Runs `docker system df` once and turns it into both the image and volume
+/// inventories (ownership attributed from the current DB state). The cache
+/// miss-path of [`list_images`]/[`list_volumes`].
+async fn compute_df_inventory(
+    state: &AppState,
+) -> Result<(Vec<DockerImageInfo>, Vec<DockerVolumeInfo>), String> {
+    let df = state.docker.inner.df().await.map_err(|e| e.to_string())?;
+    let idx = ServiceIndex::build(state).await;
+    let images: Vec<DockerImageInfo> = df
         .images
         .unwrap_or_default()
         .into_iter()
@@ -103,18 +125,7 @@ pub async fn list_images(state: AppState) -> RpResponse {
             }
         })
         .collect();
-    RpResponse::DockerImages(infos)
-}
-
-/// Lists every volume on the host via `docker system df`, which (unlike the
-/// plain volume-list endpoint) populates `UsageData` — the reference count
-/// that determines whether a volume is "in use".
-pub async fn list_volumes(state: AppState) -> RpResponse {
-    let df = match state.docker.inner.df().await {
-        Ok(d) => d,
-        Err(e) => return RpResponse::err("DockerError", e.to_string()),
-    };
-    let infos: Vec<DockerVolumeInfo> = df
+    let volumes: Vec<DockerVolumeInfo> = df
         .volumes
         .unwrap_or_default()
         .into_iter()
@@ -130,25 +141,32 @@ pub async fn list_volumes(state: AppState) -> RpResponse {
             }
         })
         .collect();
-    RpResponse::DockerVolumes(infos)
+    Ok((images, volumes))
 }
 
 /// Lists every network on the host. `in_use` is computed by cross-referencing
 /// every container's attached networks (by name) — the plain network-list
 /// endpoint never populates its own `Containers` field (only `network
 /// inspect` does, and doing that per-network would be an N+1 round trip).
+/// Served from the TTL cache (`state.docker_cache.networks`).
 pub async fn list_networks(state: AppState) -> RpResponse {
+    match state.docker_cache.networks.get_or_refresh(|| compute_networks(&state)).await {
+        Ok(infos) => RpResponse::DockerNetworks(infos),
+        Err(e) => RpResponse::err("DockerError", e),
+    }
+}
+
+/// The cache miss-path of [`list_networks`]: lists networks and cross-references
+/// container attachments to compute each network's in-use count.
+async fn compute_networks(state: &AppState) -> Result<Vec<DockerNetworkInfo>, String> {
     use bollard::{container::ListContainersOptions, network::ListNetworksOptions};
 
-    let networks = match state
+    let networks = state
         .docker
         .inner
         .list_networks(None::<ListNetworksOptions<String>>)
         .await
-    {
-        Ok(n) => n,
-        Err(e) => return RpResponse::err("DockerError", e.to_string()),
-    };
+        .map_err(|e| e.to_string())?;
 
     let containers = state
         .docker
@@ -165,8 +183,8 @@ pub async fn list_networks(state: AppState) -> RpResponse {
         }
     }
 
-    let idx = ServiceIndex::build(&state).await;
-    let infos: Vec<DockerNetworkInfo> = networks
+    let idx = ServiceIndex::build(state).await;
+    Ok(networks
         .into_iter()
         .map(|n| {
             let name = n.name.unwrap_or_default();
@@ -181,8 +199,7 @@ pub async fn list_networks(state: AppState) -> RpResponse {
                 container_count,
             }
         })
-        .collect();
-    RpResponse::DockerNetworks(infos)
+        .collect())
 }
 
 /// Stops every rustploy-managed service, regardless of what the DB's status

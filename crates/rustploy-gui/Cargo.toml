@@ -1,0 +1,63 @@
+[package]
+name = "rustploy-gui"
+version = "0.1.0"
+edition = "2024"
+default-run = "rustploy-gui"
+
+[[bin]]
+name = "rustploy-gui"
+path = "src/main.rs"
+
+[dependencies]
+# Declarative UI engine (published; KDL templates + async bridge + widgets).
+glacier-ui = "0.4.12"
+
+shared = { path = "../shared" }
+
+# GUI — features must stay compatible with glacier-ui's iced.
+iced = { version = "0.14", features = ["image", "svg", "tokio"] }
+
+# Async / networking (runs on iced's tokio executor)
+tokio = { version = "1", features = ["net", "sync", "macros", "io-util", "rt", "time"] }
+rustls = { version = "0.23", features = ["ring"] }
+tokio-rustls = "0.26"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+postcard = { version = "1", features = ["alloc"] }
+
+# Errors / Time
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+
+[build-dependencies]
+# Embeds the Windows .exe icon (via the RC tool; llvm-rc on cross builds).
+embed-resource = "2.4"
+
+# ── Debian package (cargo deb -p rustploy-gui) ───────────────────────────────────
+# Installs the binary to /usr/bin, all runtime assets under /usr/share/rustploy
+# preserving the `crates/…` prefix the templates reference (the app chdir's here
+# at startup — see src/assets.rs), plus the .desktop entry and hicolor icons so
+# the app shows up in the applications menu and the dock/taskbar.
+[package.metadata.deb]
+name                 = "rustploy-gui"
+maintainer           = "Antonio Fernando <antoniofernando2723@gmail.com>"
+copyright            = "2026, Antonio Fernando"
+extended-description = "Rustploy — desktop client (glacier-ui) for the Rustploy PaaS daemon"
+section              = "admin"
+priority             = "optional"
+maintainer-scripts   = "../../packaging/rustploy-gui"
+assets = [
+    ["target/release/rustploy-gui", "usr/bin/rustploy-gui", "755"],
+
+    # Runtime assets — keep the `crates/…` layout the KDL paths expect.
+    ["templates/**/*",            "usr/share/rustploy/crates/rustploy-gui/templates/", "644"],
+    ["styles/**/*",               "usr/share/rustploy/crates/rustploy-gui/styles/",    "644"],
+    ["assets/icons/**/*",         "usr/share/rustploy/crates/rustploy-gui/assets/icons/", "644"],
+    ["../shared/templates/blueprints/**/*", "usr/share/rustploy/crates/shared/templates/blueprints/", "644"],
+
+    # Desktop integration.
+    ["../../packaging/rustploy-gui/rustploy-gui.desktop", "usr/share/applications/", "644"],
+    ["../../packaging/rustploy-gui/icons/hicolor/**/*",         "usr/share/icons/hicolor/", "644"],
+]
