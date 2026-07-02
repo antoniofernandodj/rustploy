@@ -399,11 +399,19 @@ async fn fetch_service_detail_inner(
         ("svc_domain".into(), spec.domain.clone().unwrap_or_else(|| "—".into())),
         ("svc_tls".into(), if spec.tls_enabled { "enabled" } else { "disabled" }.into()),
         ("svc_replicas".into(), spec.replicas.to_string()),
-        // Docker DNS name of the live container, resolvable by any other
-        // service in the same project (they share the `rp_net_<project_id>`
-        // bridge network) — the value to paste into another service's env
-        // vars (e.g. `API_URL=rp_api:3000`) for internal-only communication.
-        ("svc_internal_url".into(), format!("rp_{}:{}", spec.safe_name(), spec.port)),
+        // Public URL served by the ingress: scheme from `tls_enabled`, host
+        // from the configured domain. `—` when there's no domain (the service
+        // isn't exposed outside the box).
+        ("svc_external_url".into(), external_url(spec.domain.as_deref(), spec.tls_enabled)),
+        // Internal connection URL, resolvable by any other service in the same
+        // project (they share the `rp_net_<project_id>` bridge network — the
+        // container/alias is `rp_<safe_name>` for both Application and Compose
+        // services). The scheme comes from `db_kind` (postgres://, amqp://,
+        // nats://, …) so it's a complete, copy-pasteable URL; plain web
+        // services fall back to `http://`, and Kafka is host:port with no
+        // scheme (the bootstrap-servers format). Paste into another service's
+        // env vars (e.g. `API_URL=…`).
+        ("svc_internal_url".into(), internal_url(spec.db_kind.as_deref(), &spec.safe_name(), spec.port)),
         ("svc_db_kind".into(), spec.db_kind.clone().unwrap_or_else(|| "—".into())),
         ("svc_hc".into(), healthcheck_summary(&spec.healthcheck)),
         ("svc_run_command".into(), spec.run_command.clone().unwrap_or_else(|| "—".into())),
@@ -1433,6 +1441,45 @@ pub fn oauth_redirect_uri(domain: &str) -> String {
         "<configure o domínio em Web Server>/oauth/gitea/callback".to_string()
     } else {
         format!("{d}/oauth/gitea/callback")
+    }
+}
+
+/// Full internal connection URL for a service reachable at `rp_<safe>:<port>`
+/// on the project network. Most kinds get a scheme prefix so the value is a
+/// ready-to-paste connection string; Kafka is the exception — its clients take
+/// a plain `host:port` bootstrap address, not a URL.
+fn internal_url(db_kind: Option<&str>, safe_name: &str, port: u16) -> String {
+    let host = format!("rp_{safe_name}:{port}");
+    match internal_scheme(db_kind) {
+        Some(scheme) => format!("{scheme}://{host}"),
+        None => host,
+    }
+}
+
+/// Scheme for a service's internal connection URL, keyed off `db_kind`.
+/// Returns `None` for kinds that address by bare `host:port` (Kafka).
+/// Database/broker services get their protocol scheme so the URL is directly
+/// usable as a connection string; everything else is assumed to speak HTTP.
+fn internal_scheme(db_kind: Option<&str>) -> Option<&'static str> {
+    match db_kind.map(str::to_ascii_lowercase).as_deref() {
+        Some("postgres") | Some("postgresql") => Some("postgres"),
+        Some("mysql") | Some("mariadb") => Some("mysql"),
+        Some("redis") => Some("redis"),
+        Some("mongodb") | Some("mongo") => Some("mongodb"),
+        Some("rabbitmq") => Some("amqp"),
+        Some("nats") => Some("nats"),
+        // Kafka: bootstrap servers are bare `host:port`, no URL scheme.
+        Some("kafka") => None,
+        _ => Some("http"),
+    }
+}
+
+/// Public ingress URL for a service: `{https|http}://{domain}`, or `—` when no
+/// domain is configured (the service isn't reachable from outside the box).
+fn external_url(domain: Option<&str>, tls: bool) -> String {
+    match domain.map(str::trim).filter(|d| !d.is_empty()) {
+        Some(d) => format!("{}://{}", if tls { "https" } else { "http" }, d.trim_end_matches('/')),
+        None => "—".to_string(),
     }
 }
 

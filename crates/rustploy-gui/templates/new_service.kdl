@@ -24,6 +24,7 @@ Column class="content" {
       Column class="kv_list" {
         PickerRow title="Application" subtitle="Web app via Git ou imagem" button_label="Selecionar ›" action="ns_kind:application"
         PickerRow title="Database" subtitle="Banco de dados gerenciado" button_label="Selecionar ›" action="ns_kind:database"
+        PickerRow title="Broker" subtitle="Mensageria: Kafka, RabbitMQ, NATS" button_label="Selecionar ›" action="ns_kind:broker"
         PickerRow title="Compose" subtitle="Stack Docker Compose" button_label="Selecionar ›" action="ns_kind:compose"
         PickerRow title="Template" subtitle="A partir de um preset" button_label="Selecionar ›" action="ns_kind:template"
       }
@@ -40,6 +41,20 @@ Column class="content" {
           subtitle="{d.image}"
           button_label="Selecionar ›"
           action="ns_db:{d.id}"
+      }
+    }
+  }
+
+  // ── Passo 2 (Broker): escolha do broker ────────────────────────────
+  if cond="{ns_step}" equals="pick_broker" {
+    Column class="form_panel" {
+      Text "ESCOLHA O BROKER" class="label_cap"
+      Column class="kv_list" {
+        PickerRow for-each="ns_brokers" var="b"
+          title="{b.label}"
+          subtitle="{b.image}"
+          button_label="Selecionar ›"
+          action="ns_broker:{b.id}"
       }
     }
   }

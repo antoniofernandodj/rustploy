@@ -38,8 +38,10 @@ pub struct ServiceSpec {
     pub run_command: Option<String>,
     #[serde(default)]
     pub run_args: Vec<String>,
-    /// Tipo de banco de dados (postgres | mongodb | mariadb | mysql | redis).
-    /// Controla a aba Connection no painel e a geração de internal connection URL.
+    /// Tipo de serviço gerenciado — banco (postgres | mongodb | mariadb |
+    /// mysql | redis) ou broker (kafka | rabbitmq | nats). Controla a aba
+    /// Connection no painel e a geração da internal connection URL (scheme por
+    /// tipo: postgres://, amqp://, nats://, Kafka sem scheme).
     #[serde(default)]
     pub db_kind: Option<String>,
 }

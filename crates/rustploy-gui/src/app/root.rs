@@ -404,6 +404,27 @@ impl Root {
         ctx.set("ns_step", "db_form");
     }
 
+    /// Pre-fills the (reused) database form for the picked broker. Brokers ride
+    /// the same `db_form` step and `ns_db_*` context keys as databases — only
+    /// the visibility flags differ (no db name / root pw / replica; a user only
+    /// for RabbitMQ). The picked kind lives in `ns_db_kind`, so `ns_create`/
+    /// `ns_back` tell broker from database via `BrokerKind::from_str`.
+    fn ns_pick_broker(ctx: &mut Context, broker: super::wizard::BrokerKind) {
+        ctx.set("ns_db_kind", broker.kind_id());
+        ctx.set("ns_db_label", broker.label());
+        ctx.set("ns_image", broker.default_image());
+        ctx.set("ns_db_name", "");
+        ctx.set("ns_db_user", broker.default_user());
+        ctx.set("ns_db_password", super::wizard::token_urlsafe(22));
+        ctx.set("ns_db_root_password", "");
+        ctx.set("ns_use_replica", "false");
+        ctx.set("ns_db_has_dbname", bool_str(false));
+        ctx.set("ns_db_has_user", bool_str(broker.has_user()));
+        ctx.set("ns_db_has_rootpw", bool_str(false));
+        ctx.set("ns_db_has_replica", bool_str(false));
+        ctx.set("ns_step", "db_form");
+    }
+
     /// Loads the picked template into the form step: default service name and
     /// one `ns_tv_<idx>` context key per configurable variable (the KDL's
     /// `ForEach` binds each input to its key by interpolation).
@@ -428,10 +449,19 @@ impl Root {
     fn ns_back(ctx: &mut Context) {
         let step = ctx.get("ns_step").cloned().unwrap_or_default();
         match step.as_str() {
-            "pick_db" | "app_form" | "compose_form" | "pick_template" => {
+            "pick_db" | "pick_broker" | "app_form" | "compose_form" | "pick_template" => {
                 ctx.set("ns_step", "pick_type");
             }
-            "db_form" => ctx.set("ns_step", "pick_db"),
+            // O `db_form` é compartilhado por bancos e brokers; volta para o
+            // picker de origem conforme o tipo escolhido (gravado em ns_db_kind).
+            "db_form" => {
+                let kind = ctx.get("ns_db_kind").cloned().unwrap_or_default();
+                if super::wizard::BrokerKind::from_str(&kind).is_some() {
+                    ctx.set("ns_step", "pick_broker");
+                } else {
+                    ctx.set("ns_step", "pick_db");
+                }
+            }
             "template_form" => ctx.set("ns_step", "pick_template"),
             // No primeiro passo, voltar = sair do wizard.
             _ => {
@@ -472,7 +502,10 @@ impl Root {
         let spec = match step.as_str() {
             "app_form" => Some(super::wizard::app_spec(name, project_id)),
             "compose_form" => Some(super::wizard::compose_spec(name, project_id)),
-            "db_form" => super::wizard::DbKind::from_str(&g("ns_db_kind")).map(|db| {
+            // `db_form` é compartilhado por bancos e brokers (mesmos campos
+            // ns_db_*). Tenta banco; se o kind_id for de broker, monta o broker.
+            "db_form" => {
+                let kind = g("ns_db_kind");
                 let input = super::wizard::DbFormInput {
                     db_name: g("ns_db_name").trim().to_string(),
                     user: g("ns_db_user").trim().to_string(),
@@ -481,8 +514,13 @@ impl Root {
                     image: g("ns_image"),
                     use_replica_sets: g("ns_use_replica") == "true",
                 };
-                super::wizard::db_spec(db, name, project_id, &input)
-            }),
+                if let Some(db) = super::wizard::DbKind::from_str(&kind) {
+                    Some(super::wizard::db_spec(db, name, project_id, &input))
+                } else {
+                    super::wizard::BrokerKind::from_str(&kind)
+                        .map(|b| super::wizard::broker_spec(b, name, project_id, &input))
+                }
+            }
             "template_form" => super::wizard::find_template(&g("ns_template_id")).map(|t| {
                 let values: Vec<String> = (0..shared::templates::editable_vars(t).len())
                     .map(|i| g(&format!("ns_tv_{i}")))
@@ -715,6 +753,7 @@ impl Component for Root {
         ctx.set("ns_msg", "");
         ctx.set("ns_templates", "[]");
         ctx.set("ns_dbs", super::wizard::db_rows_json());
+        ctx.set("ns_brokers", super::wizard::broker_rows_json());
         Self::ns_reset_fields(ctx);
         // Home screens (Monitoring / Ingress / Docker / Settings).
         ctx.set("ingress", "[]");
@@ -1470,6 +1509,7 @@ impl Component for Root {
                         "application" => ctx.set("ns_step", "app_form"),
                         "compose" => ctx.set("ns_step", "compose_form"),
                         "database" => ctx.set("ns_step", "pick_db"),
+                        "broker" => ctx.set("ns_step", "pick_broker"),
                         "template" => {
                             ctx.set("ns_tsearch", "");
                             Self::ns_templates_refresh(ctx);
@@ -1483,6 +1523,13 @@ impl Component for Root {
                 if let Some(id) = action.strip_prefix("ns_db:") {
                     if let Some(db) = super::wizard::DbKind::from_str(id) {
                         Self::ns_pick_db(ctx, db);
+                    }
+                    return;
+                }
+                // `ns_broker:<kind_id>` — escolher o broker (reusa o db_form).
+                if let Some(id) = action.strip_prefix("ns_broker:") {
+                    if let Some(b) = super::wizard::BrokerKind::from_str(id) {
+                        Self::ns_pick_broker(ctx, b);
                     }
                     return;
                 }

@@ -105,6 +105,79 @@ impl DbKind {
     }
 }
 
+// ── Message brokers ──────────────────────────────────────────────────────────
+// Mesma mecânica do `DbKind` (serviço Compose gerenciado, com `db_kind` setado
+// para dirigir a geração da Internal URL), mas categoria própria no wizard.
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BrokerKind {
+    Kafka,
+    RabbitMq,
+    Nats,
+}
+
+impl BrokerKind {
+    pub const ALL: &'static [BrokerKind] = &[Self::Kafka, Self::RabbitMq, Self::Nats];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Kafka => "Apache Kafka",
+            Self::RabbitMq => "RabbitMQ",
+            Self::Nats => "NATS",
+        }
+    }
+
+    pub fn default_image(self) -> &'static str {
+        match self {
+            Self::Kafka => "apache/kafka:3.9.0",
+            Self::RabbitMq => "rabbitmq:4-management",
+            Self::Nats => "nats:2",
+        }
+    }
+
+    pub fn default_port(self) -> u16 {
+        match self {
+            Self::Kafka => 9092,
+            Self::RabbitMq => 5672,
+            Self::Nats => 4222,
+        }
+    }
+
+    /// Id estável gravado em `ServiceSpec.db_kind` (o mesmo campo que os bancos
+    /// usam) e nas ações/contexto do wizard. `internal_scheme` em `net.rs`
+    /// mapeia estes ids para o scheme da URL (`amqp://`, `nats://`, Kafka sem
+    /// scheme).
+    pub fn kind_id(self) -> &'static str {
+        match self {
+            Self::Kafka => "kafka",
+            Self::RabbitMq => "rabbitmq",
+            Self::Nats => "nats",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "kafka" => Some(Self::Kafka),
+            "rabbitmq" => Some(Self::RabbitMq),
+            "nats" => Some(Self::Nats),
+            _ => None,
+        }
+    }
+
+    /// Só o RabbitMQ pede credenciais no formulário; Kafka (PLAINTEXT single
+    /// node) e NATS (sem auth) nascem abertos na rede interna do projeto.
+    pub fn has_user(self) -> bool {
+        matches!(self, Self::RabbitMq)
+    }
+
+    pub fn default_user(self) -> &'static str {
+        match self {
+            Self::RabbitMq => "rabbit",
+            _ => "",
+        }
+    }
+}
+
 /// Senha aleatória URL-safe (mesmo gerador do antigo `remote-client`):
 /// splitmix64 semeado no relógio — suficiente para credenciais iniciais de um
 /// banco local, que o usuário pode trocar antes de criar.
@@ -139,6 +212,21 @@ pub fn db_rows_json() -> String {
                 "id": d.kind_id(),
                 "label": d.label(),
                 "image": d.default_image(),
+            })
+        })
+        .collect();
+    serde_json::Value::Array(rows).to_string()
+}
+
+/// Linhas do passo "escolha o broker": `{id, label, image}`.
+pub fn broker_rows_json() -> String {
+    let rows: Vec<serde_json::Value> = BrokerKind::ALL
+        .iter()
+        .map(|b| {
+            serde_json::json!({
+                "id": b.kind_id(),
+                "label": b.label(),
+                "image": b.default_image(),
             })
         })
         .collect();
@@ -288,10 +376,14 @@ pub fn db_spec(db: DbKind, name: String, project_id: String, f: &DbFormInput) ->
     } else {
         f.image.trim().to_string()
     };
+    // Nome do serviço dentro do compose = `rp_<safe_name>` para que o alias de
+    // rede que o docker-compose cria case com a Internal URL exibida na UI
+    // (`rp_<safe>:<port>`) e resolva de fato na rede do projeto.
+    let svc = format!("rp_{}", shared::normalize_name(&name));
     base_spec(
         name,
         project_id,
-        ServiceSource::Compose(ComposeSource { content: db_compose(db, &image, f) }),
+        ServiceSource::Compose(ComposeSource { content: db_compose(db, &svc, &image, f) }),
         db.default_port(),
         db_env_vars(db, f),
         Some(db.kind_id().to_string()),
@@ -335,10 +427,10 @@ fn db_env_vars(db: DbKind, f: &DbFormInput) -> Vec<EnvVar> {
     }
 }
 
-fn db_compose(db: DbKind, img: &str, f: &DbFormInput) -> String {
+fn db_compose(db: DbKind, svc: &str, img: &str, f: &DbFormInput) -> String {
     match db {
         DbKind::Postgres => format!(
-            "services:\n  postgres:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      POSTGRES_DB: ${{POSTGRES_DB}}\n      POSTGRES_USER: ${{POSTGRES_USER}}\n      POSTGRES_PASSWORD: ${{POSTGRES_PASSWORD}}\n    volumes:\n      - pgdata:/var/lib/postgresql\n\nvolumes:\n  pgdata:\n"
+            "services:\n  {svc}:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      POSTGRES_DB: ${{POSTGRES_DB}}\n      POSTGRES_USER: ${{POSTGRES_USER}}\n      POSTGRES_PASSWORD: ${{POSTGRES_PASSWORD}}\n    volumes:\n      - pgdata:/var/lib/postgresql\n\nvolumes:\n  pgdata:\n"
         ),
         DbKind::MongoDb => {
             let replica = if f.use_replica_sets {
@@ -347,14 +439,14 @@ fn db_compose(db: DbKind, img: &str, f: &DbFormInput) -> String {
                 ""
             };
             format!(
-                "services:\n  mongo:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      MONGO_INITDB_ROOT_USERNAME: ${{MONGO_INITDB_ROOT_USERNAME}}\n      MONGO_INITDB_ROOT_PASSWORD: ${{MONGO_INITDB_ROOT_PASSWORD}}\n{replica}    volumes:\n      - mongodata:/data/db\n\nvolumes:\n  mongodata:\n"
+                "services:\n  {svc}:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      MONGO_INITDB_ROOT_USERNAME: ${{MONGO_INITDB_ROOT_USERNAME}}\n      MONGO_INITDB_ROOT_PASSWORD: ${{MONGO_INITDB_ROOT_PASSWORD}}\n{replica}    volumes:\n      - mongodata:/data/db\n\nvolumes:\n  mongodata:\n"
             )
         }
         DbKind::MariaDb => format!(
-            "services:\n  mariadb:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      MYSQL_DATABASE: ${{MYSQL_DATABASE}}\n      MYSQL_USER: ${{MYSQL_USER}}\n      MYSQL_PASSWORD: ${{MYSQL_PASSWORD}}\n      MYSQL_ROOT_PASSWORD: ${{MYSQL_ROOT_PASSWORD}}\n    volumes:\n      - mariadbdata:/var/lib/mysql\n\nvolumes:\n  mariadbdata:\n"
+            "services:\n  {svc}:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      MYSQL_DATABASE: ${{MYSQL_DATABASE}}\n      MYSQL_USER: ${{MYSQL_USER}}\n      MYSQL_PASSWORD: ${{MYSQL_PASSWORD}}\n      MYSQL_ROOT_PASSWORD: ${{MYSQL_ROOT_PASSWORD}}\n    volumes:\n      - mariadbdata:/var/lib/mysql\n\nvolumes:\n  mariadbdata:\n"
         ),
         DbKind::MySql => format!(
-            "services:\n  mysql:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      MYSQL_DATABASE: ${{MYSQL_DATABASE}}\n      MYSQL_USER: ${{MYSQL_USER}}\n      MYSQL_PASSWORD: ${{MYSQL_PASSWORD}}\n      MYSQL_ROOT_PASSWORD: ${{MYSQL_ROOT_PASSWORD}}\n    volumes:\n      - mysqldata:/var/lib/mysql\n\nvolumes:\n  mysqldata:\n"
+            "services:\n  {svc}:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      MYSQL_DATABASE: ${{MYSQL_DATABASE}}\n      MYSQL_USER: ${{MYSQL_USER}}\n      MYSQL_PASSWORD: ${{MYSQL_PASSWORD}}\n      MYSQL_ROOT_PASSWORD: ${{MYSQL_ROOT_PASSWORD}}\n    volumes:\n      - mysqldata:/var/lib/mysql\n\nvolumes:\n  mysqldata:\n"
         ),
         DbKind::Redis => {
             let cmd = if f.password.is_empty() {
@@ -363,9 +455,69 @@ fn db_compose(db: DbKind, img: &str, f: &DbFormInput) -> String {
                 "    command: redis-server --requirepass ${REDIS_PASSWORD}\n".to_string()
             };
             format!(
-                "services:\n  redis:\n    image: {img}\n    restart: unless-stopped\n{cmd}    volumes:\n      - redisdata:/data\n\nvolumes:\n  redisdata:\n"
+                "services:\n  {svc}:\n    image: {img}\n    restart: unless-stopped\n{cmd}    volumes:\n      - redisdata:/data\n\nvolumes:\n  redisdata:\n"
             )
         }
+    }
+}
+
+/// Broker gerenciado: mesmo modelo do `db_spec` (serviço Compose, `db_kind`
+/// setado para dirigir a Internal URL). O nome interno do compose é
+/// `rp_<safe_name>` para que o alias de rede case com a Internal URL.
+pub fn broker_spec(
+    broker: BrokerKind,
+    name: String,
+    project_id: String,
+    f: &DbFormInput,
+) -> ServiceSpec {
+    let image = if f.image.trim().is_empty() {
+        broker.default_image().to_string()
+    } else {
+        f.image.trim().to_string()
+    };
+    let svc = format!("rp_{}", shared::normalize_name(&name));
+    base_spec(
+        name,
+        project_id,
+        ServiceSource::Compose(ComposeSource { content: broker_compose(broker, &svc, &image, f) }),
+        broker.default_port(),
+        broker_env_vars(broker, f),
+        Some(broker.kind_id().to_string()),
+    )
+}
+
+fn broker_env_vars(broker: BrokerKind, f: &DbFormInput) -> Vec<EnvVar> {
+    let plain = |k: &str, v: &str| EnvVar {
+        key: k.to_string(),
+        value: EnvVarValue::Plain(v.to_string()),
+    };
+    match broker {
+        // Kafka e NATS nascem sem credenciais; toda a config do Kafka é estática
+        // e vive direto no compose (não são segredos).
+        BrokerKind::Kafka | BrokerKind::Nats => vec![],
+        BrokerKind::RabbitMq => vec![
+            plain("RABBITMQ_DEFAULT_USER", &f.user),
+            plain("RABBITMQ_DEFAULT_PASS", &f.password),
+        ],
+    }
+}
+
+fn broker_compose(broker: BrokerKind, svc: &str, img: &str, _f: &DbFormInput) -> String {
+    match broker {
+        // KRaft single-node (sem Zookeeper). O `advertised.listeners` e o
+        // `controller.quorum.voters` precisam anunciar exatamente `{svc}`
+        // (= `rp_<safe_name>`), o mesmo host que os clients resolvem na rede do
+        // projeto — senão só o handshake inicial conecta e o resto falha.
+        BrokerKind::Kafka => format!(
+            "services:\n  {svc}:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      KAFKA_NODE_ID: 1\n      KAFKA_PROCESS_ROLES: broker,controller\n      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093\n      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://{svc}:9092\n      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER\n      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT\n      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@{svc}:9093\n      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1\n      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1\n      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1\n      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0\n    volumes:\n      - kafkadata:/var/lib/kafka/data\n\nvolumes:\n  kafkadata:\n"
+        ),
+        BrokerKind::RabbitMq => format!(
+            "services:\n  {svc}:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      RABBITMQ_DEFAULT_USER: ${{RABBITMQ_DEFAULT_USER}}\n      RABBITMQ_DEFAULT_PASS: ${{RABBITMQ_DEFAULT_PASS}}\n    volumes:\n      - rabbitmqdata:/var/lib/rabbitmq\n\nvolumes:\n  rabbitmqdata:\n"
+        ),
+        // NATS com JetStream ligado e store persistente em /data.
+        BrokerKind::Nats => format!(
+            "services:\n  {svc}:\n    image: {img}\n    restart: unless-stopped\n    command: [\"-js\", \"-sd\", \"/data\"]\n    volumes:\n      - natsdata:/data\n\nvolumes:\n  natsdata:\n"
+        ),
     }
 }
 
