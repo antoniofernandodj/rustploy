@@ -60,13 +60,8 @@ Column class="screen" width="fill" height="fill" {
   
       }
 
-      if cond="{screen}" equals="login" {
-        Login
-      }
-
-      else {
-        Shell
-      }
+      if cond="{screen}" equals="login" { Login }
+      else { Shell }
     }
 
     Column
@@ -87,7 +82,7 @@ Column class="screen" width="fill" height="fill" {
       class="rz_h"
       cursor="resize-v"
       on_press="window:resize:s"
-
+  
     Column
       class="rz_corner"
       cursor="resize-se"
