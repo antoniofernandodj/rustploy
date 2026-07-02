@@ -4,7 +4,7 @@
 //! senha, o compose gerado por banco, os JSON builders das listas do wizard e a
 //! montagem do `ServiceSpec` final enviado em `Command::ServiceCreate`.
 
-use shared::templates::{self, Template, TemplateCategory};
+use shared::templates::{self, Template};
 use shared::{
     ComposeSource, EnvVar, EnvVarValue, Healthcheck, ResourceLimits, ServiceSource, ServiceSpec,
 };
@@ -145,51 +145,67 @@ pub fn db_rows_json() -> String {
     serde_json::Value::Array(rows).to_string()
 }
 
-/// Opções do `Select` de categoria do catálogo de templates: `{idx, label}`.
-pub fn template_cats_json() -> String {
-    let rows: Vec<serde_json::Value> = TemplateCategory::FILTERS
-        .iter()
-        .enumerate()
-        .map(|(i, c)| serde_json::json!({ "idx": i.to_string(), "label": c.label() }))
-        .collect();
-    serde_json::Value::Array(rows).to_string()
-}
-
-/// Templates filtrados por categoria (índice em `TemplateCategory::FILTERS`) e
-/// termo de busca: `{id, name, cat, description}`.
-pub fn templates_json(cat_idx: usize, search: &str) -> String {
-    let cat = TemplateCategory::FILTERS[cat_idx.min(TemplateCategory::FILTERS.len() - 1)];
-    let rows: Vec<serde_json::Value> = templates::filtered(cat, search)
+/// Templates filtrados pelo termo de busca:
+/// `{id, name, description, logo, logo_kind}`.
+///
+/// `logo` é o caminho (relativo à raiz do workspace, de onde o remote-ui roda)
+/// do arquivo em `crates/shared/templates/blueprints/<id>/<arquivo>`; `logo_kind`
+/// é `"svg"` (vetor), `"img"` (raster) ou `"none"` — o `TemplateRow` escolhe o
+/// widget certo (`Svg` vs `Image`) por esse campo.
+pub fn templates_json(search: &str) -> String {
+    let rows: Vec<serde_json::Value> = templates::filtered(search)
         .into_iter()
         .map(|t| {
+            let (logo, logo_kind) = template_logo(t);
             serde_json::json!({
                 "id": t.id,
                 "name": t.name,
-                "cat": t.category.label(),
                 "description": t.description,
+                "logo": logo,
+                "logo_kind": logo_kind,
             })
         })
         .collect();
     serde_json::Value::Array(rows).to_string()
 }
 
-pub fn find_template(id: &str) -> Option<&'static Template> {
-    templates::all().iter().find(|t| t.id == id)
+/// Caminho e tipo do logo do template. Vazio → `("", "none")`.
+fn template_logo(t: &'static Template) -> (String, &'static str) {
+    if t.logo.is_empty() {
+        return (String::new(), "none");
+    }
+    let ext = t.logo.rsplit('.').next().unwrap_or("").to_lowercase();
+    let kind = match ext.as_str() {
+        "svg" => "svg",
+        "png" | "jpg" | "jpeg" | "webp" | "gif" | "bmp" | "ico" => "img",
+        _ => "none",
+    };
+    let path = format!("crates/shared/templates/blueprints/{}/{}", t.id, t.logo);
+    (path, kind)
 }
 
-/// Variáveis configuráveis do template escolhido: `{idx, label, placeholder}`.
-/// O valor digitado vive na chave de contexto `ns_tv_<idx>` (o KDL interpola
+pub fn find_template(id: &str) -> Option<&'static Template> {
+    templates::find(id)
+}
+
+/// Variáveis que o usuário preenche: só os domínios (`${domain}`) do template —
+/// segredos e chaves são gerados no `render`. Formato `{idx, label, placeholder}`;
+/// o valor digitado vive na chave de contexto `ns_tv_<idx>` (o KDL interpola
 /// `value="ns_tv_{v.idx}"` por item do `ForEach`).
 pub fn template_vars_json(t: &'static Template) -> String {
-    let rows: Vec<serde_json::Value> = t
-        .variables
+    let rows: Vec<serde_json::Value> = templates::editable_vars(t)
         .iter()
         .enumerate()
         .map(|(i, v)| {
+            let label = if v.key == "main_domain" {
+                "Domínio".to_string()
+            } else {
+                v.key.replace('_', " ")
+            };
             serde_json::json!({
                 "idx": i.to_string(),
-                "label": v.label,
-                "placeholder": v.default.unwrap_or(""),
+                "label": label,
+                "placeholder": "meuapp.exemplo.com",
             })
         })
         .collect();
@@ -353,8 +369,9 @@ fn db_compose(db: DbKind, img: &str, f: &DbFormInput) -> String {
     }
 }
 
-/// Template: compose renderizado com os valores digitados (fallback no default
-/// de cada variável — ver `shared::templates::render_compose`).
+/// Template: resolve as variáveis (gerando segredos), monta o `.env` e o domínio
+/// e devolve um serviço Compose pronto. `values` são os domínios digitados pelo
+/// usuário, na ordem de `templates::editable_vars` (ver `template_vars_json`).
 pub fn template_spec(
     t: &'static Template,
     name: String,
@@ -362,13 +379,25 @@ pub fn template_spec(
     values: &[String],
 ) -> ServiceSpec {
     let name = if name.trim().is_empty() { template_slug(t) } else { name };
-    let content = templates::render_compose(t, values);
-    base_spec(
+    let user: Vec<(String, String)> = templates::editable_vars(t)
+        .iter()
+        .zip(values.iter())
+        .map(|(v, val)| (v.key.to_string(), val.clone()))
+        .collect();
+    let rendered = templates::render(t, &user);
+    let env_vars = rendered
+        .env
+        .into_iter()
+        .map(|(key, value)| EnvVar { key, value: EnvVarValue::Plain(value) })
+        .collect();
+    let mut spec = base_spec(
         name,
         project_id,
-        ServiceSource::Compose(ComposeSource { content }),
-        t.default_port,
-        vec![],
+        ServiceSource::Compose(ComposeSource { content: rendered.compose }),
+        rendered.port,
+        env_vars,
         None,
-    )
+    );
+    spec.domain = rendered.domain.filter(|d| !d.is_empty());
+    spec
 }

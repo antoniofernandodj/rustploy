@@ -177,32 +177,20 @@ Column class="content" {
   // ── Template: catálogo ───────────────────────────────────────────────
   if cond="{ns_step}" equals="pick_template" {
     Column class="env_wrap" {
-      Row class="hc_grid" {
-        Column class="hc_field" {
-          Text "CATEGORIA" class="label_cap"
-          Select
-            class="select"
-            options="ns_tcats"
-            value="ns_tcat"
-            onChange="ns_tcat_pick"
-            placeholder="categoria"
-            labelField="label"
-            valueField="idx"
-        }
-        Column class="hc_field" {
-          Text "BUSCAR" class="label_cap"
-          TextInput "buscar templates…"
-            class="field_input"
-            value="ns_tsearch"
-            onChange="ns_tsearch"
-        }
+      Column class="hc_field" {
+        Text "BUSCAR" class="label_cap"
+        TextInput "buscar templates…"
+          class="field_input"
+          value="ns_tsearch"
+          onChange="ns_tsearch"
       }
       Scrollable direction=vertical class="scroll_fill" {
         Column class="kv_list" {
-          PickerRow for-each="ns_templates" var="t"
-            title="{t.name}"
-            subtitle="[{t.cat}]  {t.description}"
-            button_label="Escolher ›"
+          TemplateRow for-each="ns_templates" var="t"
+            name="{t.name}"
+            description="{t.description}"
+            logo="{t.logo}"
+            logo_kind="{t.logo_kind}"
             action="ns_pick_template:{t.id}"
         }
       }

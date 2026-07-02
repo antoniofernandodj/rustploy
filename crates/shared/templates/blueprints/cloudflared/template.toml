@@ -1,0 +1,8 @@
+variables = {}
+
+[config]
+domains = []
+mounts = []
+
+[config.env]
+CLOUDFLARE_TUNNEL_TOKEN = ""

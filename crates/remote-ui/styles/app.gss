@@ -120,6 +120,10 @@
 .kv_val        { size: 16; bold: true; color: #E6EDF3; }
 .kv_list       { width: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 8 18; spacing: 0; }
 .kv_row        { width: fill; padding: 12 0; align-y: center; }
+/* Linha do catálogo de templates: logo à esquerda + títulos + botão. */
+.tpl_row       { width: fill; padding: 12 0; align-y: center; spacing: 14; }
+.tpl_logo_box  { width: 34; height: 34; align-x: center; align-y: center; }
+.tpl_logo      { width: 30; height: 30; }
 /* Linha agarrada durante o drag-and-drop (flag {var}.__dragging do
    glacier-ui): fundo elevado + borda de destaque enquanto o resto reflui. */
 .kv_row_drag   { width: fill; padding: 12 10; align-y: center; background: #161B22; border-radius: 8; border-width: 1; border-color: #58A6FF; }

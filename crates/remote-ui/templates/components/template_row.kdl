@@ -1,0 +1,26 @@
+// Props: name, description, logo, logo_kind ("svg" | "img" | "none"), action
+//
+// Linha do catálogo de templates de aplicação: logo à esquerda (vetor ou
+// raster conforme logo_kind), nome + descrição, e o botão "Escolher" à direita.
+// Os logos vêm de crates/shared/templates/blueprints/<id>/<arquivo> (ver
+// `templates_json` em app/wizard.rs).
+Row class="tpl_row" {
+  // Caixa quadrada fixa e centralizada: os logos têm proporções diferentes
+  // (quadrado, largo, estreito), então reservamos sempre o mesmo espaço e
+  // centralizamos o logo dentro dele — mantém a coluna de texto alinhada.
+  Column class="tpl_logo_box" {
+    if cond="{logo_kind}" equals="svg" {
+      Svg "{logo}" class="tpl_logo"
+    }
+    if cond="{logo_kind}" equals="img" {
+      Image "{logo}" class="tpl_logo"
+    }
+  }
+  Column class="header_titles" {
+    Text "{name}" class="env_key"
+    // Só renderiza a descrição quando existe — uma linha vazia empurraria o
+    // nome pra cima e o desalinharia do logo (align-y center da linha).
+    Text "{description}" if="{description}" notEquals="" class="muted"
+  }
+  Button "Escolher ›" class="btn_primary" onClick="{action}"
+}

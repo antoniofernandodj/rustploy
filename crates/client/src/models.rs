@@ -884,7 +884,6 @@ pub struct NewServiceState {
     pub focused_field: usize,
     pub form_scroll: usize,
     // Template-specific state
-    pub template_cat_cursor: usize,
     pub template_cursor: usize,
     pub template_search: String,
     pub template_searching: bool,
@@ -912,7 +911,6 @@ impl NewServiceState {
             use_replica_sets: false,
             focused_field: 0,
             form_scroll: 0,
-            template_cat_cursor: 0,
             template_cursor: 0,
             template_search: String::new(),
             template_searching: false,
@@ -930,7 +928,7 @@ impl NewServiceState {
             NewServiceStep::TemplateVarForm => {
                 1 + self
                     .selected_template
-                    .map(|t| t.variables.len())
+                    .map(|t| shared::templates::editable_vars(t).len())
                     .unwrap_or(0)
                     + 1
             }
@@ -985,14 +983,12 @@ impl NewServiceState {
         max > 0 && self.focused_field == max - 1
     }
 
-    /// Selects a template, initialises var values with defaults and resets the form.
+    /// Selects a template, initialises editable var values (só domínios; o
+    /// resto é gerado no `render`) and resets the form.
     pub fn select_template(&mut self, t: &'static shared::templates::Template) {
         self.selected_template = Some(t);
-        self.template_var_values = t
-            .variables
-            .iter()
-            .map(|v| v.default.unwrap_or("").to_string())
-            .collect();
+        self.template_var_values =
+            vec![String::new(); shared::templates::editable_vars(t).len()];
         self.name = t.name.to_lowercase().replace(' ', "-");
         self.focused_field = 0;
         self.form_scroll = 0;
@@ -1225,7 +1221,22 @@ impl NewServiceState {
             },
             NewServiceStep::TemplateVarForm => {
                 let template = self.selected_template.expect("template selected");
-                let content = shared::templates::render_compose(template, &self.template_var_values);
+                // Os valores digitados são os domínios editáveis, na ordem de
+                // `editable_vars`; o `render` gera segredos e monta o `.env`.
+                let user: Vec<(String, String)> = shared::templates::editable_vars(template)
+                    .iter()
+                    .zip(self.template_var_values.iter())
+                    .map(|(v, val)| (v.key.to_string(), val.clone()))
+                    .collect();
+                let rendered = shared::templates::render(template, &user);
+                let env_vars = rendered
+                    .env
+                    .into_iter()
+                    .map(|(key, value)| shared::EnvVar {
+                        key,
+                        value: shared::EnvVarValue::Plain(value),
+                    })
+                    .collect();
                 ServiceSpec {
                     name: if self.name.is_empty() {
                         template.name.to_lowercase().replace(' ', "-")
@@ -1233,12 +1244,12 @@ impl NewServiceState {
                         self.name.clone()
                     },
                     project_id: self.project_id.clone(),
-                    source: ServiceSource::Compose(ComposeSource { content }),
-                    port: template.default_port,
+                    source: ServiceSource::Compose(ComposeSource { content: rendered.compose }),
+                    port: rendered.port,
                     host_port: None,
-                    domain: None,
+                    domain: rendered.domain.filter(|d| !d.is_empty()),
                     tls_enabled: false,
-                    env_vars: vec![],
+                    env_vars,
                     env_comments: vec![],
                     volumes: vec![],
                     healthcheck: Healthcheck::default(),

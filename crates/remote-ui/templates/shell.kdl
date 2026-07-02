@@ -10,6 +10,7 @@ import "NavItem"          from="crates/remote-ui/templates/components/nav_item.k
 import "TabButton"        from="crates/remote-ui/templates/components/tab_button.kdl"
 import "LoadingRow"       from="crates/remote-ui/templates/components/loading_row.kdl"
 import "PickerRow"        from="crates/remote-ui/templates/components/picker_row.kdl"
+import "TemplateRow"      from="crates/remote-ui/templates/components/template_row.kdl"
 
 Row class="screen" {
 

@@ -65,9 +65,13 @@ fn all_screens_and_service_tabs_render() {
         m.define_data("ns_db_has_rootpw", "true");
         m.define_data("ns_db_has_replica", "true");
         m.define_data("ns_dbs", r#"[{"id":"postgres","label":"PostgreSQL","image":"postgres:18"}]"#);
-        m.define_data("ns_tcats", r#"[{"idx":"0","label":"Todos"}]"#);
-        m.define_data("ns_templates", r#"[{"id":"t","name":"T","cat":"CMS","description":"d"}]"#);
-        m.define_data("ns_template_vars", r#"[{"idx":"0","label":"VAR","placeholder":"x"}]"#);
+        // Duas linhas do catálogo com logos reais (um vetor, um raster) para
+        // exercitar os dois ramos do TemplateRow (Svg vs Image).
+        m.define_data(
+            "ns_templates",
+            r#"[{"id":"forgejo","name":"Forgejo","description":"git","logo":"crates/shared/templates/blueprints/forgejo/forgejo.svg","logo_kind":"svg"},{"id":"wordpress","name":"WordPress","description":"cms","logo":"crates/shared/templates/blueprints/wordpress/wordpress.png","logo_kind":"img"}]"#,
+        );
+        m.define_data("ns_template_vars", r#"[{"idx":"0","label":"Domínio","placeholder":"x"}]"#);
         m.reevaluate_all().unwrap_or_else(|e| panic!("eval new_service/{step}: {e}"));
         assert!(m.render("app").is_ok(), "render new_service/{step}");
     }

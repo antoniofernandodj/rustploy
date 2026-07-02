@@ -373,14 +373,10 @@ impl Root {
         }
     }
 
-    /// Rebuilds the template catalog list from the current category + search.
+    /// Rebuilds the template catalog list from the current search term.
     fn ns_templates_refresh(ctx: &mut Context) {
-        let cat = ctx
-            .get("ns_tcat")
-            .and_then(|v| v.parse::<usize>().ok())
-            .unwrap_or(0);
         let search = ctx.get("ns_tsearch").cloned().unwrap_or_default();
-        ctx.set("ns_templates", super::wizard::templates_json(cat, &search));
+        ctx.set("ns_templates", super::wizard::templates_json(&search));
     }
 
     /// Pre-fills the database form for the picked kind: default image and
@@ -413,8 +409,10 @@ impl Root {
         ctx.set("ns_template_name", t.name);
         ctx.set("ns_name", super::wizard::template_slug(t));
         ctx.set("ns_template_vars", super::wizard::template_vars_json(t));
-        for (i, var) in t.variables.iter().enumerate() {
-            ctx.set(&format!("ns_tv_{i}"), var.default.unwrap_or(""));
+        // Uma chave por variável editável (só os domínios); o usuário preenche,
+        // então nasce vazia (o placeholder mostra a dica).
+        for i in 0..shared::templates::editable_vars(t).len() {
+            ctx.set(&format!("ns_tv_{i}"), "");
         }
         ctx.set("ns_step", "template_form");
     }
@@ -480,7 +478,7 @@ impl Root {
                 super::wizard::db_spec(db, name, project_id, &input)
             }),
             "template_form" => super::wizard::find_template(&g("ns_template_id")).map(|t| {
-                let values: Vec<String> = (0..t.variables.len())
+                let values: Vec<String> = (0..shared::templates::editable_vars(t).len())
                     .map(|i| g(&format!("ns_tv_{i}")))
                     .collect();
                 super::wizard::template_spec(t, name, project_id, &values)
@@ -707,8 +705,6 @@ impl Component for Root {
         // Wizard "Novo serviço" (view=new_service) — ver os métodos `ns_*`.
         ctx.set("ns_step", "");
         ctx.set("ns_msg", "");
-        ctx.set("ns_tcat", "0");
-        ctx.set("ns_tcats", super::wizard::template_cats_json());
         ctx.set("ns_templates", "[]");
         ctx.set("ns_dbs", super::wizard::db_rows_json());
         Self::ns_reset_fields(ctx);
@@ -997,13 +993,6 @@ impl Component for Root {
             "ns_tsearch" => {
                 if let Some(v) = value {
                     ctx.set("ns_tsearch", v);
-                    Self::ns_templates_refresh(ctx);
-                }
-            }
-            // Categoria do catálogo (Select — o value é o índice do filtro).
-            "ns_tcat_pick" => {
-                if let Some(v) = value {
-                    ctx.set("ns_tcat", v);
                     Self::ns_templates_refresh(ctx);
                 }
             }
@@ -1445,7 +1434,6 @@ impl Component for Root {
                         "compose" => ctx.set("ns_step", "compose_form"),
                         "database" => ctx.set("ns_step", "pick_db"),
                         "template" => {
-                            ctx.set("ns_tcat", "0");
                             ctx.set("ns_tsearch", "");
                             Self::ns_templates_refresh(ctx);
                             ctx.set("ns_step", "pick_template");

@@ -10,7 +10,7 @@ pub mod sidebar;
 
 use crate::app::{App, DbKind, Focus, NewServiceStep, View};
 use crate::ui::projects::render_projects_list;
-use shared::templates::{self, TemplateCategory};
+use shared::templates;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -925,38 +925,11 @@ fn render_ns_pick_template(f: &mut Frame, area: Rect, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1), // category tabs
-            Constraint::Length(1), // separator
             Constraint::Length(1), // search bar
             Constraint::Min(0),    // list
             Constraint::Length(1), // hints
         ])
         .split(inner);
-
-    // ── Category tabs ─────────────────────────────────────────────────────────
-    let cat_spans: Vec<Span> = TemplateCategory::FILTERS
-        .iter()
-        .enumerate()
-        .flat_map(|(i, cat)| {
-            let active = i == state.template_cat_cursor;
-            let s = if active {
-                Span::styled(
-                    format!(" {} ", cat.label()),
-                    Style::default()
-                        .fg(Color::Black)
-                        .bg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
-                )
-            } else {
-                Span::styled(
-                    format!(" {} ", cat.label()),
-                    Style::default().fg(Color::DarkGray),
-                )
-            };
-            vec![s, Span::raw(" ")]
-        })
-        .collect();
-    f.render_widget(Paragraph::new(Line::from(cat_spans)), chunks[0]);
 
     // ── Search bar ────────────────────────────────────────────────────────────
     let search_style = if state.template_searching {
@@ -971,12 +944,11 @@ fn render_ns_pick_template(f: &mut Frame, area: Rect, app: &App) {
     };
     f.render_widget(
         Paragraph::new(Span::styled(search_text, search_style)),
-        chunks[2],
+        chunks[0],
     );
 
     // ── Template list ─────────────────────────────────────────────────────────
-    let cat = TemplateCategory::FILTERS[state.template_cat_cursor];
-    let list = templates::filtered(cat, &state.template_search);
+    let list = templates::filtered(&state.template_search);
 
     const VISIBLE: usize = 14;
     let total = list.len();
@@ -993,7 +965,7 @@ fn render_ns_pick_template(f: &mut Frame, area: Rect, app: &App) {
                 "  Nenhum template encontrado.",
                 Style::default().fg(Color::DarkGray),
             )),
-            chunks[3],
+            chunks[1],
         );
     } else {
         let items: Vec<ratatui::widgets::ListItem> = list
@@ -1004,7 +976,6 @@ fn render_ns_pick_template(f: &mut Frame, area: Rect, app: &App) {
             .map(|(i, t)| {
                 let selected = i == cursor;
                 let marker = if selected { "▸ " } else { "  " };
-                let cat_tag = format!("[{}]", t.category.label());
                 let line = Line::from(vec![
                     Span::styled(
                         marker,
@@ -1015,7 +986,7 @@ fn render_ns_pick_template(f: &mut Frame, area: Rect, app: &App) {
                         },
                     ),
                     Span::styled(
-                        format!("{:<20}", t.name),
+                        format!("{:<24}", t.name),
                         if selected {
                             Style::default()
                                 .fg(Color::Cyan)
@@ -1023,10 +994,6 @@ fn render_ns_pick_template(f: &mut Frame, area: Rect, app: &App) {
                         } else {
                             Style::default().fg(Color::White)
                         },
-                    ),
-                    Span::styled(
-                        format!("{:<14}", cat_tag),
-                        Style::default().fg(Color::DarkGray),
                     ),
                     Span::styled(t.description, Style::default().fg(Color::DarkGray)),
                 ]);
@@ -1037,7 +1004,7 @@ fn render_ns_pick_template(f: &mut Frame, area: Rect, app: &App) {
         use ratatui::widgets::{List, ListState};
         let mut list_state = ListState::default();
         list_state.select(Some(cursor.saturating_sub(scroll)));
-        f.render_stateful_widget(List::new(items), chunks[3], &mut list_state);
+        f.render_stateful_widget(List::new(items), chunks[1], &mut list_state);
     }
 
     // ── Hints ─────────────────────────────────────────────────────────────────
@@ -1045,8 +1012,6 @@ fn render_ns_pick_template(f: &mut Frame, area: Rect, app: &App) {
         Paragraph::new(Line::from(vec![
             Span::styled(" ↑↓", Style::default().fg(Color::Cyan)),
             Span::styled(" nav  ", Style::default().fg(Color::DarkGray)),
-            Span::styled("←→", Style::default().fg(Color::Cyan)),
-            Span::styled(" categoria  ", Style::default().fg(Color::DarkGray)),
             Span::styled("/", Style::default().fg(Color::Cyan)),
             Span::styled(" buscar  ", Style::default().fg(Color::DarkGray)),
             Span::styled("Enter", Style::default().fg(Color::Cyan)),
@@ -1054,7 +1019,7 @@ fn render_ns_pick_template(f: &mut Frame, area: Rect, app: &App) {
             Span::styled("Esc", Style::default().fg(Color::Cyan)),
             Span::styled(" voltar", Style::default().fg(Color::DarkGray)),
         ])),
-        chunks[4],
+        chunks[2],
     );
 }
 
@@ -1065,7 +1030,8 @@ fn render_ns_template_var_form(f: &mut Frame, area: Rect, app: &App) {
         None => return,
     };
 
-    let var_count = template.variables.len();
+    let editable = templates::editable_vars(template);
+    let var_count = editable.len();
     // name(1) + vars(n) but show at most 4 at a time; +1 sep +1 btn +1 hints +2 border +1 pad = 7 overhead
     const VISIBLE: usize = 4;
     let visible_slots = (var_count + 1).min(VISIBLE); // +1 for name field
@@ -1095,13 +1061,14 @@ fn render_ns_template_var_form(f: &mut Frame, area: Rect, app: &App) {
     // All fields: [0] = service name, [1..n] = template vars
     let all_fields: Vec<(&str, &str, usize)> = {
         let mut v = vec![("Nome do serviço", state.name.as_str(), 0)];
-        for (i, var) in template.variables.iter().enumerate() {
+        for (i, var) in editable.iter().enumerate() {
             let val = state
                 .template_var_values
                 .get(i)
                 .map(String::as_str)
                 .unwrap_or("");
-            v.push((var.label, val, i + 1));
+            let label = if var.key == "main_domain" { "Domínio" } else { var.key };
+            v.push((label, val, i + 1));
         }
         v
     };

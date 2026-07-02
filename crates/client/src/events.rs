@@ -1540,7 +1540,6 @@ fn handle_ns_pick_type(app: &mut App, key: KeyEvent) {
                     }
                     _ => {
                         s.step = NewServiceStep::PickTemplate;
-                        s.template_cat_cursor = 0;
                         s.template_cursor = 0;
                         s.template_search.clear();
                     }
@@ -1661,7 +1660,7 @@ fn handle_ns_form(app: &mut App, key: KeyEvent) {
 }
 
 fn handle_ns_pick_template(app: &mut App, key: KeyEvent) {
-    use shared::templates::{self, TemplateCategory};
+    use shared::templates;
 
     let s = match app.new_service.as_mut() {
         Some(s) => s,
@@ -1693,26 +1692,13 @@ fn handle_ns_pick_template(app: &mut App, key: KeyEvent) {
             s.template_search.clear();
             s.template_cursor = 0;
         }
-        KeyCode::Left => {
-            if s.template_cat_cursor > 0 {
-                s.template_cat_cursor -= 1;
-                s.template_cursor = 0;
-            }
-        }
-        KeyCode::Right => {
-            if s.template_cat_cursor + 1 < TemplateCategory::FILTERS.len() {
-                s.template_cat_cursor += 1;
-                s.template_cursor = 0;
-            }
-        }
         KeyCode::Up => {
             if s.template_cursor > 0 {
                 s.template_cursor -= 1;
             }
         }
         KeyCode::Down => {
-            let cat = TemplateCategory::FILTERS[s.template_cat_cursor];
-            let count = templates::filtered(cat, &s.template_search.clone()).len();
+            let count = templates::filtered(&s.template_search.clone()).len();
             if s.template_cursor + 1 < count {
                 s.template_cursor += 1;
             }
@@ -1722,9 +1708,8 @@ fn handle_ns_pick_template(app: &mut App, key: KeyEvent) {
             s.template_search.clear();
         }
         KeyCode::Enter => {
-            let cat = TemplateCategory::FILTERS[s.template_cat_cursor];
             let search = s.template_search.clone();
-            let list = templates::filtered(cat, &search);
+            let list = templates::filtered(&search);
             if let Some(&t) = list.get(s.template_cursor) {
                 let s2 = app.new_service.as_mut().unwrap();
                 s2.select_template(t);
