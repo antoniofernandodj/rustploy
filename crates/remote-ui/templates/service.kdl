@@ -60,7 +60,9 @@ Column class="content" {
           // Gitea) não completa, mostramos um loading — os Selects só aparecem
           // depois, já populados, em vez de piscarem vazios.
           Column class="form_panel" if="{svc_loading}" equals="true" {
-            LoadingRow flag="{svc_loading}" note="Carregando dados do serviço…"
+            if cond="{svc_loading}" equals="true" {
+              LoadingRow note="Carregando dados do serviço…"
+            }
           }
 
           Form class="form_panel" if="{svc_loading}" not_equals="true" name="general" onSubmit="gen_save" {

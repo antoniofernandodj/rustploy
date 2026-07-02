@@ -1615,6 +1615,12 @@ pub fn poll_stream(
                             pairs.push(("proj_name".into(), proj.name.clone()));
                             pairs.push(("proj_description".into(), proj.description.clone().unwrap_or_default()));
                             pairs.push(("proj_can_delete".into(), if has_svcs { "0" } else { "1" }.into()));
+                            // Cura o spinner "Carregando dados…" da view de serviços:
+                            // o one-shot `fetch_project_services` seta proj_loading=false,
+                            // mas se aquele resultado se perde numa corrida com o poll o
+                            // flag fica preso. Como aqui já temos os dados do projeto
+                            // aberto, limpamos todo tick (mesmo padrão do data_loading).
+                            pairs.push(("proj_loading".into(), "false".into()));
                         }
                         projects_raw = list;
                     }

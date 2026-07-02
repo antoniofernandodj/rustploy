@@ -25,7 +25,9 @@ Column class="content" {
         Text "RX" class="th col_dur"
         Text "TX" class="th col_start"
       }
-      LoadingRow flag="{data_loading}"
+      if cond="{data_loading}" equals="true" {
+        LoadingRow
+      }
       Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
         Column class="table_body" {
           Column class="row_wrap" for-each="monitoring" var="m" {
@@ -62,7 +64,9 @@ Column class="content" {
         Text "UPSTREAM" class="th col_dur"
         Text "TLS" class="th col_start"
       }
-      LoadingRow flag="{data_loading}"
+      if cond="{data_loading}" equals="true" {
+        LoadingRow
+      }
       Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
         Column class="table_body" {
           ForEach items="ingress" var="i" {
@@ -116,7 +120,9 @@ Column class="content" {
         Text "ESTADO" class="th col_state"
         Text "CONTAINER" class="th col_start"
       }
-      LoadingRow flag="{data_loading}"
+      if cond="{data_loading}" equals="true" {
+        LoadingRow
+      }
       Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
         Column class="table_body" {
           ForEach items="docker_rows" var="c" {
@@ -151,7 +157,9 @@ Column class="content" {
         Text "CRIADA" class="th col_dur"
         Text "USO" class="th col_start"
       }
-      LoadingRow flag="{data_loading}"
+      if cond="{data_loading}" equals="true" {
+        LoadingRow
+      }
       Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
         Column class="table_body" {
           // Sub-aba já vem ordenada por tag (docker_images_json); o checkbox
@@ -199,7 +207,9 @@ Column class="content" {
         Text "TAMANHO" class="th col_dur"
         Text "USO" class="th col_start"
       }
-      LoadingRow flag="{data_loading}"
+      if cond="{data_loading}" equals="true" {
+        LoadingRow
+      }
       Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
         Column class="table_body" {
           if cond="{docker_volumes_only_used}" equals="true" {
@@ -246,7 +256,9 @@ Column class="content" {
         Text "CONTAINERS" class="th col_dur"
         Text "USO" class="th col_start"
       }
-      LoadingRow flag="{data_loading}"
+      if cond="{data_loading}" equals="true" {
+        LoadingRow
+      }
       Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
         Column class="table_body" {
           if cond="{docker_networks_only_used}" equals="true" {

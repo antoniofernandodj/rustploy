@@ -79,7 +79,9 @@ Row class="screen" {
             Text "DURAÇÃO" class="th col_dur"
             Text "INÍCIO" class="th col_start"
           }
-          LoadingRow flag="{data_loading}"
+          if cond="{data_loading}" equals="true" {
+            LoadingRow
+          }
           Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
             Column class="table_body" {
               Column class="row_wrap" for-each="deployments" var="d" {
@@ -131,7 +133,9 @@ Row class="screen" {
           Text "{erro_new_proj_name}" if="{erro_new_proj_name}" notEquals="" class="err"
           Text "{new_proj_msg}" class="muted" if="{new_proj_msg}" not_equals=""
 
-          LoadingRow flag="{data_loading}"
+          if cond="{data_loading}" equals="true" {
+            LoadingRow
+          }
           Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
             Column class="grid" {
               Row class="card_row" for-each="project_rows" var="r" {
@@ -195,7 +199,9 @@ Row class="screen" {
             }
             Rule
 
-            LoadingRow flag="{proj_loading}"
+            if cond="{proj_loading}" equals="true" {
+              LoadingRow
+            }
 
             if cond="{proj_tab}" equals="env" {
               // ── Variáveis de ambiente do projeto ──────────────────────
