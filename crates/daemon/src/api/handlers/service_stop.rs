@@ -101,7 +101,11 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
     };
 
     if ids_to_stop.is_empty() {
-        return RpResponse::err("NotRunning", "serviço não possui containers ativos");
+        // Nada rodando: o estado desejado (parado) já está satisfeito. Trata como
+        // sucesso idempotente — marca Stopped e retorna Ok — em vez de erro, para
+        // que "Parar" e "Parar e remover" funcionem num serviço sem containers
+        // ativos (senão o `stop_and_delete_service` do client aborta o delete).
+        return finish_stop(&state, &service_id, svc.live_container_id.as_deref()).await;
     }
 
     for cid in &ids_to_stop {
