@@ -1,0 +1,13 @@
+// Props: flag, note (opcional)
+//
+// Linha "Carregando dados…" com spinner, mostrada enquanto `flag` (o valor de
+// uma flag de loading do chamador, ex.: "{data_loading}") é "true". O `if` é
+// interno ao componente, então o chamador só instancia `LoadingRow flag="…"`.
+// `note` sobrescreve o texto padrão quando fornecido (prop ausente → vazio).
+if cond="{flag}" equals="true" {
+  Row class="loading_row" {
+    Text "⟳" class="loading_spin"
+    Text "{note}" if="{note}" not_equals="" class="loading_note"
+    Text "Carregando dados…" if="{note}" equals="" class="loading_note"
+  }
+}

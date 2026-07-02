@@ -42,6 +42,36 @@ fn all_screens_and_service_tabs_render() {
         assert!(m.render("app").is_ok(), "render view {view}");
     }
 
+    // Projeto aberto (project_services): grid de serviços e a aba de
+    // variáveis de ambiente de nível de projeto.
+    for proj_tab in ["services", "env"] {
+        m.define_data("view", "project_services");
+        m.define_data("proj_tab", proj_tab);
+        m.define_data("proj_loading", "false");
+        m.reevaluate_all().unwrap_or_else(|e| panic!("eval project_services/{proj_tab}: {e}"));
+        assert!(m.render("app").is_ok(), "render project_services/{proj_tab}");
+    }
+
+    // Wizard "Novo serviço": todos os passos.
+    for step in [
+        "pick_type", "pick_db", "app_form", "db_form", "compose_form",
+        "pick_template", "template_form",
+    ] {
+        m.define_data("view", "new_service");
+        m.define_data("ns_step", step);
+        // Flags/listas que os passos de banco/template esperam.
+        m.define_data("ns_db_has_dbname", "true");
+        m.define_data("ns_db_has_user", "true");
+        m.define_data("ns_db_has_rootpw", "true");
+        m.define_data("ns_db_has_replica", "true");
+        m.define_data("ns_dbs", r#"[{"id":"postgres","label":"PostgreSQL","image":"postgres:18"}]"#);
+        m.define_data("ns_tcats", r#"[{"idx":"0","label":"Todos"}]"#);
+        m.define_data("ns_templates", r#"[{"id":"t","name":"T","cat":"CMS","description":"d"}]"#);
+        m.define_data("ns_template_vars", r#"[{"idx":"0","label":"VAR","placeholder":"x"}]"#);
+        m.reevaluate_all().unwrap_or_else(|e| panic!("eval new_service/{step}: {e}"));
+        assert!(m.render("app").is_ok(), "render new_service/{step}");
+    }
+
     // Settings → Git sub-tab (provider list + connect form, both methods).
     m.define_data("view", "settings");
     m.define_data("gitea_count", "1");
@@ -62,6 +92,11 @@ fn all_screens_and_service_tabs_render() {
         m.define_data("tab", tab);
         // Exercise the env editor + build-log panel + Gitea sub-tab branches too.
         m.define_data("env_text_open", "true");
+        // Lista de env com um comentário (linha display-only) e uma var normal.
+        m.define_data(
+            "svc_env",
+            r##"[{"key":"__c0","value":"# comentário","kind":"comment"},{"key":"OLA","value":"mundo","kind":"plain"}]"##,
+        );
         m.define_data("dep_selected", "abc123");
         // Show the Gitea sub-tab and render its picker body.
         m.define_data("gitea_count", "1");

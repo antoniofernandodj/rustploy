@@ -1,0 +1,32 @@
+// Props: id, name, port, status_color, status_label, cpu, mem, filler
+//
+// Card de serviço da aba "Serviços" de um projeto — o análogo do ProjectCard.
+// Mesmo esquema if/else de topo: `filler=1` rende só o slot vazio que preenche
+// a fileira do grid; caso contrário, o card real. O crachá de estado reaproveita
+// o componente Badge.
+Column if="{filler}" equals="1" class="card_filler"
+Column else class="card" {
+  Row class="card_head" {
+    Text "{name}" class="card_name"
+    Badge color="{status_color}" label="{status_label}"
+  }
+  Text ":{port}" class="muted"
+  Rule
+  Row class="card_stats" {
+    Column class="card_stat" {
+      Text "CPU" class="label_cap"
+      Text "{cpu}" class="card_stat_num"
+    }
+    Column class="card_stat" {
+      Text "MEM" class="label_cap"
+      Text "{mem}" class="card_stat_num"
+    }
+  }
+  // Ações empilhadas: 3 botões numa linha só transbordam no tamanho mínimo
+  // de janela (grade de 3 colunas).
+  Button "Abrir  ›" class="card_open" onClick="open_service:{id}"
+  Row class="card_actions" {
+    Button "Parar" class="card_stop" onClick="svc_stop_id:{id}"
+    Button "Remover" class="card_remove" onClick="stop_delete_service:{id}"
+  }
+}

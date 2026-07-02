@@ -6,10 +6,7 @@ Column class="content" {
       Row class="svc_title_row" {
         Button "‹ {svc_project}" class="btn_ghost" onClick="open_project:{svc_project_id}"
         Text "{svc_name}" class="title"
-        Row class="badge" {
-          Text "●" class="state_dot" color="{svc_status_color}"
-          Text "{svc_status_label}" class="badge_lbl" color="{svc_status_color}"
-        }
+        Badge color="{svc_status_color}" label="{svc_status_label}"
         // Live "1s, 2s, 3s…" deploy timer: shown only while a deploy started
         // from this panel (Deploy/Rebuild) is in flight. Ticked once a second
         // by the poll subscription (see `net::poll_stream`'s `sec_tick`), and
@@ -36,55 +33,14 @@ Column class="content" {
 
   // ── Abas ───────────────────────────────────────────────────────────
   Row class="tabs" {
-
-    if cond="{tab}" equals="general" {
-      Button "General" class="tab_on" onClick="tab:general"
-    } else {
-      Button "General" class="tab" onClick="tab:general"
-    }
-
-    if cond="{tab}" equals="connection" {
-      Button "Connection" class="tab_on" onClick="tab:connection"
-    } else {
-      Button "Connection" class="tab" onClick="tab:connection"
-    }
-
-    if cond="{tab}" equals="environment" {
-      Button "Environment" class="tab_on" onClick="tab:environment"
-    } else {
-      Button "Environment" class="tab" onClick="tab:environment"
-    }
-
-    if cond="{tab}" equals="domains" {
-      Button "Domains" class="tab_on" onClick="tab:domains"
-    } else {
-      Button "Domains" class="tab" onClick="tab:domains"
-    }
-
-    if cond="{tab}" equals="deployments" {
-      Button "Deployments" class="tab_on" onClick="tab:deployments"
-    } else {
-      Button "Deployments" class="tab" onClick="tab:deployments"
-    }
-
-    if cond="{tab}" equals="healthcheck" {
-      Button "Healthcheck" class="tab_on" onClick="tab:healthcheck"
-    } else {
-      Button "Healthcheck" class="tab" onClick="tab:healthcheck"
-    }
-
-    if cond="{tab}" equals="logs" {
-      Button "Logs" class="tab_on" onClick="tab:logs"
-    } else {
-      Button "Logs" class="tab" onClick="tab:logs"
-    }
-
-    if cond="{tab}" equals="advanced" {
-      Button "Advanced" class="tab_on" onClick="tab:advanced"
-    } else {
-      Button "Advanced" class="tab" onClick="tab:advanced"
-    }
-
+    TabButton label="General" current="{tab}" target="general" action="tab:general"
+    TabButton label="Connection" current="{tab}" target="connection" action="tab:connection"
+    TabButton label="Environment" current="{tab}" target="environment" action="tab:environment"
+    TabButton label="Domains" current="{tab}" target="domains" action="tab:domains"
+    TabButton label="Deployments" current="{tab}" target="deployments" action="tab:deployments"
+    TabButton label="Healthcheck" current="{tab}" target="healthcheck" action="tab:healthcheck"
+    TabButton label="Logs" current="{tab}" target="logs" action="tab:logs"
+    TabButton label="Advanced" current="{tab}" target="advanced" action="tab:advanced"
   }
 
   Rule
@@ -104,31 +60,16 @@ Column class="content" {
           // Gitea) não completa, mostramos um loading — os Selects só aparecem
           // depois, já populados, em vez de piscarem vazios.
           Column class="form_panel" if="{svc_loading}" equals="true" {
-            Row class="loading_row" {
-              Text "⟳" class="loading_spin"
-              Text "Carregando dados do serviço…" class="loading_note"
-            }
+            LoadingRow flag="{svc_loading}" note="Carregando dados do serviço…"
           }
 
           Form class="form_panel" if="{svc_loading}" not_equals="true" name="general" onSubmit="gen_save" {
 
             Text "PROVIDER" class="label_cap"
             Row class="tabs" {
-              Button "Git"
-                if="{prov_tab}"
-                equals="git"
-                class="tab_on"
-                onClick="prov:git"
-
-              Button "Git" else class="tab" onClick="prov:git"
+              TabButton label="Git" current="{prov_tab}" target="git" action="prov:git"
               if cond="{gitea_count}" not_equals="0" {
-                Button "Gitea"
-                  if="{prov_tab}"
-                  equals="gitea"
-                  class="tab_on"
-                  onClick="prov:gitea"
-
-                Button "Gitea" else class="tab" onClick="prov:gitea"
+                TabButton label="Gitea" current="{prov_tab}" target="gitea" action="prov:gitea"
               }
             }
             Rule
@@ -379,20 +320,13 @@ Column class="content" {
       Column if="{tab}" equals="environment" class="env_wrap" {
         Row class="env_head" {
           Text "{svc_env_count} variável(eis)" class="muted_fill"
-          Button "Exportar .env"
-            class="tab"
-            onClick="env_export"
-
-          Button "Fechar .env"
-            if="{env_text_open}"
-            equals="true"
-            class="tab_on"
-            onClick="env_text_toggle"
-
-          Button ".env"
-            else
-            class="tab"
-            onClick="env_text_toggle"
+          Button "Exportar" class="btn_export" onClick="env_export"
+          Text " "
+          if cond="{env_text_open}" equals="true" {
+            Button "Fechar" class="btn_export_on" onClick="env_text_toggle"
+          } else {
+            Button ".env" class="tab" onClick="env_text_toggle"
+          }
         }
 
         Form name="env_add" onSubmit="env_add" width="fill" {
@@ -414,11 +348,35 @@ Column class="content" {
         Scrollable direction=vertical class="env_list_scroll" {
           Column class="kv_list" {
             ForEach items="svc_env" var="e" onReorder="env_reorder" reorderKey="key" {
-              Row class="kv_row" {
-                Text "⋮⋮" class="env_drag_handle" dragHandle="true" cursor="grab"
-                Button "✕" class="env_del" onClick="env_del:{e.key}"
-                Text "{e.key}" class="env_key"
-                Text "{e.value}" class="kv_val_fill"
+              // Comentários (# ...) do .env: arrastáveis como as vars (ao
+              // soltar, reancoram na var seguinte da nova ordem), mas sem
+              // delete — removem-se editando o .env. A classe da linha muda
+              // para `kv_row_drag` no item agarrado ({e.__dragging} vem do
+              // glacier-ui durante o arrasto).
+              if cond="{e.__dragging}" equals="true" {
+                Row class="kv_row_drag" if="{e.kind}" equals="comment" {
+                  Text "⋮ " class="env_drag_handle" dragHandle="true" cursor="grabbing"
+                  Text "{e.value}" class="muted"
+                }
+                Row class="kv_row_drag" else {
+                  Text "⋮ " class="env_drag_handle" dragHandle="true" cursor="grabbing"
+                  Button "✕" class="env_del" onClick="env_del:{e.key}"
+                  Text " "
+                  Text "{e.key}" class="env_key"
+                  Text "{e.value}" class="kv_val_fill"
+                }
+              } else {
+                Row class="kv_row" if="{e.kind}" equals="comment" {
+                  Text "⋮ " class="env_drag_handle" dragHandle="true" cursor="grab"
+                  Text "{e.value}" class="muted"
+                }
+                Row class="kv_row" else {
+                  Text "⋮ " class="env_drag_handle" dragHandle="true" cursor="grab"
+                  Button "✕" class="env_del" onClick="env_del:{e.key}"
+                  Text " "
+                  Text "{e.key}" class="env_key"
+                  Text "{e.value}" class="kv_val_fill"
+                }
               }
             }
           }
@@ -478,12 +436,7 @@ Column class="content" {
             Column class="row_wrap" for-each="svc_deployments" var="d" {
               Row class="trow" {
                 Text "{d.id}" class="td_key col_dep_id"
-                Row class="state_cell" {
-                  Text "●" class="state_dot" color="{d.state_color}"
-                  Text "{d.state_label}"
-                    class="state_lbl"
-                    color="{d.state_color}"
-                }
+                StateCell color="{d.state_color}" label="{d.state_label}"
                 Text "{d.duration}" class="td col_dur"
                 Text "{d.start}" class="muted col_dep_start"
                 Row class="dep_actions" {
@@ -527,31 +480,10 @@ Column class="content" {
       Form if="{tab}" equals="healthcheck" class="form_panel" name="healthcheck" onSubmit="hc_save" {
         Text "KIND" class="label_cap"
         Row class="tabs" {
-
-          if cond="{f_hc_kind}" equals="none" {
-            Button "None" class="tab_on" onClick="hckind:none"
-          } else {
-            Button "None" class="tab" onClick="hckind:none"
-          }
-
-          if cond="{f_hc_kind}" equals="tcp" {
-            Button "Tcp" class="tab_on" onClick="hckind:tcp"
-          } else {
-            Button "Tcp" class="tab" onClick="hckind:tcp"
-          }
-
-          if cond="{f_hc_kind}" equals="http" {
-            Button "Http" class="tab_on" onClick="hckind:http"
-          } else {
-            Button "Http" class="tab" onClick="hckind:http"
-          }
-
-          if cond="{f_hc_kind}" equals="docker" {
-            Button "Docker" class="tab_on" onClick="hckind:docker"
-          } else {
-            Button "Docker" class="tab" onClick="hckind:docker"
-          }
-
+          TabButton label="None" current="{f_hc_kind}" target="none" action="hckind:none"
+          TabButton label="Tcp" current="{f_hc_kind}" target="tcp" action="hckind:tcp"
+          TabButton label="Http" current="{f_hc_kind}" target="http" action="hckind:http"
+          TabButton label="Docker" current="{f_hc_kind}" target="docker" action="hckind:docker"
         }
         if cond="{f_hc_kind}" equals="http" {
           Text "HTTP PATH" class="label_cap"
@@ -659,10 +591,7 @@ Column class="content" {
     Column class="svc_aside" {
       Column class="aside_panel" {
         Text "STATUS" class="label_cap"
-        Row class="badge" {
-          Text "●" class="state_dot" color="{svc_status_color}"
-          Text "{svc_status_label}" class="badge_lbl" color="{svc_status_color}"
-        }
+        Badge color="{svc_status_color}" label="{svc_status_label}"
         Text "UPTIME" class="label_cap"
         Text "{daemon_uptime}" class="kv_val"
         Text "SERVICES" class="label_cap"

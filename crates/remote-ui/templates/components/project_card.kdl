@@ -1,0 +1,22 @@
+// Props: id, name, service_count, running_count, description, can_delete, filler
+//
+// Template "fragment": dois nós de topo (o slot vazio e o card) — o glacier-ui
+// (0.4.12+) embrulha múltiplas raízes num Fragment e aplica os filhos no pai,
+// então o par if/else vira dois irmãos do grid, sem nó wrapper.
+Column if="{filler}" equals="1" class="card_filler"
+Column else class="card" {
+  Row class="card_head" {
+    Text "{name}" class="card_name"
+  }
+  Text "{service_count} serviço(s) · {running_count} rodando" class="muted" size=11
+  // Sempre renderizado (mesmo vazio) para reservar a linha da
+  // descrição, mantendo os cards da fileira mais próximos em
+  // altura mesmo quando só um tem descrição.
+  Text "{description}" class="muted"
+  Rule
+  // Ações empilhadas: um botão fill disputando a linha com
+  // texto/botão fica torto quando o card está estreito.
+  Button "Abrir  ›" class="card_open" onClick="open_project:{id}"
+  Button "Remover" if="{can_delete}" equals="1" class="card_remove" onClick="delete_project:{id}"
+  Text "Não removível: tem serviços" if="{can_delete}" not_equals="1" class="muted"
+}

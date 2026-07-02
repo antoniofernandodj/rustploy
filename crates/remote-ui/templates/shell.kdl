@@ -1,5 +1,15 @@
-import "ServiceDetail" from="crates/remote-ui/templates/service.kdl"
-import "HomeViews" from="crates/remote-ui/templates/home.kdl"
+import "ServiceDetail"    from="crates/remote-ui/templates/service.kdl"
+import "HomeViews"        from="crates/remote-ui/templates/home.kdl"
+import "NewServiceWizard" from="crates/remote-ui/templates/new_service.kdl"
+import "ProjectCard"      from="crates/remote-ui/templates/components/project_card.kdl"
+import "ServiceCard"      from="crates/remote-ui/templates/components/service_card.kdl"
+import "StatCard"         from="crates/remote-ui/templates/components/stat_card.kdl"
+import "StateCell"        from="crates/remote-ui/templates/components/state_cell.kdl"
+import "Badge"            from="crates/remote-ui/templates/components/badge.kdl"
+import "NavItem"          from="crates/remote-ui/templates/components/nav_item.kdl"
+import "TabButton"        from="crates/remote-ui/templates/components/tab_button.kdl"
+import "LoadingRow"       from="crates/remote-ui/templates/components/loading_row.kdl"
+import "PickerRow"        from="crates/remote-ui/templates/components/picker_row.kdl"
 
 Row class="screen" {
 
@@ -12,44 +22,15 @@ Row class="screen" {
 
     Text "DEPLOYMENT OPS" class="nav_section"
 
-    if cond="{view}" equals="deployments" {
-      Button "  Deployments" class="nav_item_on" onClick="nav_deployments"
-    } else {
-      Button "  Deployments" class="nav_item" onClick="nav_deployments"
-    }
-    
-    if cond="{view}" equals="monitoring" {
-      Button "  Monitoring" class="nav_item_on" onClick="nav_monitoring"
-    } else {
-      Button "  Monitoring" class="nav_item" onClick="nav_monitoring"
-    }
-
-    if cond="{view}" equals="schedules" {
-      Button "  Schedules" class="nav_item_on" onClick="nav_schedules"
-    } else {
-      Button "  Schedules" class="nav_item" onClick="nav_schedules"
-    }
-    
-    if cond="{view}" equals="ingress" {
-      Button "  Ingress" class="nav_item_on" onClick="nav_ingress"
-    } else {
-      Button "  Ingress" class="nav_item" onClick="nav_ingress"
-    }
-
-    if cond="{view}" equals="docker" {
-      Button "  Docker" class="nav_item_on" onClick="nav_docker"
-    } else {
-      Button "  Docker" class="nav_item" onClick="nav_docker"
-    }
+    NavItem label="  Deployments" target="deployments" action="nav_deployments"
+    NavItem label="  Monitoring" target="monitoring" action="nav_monitoring"
+    NavItem label="  Schedules" target="schedules" action="nav_schedules"
+    NavItem label="  Ingress" target="ingress" action="nav_ingress"
+    NavItem label="  Docker" target="docker" action="nav_docker"
 
     Text "MANAGEMENT" class="nav_section"
 
-    if cond="{view}" equals="projects" {
-      Button "  Projects ({projects_count})" class="nav_item_on" onClick="nav_projects"
-    } else {
-      Button "  Projects ({projects_count})" class="nav_item" onClick="nav_projects"
-    }
-    
+    NavItem label="  Projects ({projects_count})" target="projects" action="nav_projects"
 
     Column class="nav_spacer"
 
@@ -84,14 +65,8 @@ Row class="screen" {
             Text "Real-time status of services in the cluster." class="subtitle"
           }
           Row class="stats_row" {
-            Column class="stat_card" {
-              Text "STATUS" class="label_cap"
-              Text "{services_label}" class="stat_num_g"
-            }
-            Column class="stat_card" {
-              Text "UPTIME" class="label_cap"
-              Text "{daemon_uptime}" class="stat_num"
-            }
+            StatCard label="STATUS" value="{services_label}" accent="1"
+            StatCard label="UPTIME" value="{daemon_uptime}"
           }
         }
 
@@ -103,20 +78,14 @@ Row class="screen" {
             Text "DURAÇÃO" class="th col_dur"
             Text "INÍCIO" class="th col_start"
           }
-          Row class="loading_row" if="{data_loading}" equals="true" {
-            Text "⟳" class="loading_spin"
-            Text "Carregando dados…" class="loading_note"
-          }
+          LoadingRow flag="{data_loading}"
           Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
             Column class="table_body" {
               Column class="row_wrap" for-each="deployments" var="d" {
                 Row class="trow" {
                   Text "{d.service}" class="td_key col_svc"
                   Text "{d.project}" class="td col_proj"
-                  Row class="state_cell" {
-                    Text "●" class="state_dot" color="{d.state_color}"
-                    Text "{d.state_label}" class="state_lbl" color="{d.state_color}"
-                  }
+                  StateCell color="{d.state_color}" label="{d.state_label}"
                   Text "{d.duration}" class="td col_dur"
                   Text "{d.start}" class="muted col_start"
                 }
@@ -138,14 +107,8 @@ Row class="screen" {
                 class="subtitle"
             }
             Row class="stats_row" {
-              Column class="stat_card" {
-                Text "SERVICES" class="label_cap"
-                Text "{services_count}" class="stat_num"
-              }
-              Column class="stat_card" {
-                Text "PROJECTS" class="label_cap"
-                Text "{projects_count}" class="stat_num_g"
-              }
+              StatCard label="SERVICES" value="{services_count}"
+              StatCard label="PROJECTS" value="{projects_count}" accent="1"
             }
           }
 
@@ -167,39 +130,23 @@ Row class="screen" {
           Text "{erro_new_proj_name}" if="{erro_new_proj_name}" notEquals="" class="err"
           Text "{new_proj_msg}" class="muted" if="{new_proj_msg}" not_equals=""
 
-          Row class="loading_row" if="{data_loading}" equals="true" {
-            Text "⟳" class="loading_spin"
-            Text "Carregando dados…" class="loading_note"
-          }
+          LoadingRow flag="{data_loading}"
           Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
             Column class="grid" {
               Row class="card_row" for-each="project_rows" var="r" {
-                ForEach items="r.cards" var="c" {
-                  Column if="{c.filler}" equals="1" class="card_filler"
-
-                  Column else class="card" {
-                    Row class="card_head" {
-                      Text "{c.name}" class="card_name"
-                    }
-                    Text "{c.service_count} serviço(s) · {c.running_count} rodando" class="muted"
-                    // Sempre renderizado (mesmo vazio) para que todo card da
-                    // mesma fileira reserve a mesma altura, com ou sem
-                    // descrição — senão a fileira fica desalinhada.
-                    Text "{c.description}" class="muted"
-                    Rule
-                    Row class="card_actions" {
-                      Button "Abrir  ›" class="card_edit" onClick="open_project:{c.id}"
-                      Button "Remover" if="{c.can_delete}" equals="1" class="card_remove" onClick="delete_project:{c.id}"
-                      Text "Tem serviços" if="{c.can_delete}" not_equals="1" class="muted"
-                    }
-                  }
-                }
+                ProjectCard for-each="r.cards" var="c"
+                  id="{c.id}"
+                  filler="{c.filler}"
+                  name="{c.name}"
+                  service_count="{c.service_count}"
+                  running_count="{c.running_count}"
+                  description="{c.description}"
+                  can_delete="{c.can_delete}"
               }
             }
           }
         }
-      }
-      else {
+      } else {
         // ── Projeto: serviços de um projeto ──────────────────────────
         if cond="{view}" equals="project_services" {
           Column class="content" {
@@ -226,6 +173,7 @@ Row class="screen" {
                   Text "{proj_name}" class="title"
                   Text "{proj_description}" class="subtitle"
                   Row class="env_add" {
+                    Button "+ Novo serviço" class="btn_primary" onClick="new_service_open"
                     Button "Editar projeto" class="btn_ghost" onClick="edit_project_toggle"
                     Button "Remover projeto"
                       if="{proj_can_delete}"
@@ -238,54 +186,89 @@ Row class="screen" {
               }
             }
 
-            Row class="loading_row" if="{proj_loading}" equals="true" {
-              Text "⟳" class="loading_spin"
-              Text "Carregando dados…" class="loading_note"
+            // Sub-abas do projeto: os cards de serviços e as env vars de
+            // nível de projeto (herdadas por todos os serviços no deploy).
+            Row class="tabs" {
+              TabButton label="Serviços" current="{proj_tab}" target="services" action="proj_tab:services"
+              TabButton label="Variáveis ({proj_env_count})" current="{proj_tab}" target="env" action="proj_tab:env"
             }
-            Scrollable if="{proj_loading}" not_equals="true" direction=vertical class="scroll_fill" {
-              Column class="grid" {
-                Row class="card_row" for-each="project_services" var="r" {
-                  ForEach items="r.cards" var="c" {
-                    Column if="{c.filler}" equals="1" class="card_filler"
+            Rule
 
-                    Column else class="card" {
-                      Row class="card_head" {
-                        Text "{c.name}" class="card_name"
-                        Row class="badge" {
-                          Text "●" class="state_dot" color="{c.status_color}"
-                          Text "{c.status_label}"
-                            class="badge_lbl"
-                            color="{c.status_color}"
-                        }
+            LoadingRow flag="{proj_loading}"
+
+            if cond="{proj_tab}" equals="env" {
+              // ── Variáveis de ambiente do projeto ──────────────────────
+              Column class="env_wrap" if="{proj_loading}" not_equals="true" {
+                Text "Herdadas por todos os serviços deste projeto no deploy — as do serviço têm precedência."
+                  class="muted"
+                Form name="penv_add" onSubmit="penv_add" width="fill" {
+                  Row class="env_add" {
+                    TextInput "KEY"
+                      class="env_in_key"
+                      formControl="penv_new_key"
+
+                    TextInput "value"
+                      class="env_in_val"
+                      formControl="penv_new_val"
+
+                    Button "Adicionar"
+                      class="btn_primary"
+                      onClick="penv_add"
+                  }
+                }
+                Text "{erro_penv_new_key}" if="{erro_penv_new_key}" notEquals="" class="err"
+                Scrollable direction=vertical class="env_list_scroll" {
+                  Column class="kv_list" {
+                    ForEach items="proj_env" var="e" onReorder="penv_reorder" reorderKey="key" {
+                      // Linha agarrada muda para kv_row_drag ({e.__dragging}
+                      // vem do glacier-ui durante o arrasto).
+                      Row class="kv_row_drag" if="{e.__dragging}" equals="true" {
+                        Text "⋮ " class="env_drag_handle" dragHandle="true" cursor="grabbing"
+                        Button "✕" class="env_del" onClick="penv_del:{e.key}"
+                        Text " "
+                        Text "{e.key}" class="env_key"
+                        Text "{e.value}" class="kv_val_fill"
                       }
-                      Text ":{c.port}" class="muted"
-                      Rule
-                      Row class="card_stats" {
-                        Column class="card_stat" {
-                          Text "CPU" class="label_cap"
-                          Text "{c.cpu}" class="card_stat_num"
-                        }
-                        Column class="card_stat" {
-                          Text "MEM" class="label_cap"
-                          Text "{c.mem}" class="card_stat_num"
-                        }
-                      }
-                      Row class="card_actions" {
-                        Button "Abrir  ›" class="card_open" onClick="open_service:{c.id}"
-                        Button "Parar" class="card_stop" onClick="svc_stop_id:{c.id}"
-                        Button "Remover" class="card_remove" onClick="stop_delete_service:{c.id}"
+                      Row class="kv_row" else {
+                        Text "⋮ " class="env_drag_handle" dragHandle="true" cursor="grab"
+                        Button "✕" class="env_del" onClick="penv_del:{e.key}"
+                        Text " "
+                        Text "{e.key}" class="env_key"
+                        Text "{e.value}" class="kv_val_fill"
                       }
                     }
                   }
                 }
               }
+            } else {
+              Scrollable if="{proj_loading}" not_equals="true" direction=vertical class="scroll_fill" {
+                Column class="grid" {
+                  Row class="card_row" for-each="project_services" var="r" {
+                    ServiceCard for-each="r.cards" var="c"
+                      id="{c.id}"
+                      filler="{c.filler}"
+                      name="{c.name}"
+                      port="{c.port}"
+                      status_color="{c.status_color}"
+                      status_label="{c.status_label}"
+                      cpu="{c.cpu}"
+                      mem="{c.mem}"
+                  }
+                }
+              }
             }
           }
-        }
-        else {
-          // ── Service detail / demais views (home) ──────────────────
-          ServiceDetail if="{view}" equals="service"
-          HomeViews else
+        } else {
+          // ── Service detail / wizard de novo serviço / demais views ─
+          if cond="{view}" equals="service" {
+            ServiceDetail
+          } else {
+            if cond="{view}" equals="new_service" {
+              NewServiceWizard
+            } else {
+              HomeViews
+            }
+          }
         }
       }
     }

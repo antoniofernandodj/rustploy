@@ -19,7 +19,7 @@ use shared::{
     GitBranch, GitProvider, GitRepo, GitSource, Healthcheck, HealthcheckKind, Project, Response,
     RwpFrame, RwpReply, Service, ServiceSource, ServiceStatus, SystemMetricsPoint, looks_like_git_url,
 };
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
 
 /// How many service cards sit side by side in the Projects grid.
@@ -28,6 +28,47 @@ const GRID_COLS: usize = 3;
 const LOG_RING: usize = 200;
 /// Max build-log lines kept per deployment (builds can be verbose).
 const BUILD_RING: usize = 2000;
+
+// ── Toasts ──────────────────────────────────────────────────────────────────
+//
+// A mutating action's outcome (delete/deploy/edit/…) is worth surfacing as a
+// toast even if the user has since navigated away from the panel that shows
+// its inline `*_msg` text. But every one of these outcomes travels back as
+// the `Vec<(String, String)>` a `ctx.perform`/`poll_stream` future returns —
+// `glacier_ui::component::Context::perform`'s only channel — and that lands
+// via `EngineMessage::ContextPatch`, which `GlacierUI::dispatch` merges
+// straight into the context without ever routing through `Component::update`
+// (see the comment on `Root`'s `Form` fields). There is no `Context` to call
+// `ctx.show_toast` on at that point.
+//
+// So a toast request rides along as two reserved pairs with these keys,
+// alongside whatever real context data the pairs carry. `app/mod.rs`'s
+// `update` intercepts them on every `ContextPatch` — from both `ctx.perform`
+// effects and `poll_stream` — before they reach `GlacierUI::dispatch`,
+// turning them into a `GlacierUI::show_toast` call and stripping them out so
+// they never land as visible (and meaningless) context keys.
+pub const TOAST_KIND_KEY: &str = "__toast_kind";
+pub const TOAST_MSG_KEY: &str = "__toast_message";
+
+/// Appends a toast request of `kind` (`"info"`/`"success"`/`"warning"`/`"error"`)
+/// for `msg` to `pairs`.
+fn with_toast(mut pairs: Vec<(String, String)>, kind: &str, msg: impl Into<String>) -> Vec<(String, String)> {
+    pairs.push((TOAST_KIND_KEY.into(), kind.into()));
+    pairs.push((TOAST_MSG_KEY.into(), msg.into()));
+    pairs
+}
+
+/// Appends a toast inferred from one of this module's own outcome messages:
+/// `"erro..."` / `"resposta inesperada..."` (see [`resp_msg`]) become an error
+/// toast, anything else a success one.
+fn with_outcome_toast(pairs: Vec<(String, String)>, msg: &str) -> Vec<(String, String)> {
+    let kind = if msg.starts_with("erro") || msg.starts_with("resposta inesperada") {
+        "error"
+    } else {
+        "success"
+    };
+    with_toast(pairs, kind, msg)
+}
 
 /// One-shot: open a fresh connection, run `cmd`, return the response.
 /// Used by `ctx.perform` action effects (deploy/stop/reload).
@@ -56,8 +97,8 @@ pub async fn run_service_action(
         Err(e) => format!("erro: {e}"),
     };
     let mut pairs = fetch_service_detail(addr, token, service_id).await;
-    pairs.push(("svc_action_msg".into(), msg));
-    pairs
+    pairs.push(("svc_action_msg".into(), msg.clone()));
+    with_outcome_toast(pairs, &msg)
 }
 
 /// Identity of the deploy currently being watched, shared between the action
@@ -107,14 +148,21 @@ pub async fn start_deploy(
             pairs.push(("svc_deploy_elapsed".into(), "0s".into()));
             pairs.push(("svc_action_msg".into(), format!("deploy iniciado · {}", d.state.label())));
             pairs.push(("svc_action_color".into(), "#58A6FF".into()));
+            // The terminal outcome (success/failure) is toasted separately by
+            // `poll_stream`, once the deployment actually finishes — this one
+            // just confirms the request was accepted.
+            pairs = with_toast(pairs, "info", "Deploy iniciado.");
         }
         Ok(other) => {
-            pairs.push(("svc_action_msg".into(), resp_msg(other)));
+            let msg = resp_msg(other);
+            pairs.push(("svc_action_msg".into(), msg.clone()));
             pairs.push(("svc_action_color".into(), "#F85149".into()));
+            pairs = with_toast(pairs, "error", format!("Falha ao iniciar deploy: {msg}"));
         }
         Err(e) => {
             pairs.push(("svc_action_msg".into(), format!("erro: {e}")));
             pairs.push(("svc_action_color".into(), "#F85149".into()));
+            pairs = with_toast(pairs, "error", format!("Falha ao iniciar deploy: {e}"));
         }
     }
     pairs.extend(fetch_service_detail(addr, token, service_id).await);
@@ -296,7 +344,7 @@ async fn fetch_service_detail_inner(
         ("svc_hc".into(), healthcheck_summary(&spec.healthcheck)),
         ("svc_run_command".into(), spec.run_command.clone().unwrap_or_else(|| "—".into())),
         ("svc_run_args".into(), run_args),
-        ("svc_env".into(), env_json(&spec.env_vars)),
+        ("svc_env".into(), env_json_with_comments(&spec.env_vars, &spec.env_comments)),
         ("svc_env_count".into(), spec.env_vars.len().to_string()),
         ("svc_env_text".into(), env_dotenv_with_comments(&spec.env_vars, &spec.env_comments)),
         // Pristine copy so the editor's Cancel can discard edits offline.
@@ -390,7 +438,119 @@ async fn fetch_project_services_inner(
         ("proj_description".into(), proj.description.clone().unwrap_or_default()),
         ("proj_can_delete".into(), if count == 0 { "1" } else { "0" }.into()),
         ("project_services".into(), service_rows_json(&all, &HashMap::new(), "")),
+        // Aba "Variáveis" do projeto (herdadas por todos os serviços no deploy).
+        ("proj_env".into(), env_json(&proj.env_vars)),
+        ("proj_env_count".into(), proj.env_vars.len().to_string()),
     ])
+}
+
+/// Cria um serviço a partir do wizard "Novo serviço". No sucesso volta para a
+/// lista de serviços do projeto (a `view` é patchada junto) já re-fetchada; no
+/// erro permanece no wizard com a mensagem em `ns_msg`.
+pub async fn create_service(
+    addr: String,
+    token: Option<String>,
+    spec: shared::ServiceSpec,
+) -> Vec<(String, String)> {
+    let project_id = spec.project_id.clone();
+    let name = spec.name.clone();
+    match run_command(addr.clone(), token.clone(), Command::ServiceCreate(spec)).await {
+        Ok(Response::Service(_)) => {
+            let mut pairs = fetch_project_services(addr, token, project_id).await;
+            pairs.push(("view".into(), "project_services".into()));
+            pairs.push(("proj_tab".into(), "services".into()));
+            pairs.push(("ns_step".into(), String::new()));
+            pairs.push(("ns_msg".into(), String::new()));
+            with_toast(pairs, "success", format!("Serviço \"{name}\" criado."))
+        }
+        Ok(other) => {
+            let msg = resp_msg(&other);
+            with_toast(vec![("ns_msg".into(), msg.clone())], "error", msg)
+        }
+        Err(e) => {
+            let msg = format!("erro: {e}");
+            with_toast(vec![("ns_msg".into(), msg.clone())], "error", msg)
+        }
+    }
+}
+
+/// Um edit nas variáveis de ambiente de nível de PROJETO (herdadas por todos
+/// os serviços no deploy — as do serviço têm precedência). Mesma família de
+/// operações do [`EnvOp`] do serviço, menos o import de `.env` (o projeto não
+/// guarda comentários).
+pub enum ProjectEnvOp {
+    Set { key: String, value: String },
+    Delete { key: String },
+    Reorder(Vec<String>),
+}
+
+/// Aplica um [`ProjectEnvOp`] (fetch do projeto → mutação → `ProjectEnvSet`) e
+/// devolve a lista atualizada para a aba "Variáveis" do projeto.
+pub async fn run_project_env_op(
+    addr: String,
+    token: Option<String>,
+    project_id: String,
+    op: ProjectEnvOp,
+) -> Vec<(String, String)> {
+    match apply_project_env_op(&addr, token.as_deref(), &project_id, op).await {
+        Ok(project) => with_toast(
+            vec![
+                ("proj_action_msg".into(), "variáveis do projeto atualizadas".into()),
+                ("proj_env".into(), env_json(&project.env_vars)),
+                ("proj_env_count".into(), project.env_vars.len().to_string()),
+            ],
+            "success",
+            "Variáveis do projeto atualizadas.",
+        ),
+        Err(e) => {
+            let msg = format!("erro: {e}");
+            with_toast(vec![("proj_action_msg".into(), msg.clone())], "error", msg)
+        }
+    }
+}
+
+async fn apply_project_env_op(
+    addr: &str,
+    token: Option<&str>,
+    project_id: &str,
+    op: ProjectEnvOp,
+) -> anyhow::Result<Project> {
+    let mut conn = rwp::connect(addr, token).await?;
+    let list = match rwp::rpc(&mut conn, Command::ProjectList).await? {
+        Response::Projects(list) => list,
+        other => anyhow::bail!("resposta inesperada para ProjectList: {other:?}"),
+    };
+    let proj = list
+        .into_iter()
+        .find(|p| p.id == project_id)
+        .ok_or_else(|| anyhow::anyhow!("projeto não encontrado"))?;
+    let mut env_vars = proj.env_vars;
+    match op {
+        ProjectEnvOp::Set { key, value } => {
+            env_vars.retain(|v| v.key != key);
+            env_vars.push(EnvVar { key, value: EnvVarValue::Plain(value) });
+        }
+        ProjectEnvOp::Delete { key } => {
+            env_vars.retain(|v| v.key != key);
+        }
+        ProjectEnvOp::Reorder(keys) => {
+            let mut by_key: HashMap<String, EnvVar> =
+                env_vars.drain(..).map(|v| (v.key.clone(), v)).collect();
+            let mut reordered: Vec<EnvVar> = keys.iter().filter_map(|k| by_key.remove(k)).collect();
+            reordered.extend(by_key.into_values());
+            env_vars = reordered;
+        }
+    }
+    match rwp::rpc(
+        &mut conn,
+        Command::ProjectEnvSet { project_id: project_id.into(), env_vars },
+    )
+    .await?
+    {
+        Response::Project(p) => Ok(p),
+        Response::Err { code, message } => anyhow::bail!("{code}: {message}"),
+        other => anyhow::bail!("resposta inesperada para ProjectEnvSet: {other:?}"),
+    }
 }
 
 /// Stops every running service across all projects (topbar "Stop All").
@@ -405,7 +565,7 @@ pub async fn stop_all(addr: String, token: Option<String>) -> Vec<(String, Strin
         Ok(other) => resp_msg(&other),
         Err(e) => format!("erro: {e}"),
     };
-    vec![("status_line".into(), msg)]
+    with_outcome_toast(vec![("status_line".into(), msg.clone())], &msg)
 }
 
 /// Creates a project (Projects tab "Novo projeto" bar). The poll loop picks up
@@ -423,7 +583,12 @@ pub async fn create_project(
         Ok(other) => resp_msg(&other),
         Err(e) => format!("erro: {e}"),
     };
-    vec![("new_proj_msg".into(), msg), ("new_proj_name".into(), String::new()), ("new_proj_desc".into(), String::new())]
+    let pairs = vec![
+        ("new_proj_msg".into(), msg.clone()),
+        ("new_proj_name".into(), String::new()),
+        ("new_proj_desc".into(), String::new()),
+    ];
+    with_outcome_toast(pairs, &msg)
 }
 
 /// Renames/redescribes the project open in `project_services`.
@@ -436,13 +601,23 @@ pub async fn update_project(
 ) -> Vec<(String, String)> {
     let description = if description.trim().is_empty() { None } else { Some(description) };
     match run_command(addr, token, Command::ProjectUpdate { id, name, description }).await {
-        Ok(Response::Project(p)) => vec![
-            ("proj_action_msg".into(), "salvo".into()),
-            ("proj_name".into(), p.name),
-            ("proj_description".into(), p.description.unwrap_or_default()),
-        ],
-        Ok(other) => vec![("proj_action_msg".into(), resp_msg(&other))],
-        Err(e) => vec![("proj_action_msg".into(), format!("erro: {e}"))],
+        Ok(Response::Project(p)) => with_toast(
+            vec![
+                ("proj_action_msg".into(), "salvo".into()),
+                ("proj_name".into(), p.name),
+                ("proj_description".into(), p.description.unwrap_or_default()),
+            ],
+            "success",
+            "Projeto salvo.",
+        ),
+        Ok(other) => {
+            let msg = resp_msg(&other);
+            with_toast(vec![("proj_action_msg".into(), msg.clone())], "error", msg)
+        }
+        Err(e) => {
+            let msg = format!("erro: {e}");
+            with_toast(vec![("proj_action_msg".into(), msg.clone())], "error", msg)
+        }
     }
 }
 
@@ -454,7 +629,7 @@ pub async fn delete_project(addr: String, token: Option<String>, id: String) -> 
         Ok(other) => resp_msg(&other),
         Err(e) => format!("erro: {e}"),
     };
-    vec![("proj_action_msg".into(), msg)]
+    with_outcome_toast(vec![("proj_action_msg".into(), msg.clone())], &msg)
 }
 
 /// Deletes a deployment's history record and its build logs (Deployments tab,
@@ -474,8 +649,8 @@ pub async fn delete_deployment(
         Err(e) => format!("erro: {e}"),
     };
     let mut pairs = fetch_service_detail(addr, token, service_id).await;
-    pairs.push(("svc_action_msg".into(), msg));
-    pairs
+    pairs.push(("svc_action_msg".into(), msg.clone()));
+    with_outcome_toast(pairs, &msg)
 }
 
 /// Runs a lifecycle command against an arbitrary service id from the
@@ -492,7 +667,7 @@ pub async fn run_project_service_action(
         Ok(other) => resp_msg(&other),
         Err(e) => format!("erro: {e}"),
     };
-    vec![("proj_action_msg".into(), msg)]
+    with_outcome_toast(vec![("proj_action_msg".into(), msg.clone())], &msg)
 }
 
 /// "Parar e remover": stops the service, then deletes it once stopped. Bails
@@ -505,15 +680,21 @@ pub async fn stop_and_delete_service(
 ) -> Vec<(String, String)> {
     match run_command(addr.clone(), token.clone(), Command::ServiceStop { service_id: service_id.clone() }).await {
         Ok(Response::Ok) => {}
-        Ok(other) => return vec![("proj_action_msg".into(), format!("erro ao parar: {}", resp_msg(&other)))],
-        Err(e) => return vec![("proj_action_msg".into(), format!("erro ao parar: {e}"))],
+        Ok(other) => {
+            let msg = format!("erro ao parar: {}", resp_msg(&other));
+            return with_outcome_toast(vec![("proj_action_msg".into(), msg.clone())], &msg);
+        }
+        Err(e) => {
+            let msg = format!("erro ao parar: {e}");
+            return with_outcome_toast(vec![("proj_action_msg".into(), msg.clone())], &msg);
+        }
     }
     let msg = match run_command(addr, token, Command::ServiceDelete { id: service_id }).await {
         Ok(Response::Ok) => "serviço parado e removido".to_string(),
         Ok(other) => resp_msg(&other),
         Err(e) => format!("erro ao remover: {e}"),
     };
-    vec![("proj_action_msg".into(), msg)]
+    with_outcome_toast(vec![("proj_action_msg".into(), msg.clone())], &msg)
 }
 
 /// Removes unused (untagged, or referenced by no container) images — or, with
@@ -528,12 +709,12 @@ pub async fn prune_docker_images(addr: String, token: Option<String>, all: bool)
         Ok(other) => resp_msg(&other),
         Err(e) => format!("erro: {e}"),
     };
-    let mut pairs = vec![("docker_msg".into(), msg)];
+    let mut pairs = vec![("docker_msg".into(), msg.clone())];
     if let Ok(Response::DockerImages(list)) = run_command(addr, token, Command::DockerImages).await {
         pairs.push(("docker_images".into(), docker_images_json(&list, "")));
         pairs.push(("docker_images_count".into(), list.len().to_string()));
     }
-    pairs
+    with_outcome_toast(pairs, &msg)
 }
 
 /// Removes volumes referenced by no container — or, with `all`, every unused
@@ -547,12 +728,12 @@ pub async fn prune_docker_volumes(addr: String, token: Option<String>, all: bool
         Ok(other) => resp_msg(&other),
         Err(e) => format!("erro: {e}"),
     };
-    let mut pairs = vec![("docker_msg".into(), msg)];
+    let mut pairs = vec![("docker_msg".into(), msg.clone())];
     if let Ok(Response::DockerVolumes(list)) = run_command(addr, token, Command::DockerVolumes).await {
         pairs.push(("docker_volumes".into(), docker_volumes_json(&list, "")));
         pairs.push(("docker_volumes_count".into(), list.len().to_string()));
     }
-    pairs
+    with_outcome_toast(pairs, &msg)
 }
 
 /// Removes networks attached to no container (rustploy's own per-project
@@ -564,12 +745,12 @@ pub async fn prune_docker_networks(addr: String, token: Option<String>) -> Vec<(
         Ok(other) => resp_msg(&other),
         Err(e) => format!("erro: {e}"),
     };
-    let mut pairs = vec![("docker_msg".into(), msg)];
+    let mut pairs = vec![("docker_msg".into(), msg.clone())];
     if let Ok(Response::DockerNetworks(list)) = run_command(addr, token, Command::DockerNetworks).await {
         pairs.push(("docker_networks".into(), docker_networks_json(&list, "")));
         pairs.push(("docker_networks_count".into(), list.len().to_string()));
     }
-    pairs
+    with_outcome_toast(pairs, &msg)
 }
 
 /// Persists the daemon settings (Settings screen). Empty strings clear a field.
@@ -589,7 +770,7 @@ pub async fn save_settings(
         Ok(other) => format!("{other:?}"),
         Err(e) => format!("erro: {e}"),
     };
-    vec![("settings_msg".into(), msg)]
+    with_outcome_toast(vec![("settings_msg".into(), msg.clone())], &msg)
 }
 
 /// A form-driven edit to a service spec (Domains / Healthcheck / Advanced tabs).
@@ -637,8 +818,8 @@ pub async fn run_spec_op(
         Err(e) => format!("erro: {e}"),
     };
     let mut pairs = fetch_service_detail(addr, token, service_id).await;
-    pairs.push(("svc_action_msg".into(), msg));
-    pairs
+    pairs.push(("svc_action_msg".into(), msg.clone()));
+    with_outcome_toast(pairs, &msg)
 }
 
 async fn apply_spec_op(
@@ -747,10 +928,14 @@ pub enum EnvOp {
     Delete { key: String },
     /// Replace ALL variables with the parsed contents of a `.env` blob.
     ImportDotenv(String),
-    /// Reorder variables to match this sequence of keys (drag-and-drop on the
-    /// Environment tab). Keys not mentioned keep their relative order, appended
-    /// at the end — a defensive fallback, since `keys` should always be a full
-    /// permutation of the current `env_vars`.
+    /// Reorder the Environment tab's rows to match this sequence of keys
+    /// (drag-and-drop). The list interleaves var keys and comment rows
+    /// (`__c<idx>` = index into `env_comments`, see [`env_json_with_comments`]):
+    /// vars are reordered to match, and each comment is re-anchored to the
+    /// first real var that follows it in the new order (`before_key: None`
+    /// when it lands after every var). Items not mentioned keep their place at
+    /// the end — a defensive fallback, since `keys` should always cover every
+    /// row.
     Reorder(Vec<String>),
 }
 
@@ -806,8 +991,8 @@ pub async fn run_env_op(
         Err(e) => format!("erro: {e}"),
     };
     let mut pairs = fetch_service_detail(addr, token, service_id).await;
-    pairs.push(("svc_action_msg".into(), msg));
-    pairs
+    pairs.push(("svc_action_msg".into(), msg.clone()));
+    with_outcome_toast(pairs, &msg)
 }
 
 async fn apply_env_op(
@@ -838,12 +1023,11 @@ async fn apply_env_op(
             spec.env_comments = comments;
         }
         EnvOp::Reorder(keys) => {
-            let mut by_key: HashMap<String, EnvVar> =
-                spec.env_vars.drain(..).map(|v| (v.key.clone(), v)).collect();
-            let mut reordered: Vec<EnvVar> = keys.iter().filter_map(|k| by_key.remove(k)).collect();
-            reordered.extend(by_key.into_values());
-            spec.env_vars = reordered;
-            // Comments stay anchored by key — no reordering needed here.
+            let vars = std::mem::take(&mut spec.env_vars);
+            let comments = std::mem::take(&mut spec.env_comments);
+            let (new_vars, new_comments) = reorder_env(vars, comments, &keys);
+            spec.env_vars = new_vars;
+            spec.env_comments = new_comments;
         }
     }
     match rwp::rpc(&mut conn, Command::ServiceUpdate { id: service_id.into(), spec }).await? {
@@ -851,6 +1035,49 @@ async fn apply_env_op(
         Response::Err { code, message } => anyhow::bail!("{code}: {message}"),
         other => anyhow::bail!("resposta inesperada para ServiceUpdate: {other:?}"),
     }
+}
+
+/// Applies a drag-and-drop `keys` order (var keys + `__c<idx>` comment rows,
+/// see [`env_json_with_comments`]) to `vars`/`comments`: vars are reordered to
+/// match, and each comment is re-anchored to the first real var that follows
+/// it in the new order (`before_key: None` when it lands after every var).
+/// Items not mentioned in `keys` are kept — vars appended at the end, comments
+/// with their original anchor — a defensive fallback, since `keys` should
+/// always cover every row.
+fn reorder_env(
+    vars: Vec<EnvVar>,
+    comments: Vec<EnvComment>,
+    keys: &[String],
+) -> (Vec<EnvVar>, Vec<EnvComment>) {
+    let var_keys: HashSet<String> = vars.iter().map(|v| v.key.clone()).collect();
+    let mut by_key: HashMap<String, EnvVar> =
+        vars.into_iter().map(|v| (v.key.clone(), v)).collect();
+    let mut seen_comment = vec![false; comments.len()];
+    let mut new_vars: Vec<EnvVar> = Vec::new();
+    let mut new_comments: Vec<EnvComment> = Vec::new();
+    for (pos, k) in keys.iter().enumerate() {
+        if let Some(ci) = k.strip_prefix("__c").and_then(|s| s.parse::<usize>().ok()) {
+            // Linha de comentário: a nova âncora é a primeira var real que
+            // vem depois dela na nova ordem.
+            if let Some(c) = comments.get(ci) {
+                seen_comment[ci] = true;
+                let anchor = keys[pos + 1..]
+                    .iter()
+                    .find(|kk| var_keys.contains(kk.as_str()))
+                    .cloned();
+                new_comments.push(EnvComment { text: c.text.clone(), before_key: anchor });
+            }
+        } else if let Some(v) = by_key.remove(k) {
+            new_vars.push(v);
+        }
+    }
+    new_vars.extend(by_key.into_values());
+    for (ci, c) in comments.into_iter().enumerate() {
+        if !seen_comment[ci] {
+            new_comments.push(c);
+        }
+    }
+    (new_vars, new_comments)
 }
 
 /// Fetches the build log of a single deployment for the Deployments tab.
@@ -1033,12 +1260,12 @@ pub async fn git_provider_connect(
         "conta Gitea conectada ✓".to_string()
     };
 
-    let mut pairs = providers_refresh_pairs(&mut conn, msg).await;
+    let mut pairs = providers_refresh_pairs(&mut conn, msg.clone()).await;
     // Clear the connect form.
     for k in ["gp_name", "gp_base_url", "gp_client_id", "gp_client_secret", "gp_pat"] {
         pairs.push((k.into(), String::new()));
     }
-    pairs
+    with_outcome_toast(pairs, &msg)
 }
 
 /// Removes a connected provider and refreshes the list.
@@ -1056,7 +1283,8 @@ pub async fn git_provider_delete(
         Ok(other) => resp_msg(&other),
         Err(e) => format!("erro: {e}"),
     };
-    providers_refresh_pairs(&mut conn, msg).await
+    let pairs = providers_refresh_pairs(&mut conn, msg.clone()).await;
+    with_outcome_toast(pairs, &msg)
 }
 
 /// One-shot provider list refresh for the "Atualizar lista" button.
@@ -1149,6 +1377,68 @@ fn git_branches_json(list: &[GitBranch]) -> String {
     serde_json::Value::Array(rows).to_string()
 }
 
+/// Snapshot of the last-polled raw data that the topbar search filters over.
+/// Shared (behind an `Arc<Mutex>`) between the poll loop — which refreshes it
+/// every 2s tick — and `Root`'s `search_changed` handler, which rebuilds the
+/// filtered lists from it on every keystroke so typing filters instantly
+/// instead of waiting for the next poll (see [`search_pairs`]).
+#[derive(Default)]
+pub struct SearchCache {
+    pub projects: Vec<Project>,
+    pub services: Vec<(Service, String)>,
+    pub metrics: HashMap<String, ContainerMetricsPoint>,
+    pub deployments: Vec<DeploymentSummary>,
+    pub docker_images: Vec<shared::DockerImageInfo>,
+    pub docker_volumes: Vec<shared::DockerVolumeInfo>,
+    pub docker_networks: Vec<shared::DockerNetworkInfo>,
+}
+
+impl SearchCache {
+    /// True before the first poll has populated anything — the keystroke path
+    /// skips rebuilding then, so it doesn't blank the lists before data lands.
+    pub fn is_empty(&self) -> bool {
+        self.projects.is_empty()
+            && self.services.is_empty()
+            && self.deployments.is_empty()
+            && self.docker_images.is_empty()
+            && self.docker_volumes.is_empty()
+            && self.docker_networks.is_empty()
+    }
+}
+
+/// Rebuilds every search-filtered context key from `cache` for `term` (the
+/// only keys whose contents depend on the search box). Shared by the poll loop
+/// and the instant `search_changed` handler so both filter identically; counts
+/// (`*_count`) are intentionally left out — they track totals and are set by
+/// the poll loop regardless of the term. `selected_project`, when set, also
+/// re-filters the open `project_services` grid.
+pub fn search_pairs(cache: &SearchCache, term: &str, selected_project: &str) -> Vec<(String, String)> {
+    let term = term.trim().to_lowercase();
+    let mut pairs = vec![
+        ("deployments".into(), deployments_json(&cache.deployments, &term)),
+        ("projects".into(), projects_json(&cache.projects, &cache.services, &term)),
+        ("project_rows".into(), project_rows_json(&cache.projects, &cache.services, &term)),
+        ("services".into(), services_json(&cache.services, &cache.metrics, &term)),
+        ("service_rows".into(), service_rows_json(&cache.services, &cache.metrics, &term)),
+        ("docker_rows".into(), docker_json(&cache.services, &term)),
+        ("docker_images".into(), docker_images_json(&cache.docker_images, &term)),
+        ("docker_volumes".into(), docker_volumes_json(&cache.docker_volumes, &term)),
+        ("docker_networks".into(), docker_networks_json(&cache.docker_networks, &term)),
+    ];
+    if !selected_project.is_empty()
+        && cache.projects.iter().any(|p| p.id == selected_project)
+    {
+        let proj_all: Vec<(Service, String)> = cache
+            .services
+            .iter()
+            .filter(|(s, _)| s.spec.project_id == selected_project)
+            .cloned()
+            .collect();
+        pairs.push(("project_services".into(), service_rows_json(&proj_all, &cache.metrics, &term)));
+    }
+    pairs
+}
+
 /// Long-lived polling + event stream feeding the context. Yields
 /// `EngineMessage::ContextPatch` items.
 ///
@@ -1163,6 +1453,7 @@ pub fn poll_stream(
     deploy_track: Arc<Mutex<DeployTrack>>,
     search: Arc<Mutex<String>>,
     selected_project: Arc<Mutex<String>>,
+    search_cache: Arc<Mutex<SearchCache>>,
 ) -> impl Stream<Item = EngineMessage> {
     iced::stream::channel(64, move |mut output: iced::futures::channel::mpsc::Sender<EngineMessage>| async move {
         macro_rules! patch {
@@ -1175,12 +1466,16 @@ pub fn poll_stream(
         let mut cmd = match rwp::connect(&addr, token.as_deref()).await {
             Ok(s) => s,
             Err(e) => {
-                patch!(vec![
-                    ("connected".into(), "false".into()),
-                    ("screen".into(), "login".into()),
-                    ("error".into(), e.to_string()),
-                    ("status_line".into(), "falha na conexão".into()),
-                ]);
+                patch!(with_toast(
+                    vec![
+                        ("connected".into(), "false".into()),
+                        ("screen".into(), "login".into()),
+                        ("error".into(), e.to_string()),
+                        ("status_line".into(), "falha na conexão".into()),
+                    ],
+                    "error",
+                    format!("Falha na conexão: {e}"),
+                ));
                 return;
             }
         };
@@ -1270,16 +1565,26 @@ pub fn poll_stream(
                         pairs.push(("services_total".into(), d.services_total.to_string()));
                         pairs.push(("services_label".into(), format!("{}/{}", d.services_running, d.services_total)));
                     }
+                    // Raw fetches for this tick — stashed so the search-filtered
+                    // keys can be (re)built once, both here and instantly on
+                    // keystroke (see `search_pairs`/`SearchCache`).
+                    let mut deployments_raw: Vec<DeploymentSummary> = Vec::new();
+                    let mut projects_raw: Vec<Project> = Vec::new();
+                    let mut all: Vec<(Service, String)> = Vec::new();
+                    let mut docker_images_raw: Vec<shared::DockerImageInfo> = Vec::new();
+                    let mut docker_volumes_raw: Vec<shared::DockerVolumeInfo> = Vec::new();
+                    let mut docker_networks_raw: Vec<shared::DockerNetworkInfo> = Vec::new();
+
                     if let Ok(Response::DeploymentSummaries(list)) =
                         rwp::rpc(&mut cmd, Command::RecentDeployments { limit: 40 }).await
                     {
-                        pairs.push(("deployments".into(), deployments_json(&list, &term)));
                         pairs.push(("deployments_count".into(), list.len().to_string()));
+                        deployments_raw = list;
                     }
+                    let pid = selected_project.lock().map(|s| s.clone()).unwrap_or_default();
                     if let Ok(Response::Projects(list)) = rwp::rpc(&mut cmd, Command::ProjectList).await {
                         // Fan out one ServiceList per project, tagging each
                         // service with its project name for the grid cards.
-                        let mut all: Vec<(Service, String)> = Vec::new();
                         for p in &list {
                             if let Ok(Response::Services(svcs)) = rwp::rpc(
                                 &mut cmd,
@@ -1291,50 +1596,59 @@ pub fn poll_stream(
                             }
                         }
 
-                        pairs.push(("projects".into(), projects_json(&list, &all, &term)));
                         pairs.push(("projects_count".into(), list.len().to_string()));
-                        pairs.push(("project_rows".into(), project_rows_json(&list, &all, &term)));
-
-                        pairs.push(("services".into(), services_json(&all, &metrics, &term)));
                         pairs.push(("services_count".into(), all.len().to_string()));
-                        pairs.push(("service_rows".into(), service_rows_json(&all, &metrics, &term)));
 
-                        // Derived home screens (Ingress routes, Docker, Monitoring).
+                        // Ingress + Monitoring aren't filtered by the search box,
+                        // so they stay built here (not in `search_pairs`).
                         let (ingress, ingress_count) = ingress_json(&all);
                         pairs.push(("ingress".into(), ingress));
                         pairs.push(("ingress_count".into(), ingress_count.to_string()));
-                        pairs.push(("docker_rows".into(), docker_json(&all, &term)));
                         pairs.push(("monitoring".into(), monitoring_json(&all, &metrics)));
 
-                        // Keep the open `project_services` detail view live: it's
-                        // just a filter over the same `all` we already fetched, so
-                        // this costs no extra RPC round trip.
-                        let pid = selected_project.lock().map(|s| s.clone()).unwrap_or_default();
+                        // Open `project_services` header (name/description/can-delete)
+                        // — also term-independent; the grid itself is in `search_pairs`.
                         if !pid.is_empty()
                             && let Some(proj) = list.iter().find(|p| p.id == pid)
                         {
-                            let proj_all: Vec<(Service, String)> =
-                                all.iter().filter(|(s, _)| s.spec.project_id == pid).cloned().collect();
+                            let has_svcs = all.iter().any(|(s, _)| s.spec.project_id == pid);
                             pairs.push(("proj_name".into(), proj.name.clone()));
                             pairs.push(("proj_description".into(), proj.description.clone().unwrap_or_default()));
-                            pairs.push(("proj_can_delete".into(), if proj_all.is_empty() { "1" } else { "0" }.into()));
-                            pairs.push(("project_services".into(), service_rows_json(&proj_all, &metrics, &term)));
+                            pairs.push(("proj_can_delete".into(), if has_svcs { "0" } else { "1" }.into()));
                         }
+                        projects_raw = list;
                     }
                     // Docker tab: images/volumes/networks across the whole host
                     // (not just rustploy-managed services — see docker_inventory
                     // on the daemon side).
                     if let Ok(Response::DockerImages(list)) = rwp::rpc(&mut cmd, Command::DockerImages).await {
-                        pairs.push(("docker_images".into(), docker_images_json(&list, &term)));
                         pairs.push(("docker_images_count".into(), list.len().to_string()));
+                        docker_images_raw = list;
                     }
                     if let Ok(Response::DockerVolumes(list)) = rwp::rpc(&mut cmd, Command::DockerVolumes).await {
-                        pairs.push(("docker_volumes".into(), docker_volumes_json(&list, &term)));
                         pairs.push(("docker_volumes_count".into(), list.len().to_string()));
+                        docker_volumes_raw = list;
                     }
                     if let Ok(Response::DockerNetworks(list)) = rwp::rpc(&mut cmd, Command::DockerNetworks).await {
-                        pairs.push(("docker_networks".into(), docker_networks_json(&list, &term)));
                         pairs.push(("docker_networks_count".into(), list.len().to_string()));
+                        docker_networks_raw = list;
+                    }
+
+                    // Publish the raw snapshot for the instant keystroke path,
+                    // then build the filtered lists for this tick from it.
+                    {
+                        let mut cache = match search_cache.lock() {
+                            Ok(c) => c,
+                            Err(p) => p.into_inner(),
+                        };
+                        cache.projects = projects_raw;
+                        cache.services = all;
+                        cache.metrics = metrics.clone();
+                        cache.deployments = deployments_raw;
+                        cache.docker_images = docker_images_raw;
+                        cache.docker_volumes = docker_volumes_raw;
+                        cache.docker_networks = docker_networks_raw;
+                        pairs.extend(search_pairs(&cache, &term, &pid));
                     }
                     if let Some(s) = &sysm {
                         pairs.push(("sys_cpu".into(), format!("{:.0}%", s.cpu_percent)));
@@ -1371,12 +1685,19 @@ pub fn poll_stream(
                         if let Ok(mut t) = deploy_track.lock() {
                             t.running = false;
                         }
+                        let live = dep.state == DeployState::Live;
+                        let (msg, color) = if live {
+                            (format!("deploy concluído em {}", fmt_secs(secs)), "#3FB950")
+                        } else {
+                            (format!("deploy falhou após {} · {}", fmt_secs(secs), dep.state.label()), "#F85149")
+                        };
+                        // Toasted unconditionally — the whole point is to
+                        // notify even if the user has navigated away from
+                        // this service's detail panel; the `svc_deploy_*`/
+                        // `svc_action_*` patch below stays panel-gated since
+                        // those keys only mean something while it's open.
+                        patch!(with_toast(Vec::new(), if live { "success" } else { "error" }, msg.clone()));
                         if track.service_id == current {
-                            let (msg, color) = if dep.state == DeployState::Live {
-                                (format!("deploy concluído em {}", fmt_secs(secs)), "#3FB950")
-                            } else {
-                                (format!("deploy falhou após {} · {}", fmt_secs(secs), dep.state.label()), "#F85149")
-                            };
                             patch!(vec![
                                 ("svc_deploy_running".into(), "false".into()),
                                 ("svc_deploy_elapsed".into(), fmt_secs(secs)),
@@ -1813,16 +2134,43 @@ fn env_dotenv_with_comments(vars: &[EnvVar], comments: &[EnvComment]) -> String 
 
 /// Environment variables as JSON card rows (secrets shown by reference only).
 fn env_json(vars: &[EnvVar]) -> String {
-    let rows: Vec<serde_json::Value> = vars
-        .iter()
-        .map(|v| {
-            let (value, kind) = match &v.value {
-                EnvVarValue::Plain(s) => (s.clone(), "plain"),
-                EnvVarValue::Secret(name) => (format!("secret:{name}"), "secret"),
-            };
-            serde_json::json!({ "key": v.key, "value": value, "kind": kind })
-        })
-        .collect();
+    let rows: Vec<serde_json::Value> = vars.iter().map(env_var_row).collect();
+    serde_json::Value::Array(rows).to_string()
+}
+
+fn env_var_row(v: &EnvVar) -> serde_json::Value {
+    let (value, kind) = match &v.value {
+        EnvVarValue::Plain(s) => (s.clone(), "plain"),
+        EnvVarValue::Secret(name) => (format!("secret:{name}"), "secret"),
+    };
+    serde_json::json!({ "key": v.key, "value": value, "kind": kind })
+}
+
+/// Same as [`env_json`], re-interleaving the `.env` editor's `# ...` comments
+/// at their anchored position (right before the var named by `before_key`;
+/// trailing/orphan ones at the end) — same ordering as
+/// [`env_dotenv_with_comments`]. Comment rows carry `kind: "comment"` and a
+/// synthetic `__c<idx>` key, where `idx` is the comment's index in
+/// `spec.env_comments` — that's how `EnvOp::Reorder` maps a dragged comment
+/// row back to the comment it re-anchors.
+fn env_json_with_comments(vars: &[EnvVar], comments: &[EnvComment]) -> String {
+    let mut rows: Vec<serde_json::Value> = Vec::new();
+    let comment_row = |idx: usize, text: &str| {
+        serde_json::json!({ "key": format!("__c{idx}"), "value": text, "kind": "comment" })
+    };
+    for v in vars {
+        for (i, c) in comments
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.before_key.as_deref() == Some(v.key.as_str()))
+        {
+            rows.push(comment_row(i, &c.text));
+        }
+        rows.push(env_var_row(v));
+    }
+    for (i, c) in comments.iter().enumerate().filter(|(_, c)| c.before_key.is_none()) {
+        rows.push(comment_row(i, &c.text));
+    }
     serde_json::Value::Array(rows).to_string()
 }
 
@@ -2010,5 +2358,63 @@ pub fn fmt_uptime(secs: u64) -> String {
         format!("{h}h {m}m")
     } else {
         format!("{m}m {s}s")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn var(k: &str) -> EnvVar {
+        EnvVar { key: k.into(), value: EnvVarValue::Plain(format!("v_{k}")) }
+    }
+    fn comment(text: &str, before: Option<&str>) -> EnvComment {
+        EnvComment { text: text.into(), before_key: before.map(String::from) }
+    }
+    fn keys(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
+    }
+
+    /// Comentário final (sem âncora) arrastado para cima da única var
+    /// reancora nela — e o JSON renderizado o mostra acima da var.
+    #[test]
+    fn reorder_comment_above_var_reanchors() {
+        let (vars, comments) = reorder_env(
+            vec![var("teste")],
+            vec![comment("# ola", None)],
+            &keys(&["__c0", "teste"]),
+        );
+        assert_eq!(vars.len(), 1);
+        assert_eq!(comments[0].before_key.as_deref(), Some("teste"));
+        let rows: Vec<serde_json::Value> =
+            serde_json::from_str(&env_json_with_comments(&vars, &comments)).unwrap();
+        assert_eq!(rows[0]["kind"], "comment");
+        assert_eq!(rows[1]["key"], "teste");
+    }
+
+    /// Comentário arrastado para depois de todas as vars vira comentário
+    /// de fim de arquivo.
+    #[test]
+    fn reorder_comment_to_end_becomes_trailing() {
+        let (_, comments) = reorder_env(
+            vec![var("a"), var("b")],
+            vec![comment("# c", Some("a"))],
+            &keys(&["a", "b", "__c0"]),
+        );
+        assert_eq!(comments[0].before_key, None);
+    }
+
+    /// Reordenar vars por cima de um comentário reancora o comentário na
+    /// var que ficou depois dele.
+    #[test]
+    fn reorder_vars_reanchors_comment_between_them() {
+        let (vars, comments) = reorder_env(
+            vec![var("a"), var("b")],
+            vec![comment("# c", Some("a"))],
+            &keys(&["b", "__c0", "a"]),
+        );
+        assert_eq!(vars[0].key, "b");
+        assert_eq!(vars[1].key, "a");
+        assert_eq!(comments[0].before_key.as_deref(), Some("a"));
     }
 }

@@ -4,7 +4,7 @@
 
 use glacier_ui::{
     ButtonRole, Component, Context, DialogButton, DialogIcon, DialogSpec, EngineMessage, Form,
-    FormBuilder, FormControl, Template,
+    FormBuilder, FormControl, Template, ToastSpec,
 };
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex};
@@ -24,6 +24,7 @@ struct PollKey {
     deploy_track: Arc<Mutex<super::net::DeployTrack>>,
     search: Arc<Mutex<String>>,
     selected_project: Arc<Mutex<String>>,
+    search_cache: Arc<Mutex<super::net::SearchCache>>,
 }
 
 impl Hash for PollKey {
@@ -59,6 +60,10 @@ pub struct Root {
     /// Shared with the poll loop so it can keep re-filtering `project_services`
     /// from the same `all` it already fetches, without a dedicated RPC.
     selected_project_shared: Arc<Mutex<String>>,
+    /// Last raw snapshot the poll loop fetched, so `search_changed` can rebuild
+    /// the filtered lists instantly on each keystroke instead of waiting for
+    /// the next 2s poll tick (see `net::SearchCache`/`net::search_pairs`).
+    search_cache: Arc<Mutex<super::net::SearchCache>>,
 
     // ── glacier-ui `Form`s (validated field groups) ────────────────────
     //
@@ -77,6 +82,7 @@ pub struct Root {
     login_form: Form,
     edit_project_form: Form,
     env_add_form: Form,
+    penv_add_form: Form,
 }
 
 impl Default for Root {
@@ -92,6 +98,7 @@ impl Default for Root {
             deploy_shared: Arc::default(),
             search_shared: Arc::default(),
             selected_project_shared: Arc::default(),
+            search_cache: Arc::default(),
             login_form: FormBuilder::new("login")
                 .control(FormControl::new("url", "").required())
                 .control(FormControl::new("token", ""))
@@ -111,6 +118,14 @@ impl Default for Root {
             env_add_form: FormBuilder::new("env_add")
                 .control(FormControl::new("env_new_key", "").required())
                 .control(FormControl::new("env_new_val", ""))
+                .on_submit(|form, ctx| {
+                    form.validate();
+                    form.errors_to_context(ctx, "erro_");
+                })
+                .build(),
+            penv_add_form: FormBuilder::new("penv_add")
+                .control(FormControl::new("penv_new_key", "").required())
+                .control(FormControl::new("penv_new_val", ""))
                 .on_submit(|form, ctx| {
                     form.validate();
                     form.errors_to_context(ctx, "erro_");
@@ -232,10 +247,15 @@ impl Root {
     }
 
     /// `Root`'s persistent `Form`s (see the field-level comment on why only
-    /// these three get one), for the generic `has_control`-driven field
+    /// these get one), for the generic `has_control`-driven field
     /// routing in `update()`.
-    fn forms_mut(&mut self) -> [&mut Form; 3] {
-        [&mut self.login_form, &mut self.edit_project_form, &mut self.env_add_form]
+    fn forms_mut(&mut self) -> [&mut Form; 4] {
+        [
+            &mut self.login_form,
+            &mut self.edit_project_form,
+            &mut self.env_add_form,
+            &mut self.penv_add_form,
+        ]
     }
 
     /// Runs the login form's validator, and on success connects — the body of
@@ -293,6 +313,188 @@ impl Root {
         self.env_add_form.set_value("env_new_key", "");
         self.env_add_form.set_value("env_new_val", "");
         self.env_add_form.sync_to_context(ctx);
+    }
+
+    /// Applies an edit to the PROJECT-level env vars (inherited by every
+    /// service of the project at deploy time) through the async bridge.
+    /// Operates on the project open in `project_services`.
+    fn project_env_op(&self, ctx: &mut Context, op: super::net::ProjectEnvOp) {
+        let pid = ctx.get("selected_project_id").cloned().unwrap_or_default();
+        if pid.is_empty() || self.addr.is_empty() {
+            return;
+        }
+        ctx.set("proj_action_msg", "salvando…");
+        ctx.perform(super::net::run_project_env_op(
+            self.addr.clone(),
+            self.token.clone(),
+            pid,
+            op,
+        ));
+    }
+
+    /// Runs the project-env-add form's validator, and on success adds the
+    /// variable and clears the form — mirror of [`Self::submit_env_add`] for
+    /// the project's "Variáveis" tab.
+    fn submit_penv_add(&mut self, ctx: &mut Context) {
+        self.penv_add_form.submit(ctx);
+        if !self.penv_add_form.is_valid() {
+            return;
+        }
+        let key = self.penv_add_form.value("penv_new_key").trim().to_string();
+        let value = self.penv_add_form.value("penv_new_val").to_string();
+        self.project_env_op(ctx, super::net::ProjectEnvOp::Set { key, value });
+        self.penv_add_form.set_value("penv_new_key", "");
+        self.penv_add_form.set_value("penv_new_val", "");
+        self.penv_add_form.sync_to_context(ctx);
+    }
+
+    // ── Wizard "Novo serviço" (Application / Database / Compose / Template) ──
+    //
+    // Estado inteiro em chaves de contexto `ns_*` (campos digitados via o
+    // `field:` genérico), validação ad hoc no `ns_create` — mesmo racional das
+    // service-detail forms: os campos são repovoados por ações do próprio
+    // wizard (escolher banco/template pré-preenche), então um `Form`
+    // persistente ficaria stale.
+
+    /// Clears every wizard field back to a pristine state (entering the wizard
+    /// or switching the picked type).
+    fn ns_reset_fields(ctx: &mut Context) {
+        for k in [
+            "ns_name", "ns_app_name", "ns_db_name", "ns_db_user", "ns_db_password",
+            "ns_db_root_password", "ns_image", "ns_msg", "ns_tsearch", "erro_ns_name",
+            "ns_db_kind", "ns_db_label", "ns_template_id", "ns_template_name",
+        ] {
+            ctx.set(k, "");
+        }
+        ctx.set("ns_use_replica", "false");
+        ctx.set("ns_template_vars", "[]");
+        for k in ["ns_db_has_dbname", "ns_db_has_user", "ns_db_has_rootpw", "ns_db_has_replica"] {
+            ctx.set(k, "false");
+        }
+    }
+
+    /// Rebuilds the template catalog list from the current category + search.
+    fn ns_templates_refresh(ctx: &mut Context) {
+        let cat = ctx
+            .get("ns_tcat")
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(0);
+        let search = ctx.get("ns_tsearch").cloned().unwrap_or_default();
+        ctx.set("ns_templates", super::wizard::templates_json(cat, &search));
+    }
+
+    /// Pre-fills the database form for the picked kind: default image and
+    /// user, generated passwords, and the per-kind field-visibility flags the
+    /// KDL branches on.
+    fn ns_pick_db(ctx: &mut Context, db: super::wizard::DbKind) {
+        ctx.set("ns_db_kind", db.kind_id());
+        ctx.set("ns_db_label", db.label());
+        ctx.set("ns_image", db.default_image());
+        ctx.set("ns_db_name", if db.has_db_name() { "app" } else { "" });
+        ctx.set("ns_db_user", db.default_user());
+        ctx.set("ns_db_password", super::wizard::token_urlsafe(22));
+        ctx.set("ns_db_root_password", super::wizard::token_urlsafe(22));
+        ctx.set("ns_use_replica", "false");
+        ctx.set("ns_db_has_dbname", bool_str(db.has_db_name()));
+        ctx.set("ns_db_has_user", bool_str(db.has_user()));
+        ctx.set("ns_db_has_rootpw", bool_str(db.has_root_password()));
+        ctx.set("ns_db_has_replica", bool_str(db.has_replica_sets()));
+        ctx.set("ns_step", "db_form");
+    }
+
+    /// Loads the picked template into the form step: default service name and
+    /// one `ns_tv_<idx>` context key per configurable variable (the KDL's
+    /// `ForEach` binds each input to its key by interpolation).
+    fn ns_pick_template(ctx: &mut Context, id: &str) {
+        let Some(t) = super::wizard::find_template(id) else {
+            return;
+        };
+        ctx.set("ns_template_id", t.id);
+        ctx.set("ns_template_name", t.name);
+        ctx.set("ns_name", super::wizard::template_slug(t));
+        ctx.set("ns_template_vars", super::wizard::template_vars_json(t));
+        for (i, var) in t.variables.iter().enumerate() {
+            ctx.set(&format!("ns_tv_{i}"), var.default.unwrap_or(""));
+        }
+        ctx.set("ns_step", "template_form");
+    }
+
+    /// One step back in the wizard flow (mirrors the old `remote-client`'s
+    /// `NsBack`).
+    fn ns_back(ctx: &mut Context) {
+        let step = ctx.get("ns_step").cloned().unwrap_or_default();
+        match step.as_str() {
+            "pick_db" | "app_form" | "compose_form" | "pick_template" => {
+                ctx.set("ns_step", "pick_type");
+            }
+            "db_form" => ctx.set("ns_step", "pick_db"),
+            "template_form" => ctx.set("ns_step", "pick_template"),
+            // No primeiro passo, voltar = sair do wizard.
+            _ => {
+                ctx.set("view", "project_services");
+                ctx.set("ns_step", "");
+            }
+        }
+        ctx.set("ns_msg", "");
+    }
+
+    /// Validates the current wizard step, builds the `ServiceSpec` and sends
+    /// `Command::ServiceCreate` — the `ns_create` action.
+    fn submit_ns_create(&mut self, ctx: &mut Context) {
+        if self.addr.is_empty() {
+            return;
+        }
+        let project_id = ctx.get("selected_project_id").cloned().unwrap_or_default();
+        if project_id.is_empty() {
+            return;
+        }
+        let step = ctx.get("ns_step").cloned().unwrap_or_default();
+
+        // O nome é obrigatório, exceto no template (que tem um slug default).
+        if step != "template_form"
+            && !validate_ad_hoc(ctx, "erro_", vec![required_field(ctx, "ns_name")])
+        {
+            return;
+        }
+        let g = |k: &str| ctx.get(k).cloned().unwrap_or_default();
+        // "App Name" opcional tem precedência sobre o nome, como no
+        // `remote-client` (NsForm::to_spec).
+        let name = if g("ns_app_name").trim().is_empty() {
+            g("ns_name").trim().to_string()
+        } else {
+            g("ns_app_name").trim().to_string()
+        };
+
+        let spec = match step.as_str() {
+            "app_form" => Some(super::wizard::app_spec(name, project_id)),
+            "compose_form" => Some(super::wizard::compose_spec(name, project_id)),
+            "db_form" => super::wizard::DbKind::from_str(&g("ns_db_kind")).map(|db| {
+                let input = super::wizard::DbFormInput {
+                    db_name: g("ns_db_name").trim().to_string(),
+                    user: g("ns_db_user").trim().to_string(),
+                    password: g("ns_db_password").trim().to_string(),
+                    root_password: g("ns_db_root_password").trim().to_string(),
+                    image: g("ns_image"),
+                    use_replica_sets: g("ns_use_replica") == "true",
+                };
+                super::wizard::db_spec(db, name, project_id, &input)
+            }),
+            "template_form" => super::wizard::find_template(&g("ns_template_id")).map(|t| {
+                let values: Vec<String> = (0..t.variables.len())
+                    .map(|i| g(&format!("ns_tv_{i}")))
+                    .collect();
+                super::wizard::template_spec(t, name, project_id, &values)
+            }),
+            _ => None,
+        };
+        if let Some(spec) = spec {
+            ctx.set("ns_msg", "criando…");
+            ctx.perform(super::net::create_service(
+                self.addr.clone(),
+                self.token.clone(),
+                spec,
+            ));
+        }
     }
 
     /// Validates `ss_email` ad hoc (see the comment on `Root`'s `Form`
@@ -498,6 +700,18 @@ impl Component for Root {
         ctx.set("services", "[]");
         ctx.set("services_count", "0");
         ctx.set("service_rows", "[]");
+        // Projeto aberto (view=project_services): sub-abas Serviços | Variáveis.
+        ctx.set("proj_tab", "services");
+        ctx.set("proj_env", "[]");
+        ctx.set("proj_env_count", "0");
+        // Wizard "Novo serviço" (view=new_service) — ver os métodos `ns_*`.
+        ctx.set("ns_step", "");
+        ctx.set("ns_msg", "");
+        ctx.set("ns_tcat", "0");
+        ctx.set("ns_tcats", super::wizard::template_cats_json());
+        ctx.set("ns_templates", "[]");
+        ctx.set("ns_dbs", super::wizard::db_rows_json());
+        Self::ns_reset_fields(ctx);
         // Home screens (Monitoring / Ingress / Docker / Settings).
         ctx.set("ingress", "[]");
         ctx.set("ingress_count", "0");
@@ -672,6 +886,18 @@ impl Component for Root {
                     if let Ok(mut s) = self.search_shared.lock() {
                         *s = v.to_string();
                     }
+                    // Instant filter: rebuild the affected lists from the last
+                    // poll snapshot right now, instead of waiting up to 2s for
+                    // the next poll tick (see `net::search_pairs`). No-op before
+                    // the first poll has populated the cache.
+                    let pid = ctx.get("selected_project_id").cloned().unwrap_or_default();
+                    if let Ok(cache) = self.search_cache.lock() {
+                        if !cache.is_empty() {
+                            for (k, val) in super::net::search_pairs(&cache, v, &pid) {
+                                ctx.set(&k, val);
+                            }
+                        }
+                    }
                 }
             }
             // Docker tab: remove unused images/volumes/networks, then refresh
@@ -742,6 +968,45 @@ impl Component for Root {
             }
             "settings_save" => self.submit_settings(ctx),
             "env_add" => self.submit_env_add(ctx),
+            // Env vars de nível de projeto (aba "Variáveis" do projeto aberto).
+            "penv_add" => self.submit_penv_add(ctx),
+            "penv_reorder" => {
+                if let Some(v) = value {
+                    if let Ok(keys) = serde_json::from_str::<Vec<String>>(v) {
+                        self.project_env_op(ctx, super::net::ProjectEnvOp::Reorder(keys));
+                    }
+                }
+            }
+            // Wizard "Novo serviço" (aberto a partir do projeto).
+            "new_service_open" => {
+                let pid = ctx.get("selected_project_id").cloned().unwrap_or_default();
+                if !pid.is_empty() {
+                    Self::ns_reset_fields(ctx);
+                    ctx.set("ns_step", "pick_type");
+                    ctx.set("view", "new_service");
+                }
+            }
+            "ns_back" => Self::ns_back(ctx),
+            "ns_cancel" => {
+                ctx.set("view", "project_services");
+                ctx.set("ns_step", "");
+                ctx.set("ns_msg", "");
+            }
+            "ns_create" => self.submit_ns_create(ctx),
+            // Busca do catálogo de templates (onChange do input).
+            "ns_tsearch" => {
+                if let Some(v) = value {
+                    ctx.set("ns_tsearch", v);
+                    Self::ns_templates_refresh(ctx);
+                }
+            }
+            // Categoria do catálogo (Select — o value é o índice do filtro).
+            "ns_tcat_pick" => {
+                if let Some(v) = value {
+                    ctx.set("ns_tcat", v);
+                    Self::ns_templates_refresh(ctx);
+                }
+            }
             // `env_reorder` — the glacier-ui drag-and-drop `onReorder` action
             // for the Environment tab's `kv_list` (see `service.kdl`), value
             // is a JSON array of `key`s in their new order.
@@ -767,6 +1032,7 @@ impl Component for Root {
                 ctx.set("connected", "false");
                 ctx.set("screen", "login");
                 ctx.set("status_line", "desconectado");
+                ctx.show_toast(ToastSpec::info("Desconectado."));
             }
             // Sidebar / tab navigation just flips the active view key.
             "nav" => {
@@ -932,6 +1198,7 @@ impl Component for Root {
                     }
                     ctx.set("selected_project_id", id);
                     ctx.set("view", "project_services");
+                    ctx.set("proj_tab", "services");
                     ctx.set("editing_project", "false");
                     ctx.set("proj_loading", "true");
                     ctx.set("proj_action_msg", "");
@@ -1159,6 +1426,46 @@ impl Component for Root {
                     self.env_op(ctx, super::net::EnvOp::Delete { key: key.to_string() });
                     return;
                 }
+                // `penv_del:<key>` — remove a PROJECT-level environment variable.
+                if let Some(key) = action.strip_prefix("penv_del:") {
+                    self.project_env_op(ctx, super::net::ProjectEnvOp::Delete { key: key.to_string() });
+                    return;
+                }
+                // `proj_tab:<services|env>` — sub-aba do projeto aberto.
+                if let Some(t) = action.strip_prefix("proj_tab:") {
+                    ctx.set("proj_tab", t);
+                    return;
+                }
+                // `ns_kind:<application|database|compose|template>` — passo 1
+                // do wizard: escolher o tipo do novo serviço.
+                if let Some(kind) = action.strip_prefix("ns_kind:") {
+                    ctx.set("ns_msg", "");
+                    match kind {
+                        "application" => ctx.set("ns_step", "app_form"),
+                        "compose" => ctx.set("ns_step", "compose_form"),
+                        "database" => ctx.set("ns_step", "pick_db"),
+                        "template" => {
+                            ctx.set("ns_tcat", "0");
+                            ctx.set("ns_tsearch", "");
+                            Self::ns_templates_refresh(ctx);
+                            ctx.set("ns_step", "pick_template");
+                        }
+                        _ => {}
+                    }
+                    return;
+                }
+                // `ns_db:<kind_id>` — escolher o banco (pré-preenche o form).
+                if let Some(id) = action.strip_prefix("ns_db:") {
+                    if let Some(db) = super::wizard::DbKind::from_str(id) {
+                        Self::ns_pick_db(ctx, db);
+                    }
+                    return;
+                }
+                // `ns_pick_template:<id>` — escolher o template do catálogo.
+                if let Some(id) = action.strip_prefix("ns_pick_template:") {
+                    Self::ns_pick_template(ctx, id);
+                    return;
+                }
                 // `env_text_toggle` — open/close the `.env` editor.
                 if action == "env_text_toggle" {
                     let open = ctx.get("env_text_open").map(|v| v == "true").unwrap_or(false);
@@ -1195,8 +1502,14 @@ impl Component for Root {
                     let dir = std::env::var("HOME").unwrap_or_else(|_| ".".into());
                     let path = format!("{dir}/{name}.env");
                     match std::fs::write(&path, body) {
-                        Ok(_) => ctx.set("svc_action_msg", format!("exportado para {path}")),
-                        Err(e) => ctx.set("svc_action_msg", format!("erro ao exportar: {e}")),
+                        Ok(_) => {
+                            ctx.set("svc_action_msg", format!("exportado para {path}"));
+                            ctx.show_toast(ToastSpec::success(format!("Variáveis exportadas para {path}")));
+                        }
+                        Err(e) => {
+                            ctx.set("svc_action_msg", format!("erro ao exportar: {e}"));
+                            ctx.show_toast(ToastSpec::error(format!("Falha ao exportar: {e}")));
+                        }
                     }
                 }
             }
@@ -1214,6 +1527,8 @@ impl Component for Root {
             "connect" => self.submit_login(ctx),
             "save_project_edit" => self.submit_edit_project(ctx),
             "env_add" => self.submit_env_add(ctx),
+            "penv_add" => self.submit_penv_add(ctx),
+            "ns_create" => self.submit_ns_create(ctx),
             "settings_save" => self.submit_settings(ctx),
             "gp_connect" => self.submit_git_provider(ctx),
             "create_project" => self.submit_new_project(ctx),
@@ -1236,6 +1551,7 @@ impl Component for Root {
                 deploy_track: self.deploy_shared.clone(),
                 search: self.search_shared.clone(),
                 selected_project: self.selected_project_shared.clone(),
+                search_cache: self.search_cache.clone(),
             };
             iced::Subscription::run_with(key, |k: &PollKey| {
                 super::net::poll_stream(
@@ -1246,6 +1562,7 @@ impl Component for Root {
                     k.deploy_track.clone(),
                     k.search.clone(),
                     k.selected_project.clone(),
+                    k.search_cache.clone(),
                 )
             })
         } else {

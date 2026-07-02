@@ -11,22 +11,10 @@ Column class="content" {
       }
     }
     Row class="stats_row" {
-      Column class="stat_card" {
-        Text "CPU" class="label_cap"
-        Text "{sys_cpu}" class="stat_num"
-      }
-      Column class="stat_card" {
-        Text "MEMORY" class="label_cap"
-        Text "{sys_mem}" class="stat_num_g"
-      }
-      Column class="stat_card" {
-        Text "DISK" class="label_cap"
-        Text "{sys_disk}" class="stat_num"
-      }
-      Column class="stat_card" {
-        Text "LOAD" class="label_cap"
-        Text "{sys_load}" class="stat_num"
-      }
+      StatCard label="CPU" value="{sys_cpu}"
+      StatCard label="MEMORY" value="{sys_mem}" accent="1"
+      StatCard label="DISK" value="{sys_disk}"
+      StatCard label="LOAD" value="{sys_load}"
     }
     Column class="panel_fill" {
       Row class="thead" {
@@ -37,10 +25,7 @@ Column class="content" {
         Text "RX" class="th col_dur"
         Text "TX" class="th col_start"
       }
-      Row class="loading_row" if="{data_loading}" equals="true" {
-        Text "⟳" class="loading_spin"
-        Text "Carregando dados…" class="loading_note"
-      }
+      LoadingRow flag="{data_loading}"
       Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
         Column class="table_body" {
           Column class="row_wrap" for-each="monitoring" var="m" {
@@ -67,10 +52,7 @@ Column class="content" {
         Text "Active routes in the reverse proxy." class="subtitle"
       }
       Row class="stats_row" {
-        Column class="stat_card" {
-          Text "ROUTES" class="label_cap"
-          Text "{ingress_count}" class="stat_num"
-        }
+        StatCard label="ROUTES" value="{ingress_count}"
       }
     }
     Column class="panel_fill" {
@@ -80,10 +62,7 @@ Column class="content" {
         Text "UPSTREAM" class="th col_dur"
         Text "TLS" class="th col_start"
       }
-      Row class="loading_row" if="{data_loading}" equals="true" {
-        Text "⟳" class="loading_spin"
-        Text "Carregando dados…" class="loading_note"
-      }
+      LoadingRow flag="{data_loading}"
       Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
         Column class="table_body" {
           ForEach items="ingress" var="i" {
@@ -114,42 +93,17 @@ Column class="content" {
         Text "Containers, imagens, volumes e networks do host." class="subtitle"
       }
       Row class="stats_row" {
-        Column class="stat_card" {
-          Text "IMAGENS" class="label_cap"
-          Text "{docker_images_count}" class="stat_num"
-        }
-        Column class="stat_card" {
-          Text "VOLUMES" class="label_cap"
-          Text "{docker_volumes_count}" class="stat_num"
-        }
-        Column class="stat_card" {
-          Text "NETWORKS" class="label_cap"
-          Text "{docker_networks_count}" class="stat_num_g"
-        }
+        StatCard label="IMAGENS" value="{docker_images_count}"
+        StatCard label="VOLUMES" value="{docker_volumes_count}"
+        StatCard label="NETWORKS" value="{docker_networks_count}" accent="1"
       }
     }
 
     Row class="tabs" {
-      if cond="{docker_tab}" equals="containers" {
-        Button "Containers" class="tab_on" onClick="docker_tab:containers"
-      } else {
-        Button "Containers" class="tab" onClick="docker_tab:containers"
-      }
-      if cond="{docker_tab}" equals="images" {
-        Button "Images" class="tab_on" onClick="docker_tab:images"
-      } else {
-        Button "Images" class="tab" onClick="docker_tab:images"
-      }
-      if cond="{docker_tab}" equals="volumes" {
-        Button "Volumes" class="tab_on" onClick="docker_tab:volumes"
-      } else {
-        Button "Volumes" class="tab" onClick="docker_tab:volumes"
-      }
-      if cond="{docker_tab}" equals="networks" {
-        Button "Networks" class="tab_on" onClick="docker_tab:networks"
-      } else {
-        Button "Networks" class="tab" onClick="docker_tab:networks"
-      }
+      TabButton label="Containers" current="{docker_tab}" target="containers" action="docker_tab:containers"
+      TabButton label="Images" current="{docker_tab}" target="images" action="docker_tab:images"
+      TabButton label="Volumes" current="{docker_tab}" target="volumes" action="docker_tab:volumes"
+      TabButton label="Networks" current="{docker_tab}" target="networks" action="docker_tab:networks"
     }
     Rule
 
@@ -162,10 +116,7 @@ Column class="content" {
         Text "ESTADO" class="th col_state"
         Text "CONTAINER" class="th col_start"
       }
-      Row class="loading_row" if="{data_loading}" equals="true" {
-        Text "⟳" class="loading_spin"
-        Text "Carregando dados…" class="loading_note"
-      }
+      LoadingRow flag="{data_loading}"
       Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
         Column class="table_body" {
           ForEach items="docker_rows" var="c" {
@@ -173,10 +124,7 @@ Column class="content" {
               Row class="trow" {
                 Text "{c.name}" class="td_key col_svc"
                 Text "{c.image}" class="td col_proj"
-                Row class="state_cell" {
-                  Text "●" class="state_dot" color="{c.status_color}"
-                  Text "{c.status_label}" class="state_lbl" color="{c.status_color}"
-                }
+                StateCell color="{c.status_color}" label="{c.status_label}"
                 Text "{c.container}" class="muted col_start"
               }
               Rule
@@ -203,10 +151,7 @@ Column class="content" {
         Text "CRIADA" class="th col_dur"
         Text "USO" class="th col_start"
       }
-      Row class="loading_row" if="{data_loading}" equals="true" {
-        Text "⟳" class="loading_spin"
-        Text "Carregando dados…" class="loading_note"
-      }
+      LoadingRow flag="{data_loading}"
       Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
         Column class="table_body" {
           // Sub-aba já vem ordenada por tag (docker_images_json); o checkbox
@@ -218,10 +163,7 @@ Column class="content" {
                 Text "{i.project} / {i.service}" class="td col_proj"
                 Text "{i.size}" class="muted col_dur"
                 Text "{i.created}" class="muted col_dur"
-                Row class="state_cell" {
-                  Text "●" class="state_dot" color="{i.in_use_color}"
-                  Text "{i.in_use_label}" class="state_lbl" color="{i.in_use_color}"
-                }
+                StateCell color="{i.in_use_color}" label="{i.in_use_label}"
               }
               Rule
             }
@@ -232,10 +174,7 @@ Column class="content" {
                 Text "{i.project} / {i.service}" class="td col_proj"
                 Text "{i.size}" class="muted col_dur"
                 Text "{i.created}" class="muted col_dur"
-                Row class="state_cell" {
-                  Text "●" class="state_dot" color="{i.in_use_color}"
-                  Text "{i.in_use_label}" class="state_lbl" color="{i.in_use_color}"
-                }
+                StateCell color="{i.in_use_color}" label="{i.in_use_label}"
               }
               Rule
             }
@@ -260,10 +199,7 @@ Column class="content" {
         Text "TAMANHO" class="th col_dur"
         Text "USO" class="th col_start"
       }
-      Row class="loading_row" if="{data_loading}" equals="true" {
-        Text "⟳" class="loading_spin"
-        Text "Carregando dados…" class="loading_note"
-      }
+      LoadingRow flag="{data_loading}"
       Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
         Column class="table_body" {
           if cond="{docker_volumes_only_used}" equals="true" {
@@ -273,10 +209,7 @@ Column class="content" {
                   Text "{v.name}" class="td_key col_svc"
                   Text "{v.driver}" class="td col_proj"
                   Text "{v.size}" class="muted col_dur"
-                  Row class="state_cell" {
-                    Text "●" class="state_dot" color="{v.in_use_color}"
-                    Text "{v.in_use_label}" class="state_lbl" color="{v.in_use_color}"
-                  }
+                  StateCell color="{v.in_use_color}" label="{v.in_use_label}"
                 }
                 Rule
               }
@@ -288,10 +221,7 @@ Column class="content" {
                   Text "{v.name}" class="td_key col_svc"
                   Text "{v.driver}" class="td col_proj"
                   Text "{v.size}" class="muted col_dur"
-                  Row class="state_cell" {
-                    Text "●" class="state_dot" color="{v.in_use_color}"
-                    Text "{v.in_use_label}" class="state_lbl" color="{v.in_use_color}"
-                  }
+                  StateCell color="{v.in_use_color}" label="{v.in_use_label}"
                 }
                 Rule
               }
@@ -316,10 +246,7 @@ Column class="content" {
         Text "CONTAINERS" class="th col_dur"
         Text "USO" class="th col_start"
       }
-      Row class="loading_row" if="{data_loading}" equals="true" {
-        Text "⟳" class="loading_spin"
-        Text "Carregando dados…" class="loading_note"
-      }
+      LoadingRow flag="{data_loading}"
       Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
         Column class="table_body" {
           if cond="{docker_networks_only_used}" equals="true" {
@@ -330,10 +257,7 @@ Column class="content" {
                   Text "{n.project}" class="td col_proj"
                   Text "{n.driver}" class="muted col_dur"
                   Text "{n.containers}" class="muted col_dur"
-                  Row class="state_cell" {
-                    Text "●" class="state_dot" color="{n.in_use_color}"
-                    Text "{n.in_use_label}" class="state_lbl" color="{n.in_use_color}"
-                  }
+                  StateCell color="{n.in_use_color}" label="{n.in_use_label}"
                 }
                 Rule
               }
@@ -346,10 +270,7 @@ Column class="content" {
                   Text "{n.project}" class="td col_proj"
                   Text "{n.driver}" class="muted col_dur"
                   Text "{n.containers}" class="muted col_dur"
-                  Row class="state_cell" {
-                    Text "●" class="state_dot" color="{n.in_use_color}"
-                    Text "{n.in_use_label}" class="state_lbl" color="{n.in_use_color}"
-                  }
+                  StateCell color="{n.in_use_color}" label="{n.in_use_label}"
                 }
                 Rule
               }
@@ -369,19 +290,8 @@ Column class="content" {
       }
     }
     Row class="tabs" {
-
-      if cond="{settings_tab}" equals="git" {
-        Button "Web Server" class="tab" onClick="settings_tab:web"
-      } else {
-        Button "Web Server" class="tab_on" onClick="settings_tab:web"
-      }
-      
-      if cond="{settings_tab}" equals="git" {
-        Button "Git" class="tab_on" onClick="settings_tab:git"
-      } else {
-        Button "Git" class="tab" onClick="settings_tab:git"
-      }
-
+      TabButton label="Web Server" current="{settings_tab}" target="web" action="settings_tab:web"
+      TabButton label="Git" current="{settings_tab}" target="git" action="settings_tab:git"
     }
     Rule
 
@@ -460,25 +370,8 @@ Column class="content" {
 
             Text "MÉTODO" class="label_cap"
             Row class="tabs" {
-
-              Button "OAuth2"
-                if="{gp_mode}"
-                equals="pat"
-                class="tab"
-                onClick="gp_mode:oauth"
-
-              Button "OAuth2"
-                else class="tab_on"
-                onClick="gp_mode:oauth"
-
-              Button "Token (PAT)"
-                if="{gp_mode}"
-                equals="pat" class="tab_on" onClick="gp_mode:pat"
-
-              Button "Token (PAT)"
-                else class="tab"
-                onClick="gp_mode:pat"
-
+              TabButton label="OAuth2" current="{gp_mode}" target="oauth" action="gp_mode:oauth"
+              TabButton label="Token (PAT)" current="{gp_mode}" target="pat" action="gp_mode:pat"
             }
 
             // OAuth2
