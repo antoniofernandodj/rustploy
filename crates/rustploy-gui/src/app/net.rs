@@ -184,6 +184,70 @@ struct GeneralFields {
     build_stage: String,
 }
 
+/// RAM snapshot of the last successful detail fetch per service/project, so
+/// reopening a detail view paints instantly from cache while a fresh fetch runs
+/// in the background (cache-aside). Populated by [`fetch_service_detail_cached`]
+/// / [`fetch_project_services_cached`], read by `Root`'s `open_service` /
+/// `open_project`. Shared with those async fetches via an `Arc<Mutex>` — same
+/// pattern as [`SearchCache`], since a `ctx.perform` result never routes back
+/// through `Component::update` for the component to stash it itself.
+#[derive(Default)]
+pub struct DetailCache {
+    services: HashMap<String, Vec<(String, String)>>,
+    projects: HashMap<String, Vec<(String, String)>>,
+}
+
+impl DetailCache {
+    /// Cloned cached pairs for a service's detail view, if any.
+    pub fn service(&self, id: &str) -> Option<Vec<(String, String)>> {
+        self.services.get(id).cloned()
+    }
+    /// Cloned cached pairs for a project's service list, if any.
+    pub fn project(&self, id: &str) -> Option<Vec<(String, String)>> {
+        self.projects.get(id).cloned()
+    }
+}
+
+pub type DetailCacheHandle = Arc<Mutex<DetailCache>>;
+
+/// [`fetch_service_detail`] plus a write-through into `cache` on success, so a
+/// later reopen of this service paints from RAM instantly. Used only by the
+/// open-detail path; the chained callers (env/spec edits, deploy) keep calling
+/// `fetch_service_detail` directly — the next open refreshes the cache anyway.
+pub async fn fetch_service_detail_cached(
+    cache: DetailCacheHandle,
+    addr: String,
+    token: Option<String>,
+    service_id: String,
+) -> Vec<(String, String)> {
+    let pairs = fetch_service_detail(addr, token, service_id.clone()).await;
+    // Only cache a successful load — the error path carries no `svc_id`.
+    if pairs.iter().any(|(k, _)| k == "svc_id")
+        && let Ok(mut c) = cache.lock()
+    {
+        c.services.insert(service_id, pairs.clone());
+    }
+    pairs
+}
+
+/// [`fetch_project_services`] plus a write-through into `cache` on success —
+/// the project-detail counterpart of [`fetch_service_detail_cached`].
+pub async fn fetch_project_services_cached(
+    cache: DetailCacheHandle,
+    addr: String,
+    token: Option<String>,
+    project_id: String,
+) -> Vec<(String, String)> {
+    let pairs = fetch_project_services(addr, token, project_id.clone()).await;
+    // Only cache a successful load — the error path carries no `proj_name`.
+    if pairs.iter().any(|(k, _)| k == "proj_name")
+        && let Ok(mut c) = cache.lock()
+    {
+        c.projects.insert(project_id, pairs.clone());
+    }
+    pairs
+}
+
 /// One-shot fetch of everything the Service detail screen needs: the full
 /// `Service` spec/status, its project name and the most recent container logs.
 /// Returns context pairs (`svc_*`) merged by a `ctx.perform` effect.

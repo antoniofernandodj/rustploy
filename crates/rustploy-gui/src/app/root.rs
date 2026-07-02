@@ -64,6 +64,11 @@ pub struct Root {
     /// the filtered lists instantly on each keystroke instead of waiting for
     /// the next 2s poll tick (see `net::SearchCache`/`net::search_pairs`).
     search_cache: Arc<Mutex<super::net::SearchCache>>,
+    /// RAM snapshot of the last successful service/project detail fetch, so
+    /// reopening a detail view paints instantly (cache-aside) instead of showing
+    /// a spinner until the fetch lands. Written through by the `*_cached` fetches
+    /// (see `net::DetailCache`).
+    detail_cache: super::net::DetailCacheHandle,
 
     // ── glacier-ui `Form`s (validated field groups) ────────────────────
     //
@@ -99,6 +104,7 @@ impl Default for Root {
             search_shared: Arc::default(),
             selected_project_shared: Arc::default(),
             search_cache: Arc::default(),
+            detail_cache: Arc::default(),
             login_form: FormBuilder::new("login")
                 .control(FormControl::new("url", "").required())
                 .control(FormControl::new("token", ""))
@@ -1135,11 +1141,22 @@ impl Component for Root {
                     ctx.set("selected_service", id);
                     ctx.set("view", "service");
                     ctx.set("tab", "general");
-                    ctx.set("svc_loading", "true");
                     ctx.set("svc_error", "");
                     ctx.set("dep_selected", "");
                     if let Ok(mut d) = self.selected_deploy_shared.lock() {
                         d.clear();
+                    }
+                    // Cache-aside: se já temos o último detalhe deste serviço em
+                    // RAM, pinta na hora (as chaves incluem svc_loading=false) e o
+                    // fetch abaixo só refresca em background; senão mostra o spinner.
+                    let cached = self.detail_cache.lock().ok().and_then(|c| c.service(id));
+                    match cached {
+                        Some(pairs) => {
+                            for (k, v) in pairs {
+                                ctx.set(&k, v);
+                            }
+                        }
+                        None => ctx.set("svc_loading", "true"),
                     }
                     // Deploy timer: keep ticking if this exact service still has
                     // the tracked deploy running (e.g. the user navigated away
@@ -1161,9 +1178,10 @@ impl Component for Root {
                         (self.addr.clone(), self.token.clone(), id.to_string());
                     if !addr.is_empty() {
                         // One-shot load of everything the detail needs — including
-                        // the Gitea provider/repo/branch lists — so `svc_loading`
-                        // only clears once the General-tab selects can be populated.
-                        ctx.perform(super::net::fetch_service_detail(
+                        // the Gitea provider/repo/branch lists — written through to
+                        // `detail_cache` so the next open of this service is instant.
+                        ctx.perform(super::net::fetch_service_detail_cached(
+                            self.detail_cache.clone(),
                             addr.clone(),
                             token.clone(),
                             sid,
@@ -1191,10 +1209,21 @@ impl Component for Root {
                     ctx.set("view", "project_services");
                     ctx.set("proj_tab", "services");
                     ctx.set("editing_project", "false");
-                    ctx.set("proj_loading", "true");
                     ctx.set("proj_action_msg", "");
+                    // Cache-aside: pinta a lista de serviços do último snapshot em
+                    // RAM (proj_loading=false vem nas chaves), refresca abaixo.
+                    let cached = self.detail_cache.lock().ok().and_then(|c| c.project(id));
+                    match cached {
+                        Some(pairs) => {
+                            for (k, v) in pairs {
+                                ctx.set(&k, v);
+                            }
+                        }
+                        None => ctx.set("proj_loading", "true"),
+                    }
                     if !self.addr.is_empty() {
-                        ctx.perform(super::net::fetch_project_services(
+                        ctx.perform(super::net::fetch_project_services_cached(
+                            self.detail_cache.clone(),
                             self.addr.clone(),
                             self.token.clone(),
                             id.to_string(),
