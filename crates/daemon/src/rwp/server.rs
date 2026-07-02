@@ -259,18 +259,12 @@ async fn handle_connection(
                     return Ok(()); // close on auth failure
                 }
                 write_reply(&mut stream, &RwpReply::AuthOk, cfg.max_frame_size).await?;
-
-                // Reconcilia status DB ↔ Docker ao autenticar para que o cliente
-                // remoto veja o estado real imediatamente.
-                {
-                    let db = state.db.clone();
-                    let docker = state.docker.clone();
-                    let ingress = state.ingress.clone();
-                    let tls = state.tls.clone();
-                    tokio::spawn(async move {
-                        crate::deploy::recovery::reconcile(&db, &docker, &ingress, &tls).await;
-                    });
-                }
+                // NB: a reconciliação DB↔Docker NÃO é feita aqui. Cada ação do
+                // GUI abre uma conexão de comando curta, e reconciliar em toda
+                // autenticação disparava um `reconcile` completo (dezenas de
+                // chamadas Docker) por clique. Agora ela roda só quando o cliente
+                // abre o stream de eventos (`Subscribe`, 1 por sessão) — ver o
+                // handler mais abaixo — além do loop periódico de 30s em `main`.
             }
             _ => {
                 let reply = RwpReply::Error(RwpError::new(
@@ -304,6 +298,19 @@ async fn handle_connection(
                 write_reply(&mut stream, &reply, cfg.max_frame_size).await?;
             }
             RwpFrame::Subscribe { service_id } => {
+                // Reconcilia status DB ↔ Docker uma vez, quando o cliente abre o
+                // stream de eventos (1 por sessão do GUI), para que ele veja o
+                // estado real imediatamente — sem pagar um `reconcile` completo a
+                // cada conexão de comando curta (uma por ação).
+                {
+                    let db = state.db.clone();
+                    let docker = state.docker.clone();
+                    let ingress = state.ingress.clone();
+                    let tls = state.tls.clone();
+                    tokio::spawn(async move {
+                        crate::deploy::recovery::reconcile(&db, &docker, &ingress, &tls).await;
+                    });
+                }
                 // Becomes a one-way event stream until the peer drops.
                 stream_events(stream, state, service_id, cfg.max_frame_size).await;
                 return Ok(());
