@@ -113,7 +113,6 @@ impl App {
             Message::CloseRequested(id) => close_and_save(id),
             Message::DebugIgnore => Task::none(),
             Message::CloseWithGeometry(id, size, position) => {
-                eprintln!("[window-debug] CLOSE QUERY RESULT size={size:?} position={position:?}");
                 store::WindowState {
                     width: size.width,
                     height: size.height,
@@ -174,8 +173,7 @@ impl App {
         ])
         .map(Message::Engine);
         let close_requests = window::close_requests().map(Message::CloseRequested);
-        let debug_events = window::events().map(|(id, event)| {
-            eprintln!("[window-debug] id={id:?} event={event:?}");
+        let debug_events = window::events().map(|(_id, _event)| {
             Message::DebugIgnore
         });
         Subscription::batch([engine, close_requests, debug_events])
@@ -273,7 +271,6 @@ fn window_control(id: window::Id, cmd: &str) -> Task<Message> {
     if let Some(dir) = cmd.strip_prefix("resize:") {
         return match resize_direction(dir) {
             Some(d) => {
-                println!("resize: {:?}, {:?}", dir, d);
                 window::drag_resize(id, d)
             },
             None => Task::none(),
