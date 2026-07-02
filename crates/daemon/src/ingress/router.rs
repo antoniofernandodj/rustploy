@@ -107,6 +107,25 @@ impl IngressController {
         self.table.store(Arc::new(new_table));
     }
 
+    /// Registra todas as rotas HTTP de domínio de um serviço a partir dos IPs
+    /// dos containers live. Cada domínio é roteado para a sua porta de container
+    /// (own `port`, ou a `port` padrão do serviço) — é isto que permite um
+    /// serviço em várias portas expor um subdomínio por porta.
+    pub fn register_domains(&self, spec: &shared::ServiceSpec, ips: &[String], service_id: &str) {
+        for route in spec.domain_routes() {
+            let port = route.container_port(spec.port);
+            let backends: Vec<String> = ips.iter().map(|ip| format!("{ip}:{port}")).collect();
+            self.upsert_route(&route.domain, backends, service_id);
+        }
+    }
+
+    /// Remove todas as rotas de domínio do serviço (parada/remoção/reconcile).
+    pub fn remove_domains(&self, spec: &shared::ServiceSpec) {
+        for route in spec.domain_routes() {
+            self.remove_route(&route.domain);
+        }
+    }
+
     pub fn _lookup(&self, domain: &str) -> Option<RouteEntry> {
         self.table.load().get(domain).cloned()
     }

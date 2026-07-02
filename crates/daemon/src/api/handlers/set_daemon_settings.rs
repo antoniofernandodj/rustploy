@@ -53,20 +53,17 @@ fn provision_existing_domains(state: AppState) {
         };
 
         for svc in services {
-            if !svc.spec.tls_enabled {
-                continue;
+            for route in svc.spec.domain_routes().into_iter().filter(|r| r.tls) {
+                let tls = state.tls.clone();
+                let domain = route.domain.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = tls.ensure_cert(&domain).await {
+                        warn!(domain = %domain, error = %e, "TLS: falha ao provisionar certificado");
+                    } else {
+                        info!(domain = %domain, "TLS: certificado provisionado");
+                    }
+                });
             }
-            let Some(domain) = svc.spec.domain else {
-                continue;
-            };
-            let tls = state.tls.clone();
-            tokio::spawn(async move {
-                if let Err(e) = tls.ensure_cert(&domain).await {
-                    warn!(domain = %domain, error = %e, "TLS: falha ao provisionar certificado");
-                } else {
-                    info!(domain = %domain, "TLS: certificado provisionado");
-                }
-            });
         }
     });
 }

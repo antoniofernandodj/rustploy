@@ -608,19 +608,45 @@ impl Root {
         ));
     }
 
-    /// Validates `f_host_port` ad hoc (service-detail forms are repopulated
-    /// by `open_service`'s fetch, so they can't own a persistent `Form` — see
-    /// the comment on `Root`'s `Form` fields), and on success saves — the
-    /// body of the old `"dom_save"` action.
-    fn submit_domains(&mut self, ctx: &mut Context) {
+    /// Adiciona uma rota de domínio (`dom_add`). Valida a porta opcional ad hoc
+    /// (service-detail forms são repovoados pelo fetch do `open_service`, então
+    /// não têm `Form` persistente — ver o comentário nos `Form` de `Root`) e,
+    /// no sucesso, limpa os campos do formulário de adição.
+    fn submit_domain_add(&mut self, ctx: &mut Context) {
+        let fields = vec![optional_numeric_field(ctx, "f_port")];
+        if !validate_ad_hoc(ctx, "erro_", fields) {
+            return;
+        }
+        let domain = ctx.get("f_domain").cloned().unwrap_or_default();
+        if domain.trim().is_empty() {
+            ctx.set("erro_f_domain", "informe um domínio");
+            return;
+        }
+        ctx.set("erro_f_domain", "");
+        let op = super::net::SpecOp::DomainAdd {
+            domain,
+            port: ctx.get("f_port").cloned().unwrap_or_default(),
+            tls: ctx.get("f_tls").map(|v| v == "true").unwrap_or(false),
+        };
+        self.spec_op(ctx, op);
+        ctx.set("f_domain", "");
+        ctx.set("f_port", "");
+        ctx.set("f_tls", "false");
+    }
+
+    /// Remove a rota de domínio `domain` (`dom_del:{domain}`).
+    fn domain_remove(&self, ctx: &mut Context, domain: String) {
+        self.spec_op(ctx, super::net::SpecOp::DomainRemove { domain });
+    }
+
+    /// Salva a porta TCP crua do host (`dom_hostport_save`).
+    fn submit_host_port(&mut self, ctx: &mut Context) {
         let fields = vec![optional_numeric_field(ctx, "f_host_port")];
         if !validate_ad_hoc(ctx, "erro_", fields) {
             return;
         }
-        let op = super::net::SpecOp::Domains {
-            domain: ctx.get("f_domain").cloned().unwrap_or_default(),
+        let op = super::net::SpecOp::HostPort {
             host_port: ctx.get("f_host_port").cloned().unwrap_or_default(),
-            tls: ctx.get("f_tls").map(|v| v == "true").unwrap_or(false),
         };
         self.spec_op(ctx, op);
     }
@@ -841,6 +867,7 @@ impl Component for Root {
         ctx.set("svc_env_text_orig", "");
         // Editable spec form fields.
         ctx.set("f_domain", "");
+        ctx.set("f_port", "");
         ctx.set("f_host_port", "");
         ctx.set("f_tls", "false");
         ctx.set("f_hc_kind", "tcp");
@@ -1095,7 +1122,8 @@ impl Component for Root {
                 self.service_action(ctx, |id| shared::Command::ServiceStop { service_id: id });
             }
             // Save handlers for the editable spec forms.
-            "dom_save" => self.submit_domains(ctx),
+            "dom_add" => self.submit_domain_add(ctx),
+            "dom_hostport_save" => self.submit_host_port(ctx),
             "hc_save" => self.submit_healthcheck(ctx),
             "adv_save" => self.submit_advanced(ctx),
             "gen_save" => self.submit_general(ctx),
@@ -1491,6 +1519,11 @@ impl Component for Root {
                     self.env_op(ctx, super::net::EnvOp::Delete { key: key.to_string() });
                     return;
                 }
+                // `dom_del:<domain>` — remove uma rota de domínio do serviço.
+                if let Some(domain) = action.strip_prefix("dom_del:") {
+                    self.domain_remove(ctx, domain.to_string());
+                    return;
+                }
                 // `penv_del:<key>` — remove a PROJECT-level environment variable.
                 if let Some(key) = action.strip_prefix("penv_del:") {
                     self.project_env_op(ctx, super::net::ProjectEnvOp::Delete { key: key.to_string() });
@@ -1604,7 +1637,8 @@ impl Component for Root {
             "settings_save" => self.submit_settings(ctx),
             "gp_connect" => self.submit_git_provider(ctx),
             "create_project" => self.submit_new_project(ctx),
-            "dom_save" => self.submit_domains(ctx),
+            "dom_add" => self.submit_domain_add(ctx),
+            "dom_hostport_save" => self.submit_host_port(ctx),
             "hc_save" => self.submit_healthcheck(ctx),
             "adv_save" => self.submit_advanced(ctx),
             "gen_save" => self.submit_general(ctx),

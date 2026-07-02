@@ -44,6 +44,33 @@ pub struct ServiceSpec {
     /// tipo: postgres://, amqp://, nats://, Kafka sem scheme).
     #[serde(default)]
     pub db_kind: Option<String>,
+    /// Rotas HTTP de domínio. Cada domínio pode apontar para uma porta de
+    /// container diferente e ligar TLS de forma independente — permite um
+    /// serviço que responde em várias portas expor vários subdomínios.
+    /// Retrocompat: quando vazio, cai no `domain`/`tls_enabled` legado (roteado
+    /// para `port`). Ver [`ServiceSpec::domain_routes`].
+    #[serde(default)]
+    pub domains: Vec<DomainRoute>,
+}
+
+/// Uma rota HTTP de domínio de um serviço: qual domínio, para qual porta do
+/// container e com ou sem TLS.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct DomainRoute {
+    pub domain: String,
+    /// Porta do container que este domínio atende. `None` = a `port` padrão do
+    /// serviço.
+    #[serde(default)]
+    pub port: Option<u16>,
+    #[serde(default)]
+    pub tls: bool,
+}
+
+impl DomainRoute {
+    /// Porta de container efetiva (a própria, ou a `port` padrão do serviço).
+    pub fn container_port(&self, default: u16) -> u16 {
+        self.port.unwrap_or(default)
+    }
 }
 
 pub fn normalize_name(name: &str) -> String {
@@ -66,6 +93,30 @@ pub fn normalize_name(name: &str) -> String {
 impl ServiceSpec {
     pub fn safe_name(&self) -> String {
         normalize_name(&self.name)
+    }
+
+    /// Rotas HTTP efetivas do serviço: a lista `domains` nova, ou — para specs
+    /// antigos que só têm o campo `domain` — uma rota única sintetizada a partir
+    /// do domínio legado (roteada para `port`, TLS = `tls_enabled`).
+    pub fn domain_routes(&self) -> Vec<DomainRoute> {
+        if !self.domains.is_empty() {
+            self.domains.clone()
+        } else if let Some(d) = &self.domain {
+            vec![DomainRoute { domain: d.clone(), port: None, tls: self.tls_enabled }]
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Move o domínio legado (`domain`/`tls_enabled`) para a lista `domains` e
+    /// zera os campos legados, para que edições subsequentes operem numa única
+    /// fonte de verdade (a lista). Idempotente.
+    pub fn materialize_domains(&mut self) {
+        if self.domains.is_empty() {
+            self.domains = self.domain_routes();
+        }
+        self.domain = None;
+        self.tls_enabled = false;
     }
 }
 

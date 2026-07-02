@@ -332,6 +332,7 @@ fn base_spec(
         run_command: None,
         run_args: vec![],
         db_kind,
+        domains: vec![],
     }
 }
 

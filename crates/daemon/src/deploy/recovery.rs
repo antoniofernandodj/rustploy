@@ -183,7 +183,7 @@ pub async fn reconcile(
             docker::networks::id_short(&svc.spec.project_id)
         );
 
-        let mut backends: Vec<String> = Vec::new();
+        let mut ips: Vec<String> = Vec::new();
 
         for i in 0..replicas {
             let live_name = containers::replica_live_name(&svc.spec.name, i);
@@ -191,12 +191,12 @@ pub async fn reconcile(
                 if let Ok(ip) =
                     containers::get_container_ip(&docker.inner, &cid, &net).await
                 {
-                    backends.push(format!("{ip}:{}", svc.spec.port));
+                    ips.push(ip);
                 }
             }
         }
 
-        if backends.is_empty() {
+        if ips.is_empty() {
             let compose_prefix = format!("{}-", compose_project_name(&svc.id, &svc.spec.name));
             if let Ok(Some(cid)) =
                 containers::find_by_prefix(&docker.inner, &compose_prefix).await
@@ -204,12 +204,12 @@ pub async fn reconcile(
                 if let Ok(ip) =
                     containers::get_container_ip(&docker.inner, &cid, &net).await
                 {
-                    backends.push(format!("{ip}:{}", svc.spec.port));
+                    ips.push(ip);
                 }
             }
         }
 
-        let is_running = !backends.is_empty();
+        let is_running = !ips.is_empty();
         let was_running = matches!(svc.status, ServiceStatus::Running | ServiceStatus::Degraded);
 
         match (is_running, was_running) {
@@ -222,7 +222,7 @@ pub async fn reconcile(
                     None,
                 )
                 .await;
-                reconcile_routes(&svc, backends, ingress, tls).await;
+                reconcile_routes(&svc, ips, ingress, tls).await;
             }
             (false, true) => {
                 info!(service = svc.spec.name, "reconcile: container ausente, marcando Stopped");
@@ -233,16 +233,14 @@ pub async fn reconcile(
                     None,
                 )
                 .await;
-                if let Some(domain) = &svc.spec.domain {
-                    ingress.remove_route(domain);
-                }
+                ingress.remove_domains(&svc.spec);
                 if let Some(host_port) = svc.spec.host_port {
                     ingress.remove_port_route(host_port);
                 }
             }
             (true, true) => {
                 // Container e DB ambos Running: garante que as rotas estão registradas.
-                reconcile_routes(&svc, backends, ingress, tls).await;
+                reconcile_routes(&svc, ips, ingress, tls).await;
             }
             (false, false) => {}
         }
@@ -251,23 +249,23 @@ pub async fn reconcile(
 
 async fn reconcile_routes(
     svc: &Service,
-    backends: Vec<String>,
+    ips: Vec<String>,
     ingress: &IngressController,
     tls: &Arc<TlsManager>,
 ) {
-    if let Some(domain) = &svc.spec.domain {
-        ingress.upsert_route(domain, backends.clone(), &svc.id);
-        if svc.spec.tls_enabled {
-            let tls = tls.clone();
-            let domain = domain.clone();
-            tokio::spawn(async move {
-                if let Err(e) = tls.ensure_cert(&domain).await {
-                    warn!(domain = %domain, error = %e, "reconcile: falha ao garantir cert TLS");
-                }
-            });
-        }
+    ingress.register_domains(&svc.spec, &ips, &svc.id);
+    for route in svc.spec.domain_routes().into_iter().filter(|r| r.tls) {
+        let tls = tls.clone();
+        let domain = route.domain.clone();
+        tokio::spawn(async move {
+            if let Err(e) = tls.ensure_cert(&domain).await {
+                warn!(domain = %domain, error = %e, "reconcile: falha ao garantir cert TLS");
+            }
+        });
     }
     if let Some(host_port) = svc.spec.host_port {
+        let backends: Vec<String> =
+            ips.iter().map(|ip| format!("{ip}:{}", svc.spec.port)).collect();
         ingress.upsert_port_route(host_port, backends);
     }
 }
@@ -294,21 +292,21 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
         );
 
         // Coleta IPs de todas as réplicas live (Git/Registry)
-        let mut backends: Vec<String> = Vec::new();
+        let mut ips: Vec<String> = Vec::new();
         for i in 0..replicas {
             let live_name = containers::replica_live_name(&svc.spec.name, i);
             if let Ok(Some(cid)) = containers::find_by_name(&docker.inner, &live_name).await {
                 if let Ok(ip) =
                     containers::get_container_ip(&docker.inner, &cid, &net).await
                 {
-                    backends.push(format!("{ip}:{}", svc.spec.port));
+                    ips.push(ip);
                 }
             }
         }
 
         // Fallback para Compose: encontra via prefixo do projeto.
         // O nome interno do serviço no compose file pode diferir do nome rustploy.
-        if backends.is_empty() {
+        if ips.is_empty() {
             let compose_prefix = format!("{}-", compose_project_name(&svc.id, &svc.spec.name));
             if let Ok(Some(cid)) =
                 containers::find_by_prefix(&docker.inner, &compose_prefix).await
@@ -316,24 +314,24 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
                 if let Ok(ip) =
                     containers::get_container_ip(&docker.inner, &cid, &net).await
                 {
-                    backends.push(format!("{ip}:{}", svc.spec.port));
+                    ips.push(ip);
                 }
             }
         }
 
-        if backends.is_empty() {
+        if ips.is_empty() {
             warn!(service = svc.spec.name, "no live containers found, skipping route restore");
             continue;
         }
 
-        if let Some(domain) = &svc.spec.domain {
-            ingress.upsert_route(domain, backends.clone(), &svc.id);
-            info!(service = svc.spec.name, domain, ?backends, "routes restored");
+        if !svc.spec.domain_routes().is_empty() {
+            ingress.register_domains(&svc.spec, &ips, &svc.id);
+            info!(service = svc.spec.name, ?ips, "routes restored");
 
-            if svc.spec.tls_enabled {
-                info!(service = svc.spec.name, domain = %domain, "TLS: disparando ensure_cert no restart para serviço running");
+            for route in svc.spec.domain_routes().into_iter().filter(|r| r.tls) {
+                info!(service = svc.spec.name, domain = %route.domain, "TLS: disparando ensure_cert no restart para serviço running");
                 let tls = tls.clone();
-                let domain = domain.clone();
+                let domain = route.domain.clone();
                 tokio::spawn(async move {
                     if let Err(e) = tls.ensure_cert(&domain).await {
                         warn!(domain = %domain, error = %e, "TLS: falha ao re-provisionar certificado no restart");
@@ -343,6 +341,8 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
         }
 
         if let Some(host_port) = svc.spec.host_port {
+            let backends: Vec<String> =
+                ips.iter().map(|ip| format!("{ip}:{}", svc.spec.port)).collect();
             ingress.upsert_port_route(host_port, backends.clone());
             info!(service = svc.spec.name, host_port, ?backends, "port routes restored");
         }

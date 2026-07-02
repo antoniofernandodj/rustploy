@@ -68,9 +68,7 @@ pub async fn remove(
 ) -> impl IntoResponse {
     // Remove ingress route if service has one
     if let Ok(Some(svc)) = crate::db::services::get(&state.db, &id).await {
-        if let Some(domain) = &svc.spec.domain {
-            state.ingress.remove_route(domain);
-        }
+        state.ingress.remove_domains(&svc.spec);
     }
 
     match crate::db::services::delete(&state.db, &id).await {

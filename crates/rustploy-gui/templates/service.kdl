@@ -416,27 +416,55 @@ Column class="content" {
         }
       }
 
-      // Domains (editável)
-      Form if="{tab}" equals="domains" class="form_panel" name="domains" onSubmit="dom_save" {
-        Text "DOMÍNIO" class="label_cap"
+      // Domains (editável): lista de rotas HTTP (domínio → porta de container,
+      // TLS por rota), mais o form de adição e a porta TCP crua do host.
+      Column if="{tab}" equals="domains" class="form_panel" {
+        Text "DOMÍNIOS ({svc_domains_count})" class="label_cap"
+        Text "Cada domínio pode apontar para uma porta de container diferente." class="muted"
+
+        Scrollable direction=vertical class="env_list_scroll" {
+          Column class="kv_list" {
+            Row class="kv_row" for-each="svc_domains" var="d" {
+              Button "✕" class="env_del" onClick="dom_del:{d.domain}"
+              Text " "
+              Text "{d.domain}" class="env_key"
+              Text "→ :{d.port}" class="kv_val_fill"
+              Text "{d.tls_label}" class="muted"
+            }
+          }
+        }
+
+        Text "ADICIONAR DOMÍNIO" class="label_cap"
         TextInput "app.exemplo.com"
           class="field_input"
           formControl="f_domain"
           value="f_domain"
           onChange="field:f_domain"
+        Text "{erro_f_domain}" if="{erro_f_domain}" notEquals="" class="err"
 
-        Text "HOST PORT (externa, opcional)" class="label_cap"
+        Text "PORTA DO CONTAINER (opcional)" class="label_cap"
+        TextInput "(padrão do serviço)"
+          class="field_input"
+          formControl="f_port"
+          value="f_port"
+          onChange="field:f_port"
+        Text "{erro_f_port}" if="{erro_f_port}" notEquals="" class="err"
+
+        Toggle "  HTTPS / TLS" checked="f_tls" onToggle="field:f_tls"
+        Row class="env_add" {
+          Button "Adicionar domínio" class="btn_primary" onClick="dom_add"
+          Text "{svc_action_msg}" class="muted"
+        }
+
+        Text "PORTA TCP DO HOST (passthrough, opcional)" class="label_cap"
         TextInput "(padrão do serviço)"
           class="field_input"
           formControl="f_host_port"
           value="f_host_port"
           onChange="field:f_host_port"
-
         Text "{erro_f_host_port}" if="{erro_f_host_port}" notEquals="" class="err"
-        Toggle "  HTTPS / TLS" checked="f_tls" onToggle="field:f_tls"
         Row class="env_add" {
-          Button "Save" class="btn_primary" onClick="dom_save"
-          Text "{svc_action_msg}" class="muted"
+          Button "Salvar porta" class="btn_ghost" onClick="dom_hostport_save"
         }
       }
 

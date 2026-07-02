@@ -3,9 +3,7 @@ use shared::Response as RpResponse;
 
 pub async fn handle(state: AppState, id: String) -> RpResponse {
     if let Ok(Some(svc)) = crate::db::services::get(&state.db, &id).await {
-        if let Some(domain) = &svc.spec.domain {
-            state.ingress.remove_route(domain);
-        }
+        state.ingress.remove_domains(&svc.spec);
     }
     match crate::db::services::delete(&state.db, &id).await {
         Ok(true) => RpResponse::Ok,

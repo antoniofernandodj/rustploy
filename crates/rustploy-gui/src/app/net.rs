@@ -382,6 +382,9 @@ async fn fetch_service_detail_inner(
         HealthcheckKind::Http { path, expected_status } => ("http", path.clone(), expected_status.to_string()),
     };
 
+    // Primary (first) domain route drives the single-value Connection fields.
+    let primary_route = spec.domain_routes().into_iter().next();
+
     let mut pairs = vec![
         ("svc_loading".into(), "false".into()),
         ("svc_error".into(), String::new()),
@@ -396,13 +399,17 @@ async fn fetch_service_detail_inner(
         ("svc_build".into(), build_engine),
         ("svc_port".into(), spec.port.to_string()),
         ("svc_host_port".into(), spec.host_port.map(|p| p.to_string()).unwrap_or_else(|| "—".into())),
-        ("svc_domain".into(), spec.domain.clone().unwrap_or_else(|| "—".into())),
-        ("svc_tls".into(), if spec.tls_enabled { "enabled" } else { "disabled" }.into()),
+        // Connection tab shows the primary (first) domain route; the Domains tab
+        // lists them all (svc_domains). Legacy specs fold into a single route.
+        ("svc_domain".into(), primary_route.as_ref().map(|r| r.domain.clone()).unwrap_or_else(|| "—".into())),
+        ("svc_tls".into(), if primary_route.as_ref().map(|r| r.tls).unwrap_or(false) { "enabled" } else { "disabled" }.into()),
         ("svc_replicas".into(), spec.replicas.to_string()),
-        // Public URL served by the ingress: scheme from `tls_enabled`, host
-        // from the configured domain. `—` when there's no domain (the service
-        // isn't exposed outside the box).
-        ("svc_external_url".into(), external_url(spec.domain.as_deref(), spec.tls_enabled)),
+        // JSON list rendered by the Domains tab (domain + container port + TLS).
+        ("svc_domains".into(), domains_json(&spec)),
+        ("svc_domains_count".into(), spec.domain_routes().len().to_string()),
+        // Public URL served by the ingress, from the primary domain route.
+        // `—` when there's no domain (the service isn't exposed outside the box).
+        ("svc_external_url".into(), external_url(primary_route.as_ref().map(|r| r.domain.as_str()), primary_route.as_ref().map(|r| r.tls).unwrap_or(false))),
         // Internal connection URL, resolvable by any other service in the same
         // project (they share the `rp_net_<project_id>` bridge network — the
         // container/alias is `rp_<safe_name>` for both Application and Compose
@@ -426,10 +433,12 @@ async fn fetch_service_detail_inner(
         ("svc_logs_text".into(), join_log_lines(logs.iter().map(|e| (&e.timestamp, e.line.as_str())))),
         ("svc_deployments".into(), deployments_detail_json(&deployments)),
         ("svc_deployments_count".into(), deployments.len().to_string()),
-        // Editable fields.
-        ("f_domain".into(), spec.domain.clone().unwrap_or_default()),
+        // Editable fields. The domain add-form starts blank (f_domain/f_port/
+        // f_tls); f_host_port keeps the current raw-TCP port for its own form.
+        ("f_domain".into(), String::new()),
+        ("f_port".into(), String::new()),
+        ("f_tls".into(), "false".into()),
         ("f_host_port".into(), spec.host_port.map(|p| p.to_string()).unwrap_or_default()),
-        ("f_tls".into(), if spec.tls_enabled { "true" } else { "false" }.into()),
         ("f_hc_kind".into(), hc_kind.into()),
         ("f_hc_path".into(), hc_path),
         ("f_hc_status".into(), hc_status),
@@ -912,7 +921,13 @@ pub async fn save_settings(
 /// A form-driven edit to a service spec (Domains / Healthcheck / Advanced tabs).
 /// Fields arrive as strings from the UI and are parsed here.
 pub enum SpecOp {
-    Domains { domain: String, host_port: String, tls: bool },
+    /// Adiciona (ou atualiza, por domínio) uma rota HTTP: domínio, porta de
+    /// container opcional (vazio = porta padrão do serviço) e TLS.
+    DomainAdd { domain: String, port: String, tls: bool },
+    /// Remove a rota HTTP do domínio informado.
+    DomainRemove { domain: String },
+    /// Porta TCP crua exposta no host (passthrough). Vazio = sem porta.
+    HostPort { host_port: String },
     Healthcheck {
         kind: String,
         http_path: String,
@@ -975,10 +990,31 @@ async fn apply_spec_op(
         if t.is_empty() { None } else { Some(t) }
     };
     match op {
-        SpecOp::Domains { domain, host_port, tls } => {
-            spec.domain = trimmed(domain);
+        SpecOp::DomainAdd { domain, port, tls } => {
+            let Some(domain) = trimmed(domain) else {
+                anyhow::bail!("domínio vazio");
+            };
+            // Move o domínio legado para a lista antes de mexer, para operar numa
+            // única fonte de verdade.
+            spec.materialize_domains();
+            let route = shared::DomainRoute {
+                domain: domain.clone(),
+                port: port.trim().parse::<u16>().ok(),
+                tls,
+            };
+            // Upsert por domínio: substitui se já existir, senão adiciona.
+            if let Some(existing) = spec.domains.iter_mut().find(|r| r.domain == domain) {
+                *existing = route;
+            } else {
+                spec.domains.push(route);
+            }
+        }
+        SpecOp::DomainRemove { domain } => {
+            spec.materialize_domains();
+            spec.domains.retain(|r| r.domain != domain);
+        }
+        SpecOp::HostPort { host_port } => {
             spec.host_port = host_port.trim().parse::<u16>().ok();
-            spec.tls_enabled = tls;
         }
         SpecOp::Healthcheck { kind, http_path, expected_status, interval, timeout, retries, start_period } => {
             let cur = &spec.healthcheck;
@@ -1472,6 +1508,25 @@ fn internal_scheme(db_kind: Option<&str>) -> Option<&'static str> {
         Some("kafka") => None,
         _ => Some("http"),
     }
+}
+
+/// JSON list rendered by the Domains tab: one row per HTTP domain route with
+/// its container port and TLS flag (legacy single-domain specs fold into one).
+fn domains_json(spec: &shared::ServiceSpec) -> String {
+    let rows: Vec<serde_json::Value> = spec
+        .domain_routes()
+        .iter()
+        .map(|r| {
+            let tls = r.tls;
+            serde_json::json!({
+                "domain": r.domain,
+                "port": r.container_port(spec.port).to_string(),
+                "tls": if tls { "true" } else { "false" },
+                "tls_label": if tls { "TLS" } else { "—" },
+            })
+        })
+        .collect();
+    serde_json::Value::Array(rows).to_string()
 }
 
 /// Public ingress URL for a service: `{https|http}://{domain}`, or `—` when no
@@ -2116,25 +2171,31 @@ fn healthcheck_summary(hc: &Healthcheck) -> String {
     )
 }
 
-/// Ingress route rows derived from services that expose a domain.
-/// Returns `(json, count)`.
+/// Ingress route rows derived from services that expose domains — one row per
+/// domain route (a service may expose several). Returns `(json, count)`.
 fn ingress_json(all: &[(Service, String)]) -> (String, usize) {
     let rows: Vec<serde_json::Value> = all
         .iter()
-        .filter_map(|(s, proj)| {
-            let domain = s.spec.domain.clone()?;
-            if domain.trim().is_empty() {
-                return None;
-            }
-            let scheme = if s.spec.tls_enabled { "https" } else { "http" };
-            Some(serde_json::json!({
-                "domain": domain,
-                "url": format!("{scheme}://{domain}"),
-                "service": s.spec.name,
-                "project": proj,
-                "upstream": format!(":{}", s.spec.port),
-                "tls": if s.spec.tls_enabled { "TLS" } else { "—" },
-            }))
+        .flat_map(|(s, proj)| {
+            let port = s.spec.port;
+            let name = s.spec.name.clone();
+            let proj = proj.clone();
+            s.spec
+                .domain_routes()
+                .into_iter()
+                .filter(|r| !r.domain.trim().is_empty())
+                .map(move |r| {
+                    let scheme = if r.tls { "https" } else { "http" };
+                    serde_json::json!({
+                        "domain": r.domain,
+                        "url": format!("{scheme}://{}", r.domain),
+                        "service": name,
+                        "project": proj,
+                        "upstream": format!(":{}", r.container_port(port)),
+                        "tls": if r.tls { "TLS" } else { "—" },
+                    })
+                })
+                .collect::<Vec<_>>()
         })
         .collect();
     let count = rows.len();

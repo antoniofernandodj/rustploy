@@ -1178,6 +1178,7 @@ impl NewServiceState {
                 run_command: None,
                 run_args: vec![],
                 db_kind: None,
+                domains: vec![],
             },
             NewServiceStep::ComposeForm => ServiceSpec {
                 name: svc_name,
@@ -1198,6 +1199,7 @@ impl NewServiceState {
                 run_command: None,
                 run_args: vec![],
                 db_kind: None,
+                domains: vec![],
             },
             NewServiceStep::DatabaseForm => ServiceSpec {
                 name: svc_name,
@@ -1218,6 +1220,7 @@ impl NewServiceState {
                 run_command: None,
                 run_args: vec![],
                 db_kind: self.db_kind.map(|d| d.kind_id().to_string()),
+                domains: vec![],
             },
             NewServiceStep::TemplateVarForm => {
                 let template = self.selected_template.expect("template selected");
@@ -1258,6 +1261,7 @@ impl NewServiceState {
                     run_command: None,
                     run_args: vec![],
                     db_kind: None,
+                    domains: vec![],
                 }
             }
             _ => unreachable!(),

@@ -271,6 +271,9 @@ impl ServiceManifest {
             run_command: self.command.clone(),
             run_args: self.args.clone(),
             db_kind: self.db.clone(),
+            // TODO(multi-domain): o manifesto ainda carrega só o `domain` legado;
+            // o campo `domains` fica vazio no import/export.
+            domains: vec![],
         }
     }
 

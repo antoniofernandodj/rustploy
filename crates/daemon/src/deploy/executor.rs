@@ -337,7 +337,7 @@ impl DeployExecutor {
                 );
 
                 // Estado inicial: coleta IPs das réplicas live já existentes (None = primeiro deploy)
-                let mut backends: Vec<Option<String>> = vec![None; replicas as usize];
+                let mut ips: Vec<Option<String>> = vec![None; replicas as usize];
                 for i in 0..replicas {
                     let live = containers::replica_live_name(&svc.spec.name, i);
                     if let Ok(Some(cid)) =
@@ -347,7 +347,7 @@ impl DeployExecutor {
                             containers::get_container_ip(&self.docker.inner, &cid, &network)
                                 .await
                         {
-                            backends[i as usize] = Some(format!("{ip}:{}", svc.spec.port));
+                            ips[i as usize] = Some(ip);
                         }
                     }
                 }
@@ -415,15 +415,14 @@ impl DeployExecutor {
                         "step[Staging/Rolling]: réplica promovida"
                     );
 
-                    // Atualiza ingress com backends ativos até agora
-                    backends[i as usize] = Some(format!("{ip}:{}", svc.spec.port));
-                    let active: Vec<String> =
-                        backends.iter().flatten().cloned().collect();
-                    if let Some(domain) = &svc.spec.domain {
-                        self.ingress.upsert_route(domain, active.clone(), &svc.id);
-                    }
+                    // Atualiza ingress com os IPs ativos até agora
+                    ips[i as usize] = Some(ip);
+                    let active: Vec<String> = ips.iter().flatten().cloned().collect();
+                    self.ingress.register_domains(&svc.spec, &active, &svc.id);
                     if let Some(host_port) = svc.spec.host_port {
-                        self.ingress.upsert_port_route(host_port, active);
+                        let backends: Vec<String> =
+                            active.iter().map(|ip| format!("{ip}:{}", svc.spec.port)).collect();
+                        self.ingress.upsert_port_route(host_port, backends);
                     }
 
                     self.bus.publish(Event::DeployProgress {
@@ -481,8 +480,9 @@ impl DeployExecutor {
                 let dep_short = self.short(&dep.id).to_string();
                 let net = self.network_name(&svc.spec.project_id);
 
-                // Coleta IPs de todas as réplicas para registrar no ingress
-                let mut backends: Vec<String> = Vec::with_capacity(replicas as usize);
+                // Coleta os IPs de todas as réplicas; cada rota de domínio
+                // depois compõe `ip:porta` com a sua própria porta de container.
+                let mut ips: Vec<String> = Vec::with_capacity(replicas as usize);
                 for i in 0..replicas {
                     let staging =
                         containers::replica_staging_name(&svc.spec.name, &dep_short, i);
@@ -498,28 +498,30 @@ impl DeployExecutor {
                     let ip =
                         containers::get_container_ip(&self.docker.inner, &staging_id, &net)
                             .await?;
-                    backends.push(format!("{ip}:{}", svc.spec.port));
+                    ips.push(ip);
                 }
 
-                if let Some(domain) = &svc.spec.domain {
+                if !svc.spec.domain_routes().is_empty() {
                     info!(
                         deployment_id = %dep.id,
-                        domain = %domain,
-                        backends = ?backends,
-                        "step[SwappingIn]: atualizando rota de domínio no ingress"
+                        domains = ?svc.spec.domain_routes().iter().map(|r| &r.domain).collect::<Vec<_>>(),
+                        ips = ?ips,
+                        "step[SwappingIn]: atualizando rotas de domínio no ingress"
                     );
-                    self.ingress.upsert_route(domain, backends.clone(), &svc.id);
+                    self.ingress.register_domains(&svc.spec, &ips, &svc.id);
                 }
                 if let Some(host_port) = svc.spec.host_port {
+                    let backends: Vec<String> =
+                        ips.iter().map(|ip| format!("{ip}:{}", svc.spec.port)).collect();
                     info!(
                         deployment_id = %dep.id,
                         host_port,
                         backends = ?backends,
                         "step[SwappingIn]: atualizando rota de porta no ingress"
                     );
-                    self.ingress.upsert_port_route(host_port, backends.clone());
+                    self.ingress.upsert_port_route(host_port, backends);
                 }
-                if svc.spec.domain.is_none() && svc.spec.host_port.is_none() {
+                if svc.spec.domain_routes().is_empty() && svc.spec.host_port.is_none() {
                     info!(
                         deployment_id = %dep.id,
                         "step[SwappingIn]: sem domínio nem porta externa, ingress não atualizado"
@@ -639,16 +641,16 @@ impl DeployExecutor {
                     debug!(deployment_id = %dep.id, dir = %build_dir.display(), "step[Promoting]: diretório de build removido");
                 }
 
-                // Provisiona certificado TLS em background (não bloqueia o pipeline)
-                if svc.spec.tls_enabled {
-                    if let Some(domain) = svc.spec.domain.clone() {
-                        let tls = self.tls.clone();
-                        tokio::spawn(async move {
-                            if let Err(e) = tls.ensure_cert(&domain).await {
-                                warn!(domain = %domain, error = %e, "TLS: falha ao provisionar certificado");
-                            }
-                        });
-                    }
+                // Provisiona certificado TLS em background (não bloqueia o
+                // pipeline) para cada domínio com TLS habilitado.
+                for route in svc.spec.domain_routes().into_iter().filter(|r| r.tls) {
+                    let tls = self.tls.clone();
+                    let domain = route.domain.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = tls.ensure_cert(&domain).await {
+                            warn!(domain = %domain, error = %e, "TLS: falha ao provisionar certificado");
+                        }
+                    });
                 }
 
                 // Transiciona qualquer deployment anterior em Live para Pruning
@@ -729,7 +731,7 @@ impl DeployExecutor {
                 // Restaura todos os backends live anteriores para o ingress
                 let live_replicas = svc.spec.replicas.max(1);
                 let net = self.network_name(&svc.spec.project_id);
-                let mut live_backends: Vec<String> = Vec::new();
+                let mut live_ips: Vec<String> = Vec::new();
                 for i in 0..live_replicas {
                     let live = containers::replica_live_name(&svc.spec.name, i);
                     if let Ok(Some(cid)) =
@@ -738,18 +740,18 @@ impl DeployExecutor {
                         if let Ok(ip) =
                             containers::get_container_ip(&self.docker.inner, &cid, &net).await
                         {
-                            live_backends.push(format!("{ip}:{}", svc.spec.port));
+                            live_ips.push(ip);
                         }
                     }
                 }
-                if !live_backends.is_empty() {
-                    if let Some(domain) = &svc.spec.domain {
+                if !live_ips.is_empty() {
+                    if !svc.spec.domain_routes().is_empty() {
                         info!(
                             deployment_id = %dep.id,
-                            backends = ?live_backends,
-                            "step[RollingBack]: restaurando rota de domínio para lives anteriores"
+                            ips = ?live_ips,
+                            "step[RollingBack]: restaurando rotas de domínio para lives anteriores"
                         );
-                        self.ingress.upsert_route(domain, live_backends.clone(), &svc.id);
+                        self.ingress.register_domains(&svc.spec, &live_ips, &svc.id);
                     }
                     if let Some(host_port) = svc.spec.host_port {
                         info!(
@@ -757,7 +759,9 @@ impl DeployExecutor {
                             host_port,
                             "step[RollingBack]: restaurando rota de porta para lives anteriores"
                         );
-                        self.ingress.upsert_port_route(host_port, live_backends);
+                        let backends: Vec<String> =
+                            live_ips.iter().map(|ip| format!("{ip}:{}", svc.spec.port)).collect();
+                        self.ingress.upsert_port_route(host_port, backends);
                     }
                 } else {
                     info!(deployment_id = %dep.id, "step[RollingBack]: nenhum live anterior para restaurar");
@@ -814,14 +818,15 @@ impl DeployExecutor {
                 let main_container = format!("{}-", project_name);
                 if let Ok(Some(cid)) = containers::find_by_prefix(&self.docker.inner, &main_container).await {
                     if let Ok(ip) = containers::get_container_ip(&self.docker.inner, &cid, &network_name).await {
-                        let backend = format!("{ip}:{}", svc.spec.port);
-                        if let Some(domain) = &svc.spec.domain {
-                            info!(deployment_id = %dep.id, domain, backend, "ComposingUp: registrando rota de domínio");
-                            self.ingress.upsert_route(domain, vec![backend.clone()], &svc.id);
+                        let ips = vec![ip];
+                        if !svc.spec.domain_routes().is_empty() {
+                            info!(deployment_id = %dep.id, ?ips, "ComposingUp: registrando rotas de domínio");
+                            self.ingress.register_domains(&svc.spec, &ips, &svc.id);
                         }
                         if let Some(host_port) = svc.spec.host_port {
+                            let backend = format!("{}:{}", ips[0], svc.spec.port);
                             info!(deployment_id = %dep.id, host_port, backend, "ComposingUp: registrando rota de porta");
-                            self.ingress.upsert_port_route(host_port, vec![backend.clone()]);
+                            self.ingress.upsert_port_route(host_port, vec![backend]);
                         }
                     }
                 }
@@ -844,15 +849,14 @@ impl DeployExecutor {
                     status: ServiceStatus::Running,
                 });
 
-                if svc.spec.tls_enabled {
-                    if let Some(domain) = svc.spec.domain.clone() {
-                        let tls = self.tls.clone();
-                        tokio::spawn(async move {
-                            if let Err(e) = tls.ensure_cert(&domain).await {
-                                warn!(domain = %domain, error = %e, "TLS: falha ao provisionar certificado (compose)");
-                            }
-                        });
-                    }
+                for route in svc.spec.domain_routes().into_iter().filter(|r| r.tls) {
+                    let tls = self.tls.clone();
+                    let domain = route.domain.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = tls.ensure_cert(&domain).await {
+                            warn!(domain = %domain, error = %e, "TLS: falha ao provisionar certificado (compose)");
+                        }
+                    });
                 }
 
                 Ok(DeployState::Live)
