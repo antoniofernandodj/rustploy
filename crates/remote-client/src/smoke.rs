@@ -43,6 +43,7 @@ fn fake_service(id: &str, project_id: &str, db: bool) -> Service {
             resources: ResourceLimits::default(),
             run_command: None,
             run_args: vec!["--flag".into()],
+            env_comments: vec![]
         },
         status: ServiceStatus::Running,
         live_container_id: None,
