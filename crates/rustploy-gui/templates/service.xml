@@ -104,19 +104,44 @@
             </if>
           </Column>
 
-          <Form class="form_panel" if="{svc_loading}" not_equals="true" name="general" onSubmit="gen_save">
+          <Form
+            class="form_panel"
+            if="{svc_loading}"
+            not_equals="true"
+            name="general"
+            onSubmit="gen_save"
+          >
 
             <!-- Serviços Compose (bancos/brokers) editam o YAML direto; não têm
                  provider Git/Registry. -->
             <if cond="{svc_source_kind}" equals="Compose">
-              <Text class="label_cap" content="DOCKER COMPOSE (YAML)" />
-              <Text class="muted" content="Edite o compose do serviço. Salvar aplica no próximo deploy." />
+              <Text
+                class="label_cap"
+                content="DOCKER COMPOSE (YAML)"
+              />
+              <Text
+                class="muted"
+                content="Edite o compose do serviço. Salvar aplica no próximo deploy."
+              />
 
-<TextArea class="env_editor" font="mono" value="svc_compose" placeholder="services:&#10;  app:&#10;    image: …" />
+              <TextArea
+                class="env_editor"
+                font="mono"
+                value="svc_compose"
+                placeholder="services:&#10;  app:&#10;    image: …"
+              />
 
               <Row class="env_add">
-                <Button class="btn_primary" onClick="compose_save" text="Salvar compose" />
-                <Button class="btn_ghost" onClick="compose_cancel" text="Cancelar" />
+                <Button
+                  class="btn_primary"
+                  onClick="compose_save"
+                  text="Salvar compose"
+                />
+                <Button
+                  class="btn_ghost"
+                  onClick="compose_cancel"
+                  text="Cancelar"
+                />
                 <Text class="muted" content="{svc_action_msg}" />
               </Row>
             </if>
@@ -128,7 +153,12 @@
             <Row class="tabs">
               <TabButton label="Git" current="{prov_tab}" target="git" action="prov:git" />
               <if cond="{gitea_count}" not_equals="0">
-                <TabButton label="Gitea" current="{prov_tab}" target="gitea" action="prov:gitea" />
+                <TabButton
+                  label="Gitea"
+                  current="{prov_tab}"
+                  target="gitea"
+                  action="prov:gitea"
+                />
               </if>
             </Row>
             <Rule />
@@ -136,55 +166,130 @@
             <!-- ── Sub-aba Git: form de URL/imagem crua ─────────────── -->
             <if cond="{prov_tab}" equals="git">
               <Text class="label_cap" content="SOURCE — REPOSITORY URL / IMAGE" />
-              <TextInput class="field_input" formControl="f_repo_url" value="f_repo_url" onChange="field:f_repo_url" placeholder="github.com/user/repo  ou  nginx:latest" />
+              <TextInput class="field_input"
+                formControl="f_repo_url"
+                value="f_repo_url"
+                onChange="field:f_repo_url"
+                  placeholder="github.com/user/repo  ou  nginx:latest" />
 
-              <Text class="muted" content="URL de repositório vira Git; caso contrário é imagem de registry." />
+              <Text
+                class="muted"
+                content="URL de repositório vira Git; caso contrário é imagem de registry."
+              />
               <Row class="hc_grid">
                 <Column class="hc_field">
-                  <Text class="label_cap" content="BRANCH" />
-                  <TextInput class="field_input" formControl="f_branch" value="f_branch" onChange="field:f_branch" placeholder="main" />
+                  <Text class="label_cap"
+                    content="BRANCH" />
+                  <TextInput class="field_input"
+                    formControl="f_branch"
+                    value="f_branch"
+                    onChange="field:f_branch"
+                      placeholder="main" />
                 </Column>
                 <Column class="hc_field">
                   <Text class="label_cap" content="PORT" />
-                  <TextInput class="field_input" formControl="f_gen_port" value="f_gen_port" onChange="field:f_gen_port" placeholder="80" />
-                  <Text if="{erro_f_gen_port}" notEquals="" class="err" content="{erro_f_gen_port}" />
+                  <TextInput class="field_input"
+                    formControl="f_gen_port"
+                    value="f_gen_port"
+                    onChange="field:f_gen_port"
+                    placeholder="80"
+                  />
+                  <Text if="{erro_f_gen_port}"
+                    notEquals=""
+                    class="err"
+                    content="{erro_f_gen_port}"
+                  />
                 </Column>
               </Row>
               <Row class="hc_grid">
                 <Column class="hc_field">
                   <Text class="label_cap" content="USERNAME" />
-                  <TextInput class="field_input" formControl="f_username" value="f_username" onChange="field:f_username" placeholder="(opcional)" />
+                  <TextInput
+                    class="field_input"
+                    formControl="f_username"
+                    value="f_username"
+                    onChange="field:f_username"
+                    placeholder="(opcional)"
+                  />
                 </Column>
                 <Column class="hc_field">
                   <Text class="label_cap" content="CREDENTIALS (secret)" />
-                  <TextInput class="field_input" formControl="f_credentials" value="f_credentials" onChange="field:f_credentials" placeholder="(opcional)" />
+                  <TextInput
+                    class="field_input"
+                    formControl="f_credentials"
+                    value="f_credentials"
+                    onChange="field:f_credentials"
+                    placeholder="(opcional)"
+                  />
                 </Column>
               </Row>
 
-              <Text class="label_cap" content="BUILD PATH (root)" />
-              <TextInput class="field_input" formControl="f_build_path" value="f_build_path" onChange="field:f_build_path" placeholder="." />
+              <Text
+                class="label_cap"
+                content="BUILD PATH (root)"
+              />
+              <TextInput
+                class="field_input"
+                formControl="f_build_path"
+                value="f_build_path"
+                onChange="field:f_build_path"
+                placeholder="."
+              />
 
-              <Text class="label_cap" content="WATCH PATHS (separados por vírgula)" />
+              <Text
+                class="label_cap"
+                content="WATCH PATHS (separados por vírgula)"
+              />
 
-              <TextInput class="field_input" formControl="f_watch_paths" value="f_watch_paths" onChange="field:f_watch_paths" placeholder="src, Cargo.toml" />
+              <TextInput
+                class="field_input"
+                formControl="f_watch_paths"
+                value="f_watch_paths"
+                onChange="field:f_watch_paths"
+                placeholder="src, Cargo.toml"
+              />
 
-              <Toggle checked="f_submodules" onToggle="field:f_submodules" label=" Enable submodules" />
+              <Toggle checked="f_submodules"
+                onToggle="field:f_submodules"
+                label=" Enable submodules" />
 
               <Text class="label_cap" content="BUILD ENGINE: DOCKERFILE" />
               <Row class="hc_grid">
                 <Column class="hc_field">
-                  <Text class="label_cap" content="DOCKERFILE" />
-                  <TextInput class="field_input" formControl="f_dockerfile" value="f_dockerfile" onChange="field:f_dockerfile" placeholder="Dockerfile" />
+                  <Text
+                    class="label_cap"
+                    content="DOCKERFILE"
+                  />
+                  <TextInput class="field_input"
+                    formControl="f_dockerfile"
+                    value="f_dockerfile"
+                    onChange="field:f_dockerfile"
+                    placeholder="Dockerfile"
+                  />
                 </Column>
                 <Column class="hc_field">
-                  <Text class="label_cap" content="CONTEXT PATH" />
-                  <TextInput class="field_input" formControl="f_context_path" value="f_context_path" onChange="field:f_context_path" placeholder="." />
+                  <Text
+                    class="label_cap"
+                    content="CONTEXT PATH"
+                  />
+                  <TextInput class="field_input"
+                    formControl="f_context_path"
+                    value="f_context_path"
+                    onChange="field:f_context_path"
+                    placeholder="."
+                  />
                 </Column>
               </Row>
 
               <Text class="label_cap" content="BUILD STAGE (opcional)" />
 
-              <TextInput class="field_input" formControl="f_build_stage" value="f_build_stage" onChange="field:f_build_stage" placeholder="(multi-stage target)" />
+              <TextInput
+                class="field_input"
+                formControl="f_build_stage"
+                value="f_build_stage"
+                onChange="field:f_build_stage"
+                placeholder="(multi-stage target)"
+              />
 
               <Row class="env_add">
                 <Button class="btn_primary" onClick="gen_save" text="Save" />
@@ -194,18 +299,46 @@
 
             <!-- ── Sub-aba Gitea: picker de conta/repo/branch conectados ─ -->
             <if cond="{prov_tab}" equals="gitea">
-              <Text class="muted" content="Selecione a conta conectada, o repositório e a branch a implantar." />
-              <Text if="{gitea_msg}" not_equals="" class="muted" content="{gitea_msg}" />
-              <Text class="label_cap" content="CONTA GITEA" />
-              <Select class="select" options="gitea_providers" value="gitea_provider_id" onChange="gitea_provider_pick" placeholder="selecione a conta" labelField="display" valueField="id" />
+              <Text class="muted"
+                content="Selecione a conta conectada, o repositório e a branch a implantar."
+              />
+              <Text if="{gitea_msg}"
+                not_equals="" class="muted" content="{gitea_msg}"
+              />
+              <Text class="label_cap"
+                content="CONTA GITEA"
+              />
+              <Select
+                class="select"
+                options="gitea_providers"
+                value="gitea_provider_id"
+                onChange="gitea_provider_pick"
+                placeholder="selecione a conta"
+                labelField="display"
+                valueField="id"
+              />
 
               <Text class="muted" content="Conecte contas em Settings → Git." />
 
               <Text class="label_cap" content="REPOSITÓRIO" />
-              <Select class="select" options="gitea_repos" value="gitea_repo" onChange="gitea_repo_pick" placeholder="selecione o repositório" labelField="full_name" valueField="full_name" />
+              <Select
+                class="select"
+                options="gitea_repos"
+                value="gitea_repo"
+                onChange="gitea_repo_pick"
+                placeholder="selecione o repositório"
+                labelField="full_name"
+                valueField="full_name"
+              />
 
               <Text class="label_cap" content="BRANCH" />
-              <Select class="select" options="gitea_branches" value="f_branch" onChange="field:f_branch" placeholder="selecione a branch" labelField="name" valueField="name" />
+              <Select class="select" options="gitea_branches"
+                value="f_branch"
+                onChange="field:f_branch"
+                placeholder="selecione a branch"
+                labelField="name"
+                valueField="name"
+              />
 
               <Text class="label_cap" content="SELEÇÃO ATUAL" />
               <Row class="kv_row">
@@ -217,28 +350,73 @@
               <Row class="hc_grid">
                 <Column class="hc_field">
                   <Text class="label_cap" content="BUILD PATH (root)" />
-                  <TextInput class="field_input" formControl="f_build_path" value="f_build_path" onChange="field:f_build_path" placeholder="." />
+                  <TextInput
+                    class="field_input"
+                    formControl="f_build_path"
+                    value="f_build_path"
+                    onChange="field:f_build_path"
+                    placeholder="."
+                  />
                 </Column>
                 <Column class="hc_field">
-                  <Text class="label_cap" content="PORT" />
-                  <TextInput class="field_input" formControl="f_gen_port" value="f_gen_port" onChange="field:f_gen_port" placeholder="80" />
-                  <Text if="{erro_f_gen_port}" notEquals="" class="err" content="{erro_f_gen_port}" />
+                  <Text
+                    class="label_cap"
+                    content="PORT" />
+                  <TextInput class="field_input"
+                    formControl="f_gen_port"
+                    value="f_gen_port"
+                    onChange="field:f_gen_port"
+                    placeholder="80"
+                  />
+                  <Text if="{erro_f_gen_port}"
+                    notEquals="" class="err" content="{erro_f_gen_port}" />
                 </Column>
               </Row>
               <Row class="hc_grid">
                 <Column class="hc_field">
-                  <Text class="label_cap" content="DOCKERFILE" />
-                  <TextInput class="field_input" formControl="f_dockerfile" value="f_dockerfile" onChange="field:f_dockerfile" placeholder="Dockerfile" />
+                  <Text
+                    class="label_cap"
+                    content="DOCKERFILE"
+                  />
+                  <TextInput
+                    class="field_input"
+                    formControl="f_dockerfile"
+                    value="f_dockerfile"
+                    onChange="field:f_dockerfile"
+                    placeholder="Dockerfile"
+                  />
                 </Column>
                 <Column class="hc_field">
-                  <Text class="label_cap" content="CONTEXT PATH" />
-                  <TextInput class="field_input" formControl="f_context_path" value="f_context_path" onChange="field:f_context_path" placeholder="." />
+                  <Text
+                    class="label_cap"
+                    content="CONTEXT PATH"
+                  />
+                  <TextInput
+                    class="field_input"
+                    formControl="f_context_path"
+                    value="f_context_path"
+                    onChange="field:f_context_path"
+                    placeholder="."
+                  />
                 </Column>
               </Row>
-              <Text class="label_cap" content="WATCH PATHS (separados por vírgula)" />
-              <TextInput class="field_input" formControl="f_watch_paths" value="f_watch_paths" onChange="field:f_watch_paths" placeholder="src, Cargo.toml" />
+              <Text
+                class="label_cap"
+                content="WATCH PATHS (separados por vírgula)"
+              />
+              <TextInput
+                class="field_input"
+                formControl="f_watch_paths"
+                value="f_watch_paths"
+                onChange="field:f_watch_paths"
+                placeholder="src, Cargo.toml"
+              />
 
-              <Toggle checked="f_submodules" onToggle="field:f_submodules" label="  Enable submodules" />
+              <Toggle
+                checked="f_submodules"
+                onToggle="field:f_submodules"
+                label="  Enable submodules"
+              />
 
               <Row class="env_add">
                 <Button class="btn_primary" onClick="gen_save" text="Save" />
@@ -308,14 +486,26 @@
 
         <Form name="env_add" onSubmit="env_add" width="fill">
           <Row class="env_add">
-            <TextInput class="env_in_key" formControl="env_new_key" placeholder="KEY" />
+            <TextInput
+              class="env_in_key"
+              formControl="env_new_key"
+              placeholder="KEY"
+            />
 
-            <TextInput class="env_in_val" formControl="env_new_val" placeholder="value" />
+            <TextInput
+              class="env_in_val"
+              formControl="env_new_val" placeholder="value"
+            />
 
             <Button class="btn_primary" onClick="env_add" text="Adicionar" />
           </Row>
         </Form>
-        <Text if="{erro_env_new_key}" notEquals="" class="err" content="{erro_env_new_key}" />
+        <Text
+          if="{erro_env_new_key}"
+          notEquals=""
+          class="err"
+          content="{erro_env_new_key}"
+        />
         <Scrollable direction="vertical" class="env_list_scroll">
           <Column class="kv_list">
             <ForEach items="svc_env" var="e" onReorder="env_reorder" reorderKey="key">
@@ -326,11 +516,21 @@
                    glacier-ui durante o arrasto). -->
               <if cond="{e.__dragging}" equals="true">
                 <Row class="kv_row_drag" if="{e.kind}" equals="comment">
-                  <Text class="env_drag_handle" dragHandle="true" cursor="grabbing" content="⋮ " />
+                  <Text
+                    class="env_drag_handle"
+                    dragHandle="true"
+                    cursor="grabbing"
+                    content="⋮ "
+                  />
                   <Text class="muted" content="{e.value}" />
                 </Row>
                 <Row class="kv_row_drag" else>
-                  <Text class="env_drag_handle" dragHandle="true" cursor="grabbing" content="⋮ " />
+                  <Text
+                    class="env_drag_handle"
+                    dragHandle="true"
+                    cursor="grabbing"
+                    content="⋮ "
+                  />
                   <Button class="env_del" onClick="env_del:{e.key}" text="✕" />
                   <Text content=" " />
                   <Text class="env_key" content="{e.key}" />
@@ -340,11 +540,23 @@
 
               <else>
                 <Row class="kv_row" if="{e.kind}" equals="comment">
-                  <Text class="env_drag_handle" dragHandle="true" cursor="grab" content="⋮ " />
-                  <Text class="muted" content="{e.value}" />
+                  <Text
+                    class="env_drag_handle"
+                    dragHandle="true"
+                    cursor="grab"
+                    content="⋮ "
+                  />
+                  <Text
+                    class="muted" content="{e.value}"
+                  />
                 </Row>
                 <Row class="kv_row" else>
-                  <Text class="env_drag_handle" dragHandle="true" cursor="grab" content="⋮ " />
+                  <Text
+                    class="env_drag_handle"
+                    dragHandle="true"
+                    cursor="grab"
+                    ontent="⋮ "
+                  />
                   <Button class="env_del" onClick="env_del:{e.key}" text="✕" />
                   <Text content=" " />
                   <Text class="env_key" content="{e.key}" />
@@ -357,13 +569,29 @@
         <!-- Editor .env: vários filhos condicionais → TAG if (o atributo
              if= só esconderia o Text, deixando TextArea/botões sempre visíveis). -->
         <if cond="{env_text_open}" equals="true">
-          <Text class="muted" content="Cole/edite no formato KEY=VALUE (# comentário). Importar substitui todas as variáveis." />
+          <Text
+            class="muted"
+            content="Cole/edite no formato KEY=VALUE (# comentário). Importar substitui todas as variáveis."
+          />
 
-          <TextArea class="env_editor" font="mono" value="svc_env_text" placeholder="KEY=VALUE   (# comentário)" />
+          <TextArea
+            class="env_editor"
+            font="mono"
+            value="svc_env_text"
+            placeholder="KEY=VALUE   (# comentário)"
+          />
 
           <Row class="env_add">
-            <Button class="btn_primary" onClick="env_import" text="Importar" />
-            <Button class="btn_ghost" onClick="env_text_cancel" text="Cancelar" />
+            <Button
+              class="btn_primary"
+              onClick="env_import"
+              text="Importar"
+            />
+            <Button
+              class="btn_ghost"
+              onClick="env_text_cancel"
+              text="Cancelar"
+            />
           </Row>
         </if>
       </Column>
@@ -372,7 +600,10 @@
            TLS por rota), mais o form de adição e a porta TCP crua do host. -->
       <Column if="{tab}" equals="domains" class="form_panel">
         <Text class="label_cap" content="DOMÍNIOS ({svc_domains_count})" />
-        <Text class="muted" content="Cada domínio pode apontar para uma porta de container diferente." />
+        <Text
+          class="muted"
+          content="Cada domínio pode apontar para uma porta de container diferente."
+        />
 
         <Scrollable direction="vertical" class="env_list_scroll">
           <Column class="kv_list">
@@ -387,12 +618,32 @@
         </Scrollable>
 
         <Text class="label_cap" content="ADICIONAR DOMÍNIO" />
-        <TextInput class="field_input" formControl="f_domain" value="f_domain" onChange="field:f_domain" placeholder="app.exemplo.com" />
-        <Text if="{erro_f_domain}" notEquals="" class="err" content="{erro_f_domain}" />
+        <TextInput
+          class="field_input"
+          formControl="f_domain"
+          value="f_domain"
+          onChange="field:f_domain"
+          placeholder="app.exemplo.com"
+        />
+        <Text
+          if="{erro_f_domain}"
+          notEquals=""
+          class="err"
+          content="{erro_f_domain}"
+        />
 
         <Text class="label_cap" content="PORTA DO CONTAINER (opcional)" />
-        <TextInput class="field_input" formControl="f_port" value="f_port" onChange="field:f_port" placeholder="(padrão do serviço)" />
-        <Text if="{erro_f_port}" notEquals="" class="err" content="{erro_f_port}" />
+        <TextInput class="field_input" formControl="f_port"
+          value="f_port"
+          onChange="field:f_port"
+          placeholder="(padrão do serviço)"
+        />
+        <Text
+          if="{erro_f_port}"
+          notEquals=""
+          class="err"
+          content="{erro_f_port}"
+        />
 
         <Toggle checked="f_tls" onToggle="field:f_tls" label="  HTTPS / TLS" />
         <Row class="env_add">
@@ -400,11 +651,21 @@
           <Text class="muted" content="{svc_action_msg}" />
         </Row>
 
-        <Text class="label_cap" content="PORTA TCP DO HOST (passthrough, opcional)" />
-        <TextInput class="field_input" formControl="f_host_port" value="f_host_port" onChange="field:f_host_port" placeholder="(padrão do serviço)" />
-        <Text if="{erro_f_host_port}" notEquals="" class="err" content="{erro_f_host_port}" />
+        <Text class="label_cap"
+          content="PORTA TCP DO HOST (passthrough, opcional)" />
+        <TextInput class="field_input"
+          formControl="f_host_port"
+          value="f_host_port"
+          onChange="field:f_host_port"
+            placeholder="(padrão do serviço)" />
+        <Text if="{erro_f_host_port}"
+          notEquals=""
+          class="err"
+          content="{erro_f_host_port}" />
         <Row class="env_add">
-          <Button class="btn_ghost" onClick="dom_hostport_save" text="Salvar porta" />
+          <Button class="btn_ghost"
+            onClick="dom_hostport_save"
+            text="Salvar porta" />
         </Row>
       </Column>
 
@@ -420,8 +681,18 @@
                 <Text class="td col_dur" content="{d.duration}" />
                 <Text class="muted col_dep_start" content="{d.start}" />
                 <Row class="dep_actions">
-                  <Button class="dep_logs_btn" onClick="dep_logs:{d.id_full}" text="Build log" />
-                  <Button if="{d.can_delete}" equals="1" class="dep_del_btn" onClick="delete_deployment:{d.id_full}" text="Remover" />
+                  <Button
+                    class="dep_logs_btn"
+                    onClick="dep_logs:{d.id_full}"
+                    text="Build log"
+                  />
+                  <Button
+                    if="{d.can_delete}"
+                    equals="1"
+                    class="dep_del_btn"
+                    onClick="delete_deployment:{d.id_full}"
+                    text="Remover"
+                  />
                 </Row>
               </Row>
               <Text class="dep_image" content="{d.image}" />
@@ -451,43 +722,132 @@
       </Column>
 
       <!-- Healthcheck (editável) -->
-      <Form if="{tab}" equals="healthcheck" class="form_panel" name="healthcheck" onSubmit="hc_save">
+      <Form
+        if="{tab}"
+        equals="healthcheck"
+        class="form_panel"
+        name="healthcheck"
+        onSubmit="hc_save"
+      >
         <Text class="label_cap" content="KIND" />
         <Row class="tabs">
-          <TabButton label="None" current="{f_hc_kind}" target="none" action="hckind:none" />
-          <TabButton label="Tcp" current="{f_hc_kind}" target="tcp" action="hckind:tcp" />
-          <TabButton label="Http" current="{f_hc_kind}" target="http" action="hckind:http" />
-          <TabButton label="Docker" current="{f_hc_kind}" target="docker" action="hckind:docker" />
+          <TabButton
+            label="None"
+            current="{f_hc_kind}"
+            target="none"
+            action="hckind:none"
+          />
+          <TabButton
+            label="Tcp"
+            current="{f_hc_kind}"
+            target="tcp"
+            action="hckind:tcp"
+          />
+          <TabButton
+            label="Http"
+            current="{f_hc_kind}"
+            target="http"
+            action="hckind:http"
+          />
+          <TabButton
+            label="Docker"
+            current="{f_hc_kind}"
+            target="docker"
+            action="hckind:docker"
+          />
         </Row>
         <if cond="{f_hc_kind}" equals="http">
-          <Text class="label_cap" content="HTTP PATH" />
-          <TextInput class="field_input" formControl="f_hc_path" value="f_hc_path" onChange="field:f_hc_path" placeholder="/health" />
+          <Text
+            class="label_cap"
+            content="HTTP PATH"
+          />
+          <TextInput class="field_input"
+            formControl="f_hc_path"
+            value="f_hc_path"
+            onChange="field:f_hc_path"
+            placeholder="/health"
+          />
           <Text class="label_cap" content="EXPECTED STATUS" />
-          <TextInput class="field_input" formControl="f_hc_status" value="f_hc_status" onChange="field:f_hc_status" placeholder="200" />
-          <Text if="{erro_f_hc_status}" notEquals="" class="err" content="{erro_f_hc_status}" />
+          <TextInput
+            class="field_input"
+            formControl="f_hc_status"
+            value="f_hc_status"
+            onChange="field:f_hc_status"
+            placeholder="200"
+          />
+          <Text
+            if="{erro_f_hc_status}"
+            notEquals=""
+            class="err"
+            content="{erro_f_hc_status}"
+          />
         </if>
         <Row class="hc_grid">
           <Column class="hc_field">
             <Text class="label_cap" content="INTERVAL (s)" />
-            <TextInput class="field_input" formControl="f_hc_interval" value="f_hc_interval" onChange="field:f_hc_interval" placeholder="" />
-            <Text if="{erro_f_hc_interval}" notEquals="" class="err" content="{erro_f_hc_interval}" />
+            <TextInput class="field_input"
+              formControl="f_hc_interval"
+              value="f_hc_interval"
+                onChange="field:f_hc_interval"
+                placeholder="" />
+            <Text if="{erro_f_hc_interval}"
+              notEquals=""
+              class="err"
+              content="{erro_f_hc_interval}" />
           </Column>
           <Column class="hc_field">
-            <Text class="label_cap" content="TIMEOUT (s)" />
-            <TextInput class="field_input" formControl="f_hc_timeout" value="f_hc_timeout" onChange="field:f_hc_timeout" placeholder="" />
-            <Text if="{erro_f_hc_timeout}" notEquals="" class="err" content="{erro_f_hc_timeout}" />
+            <Text
+              class="label_cap"
+              content="TIMEOUT (s)"
+            />
+            <TextInput
+              class="field_input"
+              formControl="f_hc_timeout"
+              value="f_hc_timeout"
+              onChange="field:f_hc_timeout"
+              placeholder=""
+            />
+            <Text if="{erro_f_hc_timeout}"
+              notEquals=""
+              class="err"
+              content="{erro_f_hc_timeout}" />
           </Column>
         </Row>
         <Row class="hc_grid">
           <Column class="hc_field">
-            <Text class="label_cap" content="RETRIES" />
-            <TextInput class="field_input" formControl="f_hc_retries" value="f_hc_retries" onChange="field:f_hc_retries" placeholder="" />
-            <Text if="{erro_f_hc_retries}" notEquals="" class="err" content="{erro_f_hc_retries}" />
+            <Text
+              class="label_cap"
+              content="RETRIES"
+            />
+            <TextInput
+              class="field_input"
+              formControl="f_hc_retries"
+              value="f_hc_retries"
+              onChange="field:f_hc_retries"
+              placeholder=""
+            />
+            <Text if="{erro_f_hc_retries}"
+              notEquals=""
+              class="err"
+              content="{erro_f_hc_retries}"
+            />
           </Column>
           <Column class="hc_field">
-            <Text class="label_cap" content="START PERIOD (s)" />
-            <TextInput class="field_input" formControl="f_hc_start" value="f_hc_start" onChange="field:f_hc_start" placeholder="" />
-            <Text if="{erro_f_hc_start}" notEquals="" class="err" content="{erro_f_hc_start}" />
+            <Text class="label_cap"
+              content="START PERIOD (s)" />
+            <TextInput
+              class="field_input"
+              formControl="f_hc_start"
+              value="f_hc_start"
+              onChange="field:f_hc_start"
+              placeholder=""
+            />
+            <Text
+              if="{erro_f_hc_start}"
+              notEquals=""
+              class="err"
+              content="{erro_f_hc_start}"
+            />
           </Column>
         </Row>
         <Row class="env_add">
@@ -499,22 +859,62 @@
       <!-- Logs (texto selecionável + copiar) -->
       <Column if="{tab}" equals="logs" class="log_panel">
         <Row class="env_head">
-          <Text class="muted_fill" content="{svc_logs_count} linhas — selecione para copiar (Ctrl+C)" />
-          <Button class="tab" onClick="clipboard:svc_logs_text" text="Copiar tudo" />
+          <Text
+            class="muted_fill"
+            content="{svc_logs_count} linhas — selecione para copiar (Ctrl+C)"
+          />
+          <Button
+            class="tab"
+            onClick="clipboard:svc_logs_text"
+            text="Copiar tudo"
+          />
         </Row>
-        <TextArea class="log_editor" font="mono" value="svc_logs_text" placeholder="(sem logs — o serviço precisa estar Running)" />
+        <TextArea
+          class="log_editor"
+          font="mono"
+          value="svc_logs_text"
+          placeholder="(sem logs — o serviço precisa estar Running)"
+        />
       </Column>
 
       <!-- Advanced (editável) -->
-      <Form if="{tab}" equals="advanced" class="form_panel" name="advanced" onSubmit="adv_save">
-        <Text class="label_cap" content="REPLICAS" />
-        <TextInput class="field_input" formControl="f_replicas" value="f_replicas" onChange="field:f_replicas" placeholder="1" />
+      <Form if="{tab}"
+        equals="advanced"
+        class="form_panel"
+        name="advanced"
+        onSubmit="adv_save"
+      >
+        <Text
+          class="label_cap"
+          content="REPLICAS"
+        />
+        <TextInput class="field_input"
+          formControl="f_replicas"
+          value="f_replicas"
+          onChange="field:f_replicas"
+        
+          placeholder="1"
+        />
 
-        <Text if="{erro_f_replicas}" notEquals="" class="err" content="{erro_f_replicas}" />
-        <Text class="label_cap" content="RUN COMMAND" />
-        <TextInput class="field_input" formControl="f_run_command" value="f_run_command" onChange="field:f_run_command" placeholder="(padrão da imagem)" />
+        <Text if="{erro_f_replicas}"
+          notEquals=""
+          class="err"
+          content="{erro_f_replicas}"
+        />
+        <Text class="label_cap"
+          content="RUN COMMAND"
+        />
+        <TextInput class="field_input"
+          formControl="f_run_command"
+          value="f_run_command"
+          onChange="field:f_run_command"
+          placeholder="(padrão da imagem)"
+        />
 
-        <Text class="muted" content="Run args atuais: {svc_run_args}" />
+        <Text
+          class="muted"
+          content="Run args atuais: {svc_run_args}"
+        />
 
         <Row class="env_add">
           <Button class="btn_primary" onClick="adv_save" text="Save" />
