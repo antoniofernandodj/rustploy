@@ -199,11 +199,7 @@ impl Root {
         let cmd = make(id.clone());
         ctx.set("svc_action_msg", "enviando…");
         ctx.set("svc_action_color", "#8B949E");
-        ctx.perform(super::net::run_service_action(
-            self.client.clone(),
-            cmd,
-            id,
-        ));
+        ctx.perform(super::net::Services::new(self.client.clone()).run_action(cmd, id));
     }
 
     /// Starts a deploy for the currently-selected service and arms the live
@@ -216,8 +212,7 @@ impl Root {
         }
         ctx.set("svc_action_msg", "enviando…");
         ctx.set("svc_action_color", "#8B949E");
-        ctx.perform(super::net::start_deploy(
-            self.client.clone(),
+        ctx.perform(super::net::Services::new(self.client.clone()).start_deploy(
             self.selected_service.clone(),
             self.deploy_shared.clone(),
         ));
@@ -231,8 +226,7 @@ impl Root {
         }
         ctx.set("svc_action_msg", "salvando…");
         ctx.set("svc_action_color", "#8B949E");
-        ctx.perform(super::net::run_env_op(
-            self.client.clone(),
+        ctx.perform(super::net::Services::new(self.client.clone()).run_env_op(
             self.selected_service.clone(),
             op,
         ));
@@ -246,8 +240,7 @@ impl Root {
         }
         ctx.set("svc_action_msg", "salvando…");
         ctx.set("svc_action_color", "#8B949E");
-        ctx.perform(super::net::run_spec_op(
-            self.client.clone(),
+        ctx.perform(super::net::Services::new(self.client.clone()).run_spec_op(
             self.selected_service.clone(),
             op,
         ));
@@ -298,12 +291,7 @@ impl Root {
         let desc = self.edit_project_form.value("edit_proj_desc").to_string();
         if !id.is_empty() && !self.addr.is_empty() {
             ctx.set("proj_action_msg", "salvando…");
-            ctx.perform(super::net::update_project(
-                self.client.clone(),
-                id,
-                name,
-                desc,
-            ));
+            ctx.perform(super::net::Projects::new(self.client.clone()).update(id, name, desc));
         }
     }
 
@@ -331,11 +319,7 @@ impl Root {
             return;
         }
         ctx.set("proj_action_msg", "salvando…");
-        ctx.perform(super::net::run_project_env_op(
-            self.client.clone(),
-            pid,
-            op,
-        ));
+        ctx.perform(super::net::Projects::new(self.client.clone()).run_env_op(pid, op));
     }
 
     /// Runs the project-env-add form's validator, and on success adds the
@@ -547,10 +531,7 @@ impl Root {
         };
         if let Some(spec) = spec {
             ctx.set("ns_msg", "criando…");
-            ctx.perform(super::net::create_service(
-                self.client.clone(),
-                spec,
-            ));
+            ctx.perform(super::net::Services::new(self.client.clone()).create(spec));
         }
     }
 
@@ -570,11 +551,7 @@ impl Root {
             return;
         }
         ctx.set("settings_msg", "salvando…");
-        ctx.perform(super::net::save_settings(
-            self.client.clone(),
-            domain,
-            email,
-        ));
+        ctx.perform(super::net::Daemon::new(self.client.clone()).save_settings(domain, email));
     }
 
     /// Validates `gp_name` ad hoc (Git provider connect is cleared by an
@@ -593,8 +570,7 @@ impl Root {
             return;
         }
         ctx.set("gp_msg", "conectando…");
-        ctx.perform(super::net::git_provider_connect(
-            self.client.clone(),
+        ctx.perform(super::net::GitProviders::new(self.client.clone()).connect(
             name, base_url, mode, client_id, client_secret, pat,
         ));
     }
@@ -612,12 +588,7 @@ impl Root {
             return;
         }
         let search = ctx.get("search").cloned().unwrap_or_default();
-        ctx.perform(super::net::create_project(
-            self.client.clone(),
-            name,
-            desc,
-            search,
-        ));
+        ctx.perform(super::net::Projects::new(self.client.clone()).create(name, desc, search));
     }
 
     /// Adiciona uma rota de domínio (`dom_add`). Valida a porta opcional ad hoc
@@ -971,7 +942,7 @@ impl Component for Root {
             "do_stop_all" => {
                 if !self.addr.is_empty() {
                     ctx.set("status_line", "parando todos…");
-                    ctx.perform(super::net::stop_all(self.client.clone()));
+                    ctx.perform(super::net::Daemon::new(self.client.clone()).stop_all());
                 }
             }
             // Topbar search: filters deployments/services/Docker rows. The
@@ -1014,7 +985,7 @@ impl Component for Root {
                 if !self.addr.is_empty() {
                     let all = ctx.get("docker_prune_all_images").map(|v| v == "true").unwrap_or(false);
                     ctx.set("docker_msg", if all { "removendo TODAS as imagens sem uso…" } else { "removendo imagens dangling…" });
-                    ctx.perform(super::net::prune_docker_images(self.client.clone(), all));
+                    ctx.perform(super::net::Docker::new(self.client.clone()).prune_images(all));
                 }
             }
             "docker_prune_volumes" => {
@@ -1031,7 +1002,7 @@ impl Component for Root {
                 if !self.addr.is_empty() {
                     let all = ctx.get("docker_prune_all_volumes").map(|v| v == "true").unwrap_or(false);
                     ctx.set("docker_msg", "removendo volumes sem uso…");
-                    ctx.perform(super::net::prune_docker_volumes(self.client.clone(), all));
+                    ctx.perform(super::net::Docker::new(self.client.clone()).prune_volumes(all));
                 }
             }
             "docker_prune_networks" => {
@@ -1047,7 +1018,7 @@ impl Component for Root {
             "do_docker_prune_networks" => {
                 if !self.addr.is_empty() {
                     ctx.set("docker_msg", "removendo redes sem uso…");
-                    ctx.perform(super::net::prune_docker_networks(self.client.clone()));
+                    ctx.perform(super::net::Docker::new(self.client.clone()).prune_networks());
                 }
             }
             // Settings (daemon web server) fields + save.
@@ -1168,10 +1139,7 @@ impl Component for Root {
                     ctx.set("gitea_branches", "[]");
                     if !self.addr.is_empty() && !id.is_empty() {
                         ctx.set("gitea_msg", "carregando repositórios…");
-                        ctx.perform(super::net::fetch_git_repos(
-                            self.client.clone(),
-                            id.to_string(),
-                        ));
+                        ctx.perform(super::net::GitProviders::new(self.client.clone()).fetch_repos(id.to_string()));
                     }
                 }
             }
@@ -1192,8 +1160,7 @@ impl Component for Root {
                     let pid = ctx.get("gitea_provider_id").cloned().unwrap_or_default();
                     if !self.addr.is_empty() && !pid.is_empty() {
                         ctx.set("gitea_msg", "carregando branches…");
-                        ctx.perform(super::net::fetch_git_branches(
-                            self.client.clone(),
+                        ctx.perform(super::net::GitProviders::new(self.client.clone()).fetch_branches(
                             pid,
                             full_name.to_string(),
                         ));
@@ -1204,9 +1171,7 @@ impl Component for Root {
             "gp_connect" => self.submit_git_provider(ctx),
             "gp_refresh" => {
                 if !self.addr.is_empty() {
-                    ctx.perform(super::net::git_providers_only(
-                        self.client.clone(),
-                    ));
+                    ctx.perform(super::net::GitProviders::new(self.client.clone()).refresh());
                 }
             }
             _ => {
@@ -1275,9 +1240,8 @@ impl Component for Root {
                         // One-shot load of everything the detail needs — including
                         // the Gitea provider/repo/branch lists — written through to
                         // `detail_cache` so the next open of this service is instant.
-                        ctx.perform(super::net::fetch_service_detail_cached(
+                        ctx.perform(super::net::Services::new(self.client.clone()).fetch_detail_cached(
                             self.detail_cache.clone(),
-                            self.client.clone(),
                             sid,
                         ));
                     }
@@ -1316,9 +1280,8 @@ impl Component for Root {
                         None => ctx.set("proj_loading", "true"),
                     }
                     if !self.addr.is_empty() {
-                        ctx.perform(super::net::fetch_project_services_cached(
+                        ctx.perform(super::net::Projects::new(self.client.clone()).fetch_services_cached(
                             self.detail_cache.clone(),
-                            self.client.clone(),
                             id.to_string(),
                         ));
                     }
@@ -1361,8 +1324,7 @@ impl Component for Root {
                     if !self.addr.is_empty() {
                         ctx.set("proj_action_msg", "enviando…");
                         let pid = ctx.get("selected_project_id").cloned().unwrap_or_default();
-                        ctx.perform(super::net::run_project_service_action(
-                            self.client.clone(),
+                        ctx.perform(super::net::Projects::new(self.client.clone()).run_service_action(
                             shared::Command::ServiceStop { service_id: id.to_string() },
                             pid,
                         ));
@@ -1385,11 +1347,7 @@ impl Component for Root {
                     if !self.addr.is_empty() {
                         ctx.set("proj_action_msg", "removendo…");
                         let search = ctx.get("search").cloned().unwrap_or_default();
-                        ctx.perform(super::net::delete_project(
-                            self.client.clone(),
-                            id.to_string(),
-                            search,
-                        ));
+                        ctx.perform(super::net::Projects::new(self.client.clone()).delete(id.to_string(), search));
                     }
                     return;
                 }
@@ -1406,8 +1364,7 @@ impl Component for Root {
                     if !self.addr.is_empty() {
                         ctx.set("proj_action_msg", "removendo…");
                         let pid = ctx.get("selected_project_id").cloned().unwrap_or_default();
-                        ctx.perform(super::net::stop_and_delete_service(
-                            self.client.clone(),
+                        ctx.perform(super::net::Projects::new(self.client.clone()).stop_and_delete_service(
                             id.to_string(),
                             pid,
                         ));
@@ -1436,8 +1393,7 @@ impl Component for Root {
                             }
                         }
                         ctx.set("svc_action_msg", "removendo…");
-                        ctx.perform(super::net::delete_deployment(
-                            self.client.clone(),
+                        ctx.perform(super::net::Services::new(self.client.clone()).delete_deployment(
                             self.selected_service.clone(),
                             id.to_string(),
                         ));
@@ -1470,10 +1426,7 @@ impl Component for Root {
                         *sel = id.to_string();
                     }
                     if !self.addr.is_empty() {
-                        ctx.perform(super::net::fetch_build_logs(
-                            self.client.clone(),
-                            id.to_string(),
-                        ));
+                        ctx.perform(super::net::Services::new(self.client.clone()).fetch_build_logs(id.to_string()));
                     }
                     return;
                 }
@@ -1489,10 +1442,7 @@ impl Component for Root {
                             && (repos.is_empty() || repos == "[]")
                         {
                             ctx.set("gitea_msg", "carregando repositórios…");
-                            ctx.perform(super::net::fetch_git_repos(
-                                self.client.clone(),
-                                pid,
-                            ));
+                            ctx.perform(super::net::GitProviders::new(self.client.clone()).fetch_repos(pid));
                         }
                     }
                     return;
@@ -1526,10 +1476,7 @@ impl Component for Root {
                 if let Some(id) = action.strip_prefix("do_gp_delete:") {
                     if !self.addr.is_empty() {
                         ctx.set("gp_msg", "removendo…");
-                        ctx.perform(super::net::git_provider_delete(
-                            self.client.clone(),
-                            id.to_string(),
-                        ));
+                        ctx.perform(super::net::GitProviders::new(self.client.clone()).delete(id.to_string()));
                     }
                     return;
                 }
