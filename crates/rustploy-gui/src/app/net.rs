@@ -1,15 +1,17 @@
 //! Network bridge between the daemon (RWP) and the glacier-ui context.
 //!
-//! Two halves:
+//! Every function here takes a [`RwpClient`] (a shared, lazily-(re)connected
+//! RPC connection — see `rwp.rs`) instead of opening its own. Two halves:
 //! - [`poll_stream`] — a long-lived `Subscription` source the root component
 //!   hands to the engine. It connects, then periodically pulls daemon status,
 //!   recent deployments and projects, emitting them as
 //!   `EngineMessage::ContextPatch` so the templates re-render. It also relays
 //!   live daemon events.
-//! - [`run_command`] — a one-shot RPC used by `ctx.perform` effects (connect
-//!   test, deploy, stop, …).
+//! - Every other `pub async fn` — one-shot RPCs used by `ctx.perform` effects
+//!   (deploy, stop, edit forms, …).
 
 use super::rwp;
+pub use super::rwp::RwpClient;
 use chrono::{DateTime, Local, Utc};
 use glacier_ui::EngineMessage;
 use iced::futures::{SinkExt, Stream};
@@ -70,33 +72,21 @@ fn with_outcome_toast(pairs: Vec<(String, String)>, msg: &str) -> Vec<(String, S
     with_toast(pairs, kind, msg)
 }
 
-/// One-shot: open a fresh connection, run `cmd`, return the response.
-/// Used by `ctx.perform` action effects (deploy/stop/reload).
-pub async fn run_command(
-    addr: String,
-    token: Option<String>,
-    cmd: Command,
-) -> anyhow::Result<Response> {
-    let mut conn = rwp::connect(&addr, token.as_deref()).await?;
-    rwp::rpc(&mut conn, cmd).await
-}
-
 /// Runs a lifecycle command against the selected service, then re-fetches its
 /// detail so the panel reflects the new state. Surfaces a one-line outcome in
 /// `svc_action_msg`.
 pub async fn run_service_action(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     cmd: Command,
     service_id: String,
 ) -> Vec<(String, String)> {
-    let msg = match run_command(addr.clone(), token.clone(), cmd).await {
+    let msg = match client.rpc(cmd).await {
         Ok(Response::Ok) => "ação concluída".to_string(),
         Ok(Response::Deployment(d)) => format!("deploy iniciado · {}", d.state.label()),
         Ok(other) => format!("{other:?}"),
         Err(e) => format!("erro: {e}"),
     };
-    let mut pairs = fetch_service_detail(addr, token, service_id).await;
+    let mut pairs = fetch_service_detail(client, service_id).await;
     pairs.push(("svc_action_msg".into(), msg.clone()));
     with_outcome_toast(pairs, &msg)
 }
@@ -121,17 +111,13 @@ pub struct DeployTrack {
 /// state. Mirrors the old `remote-client`'s `Deployment.started_at`-based
 /// duration display, but driven by context patches instead of a view redraw.
 pub async fn start_deploy(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     service_id: String,
     deploy_shared: Arc<Mutex<DeployTrack>>,
 ) -> Vec<(String, String)> {
-    let resp = run_command(
-        addr.clone(),
-        token.clone(),
-        Command::DeployStart { service_id: service_id.clone() },
-    )
-    .await;
+    let resp = client
+        .rpc(Command::DeployStart { service_id: service_id.clone() })
+        .await;
 
     let mut pairs = Vec::new();
     match &resp {
@@ -165,7 +151,7 @@ pub async fn start_deploy(
             pairs = with_toast(pairs, "error", format!("Falha ao iniciar deploy: {e}"));
         }
     }
-    pairs.extend(fetch_service_detail(addr, token, service_id).await);
+    pairs.extend(fetch_service_detail(client, service_id).await);
     pairs
 }
 
@@ -216,11 +202,10 @@ pub type DetailCacheHandle = Arc<Mutex<DetailCache>>;
 /// `fetch_service_detail` directly — the next open refreshes the cache anyway.
 pub async fn fetch_service_detail_cached(
     cache: DetailCacheHandle,
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     service_id: String,
 ) -> Vec<(String, String)> {
-    let pairs = fetch_service_detail(addr, token, service_id.clone()).await;
+    let pairs = fetch_service_detail(client, service_id.clone()).await;
     // Only cache a successful load — the error path carries no `svc_id`.
     if pairs.iter().any(|(k, _)| k == "svc_id")
         && let Ok(mut c) = cache.lock()
@@ -234,11 +219,10 @@ pub async fn fetch_service_detail_cached(
 /// the project-detail counterpart of [`fetch_service_detail_cached`].
 pub async fn fetch_project_services_cached(
     cache: DetailCacheHandle,
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     project_id: String,
 ) -> Vec<(String, String)> {
-    let pairs = fetch_project_services(addr, token, project_id.clone()).await;
+    let pairs = fetch_project_services(client, project_id.clone()).await;
     // Only cache a successful load — the error path carries no `proj_name`.
     if pairs.iter().any(|(k, _)| k == "proj_name")
         && let Ok(mut c) = cache.lock()
@@ -252,11 +236,10 @@ pub async fn fetch_project_services_cached(
 /// `Service` spec/status, its project name and the most recent container logs.
 /// Returns context pairs (`svc_*`) merged by a `ctx.perform` effect.
 pub async fn fetch_service_detail(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     service_id: String,
 ) -> Vec<(String, String)> {
-    match fetch_service_detail_inner(&addr, token.as_deref(), &service_id).await {
+    match fetch_service_detail_inner(&client, &service_id).await {
         Ok(pairs) => pairs,
         Err(e) => vec![
             ("svc_loading".into(), "false".into()),
@@ -266,20 +249,17 @@ pub async fn fetch_service_detail(
 }
 
 async fn fetch_service_detail_inner(
-    addr: &str,
-    token: Option<&str>,
+    client: &RwpClient,
     service_id: &str,
 ) -> anyhow::Result<Vec<(String, String)>> {
-    let mut conn = rwp::connect(addr, token).await?;
-
-    let svc = match rwp::rpc(&mut conn, Command::ServiceGet { id: service_id.into() }).await? {
+    let svc = match client.rpc(Command::ServiceGet { id: service_id.into() }).await? {
         Response::Service(s) => s,
         other => anyhow::bail!("resposta inesperada para ServiceGet: {other:?}"),
     };
 
     // Resolve the project name (ServiceGet only carries the id).
     let mut project_name = svc.spec.project_id.clone();
-    if let Ok(Response::Projects(list)) = rwp::rpc(&mut conn, Command::ProjectList).await
+    if let Ok(Response::Projects(list)) = client.rpc(Command::ProjectList).await
         && let Some(p) = list.iter().find(|p| p.id == svc.spec.project_id)
     {
         project_name = p.name.clone();
@@ -287,14 +267,13 @@ async fn fetch_service_detail_inner(
 
     // Recent stdout/stderr for the LIVE OUTPUT panel (one-shot tail; the live
     // stream takes over via `poll_stream`).
-    let logs = match rwp::rpc(&mut conn, Command::LogsGet { service_id: service_id.into(), tail: 200 }).await {
+    let logs = match client.rpc(Command::LogsGet { service_id: service_id.into(), tail: 200 }).await {
         Ok(Response::Logs(l)) => l,
         _ => Vec::new(),
     };
 
     // Recent deployments for the Deployments tab.
-    let deployments = match rwp::rpc(
-        &mut conn,
+    let deployments = match client.rpc(
         Command::DeployHistory { service_id: service_id.into(), limit: 30 },
     ).await {
         Ok(Response::Deployments(d)) => d,
@@ -349,7 +328,7 @@ async fn fetch_service_detail_inner(
     // picker list is ready — the selects never paint empty before their data.
     let mut gitea_extra: Vec<(String, String)> = Vec::new();
     if let Ok(Response::GitProviders(provs)) =
-        rwp::rpc(&mut conn, Command::GitProviderList).await
+        client.rpc(Command::GitProviderList).await
     {
         gitea_extra.push(("gitea_providers".into(), git_providers_json(&provs)));
         gitea_extra.push(("gitea_count".into(), provs.len().to_string()));
@@ -359,8 +338,7 @@ async fn fetch_service_detail_inner(
     // repo's branches) so the picker lists are populated on first paint instead
     // of only after a manual click.
     if !gen_provider_id.is_empty()
-        && let Ok(Response::GitRepos(repos)) = rwp::rpc(
-            &mut conn,
+        && let Ok(Response::GitRepos(repos)) = client.rpc(
             Command::GitRepoList { provider_id: gen_provider_id.clone() },
         ).await
     {
@@ -372,8 +350,7 @@ async fn fetch_service_detail_inner(
         gitea_extra.push(("gitea_msg".into(), format!("{} repositório(s)", repos.len())));
         if let Some(full) = repo_full {
             gitea_extra.push(("gitea_repo".into(), full.clone()));
-            if let Ok(Response::GitBranches(brs)) = rwp::rpc(
-                &mut conn,
+            if let Ok(Response::GitBranches(brs)) = client.rpc(
                 Command::GitBranchList { provider_id: gen_provider_id.clone(), repo_full_name: full },
             ).await {
                 gitea_extra.push(("gitea_branches".into(), git_branches_json(&brs)));
@@ -483,11 +460,10 @@ async fn fetch_service_detail_inner(
 /// (fetch-on-open so the view doesn't wait for the next poll tick; the poll
 /// loop then keeps it live via `selected_project_shared`).
 pub async fn fetch_project_services(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     project_id: String,
 ) -> Vec<(String, String)> {
-    match fetch_project_services_inner(&addr, token.as_deref(), &project_id).await {
+    match fetch_project_services_inner(&client, &project_id).await {
         Ok(pairs) => pairs,
         Err(e) => vec![
             ("proj_loading".into(), "false".into()),
@@ -497,13 +473,10 @@ pub async fn fetch_project_services(
 }
 
 async fn fetch_project_services_inner(
-    addr: &str,
-    token: Option<&str>,
+    client: &RwpClient,
     project_id: &str,
 ) -> anyhow::Result<Vec<(String, String)>> {
-    let mut conn = rwp::connect(addr, token).await?;
-
-    let list = match rwp::rpc(&mut conn, Command::ProjectList).await? {
+    let list = match client.rpc(Command::ProjectList).await? {
         Response::Projects(list) => list,
         other => anyhow::bail!("resposta inesperada para ProjectList: {other:?}"),
     };
@@ -512,8 +485,7 @@ async fn fetch_project_services_inner(
         .find(|p| p.id == project_id)
         .ok_or_else(|| anyhow::anyhow!("projeto não encontrado"))?;
 
-    let svcs = match rwp::rpc(
-        &mut conn,
+    let svcs = match client.rpc(
         Command::ServiceList { project_id: project_id.to_string() },
     ).await? {
         Response::Services(s) => s,
@@ -545,15 +517,14 @@ async fn fetch_project_services_inner(
 /// lista de serviços do projeto (a `view` é patchada junto) já re-fetchada; no
 /// erro permanece no wizard com a mensagem em `ns_msg`.
 pub async fn create_service(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     spec: shared::ServiceSpec,
 ) -> Vec<(String, String)> {
     let project_id = spec.project_id.clone();
     let name = spec.name.clone();
-    match run_command(addr.clone(), token.clone(), Command::ServiceCreate(spec)).await {
+    match client.rpc(Command::ServiceCreate(spec)).await {
         Ok(Response::Service(_)) => {
-            let mut pairs = fetch_project_services(addr, token, project_id).await;
+            let mut pairs = fetch_project_services(client, project_id).await;
             pairs.push(("view".into(), "project_services".into()));
             pairs.push(("proj_tab".into(), "services".into()));
             pairs.push(("ns_step".into(), String::new()));
@@ -584,12 +555,11 @@ pub enum ProjectEnvOp {
 /// Aplica um [`ProjectEnvOp`] (fetch do projeto → mutação → `ProjectEnvSet`) e
 /// devolve a lista atualizada para a aba "Variáveis" do projeto.
 pub async fn run_project_env_op(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     project_id: String,
     op: ProjectEnvOp,
 ) -> Vec<(String, String)> {
-    match apply_project_env_op(&addr, token.as_deref(), &project_id, op).await {
+    match apply_project_env_op(&client, &project_id, op).await {
         Ok(project) => with_toast(
             vec![
                 ("proj_action_msg".into(), "variáveis do projeto atualizadas".into()),
@@ -607,13 +577,11 @@ pub async fn run_project_env_op(
 }
 
 async fn apply_project_env_op(
-    addr: &str,
-    token: Option<&str>,
+    client: &RwpClient,
     project_id: &str,
     op: ProjectEnvOp,
 ) -> anyhow::Result<Project> {
-    let mut conn = rwp::connect(addr, token).await?;
-    let list = match rwp::rpc(&mut conn, Command::ProjectList).await? {
+    let list = match client.rpc(Command::ProjectList).await? {
         Response::Projects(list) => list,
         other => anyhow::bail!("resposta inesperada para ProjectList: {other:?}"),
     };
@@ -638,8 +606,7 @@ async fn apply_project_env_op(
             env_vars = reordered;
         }
     }
-    match rwp::rpc(
-        &mut conn,
+    match client.rpc(
         Command::ProjectEnvSet { project_id: project_id.into(), env_vars },
     )
     .await?
@@ -656,8 +623,8 @@ async fn apply_project_env_op(
 /// Docker-level container lookup for each one, so it doesn't miss services
 /// whose DB status has drifted from what's actually running. Never touches
 /// containers unrelated to rustploy on the same Docker host.
-pub async fn stop_all(addr: String, token: Option<String>) -> Vec<(String, String)> {
-    let msg = match run_command(addr, token, Command::StopAllManaged).await {
+pub async fn stop_all(client: RwpClient) -> Vec<(String, String)> {
+    let msg = match client.rpc(Command::StopAllManaged).await {
         Ok(Response::StopAllResult { count }) => format!("{count} serviço(s) parado(s)"),
         Ok(other) => resp_msg(&other),
         Err(e) => format!("erro: {e}"),
@@ -671,13 +638,13 @@ pub async fn stop_all(addr: String, token: Option<String>) -> Vec<(String, Strin
 /// waiting for the next 2s poll tick — same idea as `create_service` refetching
 /// `fetch_project_services`. Reuses the open connection so it costs no extra
 /// RWP handshake.
-async fn projects_grid_pairs(conn: &mut rwp::RwpStream, search: &str) -> Vec<(String, String)> {
+async fn projects_grid_pairs(client: &RwpClient, search: &str) -> Vec<(String, String)> {
     let mut projects_raw: Vec<Project> = Vec::new();
     let mut all: Vec<(Service, String)> = Vec::new();
-    if let Ok(Response::Projects(list)) = rwp::rpc(conn, Command::ProjectList).await {
+    if let Ok(Response::Projects(list)) = client.rpc(Command::ProjectList).await {
         for p in &list {
             if let Ok(Response::Services(svcs)) =
-                rwp::rpc(conn, Command::ServiceList { project_id: p.id.clone() }).await
+                client.rpc(Command::ServiceList { project_id: p.id.clone() }).await
             {
                 for s in svcs {
                     all.push((s, p.name.clone()));
@@ -700,21 +667,13 @@ async fn projects_grid_pairs(conn: &mut rwp::RwpStream, search: &str) -> Vec<(St
 /// instead of waiting up to 2s for the next poll tick. `search` keeps the grid
 /// filtered by whatever the topbar search box currently holds.
 pub async fn create_project(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     name: String,
     description: String,
     search: String,
 ) -> Vec<(String, String)> {
     let description = if description.trim().is_empty() { None } else { Some(description) };
-    let mut conn = match rwp::connect(&addr, token.as_deref()).await {
-        Ok(c) => c,
-        Err(e) => {
-            let msg = format!("erro: {e}");
-            return with_outcome_toast(vec![("new_proj_msg".into(), msg.clone())], &msg);
-        }
-    };
-    let msg = match rwp::rpc(&mut conn, Command::ProjectCreate { name, description }).await {
+    let msg = match client.rpc(Command::ProjectCreate { name, description }).await {
         Ok(Response::Project(p)) => format!("projeto \"{}\" criado", p.name),
         Ok(other) => resp_msg(&other),
         Err(e) => format!("erro: {e}"),
@@ -724,20 +683,19 @@ pub async fn create_project(
         ("new_proj_name".into(), String::new()),
         ("new_proj_desc".into(), String::new()),
     ];
-    pairs.extend(projects_grid_pairs(&mut conn, &search).await);
+    pairs.extend(projects_grid_pairs(&client, &search).await);
     with_outcome_toast(pairs, &msg)
 }
 
 /// Renames/redescribes the project open in `project_services`.
 pub async fn update_project(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     id: String,
     name: String,
     description: String,
 ) -> Vec<(String, String)> {
     let description = if description.trim().is_empty() { None } else { Some(description) };
-    match run_command(addr, token, Command::ProjectUpdate { id, name, description }).await {
+    match client.rpc(Command::ProjectUpdate { id, name, description }).await {
         Ok(Response::Project(p)) => with_toast(
             vec![
                 ("proj_action_msg".into(), "salvo".into()),
@@ -763,19 +721,11 @@ pub async fn update_project(
 /// the Projects grid on the same connection so the removed card disappears at
 /// once instead of after the next 2s poll tick.
 pub async fn delete_project(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     id: String,
     search: String,
 ) -> Vec<(String, String)> {
-    let mut conn = match rwp::connect(&addr, token.as_deref()).await {
-        Ok(c) => c,
-        Err(e) => {
-            let msg = format!("erro: {e}");
-            return with_outcome_toast(vec![("proj_action_msg".into(), msg.clone())], &msg);
-        }
-    };
-    let (msg, ok) = match rwp::rpc(&mut conn, Command::ProjectDelete { id }).await {
+    let (msg, ok) = match client.rpc(Command::ProjectDelete { id }).await {
         Ok(Response::Ok) => ("projeto removido".to_string(), true),
         Ok(other) => (resp_msg(&other), false),
         Err(e) => (format!("erro: {e}"), false),
@@ -787,7 +737,7 @@ pub async fn delete_project(
     if ok {
         pairs.push(("view".into(), "projects".into()));
     }
-    pairs.extend(projects_grid_pairs(&mut conn, &search).await);
+    pairs.extend(projects_grid_pairs(&client, &search).await);
     with_outcome_toast(pairs, &msg)
 }
 
@@ -797,17 +747,16 @@ pub async fn delete_project(
 /// button (`can_delete`, see [`deployments_detail_json`]) is needed. Refetches
 /// the service detail afterwards so `svc_deployments` drops the removed row.
 pub async fn delete_deployment(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     service_id: String,
     deployment_id: String,
 ) -> Vec<(String, String)> {
-    let msg = match run_command(addr.clone(), token.clone(), Command::DeployDelete { deployment_id }).await {
+    let msg = match client.rpc(Command::DeployDelete { deployment_id }).await {
         Ok(Response::Ok) => "deployment removido".to_string(),
         Ok(other) => resp_msg(&other),
         Err(e) => format!("erro: {e}"),
     };
-    let mut pairs = fetch_service_detail(addr, token, service_id).await;
+    let mut pairs = fetch_service_detail(client, service_id).await;
     pairs.push(("svc_action_msg".into(), msg.clone()));
     with_outcome_toast(pairs, &msg)
 }
@@ -818,17 +767,16 @@ pub async fn delete_deployment(
 /// service grid afterwards so the card's status flips immediately instead of
 /// after the next 2s poll tick.
 pub async fn run_project_service_action(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     cmd: Command,
     project_id: String,
 ) -> Vec<(String, String)> {
-    let msg = match run_command(addr.clone(), token.clone(), cmd).await {
+    let msg = match client.rpc(cmd).await {
         Ok(Response::Ok) => "ação concluída".to_string(),
         Ok(other) => resp_msg(&other),
         Err(e) => format!("erro: {e}"),
     };
-    let mut pairs = fetch_project_services(addr, token, project_id).await;
+    let mut pairs = fetch_project_services(client, project_id).await;
     pairs.push(("proj_action_msg".into(), msg.clone()));
     with_outcome_toast(pairs, &msg)
 }
@@ -837,15 +785,14 @@ pub async fn run_project_service_action(
 /// out (without deleting) if the stop itself fails, so a service that refused
 /// to stop isn't silently removed from the DB while its container lingers.
 pub async fn stop_and_delete_service(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     service_id: String,
     project_id: String,
 ) -> Vec<(String, String)> {
     // On a stop failure the service isn't deleted; still re-fetch the grid so the
     // card reflects reality (it may have stopped despite the error response).
-    let msg = match run_command(addr.clone(), token.clone(), Command::ServiceStop { service_id: service_id.clone() }).await {
-        Ok(Response::Ok) => match run_command(addr.clone(), token.clone(), Command::ServiceDelete { id: service_id }).await {
+    let msg = match client.rpc(Command::ServiceStop { service_id: service_id.clone() }).await {
+        Ok(Response::Ok) => match client.rpc(Command::ServiceDelete { id: service_id }).await {
             Ok(Response::Ok) => "serviço parado e removido".to_string(),
             Ok(other) => resp_msg(&other),
             Err(e) => format!("erro ao remover: {e}"),
@@ -853,7 +800,7 @@ pub async fn stop_and_delete_service(
         Ok(other) => format!("erro ao parar: {}", resp_msg(&other)),
         Err(e) => format!("erro ao parar: {e}"),
     };
-    let mut pairs = fetch_project_services(addr, token, project_id).await;
+    let mut pairs = fetch_project_services(client, project_id).await;
     pairs.push(("proj_action_msg".into(), msg.clone()));
     with_outcome_toast(pairs, &msg)
 }
@@ -862,8 +809,8 @@ pub async fn stop_and_delete_service(
 /// `all`, every image unused by any container (`docker image prune -a`) — and
 /// refreshes the Images sub-tab so the result shows up immediately, without
 /// waiting for the next 2s poll tick.
-pub async fn prune_docker_images(addr: String, token: Option<String>, all: bool) -> Vec<(String, String)> {
-    let msg = match run_command(addr.clone(), token.clone(), Command::PruneImages { all }).await {
+pub async fn prune_docker_images(client: RwpClient, all: bool) -> Vec<(String, String)> {
+    let msg = match client.rpc(Command::PruneImages { all }).await {
         Ok(Response::PruneResult { count, reclaimed_bytes }) => {
             format!("{count} imagem(ns) removida(s) · {} liberados", fmt_bytes(reclaimed_bytes))
         }
@@ -871,7 +818,7 @@ pub async fn prune_docker_images(addr: String, token: Option<String>, all: bool)
         Err(e) => format!("erro: {e}"),
     };
     let mut pairs = vec![("docker_msg".into(), msg.clone())];
-    if let Ok(Response::DockerImages(list)) = run_command(addr, token, Command::DockerImages).await {
+    if let Ok(Response::DockerImages(list)) = client.rpc(Command::DockerImages).await {
         pairs.push(("docker_images".into(), docker_images_json(&list, "")));
         pairs.push(("docker_images_count".into(), list.len().to_string()));
     }
@@ -881,8 +828,8 @@ pub async fn prune_docker_images(addr: String, token: Option<String>, all: bool)
 /// Removes volumes referenced by no container — or, with `all`, every unused
 /// volume rather than just anonymous ones (`docker volume prune --all`) — and
 /// refreshes the Volumes sub-tab.
-pub async fn prune_docker_volumes(addr: String, token: Option<String>, all: bool) -> Vec<(String, String)> {
-    let msg = match run_command(addr.clone(), token.clone(), Command::PruneVolumes { all }).await {
+pub async fn prune_docker_volumes(client: RwpClient, all: bool) -> Vec<(String, String)> {
+    let msg = match client.rpc(Command::PruneVolumes { all }).await {
         Ok(Response::PruneResult { count, reclaimed_bytes }) => {
             format!("{count} volume(s) removido(s) · {} liberados", fmt_bytes(reclaimed_bytes))
         }
@@ -890,7 +837,7 @@ pub async fn prune_docker_volumes(addr: String, token: Option<String>, all: bool
         Err(e) => format!("erro: {e}"),
     };
     let mut pairs = vec![("docker_msg".into(), msg.clone())];
-    if let Ok(Response::DockerVolumes(list)) = run_command(addr, token, Command::DockerVolumes).await {
+    if let Ok(Response::DockerVolumes(list)) = client.rpc(Command::DockerVolumes).await {
         pairs.push(("docker_volumes".into(), docker_volumes_json(&list, "")));
         pairs.push(("docker_volumes_count".into(), list.len().to_string()));
     }
@@ -900,14 +847,14 @@ pub async fn prune_docker_volumes(addr: String, token: Option<String>, all: bool
 /// Removes networks attached to no container (rustploy's own per-project
 /// networks included, once their last service is gone) and refreshes the
 /// Networks sub-tab.
-pub async fn prune_docker_networks(addr: String, token: Option<String>) -> Vec<(String, String)> {
-    let msg = match run_command(addr.clone(), token.clone(), Command::PruneNetworks).await {
+pub async fn prune_docker_networks(client: RwpClient) -> Vec<(String, String)> {
+    let msg = match client.rpc(Command::PruneNetworks).await {
         Ok(Response::PruneResult { count, .. }) => format!("{count} rede(s) removida(s)"),
         Ok(other) => resp_msg(&other),
         Err(e) => format!("erro: {e}"),
     };
     let mut pairs = vec![("docker_msg".into(), msg.clone())];
-    if let Ok(Response::DockerNetworks(list)) = run_command(addr, token, Command::DockerNetworks).await {
+    if let Ok(Response::DockerNetworks(list)) = client.rpc(Command::DockerNetworks).await {
         pairs.push(("docker_networks".into(), docker_networks_json(&list, "")));
         pairs.push(("docker_networks_count".into(), list.len().to_string()));
     }
@@ -916,8 +863,7 @@ pub async fn prune_docker_networks(addr: String, token: Option<String>) -> Vec<(
 
 /// Persists the daemon settings (Settings screen). Empty strings clear a field.
 pub async fn save_settings(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     domain: String,
     email: String,
 ) -> Vec<(String, String)> {
@@ -926,7 +872,7 @@ pub async fn save_settings(
         webhook_base_url: opt(domain),
         acme_email: opt(email),
     };
-    let msg = match run_command(addr, token, cmd).await {
+    let msg = match client.rpc(cmd).await {
         Ok(Response::Ok) => "configurações salvas".to_string(),
         Ok(other) => format!("{other:?}"),
         Err(e) => format!("erro: {e}"),
@@ -977,28 +923,25 @@ pub enum SpecOp {
 /// Applies a [`SpecOp`] to the service (fetch fresh spec → mutate → update),
 /// then re-fetches the detail so the panel reflects the change.
 pub async fn run_spec_op(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     service_id: String,
     op: SpecOp,
 ) -> Vec<(String, String)> {
-    let msg = match apply_spec_op(&addr, token.as_deref(), &service_id, op).await {
+    let msg = match apply_spec_op(&client, &service_id, op).await {
         Ok(_) => "salvo".to_string(),
         Err(e) => format!("erro: {e}"),
     };
-    let mut pairs = fetch_service_detail(addr, token, service_id).await;
+    let mut pairs = fetch_service_detail(client, service_id).await;
     pairs.push(("svc_action_msg".into(), msg.clone()));
     with_outcome_toast(pairs, &msg)
 }
 
 async fn apply_spec_op(
-    addr: &str,
-    token: Option<&str>,
+    client: &RwpClient,
     service_id: &str,
     op: SpecOp,
 ) -> anyhow::Result<()> {
-    let mut conn = rwp::connect(addr, token).await?;
-    let svc = match rwp::rpc(&mut conn, Command::ServiceGet { id: service_id.into() }).await? {
+    let svc = match client.rpc(Command::ServiceGet { id: service_id.into() }).await? {
         Response::Service(s) => s,
         other => anyhow::bail!("resposta inesperada para ServiceGet: {other:?}"),
     };
@@ -1110,7 +1053,7 @@ async fn apply_spec_op(
             };
         }
     }
-    match rwp::rpc(&mut conn, Command::ServiceUpdate { id: service_id.into(), spec }).await? {
+    match client.rpc(Command::ServiceUpdate { id: service_id.into(), spec }).await? {
         Response::Ok | Response::Service(_) => Ok(()),
         Response::Err { code, message } => anyhow::bail!("{code}: {message}"),
         other => anyhow::bail!("resposta inesperada para ServiceUpdate: {other:?}"),
@@ -1178,28 +1121,25 @@ fn parse_dotenv_with_comments(text: &str) -> (Vec<EnvVar>, Vec<EnvComment>) {
 /// Applies an [`EnvOp`] to the service (fetch fresh spec → mutate → update),
 /// then re-fetches the detail so the panel reflects the change.
 pub async fn run_env_op(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     service_id: String,
     op: EnvOp,
 ) -> Vec<(String, String)> {
-    let msg = match apply_env_op(&addr, token.as_deref(), &service_id, op).await {
+    let msg = match apply_env_op(&client, &service_id, op).await {
         Ok(_) => "env atualizado".to_string(),
         Err(e) => format!("erro: {e}"),
     };
-    let mut pairs = fetch_service_detail(addr, token, service_id).await;
+    let mut pairs = fetch_service_detail(client, service_id).await;
     pairs.push(("svc_action_msg".into(), msg.clone()));
     with_outcome_toast(pairs, &msg)
 }
 
 async fn apply_env_op(
-    addr: &str,
-    token: Option<&str>,
+    client: &RwpClient,
     service_id: &str,
     op: EnvOp,
 ) -> anyhow::Result<()> {
-    let mut conn = rwp::connect(addr, token).await?;
-    let svc = match rwp::rpc(&mut conn, Command::ServiceGet { id: service_id.into() }).await? {
+    let svc = match client.rpc(Command::ServiceGet { id: service_id.into() }).await? {
         Response::Service(s) => s,
         other => anyhow::bail!("resposta inesperada para ServiceGet: {other:?}"),
     };
@@ -1227,7 +1167,7 @@ async fn apply_env_op(
             spec.env_comments = new_comments;
         }
     }
-    match rwp::rpc(&mut conn, Command::ServiceUpdate { id: service_id.into(), spec }).await? {
+    match client.rpc(Command::ServiceUpdate { id: service_id.into(), spec }).await? {
         Response::Ok | Response::Service(_) => Ok(()),
         Response::Err { code, message } => anyhow::bail!("{code}: {message}"),
         other => anyhow::bail!("resposta inesperada para ServiceUpdate: {other:?}"),
@@ -1279,11 +1219,10 @@ fn reorder_env(
 
 /// Fetches the build log of a single deployment for the Deployments tab.
 pub async fn fetch_build_logs(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     deployment_id: String,
 ) -> Vec<(String, String)> {
-    let lines = match run_command(addr, token, Command::GetBuildLogs { deployment_id: deployment_id.clone() }).await {
+    let lines = match client.rpc(Command::GetBuildLogs { deployment_id: deployment_id.clone() }).await {
         Ok(Response::BuildLogs(l)) => l,
         _ => Vec::new(),
     };
@@ -1311,8 +1250,8 @@ fn resp_msg(r: &Response) -> String {
 // futuro caminho que precise só dos providers sem o detalhe completo do serviço.
 /// Lists the connected Git providers for the General-tab picker.
 #[allow(dead_code)]
-pub async fn fetch_git_providers(addr: String, token: Option<String>) -> Vec<(String, String)> {
-    match run_command(addr, token, Command::GitProviderList).await {
+pub async fn fetch_git_providers(client: RwpClient) -> Vec<(String, String)> {
+    match client.rpc(Command::GitProviderList).await {
         Ok(Response::GitProviders(list)) => {
             let msg = if list.is_empty() {
                 "nenhum provider conectado — configure em Settings".to_string()
@@ -1332,12 +1271,11 @@ pub async fn fetch_git_providers(addr: String, token: Option<String>) -> Vec<(St
 
 /// Lists the repositories of a provider; resets the repo/branch selection.
 pub async fn fetch_git_repos(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     provider_id: String,
 ) -> Vec<(String, String)> {
     let pid = provider_id.clone();
-    match run_command(addr, token, Command::GitRepoList { provider_id }).await {
+    match client.rpc(Command::GitRepoList { provider_id }).await {
         Ok(Response::GitRepos(list)) => vec![
             ("gitea_provider_id".into(), pid),
             ("gitea_repos".into(), git_repos_json(&list)),
@@ -1352,12 +1290,11 @@ pub async fn fetch_git_repos(
 
 /// Lists the branches of a repository for the branch picker.
 pub async fn fetch_git_branches(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     provider_id: String,
     repo_full_name: String,
 ) -> Vec<(String, String)> {
-    match run_command(addr, token, Command::GitBranchList { provider_id, repo_full_name }).await {
+    match client.rpc(Command::GitBranchList { provider_id, repo_full_name }).await {
         Ok(Response::GitBranches(list)) => vec![
             ("gitea_branches".into(), git_branches_json(&list)),
             ("gitea_msg".into(), format!("{} branch(es)", list.len())),
@@ -1370,11 +1307,11 @@ pub async fn fetch_git_branches(
 /// Re-fetches the provider list and returns the context pairs (`gitea_*`) plus
 /// `gp_msg`. Shared by connect/delete/refresh so the list stays in one place.
 async fn providers_refresh_pairs(
-    conn: &mut rwp::RwpStream,
+    client: &RwpClient,
     msg: String,
 ) -> Vec<(String, String)> {
     let mut pairs = vec![("gp_msg".into(), msg)];
-    if let Ok(Response::GitProviders(list)) = rwp::rpc(conn, Command::GitProviderList).await {
+    if let Ok(Response::GitProviders(list)) = client.rpc(Command::GitProviderList).await {
         pairs.push(("gitea_providers".into(), git_providers_json(&list)));
         pairs.push(("gitea_count".into(), list.len().to_string()));
     }
@@ -1386,8 +1323,7 @@ async fn providers_refresh_pairs(
 /// once. Clears the form fields and refreshes the connected list.
 #[allow(clippy::too_many_arguments)]
 pub async fn git_provider_connect(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     name: String,
     base_url: String,
     mode: String,
@@ -1429,12 +1365,7 @@ pub async fn git_provider_connect(
         }
     };
 
-    let mut conn = match rwp::connect(&addr, token.as_deref()).await {
-        Ok(c) => c,
-        Err(e) => return vec![("gp_msg".into(), format!("erro: {e}"))],
-    };
-
-    let provider_id = match rwp::rpc(&mut conn, cmd).await {
+    let provider_id = match client.rpc(cmd).await {
         Ok(Response::GitProviderInfo(p)) => p.id,
         Ok(other) => return vec![("gp_msg".into(), resp_msg(&other))],
         Err(e) => return vec![("gp_msg".into(), format!("erro: {e}"))],
@@ -1442,7 +1373,7 @@ pub async fn git_provider_connect(
 
     // OAuth needs a browser round-trip; PAT is immediately usable.
     let msg = if is_oauth {
-        match rwp::rpc(&mut conn, Command::GitOAuthStart { provider_id }).await {
+        match client.rpc(Command::GitOAuthStart { provider_id }).await {
             Ok(Response::OAuthUrl(url)) => {
                 if open_in_browser(&url) {
                     "navegador aberto — autorize e clique em Atualizar lista".to_string()
@@ -1457,7 +1388,7 @@ pub async fn git_provider_connect(
         "conta Gitea conectada ✓".to_string()
     };
 
-    let mut pairs = providers_refresh_pairs(&mut conn, msg.clone()).await;
+    let mut pairs = providers_refresh_pairs(&client, msg.clone()).await;
     // Clear the connect form.
     for k in ["gp_name", "gp_base_url", "gp_client_id", "gp_client_secret", "gp_pat"] {
         pairs.push((k.into(), String::new()));
@@ -1467,30 +1398,21 @@ pub async fn git_provider_connect(
 
 /// Removes a connected provider and refreshes the list.
 pub async fn git_provider_delete(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     id: String,
 ) -> Vec<(String, String)> {
-    let mut conn = match rwp::connect(&addr, token.as_deref()).await {
-        Ok(c) => c,
-        Err(e) => return vec![("gp_msg".into(), format!("erro: {e}"))],
-    };
-    let msg = match rwp::rpc(&mut conn, Command::GitProviderDelete { id }).await {
+    let msg = match client.rpc(Command::GitProviderDelete { id }).await {
         Ok(Response::Ok) => "provider removido".to_string(),
         Ok(other) => resp_msg(&other),
         Err(e) => format!("erro: {e}"),
     };
-    let pairs = providers_refresh_pairs(&mut conn, msg.clone()).await;
+    let pairs = providers_refresh_pairs(&client, msg.clone()).await;
     with_outcome_toast(pairs, &msg)
 }
 
 /// One-shot provider list refresh for the "Atualizar lista" button.
-pub async fn git_providers_only(addr: String, token: Option<String>) -> Vec<(String, String)> {
-    let mut conn = match rwp::connect(&addr, token.as_deref()).await {
-        Ok(c) => c,
-        Err(e) => return vec![("gp_msg".into(), format!("erro: {e}"))],
-    };
-    providers_refresh_pairs(&mut conn, String::new()).await
+pub async fn git_providers_only(client: RwpClient) -> Vec<(String, String)> {
+    providers_refresh_pairs(&client, String::new()).await
 }
 
 /// The Gitea OAuth callback URI the user must register in their Gitea app:
@@ -1701,8 +1623,7 @@ pub fn search_pairs(cache: &SearchCache, term: &str, selected_project: &str) -> 
 /// reads it to decide which `LogLine` events to surface as `svc_logs`.
 /// `selected_deploy` does the same for `BuildLog` events → `dep_build_logs`.
 pub fn poll_stream(
-    addr: String,
-    token: Option<String>,
+    client: RwpClient,
     selected: Arc<Mutex<String>>,
     selected_deploy: Arc<Mutex<String>>,
     deploy_track: Arc<Mutex<DeployTrack>>,
@@ -1717,24 +1638,24 @@ pub fn poll_stream(
             };
         }
 
-        // Command connection (RPC polling) + event connection (live updates).
-        let mut cmd = match rwp::connect(&addr, token.as_deref()).await {
-            Ok(s) => s,
-            Err(e) => {
-                patch!(with_toast(
-                    vec![
-                        ("connected".into(), "false".into()),
-                        ("screen".into(), "login".into()),
-                        ("error".into(), e.to_string()),
-                        ("status_line".into(), "falha na conexão".into()),
-                    ],
-                    "error",
-                    format!("Falha na conexão: {e}"),
-                ));
-                return;
-            }
-        };
-        let mut evt = match rwp::connect(&addr, token.as_deref()).await {
+        // The shared command connection (reused by every other `net.rs`
+        // action, and by the RPC polling below) + a dedicated event
+        // connection (long-lived read loop, can't share a request/response
+        // client).
+        if let Err(e) = client.ensure_connected().await {
+            patch!(with_toast(
+                vec![
+                    ("connected".into(), "false".into()),
+                    ("screen".into(), "login".into()),
+                    ("error".into(), e.to_string()),
+                    ("status_line".into(), "falha na conexão".into()),
+                ],
+                "error",
+                format!("Falha na conexão: {e}"),
+            ));
+            return;
+        }
+        let mut evt = match rwp::connect(client.addr(), client.token()).await {
             Ok(s) => s,
             Err(_) => return,
         };
@@ -1750,7 +1671,7 @@ pub fn poll_stream(
         // Daemon settings fetched once on connect so the editable fields are not
         // clobbered by polling while the user types.
         if let Ok(Response::DaemonSettings { webhook_base_url, acme_email }) =
-            rwp::rpc(&mut cmd, Command::GetDaemonSettings).await
+            client.rpc(Command::GetDaemonSettings).await
         {
             let domain = webhook_base_url.unwrap_or_default();
             patch!(vec![
@@ -1763,7 +1684,7 @@ pub fn poll_stream(
         // Connected Git providers, fetched once on connect for the Settings → Git
         // list and the service General → Gitea account picker.
         if let Ok(Response::GitProviders(list)) =
-            rwp::rpc(&mut cmd, Command::GitProviderList).await
+            client.rpc(Command::GitProviderList).await
         {
             patch!(vec![
                 ("gitea_providers".into(), git_providers_json(&list)),
@@ -1813,7 +1734,7 @@ pub fn poll_stream(
                 _ = poll.tick() => {
                     let mut pairs = Vec::new();
                     let term = search.lock().map(|s| s.trim().to_lowercase()).unwrap_or_default();
-                    if let Ok(Response::DaemonStatus(d)) = rwp::rpc(&mut cmd, Command::DaemonStatus).await {
+                    if let Ok(Response::DaemonStatus(d)) = client.rpc(Command::DaemonStatus).await {
                         pairs.push(("daemon_version".into(), d.version.clone()));
                         pairs.push(("daemon_uptime".into(), fmt_uptime(d.uptime_secs)));
                         pairs.push(("services_running".into(), d.services_running.to_string()));
@@ -1831,18 +1752,17 @@ pub fn poll_stream(
                     let mut docker_networks_raw: Vec<shared::DockerNetworkInfo> = Vec::new();
 
                     if let Ok(Response::DeploymentSummaries(list)) =
-                        rwp::rpc(&mut cmd, Command::RecentDeployments { limit: 40 }).await
+                        client.rpc(Command::RecentDeployments { limit: 40 }).await
                     {
                         pairs.push(("deployments_count".into(), list.len().to_string()));
                         deployments_raw = list;
                     }
                     let pid = selected_project.lock().map(|s| s.clone()).unwrap_or_default();
-                    if let Ok(Response::Projects(list)) = rwp::rpc(&mut cmd, Command::ProjectList).await {
+                    if let Ok(Response::Projects(list)) = client.rpc(Command::ProjectList).await {
                         // Fan out one ServiceList per project, tagging each
                         // service with its project name for the grid cards.
                         for p in &list {
-                            if let Ok(Response::Services(svcs)) = rwp::rpc(
-                                &mut cmd,
+                            if let Ok(Response::Services(svcs)) = client.rpc(
                                 Command::ServiceList { project_id: p.id.clone() },
                             ).await {
                                 for s in svcs {
@@ -1882,22 +1802,22 @@ pub fn poll_stream(
                     // Docker tab: images/volumes/networks across the whole host
                     // (not just rustploy-managed services — see docker_inventory
                     // on the daemon side).
-                    if let Ok(Response::DockerImages(list)) = rwp::rpc(&mut cmd, Command::DockerImages).await {
+                    if let Ok(Response::DockerImages(list)) = client.rpc(Command::DockerImages).await {
                         pairs.push(("docker_images_count".into(), list.len().to_string()));
                         docker_images_raw = list;
                     }
-                    if let Ok(Response::DockerVolumes(list)) = rwp::rpc(&mut cmd, Command::DockerVolumes).await {
+                    if let Ok(Response::DockerVolumes(list)) = client.rpc(Command::DockerVolumes).await {
                         pairs.push(("docker_volumes_count".into(), list.len().to_string()));
                         docker_volumes_raw = list;
                     }
-                    if let Ok(Response::DockerNetworks(list)) = rwp::rpc(&mut cmd, Command::DockerNetworks).await {
+                    if let Ok(Response::DockerNetworks(list)) = client.rpc(Command::DockerNetworks).await {
                         pairs.push(("docker_networks_count".into(), list.len().to_string()));
                         docker_networks_raw = list;
                     }
                     // Deploy Engine: KPIs + deploys ativos + histórico 24h
                     // (não é filtrado pela busca — fica inline como o ingress).
                     if let Ok(Response::DeployEngineStatus(eng)) =
-                        rwp::rpc(&mut cmd, Command::DeployEngineStatus).await
+                        client.rpc(Command::DeployEngineStatus).await
                     {
                         pairs.push(("eng_active_count".into(), eng.active.len().to_string()));
                         pairs.push(("eng_success_24h".into(), eng.successful_24h.to_string()));
@@ -1945,8 +1865,7 @@ pub fn poll_stream(
                     // fires while that service's detail panel is still open.
                     let track = deploy_track.lock().map(|t| t.clone()).unwrap_or_default();
                     if track.running && !track.service_id.is_empty()
-                        && let Ok(Response::Deployments(history)) = rwp::rpc(
-                            &mut cmd,
+                        && let Ok(Response::Deployments(history)) = client.rpc(
                             Command::DeployHistory { service_id: track.service_id.clone(), limit: 1 },
                         ).await
                         && let Some(dep) = history.into_iter().next()
@@ -1987,8 +1906,7 @@ pub fn poll_stream(
                     if current != seeded {
                         seeded = current.clone();
                         if !current.is_empty()
-                            && let Ok(Response::Logs(tail)) = rwp::rpc(
-                                &mut cmd,
+                            && let Ok(Response::Logs(tail)) = client.rpc(
                                 Command::LogsGet { service_id: current.clone(), tail: LOG_RING },
                             ).await
                         {
@@ -2010,8 +1928,7 @@ pub fn poll_stream(
                     if cur_dep != deploy_seeded {
                         deploy_seeded = cur_dep.clone();
                         if !cur_dep.is_empty()
-                            && let Ok(Response::BuildLogs(tail)) = rwp::rpc(
-                                &mut cmd,
+                            && let Ok(Response::BuildLogs(tail)) = client.rpc(
                                 Command::GetBuildLogs { deployment_id: cur_dep.clone() },
                             ).await
                         {

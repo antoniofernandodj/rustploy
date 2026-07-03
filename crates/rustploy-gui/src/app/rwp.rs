@@ -230,3 +230,61 @@ pub async fn ping(s: &mut RwpStream) -> anyhow::Result<()> {
         _ => anyhow::bail!("resposta inesperada ao ping"),
     }
 }
+
+/// A single RPC connection to the daemon, shared and reconnected on demand.
+/// `Clone` is an `Arc` clone — cheap, and every clone talks to the same
+/// underlying socket. Replaces the old pattern of every `net.rs` function
+/// opening (and immediately dropping) its own connection for one RPC: every
+/// action now shares one connection with the rest of the session, lazily
+/// established on first use.
+#[derive(Clone, Default)]
+pub struct RwpClient {
+    addr: String,
+    token: Option<String>,
+    conn: Arc<tokio::sync::Mutex<Option<RwpStream>>>,
+}
+
+impl RwpClient {
+    pub fn new(addr: String, token: Option<String>) -> Self {
+        Self { addr, token, conn: Arc::new(tokio::sync::Mutex::new(None)) }
+    }
+
+    pub fn addr(&self) -> &str {
+        &self.addr
+    }
+
+    pub fn token(&self) -> Option<&str> {
+        self.token.as_deref()
+    }
+
+    /// Connects if there is no cached connection yet. Used by `poll_stream` to
+    /// surface a connection failure up front (before its own dedicated event
+    /// stream also tries to connect), without spending an RPC to do it.
+    pub async fn ensure_connected(&self) -> anyhow::Result<()> {
+        let mut guard = self.conn.lock().await;
+        if guard.is_none() {
+            *guard = Some(connect(&self.addr, self.token.as_deref()).await?);
+        }
+        Ok(())
+    }
+
+    /// Runs `cmd` on the shared connection, connecting lazily on first use. Any
+    /// failure drops the cached connection so the *next* call reconnects from
+    /// scratch — there is no automatic retry of `cmd` itself: if the socket
+    /// died after the write went out, the daemon may already have executed it,
+    /// and blindly resending would risk double-firing a mutating command like
+    /// `DeployStart`. The caller sees the error and decides whether to retry.
+    pub async fn rpc(&self, cmd: Command) -> anyhow::Result<Response> {
+        let mut guard = self.conn.lock().await;
+        if guard.is_none() {
+            *guard = Some(connect(&self.addr, self.token.as_deref()).await?);
+        }
+        match rpc(guard.as_mut().unwrap(), cmd).await {
+            Ok(r) => Ok(r),
+            Err(e) => {
+                *guard = None;
+                Err(e)
+            }
+        }
+    }
+}

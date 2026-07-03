@@ -17,8 +17,7 @@ use std::sync::{Arc, Mutex};
 #[derive(Clone)]
 struct PollKey {
     seq: u64,
-    addr: String,
-    token: Option<String>,
+    client: super::net::RwpClient,
     selected: Arc<Mutex<String>>,
     selected_deploy: Arc<Mutex<String>>,
     deploy_track: Arc<Mutex<super::net::DeployTrack>>,
@@ -37,6 +36,11 @@ pub struct Root {
     /// Normalized `rwp://…` URL (mirror of the `url` context key on connect).
     addr: String,
     token: Option<String>,
+    /// Shared, lazily-(re)connected RPC connection to the daemon — every
+    /// `ctx.perform` action and the poll loop clone this instead of each
+    /// opening (and dropping) their own connection. Rebuilt in `submit_login`
+    /// so it always matches `addr`/`token`.
+    client: super::net::RwpClient,
     /// Whether the polling subscription should be live.
     active: bool,
     /// Bumped on every (re)connect so the subscription gets a fresh id.
@@ -95,6 +99,7 @@ impl Default for Root {
         Self {
             addr: String::default(),
             token: None,
+            client: super::net::RwpClient::default(),
             active: false,
             seq: 0,
             selected_service: String::default(),
@@ -195,8 +200,7 @@ impl Root {
         ctx.set("svc_action_msg", "enviando…");
         ctx.set("svc_action_color", "#8B949E");
         ctx.perform(super::net::run_service_action(
-            self.addr.clone(),
-            self.token.clone(),
+            self.client.clone(),
             cmd,
             id,
         ));
@@ -213,8 +217,7 @@ impl Root {
         ctx.set("svc_action_msg", "enviando…");
         ctx.set("svc_action_color", "#8B949E");
         ctx.perform(super::net::start_deploy(
-            self.addr.clone(),
-            self.token.clone(),
+            self.client.clone(),
             self.selected_service.clone(),
             self.deploy_shared.clone(),
         ));
@@ -229,8 +232,7 @@ impl Root {
         ctx.set("svc_action_msg", "salvando…");
         ctx.set("svc_action_color", "#8B949E");
         ctx.perform(super::net::run_env_op(
-            self.addr.clone(),
-            self.token.clone(),
+            self.client.clone(),
             self.selected_service.clone(),
             op,
         ));
@@ -245,8 +247,7 @@ impl Root {
         ctx.set("svc_action_msg", "salvando…");
         ctx.set("svc_action_color", "#8B949E");
         ctx.perform(super::net::run_spec_op(
-            self.addr.clone(),
-            self.token.clone(),
+            self.client.clone(),
             self.selected_service.clone(),
             op,
         ));
@@ -276,6 +277,7 @@ impl Root {
         let tok = self.login_form.value("token").to_string();
         self.addr = normalize_url(&url);
         self.token = if tok.trim().is_empty() { None } else { Some(tok) };
+        self.client = super::net::RwpClient::new(self.addr.clone(), self.token.clone());
         self.active = true;
         self.seq += 1;
         ctx.set("error", "");
@@ -297,8 +299,7 @@ impl Root {
         if !id.is_empty() && !self.addr.is_empty() {
             ctx.set("proj_action_msg", "salvando…");
             ctx.perform(super::net::update_project(
-                self.addr.clone(),
-                self.token.clone(),
+                self.client.clone(),
                 id,
                 name,
                 desc,
@@ -331,8 +332,7 @@ impl Root {
         }
         ctx.set("proj_action_msg", "salvando…");
         ctx.perform(super::net::run_project_env_op(
-            self.addr.clone(),
-            self.token.clone(),
+            self.client.clone(),
             pid,
             op,
         ));
@@ -548,8 +548,7 @@ impl Root {
         if let Some(spec) = spec {
             ctx.set("ns_msg", "criando…");
             ctx.perform(super::net::create_service(
-                self.addr.clone(),
-                self.token.clone(),
+                self.client.clone(),
                 spec,
             ));
         }
@@ -572,8 +571,7 @@ impl Root {
         }
         ctx.set("settings_msg", "salvando…");
         ctx.perform(super::net::save_settings(
-            self.addr.clone(),
-            self.token.clone(),
+            self.client.clone(),
             domain,
             email,
         ));
@@ -596,8 +594,7 @@ impl Root {
         }
         ctx.set("gp_msg", "conectando…");
         ctx.perform(super::net::git_provider_connect(
-            self.addr.clone(),
-            self.token.clone(),
+            self.client.clone(),
             name, base_url, mode, client_id, client_secret, pat,
         ));
     }
@@ -616,8 +613,7 @@ impl Root {
         }
         let search = ctx.get("search").cloned().unwrap_or_default();
         ctx.perform(super::net::create_project(
-            self.addr.clone(),
-            self.token.clone(),
+            self.client.clone(),
             name,
             desc,
             search,
@@ -975,7 +971,7 @@ impl Component for Root {
             "do_stop_all" => {
                 if !self.addr.is_empty() {
                     ctx.set("status_line", "parando todos…");
-                    ctx.perform(super::net::stop_all(self.addr.clone(), self.token.clone()));
+                    ctx.perform(super::net::stop_all(self.client.clone()));
                 }
             }
             // Topbar search: filters deployments/services/Docker rows. The
@@ -1018,7 +1014,7 @@ impl Component for Root {
                 if !self.addr.is_empty() {
                     let all = ctx.get("docker_prune_all_images").map(|v| v == "true").unwrap_or(false);
                     ctx.set("docker_msg", if all { "removendo TODAS as imagens sem uso…" } else { "removendo imagens dangling…" });
-                    ctx.perform(super::net::prune_docker_images(self.addr.clone(), self.token.clone(), all));
+                    ctx.perform(super::net::prune_docker_images(self.client.clone(), all));
                 }
             }
             "docker_prune_volumes" => {
@@ -1035,7 +1031,7 @@ impl Component for Root {
                 if !self.addr.is_empty() {
                     let all = ctx.get("docker_prune_all_volumes").map(|v| v == "true").unwrap_or(false);
                     ctx.set("docker_msg", "removendo volumes sem uso…");
-                    ctx.perform(super::net::prune_docker_volumes(self.addr.clone(), self.token.clone(), all));
+                    ctx.perform(super::net::prune_docker_volumes(self.client.clone(), all));
                 }
             }
             "docker_prune_networks" => {
@@ -1051,7 +1047,7 @@ impl Component for Root {
             "do_docker_prune_networks" => {
                 if !self.addr.is_empty() {
                     ctx.set("docker_msg", "removendo redes sem uso…");
-                    ctx.perform(super::net::prune_docker_networks(self.addr.clone(), self.token.clone()));
+                    ctx.perform(super::net::prune_docker_networks(self.client.clone()));
                 }
             }
             // Settings (daemon web server) fields + save.
@@ -1173,8 +1169,7 @@ impl Component for Root {
                     if !self.addr.is_empty() && !id.is_empty() {
                         ctx.set("gitea_msg", "carregando repositórios…");
                         ctx.perform(super::net::fetch_git_repos(
-                            self.addr.clone(),
-                            self.token.clone(),
+                            self.client.clone(),
                             id.to_string(),
                         ));
                     }
@@ -1198,8 +1193,7 @@ impl Component for Root {
                     if !self.addr.is_empty() && !pid.is_empty() {
                         ctx.set("gitea_msg", "carregando branches…");
                         ctx.perform(super::net::fetch_git_branches(
-                            self.addr.clone(),
-                            self.token.clone(),
+                            self.client.clone(),
                             pid,
                             full_name.to_string(),
                         ));
@@ -1211,8 +1205,7 @@ impl Component for Root {
             "gp_refresh" => {
                 if !self.addr.is_empty() {
                     ctx.perform(super::net::git_providers_only(
-                        self.addr.clone(),
-                        self.token.clone(),
+                        self.client.clone(),
                     ));
                 }
             }
@@ -1277,16 +1270,14 @@ impl Component for Root {
                         ctx.set("svc_deploy_running", "false");
                         ctx.set("svc_deploy_elapsed", "");
                     }
-                    let (addr, token, sid) =
-                        (self.addr.clone(), self.token.clone(), id.to_string());
-                    if !addr.is_empty() {
+                    let sid = id.to_string();
+                    if !self.addr.is_empty() {
                         // One-shot load of everything the detail needs — including
                         // the Gitea provider/repo/branch lists — written through to
                         // `detail_cache` so the next open of this service is instant.
                         ctx.perform(super::net::fetch_service_detail_cached(
                             self.detail_cache.clone(),
-                            addr.clone(),
-                            token.clone(),
+                            self.client.clone(),
                             sid,
                         ));
                     }
@@ -1327,8 +1318,7 @@ impl Component for Root {
                     if !self.addr.is_empty() {
                         ctx.perform(super::net::fetch_project_services_cached(
                             self.detail_cache.clone(),
-                            self.addr.clone(),
-                            self.token.clone(),
+                            self.client.clone(),
                             id.to_string(),
                         ));
                     }
@@ -1372,8 +1362,7 @@ impl Component for Root {
                         ctx.set("proj_action_msg", "enviando…");
                         let pid = ctx.get("selected_project_id").cloned().unwrap_or_default();
                         ctx.perform(super::net::run_project_service_action(
-                            self.addr.clone(),
-                            self.token.clone(),
+                            self.client.clone(),
                             shared::Command::ServiceStop { service_id: id.to_string() },
                             pid,
                         ));
@@ -1397,8 +1386,7 @@ impl Component for Root {
                         ctx.set("proj_action_msg", "removendo…");
                         let search = ctx.get("search").cloned().unwrap_or_default();
                         ctx.perform(super::net::delete_project(
-                            self.addr.clone(),
-                            self.token.clone(),
+                            self.client.clone(),
                             id.to_string(),
                             search,
                         ));
@@ -1419,8 +1407,7 @@ impl Component for Root {
                         ctx.set("proj_action_msg", "removendo…");
                         let pid = ctx.get("selected_project_id").cloned().unwrap_or_default();
                         ctx.perform(super::net::stop_and_delete_service(
-                            self.addr.clone(),
-                            self.token.clone(),
+                            self.client.clone(),
                             id.to_string(),
                             pid,
                         ));
@@ -1450,8 +1437,7 @@ impl Component for Root {
                         }
                         ctx.set("svc_action_msg", "removendo…");
                         ctx.perform(super::net::delete_deployment(
-                            self.addr.clone(),
-                            self.token.clone(),
+                            self.client.clone(),
                             self.selected_service.clone(),
                             id.to_string(),
                         ));
@@ -1485,8 +1471,7 @@ impl Component for Root {
                     }
                     if !self.addr.is_empty() {
                         ctx.perform(super::net::fetch_build_logs(
-                            self.addr.clone(),
-                            self.token.clone(),
+                            self.client.clone(),
                             id.to_string(),
                         ));
                     }
@@ -1505,8 +1490,7 @@ impl Component for Root {
                         {
                             ctx.set("gitea_msg", "carregando repositórios…");
                             ctx.perform(super::net::fetch_git_repos(
-                                self.addr.clone(),
-                                self.token.clone(),
+                                self.client.clone(),
                                 pid,
                             ));
                         }
@@ -1543,8 +1527,7 @@ impl Component for Root {
                     if !self.addr.is_empty() {
                         ctx.set("gp_msg", "removendo…");
                         ctx.perform(super::net::git_provider_delete(
-                            self.addr.clone(),
-                            self.token.clone(),
+                            self.client.clone(),
                             id.to_string(),
                         ));
                     }
@@ -1691,8 +1674,7 @@ impl Component for Root {
         if self.active && !self.addr.is_empty() {
             let key = PollKey {
                 seq: self.seq,
-                addr: self.addr.clone(),
-                token: self.token.clone(),
+                client: self.client.clone(),
                 selected: self.selected_shared.clone(),
                 selected_deploy: self.selected_deploy_shared.clone(),
                 deploy_track: self.deploy_shared.clone(),
@@ -1702,8 +1684,7 @@ impl Component for Root {
             };
             iced::Subscription::run_with(key, |k: &PollKey| {
                 super::net::poll_stream(
-                    k.addr.clone(),
-                    k.token.clone(),
+                    k.client.clone(),
                     k.selected.clone(),
                     k.selected_deploy.clone(),
                     k.deploy_track.clone(),
