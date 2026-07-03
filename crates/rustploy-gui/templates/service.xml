@@ -17,7 +17,13 @@
           <Text class="badge_lbl" color="#58A6FF" content="{svc_deploy_elapsed}" />
         </Row>
       </Row>
-      <Text if="{svc_action_msg}" not_equals="" class="muted" color="{svc_action_color}" content="{svc_action_msg}" />
+      <Text
+        if="{svc_action_msg}"
+        not_equals=""
+        class="muted"
+        color="{svc_action_color}"
+        content="{svc_action_msg}"
+      />
     </Column>
     <Row class="svc_actions">
       <Button class="btn_primary" onClick="svc_deploy" text="Deploy" />
@@ -29,14 +35,54 @@
 
   <!-- ── Abas ─────────────────────────────────────────────────────────── -->
   <Row class="tabs">
-    <TabButton label="General" current="{tab}" target="general" action="tab:general" />
-    <TabButton label="Connection" current="{tab}" target="connection" action="tab:connection" />
-    <TabButton label="Environment" current="{tab}" target="environment" action="tab:environment" />
-    <TabButton label="Domains" current="{tab}" target="domains" action="tab:domains" />
-    <TabButton label="Deployments" current="{tab}" target="deployments" action="tab:deployments" />
-    <TabButton label="Healthcheck" current="{tab}" target="healthcheck" action="tab:healthcheck" />
-    <TabButton label="Logs" current="{tab}" target="logs" action="tab:logs" />
-    <TabButton label="Advanced" current="{tab}" target="advanced" action="tab:advanced" />
+    <TabButton
+      label="General"
+      current="{tab}"
+      target="general"
+      action="tab:general"
+    />
+    <TabButton
+      label="Connection"
+      current="{tab}"
+      target="connection"
+      action="tab:connection"
+    />
+    <TabButton
+      label="Environment"
+      current="{tab}"
+      target="environment"
+      action="tab:environment"
+    />
+    <TabButton
+      label="Domains"
+      current="{tab}"
+      target="domains"
+      action="tab:domains"
+    />
+    <TabButton
+      label="Deployments"
+      current="{tab}"
+      target="deployments"
+      action="tab:deployments"
+    />
+    <TabButton
+      label="Healthcheck"
+      current="{tab}"
+      target="healthcheck"
+      action="tab:healthcheck"
+    />
+    <TabButton
+      label="Logs"
+      current="{tab}"
+      target="logs"
+      action="tab:logs"
+    />
+    <TabButton
+      label="Advanced"
+      current="{tab}"
+      target="advanced"
+      action="tab:advanced"
+    />
   </Row>
 
   <Rule />

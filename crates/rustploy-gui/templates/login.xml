@@ -50,8 +50,16 @@
 
       <Column class="login_checks">
 
-        <Checkbox checked="remember_url" onToggle="toggle_remember_url" label="Remember server" />
-        <Checkbox checked="remember_token" onToggle="toggle_remember_token" label="Remember token" />
+        <Checkbox
+          checked="remember_url"
+          onToggle="toggle_remember_url"
+          label="Remember server"
+        />
+        <Checkbox
+          checked="remember_token"
+          onToggle="toggle_remember_token"
+          label="Remember token"
+        />
 
       </Column>
 

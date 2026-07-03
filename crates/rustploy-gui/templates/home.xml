@@ -28,7 +28,12 @@
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
       </if>
-      <Scrollable if="{data_loading}" not_equals="true" direction="vertical" class="scroll_fill">
+      <Scrollable
+        if="{data_loading}"
+        not_equals="true"
+        direction="vertical"
+        class="scroll_fill"
+      >
         <Column class="table_body">
           <Column class="row_wrap" for-each="monitoring" var="m">
             <Row class="trow">
@@ -67,7 +72,12 @@
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
       </if>
-      <Scrollable if="{data_loading}" not_equals="true" direction="vertical" class="scroll_fill">
+      <Scrollable
+        if="{data_loading}"
+        not_equals="true"
+        direction="vertical"
+        class="scroll_fill"
+      >
         <Column class="table_body">
           <ForEach items="ingress" var="i">
             <Column class="row_wrap">
@@ -92,7 +102,10 @@
     <Row class="header_row">
       <Column class="header_titles">
         <Text class="title" content="Deploy Engine" />
-        <Text class="subtitle" content="Pipeline de deploy: em andamento e histórico recente." />
+        <Text
+          class="subtitle"
+          content="Pipeline de deploy: em andamento e histórico recente."
+        />
       </Column>
       <Row class="stats_row">
         <StatCard label="ATIVOS" value="{eng_active_count}" accent="1" />
@@ -117,22 +130,32 @@
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
       </if>
-      <Scrollable if="{data_loading}" not_equals="true" direction="vertical" class="scroll_fill">
+      <Scrollable
+        if="{data_loading}"
+        not_equals="true"
+        direction="vertical"
+        class="scroll_fill"
+      >
         <Column class="table_body">
-          <Text if="{eng_active_count}" equals="0" class="muted" content="Nenhum deploy em andamento." />
-          <ForEach items="eng_active" var="a">
-            <Column class="row_wrap">
-              <Row class="trow">
-                <Text class="td_key col_svc" content="{a.service}" />
-                <Text class="td col_proj" content="{a.project}" />
-                <StateCell color="{a.state_color}" label="{a.state_label}" />
-                <Text class="td col_dur" content="{a.bar} {a.percent}" />
-                <Text class="muted col_dur" content="{a.total}" />
-                <Text class="muted col_start" content="{a.phase}" />
-              </Row>
-              <Rule />
-            </Column>
-          </ForEach>
+          <Text
+            if="{eng_active_count}"
+            equals="0"
+            class="muted"
+            content="Nenhum deploy em andamento."
+          />
+
+          <Column class="row_wrap" for-each="eng_active" var="a">
+            <Row class="trow">
+              <Text class="td_key col_svc" content="{a.service}" />
+              <Text class="td col_proj" content="{a.project}" />
+              <StateCell color="{a.state_color}" label="{a.state_label}" />
+              <Text class="td col_dur" content="{a.bar} {a.percent}" />
+              <Text class="muted col_dur" content="{a.total}" />
+              <Text class="muted col_start" content="{a.phase}" />
+            </Row>
+            <Rule />
+          </Column>
+
         </Column>
       </Scrollable>
 
@@ -146,22 +169,30 @@
         <Text class="th col_dur" content="DURAÇÃO" />
         <Text class="th col_start" content="INÍCIO" />
       </Row>
-      <Scrollable if="{data_loading}" not_equals="true" direction="vertical" class="scroll_fill">
+      <Scrollable
+        if="{data_loading}"
+        not_equals="true"
+        direction="vertical"
+        class="scroll_fill"
+      >
         <Column class="table_body">
-          <Text if="{eng_recent_count}" equals="0" class="muted" content="Nenhum deploy concluído nas últimas 24h." />
-          <ForEach items="eng_recent" var="r">
-            <Column class="row_wrap">
-              <Row class="trow">
-                <Text class="td col_icon" content="{r.icon}" />
-                <Text class="td_key col_svc" content="{r.service}" />
-                <Text class="td col_proj" content="{r.project}" />
-                <StateCell color="{r.state_color}" label="{r.state_label}" />
-                <Text class="muted col_dur" content="{r.duration}" />
-                <Text class="muted col_start" content="{r.start}" />
-              </Row>
-              <Rule />
-            </Column>
-          </ForEach>
+          <Text
+            if="{eng_recent_count}"
+            equals="0"
+            class="muted"
+            content="Nenhum deploy concluído nas últimas 24h."
+          />
+          <Column class="row_wrap" for-each="eng_recent" var="r">
+            <Row class="trow">
+              <Text class="td col_icon" content="{r.icon}" />
+              <Text class="td_key col_svc" content="{r.service}" />
+              <Text class="td col_proj" content="{r.project}" />
+              <StateCell color="{r.state_color}" label="{r.state_label}" />
+              <Text class="muted col_dur" content="{r.duration}" />
+              <Text class="muted col_start" content="{r.start}" />
+            </Row>
+            <Rule />
+          </Column>
         </Column>
       </Scrollable>
     </Column>
@@ -176,7 +207,10 @@
     <Row class="header_row">
       <Column class="header_titles">
         <Text class="title" content="Docker" />
-        <Text class="subtitle" content="Containers, imagens, volumes e networks do host." />
+        <Text
+          class="subtitle"
+          content="Containers, imagens, volumes e networks do host."
+        />
       </Column>
       <Row class="stats_row">
         <StatCard label="IMAGENS" value="{docker_images_count}" />
@@ -186,10 +220,30 @@
     </Row>
 
     <Row class="tabs">
-      <TabButton label="Containers" current="{docker_tab}" target="containers" action="docker_tab:containers" />
-      <TabButton label="Images" current="{docker_tab}" target="images" action="docker_tab:images" />
-      <TabButton label="Volumes" current="{docker_tab}" target="volumes" action="docker_tab:volumes" />
-      <TabButton label="Networks" current="{docker_tab}" target="networks" action="docker_tab:networks" />
+      <TabButton
+        label="Containers"
+        current="{docker_tab}"
+        target="containers"
+        action="docker_tab:containers"
+      />
+      <TabButton
+        label="Images"
+        current="{docker_tab}"
+        target="images"
+        action="docker_tab:images"
+      />
+      <TabButton
+        label="Volumes"
+        current="{docker_tab}"
+        target="volumes"
+        action="docker_tab:volumes"
+      />
+      <TabButton
+        label="Networks"
+        current="{docker_tab}"
+        target="networks"
+        action="docker_tab:networks"
+      />
     </Row>
     <Rule />
 
@@ -205,7 +259,12 @@
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
       </if>
-      <Scrollable if="{data_loading}" not_equals="true" direction="vertical" class="scroll_fill">
+      <Scrollable
+        if="{data_loading}"
+        not_equals="true"
+        direction="vertical"
+        class="scroll_fill"
+      >
         <Column class="table_body">
           <ForEach items="docker_rows" var="c">
             <Column class="row_wrap">
@@ -227,8 +286,16 @@
     <Column class="panel_fill" if="{docker_tab}" equals="images">
       <Row class="env_head">
         <Text class="muted_fill" content="{docker_images_count} imagem(ns)" />
-        <Checkbox checked="docker_images_only_used" onToggle="field:docker_images_only_used" label="Somente em uso" />
-        <Checkbox checked="docker_prune_all_images" onToggle="field:docker_prune_all_images" label="-a (limpar tudo, não só dangling)" />
+        <Checkbox
+          checked="docker_images_only_used"
+          onToggle="field:docker_images_only_used"
+          label="Somente em uso"
+        />
+        <Checkbox
+          checked="docker_prune_all_images"
+          onToggle="field:docker_prune_all_images"
+          label="-a (limpar tudo, não só dangling)"
+        />
         <Button class="btn_danger" onClick="docker_prune_images" text="Limpar sem uso" />
       </Row>
       <Text if="{docker_msg}" not_equals="" class="muted" text="{docker_msg}" />
@@ -247,7 +314,13 @@
           <!-- Sub-aba já vem ordenada por tag (docker_images_json); o checkbox
                "Somente em uso" só esconde as linhas SEM USO, sem round-trip. -->
           <if cond="{docker_images_only_used}" equals="true">
-            <Column class="row_wrap" for-each="docker_images" var="i" if="{i.in_use_label}" equals="EM USO">
+            <Column
+              class="row_wrap"
+              for-each="docker_images"
+              var="i"
+              if="{i.in_use_label}"
+              equals="EM USO"
+            >
               <Row class="trow">
                 <Text class="td_key col_svc" content="{i.tags}" />
                 <Text class="td col_proj" content="{i.project} / {i.service}" />
@@ -277,10 +350,25 @@
          sempre externos ao Rustploy (criados manualmente ou por VOLUME da imagem). -->
     <Column class="panel_fill" if="{docker_tab}" equals="volumes">
       <Row class="env_head">
-        <Text class="muted_fill" content="{docker_volumes_count} volume(s)" />
-        <Checkbox checked="docker_volumes_only_used" onToggle="field:docker_volumes_only_used" label="Somente em uso" />
-        <Checkbox checked="docker_prune_all_volumes" onToggle="field:docker_prune_all_volumes" label="-a (limpar tudo, não só anônimos)" />
-        <Button class="btn_danger" onClick="docker_prune_volumes" text="Limpar sem uso" />
+        <Text
+          class="muted_fill"
+          content="{docker_volumes_count} volume(s)"
+        />
+        <Checkbox
+          checked="docker_volumes_only_used"
+          onToggle="field:docker_volumes_only_used"
+          label="Somente em uso"
+        />
+        <Checkbox
+          checked="docker_prune_all_volumes"
+          onToggle="field:docker_prune_all_volumes"
+          label="-a (limpar tudo, não só anônimos)"
+        />
+        <Button
+          class="btn_danger"
+          onClick="docker_prune_volumes"
+          text="Limpar sem uso"
+        />
       </Row>
       <Text if="{docker_msg}" not_equals="" class="muted" content="{docker_msg}" />
       <Row class="thead">
@@ -292,7 +380,12 @@
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
       </if>
-      <Scrollable if="{data_loading}" not_equals="true" direction="vertical" class="scroll_fill">
+      <Scrollable
+        if="{data_loading}"
+        not_equals="true"
+        direction="vertical"
+        class="scroll_fill"
+      >
         <Column class="table_body">
           <if cond="{docker_volumes_only_used}" equals="true">
             <ForEach items="docker_volumes" var="v">
@@ -325,8 +418,16 @@
     <Column class="panel_fill" if="{docker_tab}" equals="networks">
       <Row class="env_head">
         <Text class="muted_fill" content="{docker_networks_count} network(s)" />
-        <Checkbox checked="docker_networks_only_used" onToggle="field:docker_networks_only_used" label="Somente em uso" />
-        <Button class="btn_danger" onClick="docker_prune_networks" text="Limpar sem uso" />
+        <Checkbox
+          checked="docker_networks_only_used"
+          onToggle="field:docker_networks_only_used"
+          label="Somente em uso"
+        />
+        <Button
+          class="btn_danger"
+          onClick="docker_prune_networks"
+          text="Limpar sem uso"
+        />
       </Row>
       <Text if="{docker_msg}" not_equals="" class="muted" content="{docker_msg}" />
       <Row class="thead">
@@ -382,8 +483,18 @@
       </Column>
     </Row>
     <Row class="tabs">
-      <TabButton label="Web Server" current="{settings_tab}" target="web" action="settings_tab:web" />
-      <TabButton label="Git" current="{settings_tab}" target="git" action="settings_tab:git" />
+      <TabButton
+        label="Web Server"
+        current="{settings_tab}"
+        target="web"
+        action="settings_tab:web"
+      />
+      <TabButton
+        label="Git"
+        current="{settings_tab}"
+        target="git"
+        action="settings_tab:git"
+      />
     </Row>
     <Rule />
 
@@ -392,18 +503,36 @@
       <Form name="settings" onSubmit="settings_save" width="fill">
         <Column class="form_panel">
           <Text class="label_cap" content="DOMÍNIO / URL BASE" />
-          <TextInput placeholder="https://rustploy.meusite.com"
-                     class="field_input"
-                     formControl="ss_domain" />
+          <TextInput
+            placeholder="https://rustploy.meusite.com"
+            class="field_input"
+            formControl="ss_domain"
+          />
 
-          <Text class="muted" content="Base das URLs de webhook dos serviços e do callback OAuth." />
-          <Text class="label_cap" content="E-MAIL LET'S ENCRYPT (HTTPS AUTOMÁTICO)" />
-          <TextInput placeholder="voce@exemplo.com"
-                     class="field_input"
-                     formControl="ss_email" />
+          <Text
+            class="muted"
+            content="Base das URLs de webhook dos serviços e do callback OAuth."
+          />
+          <Text
+            class="label_cap"
+            content="E-MAIL LET'S ENCRYPT (HTTPS AUTOMÁTICO)"
+          />
+          <TextInput
+            placeholder="voce@exemplo.com"
+            class="field_input"
+            formControl="ss_email"
+          />
 
-          <Text if="{erro_ss_email}" notEquals="" class="err" content="{erro_ss_email}" />
-          <Text class="muted" content="Certificados TLS emitidos automaticamente. Requer restart do daemon." />
+          <Text
+            if="{erro_ss_email}"
+            notEquals=""
+            class="err"
+            content="{erro_ss_email}"
+          />
+          <Text
+            class="muted"
+            content="Certificados TLS emitidos automaticamente. Requer restart do daemon."
+          />
 
           <Row class="env_add">
             <Button class="btn_primary" onClick="settings_save" text="Save" />
@@ -418,14 +547,21 @@
       <Scrollable direction="vertical" class="scroll_fill">
         <Column class="form_panel">
           <Text class="label_cap" content="CONTAS CONECTADAS ({gitea_count})" />
-          <Text if="{gitea_count}" equals="0" class="muted" content="Nenhuma conta Gitea conectada ainda." />
+          <Text
+            if="{gitea_count}"
+            equals="0"
+            class="muted"
+            content="Nenhuma conta Gitea conectada ainda."
+          />
 
           <Column class="kv_list">
             <ForEach items="gitea_providers" var="p">
               <Row class="kv_row">
                 <Column class="header_titles">
                   <Text class="env_key" content="{p.name}" />
-                  <Text class="muted" content="{p.base_url}  ·  {p.auth_mode}  ·  {p.account}" />
+                  <Text
+                    class="muted" content="{p.base_url}  ·  {p.auth_mode}  ·  {p.account}"
+                  />
                 </Column>
                 <Button class="btn_danger" onClick="gp_delete:{p.id}" text="Remover" />
               </Row>
@@ -440,65 +576,91 @@
             <Row class="hc_grid">
               <Column class="hc_field">
                 <Text class="label_cap" content="NOME" />
-                <TextInput placeholder="Meu Gitea"
-                           class="field_input"
-                           formControl="gp_name"
-                           value="gp_name"
-                           onChange="field:gp_name" />
+                <TextInput
+                  placeholder="Meu Gitea"
+                  class="field_input"
+                  formControl="gp_name"
+                  value="gp_name"
+                  onChange="field:gp_name"
+                />
                 <Text if="{erro_gp_name}" notEquals="" class="err" content="{erro_gp_name}" />
               </Column>
               <Column class="hc_field">
                 <Text class="label_cap" content="BASE URL" />
-                <TextInput placeholder="https://gitea.exemplo.com"
-                           class="field_input"
-                           formControl="gp_base_url"
-                           value="gp_base_url"
-                           onChange="field:gp_base_url" />
+                <TextInput
+                  placeholder="https://gitea.exemplo.com"
+                  class="field_input"
+                  formControl="gp_base_url"
+                  value="gp_base_url"
+                  onChange="field:gp_base_url"
+                />
               </Column>
             </Row>
 
             <Text class="label_cap" content="MÉTODO" />
             <Row class="tabs">
-              <TabButton label="OAuth2" current="{gp_mode}" target="oauth" action="gp_mode:oauth" />
-              <TabButton label="Token (PAT)" current="{gp_mode}" target="pat" action="gp_mode:pat" />
+              <TabButton
+                label="OAuth2"
+                current="{gp_mode}"
+                target="oauth"
+                action="gp_mode:oauth"
+              />
+              <TabButton
+                label="Token (PAT)"
+                current="{gp_mode}"
+                target="pat"
+                action="gp_mode:pat"
+              />
             </Row>
 
             <!-- OAuth2 -->
             <if cond="{gp_mode}" not_equals="pat">
               <Text class="label_cap" content="CLIENT ID" />
-              <TextInput placeholder=""
-                         class="field_input"
-                         formControl="gp_client_id"
-                         value="gp_client_id"
-                         onChange="field:gp_client_id" />
+              <TextInput
+                placeholder=""
+                class="field_input"
+                formControl="gp_client_id"
+                value="gp_client_id"
+                onChange="field:gp_client_id"
+              />
 
               <Text class="label_cap" content="CLIENT SECRET" />
-              <TextInput placeholder=""
-                         secure="true"
-                         class="field_input"
-                         formControl="gp_client_secret"
-                         value="gp_client_secret"
-                         onChange="field:gp_client_secret" />
+              <TextInput
+                placeholder=""
+                secure="true"
+                class="field_input"
+                formControl="gp_client_secret"
+                value="gp_client_secret"
+                onChange="field:gp_client_secret"
+              />
 
               <Text class="label_cap" content="REDIRECT URI (cole no app OAuth do Gitea)" />
               <Row class="kv_row">
                 <Text class="kv_val_fill" content="{gp_redirect}" />
                 <Button class="copy_btn" onClick="clipboard:gp_redirect" text="Copiar" />
               </Row>
-              <Text class="muted" content="No Gitea: Settings → Applications → crie um OAuth2 app e cole a Redirect URI acima." />
+              <Text
+                class="muted"
+                content="No Gitea: Settings → Applications → crie um OAuth2 app e cole a Redirect URI acima."
+              />
             </if>
 
             <!-- PAT -->
             <if cond="{gp_mode}" equals="pat">
               <Text class="label_cap" content="PERSONAL ACCESS TOKEN" />
-              <TextInput placeholder=""
-                         secure="true"
-                         class="field_input"
-                         formControl="gp_pat"
-                         value="gp_pat"
-                         onChange="field:gp_pat" />
+              <TextInput
+                placeholder=""
+                secure="true"
+                class="field_input"
+                formControl="gp_pat"
+                value="gp_pat"
+                onChange="field:gp_pat"
+              />
 
-              <Text class="muted" content="No Gitea: Settings → Applications → Generate New Token (escopo: repo)." />
+              <Text
+                class="muted"
+                content="No Gitea: Settings → Applications → Generate New Token (escopo: repo)."
+              />
             </if>
 
             <Row class="env_add">

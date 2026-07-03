@@ -38,7 +38,12 @@
   <Column class="main_col">
     <!-- Top bar -->
     <Row class="topbar">
-      <TextInput class="search" value="search" onChange="search_changed" placeholder="Search deployments, nodes…" />
+      <TextInput
+        class="search"
+        value="search"
+        onChange="search_changed"
+        placeholder="Search deployments, nodes…"
+      />
       <Text class="muted" content="● rwp · daemon v{daemon_version}" />
       <Button class="btn_danger" onClick="stop_all" text="Stop All" />
       <Button class="btn_ghost" onClick="disconnect" text="Disconnect" />
@@ -70,7 +75,12 @@
             <LoadingRow />
           </if>
           
-          <Scrollable if="{data_loading}" not_equals="true" direction="vertical" class="scroll_fill">
+          <Scrollable
+            if="{data_loading}"
+            not_equals="true"
+            direction="vertical"
+            class="scroll_fill"
+          >
             <Column class="table_body">
               <Column class="row_wrap" for-each="deployments" var="d">
                 <Row class="trow">
@@ -95,7 +105,10 @@
           <Row class="header_row">
             <Column class="header_titles">
               <Text class="title" content="Projects" />
-              <Text class="subtitle" content="Projetos do cluster e a contagem de serviços de cada um." />
+              <Text
+                class="subtitle"
+                content="Projetos do cluster e a contagem de serviços de cada um."
+              />
             </Column>
             <Row class="stats_row">
               <StatCard label="SERVICES" value="{services_count}" />
@@ -104,9 +117,25 @@
           </Row>
           <Form name="new_project" onSubmit="create_project" width="fill">
             <Row class="env_add">
-              <TextInput class="env_in_key" formControl="new_proj_name" value="new_proj_name" onChange="field:new_proj_name" placeholder="Nome do projeto" />
-              <TextInput class="env_in_val" formControl="new_proj_desc" value="new_proj_desc" onChange="field:new_proj_desc" placeholder="Descrição (opcional)" />
-              <Button class="btn_primary" onClick="create_project" text="Criar projeto" />
+              <TextInput
+                class="env_in_key"
+                formControl="new_proj_name"
+                value="new_proj_name"
+                onChange="field:new_proj_name"
+                placeholder="Nome do projeto"
+              />
+              <TextInput
+                class="env_in_val"
+                formControl="new_proj_desc"
+                value="new_proj_desc"
+                onChange="field:new_proj_desc"
+                placeholder="Descrição (opcional)"
+              />
+              <Button
+                class="btn_primary"
+                onClick="create_project"
+                text="Criar projeto"
+              />
             </Row>
           </Form>
           
@@ -121,7 +150,12 @@
             <LoadingRow />
           </if>
           
-          <Scrollable if="{data_loading}" not_equals="true" direction="vertical" class="scroll_fill">
+          <Scrollable
+            if="{data_loading}"
+            not_equals="true"
+            direction="vertical"
+            class="scroll_fill"
+          >
             <Column class="grid">
               <ForEach items="project_rows" var="r">
                 <Row class="card_row">
@@ -150,15 +184,36 @@
               <Column class="header_titles">
                 <Button class="btn_ghost" onClick="nav_projects" text="‹ Projetos" />
                 <if cond="{editing_project}" equals="true">
-                  <Form name="edit_project" onSubmit="save_project_edit" spacing="6" width="fill">
-                    <TextInput class="field_input" formControl="edit_proj_name" placeholder="Nome do projeto" />
+                  <Form
+                    name="edit_project"
+                    onSubmit="save_project_edit"
+                    spacing="6"
+                    width="fill"
+                  >
+                    <TextInput
+                      class="field_input"
+                      formControl="edit_proj_name"
+                      placeholder="Nome do projeto"
+                    />
                     <if cond="{erro_edit_proj_name}" notEquals="">
                       <Text class="err" content="{erro_edit_proj_name}" />
                     </if>
-                    <TextInput class="field_input" formControl="edit_proj_desc" placeholder="Descrição (opcional)" />
+                    <TextInput
+                      class="field_input"
+                      formControl="edit_proj_desc"
+                      placeholder="Descrição (opcional)"
+                    />
                     <Row class="env_add">
-                      <Button class="btn_primary" onClick="save_project_edit" text="Salvar" />
-                      <Button class="btn_ghost" onClick="cancel_project_edit" text="Cancelar" />
+                      <Button
+                        class="btn_primary"
+                        onClick="save_project_edit"
+                        text="Salvar"
+                      />
+                      <Button
+                        class="btn_ghost"
+                        onClick="cancel_project_edit"
+                        text="Cancelar"
+                      />
                       <Text class="muted" content="{proj_action_msg}" />
                     </Row>
                   </Form>
@@ -167,10 +222,22 @@
                   <Text class="title" content="{proj_name}" />
                   <Text class="subtitle" content="{proj_description}" />
                   <Row class="env_add">
-                    <Button class="btn_primary" onClick="new_service_open" text="+ Novo serviço" />
-                    <Button class="btn_ghost" onClick="edit_project_toggle" text="Editar projeto" />
+                    <Button
+                      class="btn_primary"
+                      onClick="new_service_open"
+                      text="+ Novo serviço"
+                    />
+                    <Button
+                      class="btn_ghost"
+                      onClick="edit_project_toggle"
+                      text="Editar projeto"
+                    />
                     <if cond="{proj_can_delete}" equals="1">
-                      <Button class="btn_danger" onClick="delete_project:{selected_project_id}" text="Remover projeto" />
+                      <Button
+                        class="btn_danger"
+                        onClick="delete_project:{selected_project_id}"
+                        text="Remover projeto"
+                      />
                     </if>
                     <Text class="muted" content="{proj_action_msg}" />
                   </Row>
@@ -179,8 +246,18 @@
             </Row>
             <!-- Sub-abas do projeto -->
             <Row class="tabs">
-              <TabButton label="Serviços" current="{proj_tab}" target="services" action="proj_tab:services" />
-              <TabButton label="Variáveis ({proj_env_count})" current="{proj_tab}" target="env" action="proj_tab:env" />
+              <TabButton
+                label="Serviços"
+                current="{proj_tab}"
+                target="services"
+                action="proj_tab:services"
+              />
+              <TabButton
+                label="Variáveis ({proj_env_count})"
+                current="{proj_tab}"
+                target="env"
+                action="proj_tab:env"
+              />
             </Row>
             <Rule />
             <if cond="{proj_loading}" equals="true">
@@ -189,12 +266,27 @@
             <if cond="{proj_tab}" equals="env">
               <!-- ── Variáveis de ambiente do projeto ────────────────────── -->
               <Column class="env_wrap" if="{proj_loading}" not_equals="true">
-                <Text class="muted" content="Herdadas por todos os serviços deste projeto no deploy — as do serviço têm precedência." />
+                <Text
+                  class="muted"
+                  content="Herdadas por todos os serviços deste projeto no deploy — as do serviço têm precedência."
+                />
                 <Form name="penv_add" onSubmit="penv_add" width="fill">
                   <Row class="env_add">
-                    <TextInput class="env_in_key" formControl="penv_new_key" placeholder="KEY" />
-                    <TextInput class="env_in_val" formControl="penv_new_val" placeholder="value" />
-                    <Button class="btn_primary" onClick="penv_add" text="Adicionar" />
+                    <TextInput
+                      class="env_in_key"
+                      formControl="penv_new_key"
+                      placeholder="KEY"
+                    />
+                    <TextInput
+                      class="env_in_val"
+                      formControl="penv_new_val"
+                      placeholder="value"
+                    />
+                    <Button
+                      class="btn_primary"
+                      onClick="penv_add"
+                      text="Adicionar"
+                    />
                   </Row>
                 </Form>
                 <if cond="{erro_penv_new_key}" notEquals="">
@@ -202,11 +294,24 @@
                 </if>
                 <Scrollable direction="vertical" class="env_list_scroll">
                   <Column class="kv_list">
-                    <ForEach items="proj_env" var="e" onReorder="penv_reorder" reorderKey="key">
+                    <ForEach
+                      items="proj_env"
+                      var="e"
+                      onReorder="penv_reorder"
+                      reorderKey="key"
+                    >
                       <if cond="{e.__dragging}" equals="true">
                         <Row class="kv_row_drag">
-                          <Text class="env_drag_handle" dragHandle="true" cursor="grabbing" content="⋮ " />
-                          <Button class="env_del" onClick="penv_del:{e.key}" text="✕" />
+                          <Text
+                            class="env_drag_handle"
+                            dragHandle="true"
+                            cursor="grabbing" content="⋮ "
+                          />
+                          <Button
+                            class="env_del"
+                            onClick="penv_del:{e.key}"
+                            text="✕"
+                          />
                           <Text content=" " />
                           <Text class="env_key" content="{e.key}" />
                           <Text class="kv_val_fill" content="{e.value}" />
@@ -214,7 +319,12 @@
                       </if>
                       <else>
                         <Row class="kv_row">
-                          <Text class="env_drag_handle" dragHandle="true" cursor="grab" content="⋮ " />
+                          <Text
+                            class="env_drag_handle"
+                            dragHandle="true"
+                            cursor="grab"
+                            content="⋮ "
+                          />
                           <Button class="env_del" onClick="penv_del:{e.key}" text="✕" />
                           <Text content=" " />
                           <Text class="env_key" content="{e.key}" />
@@ -227,7 +337,12 @@
               </Column>
             </if>
             <else>
-              <Scrollable if="{proj_loading}" not_equals="true" direction="vertical" class="scroll_fill">
+              <Scrollable
+                if="{proj_loading}"
+                not_equals="true"
+                direction="vertical"
+                class="scroll_fill"
+              >
                 <Column class="grid">
                   <Row class="card_row" for-each="project_services" var="r">
                     <ServiceCard for-each="r.cards" var="c"
