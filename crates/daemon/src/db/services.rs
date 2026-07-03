@@ -50,6 +50,24 @@ const SELECT_COLS: &str =
     "id, name, project_id, spec, status, live_container_id, created_at, updated_at";
 
 pub async fn create(db: &Db, spec: ServiceSpec) -> Result<Service> {
+    // Unicidade: dois serviços não podem ter o mesmo nome (normalizado) no
+    // mesmo projeto — o nome vira o container/DNS `rp_<safe_name>` e o compose
+    // project name, então colidiriam. Comparamos por `normalize_name` para
+    // pegar também nomes diferentes que colapsam no mesmo safe_name
+    // (ex.: "my-api" e "my_api").
+    let new_safe = spec.safe_name();
+    let existing: Vec<(String,)> =
+        sqlx::query_as("SELECT name FROM service WHERE project_id = ?")
+            .bind(&spec.project_id)
+            .fetch_all(db)
+            .await?;
+    if existing.iter().any(|(n,)| shared::normalize_name(n) == new_safe) {
+        anyhow::bail!(
+            "já existe um serviço com o nome \"{}\" neste projeto",
+            spec.name
+        );
+    }
+
     let id = format!("svc_{}", Ulid::new());
     info!(id = %id, name = %spec.name, project_id = %spec.project_id, "db::services:
 :create");
@@ -100,6 +118,23 @@ pub async fn get(db: &Db, id: &str) -> Result<Option<Service>> {
 }
 
 pub async fn update_spec(db: &Db, id: &str, spec: ServiceSpec) -> Result<Option<Service>> {
+    // Mesma regra de unicidade de `create`, mas ignorando o próprio serviço:
+    // um rename não pode colidir (por nome normalizado) com outro serviço do
+    // mesmo projeto.
+    let new_safe = spec.safe_name();
+    let others: Vec<(String,)> =
+        sqlx::query_as("SELECT name FROM service WHERE project_id = ? AND id != ?")
+            .bind(&spec.project_id)
+            .bind(id)
+            .fetch_all(db)
+            .await?;
+    if others.iter().any(|(n,)| shared::normalize_name(n) == new_safe) {
+        anyhow::bail!(
+            "já existe um serviço com o nome \"{}\" neste projeto",
+            spec.name
+        );
+    }
+
     let spec_json = serde_json::to_string(&spec)?;
     let now = Utc::now();
     let rows_affected =
@@ -190,4 +225,71 @@ pub async fn list_all(db: &Db) -> Result<Vec<Service>> {
     .fetch_all(db)
     .await?;
     rows.into_iter().map(row_to_service).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use shared::{Healthcheck, ResourceLimits, ServiceSource};
+
+    fn spec(name: &str, project: &str) -> ServiceSpec {
+        ServiceSpec {
+            name: name.into(),
+            project_id: project.into(),
+            source: ServiceSource::Registry { image: "nginx:latest".into() },
+            port: 80,
+            host_port: None,
+            domain: None,
+            tls_enabled: false,
+            env_vars: vec![],
+            env_comments: vec![],
+            volumes: vec![],
+            healthcheck: Healthcheck::default(),
+            replicas: 1,
+            resources: ResourceLimits::default(),
+            run_command: None,
+            run_args: vec![],
+            db_kind: None,
+            domains: vec![],
+        }
+    }
+
+    async fn mem_db() -> Db {
+        let dir = std::env::temp_dir()
+            .join(format!("rustploy_test_{}", Ulid::new()));
+        super::super::connect(&dir).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn rejeita_nome_duplicado_no_mesmo_projeto() {
+        let db = mem_db().await;
+        create(&db, spec("api", "proj_a")).await.unwrap();
+        // Mesmo nome exato → erro.
+        assert!(create(&db, spec("api", "proj_a")).await.is_err());
+        // Nome que normaliza para o mesmo safe_name ("my-api" == "my_api") → erro.
+        create(&db, spec("my-api", "proj_a")).await.unwrap();
+        assert!(create(&db, spec("my_api", "proj_a")).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn permite_mesmo_nome_em_projetos_diferentes() {
+        let db = mem_db().await;
+        create(&db, spec("api", "proj_a")).await.unwrap();
+        // Projetos têm redes isoladas → sem colisão.
+        assert!(create(&db, spec("api", "proj_b")).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn rename_nao_pode_colidir_mas_permite_o_proprio_nome() {
+        let db = mem_db().await;
+        create(&db, spec("api", "proj_a")).await.unwrap();
+        let web = create(&db, spec("web", "proj_a")).await.unwrap();
+
+        // Renomear "web" → "api" (já existe) deve falhar.
+        assert!(update_spec(&db, &web.id, spec("api", "proj_a")).await.is_err());
+        // Renomear para um nome livre funciona.
+        assert!(update_spec(&db, &web.id, spec("web2", "proj_a")).await.unwrap().is_some());
+        // Regravar o próprio serviço com o mesmo nome (não é colisão) funciona.
+        assert!(update_spec(&db, &web.id, spec("web2", "proj_a")).await.unwrap().is_some());
+    }
 }

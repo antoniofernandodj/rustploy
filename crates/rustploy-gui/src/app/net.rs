@@ -327,6 +327,13 @@ async fn fetch_service_detail_inner(
         ServiceSource::Compose(_) => GeneralFields::default(),
     };
 
+    // Compose services edit their YAML directly in the General tab instead of
+    // the Git/Registry provider form.
+    let compose_content = match &spec.source {
+        ServiceSource::Compose(c) => c.content.clone(),
+        _ => String::new(),
+    };
+
     // Editable form fields (Domains / Healthcheck / Advanced) — empty when unset.
     // Source provider binding drives the General sub-tab (Git vs Gitea) and the
     // provider id carried through a Gitea-bound save.
@@ -396,6 +403,9 @@ async fn fetch_service_detail_inner(
         ("svc_status_color".into(), status_color.into()),
         ("svc_source_kind".into(), source_kind.into()),
         ("svc_source_detail".into(), source_detail),
+        // YAML do compose (vazio p/ Git/Registry) + cópia pristina p/ o Cancel.
+        ("svc_compose".into(), compose_content.clone()),
+        ("svc_compose_orig".into(), compose_content),
         ("svc_build".into(), build_engine),
         ("svc_port".into(), spec.port.to_string()),
         ("svc_host_port".into(), spec.host_port.map(|p| p.to_string()).unwrap_or_else(|| "—".into())),
@@ -519,6 +529,12 @@ async fn fetch_project_services_inner(
         ("proj_description".into(), proj.description.clone().unwrap_or_default()),
         ("proj_can_delete".into(), if count == 0 { "1" } else { "0" }.into()),
         ("project_services".into(), service_rows_json(&all, &HashMap::new(), "")),
+        // Nomes dos serviços do projeto — usados pelo wizard para pré-checar
+        // nome duplicado antes de mandar o ServiceCreate (o backend é a fonte
+        // autoritativa; isto é só feedback instantâneo).
+        ("proj_service_names".into(), serde_json::Value::Array(
+            all.iter().map(|(s, _)| serde_json::Value::String(s.spec.name.clone())).collect()
+        ).to_string()),
         // Aba "Variáveis" do projeto (herdadas por todos os serviços no deploy).
         ("proj_env".into(), env_json(&proj.env_vars)),
         ("proj_env_count".into(), proj.env_vars.len().to_string()),
@@ -928,6 +944,8 @@ pub enum SpecOp {
     DomainRemove { domain: String },
     /// Porta TCP crua exposta no host (passthrough). Vazio = sem porta.
     HostPort { host_port: String },
+    /// Substitui o YAML do compose de um serviço Compose.
+    Compose { content: String },
     Healthcheck {
         kind: String,
         http_path: String,
@@ -1015,6 +1033,13 @@ async fn apply_spec_op(
         }
         SpecOp::HostPort { host_port } => {
             spec.host_port = host_port.trim().parse::<u16>().ok();
+        }
+        SpecOp::Compose { content } => {
+            // Só faz sentido para serviços já Compose; ignora silenciosamente
+            // caso contrário (a UI só expõe o editor para Compose).
+            if matches!(spec.source, shared::ServiceSource::Compose(_)) {
+                spec.source = shared::ServiceSource::Compose(shared::ComposeSource { content });
+            }
         }
         SpecOp::Healthcheck { kind, http_path, expected_status, interval, timeout, retries, start_period } => {
             let cur = &spec.healthcheck;

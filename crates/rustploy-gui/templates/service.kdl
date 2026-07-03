@@ -67,6 +67,25 @@ Column class="content" {
 
           Form class="form_panel" if="{svc_loading}" not_equals="true" name="general" onSubmit="gen_save" {
 
+            // Serviços Compose (bancos/brokers) editam o YAML direto; não têm
+            // provider Git/Registry.
+            if cond="{svc_source_kind}" equals="Compose" {
+              Text "DOCKER COMPOSE (YAML)" class="label_cap"
+              Text "Edite o compose do serviço. Salvar aplica no próximo deploy." class="muted"
+              TextArea "services:\n  app:\n    image: …"
+                class="env_editor"
+                font=mono
+                value="svc_compose"
+              Row class="env_add" {
+                Button "Salvar compose" class="btn_primary" onClick="compose_save"
+                Button "Cancelar" class="btn_ghost" onClick="compose_cancel"
+                Text "{svc_action_msg}" class="muted"
+              }
+            }
+
+            // Provider Git/Gitea/Registry — apenas para serviços não-Compose.
+            if cond="{svc_source_kind}" not_equals="Compose" {
+
             Text "PROVIDER" class="label_cap"
             Row class="tabs" {
               TabButton label="Git" current="{prov_tab}" target="git" action="prov:git"
@@ -278,6 +297,7 @@ Column class="content" {
                 Button "Save" class="btn_primary" onClick="gen_save"
                 Text "{svc_action_msg}" class="muted"
               }
+            }
             }
           }
         }

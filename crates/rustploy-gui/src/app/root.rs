@@ -499,6 +499,22 @@ impl Root {
             g("ns_app_name").trim().to_string()
         };
 
+        // Pré-check de nome duplicado no projeto (o backend também valida — ver
+        // db::services::create). Compara por nome normalizado, que é o que vira
+        // o container/DNS `rp_<safe_name>`.
+        let new_safe = shared::normalize_name(&name);
+        let existing: Vec<String> = ctx
+            .get("proj_service_names")
+            .and_then(|s| serde_json::from_str::<Vec<String>>(s).ok())
+            .unwrap_or_default();
+        if existing.iter().any(|n| shared::normalize_name(n) == new_safe) {
+            ctx.set(
+                "ns_msg",
+                format!("já existe um serviço com o nome \"{name}\" neste projeto"),
+            );
+            return;
+        }
+
         let spec = match step.as_str() {
             "app_form" => Some(super::wizard::app_spec(name, project_id)),
             "compose_form" => Some(super::wizard::compose_spec(name, project_id)),
@@ -722,6 +738,12 @@ impl Root {
             },
         };
         self.spec_op(ctx, op);
+    }
+
+    /// Salva o YAML editado de um serviço Compose (`compose_save`).
+    fn submit_compose(&mut self, ctx: &mut Context) {
+        let content = ctx.get("svc_compose").cloned().unwrap_or_default();
+        self.spec_op(ctx, super::net::SpecOp::Compose { content });
     }
 }
 
@@ -1127,6 +1149,11 @@ impl Component for Root {
             "hc_save" => self.submit_healthcheck(ctx),
             "adv_save" => self.submit_advanced(ctx),
             "gen_save" => self.submit_general(ctx),
+            "compose_save" => self.submit_compose(ctx),
+            "compose_cancel" => {
+                let orig = ctx.get("svc_compose_orig").cloned().unwrap_or_default();
+                ctx.set("svc_compose", orig);
+            }
             // Gitea picker (Select-based): account → repos → branches.
             "gitea_provider_pick" => {
                 if let Some(id) = value {
@@ -1642,6 +1669,11 @@ impl Component for Root {
             "hc_save" => self.submit_healthcheck(ctx),
             "adv_save" => self.submit_advanced(ctx),
             "gen_save" => self.submit_general(ctx),
+            "compose_save" => self.submit_compose(ctx),
+            "compose_cancel" => {
+                let orig = ctx.get("svc_compose_orig").cloned().unwrap_or_default();
+                ctx.set("svc_compose", orig);
+            }
             _ => {}
         }
     }
