@@ -806,6 +806,15 @@ impl Component for Root {
         // Home screens (Monitoring / Ingress / Docker / Settings).
         ctx.set("ingress", "[]");
         ctx.set("ingress_count", "0");
+        // Deploy Engine.
+        ctx.set("eng_active", "[]");
+        ctx.set("eng_recent", "[]");
+        ctx.set("eng_active_count", "0");
+        ctx.set("eng_recent_count", "0");
+        ctx.set("eng_success_24h", "0");
+        ctx.set("eng_failed_24h", "0");
+        ctx.set("eng_total_24h", "0");
+        ctx.set("eng_uptime", "—");
         ctx.set("docker_rows", "[]");
         // Docker tab sub-tabs: Containers (docker_rows, above) / Images /
         // Volumes / Networks — the whole host's inventory, not just

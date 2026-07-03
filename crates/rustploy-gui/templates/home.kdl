@@ -85,6 +85,88 @@ Column class="content" {
     }
   }
 
+  // ── Deploy Engine ──────────────────────────────────────────────────
+  // KPIs + deploys em andamento + histórico das últimas 24h. Tudo vem do
+  // Command::DeployEngineStatus (ver eng_* em app/net.rs); sem backend novo.
+  if cond="{view}" equals="deploy_engine" {
+    Row class="header_row" {
+      Column class="header_titles" {
+        Text "Deploy Engine" class="title"
+        Text "Pipeline de deploy: em andamento e histórico recente." class="subtitle"
+      }
+      Row class="stats_row" {
+        StatCard label="ATIVOS" value="{eng_active_count}" accent="1"
+        StatCard label="SUCESSO 24H" value="{eng_success_24h}"
+        StatCard label="FALHAS 24H" value="{eng_failed_24h}"
+        StatCard label="TOTAL 24H" value="{eng_total_24h}"
+        StatCard label="UPTIME" value="{eng_uptime}"
+      }
+    }
+
+    // Executando agora
+    Column class="panel_fill" {
+      Text "EXECUTANDO AGORA ({eng_active_count})" class="label_cap"
+      Row class="thead" {
+        Text "SERVIÇO" class="th col_svc"
+        Text "PROJETO" class="th col_proj"
+        Text "ESTADO" class="th col_state"
+        Text "PROGRESSO" class="th col_dur"
+        Text "TOTAL" class="th col_dur"
+        Text "FASE" class="th col_start"
+      }
+      if cond="{data_loading}" equals="true" {
+        LoadingRow
+      }
+      Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
+        Column class="table_body" {
+          Text "Nenhum deploy em andamento." if="{eng_active_count}" equals="0" class="muted"
+          ForEach items="eng_active" var="a" {
+            Column class="row_wrap" {
+              Row class="trow" {
+                Text "{a.service}" class="td_key col_svc"
+                Text "{a.project}" class="td col_proj"
+                StateCell color="{a.state_color}" label="{a.state_label}"
+                Text "{a.bar} {a.percent}" class="td col_dur"
+                Text "{a.total}" class="muted col_dur"
+                Text "{a.phase}" class="muted col_start"
+              }
+              Rule
+            }
+          }
+        }
+      }
+
+      // Histórico 24h
+      Text "HISTÓRICO 24H ({eng_recent_count})" class="label_cap"
+      Row class="thead" {
+        Text "" class="th col_icon"
+        Text "SERVIÇO" class="th col_svc"
+        Text "PROJETO" class="th col_proj"
+        Text "ESTADO" class="th col_state"
+        Text "DURAÇÃO" class="th col_dur"
+        Text "INÍCIO" class="th col_start"
+      }
+      Scrollable if="{data_loading}" not_equals="true" direction=vertical class="scroll_fill" {
+        Column class="table_body" {
+          Text "Nenhum deploy concluído nas últimas 24h." if="{eng_recent_count}" equals="0" class="muted"
+          ForEach items="eng_recent" var="r" {
+            Column class="row_wrap" {
+              Row class="trow" {
+                Text "{r.icon}" class="td col_icon"
+                Text "{r.service}" class="td_key col_svc"
+                Text "{r.project}" class="td col_proj"
+                StateCell color="{r.state_color}" label="{r.state_label}"
+                Text "{r.duration}" class="muted col_dur"
+                Text "{r.start}" class="muted col_start"
+              }
+              Rule
+            }
+          }
+        }
+      }
+    }
+  }
+
   // ── Docker ─────────────────────────────────────────────────────────
   // Sub-abas Containers / Images / Volumes / Networks. As três últimas
   // listam TODO o host Docker (não só recursos geridos pelo Rustploy — ver

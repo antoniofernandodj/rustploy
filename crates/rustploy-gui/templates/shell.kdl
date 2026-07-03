@@ -24,6 +24,7 @@ Row class="screen" {
     Text "DEPLOYMENT OPS" class="nav_section"
 
     NavItem label="  Deployments" target="deployments" action="nav_deployments"
+    NavItem label="  Deploy Engine" target="deploy_engine" action="nav_deploy_engine"
     NavItem label="  Monitoring" target="monitoring" action="nav_monitoring"
     NavItem label="  Schedules" target="schedules" action="nav_schedules"
     NavItem label="  Ingress" target="ingress" action="nav_ingress"

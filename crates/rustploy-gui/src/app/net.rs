@@ -1894,6 +1894,20 @@ pub fn poll_stream(
                         pairs.push(("docker_networks_count".into(), list.len().to_string()));
                         docker_networks_raw = list;
                     }
+                    // Deploy Engine: KPIs + deploys ativos + histórico 24h
+                    // (não é filtrado pela busca — fica inline como o ingress).
+                    if let Ok(Response::DeployEngineStatus(eng)) =
+                        rwp::rpc(&mut cmd, Command::DeployEngineStatus).await
+                    {
+                        pairs.push(("eng_active_count".into(), eng.active.len().to_string()));
+                        pairs.push(("eng_success_24h".into(), eng.successful_24h.to_string()));
+                        pairs.push(("eng_failed_24h".into(), eng.failed_24h.to_string()));
+                        pairs.push(("eng_total_24h".into(), eng.total_24h.to_string()));
+                        pairs.push(("eng_uptime".into(), fmt_uptime(eng.uptime_secs)));
+                        pairs.push(("eng_active".into(), eng_active_json(&eng.active)));
+                        pairs.push(("eng_recent".into(), eng_recent_json(&eng.recent)));
+                        pairs.push(("eng_recent_count".into(), eng.recent.len().to_string()));
+                    }
 
                     // Publish the raw snapshot for the instant keystroke path,
                     // then build the filtered lists for this tick from it.
@@ -2077,6 +2091,59 @@ pub fn poll_stream(
 /// requirement, so a blank box shows everything.
 fn matches_search(term: &str, fields: &[&str]) -> bool {
     term.is_empty() || fields.iter().any(|f| f.to_lowercase().contains(term))
+}
+
+/// Barra de progresso em blocos (█ cheio / ░ vazio) para um percent 0–100.
+fn progress_bar(percent: u8, width: usize) -> String {
+    let filled = (percent as usize * width / 100).min(width);
+    format!("{}{}", "█".repeat(filled), "░".repeat(width - filled))
+}
+
+/// Linhas da seção "Executando agora" da aba Deploy Engine.
+fn eng_active_json(active: &[shared::ActiveDeployInfo]) -> String {
+    let rows: Vec<serde_json::Value> = active
+        .iter()
+        .map(|info| {
+            let (label, color) = state_label_color(&info.state);
+            serde_json::json!({
+                "service": info.service_name,
+                "project": info.project_name,
+                "state_label": label,
+                "state_color": color,
+                "percent": format!("{}%", info.percent),
+                "bar": progress_bar(info.percent, 12),
+                "total": fmt_secs(info.elapsed_secs),
+                "phase": fmt_secs(info.current_state_secs),
+                "service_id": info.service_id,
+            })
+        })
+        .collect();
+    serde_json::Value::Array(rows).to_string()
+}
+
+/// Linhas da seção "Histórico 24h" da aba Deploy Engine.
+fn eng_recent_json(recent: &[shared::ActiveDeployInfo]) -> String {
+    let rows: Vec<serde_json::Value> = recent
+        .iter()
+        .map(|info| {
+            let (label, color) = state_label_color(&info.state);
+            let icon = match info.state {
+                DeployState::Live => "✓",
+                DeployState::Failed => "✕",
+                _ => "○",
+            };
+            serde_json::json!({
+                "icon": icon,
+                "service": info.service_name,
+                "project": info.project_name,
+                "state_label": label,
+                "state_color": color,
+                "duration": fmt_secs(info.elapsed_secs),
+                "start": info.started_at.with_timezone(&Local).format("%H:%M:%S").to_string(),
+            })
+        })
+        .collect();
+    serde_json::Value::Array(rows).to_string()
 }
 
 fn deployments_json(list: &[DeploymentSummary], search: &str) -> String {
