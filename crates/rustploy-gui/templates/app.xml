@@ -10,9 +10,21 @@
 
   <!-- ── Top edge + top corners (north / nw / ne) ─────────────────────────── -->
   <Row class="rz_top">
-    <Column class="rz_corner" cursor="resize-nw" on_press="window:resize:nw" />
-    <Column class="rz_h" cursor="resize-v" on_press="window:resize:n" />
-    <Column class="rz_corner" cursor="resize-ne" on_press="window:resize:ne" />
+    <Column
+      class="rz_corner"
+      cursor="resize-nw"
+      on_press="window:resize:nw"
+    />
+    <Column
+      class="rz_h"
+      cursor="resize-v"
+      on_press="window:resize:n"
+    />
+    <Column
+      class="rz_corner"
+      cursor="resize-ne"
+      on_press="window:resize:ne"
+    />
   </Row>
 
   <!-- ── Middle band: left edge | body | right edge (west / east) ──────────── -->
@@ -24,13 +36,29 @@
         controls to the right edge. on_press/onClick window:* actions are
         handled in main.rs against the cached window id. -->
       <Row class="titlebar">
-        <Row class="titlebar_drag" on_press="window:drag" on_double_click="window:maximize">
+        <Row
+          class="titlebar_drag"
+          on_press="window:drag"
+          on_double_click="window:maximize"
+        >
           <Text class="titlebar_dot" content="●" />
           <Text class="titlebar_title" content="Rustploy" />
         </Row>
-        <Button class="win_btn" onClick="window:minimize" text="—" />
-        <Button class="win_btn" onClick="window:maximize" text="▢" />
-        <Button class="win_close" onClick="window:close" text="✕" />
+        <Button 
+          class="win_btn" 
+          onClick="window:minimize" 
+          text="—"
+        />
+        <Button 
+          class="win_btn" 
+          onClick="window:maximize" 
+          text="▢"
+        />
+        <Button 
+          class="win_close" 
+          onClick="window:close" 
+          text="✕"
+        />
       </Row>
 
       <if cond="{screen}" equals="login">
@@ -44,8 +72,20 @@
 
   <!-- ── Bottom edge + bottom corners (south / sw / se) ────────────────────── -->
   <Row class="rz_bottom">
-    <Column class="rz_corner" cursor="resize-sw" on_press="window:resize:sw" />
-    <Column class="rz_h" cursor="resize-v" on_press="window:resize:s" />
-    <Column class="rz_corner" cursor="resize-se" on_press="window:resize:se" />
+    <Column
+      class="rz_corner"
+      cursor="resize-sw"
+      on_press="window:resize:sw"
+    />
+    <Column
+      class="rz_h"
+      cursor="resize-v"
+      on_press="window:resize:s"
+    />
+    <Column
+      class="rz_corner"
+      cursor="resize-se"
+      on_press="window:resize:se"
+    />
   </Row>
 </Column>
