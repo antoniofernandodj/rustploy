@@ -17,8 +17,8 @@ fn boot() -> GlacierUI {
     let mut m = GlacierUI::new();
     m.load_stylesheet("crates/rustploy-gui/styles/app.gss")
         .expect("app.gss must parse (an unknown property drops the whole sheet)");
-    m.register_component("app", "crates/rustploy-gui/templates/app.kdl")
-        .expect("app.kdl + imports must register");
+    m.register_component("app", "crates/rustploy-gui/templates/app.xml")
+        .expect("app.xml + imports must register");
     m.set_initial_screen("app");
     m
 }

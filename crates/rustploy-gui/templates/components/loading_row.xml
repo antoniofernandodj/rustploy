@@ -1,0 +1,16 @@
+<!-- 
+  Props: note (opcional)
+
+  Linha "Carregando dados…" com spinner. A CONDIÇÃO de exibição fica no
+  chamador (`if cond="{flag}" equals="true" { LoadingRow }`), não aqui dentro:
+  um componente instanciado direto (fora de `for-each`) tem a prop resolvida
+  uma vez e não re-avalia quando o flag muda — então um `if` interno à prop
+  ficava preso em "true" e o spinner nunca sumia. O `if` inline do chamador é
+  re-avaliado ao vivo (mesmo padrão do `if` que esconde/mostra a grid).
+  `note` sobrescreve o texto padrão quando fornecido (prop ausente → vazio).
+-->
+<Row class="loading_row">
+  <Text class="loading_spin" content="⟳" />
+  <Text class="loading_note" if="{note}" not_equals="" content="{note}" />
+  <Text class="loading_note" if="{note}" equals="" content="Carregando dados…" />
+</Row>

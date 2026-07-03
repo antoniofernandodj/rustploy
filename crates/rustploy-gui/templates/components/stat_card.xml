@@ -1,0 +1,12 @@
+<!-- 
+  Props: label, value, accent
+
+  Tile de KPI do cabeçalho (STATUS/UPTIME/SERVICES/CPU/…). Com accent="1" o
+  número usa o realce verde (`stat_num_g`); sem accent, o neutro (`stat_num`).
+  Prop ausente vira string vazia (process_template), então != "1" → neutro.
+-->
+<Column class="stat_card">
+  <Text class="label_cap" content="{label}" />
+  <Text class="stat_num_g" if="{accent}" equals="1" content="{value}" />
+  <Text class="stat_num" else content="{value}" />
+</Column>

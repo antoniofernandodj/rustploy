@@ -1,5 +1,5 @@
 //! The single root component: owns connection state, routes UI actions and
-//! exposes the network subscription. All screens live in `templates/app.kdl`
+//! exposes the network subscription. All screens live in `templates/app.xml`
 //! and switch on the `screen`/`view` context keys.
 
 use glacier_ui::{
@@ -753,7 +753,7 @@ impl Component for Root {
     }
 
     fn template(&self) -> Template {
-        Template::File("crates/rustploy-gui/templates/app.kdl".into())
+        Template::File("crates/rustploy-gui/templates/app.xml".into())
     }
 
     fn init(&mut self, ctx: &mut Context) {
@@ -1102,7 +1102,7 @@ impl Component for Root {
                 }
             }
             // `env_reorder` — the glacier-ui drag-and-drop `onReorder` action
-            // for the Environment tab's `kv_list` (see `service.kdl`), value
+            // for the Environment tab's `kv_list` (see `service.xml`), value
             // is a JSON array of `key`s in their new order.
             "env_reorder" => {
                 if let Some(v) = value {

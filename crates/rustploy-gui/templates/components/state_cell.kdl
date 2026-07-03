@@ -1,9 +1,0 @@
-// Props: color, label
-//
-// Célula de estado das tabelas: o ponto colorido "●" + o rótulo, ambos na
-// mesma cor. Usada em Deployments, Docker (containers/images/volumes/networks)
-// e na lista de deployments do serviço.
-Row class="state_cell" {
-  Text "●" class="state_dot" color="{color}"
-  Text "{label}" class="state_lbl" color="{color}"
-}

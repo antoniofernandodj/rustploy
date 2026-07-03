@@ -1,0 +1,265 @@
+
+<!-- ── Imports ──────────────────────────────────────────────────────── -->
+<link rel="import" href="crates/rustploy-gui/templates/service.xml" as="ServiceDetail" />
+<link rel="import" href="crates/rustploy-gui/templates/home.xml" as="HomeViews" />
+<link rel="import" href="crates/rustploy-gui/templates/new_service.xml" as="NewServiceWizard" />
+<link rel="import" href="crates/rustploy-gui/templates/components/project_card.xml" as="ProjectCard" />
+<link rel="import" href="crates/rustploy-gui/templates/components/service_card.xml" as="ServiceCard" />
+<link rel="import" href="crates/rustploy-gui/templates/components/stat_card.xml" as="StatCard" />
+<link rel="import" href="crates/rustploy-gui/templates/components/state_cell.xml" as="StateCell" />
+<link rel="import" href="crates/rustploy-gui/templates/components/badge.xml" as="Badge" />
+<link rel="import" href="crates/rustploy-gui/templates/components/nav_item.xml" as="NavItem" />
+<link rel="import" href="crates/rustploy-gui/templates/components/tab_button.xml" as="TabButton" />
+<link rel="import" href="crates/rustploy-gui/templates/components/loading_row.xml" as="LoadingRow" />
+<link rel="import" href="crates/rustploy-gui/templates/components/picker_row.xml" as="PickerRow" />
+<link rel="import" href="crates/rustploy-gui/templates/components/template_row.xml" as="TemplateRow" />
+<Row class="screen">
+  <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+  <Column class="sidebar">
+    <Column class="brand_box">
+      <Text class="brand" content="Rustploy" />
+      <Text class="brand_sub" content="PRODUCTION CLUSTER" />
+    </Column>
+    <Text class="nav_section" content="DEPLOYMENT OPS" />
+    <NavItem label="  Deployments" target="deployments" action="nav_deployments" />
+    <NavItem label="  Deploy Engine" target="deploy_engine" action="nav_deploy_engine" />
+    <NavItem label="  Monitoring" target="monitoring" action="nav_monitoring" />
+    <NavItem label="  Schedules" target="schedules" action="nav_schedules" />
+    <NavItem label="  Ingress" target="ingress" action="nav_ingress" />
+    <NavItem label="  Docker" target="docker" action="nav_docker" />
+    <Text class="nav_section" content="MANAGEMENT" />
+    <NavItem label="  Projects ({projects_count})" target="projects" action="nav_projects" />
+    <Column class="nav_spacer" />
+    <Rule />
+    <Button class="nav_item" onClick="nav_settings" text="Settings" />
+    <Button class="nav_item" onClick="nav_support" text="Support" />
+  </Column>
+  <!-- ── Main column ──────────────────────────────────────────────────── -->
+  <Column class="main_col">
+    <!-- Top bar -->
+    <Row class="topbar">
+      <TextInput class="search" value="search" onChange="search_changed" placeholder="Search deployments, nodes…" />
+      <Text class="muted" content="● rwp · daemon v{daemon_version}" />
+      <Button class="btn_danger" onClick="stop_all" text="Stop All" />
+      <Button class="btn_ghost" onClick="disconnect" text="Disconnect" />
+    </Row>
+    <Rule />
+    <!-- Content -->
+    <if cond="{view}" equals="deployments">
+      <Column class="content">
+        <Row class="header_row">
+          <Column class="header_titles">
+            <Text class="title" content="Deployments" />
+            <Text class="subtitle" content="Real-time status of services in the cluster." />
+          </Column>
+          <Row class="stats_row">
+            <StatCard label="STATUS" value="{services_label}" accent="1" />
+            <StatCard label="UPTIME" value="{daemon_uptime}" />
+          </Row>
+        </Row>
+        <Column class="panel_fill">
+          <Row class="thead">
+            <Text class="th col_svc" content="SERVIÇO" />
+            <Text class="th col_proj" content="PROJETO" />
+            <Text class="th col_state" content="ESTADO" />
+            <Text class="th col_dur" content="DURAÇÃO" />
+            <Text class="th col_start" content="INÍCIO" />
+          </Row>
+          
+          <if cond="{data_loading}" equals="true">
+            <LoadingRow />
+          </if>
+          
+          <Scrollable if="{data_loading}" not_equals="true" direction="vertical" class="scroll_fill">
+            <Column class="table_body">
+              <Column class="row_wrap" for-each="deployments" var="d">
+                <Row class="trow">
+                  <Text class="td_key col_svc" content="{d.service}" />
+                  <Text class="td col_proj" content="{d.project}" />
+                  <StateCell color="{d.state_color}" label="{d.state_label}" />
+                  <Text class="td col_dur" content="{d.duration}" />
+                  <Text class="muted col_start" content="{d.start}" />
+                </Row>
+                <Rule />
+              </Column>
+            </Column>
+          </Scrollable>
+        </Column>
+      </Column>
+    </if>
+    
+    <else>
+      <!-- ── Projects (lista de projetos) ────────────────────────────── -->
+      <if cond="{view}" equals="projects">
+        <Column class="content">
+          <Row class="header_row">
+            <Column class="header_titles">
+              <Text class="title" content="Projects" />
+              <Text class="subtitle" content="Projetos do cluster e a contagem de serviços de cada um." />
+            </Column>
+            <Row class="stats_row">
+              <StatCard label="SERVICES" value="{services_count}" />
+              <StatCard label="PROJECTS" value="{projects_count}" accent="1" />
+            </Row>
+          </Row>
+          <Form name="new_project" onSubmit="create_project" width="fill">
+            <Row class="env_add">
+              <TextInput class="env_in_key" formControl="new_proj_name" value="new_proj_name" onChange="field:new_proj_name" placeholder="Nome do projeto" />
+              <TextInput class="env_in_val" formControl="new_proj_desc" value="new_proj_desc" onChange="field:new_proj_desc" placeholder="Descrição (opcional)" />
+              <Button class="btn_primary" onClick="create_project" text="Criar projeto" />
+            </Row>
+          </Form>
+          
+          <if cond="{erro_new_proj_name}" notEquals="">
+            <Text class="err" content="{erro_new_proj_name}" />
+          </if>
+          
+          <if cond="{new_proj_msg}" not_equals="">
+            <Text class="muted" content="{new_proj_msg}" />
+          </if>
+          <if cond="{data_loading}" equals="true">
+            <LoadingRow />
+          </if>
+          
+          <Scrollable if="{data_loading}" not_equals="true" direction="vertical" class="scroll_fill">
+            <Column class="grid">
+              <ForEach items="project_rows" var="r">
+                <Row class="card_row">
+                  <ForEach items="r.cards" var="c">
+                    <ProjectCard 
+                      id="{c.id}"
+                      filler="{c.filler}"
+                      name="{c.name}"
+                      service_count="{c.service_count}"
+                      running_count="{c.running_count}"
+                      description="{c.description}"
+                      can_delete="{c.can_delete}"
+                    />
+                  </ForEach>
+                </Row>
+              </ForEach>
+            </Column>
+          </Scrollable>
+        </Column>
+      </if>
+      <else>
+        <!-- ── Projeto: serviços de um projeto ────────────────────────── -->
+        <if cond="{view}" equals="project_services">
+          <Column class="content">
+            <Row class="header_row">
+              <Column class="header_titles">
+                <Button class="btn_ghost" onClick="nav_projects" text="‹ Projetos" />
+                <if cond="{editing_project}" equals="true">
+                  <Form name="edit_project" onSubmit="save_project_edit" spacing="6" width="fill">
+                    <TextInput class="field_input" formControl="edit_proj_name" placeholder="Nome do projeto" />
+                    <if cond="{erro_edit_proj_name}" notEquals="">
+                      <Text class="err" content="{erro_edit_proj_name}" />
+                    </if>
+                    <TextInput class="field_input" formControl="edit_proj_desc" placeholder="Descrição (opcional)" />
+                    <Row class="env_add">
+                      <Button class="btn_primary" onClick="save_project_edit" text="Salvar" />
+                      <Button class="btn_ghost" onClick="cancel_project_edit" text="Cancelar" />
+                      <Text class="muted" content="{proj_action_msg}" />
+                    </Row>
+                  </Form>
+                </if>
+                <else>
+                  <Text class="title" content="{proj_name}" />
+                  <Text class="subtitle" content="{proj_description}" />
+                  <Row class="env_add">
+                    <Button class="btn_primary" onClick="new_service_open" text="+ Novo serviço" />
+                    <Button class="btn_ghost" onClick="edit_project_toggle" text="Editar projeto" />
+                    <if cond="{proj_can_delete}" equals="1">
+                      <Button class="btn_danger" onClick="delete_project:{selected_project_id}" text="Remover projeto" />
+                    </if>
+                    <Text class="muted" content="{proj_action_msg}" />
+                  </Row>
+                </else>
+              </Column>
+            </Row>
+            <!-- Sub-abas do projeto -->
+            <Row class="tabs">
+              <TabButton label="Serviços" current="{proj_tab}" target="services" action="proj_tab:services" />
+              <TabButton label="Variáveis ({proj_env_count})" current="{proj_tab}" target="env" action="proj_tab:env" />
+            </Row>
+            <Rule />
+            <if cond="{proj_loading}" equals="true">
+              <LoadingRow />
+            </if>
+            <if cond="{proj_tab}" equals="env">
+              <!-- ── Variáveis de ambiente do projeto ────────────────────── -->
+              <Column class="env_wrap" if="{proj_loading}" not_equals="true">
+                <Text class="muted" content="Herdadas por todos os serviços deste projeto no deploy — as do serviço têm precedência." />
+                <Form name="penv_add" onSubmit="penv_add" width="fill">
+                  <Row class="env_add">
+                    <TextInput class="env_in_key" formControl="penv_new_key" placeholder="KEY" />
+                    <TextInput class="env_in_val" formControl="penv_new_val" placeholder="value" />
+                    <Button class="btn_primary" onClick="penv_add" text="Adicionar" />
+                  </Row>
+                </Form>
+                <if cond="{erro_penv_new_key}" notEquals="">
+                  <Text class="err" content="{erro_penv_new_key}" />
+                </if>
+                <Scrollable direction="vertical" class="env_list_scroll">
+                  <Column class="kv_list">
+                    <ForEach items="proj_env" var="e" onReorder="penv_reorder" reorderKey="key">
+                      <if cond="{e.__dragging}" equals="true">
+                        <Row class="kv_row_drag">
+                          <Text class="env_drag_handle" dragHandle="true" cursor="grabbing" content="⋮ " />
+                          <Button class="env_del" onClick="penv_del:{e.key}" text="✕" />
+                          <Text content=" " />
+                          <Text class="env_key" content="{e.key}" />
+                          <Text class="kv_val_fill" content="{e.value}" />
+                        </Row>
+                      </if>
+                      <else>
+                        <Row class="kv_row">
+                          <Text class="env_drag_handle" dragHandle="true" cursor="grab" content="⋮ " />
+                          <Button class="env_del" onClick="penv_del:{e.key}" text="✕" />
+                          <Text content=" " />
+                          <Text class="env_key" content="{e.key}" />
+                          <Text class="kv_val_fill" content="{e.value}" />
+                        </Row>
+                      </else>
+                    </ForEach>
+                  </Column>
+                </Scrollable>
+              </Column>
+            </if>
+            <else>
+              <Scrollable if="{proj_loading}" not_equals="true" direction="vertical" class="scroll_fill">
+                <Column class="grid">
+                  <Row class="card_row" for-each="project_services" var="r">
+                    <ServiceCard for-each="r.cards" var="c"
+                      id="{c.id}"
+                      filler="{c.filler}"
+                      name="{c.name}"
+                      port="{c.port}"
+                      status_color="{c.status_color}"
+                      status_label="{c.status_label}"
+                      cpu="{c.cpu}"
+                      mem="{c.mem}" />
+                  </Row>
+                </Column>
+              </Scrollable>
+            </else>
+          </Column>
+        </if>
+        <else>
+          <!-- ── Service detail / wizard de novo serviço / demais views ─ -->
+          <if cond="{view}" equals="service">
+            <ServiceDetail />
+          </if>
+          <else>
+            <if cond="{view}" equals="new_service">
+              <NewServiceWizard />
+            </if>
+            <else>
+                <HomeViews />
+            </else>
+          </else>
+        </else>
+      </else>
+    </else>
+  </Column>
+</Row>

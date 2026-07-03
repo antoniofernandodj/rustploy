@@ -1,0 +1,14 @@
+<!--
+  Props: title, subtitle, button_label, action
+
+  Linha de escolha do wizard "Novo serviço": título + subtítulo à esquerda e um
+  botão de ação à direita. Usada nos passos de escolha de tipo, de banco e de
+  template.
+-->
+<Row class="kv_row">
+  <Column class="header_titles">
+    <Text class="env_key" content="{title}" />
+    <Text class="muted" content="{subtitle}" />
+  </Column>
+  <Button class="btn_primary" onClick="{action}" text="{button_label}" />
+</Row>

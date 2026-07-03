@@ -229,7 +229,7 @@ pub(crate) fn window_settings() -> window::Settings {
         )
         .ok(),
         // Borderless: the OS titlebar is replaced by a custom one defined in
-        // `templates/app.kdl` (drag region + minimize/maximize/close). The
+        // `templates/app.xml` (drag region + minimize/maximize/close). The
         // `window:*` actions it emits are handled in `update` against the
         // cached window id (see `App::window_id`).
         decorations: false,
@@ -309,7 +309,7 @@ fn window_control(id: window::Id, cmd: &str) -> Task<Message> {
 
 /// Parses a resize-handle direction token (`se`, `e`, `s`, …) into the iced
 /// window `Direction`. Mirrors the tokens used by the resize handles in
-/// `templates/app.kdl`.
+/// `templates/app.xml`.
 fn resize_direction(s: &str) -> Option<iced::window::Direction> {
     use iced::window::Direction::*;
     Some(match s {

@@ -1,0 +1,9 @@
+<!--
+  Props: label, target, action
+
+  Item de navegação da sidebar. Fica em estado "ligado" (`nav_item_on`) quando
+  a view atual ({view}) é igual ao `target` deste item; caso contrário, neutro
+  (`nav_item`). `equals` é interpolado, então compara {view} com {target}.
+-->
+<Button class="nav_item_on" if="{view}" equals="{target}" onClick="{action}" text="{label}" />
+<Button class="nav_item" else onClick="{action}" text="{label}" />

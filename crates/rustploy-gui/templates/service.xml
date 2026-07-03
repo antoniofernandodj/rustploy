@@ -1,0 +1,504 @@
+<Column class="content">
+
+  <!-- ── Header: nome + estado + ações ────────────────────────────────── -->
+  <Row class="svc_head">
+    <Column class="header_titles">
+      <Row class="svc_title_row">
+        <Button class="btn_ghost" onClick="open_project:{svc_project_id}" text="‹ {svc_project}" />
+        <Text class="title" content="{svc_name}" />
+        <Badge color="{svc_status_color}" label="{svc_status_label}" />
+        <!-- Live "1s, 2s, 3s…" deploy timer: shown only while a deploy started
+             from this panel (Deploy/Rebuild) is in flight. Ticked once a second
+             by the poll subscription (see `net::poll_stream`'s `sec_tick`), and
+             hidden once the deploy finishes — the outcome (success/failure) and
+             its total elapsed time then show in `svc_action_msg` below instead. -->
+        <Row class="badge" if="{svc_deploy_running}" equals="true">
+          <Text class="state_dot" color="#58A6FF" content="⏱" />
+          <Text class="badge_lbl" color="#58A6FF" content="{svc_deploy_elapsed}" />
+        </Row>
+      </Row>
+      <Text if="{svc_action_msg}" not_equals="" class="muted" color="{svc_action_color}" content="{svc_action_msg}" />
+    </Column>
+    <Row class="svc_actions">
+      <Button class="btn_primary" onClick="svc_deploy" text="Deploy" />
+      <Button class="btn_blue" onClick="svc_reload" text="Reload" />
+      <Button class="btn_blue" onClick="svc_rebuild" text="Rebuild" />
+      <Button class="btn_danger" onClick="svc_stop" text="Stop" />
+    </Row>
+  </Row>
+
+  <!-- ── Abas ─────────────────────────────────────────────────────────── -->
+  <Row class="tabs">
+    <TabButton label="General" current="{tab}" target="general" action="tab:general" />
+    <TabButton label="Connection" current="{tab}" target="connection" action="tab:connection" />
+    <TabButton label="Environment" current="{tab}" target="environment" action="tab:environment" />
+    <TabButton label="Domains" current="{tab}" target="domains" action="tab:domains" />
+    <TabButton label="Deployments" current="{tab}" target="deployments" action="tab:deployments" />
+    <TabButton label="Healthcheck" current="{tab}" target="healthcheck" action="tab:healthcheck" />
+    <TabButton label="Logs" current="{tab}" target="logs" action="tab:logs" />
+    <TabButton label="Advanced" current="{tab}" target="advanced" action="tab:advanced" />
+  </Row>
+
+  <Rule />
+
+  <!-- ── Corpo: conteúdo da aba + painel lateral ──────────────────────── -->
+  <Row class="svc_body">
+    <Column class="svc_main">
+      <Text if="{svc_error}" not_equals="" class="svc_err" content="{svc_error}" />
+
+      <!-- General (source / build, editável) -->
+      <Scrollable if="{tab}" equals="general" direction="vertical" class="scroll_fill">
+
+          <!-- Enquanto o fetch do detalhe (spec + listas conta/repo/branch do
+               Gitea) não completa, mostramos um loading — os Selects só aparecem
+               depois, já populados, em vez de piscarem vazios. -->
+          <Column class="form_panel" if="{svc_loading}" equals="true">
+            <if cond="{svc_loading}" equals="true">
+              <LoadingRow note="Carregando dados do serviço…" />
+            </if>
+          </Column>
+
+          <Form class="form_panel" if="{svc_loading}" not_equals="true" name="general" onSubmit="gen_save">
+
+            <!-- Serviços Compose (bancos/brokers) editam o YAML direto; não têm
+                 provider Git/Registry. -->
+            <if cond="{svc_source_kind}" equals="Compose">
+              <Text class="label_cap" content="DOCKER COMPOSE (YAML)" />
+              <Text class="muted" content="Edite o compose do serviço. Salvar aplica no próximo deploy." />
+
+<TextArea class="env_editor" font="mono" value="svc_compose" placeholder="services:&#10;  app:&#10;    image: …" />
+
+              <Row class="env_add">
+                <Button class="btn_primary" onClick="compose_save" text="Salvar compose" />
+                <Button class="btn_ghost" onClick="compose_cancel" text="Cancelar" />
+                <Text class="muted" content="{svc_action_msg}" />
+              </Row>
+            </if>
+
+            <!-- Provider Git/Gitea/Registry — apenas para serviços não-Compose. -->
+            <if cond="{svc_source_kind}" not_equals="Compose">
+
+            <Text class="label_cap" content="PROVIDER" />
+            <Row class="tabs">
+              <TabButton label="Git" current="{prov_tab}" target="git" action="prov:git" />
+              <if cond="{gitea_count}" not_equals="0">
+                <TabButton label="Gitea" current="{prov_tab}" target="gitea" action="prov:gitea" />
+              </if>
+            </Row>
+            <Rule />
+
+            <!-- ── Sub-aba Git: form de URL/imagem crua ─────────────── -->
+            <if cond="{prov_tab}" equals="git">
+              <Text class="label_cap" content="SOURCE — REPOSITORY URL / IMAGE" />
+              <TextInput class="field_input" formControl="f_repo_url" value="f_repo_url" onChange="field:f_repo_url" placeholder="github.com/user/repo  ou  nginx:latest" />
+
+              <Text class="muted" content="URL de repositório vira Git; caso contrário é imagem de registry." />
+              <Row class="hc_grid">
+                <Column class="hc_field">
+                  <Text class="label_cap" content="BRANCH" />
+                  <TextInput class="field_input" formControl="f_branch" value="f_branch" onChange="field:f_branch" placeholder="main" />
+                </Column>
+                <Column class="hc_field">
+                  <Text class="label_cap" content="PORT" />
+                  <TextInput class="field_input" formControl="f_gen_port" value="f_gen_port" onChange="field:f_gen_port" placeholder="80" />
+                  <Text if="{erro_f_gen_port}" notEquals="" class="err" content="{erro_f_gen_port}" />
+                </Column>
+              </Row>
+              <Row class="hc_grid">
+                <Column class="hc_field">
+                  <Text class="label_cap" content="USERNAME" />
+                  <TextInput class="field_input" formControl="f_username" value="f_username" onChange="field:f_username" placeholder="(opcional)" />
+                </Column>
+                <Column class="hc_field">
+                  <Text class="label_cap" content="CREDENTIALS (secret)" />
+                  <TextInput class="field_input" formControl="f_credentials" value="f_credentials" onChange="field:f_credentials" placeholder="(opcional)" />
+                </Column>
+              </Row>
+
+              <Text class="label_cap" content="BUILD PATH (root)" />
+              <TextInput class="field_input" formControl="f_build_path" value="f_build_path" onChange="field:f_build_path" placeholder="." />
+
+              <Text class="label_cap" content="WATCH PATHS (separados por vírgula)" />
+
+              <TextInput class="field_input" formControl="f_watch_paths" value="f_watch_paths" onChange="field:f_watch_paths" placeholder="src, Cargo.toml" />
+
+              <Toggle checked="f_submodules" onToggle="field:f_submodules" label=" Enable submodules" />
+
+              <Text class="label_cap" content="BUILD ENGINE: DOCKERFILE" />
+              <Row class="hc_grid">
+                <Column class="hc_field">
+                  <Text class="label_cap" content="DOCKERFILE" />
+                  <TextInput class="field_input" formControl="f_dockerfile" value="f_dockerfile" onChange="field:f_dockerfile" placeholder="Dockerfile" />
+                </Column>
+                <Column class="hc_field">
+                  <Text class="label_cap" content="CONTEXT PATH" />
+                  <TextInput class="field_input" formControl="f_context_path" value="f_context_path" onChange="field:f_context_path" placeholder="." />
+                </Column>
+              </Row>
+
+              <Text class="label_cap" content="BUILD STAGE (opcional)" />
+
+              <TextInput class="field_input" formControl="f_build_stage" value="f_build_stage" onChange="field:f_build_stage" placeholder="(multi-stage target)" />
+
+              <Row class="env_add">
+                <Button class="btn_primary" onClick="gen_save" text="Save" />
+                <Text class="muted" content="{svc_action_msg}" />
+              </Row>
+            </if>
+
+            <!-- ── Sub-aba Gitea: picker de conta/repo/branch conectados ─ -->
+            <if cond="{prov_tab}" equals="gitea">
+              <Text class="muted" content="Selecione a conta conectada, o repositório e a branch a implantar." />
+              <Text if="{gitea_msg}" not_equals="" class="muted" content="{gitea_msg}" />
+              <Text class="label_cap" content="CONTA GITEA" />
+              <Select class="select" options="gitea_providers" value="gitea_provider_id" onChange="gitea_provider_pick" placeholder="selecione a conta" labelField="display" valueField="id" />
+
+              <Text class="muted" content="Conecte contas em Settings → Git." />
+
+              <Text class="label_cap" content="REPOSITÓRIO" />
+              <Select class="select" options="gitea_repos" value="gitea_repo" onChange="gitea_repo_pick" placeholder="selecione o repositório" labelField="full_name" valueField="full_name" />
+
+              <Text class="label_cap" content="BRANCH" />
+              <Select class="select" options="gitea_branches" value="f_branch" onChange="field:f_branch" placeholder="selecione a branch" labelField="name" valueField="name" />
+
+              <Text class="label_cap" content="SELEÇÃO ATUAL" />
+              <Row class="kv_row">
+                <Text class="kv_key" content="Repo (clone URL)" />
+                <Text class="kv_val_fill" content="{f_repo_url}" />
+              </Row>
+
+              <Text class="label_cap" content="BUILD" />
+              <Row class="hc_grid">
+                <Column class="hc_field">
+                  <Text class="label_cap" content="BUILD PATH (root)" />
+                  <TextInput class="field_input" formControl="f_build_path" value="f_build_path" onChange="field:f_build_path" placeholder="." />
+                </Column>
+                <Column class="hc_field">
+                  <Text class="label_cap" content="PORT" />
+                  <TextInput class="field_input" formControl="f_gen_port" value="f_gen_port" onChange="field:f_gen_port" placeholder="80" />
+                  <Text if="{erro_f_gen_port}" notEquals="" class="err" content="{erro_f_gen_port}" />
+                </Column>
+              </Row>
+              <Row class="hc_grid">
+                <Column class="hc_field">
+                  <Text class="label_cap" content="DOCKERFILE" />
+                  <TextInput class="field_input" formControl="f_dockerfile" value="f_dockerfile" onChange="field:f_dockerfile" placeholder="Dockerfile" />
+                </Column>
+                <Column class="hc_field">
+                  <Text class="label_cap" content="CONTEXT PATH" />
+                  <TextInput class="field_input" formControl="f_context_path" value="f_context_path" onChange="field:f_context_path" placeholder="." />
+                </Column>
+              </Row>
+              <Text class="label_cap" content="WATCH PATHS (separados por vírgula)" />
+              <TextInput class="field_input" formControl="f_watch_paths" value="f_watch_paths" onChange="field:f_watch_paths" placeholder="src, Cargo.toml" />
+
+              <Toggle checked="f_submodules" onToggle="field:f_submodules" label="  Enable submodules" />
+
+              <Row class="env_add">
+                <Button class="btn_primary" onClick="gen_save" text="Save" />
+                <Text class="muted" content="{svc_action_msg}" />
+              </Row>
+            </if>
+            </if>
+          </Form>
+      </Scrollable>
+
+      <!-- Connection (valores copiáveis) -->
+      <Column if="{tab}" equals="connection" class="kv_list">
+        <Row class="kv_row">
+          <Text class="kv_key" content="Container port" />
+          <Text class="kv_val_fill" content="{svc_port}" />
+          <Text content=" " />
+          <Button class="copy_btn" onClick="clipboard:svc_port" text="Copiar" />
+        </Row>
+        <Row class="kv_row">
+          <Text class="kv_key" content="Host port" />
+          <Text class="kv_val_fill" content="{svc_host_port}" />
+          <Text content=" " />
+          <Button class="copy_btn" onClick="clipboard:svc_host_port" text="Copiar" />
+        </Row>
+        <Row class="kv_row">
+          <Text class="kv_key" content="Domain" />
+          <Text class="kv_val_fill" content="{svc_domain}" />
+          <Text content=" " />
+          <Button class="copy_btn" onClick="clipboard:svc_domain" text="Copiar" />
+        </Row>
+        <Row class="kv_row">
+          <Text class="kv_key" content="TLS" />
+          <Text class="kv_val_fill" content="{svc_tls}" />
+        </Row>
+        <Row class="kv_row">
+          <Text class="kv_key" content="External URL" />
+          <Text class="kv_val_fill" content="{svc_external_url}" />
+          <Text content=" " />
+          <Button class="copy_btn" onClick="clipboard:svc_external_url" text="Copiar" />
+        </Row>
+        <Row class="kv_row">
+          <Text class="kv_key" content="Internal URL" />
+          <Text class="kv_val_fill" content="{svc_internal_url}" />
+          <Text content=" " />
+          <Button class="copy_btn" onClick="clipboard:svc_internal_url" text="Copiar" />
+        </Row>
+        <Row class="kv_row" if="{svc_db_kind}" notEquals="—">
+          <Text class="kv_key" content="Tipo" />
+          <Text class="kv_val_fill" content="{svc_db_kind}" />
+        </Row>
+      </Column>
+
+      <!-- Environment -->
+      <Column if="{tab}" equals="environment" class="env_wrap">
+        <Row class="env_head">
+          <Text class="muted_fill" content="{svc_env_count} variável(eis)" />
+          <Button class="btn_export" onClick="env_export" text="Exportar" />
+          <Text content=" " />
+          <if cond="{env_text_open}" equals="true">
+            <Button class="btn_export_on" onClick="env_text_toggle" text="Fechar" />
+          </if>
+
+          <else>
+            <Button class="tab" onClick="env_text_toggle" text=".env" />
+          </else>
+        </Row>
+
+        <Form name="env_add" onSubmit="env_add" width="fill">
+          <Row class="env_add">
+            <TextInput class="env_in_key" formControl="env_new_key" placeholder="KEY" />
+
+            <TextInput class="env_in_val" formControl="env_new_val" placeholder="value" />
+
+            <Button class="btn_primary" onClick="env_add" text="Adicionar" />
+          </Row>
+        </Form>
+        <Text if="{erro_env_new_key}" notEquals="" class="err" content="{erro_env_new_key}" />
+        <Scrollable direction="vertical" class="env_list_scroll">
+          <Column class="kv_list">
+            <ForEach items="svc_env" var="e" onReorder="env_reorder" reorderKey="key">
+              <!-- Comentários (# ...) do .env: arrastáveis como as vars (ao
+                   soltar, reancoram na var seguinte da nova ordem), mas sem
+                   delete — removem-se editando o .env. A classe da linha muda
+                   para `kv_row_drag` no item agarrado ({e.__dragging} vem do
+                   glacier-ui durante o arrasto). -->
+              <if cond="{e.__dragging}" equals="true">
+                <Row class="kv_row_drag" if="{e.kind}" equals="comment">
+                  <Text class="env_drag_handle" dragHandle="true" cursor="grabbing" content="⋮ " />
+                  <Text class="muted" content="{e.value}" />
+                </Row>
+                <Row class="kv_row_drag" else>
+                  <Text class="env_drag_handle" dragHandle="true" cursor="grabbing" content="⋮ " />
+                  <Button class="env_del" onClick="env_del:{e.key}" text="✕" />
+                  <Text content=" " />
+                  <Text class="env_key" content="{e.key}" />
+                  <Text class="kv_val_fill" content="{e.value}" />
+                </Row>
+              </if>
+
+              <else>
+                <Row class="kv_row" if="{e.kind}" equals="comment">
+                  <Text class="env_drag_handle" dragHandle="true" cursor="grab" content="⋮ " />
+                  <Text class="muted" content="{e.value}" />
+                </Row>
+                <Row class="kv_row" else>
+                  <Text class="env_drag_handle" dragHandle="true" cursor="grab" content="⋮ " />
+                  <Button class="env_del" onClick="env_del:{e.key}" text="✕" />
+                  <Text content=" " />
+                  <Text class="env_key" content="{e.key}" />
+                  <Text class="kv_val_fill" content="{e.value}" />
+                </Row>
+              </else>
+            </ForEach>
+          </Column>
+        </Scrollable>
+        <!-- Editor .env: vários filhos condicionais → TAG if (o atributo
+             if= só esconderia o Text, deixando TextArea/botões sempre visíveis). -->
+        <if cond="{env_text_open}" equals="true">
+          <Text class="muted" content="Cole/edite no formato KEY=VALUE (# comentário). Importar substitui todas as variáveis." />
+
+          <TextArea class="env_editor" font="mono" value="svc_env_text" placeholder="KEY=VALUE   (# comentário)" />
+
+          <Row class="env_add">
+            <Button class="btn_primary" onClick="env_import" text="Importar" />
+            <Button class="btn_ghost" onClick="env_text_cancel" text="Cancelar" />
+          </Row>
+        </if>
+      </Column>
+
+      <!-- Domains (editável): lista de rotas HTTP (domínio → porta de container,
+           TLS por rota), mais o form de adição e a porta TCP crua do host. -->
+      <Column if="{tab}" equals="domains" class="form_panel">
+        <Text class="label_cap" content="DOMÍNIOS ({svc_domains_count})" />
+        <Text class="muted" content="Cada domínio pode apontar para uma porta de container diferente." />
+
+        <Scrollable direction="vertical" class="env_list_scroll">
+          <Column class="kv_list">
+            <Row class="kv_row" for-each="svc_domains" var="d">
+              <Button class="env_del" onClick="dom_del:{d.domain}" text="✕" />
+              <Text content=" " />
+              <Text class="env_key" content="{d.domain}" />
+              <Text class="kv_val_fill" content="→ {d.port}" />
+              <Text class="muted" content="{d.tls_label}" />
+            </Row>
+          </Column>
+        </Scrollable>
+
+        <Text class="label_cap" content="ADICIONAR DOMÍNIO" />
+        <TextInput class="field_input" formControl="f_domain" value="f_domain" onChange="field:f_domain" placeholder="app.exemplo.com" />
+        <Text if="{erro_f_domain}" notEquals="" class="err" content="{erro_f_domain}" />
+
+        <Text class="label_cap" content="PORTA DO CONTAINER (opcional)" />
+        <TextInput class="field_input" formControl="f_port" value="f_port" onChange="field:f_port" placeholder="(padrão do serviço)" />
+        <Text if="{erro_f_port}" notEquals="" class="err" content="{erro_f_port}" />
+
+        <Toggle checked="f_tls" onToggle="field:f_tls" label="  HTTPS / TLS" />
+        <Row class="env_add">
+          <Button class="btn_primary" onClick="dom_add" text="Adicionar domínio" />
+          <Text class="muted" content="{svc_action_msg}" />
+        </Row>
+
+        <Text class="label_cap" content="PORTA TCP DO HOST (passthrough, opcional)" />
+        <TextInput class="field_input" formControl="f_host_port" value="f_host_port" onChange="field:f_host_port" placeholder="(padrão do serviço)" />
+        <Text if="{erro_f_host_port}" notEquals="" class="err" content="{erro_f_host_port}" />
+        <Row class="env_add">
+          <Button class="btn_ghost" onClick="dom_hostport_save" text="Salvar porta" />
+        </Row>
+      </Column>
+
+      <!-- Deployments -->
+      <Column if="{tab}" equals="deployments" class="dep_wrap">
+        <Text class="muted" content="{svc_deployments_count} deployments" />
+        <Scrollable direction="vertical" class="dep_list_scroll">
+          <Column class="table_body">
+            <Column class="row_wrap" for-each="svc_deployments" var="d">
+              <Row class="trow">
+                <Text class="td_key col_dep_id" content="{d.id}" />
+                <StateCell color="{d.state_color}" label="{d.state_label}" />
+                <Text class="td col_dur" content="{d.duration}" />
+                <Text class="muted col_dep_start" content="{d.start}" />
+                <Row class="dep_actions">
+                  <Button class="dep_logs_btn" onClick="dep_logs:{d.id_full}" text="Build log" />
+                  <Button if="{d.can_delete}" equals="1" class="dep_del_btn" onClick="delete_deployment:{d.id_full}" text="Remover" />
+                </Row>
+              </Row>
+              <Text class="dep_image" content="{d.image}" />
+              <Rule />
+            </Column>
+          </Column>
+        </Scrollable>
+
+        <!-- Cabeçalho + painel do build log: dois filhos condicionais → TAG if
+             (o atributo if= só esconderia o Row, deixando o log sempre visível). -->
+        <if cond="{dep_selected}" not_equals="">
+          <Row class="env_head">
+            <Text class="label_cap_fill" content="BUILD LOG · {dep_build_count} linhas" />
+            <Button class="tab" onClick="clipboard:dep_build_text" text="Copiar tudo" />
+          </Row>
+          <Column class="log_panel">
+            <Scrollable direction="vertical" class="scroll_fill">
+              <Column class="log_body">
+                <Row class="log_line" for-each="dep_build_logs" var="l">
+                  <Text class="log_time" content="{l.time}" />
+                  <Text class="log_text" color="{l.color}" content="{l.line}" />
+                </Row>
+              </Column>
+            </Scrollable>
+          </Column>
+        </if>
+      </Column>
+
+      <!-- Healthcheck (editável) -->
+      <Form if="{tab}" equals="healthcheck" class="form_panel" name="healthcheck" onSubmit="hc_save">
+        <Text class="label_cap" content="KIND" />
+        <Row class="tabs">
+          <TabButton label="None" current="{f_hc_kind}" target="none" action="hckind:none" />
+          <TabButton label="Tcp" current="{f_hc_kind}" target="tcp" action="hckind:tcp" />
+          <TabButton label="Http" current="{f_hc_kind}" target="http" action="hckind:http" />
+          <TabButton label="Docker" current="{f_hc_kind}" target="docker" action="hckind:docker" />
+        </Row>
+        <if cond="{f_hc_kind}" equals="http">
+          <Text class="label_cap" content="HTTP PATH" />
+          <TextInput class="field_input" formControl="f_hc_path" value="f_hc_path" onChange="field:f_hc_path" placeholder="/health" />
+          <Text class="label_cap" content="EXPECTED STATUS" />
+          <TextInput class="field_input" formControl="f_hc_status" value="f_hc_status" onChange="field:f_hc_status" placeholder="200" />
+          <Text if="{erro_f_hc_status}" notEquals="" class="err" content="{erro_f_hc_status}" />
+        </if>
+        <Row class="hc_grid">
+          <Column class="hc_field">
+            <Text class="label_cap" content="INTERVAL (s)" />
+            <TextInput class="field_input" formControl="f_hc_interval" value="f_hc_interval" onChange="field:f_hc_interval" placeholder="" />
+            <Text if="{erro_f_hc_interval}" notEquals="" class="err" content="{erro_f_hc_interval}" />
+          </Column>
+          <Column class="hc_field">
+            <Text class="label_cap" content="TIMEOUT (s)" />
+            <TextInput class="field_input" formControl="f_hc_timeout" value="f_hc_timeout" onChange="field:f_hc_timeout" placeholder="" />
+            <Text if="{erro_f_hc_timeout}" notEquals="" class="err" content="{erro_f_hc_timeout}" />
+          </Column>
+        </Row>
+        <Row class="hc_grid">
+          <Column class="hc_field">
+            <Text class="label_cap" content="RETRIES" />
+            <TextInput class="field_input" formControl="f_hc_retries" value="f_hc_retries" onChange="field:f_hc_retries" placeholder="" />
+            <Text if="{erro_f_hc_retries}" notEquals="" class="err" content="{erro_f_hc_retries}" />
+          </Column>
+          <Column class="hc_field">
+            <Text class="label_cap" content="START PERIOD (s)" />
+            <TextInput class="field_input" formControl="f_hc_start" value="f_hc_start" onChange="field:f_hc_start" placeholder="" />
+            <Text if="{erro_f_hc_start}" notEquals="" class="err" content="{erro_f_hc_start}" />
+          </Column>
+        </Row>
+        <Row class="env_add">
+          <Button class="btn_primary" onClick="hc_save" text="Save" />
+          <Text class="muted" content="{svc_action_msg}" />
+        </Row>
+      </Form>
+
+      <!-- Logs (texto selecionável + copiar) -->
+      <Column if="{tab}" equals="logs" class="log_panel">
+        <Row class="env_head">
+          <Text class="muted_fill" content="{svc_logs_count} linhas — selecione para copiar (Ctrl+C)" />
+          <Button class="tab" onClick="clipboard:svc_logs_text" text="Copiar tudo" />
+        </Row>
+        <TextArea class="log_editor" font="mono" value="svc_logs_text" placeholder="(sem logs — o serviço precisa estar Running)" />
+      </Column>
+
+      <!-- Advanced (editável) -->
+      <Form if="{tab}" equals="advanced" class="form_panel" name="advanced" onSubmit="adv_save">
+        <Text class="label_cap" content="REPLICAS" />
+        <TextInput class="field_input" formControl="f_replicas" value="f_replicas" onChange="field:f_replicas" placeholder="1" />
+
+        <Text if="{erro_f_replicas}" notEquals="" class="err" content="{erro_f_replicas}" />
+        <Text class="label_cap" content="RUN COMMAND" />
+        <TextInput class="field_input" formControl="f_run_command" value="f_run_command" onChange="field:f_run_command" placeholder="(padrão da imagem)" />
+
+        <Text class="muted" content="Run args atuais: {svc_run_args}" />
+
+        <Row class="env_add">
+          <Button class="btn_primary" onClick="adv_save" text="Save" />
+          <Text class="muted" content="{svc_action_msg}" />
+        </Row>
+      </Form>
+    </Column>
+
+    <!-- Painel lateral: status + live output -->
+    <Column class="svc_aside">
+      <Column class="aside_panel">
+        <Text class="label_cap" content="STATUS" />
+        <Badge color="{svc_status_color}" label="{svc_status_label}" />
+        <Text class="label_cap" content="UPTIME" />
+        <Text class="kv_val" content="{daemon_uptime}" />
+        <Text class="label_cap" content="SERVICES" />
+        <Text class="kv_val" content="{services_label}" />
+      </Column>
+
+      <Column class="aside_panel_fill">
+        <Text class="label_cap" content="LIVE OUTPUT" />
+        <Scrollable direction="vertical" class="scroll_fill">
+          <Column class="log_body">
+            <Row class="log_line" for-each="svc_logs" var="l">
+              <Text class="log_time" content="{l.time}" />
+              <Text class="log_text" color="{l.color}" content="{l.line}" />
+            </Row>
+          </Column>
+        </Scrollable>
+      </Column>
+    </Column>
+  </Row>
+</Column>

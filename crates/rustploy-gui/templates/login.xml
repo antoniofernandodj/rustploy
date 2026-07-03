@@ -1,0 +1,69 @@
+<Container class="login_wrap">
+  <Column class="login_card">
+    <Row class="login_head">
+
+      <Svg
+        src="crates/rustploy-gui/assets/icons/terminal.svg"
+        color="#2F81F7"
+        width="34"
+        height="34"
+      />
+
+      <Column class="login_brand">
+        <Text class="login_title" content="Rustploy" />
+        <Text class="subtitle" content="Infrastructure management for professional teams" />
+      </Column>
+    </Row>
+
+    <Form name="login" onSubmit="connect" spacing="16" width="fill">
+
+      <Column class="field_group">
+
+        <Row class="field_row">
+          <Text class="field_label_fill" content="SERVER URL" />
+          <Text class="field_label" content="ENDPOINT" />
+        </Row>
+
+        <TextInput
+          placeholder="rwp://cluster.tech"
+          class="field_input"
+          formControl="url"
+        />
+
+        <Text if="{erro_url}" notEquals="" class="err" content="{erro_url}" />
+      </Column>
+
+      <Column class="field_group">
+
+        <Row class="field_row">
+          <Text class="field_label_fill" content="ACCESS TOKEN" />
+          <Text class="field_label" content="SECURE" />
+        </Row>
+
+        <TextInput
+          placeholder="token de acesso"
+          class="field_input"
+          formControl="token"
+        />
+
+      </Column>
+
+      <Column class="login_checks">
+
+        <Checkbox checked="remember_url" onToggle="toggle_remember_url" label="Remember server" />
+        <Checkbox checked="remember_token" onToggle="toggle_remember_token" label="Remember token" />
+
+      </Column>
+
+      <Button class="connect_btn" onClick="connect" text="Connect" />
+    </Form>
+    <Text if="{error}" notEquals="" class="err" content="⚠ {error}" />
+
+    <Rule />
+
+    <Row class="status_row">
+      <Text class="ok" size="10" content="●" />
+      <Text class="muted" content="{status_line}" />
+    </Row>
+  </Column>
+</Container>
