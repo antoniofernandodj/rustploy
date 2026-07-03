@@ -231,39 +231,46 @@ pub async fn ping(s: &mut RwpStream) -> anyhow::Result<()> {
     }
 }
 
-/// A single RPC connection to the daemon, shared and reconnected on demand.
-/// `Clone` is an `Arc` clone — cheap, and every clone talks to the same
-/// underlying socket. Replaces the old pattern of every `net.rs` function
-/// opening (and immediately dropping) its own connection for one RPC: every
-/// action now shares one connection with the rest of the session, lazily
-/// established on first use.
-#[derive(Clone, Default)]
-pub struct RwpClient {
+/// Immutable connection details + the lazily-established socket. Wrapped
+/// whole in the single `Arc` below, so cloning `RwpClient` never allocates —
+/// see the struct-level doc comment.
+#[derive(Default)]
+struct RwpClientInner {
     addr: String,
     token: Option<String>,
-    conn: Arc<tokio::sync::Mutex<Option<RwpStream>>>,
+    conn: tokio::sync::Mutex<Option<RwpStream>>,
 }
+
+/// A single RPC connection to the daemon, shared and reconnected on demand.
+/// `Clone` is one `Arc` refcount bump — no `String` allocation, regardless of
+/// `addr`/`token` length — and every clone talks to the same underlying
+/// socket. Replaces the old pattern of every `net.rs` function opening (and
+/// immediately dropping) its own connection for one RPC: every action now
+/// shares one connection with the rest of the session, lazily established on
+/// first use.
+#[derive(Clone, Default)]
+pub struct RwpClient(Arc<RwpClientInner>);
 
 impl RwpClient {
     pub fn new(addr: String, token: Option<String>) -> Self {
-        Self { addr, token, conn: Arc::new(tokio::sync::Mutex::new(None)) }
+        Self(Arc::new(RwpClientInner { addr, token, conn: tokio::sync::Mutex::new(None) }))
     }
 
     pub fn addr(&self) -> &str {
-        &self.addr
+        &self.0.addr
     }
 
     pub fn token(&self) -> Option<&str> {
-        self.token.as_deref()
+        self.0.token.as_deref()
     }
 
     /// Connects if there is no cached connection yet. Used by `poll_stream` to
     /// surface a connection failure up front (before its own dedicated event
     /// stream also tries to connect), without spending an RPC to do it.
     pub async fn ensure_connected(&self) -> anyhow::Result<()> {
-        let mut guard = self.conn.lock().await;
+        let mut guard = self.0.conn.lock().await;
         if guard.is_none() {
-            *guard = Some(connect(&self.addr, self.token.as_deref()).await?);
+            *guard = Some(connect(&self.0.addr, self.0.token.as_deref()).await?);
         }
         Ok(())
     }
@@ -275,9 +282,9 @@ impl RwpClient {
     /// and blindly resending would risk double-firing a mutating command like
     /// `DeployStart`. The caller sees the error and decides whether to retry.
     pub async fn rpc(&self, cmd: Command) -> anyhow::Result<Response> {
-        let mut guard = self.conn.lock().await;
+        let mut guard = self.0.conn.lock().await;
         if guard.is_none() {
-            *guard = Some(connect(&self.addr, self.token.as_deref()).await?);
+            *guard = Some(connect(&self.0.addr, self.0.token.as_deref()).await?);
         }
         match rpc(guard.as_mut().unwrap(), cmd).await {
             Ok(r) => Ok(r),
