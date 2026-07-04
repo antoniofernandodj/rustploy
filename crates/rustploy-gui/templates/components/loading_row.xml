@@ -11,8 +11,8 @@
 -->
 <style>
 .loading_row  { spacing: 9; align-y: center; padding: 8; }
-.loading_spin { size: 16; color: #2F81F7; }
-.loading_note { size: 13; color: #8B949E; }
+.loading_spin { size: 16; color: var(--spin); }
+.loading_note { size: 13; color: var(--muted); }
 </style>
 
 <Row class="loading_row">

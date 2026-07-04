@@ -9,9 +9,9 @@
 <style>
 .card_stats    { width: fill; spacing: 12; }
 .card_stat     { width: fill; spacing: 4; }
-.card_stat_num { size: 18; bold: true; color: #C9D1D9; }
+.card_stat_num { size: 18; bold: true; color: var(--text-2); }
 .card_actions  { width: fill; spacing: 8; }
-.card_stop     { width: fill; color: #21262D; padding: 9 10; text-align: center; border-radius: 10 }
+.card_stop     { width: fill; color: var(--border); padding: 9 10; text-align: center; border-radius: 10 }
 </style>
 
 <Column if="{filler}" equals="1" class="card_filler" />

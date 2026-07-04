@@ -13,11 +13,11 @@
 .state_cell { width: 170; spacing: 7; align-y: center; }
 .state_lbl  { size: 12; }
 /* Paleta de estado — a 2ª classe (state_{kind}) pinta ponto + rótulo. */
-.state_ok    { color: #3FB950; }
-.state_bad   { color: #F85149; }
-.state_info  { color: #58A6FF; }
-.state_warn  { color: #D29922; }
-.state_muted { color: #8B949E; }
+.state_ok    { color: var(--ok); }
+.state_bad   { color: var(--error); }
+.state_info  { color: var(--accent); }
+.state_warn  { color: var(--warn); }
+.state_muted { color: var(--muted); }
 </style>
 
 <Row class="state_cell">

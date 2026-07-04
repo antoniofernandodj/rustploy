@@ -7,7 +7,7 @@
   compara os dois valores dinâmicos.
 -->
 <style>
-.tab_on { color: #1F6FEB; padding: 9 16; border-radius: 10 }
+.tab_on { color: var(--blue); padding: 9 16; border-radius: 10 }
 </style>
 
 <if cond="{current}" equals="{target}">

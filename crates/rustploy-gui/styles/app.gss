@@ -1,4 +1,4 @@
-/* Rustploy — glacier-ui stylesheet.
+/* ── Rustploy — glacier-ui stylesheet.─────────────────────────────────────
    Terminal-flavoured dark theme, monospaced throughout, matching design/.
 
    Aqui ficam apenas os seletores COMPARTILHADOS por mais de um template (mais
@@ -11,6 +11,7 @@
    Fonte única da paleta. Referenciados via var(--x) aqui e nos <style> dos
    templates (var() é cross-sheet: esta :root global resolve em qualquer sheet
    com escopo). Trocar um tom aqui reflete no app inteiro. */
+
 :root {
     --bg:      #0A0E14;   /* fundo do app */
     --surface: #0D1117;   /* painéis / sidebar / inputs */
@@ -21,9 +22,13 @@
     --muted:   #8B949E;   /* secundário */
     --faint:   #6E7681;   /* rótulos apagados */
     --accent:  #58A6FF;   /* azul de destaque */
+    --blue:    #1F6FEB;   /* botões/abas azuis */
+    --spin:    #2F81F7;   /* ação (connect) / spinner */
     --green:   #238636;   /* botão primário */
+    --ok:      #3FB950;   /* estado ok / sucesso */
     --danger:  #DA3633;   /* botão de perigo */
     --error:   #F85149;   /* texto de erro */
+    --warn:    #D29922;   /* estado de alerta */
 }
 
 /* ── Base ─────────────────────────────────────────────────────────────── */

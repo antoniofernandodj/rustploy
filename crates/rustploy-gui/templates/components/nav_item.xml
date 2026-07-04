@@ -6,7 +6,7 @@
   (`nav_item`). `equals` é interpolado, então compara {view} com {target}.
 -->
 <style>
-.nav_item_on { width: fill; color: #1F6FEB; padding: 11 14; }
+.nav_item_on { width: fill; color: var(--blue); padding: 11 14; }
 </style>
 
 <Button class="nav_item_on" if="{view}" equals="{target}" onClick="{action}" text="{label}" />

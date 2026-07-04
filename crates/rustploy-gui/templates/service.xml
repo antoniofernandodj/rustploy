@@ -3,40 +3,40 @@
 .svc_head      { width: fill; align-y: start; }
 .svc_title_row { width: fill; spacing: 14; align-y: center; }
 .svc_actions   { spacing: 10; align-y: center; }
-.btn_blue      { color: #1F6FEB; padding: 11 22; border-radius: 10 }
+.btn_blue      { color: var(--blue); padding: 11 22; border-radius: 10 }
 /* Corpo: conteúdo da aba + painel lateral */
 .svc_body      { width: fill; height: fill; spacing: 20; }
 .svc_main      { width: fill; height: fill; spacing: 16; }
 .svc_aside     { width: 360; height: fill; spacing: 16; }
-.svc_err       { size: 13; color: #F85149; }
+.svc_err       { size: 13; color: var(--error); }
 /* Connection (pares chave/valor) */
-.kv_key        { width: fill; size: 13; color: #8B949E; }
-.kv_val        { size: 16; bold: true; color: #E6EDF3; }
+.kv_key        { width: fill; size: 13; color: var(--muted); }
+.kv_val        { size: 16; bold: true; color: var(--text); }
 /* Environment / General (editores) */
-.btn_export_on { color: #1F6FEB; padding: 11 22; border-radius: 10; }
-.btn_export    { color: #21262D; padding: 11 22; border-radius: 10; }
+.btn_export_on { color: var(--blue); padding: 11 22; border-radius: 10; }
+.btn_export    { color: var(--border); padding: 11 22; border-radius: 10; }
 .env_editor    { width: fill; height: 200; padding: 10 12; font: mono; }
-.select        { width: fill; padding: 12 14; background: #161B22; border-radius: 8; border-width: 1; border-color: #30363D; color: #C9D1D9; }
+.select        { width: fill; padding: 12 14; background: var(--raised); border-radius: 8; border-width: 1; border-color: #30363D; color: var(--text-2); }
 /* Deployments (lista + build log) */
 .col_dep_id    { width: 130; }
 .col_dep_start { width: fill; }
-.dep_image     { size: 11; color: #6E7681; padding: 2 0 0 0; }
+.dep_image     { size: 11; color: var(--faint); padding: 2 0 0 0; }
 .dep_wrap      { width: fill; height: fill; spacing: 8; }
 .dep_list_scroll { width: fill; height: 240; }
 .dep_actions   { spacing: 8; }
-.dep_logs_btn  { color: #21262D; padding: 7 15; border-radius: 6 }
-.dep_del_btn   { color: #DA3633; padding: 7 15; border-radius: 6 }
-.label_cap_fill { width: fill; size: 11; bold: true; color: #6E7681; }
+.dep_logs_btn  { color: var(--border); padding: 7 15; border-radius: 6 }
+.dep_del_btn   { color: var(--danger); padding: 7 15; border-radius: 6 }
+.label_cap_fill { width: fill; size: 11; bold: true; color: var(--faint); }
 /* Logs / live output */
 .log_editor    { width: fill; height: fill; padding: 10 12; font: mono; }
-.log_panel     { width: fill; height: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 14 16; spacing: 8; }
+.log_panel     { width: fill; height: fill; background: var(--surface); border-radius: 12; border-width: 1; border-color: var(--border); padding: 14 16; spacing: 8; }
 .log_body      { width: fill; spacing: 2; }
 .log_line      { width: fill; spacing: 12; }
-.log_time      { width: 76; size: 11; color: #6E7681; }
+.log_time      { width: 76; size: 11; color: var(--faint); }
 .log_text      { width: fill; size: 12; color: #9DA7B3; }
 /* Painel lateral */
-.aside_panel   { width: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 18; spacing: 8; }
-.aside_panel_fill { width: fill; height: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 14 16; spacing: 8; }
+.aside_panel   { width: fill; background: var(--surface); border-radius: 12; border-width: 1; border-color: var(--border); padding: 18; spacing: 8; }
+.aside_panel_fill { width: fill; height: fill; background: var(--surface); border-radius: 12; border-width: 1; border-color: var(--border); padding: 14 16; spacing: 8; }
 </style>
 
 <Column class="content">

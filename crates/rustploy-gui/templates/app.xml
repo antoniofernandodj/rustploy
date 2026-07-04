@@ -22,12 +22,12 @@
 .rz_sw     { cursor: resize-sw; }
 .rz_se     { cursor: resize-se; }
 /* ── Custom titlebar (borderless window) ──────────────────────────────── */
-.titlebar       { width: fill; height: 32; background: #0D1117; align-y: center; }
+.titlebar       { width: fill; height: 32; background: var(--surface); align-y: center; }
 .titlebar_drag  { width: fill; height: fill; align-y: center; padding: 0 0 0 16; spacing: 9; }
-.titlebar_dot   { size: 10; color: #1F6FEB; }
-.titlebar_title { size: 12; bold: true; color: #8B949E; }
-.win_btn        { width: 48; padding: 5 0; color: #21262D; text-align: center; }
-.win_close      { width: 48; padding: 5 0; color: #DA3633; text-align: center; }
+.titlebar_dot   { size: 10; color: var(--blue); }
+.titlebar_title { size: 12; bold: true; color: var(--muted); }
+.win_btn        { width: 48; padding: 5 0; color: var(--border); text-align: center; }
+.win_close      { width: 48; padding: 5 0; color: var(--danger); text-align: center; }
 </style>
 
 <Column class="screen">
