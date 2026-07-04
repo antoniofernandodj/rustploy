@@ -8,7 +8,7 @@ mod rwp;
 mod store;
 mod wizard;
 
-use glacier_ui::{EngineMessage, GlacierUI, ToastSpec};
+use glacier_ui::{EngineMessage, GlacierUI};
 use iced::{Element, Point, Subscription, Task, window, Size, window::settings::PlatformSpecific};
 use std::time::Duration;
 use root::Root;
@@ -136,23 +136,6 @@ impl App {
                         return window_control(id, cmd);
                     }
                 }
-                // Intercept a toast request riding along a `ContextPatch`
-                // (see `net::{TOAST_KIND_KEY, TOAST_MSG_KEY}`) — the reserved
-                // pairs an async effect or `poll_stream` uses to ask for a
-                // toast, since neither has a `Context` to call
-                // `ctx.show_toast` on directly. Show it via `GlacierUI`'s own
-                // host-app API and strip the pairs so they never land as
-                // meaningless context keys.
-                let event = match event {
-                    EngineMessage::ContextPatch(pairs) => {
-                        let (rest, toast) = extract_toast(pairs);
-                        if let Some(spec) = toast {
-                            self.motor.show_toast(spec);
-                        }
-                        EngineMessage::ContextPatch(rest)
-                    }
-                    other => other,
-                };
                 self.motor.dispatch(&event).map(Message::Engine)
             }
         }
@@ -252,37 +235,6 @@ fn platform_specific() -> PlatformSpecific {
 #[cfg(not(target_os = "linux"))]
 fn platform_specific() -> PlatformSpecific {
     PlatformSpecific::default()
-}
-
-/// Pulls a toast request out of a `ContextPatch`'s pairs (see
-/// `net::{TOAST_KIND_KEY, TOAST_MSG_KEY}` for why it travels this way instead
-/// of through `Context::show_toast`), returning the spec (if any pair asked
-/// for one) alongside the rest of the pairs with the reserved keys removed —
-/// they're host-app state, never meant to reach the visible context.
-fn extract_toast(pairs: Vec<(String, String)>) -> (Vec<(String, String)>, Option<ToastSpec>) {
-    let mut kind = None;
-    let mut message = None;
-    let rest = pairs
-        .into_iter()
-        .filter(|(k, v)| match k.as_str() {
-            net::TOAST_KIND_KEY => {
-                kind = Some(v.clone());
-                false
-            }
-            net::TOAST_MSG_KEY => {
-                message = Some(v.clone());
-                false
-            }
-            _ => true,
-        })
-        .collect();
-    let spec = message.map(|m| match kind.as_deref() {
-        Some("error") => ToastSpec::error(m),
-        Some("warning") => ToastSpec::warning(m),
-        Some("info") => ToastSpec::info(m),
-        _ => ToastSpec::success(m),
-    });
-    (rest, spec)
 }
 
 /// Maps a `window:<cmd>` action to its iced window task, driven against the

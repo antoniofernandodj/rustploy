@@ -3,7 +3,8 @@
 //! project at deploy time).
 
 use super::view;
-use super::{with_outcome_toast, with_toast, DetailCacheHandle, RwpClient};
+use super::{outcome_toast, DetailCacheHandle, RwpClient};
+use glacier_ui::{EffectOutcome, ToastSpec};
 use shared::{Command, EnvVar, EnvVarValue, Project, Response, Service};
 use std::collections::HashMap;
 
@@ -32,7 +33,7 @@ impl Projects {
         self,
         cache: DetailCacheHandle,
         project_id: String,
-    ) -> Vec<(String, String)> {
+    ) -> EffectOutcome {
         let pairs = self.fetch_services(project_id.clone()).await;
         // Only cache a successful load — the error path carries no `proj_name`.
         if pairs.iter().any(|(k, _)| k == "proj_name")
@@ -40,7 +41,7 @@ impl Projects {
         {
             c.insert_project(project_id, pairs.clone());
         }
-        pairs
+        EffectOutcome::data(pairs)
     }
 
     /// One-shot load for the `project_services` detail view: the project's own
@@ -101,7 +102,7 @@ impl Projects {
     /// shows up at once, instead of waiting up to 2s for the next poll tick.
     /// `search` keeps the grid filtered by whatever the topbar search box
     /// currently holds.
-    pub async fn create(self, name: String, description: String, search: String) -> Vec<(String, String)> {
+    pub async fn create(self, name: String, description: String, search: String) -> EffectOutcome {
         let description = if description.trim().is_empty() { None } else { Some(description) };
         let msg = match self.client.rpc(Command::ProjectCreate { name, description }).await {
             Ok(Response::Project(p)) => format!("projeto \"{}\" criado", p.name),
@@ -114,29 +115,26 @@ impl Projects {
             ("new_proj_desc".into(), String::new()),
         ];
         pairs.extend(self.grid_pairs(&search).await);
-        with_outcome_toast(pairs, &msg)
+        outcome_toast(pairs, &msg)
     }
 
     /// Renames/redescribes the project open in `project_services`.
-    pub async fn update(self, id: String, name: String, description: String) -> Vec<(String, String)> {
+    pub async fn update(self, id: String, name: String, description: String) -> EffectOutcome {
         let description = if description.trim().is_empty() { None } else { Some(description) };
         match self.client.rpc(Command::ProjectUpdate { id, name, description }).await {
-            Ok(Response::Project(p)) => with_toast(
-                vec![
-                    ("proj_action_msg".into(), "salvo".into()),
-                    ("proj_name".into(), p.name),
-                    ("proj_description".into(), p.description.unwrap_or_default()),
-                ],
-                "success",
-                "Projeto salvo.",
-            ),
+            Ok(Response::Project(p)) => EffectOutcome::data(vec![
+                ("proj_action_msg".into(), "salvo".into()),
+                ("proj_name".into(), p.name),
+                ("proj_description".into(), p.description.unwrap_or_default()),
+            ])
+            .with_toast(ToastSpec::success("Projeto salvo.")),
             Ok(other) => {
                 let msg = view::resp_msg(&other);
-                with_toast(vec![("proj_action_msg".into(), msg.clone())], "error", msg)
+                EffectOutcome::data(vec![("proj_action_msg".into(), msg.clone())]).with_toast(ToastSpec::error(msg))
             }
             Err(e) => {
                 let msg = format!("erro: {e}");
-                with_toast(vec![("proj_action_msg".into(), msg.clone())], "error", msg)
+                EffectOutcome::data(vec![("proj_action_msg".into(), msg.clone())]).with_toast(ToastSpec::error(msg))
             }
         }
     }
@@ -145,7 +143,7 @@ impl Projects {
     /// it still has services, so no client-side re-validation is needed here.
     /// Re-fetches the Projects grid on the same connection so the removed card
     /// disappears at once instead of after the next 2s poll tick.
-    pub async fn delete(self, id: String, search: String) -> Vec<(String, String)> {
+    pub async fn delete(self, id: String, search: String) -> EffectOutcome {
         let (msg, ok) = match self.client.rpc(Command::ProjectDelete { id }).await {
             Ok(Response::Ok) => ("projeto removido".to_string(), true),
             Ok(other) => (view::resp_msg(&other), false),
@@ -159,26 +157,23 @@ impl Projects {
             pairs.push(("view".into(), "projects".into()));
         }
         pairs.extend(self.grid_pairs(&search).await);
-        with_outcome_toast(pairs, &msg)
+        outcome_toast(pairs, &msg)
     }
 
     /// Aplica um [`ProjectEnvOp`] (fetch do projeto → mutação →
     /// `ProjectEnvSet`) e devolve a lista atualizada para a aba "Variáveis" do
     /// projeto.
-    pub async fn run_env_op(self, project_id: String, op: ProjectEnvOp) -> Vec<(String, String)> {
+    pub async fn run_env_op(self, project_id: String, op: ProjectEnvOp) -> EffectOutcome {
         match self.apply_env_op(&project_id, op).await {
-            Ok(project) => with_toast(
-                vec![
-                    ("proj_action_msg".into(), "variáveis do projeto atualizadas".into()),
-                    ("proj_env".into(), view::env_json(&project.env_vars)),
-                    ("proj_env_count".into(), project.env_vars.len().to_string()),
-                ],
-                "success",
-                "Variáveis do projeto atualizadas.",
-            ),
+            Ok(project) => EffectOutcome::data(vec![
+                ("proj_action_msg".into(), "variáveis do projeto atualizadas".into()),
+                ("proj_env".into(), view::env_json(&project.env_vars)),
+                ("proj_env_count".into(), project.env_vars.len().to_string()),
+            ])
+            .with_toast(ToastSpec::success("Variáveis do projeto atualizadas.")),
             Err(e) => {
                 let msg = format!("erro: {e}");
-                with_toast(vec![("proj_action_msg".into(), msg.clone())], "error", msg)
+                EffectOutcome::data(vec![("proj_action_msg".into(), msg.clone())]).with_toast(ToastSpec::error(msg))
             }
         }
     }
@@ -255,7 +250,7 @@ impl Projects {
     /// acts on the single service open in the detail view). Re-fetches the
     /// project's service grid afterwards so the card's status flips
     /// immediately instead of after the next 2s poll tick.
-    pub async fn run_service_action(self, cmd: Command, project_id: String) -> Vec<(String, String)> {
+    pub async fn run_service_action(self, cmd: Command, project_id: String) -> EffectOutcome {
         let msg = match self.client.rpc(cmd).await {
             Ok(Response::Ok) => "ação concluída".to_string(),
             Ok(other) => view::resp_msg(&other),
@@ -263,14 +258,14 @@ impl Projects {
         };
         let mut pairs = self.fetch_services(project_id).await;
         pairs.push(("proj_action_msg".into(), msg.clone()));
-        with_outcome_toast(pairs, &msg)
+        outcome_toast(pairs, &msg)
     }
 
     /// "Parar e remover": stops the service, then deletes it once stopped.
     /// Bails out (without deleting) if the stop itself fails, so a service
     /// that refused to stop isn't silently removed from the DB while its
     /// container lingers.
-    pub async fn stop_and_delete_service(self, service_id: String, project_id: String) -> Vec<(String, String)> {
+    pub async fn stop_and_delete_service(self, service_id: String, project_id: String) -> EffectOutcome {
         // On a stop failure the service isn't deleted; still re-fetch the grid so the
         // card reflects reality (it may have stopped despite the error response).
         let msg = match self.client.rpc(Command::ServiceStop { service_id: service_id.clone() }).await {
@@ -284,6 +279,6 @@ impl Projects {
         };
         let mut pairs = self.fetch_services(project_id).await;
         pairs.push(("proj_action_msg".into(), msg.clone()));
-        with_outcome_toast(pairs, &msg)
+        outcome_toast(pairs, &msg)
     }
 }

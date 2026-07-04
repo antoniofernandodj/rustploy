@@ -2,7 +2,8 @@
 //! repo/branch pickers used by a service's General tab.
 
 use super::view;
-use super::{with_outcome_toast, RwpClient};
+use super::{outcome_toast, RwpClient};
+use glacier_ui::EffectOutcome;
 use shared::{Command, Response};
 
 pub struct GitProviders {
@@ -41,9 +42,9 @@ impl GitProviders {
     }
 
     /// Lists the repositories of a provider; resets the repo/branch selection.
-    pub async fn fetch_repos(self, provider_id: String) -> Vec<(String, String)> {
+    pub async fn fetch_repos(self, provider_id: String) -> EffectOutcome {
         let pid = provider_id.clone();
-        match self.client.rpc(Command::GitRepoList { provider_id }).await {
+        EffectOutcome::data(match self.client.rpc(Command::GitRepoList { provider_id }).await {
             Ok(Response::GitRepos(list)) => vec![
                 ("gitea_provider_id".into(), pid),
                 ("gitea_repos".into(), view::git_repos_json(&list)),
@@ -53,19 +54,19 @@ impl GitProviders {
             ],
             Ok(other) => vec![("gitea_msg".into(), view::resp_msg(&other))],
             Err(e) => vec![("gitea_msg".into(), format!("erro: {e}"))],
-        }
+        })
     }
 
     /// Lists the branches of a repository for the branch picker.
-    pub async fn fetch_branches(self, provider_id: String, repo_full_name: String) -> Vec<(String, String)> {
-        match self.client.rpc(Command::GitBranchList { provider_id, repo_full_name }).await {
+    pub async fn fetch_branches(self, provider_id: String, repo_full_name: String) -> EffectOutcome {
+        EffectOutcome::data(match self.client.rpc(Command::GitBranchList { provider_id, repo_full_name }).await {
             Ok(Response::GitBranches(list)) => vec![
                 ("gitea_branches".into(), view::git_branches_json(&list)),
                 ("gitea_msg".into(), format!("{} branch(es)", list.len())),
             ],
             Ok(other) => vec![("gitea_msg".into(), view::resp_msg(&other))],
             Err(e) => vec![("gitea_msg".into(), format!("erro: {e}"))],
-        }
+        })
     }
 
     /// Re-fetches the provider list and returns the context pairs (`gitea_*`)
@@ -93,16 +94,16 @@ impl GitProviders {
         client_id: String,
         client_secret: String,
         pat: String,
-    ) -> Vec<(String, String)> {
+    ) -> EffectOutcome {
         if base_url.trim().is_empty() {
-            return vec![("gp_msg".into(), "informe a Base URL do Gitea".into())];
+            return EffectOutcome::data(vec![("gp_msg".into(), "informe a Base URL do Gitea".into())]);
         }
         let name = if name.trim().is_empty() { "Gitea".to_string() } else { name.trim().to_string() };
         let is_oauth = mode != "pat";
 
         let cmd = if is_oauth {
             if client_id.trim().is_empty() || client_secret.trim().is_empty() {
-                return vec![("gp_msg".into(), "Client ID e Client Secret são obrigatórios".into())];
+                return EffectOutcome::data(vec![("gp_msg".into(), "Client ID e Client Secret são obrigatórios".into())]);
             }
             Command::GitProviderCreate {
                 kind: shared::GitProviderKind::Gitea,
@@ -115,7 +116,7 @@ impl GitProviders {
             }
         } else {
             if pat.trim().is_empty() {
-                return vec![("gp_msg".into(), "informe o Personal Access Token".into())];
+                return EffectOutcome::data(vec![("gp_msg".into(), "informe o Personal Access Token".into())]);
             }
             Command::GitProviderCreate {
                 kind: shared::GitProviderKind::Gitea,
@@ -130,8 +131,8 @@ impl GitProviders {
 
         let provider_id = match self.client.rpc(cmd).await {
             Ok(Response::GitProviderInfo(p)) => p.id,
-            Ok(other) => return vec![("gp_msg".into(), view::resp_msg(&other))],
-            Err(e) => return vec![("gp_msg".into(), format!("erro: {e}"))],
+            Ok(other) => return EffectOutcome::data(vec![("gp_msg".into(), view::resp_msg(&other))]),
+            Err(e) => return EffectOutcome::data(vec![("gp_msg".into(), format!("erro: {e}"))]),
         };
 
         // OAuth needs a browser round-trip; PAT is immediately usable.
@@ -156,23 +157,23 @@ impl GitProviders {
         for k in ["gp_name", "gp_base_url", "gp_client_id", "gp_client_secret", "gp_pat"] {
             pairs.push((k.into(), String::new()));
         }
-        with_outcome_toast(pairs, &msg)
+        outcome_toast(pairs, &msg)
     }
 
     /// Removes a connected provider and refreshes the list.
-    pub async fn delete(self, id: String) -> Vec<(String, String)> {
+    pub async fn delete(self, id: String) -> EffectOutcome {
         let msg = match self.client.rpc(Command::GitProviderDelete { id }).await {
             Ok(Response::Ok) => "provider removido".to_string(),
             Ok(other) => view::resp_msg(&other),
             Err(e) => format!("erro: {e}"),
         };
         let pairs = self.refresh_pairs(msg.clone()).await;
-        with_outcome_toast(pairs, &msg)
+        outcome_toast(pairs, &msg)
     }
 
     /// One-shot provider list refresh for the "Atualizar lista" button.
-    pub async fn refresh(self) -> Vec<(String, String)> {
-        self.refresh_pairs(String::new()).await
+    pub async fn refresh(self) -> EffectOutcome {
+        EffectOutcome::data(self.refresh_pairs(String::new()).await)
     }
 }
 

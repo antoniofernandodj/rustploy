@@ -3,7 +3,8 @@
 //! built with instead of opening its own connection.
 
 use super::view;
-use super::{with_outcome_toast, with_toast, DeployTrack, DetailCacheHandle, RwpClient};
+use super::{outcome_toast, DeployTrack, DetailCacheHandle, RwpClient};
+use glacier_ui::{EffectOutcome, ToastSpec};
 use shared::{
     Command, EnvComment, EnvVar, EnvVarValue, Healthcheck, HealthcheckKind, Response, ServiceSource,
     looks_like_git_url,
@@ -97,7 +98,7 @@ impl Services {
     /// Runs a lifecycle command against `service_id`, then re-fetches its
     /// detail so the panel reflects the new state. Surfaces a one-line
     /// outcome in `svc_action_msg`.
-    pub async fn run_action(self, cmd: Command, service_id: String) -> Vec<(String, String)> {
+    pub async fn run_action(self, cmd: Command, service_id: String) -> EffectOutcome {
         let msg = match self.client.rpc(cmd).await {
             Ok(Response::Ok) => "ação concluída".to_string(),
             Ok(Response::Deployment(d)) => format!("deploy iniciado · {}", d.state.label()),
@@ -106,7 +107,7 @@ impl Services {
         };
         let mut pairs = self.fetch_detail(service_id).await;
         pairs.push(("svc_action_msg".into(), msg.clone()));
-        with_outcome_toast(pairs, &msg)
+        outcome_toast(pairs, &msg)
     }
 
     /// Starts a deploy (`Command::DeployStart`) for `service_id` and arms
@@ -118,13 +119,14 @@ impl Services {
         self,
         service_id: String,
         deploy_shared: Arc<Mutex<DeployTrack>>,
-    ) -> Vec<(String, String)> {
+    ) -> EffectOutcome {
         let resp = self
             .client
             .rpc(Command::DeployStart { service_id: service_id.clone() })
             .await;
 
         let mut pairs = Vec::new();
+        let toast;
         match &resp {
             Ok(Response::Deployment(d)) => {
                 if let Ok(mut t) = deploy_shared.lock() {
@@ -142,22 +144,22 @@ impl Services {
                 // The terminal outcome (success/failure) is toasted separately by
                 // `poll_stream`, once the deployment actually finishes — this one
                 // just confirms the request was accepted.
-                pairs = with_toast(pairs, "info", "Deploy iniciado.");
+                toast = ToastSpec::info("Deploy iniciado.");
             }
             Ok(other) => {
                 let msg = view::resp_msg(other);
                 pairs.push(("svc_action_msg".into(), msg.clone()));
                 pairs.push(("svc_action_color".into(), "#F85149".into()));
-                pairs = with_toast(pairs, "error", format!("Falha ao iniciar deploy: {msg}"));
+                toast = ToastSpec::error(format!("Falha ao iniciar deploy: {msg}"));
             }
             Err(e) => {
                 pairs.push(("svc_action_msg".into(), format!("erro: {e}")));
                 pairs.push(("svc_action_color".into(), "#F85149".into()));
-                pairs = with_toast(pairs, "error", format!("Falha ao iniciar deploy: {e}"));
+                toast = ToastSpec::error(format!("Falha ao iniciar deploy: {e}"));
             }
         }
         pairs.extend(self.fetch_detail(service_id).await);
-        pairs
+        EffectOutcome::data(pairs).with_toast(toast)
     }
 
     /// [`Self::fetch_detail`] plus a write-through into `cache` on success, so
@@ -169,7 +171,7 @@ impl Services {
         self,
         cache: DetailCacheHandle,
         service_id: String,
-    ) -> Vec<(String, String)> {
+    ) -> EffectOutcome {
         let pairs = self.fetch_detail(service_id.clone()).await;
         // Only cache a successful load — the error path carries no `svc_id`.
         if pairs.iter().any(|(k, _)| k == "svc_id")
@@ -177,7 +179,7 @@ impl Services {
         {
             c.insert_service(service_id, pairs.clone());
         }
-        pairs
+        EffectOutcome::data(pairs)
     }
 
     /// One-shot fetch of everything the Service detail screen needs: the full
@@ -401,7 +403,7 @@ impl Services {
     /// Cria um serviço a partir do wizard "Novo serviço". No sucesso volta para
     /// a lista de serviços do projeto (a `view` é patchada junto) já
     /// re-fetchada; no erro permanece no wizard com a mensagem em `ns_msg`.
-    pub async fn create(self, spec: shared::ServiceSpec) -> Vec<(String, String)> {
+    pub async fn create(self, spec: shared::ServiceSpec) -> EffectOutcome {
         let project_id = spec.project_id.clone();
         let name = spec.name.clone();
         match self.client.rpc(Command::ServiceCreate(spec)).await {
@@ -413,15 +415,15 @@ impl Services {
                 pairs.push(("proj_tab".into(), "services".into()));
                 pairs.push(("ns_step".into(), String::new()));
                 pairs.push(("ns_msg".into(), String::new()));
-                with_toast(pairs, "success", format!("Serviço \"{name}\" criado."))
+                EffectOutcome::data(pairs).with_toast(ToastSpec::success(format!("Serviço \"{name}\" criado.")))
             }
             Ok(other) => {
                 let msg = view::resp_msg(&other);
-                with_toast(vec![("ns_msg".into(), msg.clone())], "error", msg)
+                EffectOutcome::data(vec![("ns_msg".into(), msg.clone())]).with_toast(ToastSpec::error(msg))
             }
             Err(e) => {
                 let msg = format!("erro: {e}");
-                with_toast(vec![("ns_msg".into(), msg.clone())], "error", msg)
+                EffectOutcome::data(vec![("ns_msg".into(), msg.clone())]).with_toast(ToastSpec::error(msg))
             }
         }
     }
@@ -431,7 +433,7 @@ impl Services {
     /// (`DEPLOY_ACTIVE`), so no client-side re-validation beyond hiding the
     /// button (`can_delete`) is needed. Refetches the service detail
     /// afterwards so `svc_deployments` drops the removed row.
-    pub async fn delete_deployment(self, service_id: String, deployment_id: String) -> Vec<(String, String)> {
+    pub async fn delete_deployment(self, service_id: String, deployment_id: String) -> EffectOutcome {
         let msg = match self.client.rpc(Command::DeployDelete { deployment_id }).await {
             Ok(Response::Ok) => "deployment removido".to_string(),
             Ok(other) => view::resp_msg(&other),
@@ -439,33 +441,33 @@ impl Services {
         };
         let mut pairs = self.fetch_detail(service_id).await;
         pairs.push(("svc_action_msg".into(), msg.clone()));
-        with_outcome_toast(pairs, &msg)
+        outcome_toast(pairs, &msg)
     }
 
     /// Fetches the build log of a single deployment for the Deployments tab.
-    pub async fn fetch_build_logs(self, deployment_id: String) -> Vec<(String, String)> {
+    pub async fn fetch_build_logs(self, deployment_id: String) -> EffectOutcome {
         let lines = match self.client.rpc(Command::GetBuildLogs { deployment_id: deployment_id.clone() }).await {
             Ok(Response::BuildLogs(l)) => l,
             _ => Vec::new(),
         };
-        vec![
+        EffectOutcome::data(vec![
             ("dep_selected".into(), deployment_id),
             ("dep_build_logs".into(), view::build_logs_json(&lines)),
             ("dep_build_count".into(), lines.len().to_string()),
             ("dep_build_text".into(), view::join_log_lines(lines.iter().map(|e| (&e.timestamp, e.line.as_str())))),
-        ]
+        ])
     }
 
     /// Applies a [`SpecOp`] to the service (fetch fresh spec → mutate →
     /// update), then re-fetches the detail so the panel reflects the change.
-    pub async fn run_spec_op(self, service_id: String, op: SpecOp) -> Vec<(String, String)> {
+    pub async fn run_spec_op(self, service_id: String, op: SpecOp) -> EffectOutcome {
         let msg = match self.apply_spec_op(&service_id, op).await {
             Ok(_) => "salvo".to_string(),
             Err(e) => format!("erro: {e}"),
         };
         let mut pairs = self.fetch_detail(service_id).await;
         pairs.push(("svc_action_msg".into(), msg.clone()));
-        with_outcome_toast(pairs, &msg)
+        outcome_toast(pairs, &msg)
     }
 
     async fn apply_spec_op(&self, service_id: &str, op: SpecOp) -> anyhow::Result<()> {
@@ -591,14 +593,14 @@ impl Services {
 
     /// Applies an [`EnvOp`] to the service (fetch fresh spec → mutate →
     /// update), then re-fetches the detail so the panel reflects the change.
-    pub async fn run_env_op(self, service_id: String, op: EnvOp) -> Vec<(String, String)> {
+    pub async fn run_env_op(self, service_id: String, op: EnvOp) -> EffectOutcome {
         let msg = match self.apply_env_op(&service_id, op).await {
             Ok(_) => "env atualizado".to_string(),
             Err(e) => format!("erro: {e}"),
         };
         let mut pairs = self.fetch_detail(service_id).await;
         pairs.push(("svc_action_msg".into(), msg.clone()));
-        with_outcome_toast(pairs, &msg)
+        outcome_toast(pairs, &msg)
     }
 
     async fn apply_env_op(&self, service_id: &str, op: EnvOp) -> anyhow::Result<()> {

@@ -25,7 +25,7 @@ pub use services::{EnvOp, Services, SpecOp};
 pub use super::rwp::RwpClient;
 
 use chrono::{DateTime, Utc};
-use glacier_ui::EngineMessage;
+use glacier_ui::{EffectOutcome, EngineMessage, ToastSpec};
 use iced::futures::{SinkExt, Stream};
 use shared::protocol::{BuildLogLine, LogEntry, LogStream};
 use shared::{
@@ -44,41 +44,32 @@ const BUILD_RING: usize = 2000;
 //
 // A mutating action's outcome (delete/deploy/edit/…) is worth surfacing as a
 // toast even if the user has since navigated away from the panel that shows
-// its inline `*_msg` text. But every one of these outcomes travels back as
-// the `Vec<(String, String)>` a `ctx.perform`/`poll_stream` future returns —
-// `glacier_ui::component::Context::perform`'s only channel — and that lands
-// via `EngineMessage::ContextPatch`, which `GlacierUI::dispatch` merges
-// straight into the context without ever routing through `Component::update`
-// (see the comment on `Root`'s `Form` fields). There is no `Context` to call
-// `ctx.show_toast` on at that point.
+// its inline `*_msg` text. Since glacier-ui 0.7 a `ctx.perform` effect returns
+// an [`EffectOutcome`] (data patch + optional toast), so the toast travels the
+// engine's own channel — `EngineMessage::EffectOutcome`, which
+// `GlacierUI::dispatch` both merges the patch and shows the toast for. No more
+// reserved context keys, no interception in `app/mod.rs`.
 //
-// So a toast request rides along as two reserved pairs with these keys,
-// alongside whatever real context data the pairs carry. `app/mod.rs`'s
-// `update` intercepts them on every `ContextPatch` — from both `ctx.perform`
-// effects and `poll_stream` — before they reach `GlacierUI::dispatch`,
-// turning them into a `GlacierUI::show_toast` call and stripping them out so
-// they never land as visible (and meaningless) context keys.
-pub const TOAST_KIND_KEY: &str = "__toast_kind";
-pub const TOAST_MSG_KEY: &str = "__toast_message";
+// `poll_stream` (a long-lived subscription, not an `Effect`) emits the same
+// `EngineMessage::EffectOutcome` directly for its own outcome toasts (connect
+// failure, deploy completion) — see the `outcome!` macro there.
 
-/// Appends a toast request of `kind` (`"info"`/`"success"`/`"warning"`/`"error"`)
-/// for `msg` to `pairs`.
-fn with_toast(mut pairs: Vec<(String, String)>, kind: &str, msg: impl Into<String>) -> Vec<(String, String)> {
-    pairs.push((TOAST_KIND_KEY.into(), kind.into()));
-    pairs.push((TOAST_MSG_KEY.into(), msg.into()));
-    pairs
+/// An [`EffectOutcome`] carrying `pairs` plus a success/error toast inferred
+/// from one of this module's own outcome messages: `"erro…"` /
+/// `"resposta inesperada…"` (see [`view::resp_msg`]) become an error toast,
+/// anything else a success one.
+fn outcome_toast(pairs: Vec<(String, String)>, msg: &str) -> EffectOutcome {
+    EffectOutcome::data(pairs).with_toast(infer_toast(msg))
 }
 
-/// Appends a toast inferred from one of this module's own outcome messages:
-/// `"erro..."` / `"resposta inesperada..."` (see [`view::resp_msg`]) become an
-/// error toast, anything else a success one.
-fn with_outcome_toast(pairs: Vec<(String, String)>, msg: &str) -> Vec<(String, String)> {
-    let kind = if msg.starts_with("erro") || msg.starts_with("resposta inesperada") {
-        "error"
+/// A success/error [`ToastSpec`] inferred from an outcome message (see
+/// [`outcome_toast`]).
+fn infer_toast(msg: &str) -> ToastSpec {
+    if msg.starts_with("erro") || msg.starts_with("resposta inesperada") {
+        ToastSpec::error(msg)
     } else {
-        "success"
-    };
-    with_toast(pairs, kind, msg)
+        ToastSpec::success(msg)
+    }
 }
 
 /// Identity of the deploy currently being watched, shared between the action
@@ -210,22 +201,32 @@ pub fn poll_stream(
                 let _ = output.send(EngineMessage::ContextPatch($pairs)).await;
             };
         }
+        // Data patch + a toast, both applied by `GlacierUI::dispatch`'s
+        // `EffectOutcome` arm — the same channel a `ctx.perform` effect uses.
+        macro_rules! outcome {
+            ($pairs:expr, $toast:expr) => {
+                let _ = output
+                    .send(EngineMessage::EffectOutcome(
+                        EffectOutcome::data($pairs).with_toast($toast),
+                    ))
+                    .await;
+            };
+        }
 
         // The shared command connection (reused by every other `net::*`
         // action, and by the RPC polling below) + a dedicated event
         // connection (long-lived read loop, can't share a request/response
         // client).
         if let Err(e) = client.ensure_connected().await {
-            patch!(with_toast(
+            outcome!(
                 vec![
                     ("connected".into(), "false".into()),
                     ("screen".into(), "login".into()),
                     ("error".into(), e.to_string()),
                     ("status_line".into(), "falha na conexão".into()),
                 ],
-                "error",
-                format!("Falha na conexão: {e}"),
-            ));
+                ToastSpec::error(format!("Falha na conexão: {e}"))
+            );
             return;
         }
         let mut evt = match super::rwp::connect(client.addr(), client.token()).await {
@@ -463,7 +464,8 @@ pub fn poll_stream(
                         // this service's detail panel; the `svc_deploy_*`/
                         // `svc_action_*` patch below stays panel-gated since
                         // those keys only mean something while it's open.
-                        patch!(with_toast(Vec::new(), if live { "success" } else { "error" }, msg.clone()));
+                        let toast = if live { ToastSpec::success(msg.clone()) } else { ToastSpec::error(msg.clone()) };
+                        let _ = output.send(EngineMessage::EffectOutcome(EffectOutcome::toast(toast))).await;
                         if track.service_id == current {
                             patch!(vec![
                                 ("svc_deploy_running".into(), "false".into()),

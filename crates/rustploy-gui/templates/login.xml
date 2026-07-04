@@ -1,6 +1,6 @@
 <style>
 .login_wrap   { width: fill; height: fill; align-x: center; align-y: center; background: #0A0E14; }
-.login_card   { width: 460; align-x: start; background: #0D1117; border-radius: 16; border-width: 1; border-color: #21262D; padding: 32; spacing: 16; }
+.login_card   { width: fill; max-width: 460; align-x: start; background: #0D1117; border-radius: 16; border-width: 1; border-color: #21262D; padding: 32; spacing: 16; }
 .login_head   { width: fill; spacing: 14; align-y: center; }
 .login_brand  { width: fill; spacing: 6; align-x: start; }
 .field_group  { width: fill; spacing: 6; }

@@ -3,7 +3,8 @@
 //! module only covers the "clear unused" buttons.
 
 use super::view;
-use super::{with_outcome_toast, RwpClient};
+use super::{outcome_toast, RwpClient};
+use glacier_ui::EffectOutcome;
 use shared::{Command, Response};
 
 pub struct Docker {
@@ -19,7 +20,7 @@ impl Docker {
     /// with `all`, every image unused by any container (`docker image prune
     /// -a`) — and refreshes the Images sub-tab so the result shows up
     /// immediately, without waiting for the next 2s poll tick.
-    pub async fn prune_images(self, all: bool) -> Vec<(String, String)> {
+    pub async fn prune_images(self, all: bool) -> EffectOutcome {
         let msg = match self.client.rpc(Command::PruneImages { all }).await {
             Ok(Response::PruneResult { count, reclaimed_bytes }) => {
                 format!("{count} imagem(ns) removida(s) · {} liberados", view::fmt_bytes(reclaimed_bytes))
@@ -32,13 +33,13 @@ impl Docker {
             pairs.push(("docker_images".into(), view::docker_images_json(&list, "")));
             pairs.push(("docker_images_count".into(), list.len().to_string()));
         }
-        with_outcome_toast(pairs, &msg)
+        outcome_toast(pairs, &msg)
     }
 
     /// Removes volumes referenced by no container — or, with `all`, every
     /// unused volume rather than just anonymous ones (`docker volume prune
     /// --all`) — and refreshes the Volumes sub-tab.
-    pub async fn prune_volumes(self, all: bool) -> Vec<(String, String)> {
+    pub async fn prune_volumes(self, all: bool) -> EffectOutcome {
         let msg = match self.client.rpc(Command::PruneVolumes { all }).await {
             Ok(Response::PruneResult { count, reclaimed_bytes }) => {
                 format!("{count} volume(s) removido(s) · {} liberados", view::fmt_bytes(reclaimed_bytes))
@@ -51,13 +52,13 @@ impl Docker {
             pairs.push(("docker_volumes".into(), view::docker_volumes_json(&list, "")));
             pairs.push(("docker_volumes_count".into(), list.len().to_string()));
         }
-        with_outcome_toast(pairs, &msg)
+        outcome_toast(pairs, &msg)
     }
 
     /// Removes networks attached to no container (rustploy's own per-project
     /// networks included, once their last service is gone) and refreshes the
     /// Networks sub-tab.
-    pub async fn prune_networks(self) -> Vec<(String, String)> {
+    pub async fn prune_networks(self) -> EffectOutcome {
         let msg = match self.client.rpc(Command::PruneNetworks).await {
             Ok(Response::PruneResult { count, .. }) => format!("{count} rede(s) removida(s)"),
             Ok(other) => view::resp_msg(&other),
@@ -68,6 +69,6 @@ impl Docker {
             pairs.push(("docker_networks".into(), view::docker_networks_json(&list, "")));
             pairs.push(("docker_networks_count".into(), list.len().to_string()));
         }
-        with_outcome_toast(pairs, &msg)
+        outcome_toast(pairs, &msg)
     }
 }

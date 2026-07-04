@@ -73,25 +73,16 @@
         />
       </Row>
 
-      <if cond="{screen}" equals="login"><Login /> </if>
-      <else> <Shell /> </else>
+      <if cond="{screen}" equals="login"><Login /></if>
+      <else><Shell /></else>
     </Column>
     <Column class="rz_v" on_press="window:resize:e" />
   </Row>
 
   <!-- ── Bottom edge + bottom corners (south / sw / se) ────────────────────── -->
   <Row class="rz_bottom">
-    <Column
-      class="rz_corner rz_sw"
-      on_press="window:resize:sw"
-    />
-    <Column
-      class="rz_h"
-      on_press="window:resize:s"
-    />
-    <Column
-      class="rz_corner rz_se"
-      on_press="window:resize:se"
-    />
+    <Column class="rz_corner rz_sw" on_press="window:resize:sw" />
+    <Column class="rz_h" on_press="window:resize:s" />
+    <Column class="rz_corner rz_se" on_press="window:resize:se"/>
   </Row>
 </Column>

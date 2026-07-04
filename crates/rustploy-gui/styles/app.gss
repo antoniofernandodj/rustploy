@@ -51,7 +51,7 @@
 .col_dur    { width: 150; }
 .col_start  { width: fill; }
 .panel_fill { width: fill; height: fill; background: #0D1117; border-radius: 14; border-width: 1; border-color: #21262D; padding: 4; }
-.form_panel { width: 640; background: #0D1117; border-radius: 14; border-width: 1; border-color: #21262D; padding: 24; spacing: 10; }
+.form_panel { width: fill; max-width: 640; background: #0D1117; border-radius: 14; border-width: 1; border-color: #21262D; padding: 24; spacing: 10; }
 /* Ponto colorido do StateCell/Badge — compartilhado; o rótulo e a paleta
    (state_<kind>) moram no <style> do state_cell.xml. */
 .state_dot  { size: 11; }

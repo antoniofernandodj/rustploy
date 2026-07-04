@@ -18,3 +18,8 @@ panic = "abort"
 # that SurrealDB / bollard / ratatui don't dominate incremental rebuilds.
 [profile.dev.package."*"]
 opt-level = 2
+
+# TEMP (migração 0.7): validar a GUI contra o glacier-ui local antes de publicar.
+# Remover antes do commit — a dep resolve de crates.io depois do publish.
+[patch.crates-io]
+glacier-ui = { path = "../glacier-ui" }

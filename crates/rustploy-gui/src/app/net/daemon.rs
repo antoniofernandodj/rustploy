@@ -1,7 +1,8 @@
 //! Daemon-wide operations that aren't scoped to one project/service: the
 //! topbar "Stop All" and the Settings screen's web-server fields.
 
-use super::{with_outcome_toast, RwpClient};
+use super::{outcome_toast, RwpClient};
+use glacier_ui::EffectOutcome;
 use shared::{Command, Response};
 
 pub struct Daemon {
@@ -19,17 +20,17 @@ impl Daemon {
     /// Docker-level container lookup for each one, so it doesn't miss services
     /// whose DB status has drifted from what's actually running. Never
     /// touches containers unrelated to rustploy on the same Docker host.
-    pub async fn stop_all(self) -> Vec<(String, String)> {
+    pub async fn stop_all(self) -> EffectOutcome {
         let msg = match self.client.rpc(Command::StopAllManaged).await {
             Ok(Response::StopAllResult { count }) => format!("{count} serviço(s) parado(s)"),
             Ok(other) => super::view::resp_msg(&other),
             Err(e) => format!("erro: {e}"),
         };
-        with_outcome_toast(vec![("status_line".into(), msg.clone())], &msg)
+        outcome_toast(vec![("status_line".into(), msg.clone())], &msg)
     }
 
     /// Persists the daemon settings (Settings screen). Empty strings clear a field.
-    pub async fn save_settings(self, domain: String, email: String) -> Vec<(String, String)> {
+    pub async fn save_settings(self, domain: String, email: String) -> EffectOutcome {
         let opt = |s: String| if s.trim().is_empty() { None } else { Some(s) };
         let cmd = Command::SetDaemonSettings {
             webhook_base_url: opt(domain),
@@ -40,6 +41,6 @@ impl Daemon {
             Ok(other) => format!("{other:?}"),
             Err(e) => format!("erro: {e}"),
         };
-        with_outcome_toast(vec![("settings_msg".into(), msg.clone())], &msg)
+        outcome_toast(vec![("settings_msg".into(), msg.clone())], &msg)
     }
 }
