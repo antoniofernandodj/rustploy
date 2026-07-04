@@ -5,6 +5,12 @@
   número usa o realce verde (`stat_num_g`); sem accent, o neutro (`stat_num`).
   Prop ausente vira string vazia (process_template), então != "1" → neutro.
 -->
+<style>
+.stat_card  { background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 16 22; spacing: 6; }
+.stat_num   { size: 26; bold: true; color: #58A6FF; }
+.stat_num_g { size: 26; bold: true; color: #3FB950; }
+</style>
+
 <Column class="stat_card">
   <Text class="label_cap" content="{label}" />
   <Text class="stat_num_g" if="{accent}" equals="1" content="{value}" />

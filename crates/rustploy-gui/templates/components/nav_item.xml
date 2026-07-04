@@ -5,5 +5,9 @@
   a view atual ({view}) é igual ao `target` deste item; caso contrário, neutro
   (`nav_item`). `equals` é interpolado, então compara {view} com {target}.
 -->
+<style>
+.nav_item_on { width: fill; color: #1F6FEB; padding: 11 14; }
+</style>
+
 <Button class="nav_item_on" if="{view}" equals="{target}" onClick="{action}" text="{label}" />
 <Button class="nav_item" else onClick="{action}" text="{label}" />

@@ -13,6 +13,30 @@
 <link rel="import" href="crates/rustploy-gui/templates/components/loading_row.xml" as="LoadingRow" />
 <link rel="import" href="crates/rustploy-gui/templates/components/picker_row.xml" as="PickerRow" />
 <link rel="import" href="crates/rustploy-gui/templates/components/template_row.xml" as="TemplateRow" />
+
+<style>
+.sidebar { width: 264; height: fill; background: #0D1117; padding: 28 20; spacing: 6; }
+.brand_box      { spacing: 2; padding: 0 8 18 8; }
+.brand          { size: 21; bold: true; color: #E6EDF3; }
+.brand_sub      { size: 11; color: #6E7681; }
+.nav_section    { size: 11; bold: true; color: #6E7681; padding: 16 8 6 8; }
+.nav_spacer     { height: fill; }
+.main_col       { width: fill; height: fill; }
+/* Top bar */
+.topbar     { width: fill; padding: 18 28; spacing: 18; align-y: center; }
+.search     { width: fill; padding: 11 14; }
+/* Ações do cabeçalho do projeto (variantes compactas, à direita) */
+.btn_sm_primary { color: #238636; padding: 7 13; border-radius: 8; size: 12 }
+.btn_sm_ghost   { color: #21262D; padding: 7 12; border-radius: 8; size: 12 }
+.btn_sm_danger  { color: #DA3633; padding: 7 13; border-radius: 8; size: 12 }
+.proj_topbar    { width: fill; align-y: center; }
+.proj_actions   { spacing: 8; align-y: center; }
+.hspacer        { width: fill; }
+/* Grid de cards (projetos / serviços) */
+.grid           { width: fill; spacing: 16; }
+.card_row       { width: fill; spacing: 16; }
+</style>
+
 <Row class="screen">
   <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
   <Column class="sidebar">
@@ -86,7 +110,7 @@
                 <Row class="trow">
                   <Text class="td_key col_svc" content="{d.service}" />
                   <Text class="td col_proj" content="{d.project}" />
-                  <StateCell color="{d.state_color}" label="{d.state_label}" />
+                  <StateCell kind="{d.state_kind}" label="{d.state_label}" />
                   <Text class="td col_dur" content="{d.duration}" />
                   <Text class="muted col_start" content="{d.start}" />
                 </Row>
@@ -182,7 +206,34 @@
           <Column class="content">
             <Row class="header_row">
               <Column class="header_titles">
-                <Button class="btn_ghost" onClick="nav_projects" text="‹ Projetos" />
+                <!-- Barra superior: voltar à esquerda, ações do projeto
+                     empurradas para a extremidade direita (hspacer = width:fill).
+                     Em modo de edição as ações somem (o form tem Salvar/Cancelar). -->
+                <Row class="proj_topbar">
+                  <Button class="btn_ghost" onClick="nav_projects" text="‹ Projetos" />
+                  <Column class="hspacer" />
+                  <if cond="{editing_project}" not_equals="true">
+                    <Row class="proj_actions">
+                      <Button
+                        class="btn_sm_primary"
+                        onClick="new_service_open"
+                        text="+ Novo serviço"
+                      />
+                      <Button
+                        class="btn_sm_ghost"
+                        onClick="edit_project_toggle"
+                        text="Editar projeto"
+                      />
+                      <if cond="{proj_can_delete}" equals="1">
+                        <Button
+                          class="btn_sm_danger"
+                          onClick="delete_project:{selected_project_id}"
+                          text="Remover projeto"
+                        />
+                      </if>
+                    </Row>
+                  </if>
+                </Row>
                 <if cond="{editing_project}" equals="true">
                   <Form
                     name="edit_project"
@@ -221,26 +272,12 @@
                 <else>
                   <Text class="title" content="{proj_name}" />
                   <Text class="subtitle" content="{proj_description}" />
-                  <Row class="env_add">
-                    <Button
-                      class="btn_primary"
-                      onClick="new_service_open"
-                      text="+ Novo serviço"
-                    />
-                    <Button
-                      class="btn_ghost"
-                      onClick="edit_project_toggle"
-                      text="Editar projeto"
-                    />
-                    <if cond="{proj_can_delete}" equals="1">
-                      <Button
-                        class="btn_danger"
-                        onClick="delete_project:{selected_project_id}"
-                        text="Remover projeto"
-                      />
-                    </if>
-                    <Text class="muted" content="{proj_action_msg}" />
-                  </Row>
+                  <Text
+                    if="{proj_action_msg}"
+                    notEquals=""
+                    class="muted"
+                    content="{proj_action_msg}"
+                  />
                 </else>
               </Column>
             </Row>
@@ -303,9 +340,9 @@
                       <if cond="{e.__dragging}" equals="true">
                         <Row class="kv_row_drag">
                           <Text
-                            class="env_drag_handle"
+                            class="env_drag_handle env_dragging"
                             dragHandle="true"
-                            cursor="grabbing" content="⋮ "
+                            content="⋮ "
                           />
                           <Button
                             class="env_del"
@@ -322,7 +359,6 @@
                           <Text
                             class="env_drag_handle"
                             dragHandle="true"
-                            cursor="grab"
                             content="⋮ "
                           />
                           <Button class="env_del" onClick="penv_del:{e.key}" text="✕" />

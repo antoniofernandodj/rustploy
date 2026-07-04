@@ -42,12 +42,12 @@ pub(crate) fn eng_active_json(active: &[shared::ActiveDeployInfo]) -> String {
     let rows: Vec<serde_json::Value> = active
         .iter()
         .map(|info| {
-            let (label, color) = state_label_color(&info.state);
+            let (label, _) = state_label_color(&info.state);
             serde_json::json!({
                 "service": info.service_name,
                 "project": info.project_name,
                 "state_label": label,
-                "state_color": color,
+                "state_kind": state_kind(&info.state),
                 "percent": format!("{}%", info.percent),
                 "bar": progress_bar(info.percent, 12),
                 "total": fmt_secs(info.elapsed_secs),
@@ -64,7 +64,7 @@ pub(crate) fn eng_recent_json(recent: &[shared::ActiveDeployInfo]) -> String {
     let rows: Vec<serde_json::Value> = recent
         .iter()
         .map(|info| {
-            let (label, color) = state_label_color(&info.state);
+            let (label, _) = state_label_color(&info.state);
             let icon = match info.state {
                 DeployState::Live => "✓",
                 DeployState::Failed => "✕",
@@ -75,7 +75,7 @@ pub(crate) fn eng_recent_json(recent: &[shared::ActiveDeployInfo]) -> String {
                 "service": info.service_name,
                 "project": info.project_name,
                 "state_label": label,
-                "state_color": color,
+                "state_kind": state_kind(&info.state),
                 "duration": fmt_secs(info.elapsed_secs),
                 "start": info.started_at.with_timezone(&Local).format("%H:%M:%S").to_string(),
             })
@@ -90,13 +90,12 @@ pub(crate) fn deployments_json(list: &[DeploymentSummary], search: &str) -> Stri
         .filter(|s| matches_search(search, &[&s.service_name, &s.project_name]))
         .map(|s| {
             let d = &s.deployment;
-            let (label, color) = state_label_color(&d.state);
+            let (label, _) = state_label_color(&d.state);
             serde_json::json!({
                 "service": s.service_name,
                 "project": s.project_name,
                 "state_label": label,
-                "state_color": color,
-                "state_dot": color,
+                "state_kind": state_kind(&d.state),
                 "duration": fmt_duration(d),
                 "start": d.started_at.with_timezone(&Local).format("%H:%M:%S").to_string(),
             })
@@ -174,6 +173,24 @@ pub(crate) fn service_status_label_color(status: &ServiceStatus) -> (&'static st
     }
 }
 
+/// Token semântico de estado para o `StateCell` — a paleta (cor) vive no GSS
+/// (`.state_<kind>`); aqui só classificamos o estado. Badges continuam usando
+/// o hex de `service_status_label_color`/`state_label_color`.
+pub(crate) fn service_status_kind(status: &ServiceStatus) -> &'static str {
+    match status {
+        ServiceStatus::Running => "ok",
+        ServiceStatus::Deploying => "info",
+        ServiceStatus::Degraded => "warn",
+        ServiceStatus::Stopping | ServiceStatus::Stopped => "muted",
+        ServiceStatus::Error(_) => "bad",
+    }
+}
+
+/// `true` em uso → verde (`ok`); senão cinza (`muted`). Usado nas listas Docker.
+pub(crate) fn in_use_kind(in_use: bool) -> &'static str {
+    if in_use { "ok" } else { "muted" }
+}
+
 /// `(kind, detail, build_engine)` describing where a service is built from.
 pub(crate) fn source_summary(source: &ServiceSource) -> (&'static str, String, String) {
     match source {
@@ -243,7 +260,7 @@ pub(crate) fn docker_json(all: &[(Service, String)], search: &str) -> String {
         .iter()
         .filter(|(s, proj)| matches_search(search, &[&s.spec.name, proj]))
         .map(|(s, proj)| {
-            let (status_label, status_color) = service_status_label_color(&s.status);
+            let (status_label, _) = service_status_label_color(&s.status);
             let container = s
                 .live_container_id
                 .as_deref()
@@ -255,7 +272,7 @@ pub(crate) fn docker_json(all: &[(Service, String)], search: &str) -> String {
                 "image": source_summary(&s.spec.source).1,
                 "container": container,
                 "status_label": status_label,
-                "status_color": status_color,
+                "status_kind": service_status_kind(&s.status),
             })
         })
         .collect();
@@ -289,7 +306,7 @@ pub(crate) fn docker_images_json(list: &[shared::DockerImageInfo], search: &str)
                 "project": img.project.clone().unwrap_or_else(|| "—".into()),
                 "service": img.service.clone().unwrap_or_else(|| "—".into()),
                 "in_use_label": if in_use { "EM USO" } else { "SEM USO" },
-                "in_use_color": if in_use { "#3FB950" } else { "#8B949E" },
+                "in_use_kind": in_use_kind(in_use),
             })
         })
         .collect();
@@ -310,7 +327,7 @@ pub(crate) fn docker_volumes_json(list: &[shared::DockerVolumeInfo], search: &st
                 "mountpoint": v.mountpoint,
                 "size": if v.size_bytes >= 0 { fmt_bytes(v.size_bytes as u64) } else { "—".to_string() },
                 "in_use_label": if v.in_use { "EM USO" } else { "SEM USO" },
-                "in_use_color": if v.in_use { "#3FB950" } else { "#8B949E" },
+                "in_use_kind": in_use_kind(v.in_use),
             })
         })
         .collect();
@@ -332,7 +349,7 @@ pub(crate) fn docker_networks_json(list: &[shared::DockerNetworkInfo], search: &
                 "project": n.project.clone().unwrap_or_else(|| "—".into()),
                 "containers": n.container_count.to_string(),
                 "in_use_label": if n.in_use { "EM USO" } else { "SEM USO" },
-                "in_use_color": if n.in_use { "#3FB950" } else { "#8B949E" },
+                "in_use_kind": in_use_kind(n.in_use),
             })
         })
         .collect();
@@ -363,13 +380,13 @@ pub(crate) fn deployments_detail_json(list: &[shared::Deployment]) -> String {
     let rows: Vec<serde_json::Value> = list
         .iter()
         .map(|d| {
-            let (label, color) = state_label_color(&d.state);
+            let (label, _) = state_label_color(&d.state);
             serde_json::json!({
                 "id": d.id.chars().take(12).collect::<String>(),
                 "id_full": d.id,
                 "image": d.image,
                 "state_label": label,
-                "state_color": color,
+                "state_kind": state_kind(&d.state),
                 "duration": fmt_duration(d),
                 "start": d.started_at.with_timezone(&Local).format("%d/%m %H:%M:%S").to_string(),
                 // The daemon refuses to delete a non-terminal deployment
@@ -601,6 +618,17 @@ pub(crate) fn state_label_color(state: &DeployState) -> (&'static str, &'static 
         | DeployState::RollingBack
         | DeployState::Pruning
         | DeployState::ComposingUp => ("BUILDING", "#58A6FF"),
+    }
+}
+
+/// Token semântico de estado do deploy para o `StateCell` (paleta no GSS,
+/// classe `.state_<kind>`). Espelha as cores de `state_label_color`.
+pub(crate) fn state_kind(state: &DeployState) -> &'static str {
+    match state {
+        DeployState::Live => "ok",
+        DeployState::Stopped => "muted",
+        DeployState::Failed => "bad",
+        _ => "info",
     }
 }
 

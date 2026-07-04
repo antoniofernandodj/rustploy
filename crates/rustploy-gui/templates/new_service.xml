@@ -4,6 +4,10 @@
   Compose / Template). O passo corrente vive em {ns_step}; os campos são
   chaves de contexto ns_* (ver os handlers `ns_*` em app/root.rs).
 -->
+<style>
+.warn { color: #D29922; }
+</style>
+
 <Column class="content">
 
   <Row class="header_row">

@@ -1,3 +1,44 @@
+<style>
+/* Cabeçalho + ações */
+.svc_head      { width: fill; align-y: start; }
+.svc_title_row { width: fill; spacing: 14; align-y: center; }
+.svc_actions   { spacing: 10; align-y: center; }
+.btn_blue      { color: #1F6FEB; padding: 11 22; border-radius: 10 }
+/* Corpo: conteúdo da aba + painel lateral */
+.svc_body      { width: fill; height: fill; spacing: 20; }
+.svc_main      { width: fill; height: fill; spacing: 16; }
+.svc_aside     { width: 360; height: fill; spacing: 16; }
+.svc_err       { size: 13; color: #F85149; }
+/* Connection (pares chave/valor) */
+.kv_key        { width: fill; size: 13; color: #8B949E; }
+.kv_val        { size: 16; bold: true; color: #E6EDF3; }
+/* Environment / General (editores) */
+.btn_export_on { color: #1F6FEB; padding: 11 22; border-radius: 10; }
+.btn_export    { color: #21262D; padding: 11 22; border-radius: 10; }
+.env_editor    { width: fill; height: 200; padding: 10 12; font: mono; }
+.select        { width: fill; padding: 12 14; background: #161B22; border-radius: 8; border-width: 1; border-color: #30363D; color: #C9D1D9; }
+/* Deployments (lista + build log) */
+.col_dep_id    { width: 130; }
+.col_dep_start { width: fill; }
+.dep_image     { size: 11; color: #6E7681; padding: 2 0 0 0; }
+.dep_wrap      { width: fill; height: fill; spacing: 8; }
+.dep_list_scroll { width: fill; height: 240; }
+.dep_actions   { spacing: 8; }
+.dep_logs_btn  { color: #21262D; padding: 7 15; border-radius: 6 }
+.dep_del_btn   { color: #DA3633; padding: 7 15; border-radius: 6 }
+.label_cap_fill { width: fill; size: 11; bold: true; color: #6E7681; }
+/* Logs / live output */
+.log_editor    { width: fill; height: fill; padding: 10 12; font: mono; }
+.log_panel     { width: fill; height: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 14 16; spacing: 8; }
+.log_body      { width: fill; spacing: 2; }
+.log_line      { width: fill; spacing: 12; }
+.log_time      { width: 76; size: 11; color: #6E7681; }
+.log_text      { width: fill; size: 12; color: #9DA7B3; }
+/* Painel lateral */
+.aside_panel   { width: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 18; spacing: 8; }
+.aside_panel_fill { width: fill; height: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 14 16; spacing: 8; }
+</style>
+
 <Column class="content">
 
   <!-- ── Header: nome + estado + ações ────────────────────────────────── -->
@@ -517,18 +558,16 @@
               <if cond="{e.__dragging}" equals="true">
                 <Row class="kv_row_drag" if="{e.kind}" equals="comment">
                   <Text
-                    class="env_drag_handle"
+                    class="env_drag_handle env_dragging"
                     dragHandle="true"
-                    cursor="grabbing"
                     content="⋮ "
                   />
                   <Text class="muted" content="{e.value}" />
                 </Row>
                 <Row class="kv_row_drag" else>
                   <Text
-                    class="env_drag_handle"
+                    class="env_drag_handle env_dragging"
                     dragHandle="true"
-                    cursor="grabbing"
                     content="⋮ "
                   />
                   <Button class="env_del" onClick="env_del:{e.key}" text="✕" />
@@ -543,7 +582,6 @@
                   <Text
                     class="env_drag_handle"
                     dragHandle="true"
-                    cursor="grab"
                     content="⋮ "
                   />
                   <Text
@@ -554,8 +592,7 @@
                   <Text
                     class="env_drag_handle"
                     dragHandle="true"
-                    cursor="grab"
-                    ontent="⋮ "
+                    content="⋮ "
                   />
                   <Button class="env_del" onClick="env_del:{e.key}" text="✕" />
                   <Text content=" " />
@@ -651,21 +688,26 @@
           <Text class="muted" content="{svc_action_msg}" />
         </Row>
 
-        <Text class="label_cap"
-          content="PORTA TCP DO HOST (passthrough, opcional)" />
+        <Text
+          class="label_cap"
+          content="PORTA TCP DO HOST (passthrough, opcional)"
+        />
         <TextInput class="field_input"
           formControl="f_host_port"
           value="f_host_port"
           onChange="field:f_host_port"
-            placeholder="(padrão do serviço)" />
+          placeholder="(padrão do serviço)"
+        />
         <Text if="{erro_f_host_port}"
           notEquals=""
           class="err"
-          content="{erro_f_host_port}" />
+          content="{erro_f_host_port}"
+        />
         <Row class="env_add">
           <Button class="btn_ghost"
             onClick="dom_hostport_save"
-            text="Salvar porta" />
+            text="Salvar porta"
+          />
         </Row>
       </Column>
 
@@ -677,7 +719,7 @@
             <Column class="row_wrap" for-each="svc_deployments" var="d">
               <Row class="trow">
                 <Text class="td_key col_dep_id" content="{d.id}" />
-                <StateCell color="{d.state_color}" label="{d.state_label}" />
+                <StateCell kind="{d.state_kind}" label="{d.state_label}" />
                 <Text class="td col_dur" content="{d.duration}" />
                 <Text class="muted col_dep_start" content="{d.start}" />
                 <Row class="dep_actions">
@@ -705,15 +747,26 @@
              (o atributo if= só esconderia o Row, deixando o log sempre visível). -->
         <if cond="{dep_selected}" not_equals="">
           <Row class="env_head">
-            <Text class="label_cap_fill" content="BUILD LOG · {dep_build_count} linhas" />
-            <Button class="tab" onClick="clipboard:dep_build_text" text="Copiar tudo" />
+            <Text
+              class="label_cap_fill"
+              content="BUILD LOG · {dep_build_count} linhas"
+            />
+            <Button
+              class="tab"
+              onClick="clipboard:dep_build_text"
+              text="Copiar tudo"
+            />
           </Row>
           <Column class="log_panel">
             <Scrollable direction="vertical" class="scroll_fill">
               <Column class="log_body">
                 <Row class="log_line" for-each="dep_build_logs" var="l">
                   <Text class="log_time" content="{l.time}" />
-                  <Text class="log_text" color="{l.color}" content="{l.line}" />
+                  <Text
+                    class="log_text"
+                    color="{l.color}"
+                    content="{l.line}"
+                  />
                 </Row>
               </Column>
             </Scrollable>
@@ -901,7 +954,8 @@
           class="err"
           content="{erro_f_replicas}"
         />
-        <Text class="label_cap"
+        <Text
+          class="label_cap"
           content="RUN COMMAND"
         />
         <TextInput class="field_input"

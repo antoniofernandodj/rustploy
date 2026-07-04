@@ -9,6 +9,12 @@
   re-avaliado ao vivo (mesmo padrão do `if` que esconde/mostra a grid).
   `note` sobrescreve o texto padrão quando fornecido (prop ausente → vazio).
 -->
+<style>
+.loading_row  { spacing: 9; align-y: center; padding: 8; }
+.loading_spin { size: 16; color: #2F81F7; }
+.loading_note { size: 13; color: #8B949E; }
+</style>
+
 <Row class="loading_row">
   <Text class="loading_spin" content="⟳" />
   <Text class="loading_note" if="{note}" not_equals="" content="{note}" />

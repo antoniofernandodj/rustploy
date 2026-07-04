@@ -6,8 +6,14 @@
   Os logos vêm de crates/shared/templates/blueprints/<id>/<arquivo> (ver
   `templates_json` em app/wizard.rs).
 -->
+<style>
+.tpl_row      { width: fill; padding: 12 0; align-y: center; spacing: 14; }
+.tpl_logo_box { width: 34; height: 34; align-x: center; align-y: center; }
+.tpl_logo     { width: 30; height: 30; }
+</style>
+
 <Row class="tpl_row">
-  <!-- 
+  <!--
     Caixa quadrada fixa e centralizada: os logos têm proporções diferentes
     (quadrado, largo, estreito), então reservamos sempre o mesmo espaço e
     centralizamos o logo dentro dele — mantém a coluna de texto alinhada.

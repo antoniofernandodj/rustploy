@@ -6,30 +6,42 @@
   resize on press (window:resize:<dir>), handled in main.rs against the cached
   window id. glacier has no overlay/z-stack, so the frame is laid out as
   top row / middle band / bottom row. -->
-<Column class="screen" width="fill" height="fill">
+
+<style>
+/* ── Resize handles (6px frame around the borderless window) ───────────── */
+.rz_top    { width: fill; height: 6; }
+.rz_bottom { width: fill; height: 6; }
+.rz_mid    { width: fill; height: fill; }
+.rz_body   { width: fill; height: fill; }
+.rz_corner { width: 6; height: fill; }
+.rz_h      { width: fill; height: fill; cursor: resize-v; }
+.rz_v      { width: 6; height: fill; cursor: resize-h; }
+/* Cursores diagonais dos cantos (2ª classe sobre .rz_corner) */
+.rz_nw     { cursor: resize-nw; }
+.rz_ne     { cursor: resize-ne; }
+.rz_sw     { cursor: resize-sw; }
+.rz_se     { cursor: resize-se; }
+/* ── Custom titlebar (borderless window) ──────────────────────────────── */
+.titlebar       { width: fill; height: 32; background: #0D1117; align-y: center; }
+.titlebar_drag  { width: fill; height: fill; align-y: center; padding: 0 0 0 16; spacing: 9; }
+.titlebar_dot   { size: 10; color: #1F6FEB; }
+.titlebar_title { size: 12; bold: true; color: #8B949E; }
+.win_btn        { width: 48; padding: 5 0; color: #21262D; text-align: center; }
+.win_close      { width: 48; padding: 5 0; color: #DA3633; text-align: center; }
+</style>
+
+<Column class="screen">
 
   <!-- ── Top edge + top corners (north / nw / ne) ─────────────────────────── -->
   <Row class="rz_top">
-    <Column
-      class="rz_corner"
-      cursor="resize-nw"
-      on_press="window:resize:nw"
-    />
-    <Column
-      class="rz_h"
-      cursor="resize-v"
-      on_press="window:resize:n"
-    />
-    <Column
-      class="rz_corner"
-      cursor="resize-ne"
-      on_press="window:resize:ne"
-    />
+    <Column class="rz_corner rz_nw" on_press="window:resize:nw" />
+    <Column class="rz_h" on_press="window:resize:n" />
+    <Column class="rz_corner rz_ne" on_press="window:resize:ne" />
   </Row>
 
   <!-- ── Middle band: left edge | body | right edge (west / east) ──────────── -->
   <Row class="rz_mid">
-    <Column class="rz_v" cursor="resize-h" on_press="window:resize:w" />
+    <Column class="rz_v" on_press="window:resize:w" />
     <Column class="rz_body">
       <!-- ── Custom titlebar ───────────────────────────────────────────
         titlebar_drag (width:fill) is the drag handle and pushes the
@@ -61,30 +73,24 @@
         />
       </Row>
 
-      <if cond="{screen}" equals="login">
-        <Login />
-      </if> <else>
-        <Shell />
-      </else>
+      <if cond="{screen}" equals="login"><Login /> </if>
+      <else> <Shell /> </else>
     </Column>
-    <Column class="rz_v" cursor="resize-h" on_press="window:resize:e" />
+    <Column class="rz_v" on_press="window:resize:e" />
   </Row>
 
   <!-- ── Bottom edge + bottom corners (south / sw / se) ────────────────────── -->
   <Row class="rz_bottom">
     <Column
-      class="rz_corner"
-      cursor="resize-sw"
+      class="rz_corner rz_sw"
       on_press="window:resize:sw"
     />
     <Column
       class="rz_h"
-      cursor="resize-v"
       on_press="window:resize:s"
     />
     <Column
-      class="rz_corner"
-      cursor="resize-se"
+      class="rz_corner rz_se"
       on_press="window:resize:se"
     />
   </Row>

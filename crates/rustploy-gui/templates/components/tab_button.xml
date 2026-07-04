@@ -6,6 +6,10 @@
   desta aba; caso contrário neutro (`tab`). `equals` é interpolado, então
   compara os dois valores dinâmicos.
 -->
+<style>
+.tab_on { color: #1F6FEB; padding: 9 16; border-radius: 10 }
+</style>
+
 <if cond="{current}" equals="{target}">
   <Button class="tab_on" onClick="{action}" text="{label}" />
 </if> <else>
