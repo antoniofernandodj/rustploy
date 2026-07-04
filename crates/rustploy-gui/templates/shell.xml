@@ -35,6 +35,22 @@
 /* Grid de cards (projetos / serviços) */
 .grid           { width: fill; spacing: 16; }
 .card_row       { width: fill; spacing: 16; }
+/* Responsivo: encolhe sidebar/topbar em janelas estreitas (glacier-ui 0.9.0+). */
+@media (max-width: 900) {
+  .sidebar { width: 184; padding: 18 12; }
+  .topbar  { padding: 12 16; spacing: 10; }
+  .brand   { size: 18; }
+}
+
+@media (max-width: 560) {
+  .sidebar { width: 150; padding: 14 8; spacing: 4; }
+  .topbar  { padding: 10 10; spacing: 8; }
+  /* Sem largura pra tudo na topbar: some com a busca e o status do daemon
+     (baixa prioridade) pra Stop All / Disconnect não serem cortados
+     (glacier-ui 0.10.0: `hidden`). */
+  .search        { hidden: true; }
+  .topbar_status { hidden: true; }
+}
 </style>
 
 <Row class="screen">
@@ -68,7 +84,7 @@
         onChange="search_changed"
         placeholder="Search deployments, nodes…"
       />
-      <Text class="muted" content="● rwp · daemon v{daemon_version}" />
+      <Text class="muted topbar_status" content="● rwp · daemon v{daemon_version}" />
       <Button class="btn_danger" onClick="stop_all" text="Stop All" />
       <Button class="btn_ghost" onClick="disconnect" text="Disconnect" />
     </Row>

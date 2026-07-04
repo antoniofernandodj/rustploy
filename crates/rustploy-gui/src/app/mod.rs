@@ -193,7 +193,7 @@ fn close_and_save(id: window::Id) -> Task<Message> {
 /// ever saved (e.g. Wayland, which never reports one to restore).
 pub(crate) fn window_settings() -> window::Settings {
     let ws = store::WindowState::load();
-    let min = Size::new(1000.0, 680.0);
+    let min = Size::new(480.0, 680.0);
     let position = match (ws.x, ws.y) {
         (Some(x), Some(y)) => window::Position::Specific(Point::new(x, y)),
         _ => window::Position::Default,

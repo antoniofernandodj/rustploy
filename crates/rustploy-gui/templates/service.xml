@@ -37,6 +37,14 @@
 /* Painel lateral */
 .aside_panel   { width: fill; background: var(--surface); border-radius: 12; border-width: 1; border-color: var(--border); padding: 18; spacing: 8; }
 .aside_panel_fill { width: fill; height: fill; background: var(--surface); border-radius: 12; border-width: 1; border-color: var(--border); padding: 14 16; spacing: 8; }
+/* Responsivo: estreita o painel lateral e aperta o corpo (glacier-ui 0.9.0+). */
+@media (max-width: 900) {
+  .svc_aside { width: 240; }
+  .svc_body  { spacing: 12; }
+}
+@media (max-width: 560) {
+  .svc_aside { width: 170; }
+}
 </style>
 
 <Column class="content">

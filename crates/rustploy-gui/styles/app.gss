@@ -120,3 +120,39 @@
 
 /* ── Status badge text color (compartilhado; ok/warn moram nos templates) ─ */
 .err   { color: var(--error); }
+
+/* ── Responsivo (glacier-ui 0.9.0+) ────────────────────────────────────────
+   O motor só ajusta PROPRIEDADES (não reestrutura Row↔Column nem esconde), então
+   "mobile" aqui = modo compacto: menos padding, colunas/fontes menores conforme a
+   largura da janela encolhe. A sidebar/topbar têm os deles no <style> do shell. */
+
+@media (max-width: 900) {
+  .content    { padding: 16 18; spacing: 16; }
+  .title      { size: 24; }
+  .stats_row  { spacing: 10; }
+  .thead      { padding: 10 12; }
+  .trow       { padding: 10 12; }
+  .col_svc    { width: 150; }
+  .col_proj   { width: 120; }
+  .col_state  { width: 130; }
+  .col_dur    { width: 90; }
+  .form_panel { padding: 16; }
+  .grid       { spacing: 10; }
+  .card_row   { spacing: 10; }
+  .kv_list    { padding: 6 12; }
+}
+
+@media (max-width: 560) {
+  .content    { padding: 10 10; spacing: 12; }
+  .title      { size: 20; }
+  .col_svc    { width: 110; }
+  .col_proj   { width: 82; }
+  .col_state  { width: 110; }
+  .col_dur    { width: 64; }
+  .form_panel { padding: 12; }
+  /* Em telas estreitas não há largura pra os cards de stat ao lado do título
+     (empilhavam sobre o texto) nem pra a coluna INÍCIO — some com ambos
+     (glacier-ui 0.10.0: `hidden`). */
+  .stats_row  { hidden: true; }
+  .col_start  { hidden: true; }
+}
