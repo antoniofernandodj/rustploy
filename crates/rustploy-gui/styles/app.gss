@@ -7,29 +7,48 @@
    à subárvore do componente que o declara, então colocá-los junto do markup
    mantém o estilo perto de quem o usa. */
 
+/* ── Design tokens (glacier-ui 0.8.0+) ─────────────────────────────────────
+   Fonte única da paleta. Referenciados via var(--x) aqui e nos <style> dos
+   templates (var() é cross-sheet: esta :root global resolve em qualquer sheet
+   com escopo). Trocar um tom aqui reflete no app inteiro. */
+:root {
+    --bg:      #0A0E14;   /* fundo do app */
+    --surface: #0D1117;   /* painéis / sidebar / inputs */
+    --raised:  #161B22;   /* cards / cabeçalho de tabela / linha arrastada */
+    --border:  #21262D;   /* bordas + botões ghost/sutis */
+    --text:    #E6EDF3;   /* texto/títulos mais claros */
+    --text-2:  #C9D1D9;   /* valores/corpo */
+    --muted:   #8B949E;   /* secundário */
+    --faint:   #6E7681;   /* rótulos apagados */
+    --accent:  #58A6FF;   /* azul de destaque */
+    --green:   #238636;   /* botão primário */
+    --danger:  #DA3633;   /* botão de perigo */
+    --error:   #F85149;   /* texto de erro */
+}
+
 /* ── Base ─────────────────────────────────────────────────────────────── */
 .mono       { }
-.screen     { width: fill; height: fill; background: #0A0E14; }
+.screen     { width: fill; height: fill; background: var(--bg); }
 
 /* ── Sidebar / top bar ────────────────────────────────────────────────── */
-.nav_item       { width: fill; color: #0D1117; padding: 11 14; }
-.tab        { color: #0D1117; padding: 9 16; border-radius: 10 }
+.nav_item       { width: fill; color: var(--surface); padding: 11 14; }
+.tab        { color: var(--surface); padding: 9 16; border-radius: 10 }
 
 /* ── Buttons ──────────────────────────────────────────────────────────── */
-.btn_primary      { color: #238636; padding: 11 20; border-radius: 10 }
-.btn_danger       { color: #DA3633; padding: 11 20; border-radius: 10 }
-.btn_ghost        { color: #21262D; padding: 11 18; border-radius: 10 }
+.btn_primary      { color: var(--green); padding: 11 20; border-radius: 10 }
+.btn_danger       { color: var(--danger); padding: 11 20; border-radius: 10 }
+.btn_ghost        { color: var(--border); padding: 11 18; border-radius: 10 }
 
 /* ── Panels & cards ───────────────────────────────────────────────────── */
-.content    { width: fill; height: fill; padding: 28 32; spacing: 22; background: #0A0E14; }
-.panel      { background: #0D1117; border-radius: 14; border-width: 1; border-color: #21262D; padding: 4; }
-.card       { width: fill; background: #161B22; border-radius: 12; border-width: 1; border-color: #21262D; padding: 18; spacing: 10; }
+.content    { width: fill; height: fill; padding: 28 32; spacing: 22; background: var(--bg); }
+.panel      { background: var(--surface); border-radius: 14; border-width: 1; border-color: var(--border); padding: 4; }
+.card       { width: fill; background: var(--raised); border-radius: 12; border-width: 1; border-color: var(--border); padding: 18; spacing: 10; }
 
 /* ── Typography ───────────────────────────────────────────────────────── */
-.title      { size: 30; bold: true; color: #E6EDF3; }
-.subtitle   { size: 13; color: #8B949E; }
-.muted      { size: 12; color: #8B949E; }
-.label_cap  { size: 11; bold: true; color: #6E7681; }
+.title      { size: 30; bold: true; color: var(--text); }
+.subtitle   { size: 13; color: var(--muted); }
+.muted      { size: 12; color: var(--muted); }
+.label_cap  { size: 11; bold: true; color: var(--faint); }
 
 /* ── Shell layout (composição, sem atributos inline no XML) ───────────── */
 .header_row   { width: fill; align-y: start; }
@@ -40,18 +59,18 @@
 .row_wrap     { width: fill; }
 
 /* ── Table ────────────────────────────────────────────────────────────── */
-.thead      { width: fill; padding: 14 18; background: #161B22; border-radius: 10; spacing: 0; }
-.th         { size: 11; bold: true; color: #6E7681; }
+.thead      { width: fill; padding: 14 18; background: var(--raised); border-radius: 10; spacing: 0; }
+.th         { size: 11; bold: true; color: var(--faint); }
 .trow       { width: fill; padding: 13 18; spacing: 0; align-y: center; }
-.td         { size: 13; color: #C9D1D9; }
-.td_key     { size: 13; bold: true; color: #58A6FF; }
+.td         { size: 13; color: var(--text-2); }
+.td_key     { size: 13; bold: true; color: var(--accent); }
 .col_svc    { width: 240; }
 .col_proj   { width: 180; }
 .col_state  { width: 170; }
 .col_dur    { width: 150; }
 .col_start  { width: fill; }
-.panel_fill { width: fill; height: fill; background: #0D1117; border-radius: 14; border-width: 1; border-color: #21262D; padding: 4; }
-.form_panel { width: fill; max-width: 640; background: #0D1117; border-radius: 14; border-width: 1; border-color: #21262D; padding: 24; spacing: 10; }
+.panel_fill { width: fill; height: fill; background: var(--surface); border-radius: 14; border-width: 1; border-color: var(--border); padding: 4; }
+.form_panel { width: fill; max-width: 640; background: var(--surface); border-radius: 14; border-width: 1; border-color: var(--border); padding: 24; spacing: 10; }
 /* Ponto colorido do StateCell/Badge — compartilhado; o rótulo e a paleta
    (state_<kind>) moram no <style> do state_cell.xml. */
 .state_dot  { size: 11; }
@@ -59,35 +78,35 @@
 /* ── Projects / service grid ──────────────────────────────────────────── */
 .card_filler   { width: fill; }
 .card_head     { width: fill; align-y: center; }
-.card_name     { width: fill; size: 16; bold: true; color: #E6EDF3; }
+.card_name     { width: fill; size: 16; bold: true; color: var(--text); }
 .badge         { spacing: 7; align-y: center; }
 .badge_lbl     { size: 12; bold: true; }
-.card_open     { width: fill; color: #21262D; padding: 9 14; text-align: center; border-radius: 10 }
-.card_edit     { width: fill; color: #21262D; padding: 9 10; text-align: center; border-radius: 10 }
-.card_remove   { width: fill; color: #DA3633; padding: 9 10; text-align: center; border-radius: 10 }
+.card_open     { width: fill; color: var(--border); padding: 9 14; text-align: center; border-radius: 10 }
+.card_edit     { width: fill; color: var(--border); padding: 9 10; text-align: center; border-radius: 10 }
+.card_remove   { width: fill; color: var(--danger); padding: 9 10; text-align: center; border-radius: 10 }
 
 /* ── Service detail (compartilhado) ───────────────────────────────────── */
 .tabs          { width: fill; spacing: 4; }
 .svc_panels    { width: fill; spacing: 14; }
-.panel_pad     { width: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 18; spacing: 8; }
-.kv_list       { width: fill; background: #0D1117; border-radius: 12; border-width: 1; border-color: #21262D; padding: 8 18; spacing: 0; }
+.panel_pad     { width: fill; background: var(--surface); border-radius: 12; border-width: 1; border-color: var(--border); padding: 18; spacing: 8; }
+.kv_list       { width: fill; background: var(--surface); border-radius: 12; border-width: 1; border-color: var(--border); padding: 8 18; spacing: 0; }
 .kv_row        { width: fill; padding: 12 0; align-y: center; }
 /* Linha agarrada durante o drag-and-drop (flag {var}.__dragging do
    glacier-ui): fundo elevado + borda de destaque enquanto o resto reflui. */
-.kv_row_drag   { width: fill; padding: 12 10; align-y: center; background: #161B22; border-radius: 8; border-width: 1; border-color: #58A6FF; }
-.kv_val_fill   { size: 13; bold: true; color: #C9D1D9; }
+.kv_row_drag   { width: fill; padding: 12 10; align-y: center; background: var(--raised); border-radius: 8; border-width: 1; border-color: var(--accent); }
+.kv_val_fill   { size: 13; bold: true; color: var(--text-2); }
 .env_wrap      { width: fill; height: fill; spacing: 10; }
 .env_head      { width: fill; align-y: center; }
-.muted_fill    { width: fill; size: 12; color: #8B949E; }
+.muted_fill    { width: fill; size: 12; color: var(--muted); }
 .env_add       { width: fill; spacing: 8; align-y: center; }
 .env_in_key    { width: 220; padding: 9 12; }
 .env_in_val    { width: fill; padding: 9 12; }
-.env_drag_handle { color: #6E7681; padding: 0 6 0 0; cursor: grab; }
+.env_drag_handle { color: var(--faint); padding: 0 6 0 0; cursor: grab; }
 .env_dragging    { cursor: grabbing; }
-.env_del       { color: #DA3633; padding: 4 10; }
-.env_key       { size: 13; bold: true; color: #58A6FF; width: 200; }
+.env_del       { color: var(--danger); padding: 4 10; }
+.env_key       { size: 13; bold: true; color: var(--accent); width: 200; }
 .env_list_scroll { width: fill; height: fill; }
-.copy_btn      { color: #21262D; padding: 5 12; border-radius: 8 }
+.copy_btn      { color: var(--border); padding: 5 12; border-radius: 8 }
 .hc_grid       { width: fill; spacing: 14; }
 .hc_field      { width: fill; spacing: 6; }
 
@@ -95,4 +114,4 @@
 .field_input  { width: fill; padding: 13 14; }
 
 /* ── Status badge text color (compartilhado; ok/warn moram nos templates) ─ */
-.err   { color: #F85149; }
+.err   { color: var(--error); }

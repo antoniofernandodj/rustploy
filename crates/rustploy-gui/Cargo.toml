@@ -12,7 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Declarative UI engine (published; KDL templates + async bridge + widgets).
-glacier-ui = "0.7.0"
+glacier-ui = "0.8.0"
 
 shared = { path = "../shared" }
 
