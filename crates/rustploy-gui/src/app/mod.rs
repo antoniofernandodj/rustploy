@@ -64,6 +64,11 @@ impl App {
         if let Err(e) = motor.register_component("app", "crates/rustploy-gui/templates/app.xml") {
             eprintln!("register: {e}");
         }
+        // Prefs de login (URL/token lembrados): o Luau não escreve arquivo, então
+        // a persistência local fica em Rust. Aqui semeamos o contexto para o
+        // formulário nascer preenchido; `persist_prefs` (em `update`) grava no
+        // connect/toggle. Ver `store::Prefs`.
+        seed_prefs(&mut motor);
         motor.set_initial_screen("app");
         (
             Self { motor, window_id: None },
@@ -106,7 +111,21 @@ impl App {
                         return window_control(id, cmd);
                     }
                 }
-                self.motor.dispatch(&event).map(Message::Engine)
+                // Persistência de Prefs de login: no connect (o Luau já gravou
+                // url/token no contexto antes de suspender no fetch) e nos toggles
+                // "lembrar". Despacha primeiro, para o contexto refletir a ação,
+                // depois grava. Ver `seed_prefs`/`persist_prefs`.
+                let persist = matches!(&event,
+                    EngineMessage::UiClick(a) | EngineMessage::UiSubmit { action: a, .. }
+                        if a == "connect")
+                    || matches!(&event,
+                        EngineMessage::UiInputChanged { action: a, .. }
+                            if a.starts_with("toggle_remember"));
+                let task = self.motor.dispatch(&event).map(Message::Engine);
+                if persist {
+                    self.persist_prefs();
+                }
+                task
             }
         }
     }
@@ -134,6 +153,37 @@ impl App {
 
     pub(crate) fn theme(&self) -> iced::Theme {
         self.motor.theme()
+    }
+
+    /// Grava [`store::Prefs`] a partir do contexto atual: só guarda url/token
+    /// quando o respectivo "lembrar" está ligado (senão limpa o campo). Chamado
+    /// no connect e nos toggles (ver `update`).
+    fn persist_prefs(&self) {
+        let g = |k: &str| self.motor.get_data(k).cloned().unwrap_or_default();
+        let remember_url = g("remember_url") == "true";
+        let remember_token = g("remember_token") == "true";
+        store::Prefs {
+            remember_url,
+            remember_token,
+            url: if remember_url { Some(g("url")) } else { None },
+            token: if remember_token { Some(g("token")) } else { None },
+        }
+        .save();
+    }
+}
+
+/// Semeia o contexto do glacier com as Prefs de login salvas, para o formulário
+/// nascer preenchido. Os nomes de chave batem com os `formControl`/`checked` do
+/// `login.xml` (`url`/`token`/`remember_url`/`remember_token`).
+fn seed_prefs(motor: &mut GlacierUI) {
+    let prefs = store::Prefs::load();
+    motor.define_data("remember_url", if prefs.remember_url { "true" } else { "false" });
+    motor.define_data("remember_token", if prefs.remember_token { "true" } else { "false" });
+    if let Some(url) = prefs.url.filter(|_| prefs.remember_url) {
+        motor.define_data("url", &url);
+    }
+    if let Some(token) = prefs.token.filter(|_| prefs.remember_token) {
+        motor.define_data("token", &token);
     }
 }
 
