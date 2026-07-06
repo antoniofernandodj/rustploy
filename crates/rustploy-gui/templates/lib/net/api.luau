@@ -47,7 +47,10 @@ function M:rpc(cmd: any): (boolean, any)
 
     local ok, decoded = pcall(json.decode, res.body)
 
-    if not ok or type(decoded) ~= "table" then
+    -- Aceita QUALQUER valor decodificado: uma Response de variante UNITÁRIA
+    -- (ex.: `Response::Ok`) é serializada pelo serde como a string bare "Ok"
+    -- (não um objeto). Só o parse falhando é resposta inválida.
+    if not ok then
         return false, "resposta inválida do daemon"
     end
 
@@ -62,7 +65,7 @@ function M:rpc_checked(cmd: any): (boolean, any)
         return false, res
     end
 
-    if res.Err ~= nil then
+    if type(res) == "table" and res.Err ~= nil then
         return false, tostring(res.Err.code) .. ": " .. tostring(res.Err.message)
     end
 
