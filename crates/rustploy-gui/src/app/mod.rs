@@ -115,12 +115,22 @@ impl App {
                 // url/token no contexto antes de suspender no fetch) e nos toggles
                 // "lembrar". Despacha primeiro, para o contexto refletir a ação,
                 // depois grava. Ver `seed_prefs`/`persist_prefs`.
-                let persist = matches!(&event,
-                    EngineMessage::UiClick(a) | EngineMessage::UiSubmit { action: a, .. }
-                        if a == "connect")
-                    || matches!(&event,
-                        EngineMessage::UiInputChanged { action: a, .. }
-                            if a.starts_with("toggle_remember"));
+                //
+                // O `login.xml` é IMPORTADO em `app.xml` (`<link rel=import as=Login>`),
+                // então as ações chegam com namespace do owner: `Login::connect`,
+                // `Login::toggle_remember_url`. Comparamos só o sufixo (após `::`).
+                let action_str: Option<&str> = match &event {
+                    EngineMessage::UiClick(a) => Some(a.as_str()),
+                    EngineMessage::UiSubmit { action, .. } => Some(action.as_str()),
+                    EngineMessage::UiInputChanged { action, .. } => Some(action.as_str()),
+                    _ => None,
+                };
+                let persist = action_str
+                    .map(|a| {
+                        let bare = a.rsplit("::").next().unwrap_or(a);
+                        bare == "connect" || bare.starts_with("toggle_remember")
+                    })
+                    .unwrap_or(false);
                 let task = self.motor.dispatch(&event).map(Message::Engine);
                 if persist {
                     self.persist_prefs();

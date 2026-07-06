@@ -52,6 +52,11 @@ end
 
 local function trim(s) return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
 
+-- Toasts (built-in do glacier 0.20): notificação efêmera, complementa o *_msg
+-- inline. Usados nos desfechos de mutação (erro/sucesso).
+local function notify_err(msg) toast({ message = tostring(msg), kind = "error" }) end
+local function notify_ok(msg) toast({ message = tostring(msg), kind = "success" }) end
+
 -- URI de callback OAuth do Gitea que o usuário registra no app do Gitea.
 local function oauth_redirect_uri(domain)
     local d = trim(domain):gsub("/+$", "")
@@ -624,16 +629,21 @@ local function with_spec(mutate)
     local sid = ctx.selected_service
     if not api or not sid or sid == "" then return end
     local ok, res = api:rpc({ ServiceGet = { id = sid } })
-    if not ok or not res.Service then ctx.svc_action_msg = "erro ao carregar spec"; return end
+    if not ok or not res.Service then
+        ctx.svc_action_msg = "erro ao carregar spec"
+        notify_err("erro ao carregar o serviço")
+        return
+    end
     local spec = res.Service.spec
     local emsg = mutate(spec)
-    if emsg then ctx.svc_action_msg = "erro: " .. emsg; return end
+    if emsg then ctx.svc_action_msg = "erro: " .. emsg; notify_err(emsg); return end
     local ok2, res2 = api:rpc_checked({ ServiceUpdate = { id = sid, spec = spec } })
     if ok2 then
         ctx.svc_action_msg = "salvo"
         fetch_service_detail(sid)
     else
         ctx.svc_action_msg = "erro: " .. res2
+        notify_err(res2)
     end
 end
 
@@ -859,6 +869,7 @@ function do_delete_deployment(id)
     if not api or not id then return end
     local ok, res = api:rpc_checked({ DeployDelete = { deployment_id = id } })
     ctx.svc_action_msg = ok and "deployment removido" or ("erro: " .. res)
+    if not ok then notify_err(res) end
     fetch_service_detail(ctx.selected_service)
 end
 
@@ -916,6 +927,7 @@ function do_svc_stop_id(id)
     ctx.proj_action_msg = "enviando…"
     local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
     ctx.proj_action_msg = ok and "serviço parado" or ("erro: " .. res)
+    if not ok then notify_err(res) end
     refresh_now()
 end
 
@@ -933,9 +945,10 @@ function do_stop_delete_service(id)
     if not api or not id then return end
     ctx.proj_action_msg = "removendo…"
     local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
-    if not ok then ctx.proj_action_msg = "erro ao parar: " .. res; return end
+    if not ok then ctx.proj_action_msg = "erro ao parar: " .. res; notify_err(res); return end
     local ok2, res2 = api:rpc_checked({ ServiceDelete = { id = id } })
     ctx.proj_action_msg = ok2 and "serviço parado e removido" or ("erro ao remover: " .. res2)
+    if ok2 then notify_ok("Serviço removido") else notify_err(res2) end
     refresh_now()
 end
 
@@ -1177,9 +1190,12 @@ function ns_create()
         ctx.proj_tab = "services"
         ctx.ns_step = ""
         ctx.ns_msg = ""
+        notify_ok("Serviço criado")
         refresh_now()
     else
-        ctx.ns_msg = ok and "resposta inesperada" or ("erro: " .. res)
+        local m = ok and "resposta inesperada" or ("erro: " .. res)
+        ctx.ns_msg = m
+        notify_err(ok and "resposta inesperada do daemon" or res)
     end
 end
 
@@ -1228,10 +1244,12 @@ local function with_project_env(mutate)
     end
     if env == nil then return end
     local newenv = mutate(env)
-    local ok2 = api:rpc_checked({ ProjectEnvSet = { project_id = pid, env_vars = newenv } })
+    local ok2, res2 = api:rpc_checked({ ProjectEnvSet = { project_id = pid, env_vars = newenv } })
     if ok2 then
         ctx.proj_env = fmt.env_json_with_comments(newenv, {})
         ctx.proj_env_count = tostring(#newenv)
+    else
+        notify_err(res2)
     end
 end
 
@@ -1293,6 +1311,7 @@ function settings_save()
         acme_email = (email ~= "" and email or nil),
     } })
     ctx.settings_msg = ok and "configurações salvas" or ("erro: " .. res)
+    if ok then notify_ok("Configurações salvas") else notify_err(res) end
 end
 
 -- ── Settings → Git (provedores Gitea) ──────────────────────────────────────
@@ -1365,6 +1384,7 @@ function gp_delete(id)
     if not api or not id then return end
     local ok, res = api:rpc_checked({ GitProviderDelete = { id = id } })
     ctx.gp_msg = ok and "provider removido" or ("erro: " .. res)
+    if not ok then notify_err(res) end
     gp_refresh_list()
 end
 
@@ -1408,9 +1428,11 @@ function create_project()
         ctx.new_proj_name = ""
         ctx.new_proj_desc = ""
         ctx.new_proj_msg = "projeto criado"
+        notify_ok("Projeto \"" .. name .. "\" criado")
         refresh_now()
     else
         ctx.new_proj_msg = "erro: " .. res
+        notify_err(res)
     end
 end
 
@@ -1432,9 +1454,11 @@ function do_delete_project(id)
     if ok then
         ctx.selected_project_id = ""
         ctx.view = "projects"
+        notify_ok("Projeto removido")
         refresh_now()
     else
         ctx.proj_action_msg = "erro: " .. res
+        notify_err(res)
     end
 end
 
@@ -1512,9 +1536,11 @@ function start_deploy(id)
         ctx.svc_deploy_running = "true"
         ctx.svc_deploy_elapsed = "0s"
         ctx.svc_action_msg = "deploy iniciado · " .. tostring(res.Deployment.state)
+        notify_ok("Deploy iniciado")
     else
         ctx.svc_action_msg = ok and "resposta inesperada" or ("erro: " .. res)
         ctx.svc_action_color = "#F85149"
+        notify_err(ok and "resposta inesperada do daemon" or res)
     end
     if ctx.selected_service == sid then fetch_service_detail(sid) end
 end
