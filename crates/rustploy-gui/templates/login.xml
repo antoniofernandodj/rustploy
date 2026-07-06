@@ -47,7 +47,7 @@
         </Row>
 
         <TextInput
-          placeholder="rwp://cluster.tech"
+          placeholder="https://rustploy.chiquitos.tech"
           class="field_input"
           formControl="url"
         />

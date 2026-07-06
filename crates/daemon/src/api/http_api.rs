@@ -9,10 +9,14 @@
 //! - `POST /api/rpc` — body is a JSON-encoded [`Command`]; the reply is a
 //!   JSON-encoded [`Response`](shared::Response). One endpoint covers every
 //!   command; the client reshapes the (externally tagged) JSON in Luau.
-//! - `GET /api/events` — Server-Sent Events. Emits an `event: snapshot` with the
+//! - `GET /api/events` — Server-Sent Events. Emits a `snapshot` record with the
 //!   full dashboard state every 2s (replacing the old client-side 2s poll) plus
-//!   an `event: bus` for each live [`Event`](shared::Event) from the event bus
+//!   a `bus` record for each live [`Event`](shared::Event) from the event bus
 //!   (logs, metrics, deploy progress). One connection replaces poll + stream.
+//!   Each record is **self-describing**: its JSON `data` carries a `kind` field
+//!   (`"snapshot"`/`"bus"`) because the SSE client (glacier-ui) discards the
+//!   `event:` line and only sees `data:`, so the discriminator must live inside
+//!   the payload.
 //! - `GET /api/health` — liveness probe (`ok`).
 
 use std::convert::Infallible;
@@ -152,7 +156,11 @@ fn events(state: AppState) -> Response<ApiBody> {
                 }
                 r = bus_rx.recv() => match r {
                     Ok(ev) => {
-                        if let Ok(js) = serde_json::to_string(&ev) {
+                        // Self-describing: the SSE client only sees `data:` (the
+                        // `event:` line is dropped), so tag the payload with
+                        // `kind:"bus"` and nest the event under `event`.
+                        let wrapped = serde_json::json!({ "kind": "bus", "event": ev });
+                        if let Ok(js) = serde_json::to_string(&wrapped) {
                             if tx.send(sse_frame("bus", &js)).await.is_err() {
                                 break;
                             }
@@ -189,6 +197,9 @@ fn events(state: AppState) -> Response<ApiBody> {
 async fn snapshot(state: &AppState) -> String {
     use serde_json::{json, Map, Value};
     let mut obj = Map::new();
+    // Self-describing record (see module docs): the SSE client only sees the
+    // `data:` payload, so the `snapshot`/`bus` discriminator lives here.
+    obj.insert("kind".into(), Value::String("snapshot".into()));
 
     if let RpResponse::DaemonStatus(d) = dispatch(state.clone(), Command::DaemonStatus).await {
         obj.insert("status".into(), serde_json::to_value(d).unwrap_or(Value::Null));

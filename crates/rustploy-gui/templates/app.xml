@@ -86,3 +86,11 @@
     <Column class="rz_corner rz_se" on_press="window:resize:se"/>
   </Row>
 </Column>
+
+<!-- Toda a lógica de rede/estado (login, navegação, busca, stream SSE e ações)
+  vive em Luau, no script abaixo: sucessor de app/root.rs + app/net/*. É o
+  único script ativo; como o contexto do glacier é global, os templates
+  importados (login/shell/home/service) só têm markup e seus handlers resolvem
+  para as funções deste script. require("net/api") e require("fmt") resolvem em
+  lib/ (relativo a este diretório). -->
+<script src="lib/app.luau"></script>

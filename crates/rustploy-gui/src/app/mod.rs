@@ -2,56 +2,28 @@
 //! templates and rendered by the published `glacier-ui` engine. The network
 //! layer runs through glacier-ui's async bridge (effects + subscriptions).
 
-mod net;
-mod root;
-mod rwp;
+// Parte 2 da migração RWP→HTTP/Luau: a camada de rede Rust do GUI foi
+// substituída por `<script>` Luau (templates/lib/app.luau + lib/net/api.luau +
+// lib/fmt.luau). Estes módulos ficam COMENTADOS (não removidos) até o corte
+// final — `root` (o Root monolítico), `net` (poll/view/RwpClient), `rwp` (o
+// cliente do protocolo binário) e `wizard`. `store` continua (geometria/Prefs).
+// TODO(corte-final): remover estes arquivos e o crate `shared::Rwp*`.
+// mod net;
+// mod root;
+// mod rwp;
+// mod wizard;
 mod store;
-mod wizard;
 
 use glacier_ui::{EngineMessage, GlacierUI};
 use iced::{Element, Point, Subscription, Task, window, Size, window::settings::PlatformSpecific};
 use std::time::Duration;
-use root::Root;
 
-const DEFAULT_RWP_PORT: u16 = 8787;
-
-/// Parses an `rwp://`/`rwps://` URL into the `host:port` target for the TCP
-/// connection, filling in the default port when omitted.
-pub fn connect_target(url: &str) -> anyhow::Result<String> {
-    let a = url.trim();
-    let authority = match a.split_once("://") {
-        Some((scheme, rest)) => {
-            anyhow::ensure!(
-                scheme.eq_ignore_ascii_case("rwp") ||
-                scheme.eq_ignore_ascii_case("rwps"),
-                "esquema não suportado: {scheme}:// — use rwp:// ou rwps://"
-            );
-            rest
-        }
-        None => a,
-    };
-
-    let authority = authority
-        .split(['/', '?', '#'])
-        .next()
-        .unwrap_or("")
-        .trim();
-
-    anyhow::ensure!(!authority.is_empty(), "URL sem host");
-    let has_port = match authority.rfind(':') {
-        Some(idx) => authority[idx + 1..]
-            .chars()
-            .all(|c| c.is_ascii_digit())
-            && !authority[idx + 1..].is_empty()
-            && !authority.contains(']'), // crude IPv6 guard
-        None => false,
-    };
-    Ok(if has_port {
-        authority.to_string()
-    } else {
-        format!("{authority}:{DEFAULT_RWP_PORT}")
-    })
-}
+// TODO(corte-final): `connect_target`/`DEFAULT_RWP_PORT` eram do transporte RWP
+// (host:port TCP). A normalização de URL agora vive em Luau (normalize_url em
+// app.luau), que fala HTTP(S). Mantidos comentados enquanto `rwp.rs` existir.
+// const DEFAULT_RWP_PORT: u16 = 8787;
+//
+// pub fn connect_target(url: &str) -> anyhow::Result<String> { /* ... */ }
 
 /// App-level message: either an engine event from glacier-ui, the resolved id
 /// of our (single) window (cached on startup so the custom titlebar can drive
@@ -86,7 +58,10 @@ impl App {
         if let Err(e) = motor.load_stylesheet("crates/rustploy-gui/styles/app.gss") {
             eprintln!("stylesheet: {e}");
         }
-        if let Err(e) = motor.register(Box::new(Root::default())) {
+        // O componente "app" é o template app.xml com <script src="lib/app.luau">.
+        // O glacier auto-liga um LuauComponent quando o template tem <script>, então
+        // toda a lógica (login/navegação/SSE/ações) roda em Luau — sem Root Rust.
+        if let Err(e) = motor.register_component("app", "crates/rustploy-gui/templates/app.xml") {
             eprintln!("register: {e}");
         }
         motor.set_initial_screen("app");

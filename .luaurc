@@ -1,0 +1,12 @@
+{
+    "languageMode": "strict",
+    "globals": [
+        "ctx",
+        "value",
+        "fetch",
+        "websocket",
+        "sse",
+        "require",
+        "json"
+    ]
+}
