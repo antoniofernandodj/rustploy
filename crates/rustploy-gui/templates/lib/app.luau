@@ -51,6 +51,13 @@ end
 
 local function trim(s) return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
 
+-- URI de callback OAuth do Gitea que o usuário registra no app do Gitea.
+local function oauth_redirect_uri(domain)
+    local d = trim(domain):gsub("/+$", "")
+    if d == "" then return "<configure o domínio em Web Server>/oauth/gitea/callback" end
+    return d .. "/oauth/gitea/callback"
+end
+
 -- Heurística: a URL denota um repo Git (clonar+buildar) e não uma imagem.
 local function looks_like_git_url(u)
     u = trim(u)
@@ -148,6 +155,7 @@ function load_settings()
         local domain = res.DaemonSettings.webhook_base_url or ""
         ctx.ss_domain = domain
         ctx.ss_email = res.DaemonSettings.acme_email or ""
+        ctx.gp_redirect = oauth_redirect_uri(domain)
     end
     local ok2, res2 = api:rpc("GitProviderList")
     if ok2 and res2.GitProviders then
@@ -871,6 +879,274 @@ function gitea_repo_pick(full_name)
     end
 end
 
+-- ── Wizard "Novo serviço" ──────────────────────────────────────────────────
+-- Application/Compose portados; Database/Broker/Template dependem dos catálogos
+-- e construtores de wizard.rs (DBs, brokers, blueprints) — deferidos (fatia 2c).
+
+-- ServiceSpec base com todos os campos não-default presentes (base_spec).
+local function base_spec(name, project_id, source, port, db_kind)
+    return {
+        name = name, project_id = project_id, source = source, port = port,
+        host_port = nil, domain = nil, tls_enabled = false,
+        env_vars = json.array({}), env_comments = json.array({}), volumes = json.array({}),
+        healthcheck = { kind = "Tcp", interval_secs = 5, timeout_secs = 3, retries = 10, start_period_secs = 5 },
+        replicas = 1, resources = { cpu_shares = 0, mem_limit_bytes = 0 },
+        run_command = nil, run_args = json.array({}), db_kind = db_kind, domains = json.array({}),
+    }
+end
+
+function new_service_open()
+    if (ctx.selected_project_id or "") == "" then return end
+    ctx.ns_name = ""
+    ctx.ns_app_name = ""
+    ctx.ns_msg = ""
+    ctx.erro_ns_name = ""
+    ctx.ns_step = "pick_type"
+    ctx.view = "new_service"
+end
+
+function ns_cancel()
+    ctx.view = "project_services"
+    ctx.ns_step = ""
+    ctx.ns_msg = ""
+end
+
+function ns_back()
+    local step = ctx.ns_step
+    if step == "pick_db" or step == "pick_broker" or step == "app_form"
+        or step == "compose_form" or step == "pick_template" or step == "db_form"
+        or step == "template_form" then
+        ctx.ns_step = "pick_type"
+    else
+        ctx.view = "project_services"
+        ctx.ns_step = ""
+    end
+    ctx.ns_msg = ""
+end
+
+function ns_kind(k)
+    if k == "application" then ctx.ns_step = "app_form"
+    elseif k == "compose" then ctx.ns_step = "compose_form"
+    else
+        ctx.ns_msg = "Database/Broker/Template ainda não disponíveis neste cliente (em migração)."
+    end
+end
+
+function ns_tsearch(v) ctx.ns_tsearch = v or "" end
+
+function ns_create()
+    local pid = ctx.selected_project_id or ""
+    if pid == "" or not api then return end
+    local step = ctx.ns_step
+    local name = trim(ctx.ns_app_name)
+    if name == "" then name = trim(ctx.ns_name) end
+    if name == "" then ctx.erro_ns_name = "informe um nome"; return end
+    ctx.erro_ns_name = ""
+    local spec
+    if step == "app_form" then
+        spec = base_spec(name, pid, { Registry = { image = "" } }, 80, nil)
+    elseif step == "compose_form" then
+        spec = base_spec(name, pid, { Compose = { content = "" } }, 80, nil)
+    else
+        ctx.ns_msg = "tipo ainda não disponível neste cliente"
+        return
+    end
+    ctx.ns_msg = "criando…"
+    local ok, res = api:rpc_checked({ ServiceCreate = spec })
+    if ok and res.Service then
+        ctx.view = "project_services"
+        ctx.proj_tab = "services"
+        ctx.ns_step = ""
+        ctx.ns_msg = ""
+    else
+        ctx.ns_msg = ok and "resposta inesperada" or ("erro: " .. res)
+    end
+end
+
+-- ── Editar projeto (cabeçalho de project_services) ─────────────────────────
+
+function edit_project_toggle()
+    ctx.edit_proj_name = ctx.proj_name or ""
+    ctx.edit_proj_desc = ctx.proj_description or ""
+    ctx.erro_edit_proj_name = ""
+    ctx.editing_project = "true"
+end
+
+function cancel_project_edit() ctx.editing_project = "false" end
+
+function save_project_edit()
+    local pid = ctx.selected_project_id or ""
+    if pid == "" or not api then return end
+    local name = trim(ctx.edit_proj_name)
+    if name == "" then ctx.erro_edit_proj_name = "informe um nome"; return end
+    ctx.erro_edit_proj_name = ""
+    local desc = trim(ctx.edit_proj_desc)
+    local ok, res = api:rpc_checked({ ProjectUpdate = { id = pid, name = name,
+        description = (desc ~= "" and desc or nil) } })
+    if ok then
+        ctx.editing_project = "false"
+        ctx.proj_action_msg = "projeto atualizado"
+        ctx.proj_name = name
+        ctx.proj_description = desc
+    else
+        ctx.proj_action_msg = "erro: " .. res
+    end
+end
+
+-- ── Variáveis de ambiente do projeto (aba env de project_services) ─────────
+
+-- Busca o projeto fresco, aplica `mutate(env_vars)` (devolve o novo array),
+-- envia ProjectEnvSet e reescreve proj_env.
+local function with_project_env(mutate)
+    local pid = ctx.selected_project_id or ""
+    if pid == "" or not api then return end
+    local ok, res = api:rpc("ProjectList")
+    if not ok or not res.Projects then return end
+    local env
+    for _, p in ipairs(res.Projects) do
+        if p.id == pid then env = p.env_vars or json.array({}); break end
+    end
+    if env == nil then return end
+    local newenv = mutate(env)
+    local ok2 = api:rpc_checked({ ProjectEnvSet = { project_id = pid, env_vars = newenv } })
+    if ok2 then
+        ctx.proj_env = fmt.env_json_with_comments(newenv, {})
+        ctx.proj_env_count = tostring(#newenv)
+    end
+end
+
+function penv_add()
+    local key = trim(ctx.penv_new_key)
+    if key == "" then ctx.erro_penv_new_key = "chave vazia"; return end
+    ctx.erro_penv_new_key = ""
+    local val = ctx.penv_new_val or ""
+    with_project_env(function(env)
+        local kept = json.array({})
+        for _, v in ipairs(env) do if v.key ~= key then table.insert(kept, v) end end
+        table.insert(kept, { key = key, value = { Plain = val } })
+        return kept
+    end)
+    ctx.penv_new_key = ""
+    ctx.penv_new_val = ""
+end
+
+function penv_del(key)
+    with_project_env(function(env)
+        local kept = json.array({})
+        for _, v in ipairs(env) do if v.key ~= key then table.insert(kept, v) end end
+        return kept
+    end)
+end
+
+function penv_reorder(v)
+    if not v then return end
+    local ok, keys = pcall(json.decode, v)
+    if not ok or type(keys) ~= "table" then return end
+    with_project_env(function(env)
+        local by = {}
+        for _, x in ipairs(env) do by[x.key] = x end
+        local out = json.array({})
+        for _, k in ipairs(keys) do
+            if by[k] then table.insert(out, by[k]); by[k] = nil end
+        end
+        for _, x in ipairs(env) do if by[x.key] then table.insert(out, x) end end
+        return out
+    end)
+end
+
+-- ── Settings (Web Server) ──────────────────────────────────────────────────
+
+function ss_domain(v)
+    ctx.ss_domain = v or ""
+    ctx.gp_redirect = oauth_redirect_uri(v or "")
+end
+
+function settings_tab(t) ctx.settings_tab = t end
+
+function settings_save()
+    if not api then return end
+    local domain = trim(ctx.ss_domain)
+    local email = trim(ctx.ss_email)
+    ctx.settings_msg = "salvando…"
+    local ok, res = api:rpc_checked({ SetDaemonSettings = {
+        webhook_base_url = (domain ~= "" and domain or nil),
+        acme_email = (email ~= "" and email or nil),
+    } })
+    ctx.settings_msg = ok and "configurações salvas" or ("erro: " .. res)
+end
+
+-- ── Settings → Git (provedores Gitea) ──────────────────────────────────────
+
+function gp_mode(m) ctx.gp_mode = m end
+
+local function gp_refresh_list()
+    local ok, res = api:rpc("GitProviderList")
+    if ok and res.GitProviders then
+        ctx.gitea_providers = fmt.git_providers(res.GitProviders)
+        ctx.gitea_count = tostring(#res.GitProviders)
+    end
+end
+
+function gp_refresh()
+    if not api then return end
+    gp_refresh_list()
+end
+
+function gp_connect()
+    if not api then return end
+    local base = trim(ctx.gp_base_url)
+    if base == "" then ctx.gp_msg = "informe a Base URL do Gitea"; return end
+    local name = trim(ctx.gp_name); if name == "" then name = "Gitea" end
+    local is_oauth = (ctx.gp_mode or "oauth") ~= "pat"
+    local cmd
+    if is_oauth then
+        local cid = trim(ctx.gp_client_id)
+        local csec = ctx.gp_client_secret or ""
+        if cid == "" or trim(csec) == "" then
+            ctx.gp_msg = "Client ID e Client Secret são obrigatórios"; return
+        end
+        cmd = { GitProviderCreate = { kind = "Gitea", name = name, base_url = base,
+            auth_mode = "OAuth", oauth_client_id = cid, oauth_client_secret = csec, pat = nil } }
+    else
+        local pat = ctx.gp_pat or ""
+        if trim(pat) == "" then ctx.gp_msg = "informe o Personal Access Token"; return end
+        cmd = { GitProviderCreate = { kind = "Gitea", name = name, base_url = base,
+            auth_mode = "Pat", oauth_client_id = nil, oauth_client_secret = nil, pat = pat } }
+    end
+    ctx.gp_msg = "conectando…"
+    local ok, res = api:rpc(cmd)
+    if not ok or not res.GitProviderInfo then
+        ctx.gp_msg = "erro: " .. (ok and "resposta inesperada" or res); return
+    end
+    local pid = res.GitProviderInfo.id
+    if is_oauth then
+        -- OAuth precisa de round-trip no navegador. O Luau não abre o browser;
+        -- surface a URL para o usuário abrir e depois clicar em "Atualizar lista".
+        local oko, reso = api:rpc({ GitOAuthStart = { provider_id = pid } })
+        if oko and reso.OAuthUrl then
+            ctx.gp_oauth_url = reso.OAuthUrl
+            ctx.gp_msg = "abra para autorizar: " .. reso.OAuthUrl
+        else
+            ctx.gp_msg = "provider criado; inicie o OAuth manualmente"
+        end
+    else
+        ctx.gp_msg = "conta Gitea conectada ✓"
+    end
+    ctx.gp_name = ""
+    ctx.gp_base_url = ""
+    ctx.gp_client_id = ""
+    ctx.gp_client_secret = ""
+    ctx.gp_pat = ""
+    gp_refresh_list()
+end
+
+function gp_delete(id)
+    if not api or not id then return end
+    local ok, res = api:rpc_checked({ GitProviderDelete = { id = id } })
+    ctx.gp_msg = ok and "provider removido" or ("erro: " .. res)
+    gp_refresh_list()
+end
+
 -- ── Ações mutantes ────────────────────────────────────────────────────────
 
 function stop_all()
@@ -933,8 +1209,15 @@ local function prune(cmd, label)
     end
 end
 
-function docker_prune_images() prune({ PruneImages = { all = false } }, "removendo imagens sem uso…") end
-function docker_prune_volumes() prune({ PruneVolumes = { all = false } }, "removendo volumes sem uso…") end
+function docker_prune_images()
+    local all = ctx.docker_prune_all_images == "true"
+    prune({ PruneImages = { all = all } },
+        all and "removendo TODAS as imagens sem uso…" or "removendo imagens dangling…")
+end
+function docker_prune_volumes()
+    local all = ctx.docker_prune_all_volumes == "true"
+    prune({ PruneVolumes = { all = all } }, "removendo volumes sem uso…")
+end
 function docker_prune_networks() prune("PruneNetworks", "removendo redes sem uso…") end
 
 -- Deploy de um serviço (a partir de um card / detalhe). Arma deploy_track para
