@@ -291,19 +291,36 @@ Server (`SetDaemonSettings`, `ss_domain`→`gp_redirect`); Settings→Git
 (`GitProviderCreate` OAuth/PAT + `GitOAuthStart`, refresh, delete). OAuth: Luau
 não abre browser → exibe a URL.
 
-### ⬜ Parte 2 — fatia 2c (próxima)
-- **Wizard Database/Broker/Template**: portar catálogos e construtores de
-  `app/wizard.rs` (DbKind/BrokerKind: imagens/portas/env por tipo; geração de
-  docker-compose; catálogo de templates de `shared::templates` blueprints, hoje
-  gerado por build.rs). Maior peça restante — considerar expor via daemon.
-- **Prefs** (login lembrado) — sem persistência hoje (era `store::Prefs`);
-  decidir Rust-hook vs endpoint.
+### ✅ Parte 2 — fatia 2c (wizard DB/Broker/Template via daemon) — feito (commit `6d2ed69`)
+Em vez de reimplementar a construção de spec em Luau, exposta pelo daemon:
+- `shared/wizard.rs` (movido de `rustploy-gui/src/app/wizard.rs`): DbKind/
+  BrokerKind, `token_urlsafe`, `db_spec`/`broker_spec`/`template_spec` +
+  `db_compose`/`broker_compose`, catálogos JSON (com vars embutidas) +
+  `WizardCreateReq` + `build_spec` (dispatcher por kind). `shared` ganhou
+  `serde_json`.
+- protocol: `Command::WizardCatalog{search}`/`WizardCreate(req)`;
+  `Response::WizardCatalog{dbs,brokers,templates}`. daemon: `handlers/wizard.rs`
+  (catalog + create reusando `service_create::handle`).
+- `app.luau`: `new_service_open` busca o catálogo; `ns_kind` roteia
+  pick_db/broker/template; `ns_db`/`ns_broker` pré-preenchem (senhas geradas no
+  cliente); `ns_pick_template` carrega vars; `ns_tsearch` filtra o cache;
+  `ns_create` envia `WizardCreate` (app/compose também passam pelo daemon agora).
+- **fix**: removido o shadow `local json = (shared).json...` em `fmt.luau` (o
+  `shared` não existe no Luau do mlua → quebrava o carregamento); usa o global
+  `json` do glacier (declarado no `.luaurc`). Mantido `--!strict` + tipos.
+
+### ⬜ Polish restante da Parte 2
+- **Prefs** (login lembrado) — sem persistência hoje. Precisa de I/O local
+  (o Luau não escreve arquivo): um hook Rust em `app/mod.rs` no connect, ou um
+  arquivo via daemon. (Prefs são per-máquina-cliente → NÃO no daemon.)
 - **Diálogos de confirmação** (stop_all/prune/svc_stop) — hoje ação direta;
-  confirmar se o Luau expõe `show_dialog`.
-- **Abrir URL no navegador** (OAuth) — hoje só exibe; candidato a built-in
-  `open:<url>` no glacier.
-- **Verificação runtime** (login→SSE→dashboard→service→deploy→logs) contra
-  daemon+Docker vivos.
+  precisa expor `show_dialog` do glacier à camada Luau (feature nova no glacier).
+- **Abrir URL no navegador** (OAuth) — hoje só exibe a URL; candidato a built-in
+  `open:<url>` no glacier (irmão do `clipboard:<key>`).
+
+### ⬜ Verificação runtime
+Fluxo vivo (login→SSE→dashboard→service→deploy→logs→wizard) contra daemon+Docker
+reais — ambiente do usuário. (Headless aqui só cobre parse/registro/render.)
 
 ### ⬜ Corte final
 Remover `rwp/` do daemon e `Rwp*` de `shared`; apagar `root/net/rwp/wizard` do
