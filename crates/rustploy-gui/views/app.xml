@@ -1,6 +1,6 @@
 <link rel="theme" href="crates/rustploy-gui/styles/theme.json" />
-<link rel="import" href="crates/rustploy-gui/templates/login.xml" as="Login" />
-<link rel="import" href="crates/rustploy-gui/templates/shell.xml" as="Shell" />
+<link rel="import" href="crates/rustploy-gui/views/login.xml" as="Login" />
+<link rel="import" href="crates/rustploy-gui/views/shell.xml" as="Shell" />
 <!-- Borderless window (decorations=false): a 6px frame of resize handles wraps
   the content. Each handle sets its hover cursor and starts an interactive
   resize on press (window:resize:<dir>), handled in main.rs against the cached
@@ -92,5 +92,5 @@
   único script ativo; como o contexto do glacier é global, os templates
   importados (login/shell/home/service) só têm markup e seus handlers resolvem
   para as funções deste script. require("net/api") e require("fmt") resolvem em
-  lib/ (relativo a este diretório). -->
-<script src="lib/app.luau"></script>
+  scripts/ (relativo a este diretório). -->
+<script src="scripts/app.luau"></script>

@@ -54,7 +54,7 @@ assets = [
     ["target/release/rustploy-gui", "usr/bin/rustploy-gui", "755"],
 
     # Runtime assets — keep the `crates/…` layout the KDL paths expect.
-    ["templates/**/*",            "usr/share/rustploy/crates/rustploy-gui/templates/", "644"],
+    ["views/**/*",            "usr/share/rustploy/crates/rustploy-gui/views/", "644"],
     ["styles/**/*",               "usr/share/rustploy/crates/rustploy-gui/styles/",    "644"],
     ["assets/icons/**/*",         "usr/share/rustploy/crates/rustploy-gui/assets/icons/", "644"],
     ["../shared/templates/blueprints/**/*", "usr/share/rustploy/crates/shared/templates/blueprints/", "644"],

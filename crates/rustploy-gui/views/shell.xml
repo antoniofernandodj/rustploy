@@ -1,18 +1,18 @@
 
 <!-- ── Imports ──────────────────────────────────────────────────────── -->
-<link rel="import" href="crates/rustploy-gui/templates/service.xml" as="ServiceDetail" />
-<link rel="import" href="crates/rustploy-gui/templates/home.xml" as="HomeViews" />
-<link rel="import" href="crates/rustploy-gui/templates/new_service.xml" as="NewServiceWizard" />
-<link rel="import" href="crates/rustploy-gui/templates/components/project_card.xml" as="ProjectCard" />
-<link rel="import" href="crates/rustploy-gui/templates/components/service_card.xml" as="ServiceCard" />
-<link rel="import" href="crates/rustploy-gui/templates/components/stat_card.xml" as="StatCard" />
-<link rel="import" href="crates/rustploy-gui/templates/components/state_cell.xml" as="StateCell" />
-<link rel="import" href="crates/rustploy-gui/templates/components/badge.xml" as="Badge" />
-<link rel="import" href="crates/rustploy-gui/templates/components/nav_item.xml" as="NavItem" />
-<link rel="import" href="crates/rustploy-gui/templates/components/tab_button.xml" as="TabButton" />
-<link rel="import" href="crates/rustploy-gui/templates/components/loading_row.xml" as="LoadingRow" />
-<link rel="import" href="crates/rustploy-gui/templates/components/picker_row.xml" as="PickerRow" />
-<link rel="import" href="crates/rustploy-gui/templates/components/template_row.xml" as="TemplateRow" />
+<link rel="import" href="crates/rustploy-gui/views/service.xml" as="ServiceDetail" />
+<link rel="import" href="crates/rustploy-gui/views/home.xml" as="HomeViews" />
+<link rel="import" href="crates/rustploy-gui/views/new_service.xml" as="NewServiceWizard" />
+<link rel="import" href="crates/rustploy-gui/views/components/project_card.xml" as="ProjectCard" />
+<link rel="import" href="crates/rustploy-gui/views/components/service_card.xml" as="ServiceCard" />
+<link rel="import" href="crates/rustploy-gui/views/components/stat_card.xml" as="StatCard" />
+<link rel="import" href="crates/rustploy-gui/views/components/state_cell.xml" as="StateCell" />
+<link rel="import" href="crates/rustploy-gui/views/components/badge.xml" as="Badge" />
+<link rel="import" href="crates/rustploy-gui/views/components/nav_item.xml" as="NavItem" />
+<link rel="import" href="crates/rustploy-gui/views/components/tab_button.xml" as="TabButton" />
+<link rel="import" href="crates/rustploy-gui/views/components/loading_row.xml" as="LoadingRow" />
+<link rel="import" href="crates/rustploy-gui/views/components/picker_row.xml" as="PickerRow" />
+<link rel="import" href="crates/rustploy-gui/views/components/template_row.xml" as="TemplateRow" />
 
 <style>
 .sidebar { width: 264; height: fill; background: var(--surface); padding: 28 20; spacing: 6; }
@@ -84,7 +84,7 @@
         on_change="search_changed"
         placeholder="Search deployments, nodes…"
       />
-      <Text class="muted topbar_status" content="● rwp · daemon v{daemon_version}" />
+      <Text class="muted topbar_status" content="● daemon v{daemon_version}" />
       <Button class="btn_danger" on_click="stop_all" text="Stop All" />
       <Button class="btn_ghost" on_click="disconnect" text="Disconnect" />
     </Row>

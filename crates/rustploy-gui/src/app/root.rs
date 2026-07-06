@@ -1,5 +1,5 @@
 //! The single root component: owns connection state, routes UI actions and
-//! exposes the network subscription. All screens live in `templates/app.xml`
+//! exposes the network subscription. All screens live in `views/app.xml`
 //! and switch on the `screen`/`view` context keys.
 
 use glacier_ui::{
@@ -720,7 +720,7 @@ impl Component for Root {
     }
 
     fn template(&self) -> Template {
-        Template::File("crates/rustploy-gui/templates/app.xml".into())
+        Template::File("crates/rustploy-gui/views/app.xml".into())
     }
 
     fn init(&mut self, ctx: &mut Context) {

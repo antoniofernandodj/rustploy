@@ -2,9 +2,9 @@
 //!
 //! Every KDL template, stylesheet, icon and blueprint logo is referenced by a
 //! path relative to the process' current working directory — both from Rust
-//! (`crates/rustploy-gui/styles/app.gss`, `crates/rustploy-gui/templates/app.xml`,
-//! `crates/shared/templates/blueprints/<id>/<logo>`) and from *inside* the KDL
-//! themselves (`import ... from="crates/rustploy-gui/templates/service.xml"`,
+//! (`crates/rustploy-gui/styles/app.gss`, `crates/rustploy-gui/views/app.xml`,
+//! `crates/shared/views/blueprints/<id>/<logo>`) and from *inside* the KDL
+//! themselves (`import ... from="crates/rustploy-gui/views/service.xml"`,
 //! `theme "crates/rustploy-gui/styles/theme.json"`, `Svg "crates/rustploy-gui/…"`).
 //!
 //! Rather than rewrite every literal, we locate the directory that holds those
@@ -17,7 +17,7 @@
 use std::path::{Path, PathBuf};
 
 /// A file that must exist under any valid asset base — used as the probe.
-const MARKER: &str = "crates/rustploy-gui/templates/app.xml";
+const MARKER: &str = "crates/rustploy-gui/views/app.xml";
 
 /// System-wide install prefix used by the Debian package (see the `deb`
 /// metadata in `Cargo.toml`).

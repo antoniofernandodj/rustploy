@@ -3,8 +3,8 @@
 //! layer runs through glacier-ui's async bridge (effects + subscriptions).
 
 // Parte 2 da migração RWP→HTTP/Luau: a camada de rede Rust do GUI foi
-// substituída por `<script>` Luau (templates/lib/app.luau + lib/net/api.luau +
-// lib/fmt.luau). Estes módulos ficam COMENTADOS (não removidos) até o corte
+// substituída por `<script>` Luau (views/scripts/app.luau + scripts/net/api.luau +
+// scripts/fmt.luau). Estes módulos ficam COMENTADOS (não removidos) até o corte
 // final — `root` (o Root monolítico), `net` (poll/view/RwpClient), `rwp` (o
 // cliente do protocolo binário) e `wizard`. `store` continua (geometria/Prefs).
 // TODO(corte-final): remover estes arquivos e o crate `shared::Rwp*`.
@@ -58,10 +58,10 @@ impl App {
         if let Err(e) = motor.load_stylesheet("crates/rustploy-gui/styles/app.gss") {
             eprintln!("stylesheet: {e}");
         }
-        // O componente "app" é o template app.xml com <script src="lib/app.luau">.
+        // O componente "app" é o template app.xml com <script src="scripts/app.luau">.
         // O glacier auto-liga um LuauComponent quando o template tem <script>, então
         // toda a lógica (login/navegação/SSE/ações) roda em Luau — sem Root Rust.
-        if let Err(e) = motor.register_component("app", "crates/rustploy-gui/templates/app.xml") {
+        if let Err(e) = motor.register_component("app", "crates/rustploy-gui/views/app.xml") {
             eprintln!("register: {e}");
         }
         // Prefs de login (URL/token lembrados): o Luau não escreve arquivo, então
@@ -232,7 +232,7 @@ pub(crate) fn window_settings() -> window::Settings {
         )
         .ok(),
         // Borderless: the OS titlebar is replaced by a custom one defined in
-        // `templates/app.xml` (drag region + minimize/maximize/close). The
+        // `views/app.xml` (drag region + minimize/maximize/close). The
         // `window:*` actions it emits are handled in `update` against the
         // cached window id (see `App::window_id`).
         decorations: false,
