@@ -459,7 +459,7 @@ fn broker_compose(broker: BrokerKind, svc: &str, img: &str, _f: &DbFormInput) ->
     }
 }
 
-pub fn template_spec(t: &Template, name: String, project_id: String, values: &[String]) -> ServiceSpec {
+pub fn template_spec(t: &'static Template, name: String, project_id: String, values: &[String]) -> ServiceSpec {
     let name = if name.trim().is_empty() { template_slug(t) } else { name };
     let user: Vec<(String, String)> = templates::editable_vars(t)
         .iter()

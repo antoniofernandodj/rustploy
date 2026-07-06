@@ -10,17 +10,45 @@
   paleta fica centralizada no estilo, não espalhada em hex vindos do Rust.
 -->
 <style>
-.state_cell { width: 170; spacing: 7; align-y: center; }
-.state_lbl  { size: 12; }
+.state_cell {
+  width: 170;
+  spacing: 7;
+  align-y: center;
+}
+
+.state_lbl {
+  size: 12;
+}
+
 /* Paleta de estado — a 2ª classe (state_{kind}) pinta ponto + rótulo. */
-.state_ok    { color: var(--ok); }
-.state_bad   { color: var(--error); }
-.state_info  { color: var(--accent); }
-.state_warn  { color: var(--warn); }
-.state_muted { color: var(--muted); }
+.state_ok {
+  color: var(--ok);
+}
+
+.state_bad {
+  color: var(--error);
+}
+
+.state_info {
+  color: var(--accent);
+}
+
+.state_warn {
+  color: var(--warn);
+}
+
+.state_muted {
+  color: var(--muted);
+}
 </style>
 
 <Row class="state_cell">
-  <Text class="state_dot state_{kind}" content="●" />
-  <Text class="state_lbl state_{kind}" content="{label}" />
+  <Text
+    class="state_dot state_{kind}"
+    content="●"
+  />
+  <Text
+    class="state_lbl state_{kind}"
+    content="{label}"
+  />
 </Row>

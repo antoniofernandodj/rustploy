@@ -71,8 +71,8 @@
     <NavItem label="  Projects ({projects_count})" target="projects" action="nav_projects" />
     <Column class="nav_spacer" />
     <Rule />
-    <Button class="nav_item" onClick="nav_settings" text="Settings" />
-    <Button class="nav_item" onClick="nav_support" text="Support" />
+    <Button class="nav_item" on_click="nav_settings" text="Settings" />
+    <Button class="nav_item" on_click="nav_support" text="Support" />
   </Column>
   <!-- ── Main column ──────────────────────────────────────────────────── -->
   <Column class="main_col">
@@ -81,12 +81,12 @@
       <TextInput
         class="search"
         value="search"
-        onChange="search_changed"
+        on_change="search_changed"
         placeholder="Search deployments, nodes…"
       />
       <Text class="muted topbar_status" content="● rwp · daemon v{daemon_version}" />
-      <Button class="btn_danger" onClick="stop_all" text="Stop All" />
-      <Button class="btn_ghost" onClick="disconnect" text="Disconnect" />
+      <Button class="btn_danger" on_click="stop_all" text="Stop All" />
+      <Button class="btn_ghost" on_click="disconnect" text="Disconnect" />
     </Row>
     <Rule />
     <!-- Content -->
@@ -155,25 +155,25 @@
               <StatCard label="PROJECTS" value="{projects_count}" accent="1" />
             </Row>
           </Row>
-          <Form name="new_project" onSubmit="create_project" width="fill">
+          <Form name="new_project" on_submit="create_project" width="fill">
             <Row class="env_add">
               <TextInput
                 class="env_in_key"
-                formControl="new_proj_name"
+                form_control="new_proj_name"
                 value="new_proj_name"
-                onChange="field:new_proj_name"
+                on_change="field:new_proj_name"
                 placeholder="Nome do projeto"
               />
               <TextInput
                 class="env_in_val"
-                formControl="new_proj_desc"
+                form_control="new_proj_desc"
                 value="new_proj_desc"
-                onChange="field:new_proj_desc"
+                on_change="field:new_proj_desc"
                 placeholder="Descrição (opcional)"
               />
               <Button
                 class="btn_primary"
-                onClick="create_project"
+                on_click="create_project"
                 text="Criar projeto"
               />
             </Row>
@@ -226,24 +226,24 @@
                      empurradas para a extremidade direita (hspacer = width:fill).
                      Em modo de edição as ações somem (o form tem Salvar/Cancelar). -->
                 <Row class="proj_topbar">
-                  <Button class="btn_ghost" onClick="nav_projects" text="‹ Projetos" />
+                  <Button class="btn_ghost" on_click="nav_projects" text="‹ Projetos" />
                   <Column class="hspacer" />
                   <if cond="{editing_project}" not_equals="true">
                     <Row class="proj_actions">
                       <Button
                         class="btn_sm_primary"
-                        onClick="new_service_open"
+                        on_click="new_service_open"
                         text="+ Novo serviço"
                       />
                       <Button
                         class="btn_sm_ghost"
-                        onClick="edit_project_toggle"
+                        on_click="edit_project_toggle"
                         text="Editar projeto"
                       />
                       <if cond="{proj_can_delete}" equals="1">
                         <Button
                           class="btn_sm_danger"
-                          onClick="delete_project:{selected_project_id}"
+                          on_click="delete_project:{selected_project_id}"
                           text="Remover projeto"
                         />
                       </if>
@@ -253,13 +253,13 @@
                 <if cond="{editing_project}" equals="true">
                   <Form
                     name="edit_project"
-                    onSubmit="save_project_edit"
+                    on_submit="save_project_edit"
                     spacing="6"
                     width="fill"
                   >
                     <TextInput
                       class="field_input"
-                      formControl="edit_proj_name"
+                      form_control="edit_proj_name"
                       placeholder="Nome do projeto"
                     />
                     <if cond="{erro_edit_proj_name}" notEquals="">
@@ -267,18 +267,18 @@
                     </if>
                     <TextInput
                       class="field_input"
-                      formControl="edit_proj_desc"
+                      form_control="edit_proj_desc"
                       placeholder="Descrição (opcional)"
                     />
                     <Row class="env_add">
                       <Button
                         class="btn_primary"
-                        onClick="save_project_edit"
+                        on_click="save_project_edit"
                         text="Salvar"
                       />
                       <Button
                         class="btn_ghost"
-                        onClick="cancel_project_edit"
+                        on_click="cancel_project_edit"
                         text="Cancelar"
                       />
                       <Text class="muted" content="{proj_action_msg}" />
@@ -323,21 +323,21 @@
                   class="muted"
                   content="Herdadas por todos os serviços deste projeto no deploy — as do serviço têm precedência."
                 />
-                <Form name="penv_add" onSubmit="penv_add" width="fill">
+                <Form name="penv_add" on_submit="penv_add" width="fill">
                   <Row class="env_add">
                     <TextInput
                       class="env_in_key"
-                      formControl="penv_new_key"
+                      form_control="penv_new_key"
                       placeholder="KEY"
                     />
                     <TextInput
                       class="env_in_val"
-                      formControl="penv_new_val"
+                      form_control="penv_new_val"
                       placeholder="value"
                     />
                     <Button
                       class="btn_primary"
-                      onClick="penv_add"
+                      on_click="penv_add"
                       text="Adicionar"
                     />
                   </Row>
@@ -362,7 +362,7 @@
                           />
                           <Button
                             class="env_del"
-                            onClick="penv_del:{e.key}"
+                            on_click="penv_del:{e.key}"
                             text="✕"
                           />
                           <Text content=" " />
@@ -377,7 +377,7 @@
                             dragHandle="true"
                             content="⋮ "
                           />
-                          <Button class="env_del" onClick="penv_del:{e.key}" text="✕" />
+                          <Button class="env_del" on_click="penv_del:{e.key}" text="✕" />
                           <Text content=" " />
                           <Text class="env_key" content="{e.key}" />
                           <Text class="kv_val_fill" content="{e.value}" />

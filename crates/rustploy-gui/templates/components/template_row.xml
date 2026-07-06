@@ -7,9 +7,24 @@
   `templates_json` em app/wizard.rs).
 -->
 <style>
-.tpl_row      { width: fill; padding: 12 0; align-y: center; spacing: 14; }
-.tpl_logo_box { width: 34; height: 34; align-x: center; align-y: center; }
-.tpl_logo     { width: 30; height: 30; }
+.tpl_row {
+  width: fill;
+  padding: 12 0;
+  align-y: center;
+  spacing: 14;
+}
+
+.tpl_logo_box {
+  width: 34;
+  height: 34;
+  align-x: center;
+  align-y: center;
+}
+
+.tpl_logo {
+  width: 30;
+  height: 30;
+}
 </style>
 
 <Row class="tpl_row">
@@ -19,8 +34,14 @@
     centralizamos o logo dentro dele — mantém a coluna de texto alinhada.
   -->
   <Column class="tpl_logo_box">
-    <Svg class="tpl_logo" if="{logo_kind}" equals="svg">{logo}</Svg>
-    <Image class="tpl_logo" if="{logo_kind}" equals="img">{logo}</Image>
+    <Svg
+      class="tpl_logo"
+      if="{logo_kind}"
+      equals="svg">{logo}</Svg>
+    <Image
+      class="tpl_logo"
+      if="{logo_kind}"
+      equals="img">{logo}</Image>
   </Column>
   <Column class="header_titles">
     <Text class="env_key" content="{name}" />
@@ -28,7 +49,16 @@
       Só renderiza a descrição quando existe — uma linha vazia empurraria o
       nome pra cima e o desalinharia do logo (align-y center da linha).
     -->
-    <Text class="muted" if="{description}" notEquals="" content="{description}" />
+    <Text
+      class="muted"
+      if="{description}"
+      notEquals=""
+      content="{description}"
+    />
   </Column>
-  <Button class="btn_primary" onClick="{action}" text="Escolher ›" />
+  <Button
+    class="btn_primary"
+    on_click="{action}"
+    text="Escolher ›"
+  />
 </Row>

@@ -301,7 +301,7 @@
           onToggle="field:docker_prune_all_images"
           label="-a (limpar tudo, não só dangling)"
         />
-        <Button class="btn_danger" onClick="docker_prune_images" text="Limpar sem uso" />
+        <Button class="btn_danger" on_click="docker_prune_images" text="Limpar sem uso" />
       </Row>
       <Text if="{docker_msg}" not_equals="" class="muted" text="{docker_msg}" />
       <Row class="thead">
@@ -371,7 +371,7 @@
         />
         <Button
           class="btn_danger"
-          onClick="docker_prune_volumes"
+          on_click="docker_prune_volumes"
           text="Limpar sem uso"
         />
       </Row>
@@ -430,7 +430,7 @@
         />
         <Button
           class="btn_danger"
-          onClick="docker_prune_networks"
+          on_click="docker_prune_networks"
           text="Limpar sem uso"
         />
       </Row>
@@ -505,7 +505,7 @@
 
     <!-- Web Server (default) -->
     <if cond="{settings_tab}" not_equals="git">
-      <Form name="settings" onSubmit="settings_save" width="fill">
+      <Form name="settings" on_submit="settings_save" width="fill">
         <Column class="form_panel">
           <Text class="label_cap" content="DOMÍNIO / URL BASE" />
           <TextInput
@@ -540,7 +540,7 @@
           />
 
           <Row class="env_add">
-            <Button class="btn_primary" onClick="settings_save" text="Save" />
+            <Button class="btn_primary" on_click="settings_save" text="Save" />
             <Text class="muted" content="{settings_msg}" />
           </Row>
         </Column>
@@ -568,7 +568,7 @@
                     class="muted" content="{p.base_url}  ·  {p.auth_mode}  ·  {p.account}"
                   />
                 </Column>
-                <Button class="btn_danger" onClick="gp_delete:{p.id}" text="Remover" />
+                <Button class="btn_danger" on_click="gp_delete:{p.id}" text="Remover" />
               </Row>
             </ForEach>
           </Column>
@@ -577,7 +577,7 @@
           <Text class="label_cap" content="CONECTAR CONTA GITEA" />
           <Text if="{gp_msg}" not_equals="" class="muted" content="{gp_msg}" />
 
-          <Form name="git_provider" onSubmit="gp_connect" spacing="10" width="fill">
+          <Form name="git_provider" on_submit="gp_connect" spacing="10" width="fill">
             <Row class="hc_grid">
               <Column class="hc_field">
                 <Text class="label_cap" content="NOME" />
@@ -586,7 +586,7 @@
                   class="field_input"
                   formControl="gp_name"
                   value="gp_name"
-                  onChange="field:gp_name"
+                  on_change="field:gp_name"
                 />
                 <Text if="{erro_gp_name}" notEquals="" class="err" content="{erro_gp_name}" />
               </Column>
@@ -597,7 +597,7 @@
                   class="field_input"
                   formControl="gp_base_url"
                   value="gp_base_url"
-                  onChange="field:gp_base_url"
+                  on_change="field:gp_base_url"
                 />
               </Column>
             </Row>
@@ -626,7 +626,7 @@
                 class="field_input"
                 formControl="gp_client_id"
                 value="gp_client_id"
-                onChange="field:gp_client_id"
+                on_change="field:gp_client_id"
               />
 
               <Text class="label_cap" content="CLIENT SECRET" />
@@ -636,13 +636,13 @@
                 class="field_input"
                 formControl="gp_client_secret"
                 value="gp_client_secret"
-                onChange="field:gp_client_secret"
+                on_change="field:gp_client_secret"
               />
 
               <Text class="label_cap" content="REDIRECT URI (cole no app OAuth do Gitea)" />
               <Row class="kv_row">
                 <Text class="kv_val_fill" content="{gp_redirect}" />
-                <Button class="copy_btn" onClick="clipboard:gp_redirect" text="Copiar" />
+                <Button class="copy_btn" on_click="clipboard:gp_redirect" text="Copiar" />
               </Row>
               <Text
                 class="muted"
@@ -659,7 +659,7 @@
                 class="field_input"
                 formControl="gp_pat"
                 value="gp_pat"
-                onChange="field:gp_pat"
+                on_change="field:gp_pat"
               />
 
               <Text
@@ -669,8 +669,8 @@
             </if>
 
             <Row class="env_add">
-              <Button class="btn_primary" onClick="gp_connect" text="Copiar" />
-              <Button class="tab" onClick="gp_refresh" text="Atualizar lista" />
+              <Button class="btn_primary" on_click="gp_connect" text="Copiar" />
+              <Button class="tab" on_click="gp_refresh" text="Atualizar lista" />
             </Row>
           </Form>
         </Column>

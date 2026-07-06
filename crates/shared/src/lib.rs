@@ -3,6 +3,7 @@ pub mod manifest;
 pub mod models;
 pub mod protocol;
 pub mod templates;
+pub mod wizard;
 
 pub use config::{fallback_data_dir, user_home, ApiConfig, RustployConfig, RwpConfig};
 
@@ -31,3 +32,4 @@ pub use models::*;
 pub use protocol::{
     ClientFrame, Command, Event, Response, RwpError, RwpFrame, RwpReply, RWP_PROTOCOL_VERSION,
 };
+pub use wizard::WizardCreateReq;

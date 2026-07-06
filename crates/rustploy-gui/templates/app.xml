@@ -45,7 +45,7 @@
     <Column class="rz_body">
       <!-- ── Custom titlebar ───────────────────────────────────────────
         titlebar_drag (width:fill) is the drag handle and pushes the
-        controls to the right edge. on_press/onClick window:* actions are
+        controls to the right edge. on_press/on_click window:* actions are
         handled in main.rs against the cached window id. -->
       <Row class="titlebar">
         <Row
@@ -58,17 +58,17 @@
         </Row>
         <Button 
           class="win_btn" 
-          onClick="window:minimize" 
+          on_click="window:minimize" 
           text="—"
         />
         <Button 
           class="win_btn" 
-          onClick="window:maximize" 
+          on_click="window:maximize" 
           text="▢"
         />
         <Button 
           class="win_close" 
-          onClick="window:close" 
+          on_click="window:close" 
           text="✕"
         />
       </Row>

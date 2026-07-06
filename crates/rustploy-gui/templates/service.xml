@@ -53,7 +53,7 @@
   <Row class="svc_head">
     <Column class="header_titles">
       <Row class="svc_title_row">
-        <Button class="btn_ghost" onClick="open_project:{svc_project_id}" text="‹ {svc_project}" />
+        <Button class="btn_ghost" on_click="open_project:{svc_project_id}" text="‹ {svc_project}" />
         <Text class="title" content="{svc_name}" />
         <Badge color="{svc_status_color}" label="{svc_status_label}" />
         <!-- Live "1s, 2s, 3s…" deploy timer: shown only while a deploy started
@@ -75,10 +75,10 @@
       />
     </Column>
     <Row class="svc_actions">
-      <Button class="btn_primary" onClick="svc_deploy" text="Deploy" />
-      <Button class="btn_blue" onClick="svc_reload" text="Reload" />
-      <Button class="btn_blue" onClick="svc_rebuild" text="Rebuild" />
-      <Button class="btn_danger" onClick="svc_stop" text="Stop" />
+      <Button class="btn_primary" on_click="svc_deploy" text="Deploy" />
+      <Button class="btn_blue" on_click="svc_reload" text="Reload" />
+      <Button class="btn_blue" on_click="svc_rebuild" text="Rebuild" />
+      <Button class="btn_danger" on_click="svc_stop" text="Stop" />
     </Row>
   </Row>
 
@@ -158,7 +158,7 @@
             if="{svc_loading}"
             not_equals="true"
             name="general"
-            onSubmit="gen_save"
+            on_submit="gen_save"
           >
 
             <!-- Serviços Compose (bancos/brokers) editam o YAML direto; não têm
@@ -183,12 +183,12 @@
               <Row class="env_add">
                 <Button
                   class="btn_primary"
-                  onClick="compose_save"
+                  on_click="compose_save"
                   text="Salvar compose"
                 />
                 <Button
                   class="btn_ghost"
-                  onClick="compose_cancel"
+                  on_click="compose_cancel"
                   text="Cancelar"
                 />
                 <Text class="muted" content="{svc_action_msg}" />
@@ -216,9 +216,9 @@
             <if cond="{prov_tab}" equals="git">
               <Text class="label_cap" content="SOURCE — REPOSITORY URL / IMAGE" />
               <TextInput class="field_input"
-                formControl="f_repo_url"
+                form_control="f_repo_url"
                 value="f_repo_url"
-                onChange="field:f_repo_url"
+                on_change="field:f_repo_url"
                   placeholder="github.com/user/repo  ou  nginx:latest" />
 
               <Text
@@ -230,17 +230,17 @@
                   <Text class="label_cap"
                     content="BRANCH" />
                   <TextInput class="field_input"
-                    formControl="f_branch"
+                    form_control="f_branch"
                     value="f_branch"
-                    onChange="field:f_branch"
+                    on_change="field:f_branch"
                       placeholder="main" />
                 </Column>
                 <Column class="hc_field">
                   <Text class="label_cap" content="PORT" />
                   <TextInput class="field_input"
-                    formControl="f_gen_port"
+                    form_control="f_gen_port"
                     value="f_gen_port"
-                    onChange="field:f_gen_port"
+                    on_change="field:f_gen_port"
                     placeholder="80"
                   />
                   <Text if="{erro_f_gen_port}"
@@ -255,9 +255,9 @@
                   <Text class="label_cap" content="USERNAME" />
                   <TextInput
                     class="field_input"
-                    formControl="f_username"
+                    form_control="f_username"
                     value="f_username"
-                    onChange="field:f_username"
+                    on_change="field:f_username"
                     placeholder="(opcional)"
                   />
                 </Column>
@@ -265,9 +265,9 @@
                   <Text class="label_cap" content="CREDENTIALS (secret)" />
                   <TextInput
                     class="field_input"
-                    formControl="f_credentials"
+                    form_control="f_credentials"
                     value="f_credentials"
-                    onChange="field:f_credentials"
+                    on_change="field:f_credentials"
                     placeholder="(opcional)"
                   />
                 </Column>
@@ -279,9 +279,9 @@
               />
               <TextInput
                 class="field_input"
-                formControl="f_build_path"
+                form_control="f_build_path"
                 value="f_build_path"
-                onChange="field:f_build_path"
+                on_change="field:f_build_path"
                 placeholder="."
               />
 
@@ -292,9 +292,9 @@
 
               <TextInput
                 class="field_input"
-                formControl="f_watch_paths"
+                form_control="f_watch_paths"
                 value="f_watch_paths"
-                onChange="field:f_watch_paths"
+                on_change="field:f_watch_paths"
                 placeholder="src, Cargo.toml"
               />
 
@@ -310,9 +310,9 @@
                     content="DOCKERFILE"
                   />
                   <TextInput class="field_input"
-                    formControl="f_dockerfile"
+                    form_control="f_dockerfile"
                     value="f_dockerfile"
-                    onChange="field:f_dockerfile"
+                    on_change="field:f_dockerfile"
                     placeholder="Dockerfile"
                   />
                 </Column>
@@ -322,9 +322,9 @@
                     content="CONTEXT PATH"
                   />
                   <TextInput class="field_input"
-                    formControl="f_context_path"
+                    form_control="f_context_path"
                     value="f_context_path"
-                    onChange="field:f_context_path"
+                    on_change="field:f_context_path"
                     placeholder="."
                   />
                 </Column>
@@ -334,14 +334,14 @@
 
               <TextInput
                 class="field_input"
-                formControl="f_build_stage"
+                form_control="f_build_stage"
                 value="f_build_stage"
-                onChange="field:f_build_stage"
+                on_change="field:f_build_stage"
                 placeholder="(multi-stage target)"
               />
 
               <Row class="env_add">
-                <Button class="btn_primary" onClick="gen_save" text="Save" />
+                <Button class="btn_primary" on_click="gen_save" text="Save" />
                 <Text class="muted" content="{svc_action_msg}" />
               </Row>
             </if>
@@ -361,7 +361,7 @@
                 class="select"
                 options="gitea_providers"
                 value="gitea_provider_id"
-                onChange="gitea_provider_pick"
+                on_change="gitea_provider_pick"
                 placeholder="selecione a conta"
                 labelField="display"
                 valueField="id"
@@ -374,7 +374,7 @@
                 class="select"
                 options="gitea_repos"
                 value="gitea_repo"
-                onChange="gitea_repo_pick"
+                on_change="gitea_repo_pick"
                 placeholder="selecione o repositório"
                 labelField="full_name"
                 valueField="full_name"
@@ -383,7 +383,7 @@
               <Text class="label_cap" content="BRANCH" />
               <Select class="select" options="gitea_branches"
                 value="f_branch"
-                onChange="field:f_branch"
+                on_change="field:f_branch"
                 placeholder="selecione a branch"
                 labelField="name"
                 valueField="name"
@@ -401,9 +401,9 @@
                   <Text class="label_cap" content="BUILD PATH (root)" />
                   <TextInput
                     class="field_input"
-                    formControl="f_build_path"
+                    form_control="f_build_path"
                     value="f_build_path"
-                    onChange="field:f_build_path"
+                    on_change="field:f_build_path"
                     placeholder="."
                   />
                 </Column>
@@ -412,9 +412,9 @@
                     class="label_cap"
                     content="PORT" />
                   <TextInput class="field_input"
-                    formControl="f_gen_port"
+                    form_control="f_gen_port"
                     value="f_gen_port"
-                    onChange="field:f_gen_port"
+                    on_change="field:f_gen_port"
                     placeholder="80"
                   />
                   <Text if="{erro_f_gen_port}"
@@ -429,9 +429,9 @@
                   />
                   <TextInput
                     class="field_input"
-                    formControl="f_dockerfile"
+                    form_control="f_dockerfile"
                     value="f_dockerfile"
-                    onChange="field:f_dockerfile"
+                    on_change="field:f_dockerfile"
                     placeholder="Dockerfile"
                   />
                 </Column>
@@ -442,9 +442,9 @@
                   />
                   <TextInput
                     class="field_input"
-                    formControl="f_context_path"
+                    form_control="f_context_path"
                     value="f_context_path"
-                    onChange="field:f_context_path"
+                    on_change="field:f_context_path"
                     placeholder="."
                   />
                 </Column>
@@ -455,9 +455,9 @@
               />
               <TextInput
                 class="field_input"
-                formControl="f_watch_paths"
+                form_control="f_watch_paths"
                 value="f_watch_paths"
-                onChange="field:f_watch_paths"
+                on_change="field:f_watch_paths"
                 placeholder="src, Cargo.toml"
               />
 
@@ -468,7 +468,7 @@
               />
 
               <Row class="env_add">
-                <Button class="btn_primary" onClick="gen_save" text="Save" />
+                <Button class="btn_primary" on_click="gen_save" text="Save" />
                 <Text class="muted" content="{svc_action_msg}" />
               </Row>
             </if>
@@ -482,19 +482,19 @@
           <Text class="kv_key" content="Container port" />
           <Text class="kv_val_fill" content="{svc_port}" />
           <Text content=" " />
-          <Button class="copy_btn" onClick="clipboard:svc_port" text="Copiar" />
+          <Button class="copy_btn" on_click="clipboard:svc_port" text="Copiar" />
         </Row>
         <Row class="kv_row">
           <Text class="kv_key" content="Host port" />
           <Text class="kv_val_fill" content="{svc_host_port}" />
           <Text content=" " />
-          <Button class="copy_btn" onClick="clipboard:svc_host_port" text="Copiar" />
+          <Button class="copy_btn" on_click="clipboard:svc_host_port" text="Copiar" />
         </Row>
         <Row class="kv_row">
           <Text class="kv_key" content="Domain" />
           <Text class="kv_val_fill" content="{svc_domain}" />
           <Text content=" " />
-          <Button class="copy_btn" onClick="clipboard:svc_domain" text="Copiar" />
+          <Button class="copy_btn" on_click="clipboard:svc_domain" text="Copiar" />
         </Row>
         <Row class="kv_row">
           <Text class="kv_key" content="TLS" />
@@ -504,13 +504,13 @@
           <Text class="kv_key" content="External URL" />
           <Text class="kv_val_fill" content="{svc_external_url}" />
           <Text content=" " />
-          <Button class="copy_btn" onClick="clipboard:svc_external_url" text="Copiar" />
+          <Button class="copy_btn" on_click="clipboard:svc_external_url" text="Copiar" />
         </Row>
         <Row class="kv_row">
           <Text class="kv_key" content="Internal URL" />
           <Text class="kv_val_fill" content="{svc_internal_url}" />
           <Text content=" " />
-          <Button class="copy_btn" onClick="clipboard:svc_internal_url" text="Copiar" />
+          <Button class="copy_btn" on_click="clipboard:svc_internal_url" text="Copiar" />
         </Row>
         <Row class="kv_row" if="{svc_db_kind}" notEquals="—">
           <Text class="kv_key" content="Tipo" />
@@ -522,31 +522,31 @@
       <Column if="{tab}" equals="environment" class="env_wrap">
         <Row class="env_head">
           <Text class="muted_fill" content="{svc_env_count} variável(eis)" />
-          <Button class="btn_export" onClick="env_export" text="Exportar" />
+          <Button class="btn_export" on_click="env_export" text="Exportar" />
           <Text content=" " />
           <if cond="{env_text_open}" equals="true">
-            <Button class="btn_export_on" onClick="env_text_toggle" text="Fechar" />
+            <Button class="btn_export_on" on_click="env_text_toggle" text="Fechar" />
           </if>
 
           <else>
-            <Button class="tab" onClick="env_text_toggle" text=".env" />
+            <Button class="tab" on_click="env_text_toggle" text=".env" />
           </else>
         </Row>
 
-        <Form name="env_add" onSubmit="env_add" width="fill">
+        <Form name="env_add" on_submit="env_add" width="fill">
           <Row class="env_add">
             <TextInput
               class="env_in_key"
-              formControl="env_new_key"
+              form_control="env_new_key"
               placeholder="KEY"
             />
 
             <TextInput
               class="env_in_val"
-              formControl="env_new_val" placeholder="value"
+              form_control="env_new_val" placeholder="value"
             />
 
-            <Button class="btn_primary" onClick="env_add" text="Adicionar" />
+            <Button class="btn_primary" on_click="env_add" text="Adicionar" />
           </Row>
         </Form>
         <Text
@@ -578,7 +578,7 @@
                     dragHandle="true"
                     content="⋮ "
                   />
-                  <Button class="env_del" onClick="env_del:{e.key}" text="✕" />
+                  <Button class="env_del" on_click="env_del:{e.key}" text="✕" />
                   <Text content=" " />
                   <Text class="env_key" content="{e.key}" />
                   <Text class="kv_val_fill" content="{e.value}" />
@@ -602,7 +602,7 @@
                     dragHandle="true"
                     content="⋮ "
                   />
-                  <Button class="env_del" onClick="env_del:{e.key}" text="✕" />
+                  <Button class="env_del" on_click="env_del:{e.key}" text="✕" />
                   <Text content=" " />
                   <Text class="env_key" content="{e.key}" />
                   <Text class="kv_val_fill" content="{e.value}" />
@@ -629,12 +629,12 @@
           <Row class="env_add">
             <Button
               class="btn_primary"
-              onClick="env_import"
+              on_click="env_import"
               text="Importar"
             />
             <Button
               class="btn_ghost"
-              onClick="env_text_cancel"
+              on_click="env_text_cancel"
               text="Cancelar"
             />
           </Row>
@@ -653,7 +653,7 @@
         <Scrollable direction="vertical" class="env_list_scroll">
           <Column class="kv_list">
             <Row class="kv_row" for-each="svc_domains" var="d">
-              <Button class="env_del" onClick="dom_del:{d.domain}" text="✕" />
+              <Button class="env_del" on_click="dom_del:{d.domain}" text="✕" />
               <Text content=" " />
               <Text class="env_key" content="{d.domain}" />
               <Text class="kv_val_fill" content="→ {d.port}" />
@@ -665,9 +665,9 @@
         <Text class="label_cap" content="ADICIONAR DOMÍNIO" />
         <TextInput
           class="field_input"
-          formControl="f_domain"
+          form_control="f_domain"
           value="f_domain"
-          onChange="field:f_domain"
+          on_change="field:f_domain"
           placeholder="app.exemplo.com"
         />
         <Text
@@ -678,9 +678,9 @@
         />
 
         <Text class="label_cap" content="PORTA DO CONTAINER (opcional)" />
-        <TextInput class="field_input" formControl="f_port"
+        <TextInput class="field_input" form_control="f_port"
           value="f_port"
-          onChange="field:f_port"
+          on_change="field:f_port"
           placeholder="(padrão do serviço)"
         />
         <Text
@@ -692,7 +692,7 @@
 
         <Toggle checked="f_tls" onToggle="field:f_tls" label="  HTTPS / TLS" />
         <Row class="env_add">
-          <Button class="btn_primary" onClick="dom_add" text="Adicionar domínio" />
+          <Button class="btn_primary" on_click="dom_add" text="Adicionar domínio" />
           <Text class="muted" content="{svc_action_msg}" />
         </Row>
 
@@ -701,9 +701,9 @@
           content="PORTA TCP DO HOST (passthrough, opcional)"
         />
         <TextInput class="field_input"
-          formControl="f_host_port"
+          form_control="f_host_port"
           value="f_host_port"
-          onChange="field:f_host_port"
+          on_change="field:f_host_port"
           placeholder="(padrão do serviço)"
         />
         <Text if="{erro_f_host_port}"
@@ -713,7 +713,7 @@
         />
         <Row class="env_add">
           <Button class="btn_ghost"
-            onClick="dom_hostport_save"
+            on_click="dom_hostport_save"
             text="Salvar porta"
           />
         </Row>
@@ -733,14 +733,14 @@
                 <Row class="dep_actions">
                   <Button
                     class="dep_logs_btn"
-                    onClick="dep_logs:{d.id_full}"
+                    on_click="dep_logs:{d.id_full}"
                     text="Build log"
                   />
                   <Button
                     if="{d.can_delete}"
                     equals="1"
                     class="dep_del_btn"
-                    onClick="delete_deployment:{d.id_full}"
+                    on_click="delete_deployment:{d.id_full}"
                     text="Remover"
                   />
                 </Row>
@@ -761,7 +761,7 @@
             />
             <Button
               class="tab"
-              onClick="clipboard:dep_build_text"
+              on_click="clipboard:dep_build_text"
               text="Copiar tudo"
             />
           </Row>
@@ -788,7 +788,7 @@
         equals="healthcheck"
         class="form_panel"
         name="healthcheck"
-        onSubmit="hc_save"
+        on_submit="hc_save"
       >
         <Text class="label_cap" content="KIND" />
         <Row class="tabs">
@@ -823,17 +823,17 @@
             content="HTTP PATH"
           />
           <TextInput class="field_input"
-            formControl="f_hc_path"
+            form_control="f_hc_path"
             value="f_hc_path"
-            onChange="field:f_hc_path"
+            on_change="field:f_hc_path"
             placeholder="/health"
           />
           <Text class="label_cap" content="EXPECTED STATUS" />
           <TextInput
             class="field_input"
-            formControl="f_hc_status"
+            form_control="f_hc_status"
             value="f_hc_status"
-            onChange="field:f_hc_status"
+            on_change="field:f_hc_status"
             placeholder="200"
           />
           <Text
@@ -847,9 +847,9 @@
           <Column class="hc_field">
             <Text class="label_cap" content="INTERVAL (s)" />
             <TextInput class="field_input"
-              formControl="f_hc_interval"
+              form_control="f_hc_interval"
               value="f_hc_interval"
-                onChange="field:f_hc_interval"
+                on_change="field:f_hc_interval"
                 placeholder="" />
             <Text if="{erro_f_hc_interval}"
               notEquals=""
@@ -863,9 +863,9 @@
             />
             <TextInput
               class="field_input"
-              formControl="f_hc_timeout"
+              form_control="f_hc_timeout"
               value="f_hc_timeout"
-              onChange="field:f_hc_timeout"
+              on_change="field:f_hc_timeout"
               placeholder=""
             />
             <Text if="{erro_f_hc_timeout}"
@@ -882,9 +882,9 @@
             />
             <TextInput
               class="field_input"
-              formControl="f_hc_retries"
+              form_control="f_hc_retries"
               value="f_hc_retries"
-              onChange="field:f_hc_retries"
+              on_change="field:f_hc_retries"
               placeholder=""
             />
             <Text if="{erro_f_hc_retries}"
@@ -898,9 +898,9 @@
               content="START PERIOD (s)" />
             <TextInput
               class="field_input"
-              formControl="f_hc_start"
+              form_control="f_hc_start"
               value="f_hc_start"
-              onChange="field:f_hc_start"
+              on_change="field:f_hc_start"
               placeholder=""
             />
             <Text
@@ -912,7 +912,7 @@
           </Column>
         </Row>
         <Row class="env_add">
-          <Button class="btn_primary" onClick="hc_save" text="Save" />
+          <Button class="btn_primary" on_click="hc_save" text="Save" />
           <Text class="muted" content="{svc_action_msg}" />
         </Row>
       </Form>
@@ -926,7 +926,7 @@
           />
           <Button
             class="tab"
-            onClick="clipboard:svc_logs_text"
+            on_click="clipboard:svc_logs_text"
             text="Copiar tudo"
           />
         </Row>
@@ -943,16 +943,16 @@
         equals="advanced"
         class="form_panel"
         name="advanced"
-        onSubmit="adv_save"
+        on_submit="adv_save"
       >
         <Text
           class="label_cap"
           content="REPLICAS"
         />
         <TextInput class="field_input"
-          formControl="f_replicas"
+          form_control="f_replicas"
           value="f_replicas"
-          onChange="field:f_replicas"
+          on_change="field:f_replicas"
         
           placeholder="1"
         />
@@ -967,9 +967,9 @@
           content="RUN COMMAND"
         />
         <TextInput class="field_input"
-          formControl="f_run_command"
+          form_control="f_run_command"
           value="f_run_command"
-          onChange="field:f_run_command"
+          on_change="field:f_run_command"
           placeholder="(padrão da imagem)"
         />
 
@@ -979,7 +979,7 @@
         />
 
         <Row class="env_add">
-          <Button class="btn_primary" onClick="adv_save" text="Save" />
+          <Button class="btn_primary" on_click="adv_save" text="Save" />
           <Text class="muted" content="{svc_action_msg}" />
         </Row>
       </Form>

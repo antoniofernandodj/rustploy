@@ -40,3 +40,4 @@ pub mod service_reload;
 pub mod service_stop;
 pub mod service_update;
 pub mod set_daemon_settings;
+pub mod wizard;

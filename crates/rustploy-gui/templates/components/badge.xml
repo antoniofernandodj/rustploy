@@ -4,6 +4,14 @@
   cabeçalho/aside do detalhe do serviço.
 -->
 <Row class="badge">
-  <Text class="state_dot" color="{color}" content="●" />
-  <Text class="badge_lbl" color="{color}" content="{label}" />
+  <Text
+    class="state_dot"
+    color="{color}"
+    content="●"
+  />
+  <Text
+    class="badge_lbl"
+    color="{color}"
+    content="{label}"
+  />
 </Row>

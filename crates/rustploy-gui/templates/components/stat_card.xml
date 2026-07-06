@@ -6,9 +6,26 @@
   Prop ausente vira string vazia (process_template), então != "1" → neutro.
 -->
 <style>
-.stat_card  { background: var(--surface); border-radius: 12; border-width: 1; border-color: var(--border); padding: 16 22; spacing: 6; }
-.stat_num   { size: 26; bold: true; color: var(--accent); }
-.stat_num_g { size: 26; bold: true; color: var(--ok); }
+.stat_card  {
+  background: var(--surface);
+  border-radius: 12;
+  border-width: 1;
+  border-color: var(--border);
+  padding: 16 22;
+  spacing: 6;
+}
+
+.stat_num   {
+  size: 26;
+  bold: true;
+  color: var(--accent);
+}
+
+.stat_num_g {
+  size: 26;
+  bold: true;
+  color: var(--ok);
+}
 </style>
 
 <Column class="stat_card">

@@ -37,7 +37,7 @@
       </Column>
     </Row>
 
-    <Form name="login" onSubmit="connect" spacing="16" width="fill">
+    <Form name="login" on_submit="connect" spacing="16" width="fill">
 
       <Column class="field_group">
 
@@ -49,7 +49,7 @@
         <TextInput
           placeholder="https://rustploy.chiquitos.tech"
           class="field_input"
-          formControl="url"
+          form_control="url"
         />
 
         <Text
@@ -73,7 +73,7 @@
         <TextInput
           placeholder="token de acesso"
           class="field_input"
-          formControl="token"
+          form_control="token"
         />
 
       </Column>
@@ -93,7 +93,7 @@
 
       </Column>
 
-      <Button class="connect_btn" onClick="connect" text="Connect" />
+      <Button class="connect_btn" on_click="connect" text="Connect" />
     </Form>
     <Text if="{error}" notEquals="" class="err" content="⚠ {error}" />
 

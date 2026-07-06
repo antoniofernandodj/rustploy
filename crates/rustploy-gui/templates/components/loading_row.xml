@@ -10,9 +10,21 @@
   `note` sobrescreve o texto padrão quando fornecido (prop ausente → vazio).
 -->
 <style>
-.loading_row  { spacing: 9; align-y: center; padding: 8; }
-.loading_spin { size: 16; color: var(--spin); }
-.loading_note { size: 13; color: var(--muted); }
+.loading_row  {
+  spacing: 9;
+  align-y: center;
+  padding: 8;
+}
+
+.loading_spin {
+  size: 16;
+  color: var(--spin);
+}
+
+.loading_note {
+  size: 13;
+  color: var(--muted);
+}
 </style>
 
 <Row class="loading_row">

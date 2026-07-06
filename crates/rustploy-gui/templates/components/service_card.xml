@@ -7,11 +7,35 @@
   o componente Badge.
 -->
 <style>
-.card_stats    { width: fill; spacing: 12; }
-.card_stat     { width: fill; spacing: 4; }
-.card_stat_num { size: 18; bold: true; color: var(--text-2); }
-.card_actions  { width: fill; spacing: 8; }
-.card_stop     { width: fill; color: var(--border); padding: 9 10; text-align: center; border-radius: 10 }
+.card_stats    {
+  width: fill;
+  spacing: 12;
+}
+
+.card_stat     {
+  width: fill;
+  spacing: 4;
+}
+
+.card_stat_num {
+  size: 18;
+  bold: true;
+  color: var(--text-2);
+}
+
+.card_actions  {
+  width: fill;
+  spacing: 8;
+}
+
+.card_stop     {
+  width: fill;
+  color: var(--border);
+  padding: 9 10;
+  text-align: center;
+  border-radius: 10
+}
+
 </style>
 
 <Column if="{filler}" equals="1" class="card_filler" />
@@ -36,9 +60,9 @@
     Ações empilhadas: 3 botões numa linha só transbordam no tamanho mínimo
     de janela (grade de 3 colunas).
   -->
-  <Button class="card_open" onClick="open_service:{id}" text="Abrir  ›" />
+  <Button class="card_open" on_click="open_service:{id}" text="Abrir  ›" />
   <Row class="card_actions">
-    <Button class="card_stop" onClick="svc_stop_id:{id}" text="Parar" />
-    <Button class="card_remove" onClick="stop_delete_service:{id}" text="Remover" />
+    <Button class="card_stop" on_click="svc_stop_id:{id}" text="Parar" />
+    <Button class="card_remove" on_click="stop_delete_service:{id}" text="Remover" />
   </Row>
 </Column>

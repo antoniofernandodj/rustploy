@@ -215,6 +215,14 @@ pub enum Command {
         provider_id: String,
         repo_full_name: String,
     },
+
+    // Wizard "Novo serviço" (catálogos + criação server-side). O cliente Luau
+    // só dirige a UI; o daemon monta o ServiceSpec via `shared::wizard` (que tem
+    // acesso aos blueprints de `templates`).
+    WizardCatalog {
+        search: String,
+    },
+    WizardCreate(crate::wizard::WizardCreateReq),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -346,6 +354,10 @@ pub enum Response {
     DockerNetworks(Vec<DockerNetworkInfo>),
     /// Count of rustploy-managed containers stopped (resposta de `StopAllManaged`).
     StopAllResult { count: u32 },
+
+    /// Catálogos do wizard, prontos como JSON para o contexto (`ns_dbs`,
+    /// `ns_brokers`, `ns_templates`). Resposta de `WizardCatalog`.
+    WizardCatalog { dbs: String, brokers: String, templates: String },
 
     Err { code: String, message: String },
 }

@@ -13,7 +13,11 @@
     <Row class="card_head">
       <Text class="card_name" content="{name}" />
     </Row>
-    <Text class="muted" size="11" content="{service_count} serviço(s) · {running_count} rodando" />
+    <Text
+      class="muted"
+      size="11"
+      content="{service_count} serviço(s) · {running_count} rodando"
+    />
     <!-- 
       Sempre renderizado (mesmo vazio) para reservar a linha da
       descrição, mantendo os cards da fileira mais próximos em
@@ -25,12 +29,16 @@
       Ações empilhadas: um botão fill disputando a linha com
       texto/botão fica torto quando o card está estreito.
     -->
-    <Button class="card_open" onClick="open_project:{id}" text="Abrir  ›" />
+    <Button
+      class="card_open"
+      on_click="open_project:{id}"
+      text="Abrir  ›"
+    />
     <Button
       class="card_remove"
       if="{can_delete}"
       equals="1"
-      onClick="delete_project:{id}"
+      on_click="delete_project:{id}"
       text="Remover"
     />
     <Text

@@ -10,5 +10,9 @@
     <Text class="env_key" content="{title}" />
     <Text class="muted" content="{subtitle}" />
   </Column>
-  <Button class="btn_primary" onClick="{action}" text="{button_label}" />
+  <Button
+    class="btn_primary"
+    on_click="{action}"
+    text="{button_label}"
+  />
 </Row>

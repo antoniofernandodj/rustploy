@@ -19,8 +19,8 @@
       />
     </Column>
     <Row class="env_add">
-      <Button class="btn_ghost" onClick="ns_back" text="‹ Voltar" />
-      <Button class="btn_ghost" onClick="ns_cancel" text="Cancelar" />
+      <Button class="btn_ghost" on_click="ns_back" text="‹ Voltar" />
+      <Button class="btn_ghost" on_click="ns_cancel" text="Cancelar" />
     </Row>
   </Row>
 
@@ -100,16 +100,16 @@
 
   <!-- ── Application ───────────────────────────────────────────────────── -->
   <if cond="{ns_step}" equals="app_form">
-    <Form name="ns_app" onSubmit="ns_create" width="fill">
+    <Form name="ns_app" on_submit="ns_create" width="fill">
       <Column class="form_panel">
         <Text class="label_cap" content="NOVA APPLICATION" />
         <Text class="label_cap" content="NOME" />
         <TextInput
           placeholder="minha-app"
           class="field_input"
-          formControl="ns_name"
+          form_control="ns_name"
           value="ns_name"
-          onChange="field:ns_name"
+          on_change="field:ns_name"
         />
         <Text
           if="{erro_ns_name}"
@@ -125,9 +125,9 @@
         <TextInput
           placeholder="(opcional)"
           class="field_input"
-          formControl="ns_app_name"
+          form_control="ns_app_name"
           value="ns_app_name"
-          onChange="field:ns_app_name"
+          on_change="field:ns_app_name"
         />
         
         <Text
@@ -137,7 +137,7 @@
         <Row class="env_add">
           <Button
             class="btn_primary"
-            onClick="ns_create"
+            on_click="ns_create"
             text="Criar Application"
           />
           <Text class="muted" content="{ns_msg}" />
@@ -148,16 +148,16 @@
 
   <!-- ── Compose ───────────────────────────────────────────────────────── -->
   <if cond="{ns_step}" equals="compose_form">
-    <Form name="ns_compose" onSubmit="ns_create" width="fill">
+    <Form name="ns_compose" on_submit="ns_create" width="fill">
       <Column class="form_panel">
         <Text class="label_cap" content="NOVA COMPOSE STACK" />
         <Text class="label_cap" content="NOME" />
         <TextInput
           placeholder="minha-stack"
           class="field_input"
-          formControl="ns_name"
+          form_control="ns_name"
           value="ns_name"
-          onChange="field:ns_name"
+          on_change="field:ns_name"
         />
         <Text if="{erro_ns_name}"
           notEquals=""
@@ -172,15 +172,15 @@
         <TextInput
           placeholder="(opcional)"
           class="field_input"
-          formControl="ns_app_name"
-          value="ns_app_name" onChange="field:ns_app_name" />
+          form_control="ns_app_name"
+          value="ns_app_name" on_change="field:ns_app_name" />
         
         <Text
           class="muted"
           content="Configure o compose file dentro do serviço antes de fazer deploy."
         />
         <Row class="env_add">
-          <Button class="btn_primary" onClick="ns_create" text="Criar Compose Stack" />
+          <Button class="btn_primary" on_click="ns_create" text="Criar Compose Stack" />
           <Text class="muted" content="{ns_msg}" />
         </Row>
       </Column>
@@ -190,16 +190,16 @@
   <!-- ── Database (form do banco escolhido) ────────────────────────────── -->
   <if cond="{ns_step}" equals="db_form">
     <Scrollable direction="vertical" class="scroll_fill">
-      <Form name="ns_db" onSubmit="ns_create" width="fill">
+      <Form name="ns_db" on_submit="ns_create" width="fill">
         <Column class="form_panel">
           <Text class="label_cap" content="NOVA {ns_db_label}" />
           <Text class="label_cap" content="NOME" />
           <TextInput
             placeholder="meu-banco"
             class="field_input"
-            formControl="ns_name"
+            form_control="ns_name"
             value="ns_name"
-            onChange="field:ns_name"
+            on_change="field:ns_name"
           />
           <Text if="{erro_ns_name}" notEquals=""
             class="err"
@@ -211,9 +211,9 @@
             <TextInput
               placeholder="app"
               class="field_input"
-              formControl="ns_db_name"
+              form_control="ns_db_name"
               value="ns_db_name"
-              onChange="field:ns_db_name"
+              on_change="field:ns_db_name"
             />
           </if>
           
@@ -222,9 +222,9 @@
             <TextInput
               placeholder="user"
               class="field_input"
-              formControl="ns_db_user"
+              form_control="ns_db_user"
               value="ns_db_user" 
-              onChange="field:ns_db_user" 
+              on_change="field:ns_db_user" 
             />
           </if>
           
@@ -232,9 +232,9 @@
           <TextInput
             placeholder="(vazio = sem senha, só no Redis)"
             class="field_input"
-            formControl="ns_db_password"
+            form_control="ns_db_password"
             value="ns_db_password"
-            onChange="field:ns_db_password"
+            on_change="field:ns_db_password"
           />
           
           <if cond="{ns_db_has_rootpw}"
@@ -243,9 +243,9 @@
             <TextInput
               placeholder=""
               class="field_input"
-              formControl="ns_db_root_password"
+              form_control="ns_db_root_password"
               value="ns_db_root_password"
-              onChange="field:ns_db_root_password"
+              on_change="field:ns_db_root_password"
             />
           </if>
           
@@ -263,7 +263,7 @@
           </Row>
 
           <Row class="env_add">
-            <Button class="btn_primary" onClick="ns_create" text="Criar {ns_db_label}" />
+            <Button class="btn_primary" on_click="ns_create" text="Criar {ns_db_label}" />
             <Text class="muted" content="{ns_msg}" />
           </Row>
         </Column>
@@ -280,7 +280,7 @@
           placeholder="buscar templates…"
           class="field_input"
           value="ns_tsearch"
-          onChange="ns_tsearch"
+          on_change="ns_tsearch"
         />
       </Column>
       <Scrollable direction="vertical" class="scroll_fill">
@@ -302,16 +302,16 @@
   <!-- ── Template: configuração ─────────────────────────────────────────── -->
   <if cond="{ns_step}" equals="template_form">
     <Scrollable direction="vertical" class="scroll_fill">
-      <Form name="ns_template" onSubmit="ns_create" width="fill">
+      <Form name="ns_template" on_submit="ns_create" width="fill">
         <Column class="form_panel">
           <Text class="label_cap" content="{ns_template_name} — CONFIGURAR" />
           <Text class="label_cap" content="NOME DO SERVIÇO" />
           <TextInput
             placeholder="{ns_template_name}"
             class="field_input"
-            formControl="ns_name"
+            form_control="ns_name"
             value="ns_name"
-            onChange="field:ns_name"
+            on_change="field:ns_name"
           />
 
           <ForEach items="ns_template_vars" var="v">
@@ -321,7 +321,7 @@
                 placeholder="{v.placeholder}"
                 class="field_input"
                 value="ns_tv_{v.idx}"
-                onChange="field:ns_tv_{v.idx}"
+                on_change="field:ns_tv_{v.idx}"
               />
             </Column>
           </ForEach>
@@ -329,7 +329,7 @@
           <Row class="env_add">
             <Button
               class="btn_primary"
-              onClick="ns_create"
+              on_click="ns_create"
               text="Criar {ns_template_name}"
             />
             <Text class="muted" content="{ns_msg}" />

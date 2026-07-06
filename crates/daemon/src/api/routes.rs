@@ -55,6 +55,8 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::GitOAuthStart { .. } => "GitOAuthStart",
         Command::GitRepoList { .. } => "GitRepoList",
         Command::GitBranchList { .. } => "GitBranchList",
+        Command::WizardCatalog { .. } => "WizardCatalog",
+        Command::WizardCreate(_) => "WizardCreate",
         _ => "Unknown",
     };
     info!(
@@ -191,6 +193,8 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
             provider_id,
             repo_full_name,
         } => handlers::git_branch_list::handle(state, provider_id, repo_full_name).await,
+        Command::WizardCatalog { search } => handlers::wizard::catalog(search).await,
+        Command::WizardCreate(req) => handlers::wizard::create(state, req).await,
         _ => RpResponse::err("NotImplemented", "command not yet implemented"),
     };
 

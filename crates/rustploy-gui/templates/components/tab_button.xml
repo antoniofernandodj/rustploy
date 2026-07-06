@@ -7,11 +7,23 @@
   compara os dois valores dinâmicos.
 -->
 <style>
-.tab_on { color: var(--blue); padding: 9 16; border-radius: 10 }
+.tab_on {
+  color: var(--blue);
+  padding: 9 16;
+  border-radius: 10
+}
 </style>
 
 <if cond="{current}" equals="{target}">
-  <Button class="tab_on" onClick="{action}" text="{label}" />
+  <Button
+    class="tab_on"
+    on_click="{action}"
+    text="{label}"
+  />
 </if> <else>
-  <Button class="tab" onClick="{action}" text="{label}" />
+  <Button
+    class="tab"
+    on_click="{action}"
+    text="{label}"
+  />
 </else>
