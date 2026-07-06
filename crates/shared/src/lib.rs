@@ -5,7 +5,7 @@ pub mod protocol;
 pub mod templates;
 pub mod wizard;
 
-pub use config::{fallback_data_dir, user_home, ApiConfig, RustployConfig, RwpConfig};
+pub use config::{fallback_data_dir, user_home, ApiConfig, RustployConfig};
 
 /// Unique Docker Compose project name for a rustploy service.
 /// Incorporates the first 8 chars of the service ULID to avoid collisions
@@ -29,7 +29,5 @@ pub use manifest::{
     ServerManifest, ServiceManifest,
 };
 pub use models::*;
-pub use protocol::{
-    ClientFrame, Command, Event, Response, RwpError, RwpFrame, RwpReply, RWP_PROTOCOL_VERSION,
-};
+pub use protocol::{ClientFrame, Command, Event, Response};
 pub use wizard::WizardCreateReq;

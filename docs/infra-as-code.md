@@ -197,7 +197,7 @@ Permite **adotar IaC para projetos que já existem**: exporte, versione o YAML, 
 | `crates/client/src/main.rs` | Roteia os argumentos `apply`/`export` para `cli.rs` (antes de entrar na TUI). |
 | `crates/client/Cargo.toml` | Adiciona `serde_yaml`. |
 
-> Nenhuma migração de schema: a reconciliação reutiliza integralmente `db::projects` e `db::services`. Como o canal remoto (RWP) reusa `Command`/`Response`, os subcomandos também funcionam remotamente sem código extra.
+> Nenhuma migração de schema: a reconciliação reutiliza integralmente `db::projects` e `db::services`. Como a API HTTP/JSON reusa `Command`/`Response` (via `dispatch`), os subcomandos também funcionam remotamente sem código extra.
 
 ---
 

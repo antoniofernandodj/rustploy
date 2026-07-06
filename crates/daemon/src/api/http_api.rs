@@ -1,7 +1,7 @@
-//! HTTP/JSON + SSE control API — the successor to the RWP binary protocol.
+//! HTTP/JSON + SSE control API — the daemon's remote administrative channel.
 //!
-//! Serves the same `Command`→`Response` surface the RWP/UDS servers do, but over
-//! plain HTTP so the glacier-ui client can drive it entirely from Luau
+//! Serves the same `Command`→`Response` surface the local UDS server does, but
+//! over plain HTTP so the glacier-ui client can drive it entirely from Luau
 //! (`fetch`/`sse`). It reuses [`dispatch`] wholesale — only the transport
 //! changes. Meant to bind loopback and sit behind the ingress proxy, which
 //! terminates TLS for `rustploy.chiquitos.tech` and forwards here.
@@ -42,7 +42,7 @@ type ApiBody = BoxBody<Bytes, Infallible>;
 /// Starts the API listener. Returns on bind failure; otherwise loops forever.
 /// Intended to be `tokio::spawn`ed from `main`.
 pub async fn run(state: AppState, cfg: ApiConfig) {
-    // Safety guard mirroring RWP: refuse a non-loopback bind without a token.
+    // Safety guard: refuse a non-loopback bind without a token.
     if cfg.is_public_bind() && cfg.token.as_deref().unwrap_or("").is_empty() {
         warn!(
             bind = %cfg.bind_address,

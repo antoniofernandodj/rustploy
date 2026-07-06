@@ -31,15 +31,14 @@ local BUILD_RING = 2000
 -- ── Helpers ──────────────────────────────────────────────────────────────
 
 -- Normaliza a entrada de URL do login para uma base HTTP(S) sem barra final.
--- Aceita "https://host:porta", "host:porta", "host" e os esquemas legados
--- rwp(s):// (convertidos para https). Default: https.
+-- Aceita "https://host:porta", "http://host:porta", "host:porta", "host".
+-- Sem esquema → https. Outros esquemas (ex.: ws, ftp) são rejeitados.
 local function normalize_url(raw: string): string | nil
     local u = (raw or ""):gsub("^%s+", ""):gsub("%s+$", "")
     if u == "" then return nil end
     local scheme, rest = string.match(u, "^([%a][%w+.-]*)://(.*)$")
     if scheme then
         scheme = string.lower(scheme)
-        if scheme == "rwp" or scheme == "rwps" then scheme = "https" end
         if scheme ~= "http" and scheme ~= "https" then return nil end
     else
         scheme, rest = "https", u

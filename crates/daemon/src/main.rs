@@ -9,7 +9,6 @@ mod health;
 mod ingress;
 mod logs;
 mod metrics;
-mod rwp;
 mod secrets;
 mod watchdog;
 
@@ -240,19 +239,9 @@ async fn main() -> Result<()> {
         });
     }
 
-    // RWP — canal administrativo remoto (TCP). Desabilitado por padrão.
-    // (Legado: sendo substituído pela API HTTP/SSE abaixo — mantido em paralelo
-    // durante a transição do GUI para Luau.)
-    if config.rwp.enabled {
-        let state2 = state.clone();
-        let rwp_cfg = config.rwp.clone();
-        tokio::spawn(async move {
-            rwp::run(state2, rwp_cfg).await;
-        });
-    }
-
-    // API HTTP/JSON + SSE — sucessora do RWP; é o que o GUI (glacier-ui/Luau)
-    // consome. Bind loopback por padrão, atrás do ingress no subdomínio.
+    // API HTTP/JSON + SSE — canal administrativo remoto; é o que o GUI
+    // (glacier-ui/Luau) e clientes externos consomem. Bind loopback por padrão,
+    // atrás do ingress no subdomínio (TLS terminado lá).
     if config.api.enabled {
         let state2 = state.clone();
         let api_cfg = config.api.clone();

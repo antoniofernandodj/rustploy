@@ -27,17 +27,15 @@ pub struct RustployConfig {
     pub metrics: MetricsConfig,
     pub secrets: SecretsConfig,
     #[serde(default)]
-    pub rwp: RwpConfig,
-    #[serde(default)]
     pub api: ApiConfig,
     #[serde(default)]
     pub env_backup: EnvBackupConfig,
 }
 
-/// Configuration for the HTTP/JSON + SSE control API (the successor to RWP).
+/// Configuration for the HTTP/JSON + SSE control API — o canal administrativo remoto.
 /// Binds to loopback by default and is meant to sit behind the ingress proxy,
 /// which terminates TLS for `rustploy.chiquitos.tech` and forwards to it.
-/// Binding to a non-loopback address requires a token (same guard as RWP).
+/// Binding to a non-loopback address requires a token.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiConfig {
     #[serde(default = "default_api_enabled")]
@@ -82,84 +80,6 @@ impl ApiConfig {
     pub fn is_public_bind(&self) -> bool {
         match self.bind_address.parse::<std::net::IpAddr>() {
             Ok(ip) => !ip.is_loopback(),
-            Err(_) => self.bind_address != "localhost",
-        }
-    }
-}
-
-/// Configuration for the RWP remote administrative channel (TCP).
-/// Disabled by default; when enabled without a token it only binds to
-/// loopback. Binding to a non-loopback address requires a token to be set.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RwpConfig {
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(default = "default_rwp_bind")]
-    pub bind_address: String,
-    #[serde(default = "default_rwp_port")]
-    pub port: u16,
-    #[serde(default)]
-    pub token: Option<String>,
-    #[serde(default = "default_rwp_max_connections")]
-    pub max_connections: usize,
-    #[serde(default = "default_rwp_max_frame_size")]
-    pub max_frame_size: usize,
-    #[serde(default = "default_rwp_read_timeout_secs")]
-    pub read_timeout_secs: u64,
-    #[serde(default = "default_rwp_idle_timeout_secs")]
-    pub idle_timeout_secs: u64,
-    #[serde(default)]
-    pub tls_enabled: bool,
-    #[serde(default)]
-    pub tls_cert_path: Option<String>,
-    #[serde(default)]
-    pub tls_key_path: Option<String>,
-}
-
-fn default_rwp_bind() -> String {
-    "127.0.0.1".into()
-}
-fn default_rwp_port() -> u16 {
-    8787
-}
-fn default_rwp_max_connections() -> usize {
-    8
-}
-fn default_rwp_max_frame_size() -> usize {
-    1024 * 1024
-}
-fn default_rwp_read_timeout_secs() -> u64 {
-    15
-}
-fn default_rwp_idle_timeout_secs() -> u64 {
-    120
-}
-
-impl Default for RwpConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            bind_address: default_rwp_bind(),
-            port: default_rwp_port(),
-            token: None,
-            max_connections: default_rwp_max_connections(),
-            max_frame_size: default_rwp_max_frame_size(),
-            read_timeout_secs: default_rwp_read_timeout_secs(),
-            idle_timeout_secs: default_rwp_idle_timeout_secs(),
-            tls_enabled: false,
-            tls_cert_path: None,
-            tls_key_path: None,
-        }
-    }
-}
-
-impl RwpConfig {
-    /// True when the configured bind address is not a loopback address.
-    pub fn is_public_bind(&self) -> bool {
-        match self.bind_address.parse::<std::net::IpAddr>() {
-            Ok(ip) => !ip.is_loopback(),
-            // Hostnames or "0.0.0.0"/"::" that fail to parse as loopback are
-            // treated as public to stay on the safe side.
             Err(_) => self.bind_address != "localhost",
         }
     }
@@ -217,7 +137,7 @@ impl Default for RustployConfig {
                 socket_path: "/run/rustploy/rustploy.sock".into(),
                 db_path: "/var/lib/rustploy/db".into(),
                 log_level: "info".into(),
-                // 8788 fica ao lado do RWP (8787). Evita 9000/9001, comuns em
+                // Porta dedicada de webhook. Evita 9000/9001, comuns em
                 // MinIO/rustfs e outros serviços S3.
                 webhook_port: 8788,
             },
@@ -245,7 +165,6 @@ impl Default for RustployConfig {
             secrets: SecretsConfig {
                 master_key_path: "/etc/rustploy/master.key".into(),
             },
-            rwp: RwpConfig::default(),
             api: ApiConfig::default(),
             env_backup: EnvBackupConfig::default(),
         }
@@ -303,30 +222,7 @@ impl RustployConfig {
                 cfg.daemon.webhook_port = p;
             }
         }
-        if let Ok(v) = std::env::var("RUSTPLOY_RWP_ENABLED") {
-            cfg.rwp.enabled = matches!(v.as_str(), "1" | "true" | "yes" | "on");
-        }
-        if let Ok(v) = std::env::var("RUSTPLOY_RWP_BIND") {
-            cfg.rwp.bind_address = v;
-        }
-        if let Ok(v) = std::env::var("RUSTPLOY_RWP_PORT") {
-            if let Ok(p) = v.parse() {
-                cfg.rwp.port = p;
-            }
-        }
-        if let Ok(v) = std::env::var("RUSTPLOY_RWP_TOKEN") {
-            cfg.rwp.token = Some(v).filter(|s| !s.is_empty());
-        }
-        if let Ok(v) = std::env::var("RUSTPLOY_RWP_TLS_ENABLED") {
-            cfg.rwp.tls_enabled = matches!(v.as_str(), "1" | "true" | "yes" | "on");
-        }
-        if let Ok(v) = std::env::var("RUSTPLOY_RWP_TLS_CERT") {
-            cfg.rwp.tls_cert_path = Some(v).filter(|s| !s.is_empty());
-        }
-        if let Ok(v) = std::env::var("RUSTPLOY_RWP_TLS_KEY") {
-            cfg.rwp.tls_key_path = Some(v).filter(|s| !s.is_empty());
-        }
-        // HTTP/JSON control API (successor to RWP).
+        // HTTP/JSON + SSE control API.
         if let Ok(v) = std::env::var("RUSTPLOY_API_ENABLED") {
             cfg.api.enabled = matches!(v.as_str(), "1" | "true" | "yes" | "on");
         }
@@ -338,17 +234,10 @@ impl RustployConfig {
                 cfg.api.port = p;
             }
         }
-        // Accept the historical RWP token var as a fallback so an existing
-        // deployment's admin token keeps working after the switch to HTTP.
-        if let Ok(v) = std::env::var("RUSTPLOY_API_TOKEN").or_else(|_| std::env::var("RUSTPLOY_RWP_TOKEN")) {
+        if let Ok(v) = std::env::var("RUSTPLOY_API_TOKEN") {
             cfg.api.token = Some(v).filter(|s| !s.is_empty());
         }
         cfg
-    }
-
-    /// Default RWP address a remote client should dial, derived from config.
-    pub fn rwp_address(&self) -> String {
-        format!("{}:{}", self.rwp.bind_address, self.rwp.port)
     }
 
     /// Ordered list of Unix socket paths a local client should try, from the
@@ -391,28 +280,25 @@ fn dirs_config_path() -> Option<PathBuf> {
 mod tests {
     use super::*;
 
-    /// A partial `[rwp]` block (only the fields the installer/admin cares about)
+    /// A partial `[api]` block (only the fields the installer/admin cares about)
     /// must parse, with the remaining fields falling back to their defaults.
     #[test]
-    fn partial_rwp_block_uses_field_defaults() {
+    fn partial_api_block_uses_field_defaults() {
         let toml_str = r#"
-[rwp]
-enabled = true
+[api]
 token = "abc123"
 "#;
-        let cfg: RwpConfig = toml::from_str(toml_str)
-            .map(|w: WrapRwp| w.rwp)
-            .expect("partial [rwp] must parse");
-        assert!(cfg.enabled);
+        let cfg: ApiConfig = toml::from_str(toml_str)
+            .map(|w: WrapApi| w.api)
+            .expect("partial [api] must parse");
         assert_eq!(cfg.token.as_deref(), Some("abc123"));
-        assert_eq!(cfg.port, 8787);
+        assert_eq!(cfg.port, 9797);
         assert_eq!(cfg.bind_address, "127.0.0.1");
-        assert_eq!(cfg.max_connections, 8);
-        assert_eq!(cfg.idle_timeout_secs, 120);
+        assert_eq!(cfg.max_connections, 32);
     }
 
     #[derive(Deserialize)]
-    struct WrapRwp {
-        rwp: RwpConfig,
+    struct WrapApi {
+        api: ApiConfig,
     }
 }

@@ -1,6 +1,6 @@
 --!strict
 
--- net/api.luau — cliente HTTP/JSON da API do daemon (sucessor do RwpClient).
+-- net/api.luau — cliente HTTP/JSON da API do daemon.
 --
 -- Encapsula base_url + header Authorization e expõe `rpc(cmd)`: faz
 -- POST /api/rpc com o Command em JSON e devolve a Response decodificada. O

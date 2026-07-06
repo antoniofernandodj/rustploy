@@ -1,29 +1,13 @@
 //! Rustploy (glacier-ui) — desktop client whose UI is described in KDL
-//! templates and rendered by the published `glacier-ui` engine. The network
-//! layer runs through glacier-ui's async bridge (effects + subscriptions).
+//! templates and rendered by the published `glacier-ui` engine. Toda a lógica de
+//! rede vive em Luau (`views/scripts/app.luau`), falando HTTP/JSON + SSE com o
+//! daemon; este módulo Rust é só a casca da janela (chrome + persistência local).
 
-// Parte 2 da migração RWP→HTTP/Luau: a camada de rede Rust do GUI foi
-// substituída por `<script>` Luau (views/scripts/app.luau + scripts/net/api.luau +
-// scripts/fmt.luau). Estes módulos ficam COMENTADOS (não removidos) até o corte
-// final — `root` (o Root monolítico), `net` (poll/view/RwpClient), `rwp` (o
-// cliente do protocolo binário) e `wizard`. `store` continua (geometria/Prefs).
-// TODO(corte-final): remover estes arquivos e o crate `shared::Rwp*`.
-// mod net;
-// mod root;
-// mod rwp;
-// mod wizard;
 mod store;
 
 use glacier_ui::{EngineMessage, GlacierUI};
 use iced::{Element, Point, Subscription, Task, window, Size, window::settings::PlatformSpecific};
 use std::time::Duration;
-
-// TODO(corte-final): `connect_target`/`DEFAULT_RWP_PORT` eram do transporte RWP
-// (host:port TCP). A normalização de URL agora vive em Luau (normalize_url em
-// app.luau), que fala HTTP(S). Mantidos comentados enquanto `rwp.rs` existir.
-// const DEFAULT_RWP_PORT: u16 = 8787;
-//
-// pub fn connect_target(url: &str) -> anyhow::Result<String> { /* ... */ }
 
 /// App-level message: either an engine event from glacier-ui, the resolved id
 /// of our (single) window (cached on startup so the custom titlebar can drive

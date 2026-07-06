@@ -13,6 +13,6 @@ pub async fn handle(
     match crate::db::projects::update(&state.db, &id, name, description).await {
         Ok(Some(p)) => RpResponse::Project(p),
         Ok(None) => RpResponse::err("NotFound", "project not found"),
-        Err(e) => RpResponse::err("DatabaseError", e.to_string()),
+        Err(e) => RpResponse::err("DatabaseError", super::humanize_db_error(&e, "projeto")),
     }
 }

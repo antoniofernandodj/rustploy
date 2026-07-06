@@ -59,7 +59,7 @@ Default master key: `/etc/rustploy/master.key`
 | `shared` | — | Models, protocol types, config structs shared by both sides |
 | `daemon` | `rustployd` | Long-running server: API, DB, Docker, ingress, deploy engine |
 | `client` | `rustploy` | Ratatui TUI that talks to the daemon |
-| `rustploy-gui` | `rustploy-gui` | glacier-ui (KDL→iced) desktop client, talks to the daemon over RWP (TCP, see below) instead of the local UDS |
+| `rustploy-gui` | `rustploy-gui` | glacier-ui (KDL→iced) desktop client. Toda a rede vive em Luau (`views/scripts/app.luau`), falando com o daemon pela **API HTTP/JSON + SSE** (`crates/daemon/src/api/http_api.rs`), não pelo UDS local. |
 
 ### IPC protocol
 
