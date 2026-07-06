@@ -1,3 +1,5 @@
+--!strict
+--!nolint FunctionUnused
 -- app.luau — cérebro do cliente rustploy-gui em Luau (sucessor de app/root.rs +
 -- app/net/*). Hospeda TODA a lógica de rede reativa a cliques: login, navegação,
 -- busca, o consumidor SSE (snapshot + eventos vivos) e as ações mutantes.
@@ -14,16 +16,18 @@ local Api = require("net/api")
 local fmt = require("fmt")
 
 -- ── Estado do módulo (persiste entre ações; mesmo interpretador) ──────────
-local api = nil              -- cliente Api conectado
-local state_conn = nil       -- handle do stream SSE
-local snap = nil             -- último snapshot decodificado (para refiltrar)
-local last_pairs = {}        -- serviços normalizados { svc, proj } do snapshot
-local metrics_by_id = {}     -- service_id → ContainerMetricsPoint (eventos bus)
-local search_term = ""       -- termo de busca corrente (minúsculas)
-local svc_logs_buf = {}      -- ring de logs vivos do serviço aberto (LogLine)
-local blog_buf = {}          -- ring de build logs do deployment selecionado
-local deploy_track = { service_id = "", deployment_id = "", running = false }
-local ns_templates_all = {}  -- catálogo completo de templates (p/ filtrar a busca)
+type DeployTrack = { service_id: string, deployment_id: string, running: boolean }
+
+local api: Api.Client? = nil       -- cliente Api conectado
+local state_conn: any = nil        -- handle do stream SSE
+local snap: any = nil              -- último snapshot decodificado (para refiltrar)
+local last_pairs: { any } = {}     -- serviços normalizados { svc, proj } do snapshot
+local metrics_by_id: { [string]: any } = {} -- service_id → ContainerMetricsPoint (bus)
+local search_term: string = ""     -- termo de busca corrente (minúsculas)
+local svc_logs_buf: { any } = {}   -- ring de logs vivos do serviço aberto (LogLine)
+local blog_buf: { any } = {}       -- ring de build logs do deployment selecionado
+local deploy_track: DeployTrack = { service_id = "", deployment_id = "", running = false }
+local ns_templates_all: { any } = {} -- catálogo completo de templates (filtrar busca)
 
 local LOG_RING = 200
 local BUILD_RING = 2000
@@ -49,7 +53,7 @@ local function normalize_url(raw: string): string | nil
     return (scheme or "") .. "://" .. (rest or "")
 end
 
-local function trim(s) return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
+local function trim(s: any): string return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
 
 -- Toasts (built-in do glacier 0.20): notificação efêmera, complementa o *_msg
 -- inline. Usados nos desfechos de mutação (erro/sucesso).
@@ -124,8 +128,9 @@ function connect()
     ctx.status_line = "conectando…"
     ctx.error = ""
 
-    api = Api.new(base, token)
-    local ok, res = api:rpc("DaemonStatus")
+    local client = Api.new(base, token)
+    api = client
+    local ok, res = client:rpc("DaemonStatus")
     if not ok then
         api = nil
         ctx.error = res
@@ -289,7 +294,7 @@ function update_open_project()
     if pid == "" then return end
     local proj
     for _, p in ipairs(snap.projects or {}) do
-        if p.id == pid then proj = p break end
+        if p.id == pid then proj = p; break end
     end
     if not proj then return end
     local proj_pairs = {}
@@ -466,7 +471,7 @@ function fetch_service_detail(sid)
     local project_name = spec.project_id
     if snap then
         for _, p in ipairs(snap.projects or {}) do
-            if p.id == spec.project_id then project_name = p.name break end
+            if p.id == spec.project_id then project_name = p.name; break end
         end
     end
 
@@ -606,7 +611,7 @@ function fetch_service_detail(sid)
                 ctx.gitea_msg = tostring(#resr.GitRepos) .. " repositório(s)"
                 local full
                 for _, r in ipairs(resr.GitRepos) do
-                    if r.clone_url == bound_url then full = r.full_name break end
+                    if r.clone_url == bound_url then full = r.full_name; break end
                 end
                 if full then
                     ctx.gitea_repo = full
@@ -624,19 +629,21 @@ end
 
 -- Busca o spec fresco, aplica `mutate(spec)` (retorna erro-string ou nil),
 -- envia ServiceUpdate e refaz o fetch do detalhe.
-local function with_spec(mutate)
+local function with_spec(mutate: (spec: any) -> ())
     local sid = ctx.selected_service
-    if not api or not sid or sid == "" then return end
-    local ok, res = api:rpc({ ServiceGet = { id = sid } })
+    local c = api
+    if not c or sid == "" then return end
+    local ok, res = c:rpc({ ServiceGet = { id = sid } })
     if not ok or not res.Service then
         ctx.svc_action_msg = "erro ao carregar spec"
         notify_err("erro ao carregar o serviço")
         return
     end
     local spec = res.Service.spec
-    local emsg = mutate(spec)
-    if emsg then ctx.svc_action_msg = "erro: " .. emsg; notify_err(emsg); return end
-    local ok2, res2 = api:rpc_checked({ ServiceUpdate = { id = sid, spec = spec } })
+    -- As validações (campo vazio etc.) vivem nos handlers, antes do with_spec;
+    -- os closures só mutam o spec em lugar. Não retornam erro.
+    mutate(spec)
+    local ok2, res2 = c:rpc_checked({ ServiceUpdate = { id = sid, spec = spec } })
     if ok2 then
         ctx.svc_action_msg = "salvo"
         fetch_service_detail(sid)
@@ -706,7 +713,7 @@ end
 function hc_save()
     with_spec(function(spec)
         local kind = ctx.f_hc_kind
-        local hk
+        local hk: any
         if kind == "none" then
             hk = "None"
         elseif kind == "http" then
@@ -747,8 +754,8 @@ function gen_save()
     with_spec(function(spec)
         local port = tonumber(trim(ctx.f_gen_port))
         if port then spec.port = math.floor(port) end
-        local function ne(v, d) v = trim(v); if v == "" then return d else return v end end
-        local function opt(v) v = trim(v); if v == "" then return nil else return v end end
+        local function ne(v: any, d: string): string local t = trim(v); if t == "" then return d else return t end end
+        local function opt(v: any): string? local t = trim(v); if t == "" then return nil else return t end end
         local repo = trim(ctx.f_repo_url)
         local watch = json.array({})
         for part in string.gmatch(ctx.f_watch_paths or "", "[^,]+") do
@@ -1318,7 +1325,9 @@ end
 function gp_mode(m) ctx.gp_mode = m end
 
 local function gp_refresh_list()
-    local ok, res = api:rpc("GitProviderList")
+    local c = api
+    if not c then return end
+    local ok, res = c:rpc("GitProviderList")
     if ok and res.GitProviders then
         ctx.gitea_providers = fmt.git_providers(res.GitProviders)
         ctx.gitea_count = tostring(#res.GitProviders)
@@ -1337,7 +1346,7 @@ function gp_connect()
     if base == "" then ctx.gp_msg = "informe a Base URL do Gitea"; return end
     local name = trim(ctx.gp_name); if name == "" then name = "Gitea" end
     local is_oauth = (ctx.gp_mode or "oauth") ~= "pat"
-    local cmd
+    local cmd: any
     if is_oauth then
         local cid = trim(ctx.gp_client_id)
         local csec = ctx.gp_client_secret or ""
@@ -1560,7 +1569,7 @@ function parse_dotenv(text)
             table.insert(pending, l)
         else
             local k, v = l:match("^([^=]+)=(.*)$")
-            if k then
+            if k and v then
                 local key = trim(k)
                 if key ~= "" then
                     for _, c in ipairs(pending) do
@@ -1593,7 +1602,7 @@ function reorder_env(vars, comments, keys)
     for pos, k in ipairs(keys) do
         local ci = k:match("^__c(%d+)$")
         if ci then
-            local idx = tonumber(ci) + 1  -- __c é 0-based
+            local idx = (tonumber(ci) or 0) + 1  -- __c é 0-based
             local c = comments[idx]
             if c then
                 seen[idx] = true

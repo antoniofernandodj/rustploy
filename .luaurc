@@ -8,6 +8,7 @@
         "sse",
         "require",
         "json",
-        "confirm"
+        "confirm",
+        "toast"
     ]
 }
