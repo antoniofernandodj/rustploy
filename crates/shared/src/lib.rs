@@ -4,7 +4,7 @@ pub mod models;
 pub mod protocol;
 pub mod templates;
 
-pub use config::{fallback_data_dir, user_home, RustployConfig, RwpConfig};
+pub use config::{fallback_data_dir, user_home, ApiConfig, RustployConfig, RwpConfig};
 
 /// Unique Docker Compose project name for a rustploy service.
 /// Incorporates the first 8 chars of the service ULID to avoid collisions

@@ -29,7 +29,62 @@ pub struct RustployConfig {
     #[serde(default)]
     pub rwp: RwpConfig,
     #[serde(default)]
+    pub api: ApiConfig,
+    #[serde(default)]
     pub env_backup: EnvBackupConfig,
+}
+
+/// Configuration for the HTTP/JSON + SSE control API (the successor to RWP).
+/// Binds to loopback by default and is meant to sit behind the ingress proxy,
+/// which terminates TLS for `rustploy.chiquitos.tech` and forwards to it.
+/// Binding to a non-loopback address requires a token (same guard as RWP).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApiConfig {
+    #[serde(default = "default_api_enabled")]
+    pub enabled: bool,
+    #[serde(default = "default_api_bind")]
+    pub bind_address: String,
+    #[serde(default = "default_api_port")]
+    pub port: u16,
+    #[serde(default)]
+    pub token: Option<String>,
+    #[serde(default = "default_api_max_connections")]
+    pub max_connections: usize,
+}
+
+fn default_api_enabled() -> bool {
+    true
+}
+fn default_api_bind() -> String {
+    "127.0.0.1".into()
+}
+fn default_api_port() -> u16 {
+    9797
+}
+fn default_api_max_connections() -> usize {
+    32
+}
+
+impl Default for ApiConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_api_enabled(),
+            bind_address: default_api_bind(),
+            port: default_api_port(),
+            token: None,
+            max_connections: default_api_max_connections(),
+        }
+    }
+}
+
+impl ApiConfig {
+    /// True when the configured bind address is not a loopback address.
+    pub fn is_public_bind(&self) -> bool {
+        match self.bind_address.parse::<std::net::IpAddr>() {
+            Ok(ip) => !ip.is_loopback(),
+            Err(_) => self.bind_address != "localhost",
+        }
+    }
 }
 
 /// Configuration for the RWP remote administrative channel (TCP).
@@ -191,6 +246,7 @@ impl Default for RustployConfig {
                 master_key_path: "/etc/rustploy/master.key".into(),
             },
             rwp: RwpConfig::default(),
+            api: ApiConfig::default(),
             env_backup: EnvBackupConfig::default(),
         }
     }
@@ -269,6 +325,23 @@ impl RustployConfig {
         }
         if let Ok(v) = std::env::var("RUSTPLOY_RWP_TLS_KEY") {
             cfg.rwp.tls_key_path = Some(v).filter(|s| !s.is_empty());
+        }
+        // HTTP/JSON control API (successor to RWP).
+        if let Ok(v) = std::env::var("RUSTPLOY_API_ENABLED") {
+            cfg.api.enabled = matches!(v.as_str(), "1" | "true" | "yes" | "on");
+        }
+        if let Ok(v) = std::env::var("RUSTPLOY_API_BIND") {
+            cfg.api.bind_address = v;
+        }
+        if let Ok(v) = std::env::var("RUSTPLOY_API_PORT") {
+            if let Ok(p) = v.parse() {
+                cfg.api.port = p;
+            }
+        }
+        // Accept the historical RWP token var as a fallback so an existing
+        // deployment's admin token keeps working after the switch to HTTP.
+        if let Ok(v) = std::env::var("RUSTPLOY_API_TOKEN").or_else(|_| std::env::var("RUSTPLOY_RWP_TOKEN")) {
+            cfg.api.token = Some(v).filter(|s| !s.is_empty());
         }
         cfg
     }

@@ -79,14 +79,9 @@ pub(crate) struct App {
 
 impl App {
     pub(crate) fn boot() -> (Self, Task<Message>) {
-        // Flags bare a nível de aplicação que nossos templates colocam na própria
-        // linha (continuação): o glacier-ui já conhece os flags de framework/widget
-        // (`bold`, `secure`, `navigateBack`), mas a diretiva `else` é nossa, então
-        // registramos antes de parsear qualquer template — senão um `else` solto
-        // viraria um nó irmão espúrio que engole as propriedades seguintes
-        // (class/onClick).
-        glacier_ui::register_bare_flags(["else", "senao"]);
-
+        // Nota: as diretivas bare `else`/`senao` (sem valor) agora são
+        // normalizadas pelo próprio glacier-ui (ver `eval.rs`), então não é mais
+        // preciso registrá-las aqui — o antigo `register_bare_flags` saiu na 0.14.
         let mut motor = GlacierUI::new();
         if let Err(e) = motor.load_stylesheet("crates/rustploy-gui/styles/app.gss") {
             eprintln!("stylesheet: {e}");
