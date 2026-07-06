@@ -882,6 +882,44 @@ function do_svc_stop()
     svc_lifecycle({ ServiceStop = { service_id = ctx.selected_service } }, "parando…")
 end
 
+-- Ações de serviço a partir de um card do grid do projeto (project_services).
+-- O grid se atualiza no próximo snapshot (2s), então só setamos proj_action_msg.
+function svc_stop_id(id)
+    confirm({
+        title = "Parar serviço?",
+        message = "O tráfego para este serviço será interrompido até um novo deploy.",
+        confirm_label = "Parar",
+        confirm_action = "do_svc_stop_id:" .. tostring(id),
+        destructive = true,
+    })
+end
+
+function do_svc_stop_id(id)
+    if not api or not id then return end
+    ctx.proj_action_msg = "enviando…"
+    local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
+    ctx.proj_action_msg = ok and "serviço parado" or ("erro: " .. res)
+end
+
+function stop_delete_service(id)
+    confirm({
+        title = "Parar e remover serviço?",
+        message = "O serviço será parado e removido. Essa ação não pode ser desfeita.",
+        confirm_label = "Remover",
+        confirm_action = "do_stop_delete_service:" .. tostring(id),
+        destructive = true,
+    })
+end
+
+function do_stop_delete_service(id)
+    if not api or not id then return end
+    ctx.proj_action_msg = "removendo…"
+    local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
+    if not ok then ctx.proj_action_msg = "erro ao parar: " .. res; return end
+    local ok2, res2 = api:rpc_checked({ ServiceDelete = { id = id } })
+    ctx.proj_action_msg = ok2 and "serviço parado e removido" or ("erro ao remover: " .. res2)
+end
+
 -- ── Picker Gitea (conta → repos → branches) ────────────────────────────────
 
 function gitea_provider_pick(id: string)
