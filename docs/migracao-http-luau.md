@@ -274,19 +274,36 @@ pré-existente `env_backup.rs:35 "period must be non-zero"` na config default,
 (b) `SUN_LEN` (socket UDS com caminho longo), (c) porta 8787 já em uso. Nada
 disso vem das mudanças da migração, mas o (a) merece um olhar à parte.
 
-### ⬜ Parte 2 — fatia 2 (próxima sessão)
-Handlers/telas ainda não portados (hoje viram no-op no clique, sem afetar a
-renderização):
-- **service detail** (`service.xml`): sub-abas, logs vivos (`LogLine`/`BuildLog`
-  → `svc_logs`/`dep_build_*` via eventos bus), editor de env com drag-reorder,
-  deploy/reload/stop, domains/healthcheck/advanced/general/compose save.
-- **wizard novo serviço** (`new_service.xml`): passos pick_type/db/app/compose/
-  template + `ns_create` (equivalente a `wizard.rs`).
-- **settings** + **Git/OAuth** (`GitOAuthStart` abre URL no browser).
-- **Prefs** (login lembrado) — hoje sem persistência (era `store::Prefs`, ver
-  aviso dead_code); decidir Rust-hook vs endpoint.
-- **diálogos de confirmação** (stop_all/prune) — hoje ação direta; confirmar se
-  o Luau expõe `show_dialog`.
+### ✅ Parte 2 — fatia 2a (service detail) — feito (commit `2ee99cd`)
+`service.xml` em Luau: `open_service`→`fetch_service_detail` (ServiceGet +
+LogsGet + DeployHistory + GitProviderList, ~60 chaves svc_*/f_*); saves de spec
+(`with_spec`) gen/hc/adv/dom/compose; env add/del/import/reorder (parse_dotenv/
+reorder_env portados); deployments (build log + delete); deploy/reload/stop;
+picker Gitea; logs vivos + timer de deploy via eventos bus + snapshot.
+**glacier 0.17.0** (publicado): `json.array(t)` marca tabela como array p/ o
+encode — resolve `{}`-vs-`[]` de Vec vazios no round-trip do spec. (Probes:
+mlua serializa inteiro como inteiro; `json.decode` preserva arrays.)
+
+### ✅ Parte 2 — fatia 2b (settings/git/wizard app+compose) — feito (commit `d359086`)
+Wizard `new_service.xml` (Application + Compose via `base_spec`+ServiceCreate);
+editar projeto (`ProjectUpdate`); env de projeto (`ProjectEnvSet`); Settings Web
+Server (`SetDaemonSettings`, `ss_domain`→`gp_redirect`); Settings→Git
+(`GitProviderCreate` OAuth/PAT + `GitOAuthStart`, refresh, delete). OAuth: Luau
+não abre browser → exibe a URL.
+
+### ⬜ Parte 2 — fatia 2c (próxima)
+- **Wizard Database/Broker/Template**: portar catálogos e construtores de
+  `app/wizard.rs` (DbKind/BrokerKind: imagens/portas/env por tipo; geração de
+  docker-compose; catálogo de templates de `shared::templates` blueprints, hoje
+  gerado por build.rs). Maior peça restante — considerar expor via daemon.
+- **Prefs** (login lembrado) — sem persistência hoje (era `store::Prefs`);
+  decidir Rust-hook vs endpoint.
+- **Diálogos de confirmação** (stop_all/prune/svc_stop) — hoje ação direta;
+  confirmar se o Luau expõe `show_dialog`.
+- **Abrir URL no navegador** (OAuth) — hoje só exibe; candidato a built-in
+  `open:<url>` no glacier.
+- **Verificação runtime** (login→SSE→dashboard→service→deploy→logs) contra
+  daemon+Docker vivos.
 
 ### ⬜ Corte final
 Remover `rwp/` do daemon e `Rwp*` de `shared`; apagar `root/net/rwp/wizard` do
