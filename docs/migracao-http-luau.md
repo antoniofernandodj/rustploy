@@ -309,18 +309,29 @@ Em vez de reimplementar a construção de spec em Luau, exposta pelo daemon:
   `shared` não existe no Luau do mlua → quebrava o carregamento); usa o global
   `json` do glacier (declarado no `.luaurc`). Mantido `--!strict` + tipos.
 
-### ⬜ Polish restante da Parte 2
-- **Prefs** (login lembrado) — sem persistência hoje. Precisa de I/O local
-  (o Luau não escreve arquivo): um hook Rust em `app/mod.rs` no connect, ou um
-  arquivo via daemon. (Prefs são per-máquina-cliente → NÃO no daemon.)
-- **Diálogos de confirmação** (stop_all/prune/svc_stop) — hoje ação direta;
-  precisa expor `show_dialog` do glacier à camada Luau (feature nova no glacier).
-- **Abrir URL no navegador** (OAuth) — hoje só exibe a URL; candidato a built-in
-  `open:<url>` no glacier (irmão do `clipboard:<key>`).
+### ✅ Polish da Parte 2 — feito
+- **glacier-ui 0.18.0** (publicado): built-in `open:<alvo>` (abre URL no
+  navegador) + `confirm(opts)` no prelúdio (diálogo modal a partir do Luau, via
+  `ctx.show_dialog`; o confirmar despacha `confirm_action`).
+- **Diálogos de confirmação** (commit `e3ec99a`): stop_all, prune (images/
+  volumes/networks), svc_stop, delete_project, delete_deployment agora confirmam
+  (`confirm{…}` → `do_*`; deletes parametrizados embutem o id na ação).
+- **Abrir OAuth no navegador** (`e3ec99a`): `gp_connect` guarda a URL em
+  `gp_oauth_url`; `home.xml` tem botão `open:gp_oauth_url`.
+- **Prefs** (login lembrado, commit `52c8043`): hook Rust em `app/mod.rs`
+  (`seed_prefs` no boot + `persist_prefs` no connect/toggle) — o Luau não escreve
+  arquivo, então a persistência local (`store::Prefs`, per-máquina) fica em Rust.
 
-### ⬜ Verificação runtime
-Fluxo vivo (login→SSE→dashboard→service→deploy→logs→wizard) contra daemon+Docker
-reais — ambiente do usuário. (Headless aqui só cobre parse/registro/render.)
+### ⬜ Verificação runtime + corte final (dependem do ambiente do usuário)
+Toda a migração FUNCIONAL da Parte 2 está feita (login, dashboard, service
+detail, wizard completo, settings, git, diálogos, OAuth, Prefs). Falta:
+- **Verificação runtime**: fluxo vivo (login→SSE→dashboard→service→deploy→logs→
+  wizard) contra daemon+Docker reais. (Headless aqui só cobre parse/registro/
+  render.) O RWP segue vivo em paralelo, então dá pra validar sem risco.
+- **Corte final** (só APÓS a validação runtime — não antes): remover `rwp/` do
+  daemon + `Rwp*` de `shared`; apagar `root/net/rwp/wizard` comentados do GUI;
+  setar `webhook_base_url=https://rustploy.chiquitos.tech` (via Settings na UI);
+  rota do subdomínio no ingress; DNS `rustploy.chiquitos.tech`.
 
 ### ⬜ Corte final
 Remover `rwp/` do daemon e `Rwp*` de `shared`; apagar `root/net/rwp/wizard` do
