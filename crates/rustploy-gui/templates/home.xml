@@ -576,6 +576,15 @@
           <Rule />
           <Text class="label_cap" content="CONECTAR CONTA GITEA" />
           <Text if="{gp_msg}" not_equals="" class="muted" content="{gp_msg}" />
+          <!-- OAuth: o Luau não abre o navegador; guarda a URL em gp_oauth_url e
+               o built-in open:<chave> do glacier abre no navegador padrão. -->
+          <Button
+            if="{gp_oauth_url}"
+            not_equals=""
+            class="btn_primary"
+            on_click="open:gp_oauth_url"
+            text="Abrir autorização no navegador"
+          />
 
           <Form name="git_provider" on_submit="gp_connect" spacing="10" width="fill">
             <Row class="hc_grid">

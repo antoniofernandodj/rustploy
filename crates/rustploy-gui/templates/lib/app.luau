@@ -829,6 +829,16 @@ function dep_logs(id)
 end
 
 function delete_deployment(id)
+    confirm({
+        title = "Remover deployment?",
+        message = "O registro do deployment e seus build logs serão removidos. Essa ação não pode ser desfeita.",
+        confirm_label = "Remover",
+        confirm_action = "do_delete_deployment:" .. tostring(id),
+        destructive = true,
+    })
+end
+
+function do_delete_deployment(id)
     if not api or not id then return end
     local ok, res = api:rpc_checked({ DeployDelete = { deployment_id = id } })
     ctx.svc_action_msg = ok and "deployment removido" or ("erro: " .. res)
@@ -859,6 +869,16 @@ function svc_reload()
 end
 
 function svc_stop()
+    confirm({
+        title = "Parar serviço?",
+        message = "O tráfego para este serviço será interrompido até um novo deploy.",
+        confirm_label = "Parar",
+        confirm_action = "do_svc_stop",
+        destructive = true,
+    })
+end
+
+function do_svc_stop()
     svc_lifecycle({ ServiceStop = { service_id = ctx.selected_service } }, "parando…")
 end
 
@@ -1236,6 +1256,7 @@ end
 
 function gp_connect()
     if not api then return end
+    ctx.gp_oauth_url = ""
     local base = trim(ctx.gp_base_url)
     if base == "" then ctx.gp_msg = "informe a Base URL do Gitea"; return end
     local name = trim(ctx.gp_name); if name == "" then name = "Gitea" end
@@ -1292,6 +1313,16 @@ end
 -- ── Ações mutantes ────────────────────────────────────────────────────────
 
 function stop_all()
+    confirm({
+        title = "Parar todos os serviços?",
+        message = "Todos os serviços em execução serão parados agora. Você pode reiniciá-los depois com um novo deploy.",
+        confirm_label = "Parar todos",
+        confirm_action = "do_stop_all",
+        destructive = true,
+    })
+end
+
+function do_stop_all()
     if not api then return end
     ctx.status_line = "parando todos…"
     local ok, res = api:rpc_checked("StopAllManaged")
@@ -1325,6 +1356,17 @@ function create_project()
 end
 
 function delete_project(id: string)
+    if not id or id == "" then return end
+    confirm({
+        title = "Remover projeto?",
+        message = "O projeto será removido. Só é possível remover projetos sem serviços.",
+        confirm_label = "Remover projeto",
+        confirm_action = "do_delete_project:" .. tostring(id),
+        destructive = true,
+    })
+end
+
+function do_delete_project(id)
     if not api or not id or id == "" then return end
     ctx.proj_action_msg = "removendo…"
     local ok, res = api:rpc_checked({ ProjectDelete = { id = id } })
@@ -1352,17 +1394,47 @@ local function prune(cmd, label)
 end
 
 function docker_prune_images()
+    confirm({
+        title = "Limpar imagens sem uso?",
+        message = "As imagens Docker sem uso serão removidas agora. Essa limpeza não pode ser desfeita.",
+        confirm_label = "Limpar",
+        confirm_action = "do_docker_prune_images",
+        destructive = true,
+    })
+end
+
+function do_docker_prune_images()
     local all = ctx.docker_prune_all_images == "true"
     prune({ PruneImages = { all = all } },
         all and "removendo TODAS as imagens sem uso…" or "removendo imagens dangling…")
 end
 
 function docker_prune_volumes()
+    confirm({
+        title = "Limpar volumes sem uso?",
+        message = "Os volumes Docker sem uso serão removidos agora. Essa limpeza não pode ser desfeita.",
+        confirm_label = "Limpar",
+        confirm_action = "do_docker_prune_volumes",
+        destructive = true,
+    })
+end
+
+function do_docker_prune_volumes()
     local all = ctx.docker_prune_all_volumes == "true"
     prune({ PruneVolumes = { all = all } }, "removendo volumes sem uso…")
 end
 
 function docker_prune_networks()
+    confirm({
+        title = "Limpar redes sem uso?",
+        message = "As redes Docker sem uso serão removidas agora. Essa limpeza não pode ser desfeita.",
+        confirm_label = "Limpar",
+        confirm_action = "do_docker_prune_networks",
+        destructive = true,
+    })
+end
+
+function do_docker_prune_networks()
     prune("PruneNetworks", "removendo redes sem uso…")
 end
 
