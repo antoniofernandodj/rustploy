@@ -57,26 +57,26 @@ local function trim(s: any): string return (tostring(s or ""):gsub("^%s+", ""):g
 
 -- Toasts (built-in do glacier 0.20): notificação efêmera, complementa o *_msg
 -- inline. Usados nos desfechos de mutação (erro/sucesso).
-local function notify_err(msg) toast({ message = tostring(msg), kind = "error" }) end
-local function notify_ok(msg) toast({ message = tostring(msg), kind = "success" }) end
+local function notify_err(msg: any): () toast({ message = tostring(msg), kind = "error" }) end
+local function notify_ok(msg: any): () toast({ message = tostring(msg), kind = "success" }) end
 
 -- URI de callback OAuth do Gitea que o usuário registra no app do Gitea.
-local function oauth_redirect_uri(domain)
+local function oauth_redirect_uri(domain: string?): string
     local d = trim(domain):gsub("/+$", "")
     if d == "" then return "<configure o domínio em Web Server>/oauth/gitea/callback" end
     return d .. "/oauth/gitea/callback"
 end
 
 -- Heurística: a URL denota um repo Git (clonar+buildar) e não uma imagem.
-local function looks_like_git_url(u)
-    u = trim(u)
-    return u:match("^https://") ~= nil or u:match("^http://") ~= nil
-        or u:match("^git@") ~= nil or u:match("^ssh://") ~= nil
-        or u:match("^file://") ~= nil or u:match("%.git$") ~= nil
+local function looks_like_git_url(u: string?): boolean
+    local s = trim(u)
+    return s:match("^https://") ~= nil or s:match("^http://") ~= nil
+        or s:match("^git@") ~= nil or s:match("^ssh://") ~= nil
+        or s:match("^file://") ~= nil or s:match("%.git$") ~= nil
 end
 
 -- ── init: semeia o contexto para a UI pintar antes de qualquer dado ───────
-function init()
+function init(): ()
     if not ctx.screen or ctx.screen == "" then ctx.screen = "login" end
     if not ctx.view or ctx.view == "" then ctx.view = "deployments" end
     ctx.connected = ctx.connected or "false"
@@ -106,16 +106,16 @@ end
 
 -- ── Login / conexão ───────────────────────────────────────────────────────
 
-function toggle_remember_url(v)
+function toggle_remember_url(v: string): ()
     ctx.remember_url = v
 end
-function toggle_remember_token(v)
+function toggle_remember_token(v: string): ()
     ctx.remember_token = v
 end
 
 -- onSubmit/onClick do formulário de login. `fetch` suspende a corrotina, então
 -- validamos a conexão com um DaemonStatus antes de abrir o stream.
-function connect()
+function connect(): ()
     local base = normalize_url(ctx.url)
     if not base then
         ctx.erro_url = "URL inválida (ex.: https://rustploy.chiquitos.tech)"
@@ -148,7 +148,7 @@ function connect()
     open_stream()
 end
 
-function disconnect()
+function disconnect(): ()
     if state_conn then
         pcall(function() state_conn:close() end)
         state_conn = nil
@@ -162,7 +162,7 @@ end
 
 -- Configurações do daemon + provedores Git, buscados uma vez na conexão (não
 -- entram no snapshot para não sobrescrever campos que o usuário edita).
-function load_settings()
+function load_settings(): ()
     if not api then return end
     local ok, res = api:rpc("GetDaemonSettings")
     if ok and res.DaemonSettings then
@@ -179,7 +179,7 @@ end
 
 -- ── Stream SSE (snapshot periódico + eventos vivos) ───────────────────────
 
-function open_stream()
+function open_stream(): ()
     if state_conn then return end
     local opts = { on_message = "on_state", on_error = "on_stream_error", on_close = "on_stream_close" }
     if ctx.api_token and ctx.api_token ~= "" then
@@ -188,11 +188,11 @@ function open_stream()
     state_conn = sse(ctx.api_url .. "/api/events", opts)
 end
 
-function on_stream_error(e)
+function on_stream_error(e: string): ()
     ctx.status_line = "stream: " .. tostring(e)
 end
 
-function on_stream_close()
+function on_stream_close(): ()
     state_conn = nil
     if ctx.connected == "true" then
         ctx.status_line = "conexão encerrada"
@@ -202,7 +202,7 @@ function on_stream_close()
 end
 
 -- Cada evento SSE traz um `data:` JSON auto-descritivo com `kind`.
-function on_state(data)
+function on_state(data: string): ()
     local ok, msg = pcall(json.decode, data)
     if not ok or type(msg) ~= "table" then return end
     if msg.kind == "snapshot" then
@@ -212,7 +212,7 @@ function on_state(data)
     end
 end
 
-function apply_snapshot(msg)
+function apply_snapshot(msg: any): ()
     snap = msg
     last_pairs = fmt.pair_list(msg.services)
 
@@ -273,7 +273,7 @@ end
 
 -- Reconstrói as listas filtradas pela busca a partir do último snapshot — sem
 -- rede, para a busca filtrar na hora (equivalente ao antigo search_pairs).
-function rebuild_lists()
+function rebuild_lists(): ()
     if not snap then return end
     local term = search_term
     ctx.deployments = fmt.deployments(snap.deployments, term)
@@ -288,7 +288,7 @@ function rebuild_lists()
 end
 
 -- Cabeçalho + grade de serviços do projeto aberto (view=project_services).
-function update_open_project()
+function update_open_project(): ()
     if not snap then return end
     local pid = ctx.selected_project_id or ""
     if pid == "" then return end
@@ -316,7 +316,7 @@ end
 -- Refresh imediato após uma mutação: pega o snapshot completo num único RPC (o
 -- mesmo builder do SSE) e aplica, para a tela refletir na hora sem esperar o
 -- tick de 2s. Chamado pelos handlers de criar/remover projeto/serviço.
-function refresh_now()
+function refresh_now(): ()
     if not api then return end
     local ok, res = api:rpc("Snapshot")
     if ok and res.Snapshot then
@@ -326,7 +326,7 @@ function refresh_now()
 end
 
 -- Eventos vivos do bus: métricas, logs de container/build e transições de deploy.
-function apply_bus(ev)
+function apply_bus(ev: any): ()
     if type(ev) ~= "table" then return end
     if ev.ContainerMetrics then
         local p = ev.ContainerMetrics
@@ -379,7 +379,7 @@ end
 
 -- ── Busca ─────────────────────────────────────────────────────────────────
 
-function search_changed(v: string)
+function search_changed(v: string): ()
     ctx.search = v or ""
     search_term = string.lower(v or "")
     rebuild_lists()
@@ -388,37 +388,37 @@ end
 
 -- ── Navegação ─────────────────────────────────────────────────────────────
 
-local function goto_view(v)
+local function goto_view(v: string): ()
     ctx.view = v
     ctx.selected_service = ""
 end
 
-function nav_deployments() goto_view("deployments") end
-function nav_deploy_engine() goto_view("deploy_engine") end
-function nav_monitoring() goto_view("monitoring") end
-function nav_schedules() goto_view("schedules") end
-function nav_ingress() goto_view("ingress") end
-function nav_docker() goto_view("docker") end
-function nav_projects()
+function nav_deployments(): () goto_view("deployments") end
+function nav_deploy_engine(): () goto_view("deploy_engine") end
+function nav_monitoring(): () goto_view("monitoring") end
+function nav_schedules(): () goto_view("schedules") end
+function nav_ingress(): () goto_view("ingress") end
+function nav_docker(): () goto_view("docker") end
+function nav_projects(): ()
     ctx.selected_project_id = ""
     goto_view("projects")
 end
-function nav_settings() goto_view("settings") end
-function nav_support() goto_view("support") end
+function nav_settings(): () goto_view("settings") end
+function nav_support(): () goto_view("support") end
 
 -- Genérico p/ NavItem que usa action="nav" com value=target (se algum usar).
-function nav(v) if v then goto_view(v) end end
+function nav(v: string?): () if v then goto_view(v) end end
 
 -- Abas (TabButton dispara `proj_tab:services`, `docker_tab:images`, …).
-function proj_tab(t) ctx.proj_tab = t end
-function docker_tab(t) ctx.docker_tab = t end
-function deploy_tab(t) ctx.deploy_tab = t end
+function proj_tab(t: string): () ctx.proj_tab = t end
+function docker_tab(t: string): () ctx.docker_tab = t end
+function deploy_tab(t: string): () ctx.deploy_tab = t end
 
 -- Setter genérico de campo (onChange="field:<chave>").
-function field(key, v) if key then ctx[key] = v or "" end end
+function field(key: string?, v: string?): () if key then ctx[key] = v or "" end end
 
 -- Abrir a lista de serviços de um projeto (grade read-only via snapshot).
-function open_project(id)
+function open_project(id: string): ()
     ctx.selected_project_id = id
     ctx.view = "project_services"
     ctx.proj_tab = "services"
@@ -429,14 +429,14 @@ function open_project(id)
 end
 
 -- Abas do service detail e do healthcheck kind.
-function tab(t) ctx.tab = t end
-function prov(t) ctx.prov_tab = t end
-function hckind(k) ctx.f_hc_kind = k end
+function tab(t: string): () ctx.tab = t end
+function prov(t: string): () ctx.prov_tab = t end
+function hckind(k: string): () ctx.f_hc_kind = k end
 
 -- Abrir o detalhe de um serviço: navega e dispara o fetch (spec + logs +
 -- deployments + provedores Git). O fetch suspende a corrotina (fetch), sem
 -- travar a UI; svc_loading=true segura os Selects até tudo chegar.
-function open_service(id)
+function open_service(id: string): ()
     ctx.selected_service = id
     ctx.view = "service"
     ctx.tab = "general"
@@ -456,7 +456,7 @@ end
 
 -- One-shot: monta TODAS as chaves svc_*/f_* do painel de detalhe (equivalente a
 -- net/services.rs::fetch_detail_inner).
-function fetch_service_detail(sid)
+function fetch_service_detail(sid: string): ()
     if not api or not sid or sid == "" then return end
     local ok, res = api:rpc({ ServiceGet = { id = sid } })
     if not ok or not res.Service then
@@ -629,7 +629,7 @@ end
 
 -- Busca o spec fresco, aplica `mutate(spec)` (retorna erro-string ou nil),
 -- envia ServiceUpdate e refaz o fetch do detalhe.
-local function with_spec(mutate: (spec: any) -> ())
+local function with_spec(mutate: (spec: any) -> ()): ()
     local sid = ctx.selected_service
     local c = api
     if not c or sid == "" then return end
@@ -654,7 +654,7 @@ local function with_spec(mutate: (spec: any) -> ())
 end
 
 -- Move o domínio legado (domain/tls_enabled) para a lista `domains`.
-local function materialize_domains(spec)
+local function materialize_domains(spec: any): ()
     if not spec.domains or #spec.domains == 0 then
         local routes = json.array({})
         if spec.domain and spec.domain ~= "" then
@@ -666,11 +666,11 @@ local function materialize_domains(spec)
     spec.tls_enabled = false
 end
 
-function dom_add()
+function dom_add(): ()
     local domain = trim(ctx.f_domain)
     if domain == "" then ctx.erro_f_domain = "domínio vazio"; return end
     ctx.erro_f_domain = ""
-    with_spec(function(spec)
+    with_spec(function(spec: any): ()
         materialize_domains(spec)
         local route = { domain = domain, port = tonumber(trim(ctx.f_port)), tls = ctx.f_tls == "true" }
         local found = false
@@ -681,8 +681,8 @@ function dom_add()
     end)
 end
 
-function dom_del(domain)
-    with_spec(function(spec)
+function dom_del(domain: string): ()
+    with_spec(function(spec: any): ()
         materialize_domains(spec)
         local kept = json.array({})
         for _, r in ipairs(spec.domains) do
@@ -692,26 +692,26 @@ function dom_del(domain)
     end)
 end
 
-function dom_hostport_save()
-    with_spec(function(spec)
+function dom_hostport_save(): ()
+    with_spec(function(spec: any): ()
         spec.host_port = tonumber(trim(ctx.f_host_port))
     end)
 end
 
-function compose_save()
-    with_spec(function(spec)
+function compose_save(): ()
+    with_spec(function(spec: any): ()
         if spec.source.Compose then
             spec.source = { Compose = { content = ctx.svc_compose or "" } }
         end
     end)
 end
 
-function compose_cancel()
+function compose_cancel(): ()
     ctx.svc_compose = ctx.svc_compose_orig or ""
 end
 
-function hc_save()
-    with_spec(function(spec)
+function hc_save(): ()
+    with_spec(function(spec: any): ()
         local kind = ctx.f_hc_kind
         local hk: any
         if kind == "none" then
@@ -740,8 +740,8 @@ function hc_save()
     end)
 end
 
-function adv_save()
-    with_spec(function(spec)
+function adv_save(): ()
+    with_spec(function(spec: any): ()
         local r = tonumber(trim(ctx.f_replicas)) or 1
         if r < 1 then r = 1 end
         spec.replicas = math.floor(r)
@@ -750,8 +750,8 @@ function adv_save()
     end)
 end
 
-function gen_save()
-    with_spec(function(spec)
+function gen_save(): ()
+    with_spec(function(spec: any): ()
         local port = tonumber(trim(ctx.f_gen_port))
         if port then spec.port = math.floor(port) end
         local function ne(v: any, d: string): string local t = trim(v); if t == "" then return d else return t end end
@@ -780,12 +780,12 @@ end
 
 -- ── Environment ────────────────────────────────────────────────────────────
 
-function env_add()
+function env_add(): ()
     local key = trim(ctx.env_new_key)
     if key == "" then ctx.erro_env_new_key = "chave vazia"; return end
     ctx.erro_env_new_key = ""
     local val = ctx.env_new_val or ""
-    with_spec(function(spec)
+    with_spec(function(spec: any): ()
         local kept = json.array({})
         for _, v in ipairs(spec.env_vars or {}) do
             if v.key ~= key then table.insert(kept, v) end
@@ -797,8 +797,8 @@ function env_add()
     ctx.env_new_val = ""
 end
 
-function env_del(key)
-    with_spec(function(spec)
+function env_del(key: string): ()
+    with_spec(function(spec: any): ()
         local kept = json.array({})
         for _, v in ipairs(spec.env_vars or {}) do
             if v.key ~= key then table.insert(kept, v) end
@@ -812,9 +812,9 @@ function env_del(key)
     end)
 end
 
-function env_import()
+function env_import(): ()
     local text = ctx.svc_env_text or ""
-    with_spec(function(spec)
+    with_spec(function(spec: any): ()
         local vars, comments = parse_dotenv(text)
         spec.env_vars = vars
         spec.env_comments = comments
@@ -822,26 +822,26 @@ function env_import()
     ctx.env_text_open = "false"
 end
 
-function env_export()
+function env_export(): ()
     -- Abre o editor .env já preenchido (o texto vem do fetch em svc_env_text).
     ctx.env_text_open = "true"
 end
 
-function env_text_toggle()
+function env_text_toggle(): ()
     ctx.env_text_open = (ctx.env_text_open == "true") and "false" or "true"
 end
 
-function env_text_cancel()
+function env_text_cancel(): ()
     ctx.svc_env_text = ctx.svc_env_text_orig or ""
     ctx.env_text_open = "false"
 end
 
 -- Reordena env (arraste): `value` é um JSON array de keys na nova ordem.
-function env_reorder(v)
+function env_reorder(v: string?): ()
     if not v then return end
     local ok, keys = pcall(json.decode, v)
     if not ok or type(keys) ~= "table" then return end
-    with_spec(function(spec)
+    with_spec(function(spec: any): ()
         local nv, nc = reorder_env(spec.env_vars or {}, spec.env_comments or {}, keys)
         spec.env_vars = nv
         spec.env_comments = nc
@@ -850,7 +850,7 @@ end
 
 -- ── Deployments (build log + delete) ───────────────────────────────────────
 
-function dep_logs(id)
+function dep_logs(id: string): ()
     if not api or not id then return end
     ctx.dep_selected = id
     local ok, res = api:rpc({ GetBuildLogs = { deployment_id = id } })
@@ -861,7 +861,7 @@ function dep_logs(id)
     ctx.dep_build_text = fmt.join_log_lines(lines)
 end
 
-function delete_deployment(id)
+function delete_deployment(id: string): ()
     confirm({
         title = "Remover deployment?",
         message = "O registro do deployment e seus build logs serão removidos. Essa ação não pode ser desfeita.",
@@ -871,7 +871,7 @@ function delete_deployment(id)
     })
 end
 
-function do_delete_deployment(id)
+function do_delete_deployment(id: string): ()
     if not api or not id then return end
     local ok, res = api:rpc_checked({ DeployDelete = { deployment_id = id } })
     ctx.svc_action_msg = ok and "deployment removido" or ("erro: " .. res)
@@ -881,7 +881,7 @@ end
 
 -- ── Ações de ciclo de vida do serviço ──────────────────────────────────────
 
-local function svc_lifecycle(cmd, msg)
+local function svc_lifecycle(cmd: any, msg: string): ()
     local sid = ctx.selected_service
     if not api or not sid or sid == "" then return end
     ctx.svc_action_msg = msg
@@ -890,19 +890,19 @@ local function svc_lifecycle(cmd, msg)
     fetch_service_detail(sid)
 end
 
-function svc_deploy()
+function svc_deploy(): ()
     start_deploy(ctx.selected_service)
 end
 
-function svc_rebuild()
+function svc_rebuild(): ()
     start_deploy(ctx.selected_service)
 end
 
-function svc_reload()
+function svc_reload(): ()
     svc_lifecycle({ ServiceReload = { service_id = ctx.selected_service } }, "recarregando…")
 end
 
-function svc_stop()
+function svc_stop(): ()
     confirm({
         title = "Parar serviço?",
         message = "O tráfego para este serviço será interrompido até um novo deploy.",
@@ -912,13 +912,13 @@ function svc_stop()
     })
 end
 
-function do_svc_stop()
+function do_svc_stop(): ()
     svc_lifecycle({ ServiceStop = { service_id = ctx.selected_service } }, "parando…")
 end
 
 -- Ações de serviço a partir de um card do grid do projeto (project_services).
 -- O grid se atualiza no próximo snapshot (2s), então só setamos proj_action_msg.
-function svc_stop_id(id)
+function svc_stop_id(id: string): ()
     confirm({
         title = "Parar serviço?",
         message = "O tráfego para este serviço será interrompido até um novo deploy.",
@@ -928,7 +928,7 @@ function svc_stop_id(id)
     })
 end
 
-function do_svc_stop_id(id)
+function do_svc_stop_id(id: string): ()
     if not api or not id then return end
     ctx.proj_action_msg = "enviando…"
     local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
@@ -937,7 +937,7 @@ function do_svc_stop_id(id)
     refresh_now()
 end
 
-function stop_delete_service(id)
+function stop_delete_service(id: string): ()
     confirm({
         title = "Parar e remover serviço?",
         message = "O serviço será parado e removido. Essa ação não pode ser desfeita.",
@@ -947,7 +947,7 @@ function stop_delete_service(id)
     })
 end
 
-function do_stop_delete_service(id)
+function do_stop_delete_service(id: string): ()
     if not api or not id then return end
     ctx.proj_action_msg = "removendo…"
     local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
@@ -960,7 +960,7 @@ end
 
 -- ── Picker Gitea (conta → repos → branches) ────────────────────────────────
 
-function gitea_provider_pick(id: string)
+function gitea_provider_pick(id: string): ()
     ctx.gitea_provider_id = id or ""
     ctx.gitea_repo = ""
     ctx.gitea_repos = "[]"
@@ -976,7 +976,7 @@ function gitea_provider_pick(id: string)
     end
 end
 
-function gitea_repo_pick(full_name: string)
+function gitea_repo_pick(full_name: string): ()
     if not full_name then return end
     ctx.gitea_repo = full_name
     -- Resolve clone_url/branch a partir da lista já carregada.
@@ -1007,7 +1007,7 @@ end
 
 local NS_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 math.randomseed(os.time())
-local function token_urlsafe(n)
+local function token_urlsafe(n: number): string
     local t = {}
     for i = 1, n do
         local idx = math.random(1, #NS_ALPHABET)
@@ -1016,11 +1016,11 @@ local function token_urlsafe(n)
     return table.concat(t)
 end
 
-local function ns_is_broker(id)
+local function ns_is_broker(id: string): boolean
     return id == "kafka" or id == "rabbitmq" or id == "nats"
 end
 
-function new_service_open()
+function new_service_open(): ()
     if (ctx.selected_project_id or "") == "" then return end
     ctx.ns_name = ""
     ctx.ns_app_name = ""
@@ -1040,13 +1040,13 @@ function new_service_open()
     end
 end
 
-function ns_cancel()
+function ns_cancel(): ()
     ctx.view = "project_services"
     ctx.ns_step = ""
     ctx.ns_msg = ""
 end
 
-function ns_back()
+function ns_back(): ()
     local step = ctx.ns_step
     if step == "pick_db" or step == "pick_broker" or step == "app_form"
         or step == "compose_form" or step == "pick_template" or step == "db_form"
@@ -1059,7 +1059,7 @@ function ns_back()
     ctx.ns_msg = ""
 end
 
-function ns_kind(k)
+function ns_kind(k: string): ()
     if k == "application" then ctx.ns_step = "app_form"
     elseif k == "compose" then ctx.ns_step = "compose_form"
     elseif k == "database" then ctx.ns_step = "pick_db"
@@ -1069,7 +1069,7 @@ function ns_kind(k)
 end
 
 -- Banco escolhido: pré-preenche o formulário (senhas geradas no cliente).
-function ns_db(id)
+function ns_db(id: string): ()
     local ok, list = pcall(json.decode, ctx.ns_dbs or "[]")
     if not ok or type(list) ~= "table" then return end
     for _, d in ipairs(list) do
@@ -1094,7 +1094,7 @@ function ns_db(id)
 end
 
 -- Broker escolhido: compartilha o passo db_form (mesmas chaves ns_db_*).
-function ns_broker(id)
+function ns_broker(id: string): ()
     local ok, list = pcall(json.decode, ctx.ns_brokers or "[]")
     if not ok or type(list) ~= "table" then return end
     for _, b in ipairs(list) do
@@ -1119,7 +1119,7 @@ function ns_broker(id)
 end
 
 -- Template escolhido: carrega nome/slug + variáveis editáveis (do catálogo).
-function ns_pick_template(id)
+function ns_pick_template(id: string): ()
     for _, t in ipairs(ns_templates_all) do
         if t.id == id then
             ctx.ns_template_id = id
@@ -1136,7 +1136,7 @@ function ns_pick_template(id)
 end
 
 -- Busca do catálogo de templates (filtra o cache no cliente).
-function ns_tsearch(v: string)
+function ns_tsearch(v: string): ()
     ctx.ns_tsearch = v or ""
     local term = string.lower(v or "")
     local rows = {}
@@ -1150,7 +1150,7 @@ function ns_tsearch(v: string)
     ctx.ns_templates = (#rows > 0) and json.encode(rows) or "[]"
 end
 
-function ns_create()
+function ns_create(): ()
     local pid = ctx.selected_project_id or ""
     if pid == "" or not api then return end
     local step = ctx.ns_step
@@ -1207,16 +1207,16 @@ end
 
 -- ── Editar projeto (cabeçalho de project_services) ─────────────────────────
 
-function edit_project_toggle()
+function edit_project_toggle(): ()
     ctx.edit_proj_name = ctx.proj_name or ""
     ctx.edit_proj_desc = ctx.proj_description or ""
     ctx.erro_edit_proj_name = ""
     ctx.editing_project = "true"
 end
 
-function cancel_project_edit() ctx.editing_project = "false" end
+function cancel_project_edit(): () ctx.editing_project = "false" end
 
-function save_project_edit()
+function save_project_edit(): ()
     local pid = ctx.selected_project_id or ""
     if pid == "" or not api then return end
     local name = trim(ctx.edit_proj_name)
@@ -1239,7 +1239,7 @@ end
 
 -- Busca o projeto fresco, aplica `mutate(env_vars)` (devolve o novo array),
 -- envia ProjectEnvSet e reescreve proj_env.
-local function with_project_env(mutate)
+local function with_project_env(mutate: (env: any) -> any): ()
     local pid = ctx.selected_project_id or ""
     if pid == "" or not api then return end
     local ok, res = api:rpc("ProjectList")
@@ -1259,12 +1259,12 @@ local function with_project_env(mutate)
     end
 end
 
-function penv_add()
+function penv_add(): ()
     local key = trim(ctx.penv_new_key)
     if key == "" then ctx.erro_penv_new_key = "chave vazia"; return end
     ctx.erro_penv_new_key = ""
     local val = ctx.penv_new_val or ""
-    with_project_env(function(env)
+    with_project_env(function(env: any): any
         local kept = json.array({})
         for _, v in ipairs(env) do if v.key ~= key then table.insert(kept, v) end end
         table.insert(kept, { key = key, value = { Plain = val } })
@@ -1274,19 +1274,19 @@ function penv_add()
     ctx.penv_new_val = ""
 end
 
-function penv_del(key)
-    with_project_env(function(env)
+function penv_del(key: string): ()
+    with_project_env(function(env: any): any
         local kept = json.array({})
         for _, v in ipairs(env) do if v.key ~= key then table.insert(kept, v) end end
         return kept
     end)
 end
 
-function penv_reorder(v)
+function penv_reorder(v: string?): ()
     if not v then return end
     local ok, keys = pcall(json.decode, v)
     if not ok or type(keys) ~= "table" then return end
-    with_project_env(function(env)
+    with_project_env(function(env: any): any
         local by = {}
         for _, x in ipairs(env) do by[x.key] = x end
         local out = json.array({})
@@ -1300,14 +1300,14 @@ end
 
 -- ── Settings (Web Server) ──────────────────────────────────────────────────
 
-function ss_domain(v)
+function ss_domain(v: string): ()
     ctx.ss_domain = v or ""
     ctx.gp_redirect = oauth_redirect_uri(v or "")
 end
 
-function settings_tab(t) ctx.settings_tab = t end
+function settings_tab(t: string): () ctx.settings_tab = t end
 
-function settings_save()
+function settings_save(): ()
     if not api then return end
     local domain = trim(ctx.ss_domain)
     local email = trim(ctx.ss_email)
@@ -1322,9 +1322,9 @@ end
 
 -- ── Settings → Git (provedores Gitea) ──────────────────────────────────────
 
-function gp_mode(m) ctx.gp_mode = m end
+function gp_mode(m: string): () ctx.gp_mode = m end
 
-local function gp_refresh_list()
+local function gp_refresh_list(): ()
     local c = api
     if not c then return end
     local ok, res = c:rpc("GitProviderList")
@@ -1334,12 +1334,12 @@ local function gp_refresh_list()
     end
 end
 
-function gp_refresh()
+function gp_refresh(): ()
     if not api then return end
     gp_refresh_list()
 end
 
-function gp_connect()
+function gp_connect(): ()
     if not api then return end
     ctx.gp_oauth_url = ""
     local base = trim(ctx.gp_base_url)
@@ -1388,7 +1388,7 @@ function gp_connect()
     gp_refresh_list()
 end
 
-function gp_delete(id)
+function gp_delete(id: string): ()
     if not api or not id then return end
     local ok, res = api:rpc_checked({ GitProviderDelete = { id = id } })
     ctx.gp_msg = ok and "provider removido" or ("erro: " .. res)
@@ -1398,7 +1398,7 @@ end
 
 -- ── Ações mutantes ────────────────────────────────────────────────────────
 
-function stop_all()
+function stop_all(): ()
     confirm({
         title = "Parar todos os serviços?",
         message = "Todos os serviços em execução serão parados agora. Você pode reiniciá-los depois com um novo deploy.",
@@ -1408,7 +1408,7 @@ function stop_all()
     })
 end
 
-function do_stop_all()
+function do_stop_all(): ()
     if not api then return end
     ctx.status_line = "parando todos…"
     local ok, res = api:rpc_checked("StopAllManaged")
@@ -1420,7 +1420,7 @@ function do_stop_all()
     end
 end
 
-function create_project()
+function create_project(): ()
     if not api then return end
     local name = (ctx.new_proj_name or ""):gsub("^%s+", ""):gsub("%s+$", "")
     if name == "" then
@@ -1444,7 +1444,7 @@ function create_project()
     end
 end
 
-function delete_project(id: string)
+function delete_project(id: string): ()
     if not id or id == "" then return end
     confirm({
         title = "Remover projeto?",
@@ -1455,7 +1455,7 @@ function delete_project(id: string)
     })
 end
 
-function do_delete_project(id)
+function do_delete_project(id: string): ()
     if not api or not id or id == "" then return end
     ctx.proj_action_msg = "removendo…"
     local ok, res = api:rpc_checked({ ProjectDelete = { id = id } })
@@ -1471,7 +1471,7 @@ function do_delete_project(id)
 end
 
 -- Docker: limpar recursos sem uso (a aba se atualiza no próximo snapshot).
-local function prune(cmd, label)
+local function prune(cmd: any, label: string): ()
     if not api then return end
     ctx.docker_msg = label
     local ok, res = api:rpc_checked(cmd)
@@ -1485,7 +1485,7 @@ local function prune(cmd, label)
     end
 end
 
-function docker_prune_images()
+function docker_prune_images(): ()
     confirm({
         title = "Limpar imagens sem uso?",
         message = "As imagens Docker sem uso serão removidas agora. Essa limpeza não pode ser desfeita.",
@@ -1495,13 +1495,13 @@ function docker_prune_images()
     })
 end
 
-function do_docker_prune_images()
+function do_docker_prune_images(): ()
     local all = ctx.docker_prune_all_images == "true"
     prune({ PruneImages = { all = all } },
         all and "removendo TODAS as imagens sem uso…" or "removendo imagens dangling…")
 end
 
-function docker_prune_volumes()
+function docker_prune_volumes(): ()
     confirm({
         title = "Limpar volumes sem uso?",
         message = "Os volumes Docker sem uso serão removidos agora. Essa limpeza não pode ser desfeita.",
@@ -1511,12 +1511,12 @@ function docker_prune_volumes()
     })
 end
 
-function do_docker_prune_volumes()
+function do_docker_prune_volumes(): ()
     local all = ctx.docker_prune_all_volumes == "true"
     prune({ PruneVolumes = { all = all } }, "removendo volumes sem uso…")
 end
 
-function docker_prune_networks()
+function docker_prune_networks(): ()
     confirm({
         title = "Limpar redes sem uso?",
         message = "As redes Docker sem uso serão removidas agora. Essa limpeza não pode ser desfeita.",
@@ -1526,14 +1526,14 @@ function docker_prune_networks()
     })
 end
 
-function do_docker_prune_networks()
+function do_docker_prune_networks(): ()
     prune("PruneNetworks", "removendo redes sem uso…")
 end
 
 -- Deploy de um serviço (a partir de um card / detalhe). Arma deploy_track para
 -- o timer decorrido (atualizado pelo snapshot de 2s, via engine.active) e o
 -- desfecho (via evento bus DeployStateChanged).
-function start_deploy(id)
+function start_deploy(id: string?): ()
     local sid = (id and id ~= "") and id or ctx.selected_service
     if not api or not sid or sid == "" then return end
     ctx.svc_action_msg = "iniciando deploy…"
@@ -1557,7 +1557,7 @@ end
 
 -- Parseia um blob .env em (vars, comments). Comentários ancoram na var seguinte
 -- (before_key), ou nil no fim. `<secret:NAME>` volta a ser referência de secret.
-function parse_dotenv(text)
+function parse_dotenv(text: string?): ({any}, {any})
     local vars = json.array({})
     local comments = json.array({})
     local pending = {}
@@ -1592,7 +1592,7 @@ end
 
 -- Aplica uma ordem de keys (vars + linhas `__c<idx>`) a vars/comments: vars
 -- reordenadas; cada comentário reancora na primeira var real que o segue.
-function reorder_env(vars, comments, keys)
+function reorder_env(vars: {any}, comments: {any}, keys: {any}): ({any}, {any})
     local var_keys = {}
     local by_key = {}
     for _, v in ipairs(vars) do var_keys[v.key] = true; by_key[v.key] = v end
