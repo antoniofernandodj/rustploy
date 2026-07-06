@@ -32,7 +32,7 @@ local BUILD_RING = 2000
 -- Normaliza a entrada de URL do login para uma base HTTP(S) sem barra final.
 -- Aceita "https://host:porta", "host:porta", "host" e os esquemas legados
 -- rwp(s):// (convertidos para https). Default: https.
-local function normalize_url(raw)
+local function normalize_url(raw: string): string | nil
     local u = (raw or ""):gsub("^%s+", ""):gsub("%s+$", "")
     if u == "" then return nil end
     local scheme, rest = string.match(u, "^([%a][%w+.-]*)://(.*)$")
@@ -44,9 +44,9 @@ local function normalize_url(raw)
         scheme, rest = "https", u
     end
     -- corta path/query/fragment: só queremos o authority (host[:porta]).
-    rest = string.match(rest, "^([^/?#]*)") or rest
+    rest = string.match(rest or "", "^([^/?#]*)") or rest
     if rest == "" then return nil end
-    return scheme .. "://" .. rest
+    return (scheme or "") .. "://" .. (rest or "")
 end
 
 local function trim(s) return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
@@ -97,8 +97,12 @@ end
 
 -- ── Login / conexão ───────────────────────────────────────────────────────
 
-function toggle_remember_url(v) ctx.remember_url = v end
-function toggle_remember_token(v) ctx.remember_token = v end
+function toggle_remember_url(v)
+    ctx.remember_url = v
+end
+function toggle_remember_token(v)
+    ctx.remember_token = v
+end
 
 -- onSubmit/onClick do formulário de login. `fetch` suspende a corrotina, então
 -- validamos a conexão com um DaemonStatus antes de abrir o stream.
@@ -348,7 +352,7 @@ end
 
 -- ── Busca ─────────────────────────────────────────────────────────────────
 
-function search_changed(v)
+function search_changed(v: string)
     ctx.search = v or ""
     search_term = string.lower(v or "")
     rebuild_lists()
@@ -832,14 +836,25 @@ local function svc_lifecycle(cmd, msg)
     fetch_service_detail(sid)
 end
 
-function svc_deploy() start_deploy(ctx.selected_service) end
-function svc_rebuild() start_deploy(ctx.selected_service) end
-function svc_reload() svc_lifecycle({ ServiceReload = { service_id = ctx.selected_service } }, "recarregando…") end
-function svc_stop() svc_lifecycle({ ServiceStop = { service_id = ctx.selected_service } }, "parando…") end
+function svc_deploy()
+    start_deploy(ctx.selected_service)
+end
+
+function svc_rebuild()
+    start_deploy(ctx.selected_service)
+end
+
+function svc_reload()
+    svc_lifecycle({ ServiceReload = { service_id = ctx.selected_service } }, "recarregando…")
+end
+
+function svc_stop()
+    svc_lifecycle({ ServiceStop = { service_id = ctx.selected_service } }, "parando…")
+end
 
 -- ── Picker Gitea (conta → repos → branches) ────────────────────────────────
 
-function gitea_provider_pick(id)
+function gitea_provider_pick(id: string)
     ctx.gitea_provider_id = id or ""
     ctx.gitea_repo = ""
     ctx.gitea_repos = "[]"
@@ -855,7 +870,7 @@ function gitea_provider_pick(id)
     end
 end
 
-function gitea_repo_pick(full_name)
+function gitea_repo_pick(full_name: string)
     if not full_name then return end
     ctx.gitea_repo = full_name
     -- Resolve clone_url/branch a partir da lista já carregada.
@@ -932,7 +947,9 @@ function ns_kind(k)
     end
 end
 
-function ns_tsearch(v) ctx.ns_tsearch = v or "" end
+function ns_tsearch(v: string)
+    ctx.ns_tsearch = v or ""
+end
 
 function ns_create()
     local pid = ctx.selected_project_id or ""
@@ -1182,7 +1199,7 @@ function create_project()
     end
 end
 
-function delete_project(id)
+function delete_project(id: string)
     if not api or not id or id == "" then return end
     ctx.proj_action_msg = "removendo…"
     local ok, res = api:rpc_checked({ ProjectDelete = { id = id } })
@@ -1214,11 +1231,15 @@ function docker_prune_images()
     prune({ PruneImages = { all = all } },
         all and "removendo TODAS as imagens sem uso…" or "removendo imagens dangling…")
 end
+
 function docker_prune_volumes()
     local all = ctx.docker_prune_all_volumes == "true"
     prune({ PruneVolumes = { all = all } }, "removendo volumes sem uso…")
 end
-function docker_prune_networks() prune("PruneNetworks", "removendo redes sem uso…") end
+
+function docker_prune_networks()
+    prune("PruneNetworks", "removendo redes sem uso…")
+end
 
 -- Deploy de um serviço (a partir de um card / detalhe). Arma deploy_track para
 -- o timer decorrido (atualizado pelo snapshot de 2s, via engine.active) e o
