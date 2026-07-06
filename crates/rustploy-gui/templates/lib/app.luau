@@ -20,6 +20,12 @@ local snap = nil             -- último snapshot decodificado (para refiltrar)
 local last_pairs = {}        -- serviços normalizados { svc, proj } do snapshot
 local metrics_by_id = {}     -- service_id → ContainerMetricsPoint (eventos bus)
 local search_term = ""       -- termo de busca corrente (minúsculas)
+local svc_logs_buf = {}      -- ring de logs vivos do serviço aberto (LogLine)
+local blog_buf = {}          -- ring de build logs do deployment selecionado
+local deploy_track = { service_id = "", deployment_id = "", running = false }
+
+local LOG_RING = 200
+local BUILD_RING = 2000
 
 -- ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -41,6 +47,16 @@ local function normalize_url(raw)
     rest = string.match(rest, "^([^/?#]*)") or rest
     if rest == "" then return nil end
     return scheme .. "://" .. rest
+end
+
+local function trim(s) return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
+
+-- Heurística: a URL denota um repo Git (clonar+buildar) e não uma imagem.
+local function looks_like_git_url(u)
+    u = trim(u)
+    return u:match("^https://") ~= nil or u:match("^http://") ~= nil
+        or u:match("^git@") ~= nil or u:match("^ssh://") ~= nil
+        or u:match("^file://") ~= nil or u:match("%.git$") ~= nil
 end
 
 -- ── init: semeia o contexto para a UI pintar antes de qualquer dado ───────
@@ -199,6 +215,19 @@ function apply_snapshot(msg)
         ctx.eng_active = fmt.eng_active(eng.active)
         ctx.eng_recent = fmt.eng_recent(eng.recent)
         ctx.eng_recent_count = tostring(#(eng.recent or {}))
+
+        -- Timer decorrido do deploy em voo do serviço aberto (granularidade de
+        -- 2s — sem timer no Luau, vem do próprio snapshot; ver plano). O desfecho
+        -- terminal vem por DeployStateChanged (apply_bus).
+        if deploy_track.running and ctx.selected_service == deploy_track.service_id then
+            for _, a in ipairs(eng.active or {}) do
+                if a.service_id == deploy_track.service_id then
+                    ctx.svc_deploy_running = "true"
+                    ctx.svc_deploy_elapsed = fmt.fmt_secs(a.elapsed_secs)
+                    break
+                end
+            end
+        end
     end
 
     -- Contagens.
@@ -257,7 +286,7 @@ function update_open_project()
     ctx.project_services = fmt.service_rows(proj_pairs, metrics_by_id, search_term)
 end
 
--- Eventos vivos do bus (métricas; logs ficam para a fatia de service detail).
+-- Eventos vivos do bus: métricas, logs de container/build e transições de deploy.
 function apply_bus(ev)
     if type(ev) ~= "table" then return end
     if ev.ContainerMetrics then
@@ -269,6 +298,43 @@ function apply_bus(ev)
         ctx.sys_mem = fmt.fmt_bytes(s.mem_used_bytes) .. " / " .. fmt.fmt_bytes(s.mem_total_bytes)
         ctx.sys_disk = fmt.fmt_bytes(s.disk_used_bytes) .. " / " .. fmt.fmt_bytes(s.disk_total_bytes)
         ctx.sys_load = string.format("%.2f %.2f %.2f", s.load_avg_1 or 0, s.load_avg_5 or 0, s.load_avg_15 or 0)
+    elseif ev.LogLine then
+        local e = ev.LogLine
+        if e.service_id == ctx.selected_service then
+            table.insert(svc_logs_buf, { stream = e.stream, line = e.line, timestamp = e.timestamp })
+            while #svc_logs_buf > LOG_RING do table.remove(svc_logs_buf, 1) end
+            ctx.svc_logs = fmt.logs_json(svc_logs_buf)
+            ctx.svc_logs_count = tostring(#svc_logs_buf)
+            ctx.svc_logs_text = fmt.join_log_lines(svc_logs_buf)
+        end
+    elseif ev.BuildLog then
+        local e = ev.BuildLog
+        if e.deployment_id == ctx.dep_selected then
+            table.insert(blog_buf, { stream = "Stdout", line = e.line, timestamp = e.timestamp })
+            while #blog_buf > BUILD_RING do table.remove(blog_buf, 1) end
+            ctx.dep_build_logs = fmt.build_logs_json(blog_buf)
+            ctx.dep_build_count = tostring(#blog_buf)
+            ctx.dep_build_text = fmt.join_log_lines(blog_buf)
+        end
+    elseif ev.DeployStateChanged then
+        local d = ev.DeployStateChanged
+        if d.service_id == deploy_track.service_id then
+            local terminal = d.state == "Live" or d.state == "Failed" or d.state == "Stopped"
+            if terminal then
+                deploy_track.running = false
+                local live = d.state == "Live"
+                if d.service_id == ctx.selected_service then
+                    ctx.svc_deploy_running = "false"
+                    ctx.svc_action_msg = live and "deploy concluído" or ("deploy: " .. tostring(d.state))
+                    ctx.svc_action_color = live and "#3FB950" or "#F85149"
+                    fetch_service_detail(d.service_id)
+                end
+            elseif d.service_id == ctx.selected_service then
+                ctx.svc_deploy_running = "true"
+                ctx.svc_action_msg = "deploy · " .. tostring(d.state)
+                ctx.svc_action_color = "#58A6FF"
+            end
+        end
     end
 end
 
@@ -323,12 +389,486 @@ function open_project(id)
     update_open_project()
 end
 
--- Abrir o detalhe de um serviço. (Detalhe completo virá na próxima fatia; aqui
--- só navega e registra a seleção para os logs vivos futuros.)
+-- Abas do service detail e do healthcheck kind.
+function tab(t) ctx.tab = t end
+function prov(t) ctx.prov_tab = t end
+function hckind(k) ctx.f_hc_kind = k end
+
+-- Abrir o detalhe de um serviço: navega e dispara o fetch (spec + logs +
+-- deployments + provedores Git). O fetch suspende a corrotina (fetch), sem
+-- travar a UI; svc_loading=true segura os Selects até tudo chegar.
 function open_service(id)
     ctx.selected_service = id
     ctx.view = "service"
     ctx.tab = "general"
+    ctx.svc_error = ""
+    ctx.dep_selected = ""
+    ctx.svc_action_msg = ""
+    ctx.svc_action_color = "#8B949E"
+    blog_buf = {}
+    svc_logs_buf = {}
+    if deploy_track.service_id ~= id then
+        ctx.svc_deploy_running = "false"
+        ctx.svc_deploy_elapsed = ""
+    end
+    ctx.svc_loading = "true"
+    fetch_service_detail(id)
+end
+
+-- One-shot: monta TODAS as chaves svc_*/f_* do painel de detalhe (equivalente a
+-- net/services.rs::fetch_detail_inner).
+function fetch_service_detail(sid)
+    if not api or not sid or sid == "" then return end
+    local ok, res = api:rpc({ ServiceGet = { id = sid } })
+    if not ok or not res.Service then
+        ctx.svc_loading = "false"
+        ctx.svc_error = ok and "serviço não encontrado" or res
+        return
+    end
+    local svc = res.Service
+    local spec = svc.spec
+
+    -- Nome do projeto (ServiceGet só traz o id).
+    local project_name = spec.project_id
+    if snap then
+        for _, p in ipairs(snap.projects or {}) do
+            if p.id == spec.project_id then project_name = p.name break end
+        end
+    end
+
+    -- Logs recentes (seed do ring vivo) + histórico de deployments.
+    local logs = {}
+    local okl, resl = api:rpc({ LogsGet = { service_id = sid, tail = LOG_RING } })
+    if okl and resl.Logs then logs = resl.Logs end
+    svc_logs_buf = logs
+    local deployments = {}
+    local okd, resd = api:rpc({ DeployHistory = { service_id = sid, limit = 30 } })
+    if okd and resd.Deployments then deployments = resd.Deployments end
+
+    local status_label, status_color = fmt.status_label_color(svc.status)
+    local skind, sdetail, sbuild = fmt.source_summary3(spec.source)
+
+    -- Campos editáveis da aba General (source).
+    local g = { repo_url = "", branch = "", username = "", credentials = "",
+                build_path = "", watch_paths = "", submodules = false,
+                dockerfile = "", context_path = "", build_stage = "" }
+    local compose_content = ""
+    local prov_tab, gen_provider_id, bound_url = "git", "", ""
+    if spec.source.Git then
+        local gs = spec.source.Git
+        g.repo_url = gs.url or ""
+        g.branch = gs.branch or ""
+        g.username = gs.username or ""
+        g.credentials = gs.credentials or ""
+        g.build_path = gs.root_path or ""
+        g.watch_paths = table.concat(gs.watch_paths or {}, ", ")
+        g.submodules = gs.submodules == true
+        g.dockerfile = gs.dockerfile_path or ""
+        g.context_path = gs.build_context or ""
+        g.build_stage = gs.build_stage or ""
+        if gs.provider_id and gs.provider_id ~= "" then
+            prov_tab, gen_provider_id, bound_url = "gitea", gs.provider_id, gs.url or ""
+        end
+    elseif spec.source.Registry then
+        g.repo_url = spec.source.Registry.image or ""
+    elseif spec.source.Compose then
+        compose_content = spec.source.Compose.content or ""
+    end
+
+    -- Healthcheck → campos do form.
+    local hc = spec.healthcheck
+    local hk, hpath, hstatus = "tcp", "", ""
+    if type(hc.kind) == "table" and hc.kind.Http then
+        hk, hpath, hstatus = "http", hc.kind.Http.path or "", tostring(hc.kind.Http.expected_status)
+    elseif hc.kind == "None" then hk = "none"
+    elseif hc.kind == "DockerNative" then hk = "docker"
+    else hk = "tcp" end
+
+    -- Rota primária (Connection) + provedores Gitea conectados.
+    local routes = {}
+    if spec.domains and #spec.domains > 0 then
+        for _, r in ipairs(spec.domains) do table.insert(routes, r) end
+    elseif spec.domain and spec.domain ~= "" then
+        routes = { { domain = spec.domain, tls = spec.tls_enabled == true } }
+    end
+    local pr = routes[1]
+    local pr_domain = pr and pr.domain or nil
+    local pr_tls = pr and pr.tls == true or false
+
+    ctx.svc_loading = "false"
+    ctx.svc_error = ""
+    ctx.svc_id = svc.id
+    ctx.svc_name = spec.name
+    ctx.svc_project = project_name
+    ctx.svc_project_id = spec.project_id
+    ctx.svc_status_label = status_label
+    ctx.svc_status_color = status_color
+    ctx.svc_source_kind = skind
+    ctx.svc_source_detail = sdetail
+    ctx.svc_compose = compose_content
+    ctx.svc_compose_orig = compose_content
+    ctx.svc_build = sbuild
+    ctx.svc_port = tostring(spec.port)
+    ctx.svc_host_port = spec.host_port and tostring(spec.host_port) or "—"
+    ctx.svc_domain = pr_domain or "—"
+    ctx.svc_tls = pr_tls and "enabled" or "disabled"
+    ctx.svc_replicas = tostring(spec.replicas)
+    ctx.svc_domains = fmt.domains_json(spec)
+    ctx.svc_domains_count = tostring(#routes)
+    ctx.svc_external_url = fmt.external_url(pr_domain, pr_tls)
+    ctx.svc_internal_url = fmt.internal_url(spec.db_kind, fmt.safe_name(spec.name), spec.port)
+    ctx.svc_db_kind = spec.db_kind or "—"
+    ctx.svc_hc = fmt.healthcheck_summary(spec.healthcheck)
+    ctx.svc_run_command = spec.run_command or "—"
+    ctx.svc_run_args = (spec.run_args and #spec.run_args > 0) and table.concat(spec.run_args, " ") or "—"
+    ctx.svc_env = fmt.env_json_with_comments(spec.env_vars, spec.env_comments)
+    ctx.svc_env_count = tostring(#(spec.env_vars or {}))
+    local dotenv = fmt.env_dotenv_with_comments(spec.env_vars, spec.env_comments)
+    ctx.svc_env_text = dotenv
+    ctx.svc_env_text_orig = dotenv
+    ctx.svc_logs = fmt.logs_json(logs)
+    ctx.svc_logs_count = tostring(#logs)
+    ctx.svc_logs_text = fmt.join_log_lines(logs)
+    ctx.svc_deployments = fmt.deployments_detail(deployments)
+    ctx.svc_deployments_count = tostring(#deployments)
+    -- Campos editáveis.
+    ctx.f_domain = ""
+    ctx.f_port = ""
+    ctx.f_tls = "false"
+    ctx.f_host_port = spec.host_port and tostring(spec.host_port) or ""
+    ctx.f_hc_kind = hk
+    ctx.f_hc_path = hpath
+    ctx.f_hc_status = hstatus
+    ctx.f_hc_interval = tostring(hc.interval_secs)
+    ctx.f_hc_timeout = tostring(hc.timeout_secs)
+    ctx.f_hc_retries = tostring(hc.retries)
+    ctx.f_hc_start = tostring(hc.start_period_secs)
+    ctx.f_replicas = tostring(spec.replicas)
+    ctx.f_run_command = spec.run_command or ""
+    ctx.f_repo_url = g.repo_url
+    ctx.f_branch = g.branch
+    ctx.f_username = g.username
+    ctx.f_credentials = g.credentials
+    ctx.f_build_path = g.build_path
+    ctx.f_watch_paths = g.watch_paths
+    ctx.f_submodules = g.submodules and "true" or "false"
+    ctx.f_dockerfile = g.dockerfile
+    ctx.f_context_path = g.context_path
+    ctx.f_build_stage = g.build_stage
+    ctx.f_gen_port = tostring(spec.port)
+    ctx.prov_tab = prov_tab
+    ctx.gitea_provider_id = gen_provider_id
+
+    -- Provedores Gitea conectados (para o picker de conta).
+    local okp, resp = api:rpc("GitProviderList")
+    if okp and resp.GitProviders then
+        ctx.gitea_providers = fmt.git_providers(resp.GitProviders)
+        ctx.gitea_count = tostring(#resp.GitProviders)
+        -- Serviço já ligado a um provedor: pré-carrega repos/branches.
+        if gen_provider_id ~= "" then
+            local okr, resr = api:rpc({ GitRepoList = { provider_id = gen_provider_id } })
+            if okr and resr.GitRepos then
+                ctx.gitea_repos = fmt.git_repos(resr.GitRepos)
+                ctx.gitea_msg = tostring(#resr.GitRepos) .. " repositório(s)"
+                local full
+                for _, r in ipairs(resr.GitRepos) do
+                    if r.clone_url == bound_url then full = r.full_name break end
+                end
+                if full then
+                    ctx.gitea_repo = full
+                    local okb, resb = api:rpc({ GitBranchList = { provider_id = gen_provider_id, repo_full_name = full } })
+                    if okb and resb.GitBranches then
+                        ctx.gitea_branches = fmt.git_branches(resb.GitBranches)
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- ── Service detail: mutações de spec/env (ServiceGet → muta → ServiceUpdate) ─
+
+-- Busca o spec fresco, aplica `mutate(spec)` (retorna erro-string ou nil),
+-- envia ServiceUpdate e refaz o fetch do detalhe.
+local function with_spec(mutate)
+    local sid = ctx.selected_service
+    if not api or not sid or sid == "" then return end
+    local ok, res = api:rpc({ ServiceGet = { id = sid } })
+    if not ok or not res.Service then ctx.svc_action_msg = "erro ao carregar spec"; return end
+    local spec = res.Service.spec
+    local emsg = mutate(spec)
+    if emsg then ctx.svc_action_msg = "erro: " .. emsg; return end
+    local ok2, res2 = api:rpc_checked({ ServiceUpdate = { id = sid, spec = spec } })
+    if ok2 then
+        ctx.svc_action_msg = "salvo"
+        fetch_service_detail(sid)
+    else
+        ctx.svc_action_msg = "erro: " .. res2
+    end
+end
+
+-- Move o domínio legado (domain/tls_enabled) para a lista `domains`.
+local function materialize_domains(spec)
+    if not spec.domains or #spec.domains == 0 then
+        local routes = json.array({})
+        if spec.domain and spec.domain ~= "" then
+            table.insert(routes, { domain = spec.domain, tls = spec.tls_enabled == true })
+        end
+        spec.domains = routes
+    end
+    spec.domain = nil
+    spec.tls_enabled = false
+end
+
+function dom_add()
+    local domain = trim(ctx.f_domain)
+    if domain == "" then ctx.erro_f_domain = "domínio vazio"; return end
+    ctx.erro_f_domain = ""
+    with_spec(function(spec)
+        materialize_domains(spec)
+        local route = { domain = domain, port = tonumber(trim(ctx.f_port)), tls = ctx.f_tls == "true" }
+        local found = false
+        for i, r in ipairs(spec.domains) do
+            if r.domain == domain then spec.domains[i] = route; found = true; break end
+        end
+        if not found then table.insert(spec.domains, route) end
+    end)
+end
+
+function dom_del(domain)
+    with_spec(function(spec)
+        materialize_domains(spec)
+        local kept = json.array({})
+        for _, r in ipairs(spec.domains) do
+            if r.domain ~= domain then table.insert(kept, r) end
+        end
+        spec.domains = kept
+    end)
+end
+
+function dom_hostport_save()
+    with_spec(function(spec)
+        spec.host_port = tonumber(trim(ctx.f_host_port))
+    end)
+end
+
+function compose_save()
+    with_spec(function(spec)
+        if spec.source.Compose then
+            spec.source = { Compose = { content = ctx.svc_compose or "" } }
+        end
+    end)
+end
+
+function compose_cancel()
+    ctx.svc_compose = ctx.svc_compose_orig or ""
+end
+
+function hc_save()
+    with_spec(function(spec)
+        local kind = ctx.f_hc_kind
+        local hk
+        if kind == "none" then hk = "None"
+        elseif kind == "http" then
+            local path = trim(ctx.f_hc_path); if path == "" then path = "/" end
+            hk = { Http = { path = path, expected_status = tonumber(trim(ctx.f_hc_status)) or 200 } }
+        elseif kind == "docker" then hk = "DockerNative"
+        else hk = "Tcp" end
+        local cur = spec.healthcheck
+        spec.healthcheck = {
+            kind = hk,
+            interval_secs = tonumber(trim(ctx.f_hc_interval)) or cur.interval_secs,
+            timeout_secs = tonumber(trim(ctx.f_hc_timeout)) or cur.timeout_secs,
+            retries = tonumber(trim(ctx.f_hc_retries)) or cur.retries,
+            start_period_secs = tonumber(trim(ctx.f_hc_start)) or cur.start_period_secs,
+        }
+    end)
+end
+
+function adv_save()
+    with_spec(function(spec)
+        local r = tonumber(trim(ctx.f_replicas)) or 1
+        if r < 1 then r = 1 end
+        spec.replicas = math.floor(r)
+        local rc = trim(ctx.f_run_command)
+        spec.run_command = (rc ~= "") and rc or nil
+    end)
+end
+
+function gen_save()
+    with_spec(function(spec)
+        local port = tonumber(trim(ctx.f_gen_port))
+        if port then spec.port = math.floor(port) end
+        local function ne(v, d) v = trim(v); if v == "" then return d else return v end end
+        local function opt(v) v = trim(v); if v == "" then return nil else return v end end
+        local repo = trim(ctx.f_repo_url)
+        local watch = json.array({})
+        for part in string.gmatch(ctx.f_watch_paths or "", "[^,]+") do
+            local t = trim(part); if t ~= "" then table.insert(watch, t) end
+        end
+        local git = { Git = {
+            url = repo, branch = ne(ctx.f_branch, "main"), root_path = ne(ctx.f_build_path, "."),
+            watch_paths = watch, submodules = ctx.f_submodules == "true",
+            dockerfile_path = ne(ctx.f_dockerfile, "Dockerfile"), build_context = ne(ctx.f_context_path, "."),
+            build_stage = opt(ctx.f_build_stage), credentials = opt(ctx.f_credentials),
+            username = opt(ctx.f_username), provider_id = opt(ctx.gitea_provider_id),
+        } }
+        if spec.source.Compose then
+            -- inalterado
+        elseif spec.source.Git or looks_like_git_url(repo) then
+            spec.source = git
+        else
+            spec.source = { Registry = { image = repo } }
+        end
+    end)
+end
+
+-- ── Environment ────────────────────────────────────────────────────────────
+
+function env_add()
+    local key = trim(ctx.env_new_key)
+    if key == "" then ctx.erro_env_new_key = "chave vazia"; return end
+    ctx.erro_env_new_key = ""
+    local val = ctx.env_new_val or ""
+    with_spec(function(spec)
+        local kept = json.array({})
+        for _, v in ipairs(spec.env_vars or {}) do
+            if v.key ~= key then table.insert(kept, v) end
+        end
+        table.insert(kept, { key = key, value = { Plain = val } })
+        spec.env_vars = kept
+    end)
+    ctx.env_new_key = ""
+    ctx.env_new_val = ""
+end
+
+function env_del(key)
+    with_spec(function(spec)
+        local kept = json.array({})
+        for _, v in ipairs(spec.env_vars or {}) do
+            if v.key ~= key then table.insert(kept, v) end
+        end
+        spec.env_vars = kept
+        local kc = json.array({})
+        for _, c in ipairs(spec.env_comments or {}) do
+            if c.before_key ~= key then table.insert(kc, c) end
+        end
+        spec.env_comments = kc
+    end)
+end
+
+function env_import()
+    local text = ctx.svc_env_text or ""
+    with_spec(function(spec)
+        local vars, comments = parse_dotenv(text)
+        spec.env_vars = vars
+        spec.env_comments = comments
+    end)
+    ctx.env_text_open = "false"
+end
+
+function env_export()
+    -- Abre o editor .env já preenchido (o texto vem do fetch em svc_env_text).
+    ctx.env_text_open = "true"
+end
+
+function env_text_toggle()
+    ctx.env_text_open = (ctx.env_text_open == "true") and "false" or "true"
+end
+
+function env_text_cancel()
+    ctx.svc_env_text = ctx.svc_env_text_orig or ""
+    ctx.env_text_open = "false"
+end
+
+-- Reordena env (arraste): `value` é um JSON array de keys na nova ordem.
+function env_reorder(v)
+    if not v then return end
+    local ok, keys = pcall(json.decode, v)
+    if not ok or type(keys) ~= "table" then return end
+    with_spec(function(spec)
+        local nv, nc = reorder_env(spec.env_vars or {}, spec.env_comments or {}, keys)
+        spec.env_vars = nv
+        spec.env_comments = nc
+    end)
+end
+
+-- ── Deployments (build log + delete) ───────────────────────────────────────
+
+function dep_logs(id)
+    if not api or not id then return end
+    ctx.dep_selected = id
+    local ok, res = api:rpc({ GetBuildLogs = { deployment_id = id } })
+    local lines = (ok and res.BuildLogs) or {}
+    blog_buf = lines
+    ctx.dep_build_logs = fmt.build_logs_json(lines)
+    ctx.dep_build_count = tostring(#lines)
+    ctx.dep_build_text = fmt.join_log_lines(lines)
+end
+
+function delete_deployment(id)
+    if not api or not id then return end
+    local ok, res = api:rpc_checked({ DeployDelete = { deployment_id = id } })
+    ctx.svc_action_msg = ok and "deployment removido" or ("erro: " .. res)
+    fetch_service_detail(ctx.selected_service)
+end
+
+-- ── Ações de ciclo de vida do serviço ──────────────────────────────────────
+
+local function svc_lifecycle(cmd, msg)
+    local sid = ctx.selected_service
+    if not api or not sid or sid == "" then return end
+    ctx.svc_action_msg = msg
+    local ok, res = api:rpc_checked(cmd)
+    if not ok then ctx.svc_action_msg = "erro: " .. res end
+    fetch_service_detail(sid)
+end
+
+function svc_deploy() start_deploy(ctx.selected_service) end
+function svc_rebuild() start_deploy(ctx.selected_service) end
+function svc_reload() svc_lifecycle({ ServiceReload = { service_id = ctx.selected_service } }, "recarregando…") end
+function svc_stop() svc_lifecycle({ ServiceStop = { service_id = ctx.selected_service } }, "parando…") end
+
+-- ── Picker Gitea (conta → repos → branches) ────────────────────────────────
+
+function gitea_provider_pick(id)
+    ctx.gitea_provider_id = id or ""
+    ctx.gitea_repo = ""
+    ctx.gitea_repos = "[]"
+    ctx.gitea_branches = "[]"
+    if not api or not id or id == "" then return end
+    ctx.gitea_msg = "carregando repositórios…"
+    local ok, res = api:rpc({ GitRepoList = { provider_id = id } })
+    if ok and res.GitRepos then
+        ctx.gitea_repos = fmt.git_repos(res.GitRepos)
+        ctx.gitea_msg = tostring(#res.GitRepos) .. " repositório(s)"
+    else
+        ctx.gitea_msg = "erro ao listar repositórios"
+    end
+end
+
+function gitea_repo_pick(full_name)
+    if not full_name then return end
+    ctx.gitea_repo = full_name
+    -- Resolve clone_url/branch a partir da lista já carregada.
+    local ok, repos = pcall(json.decode, ctx.gitea_repos or "[]")
+    if ok and type(repos) == "table" then
+        for _, r in ipairs(repos) do
+            if r.full_name == full_name then
+                if r.clone_url and r.clone_url ~= "" then ctx.f_repo_url = r.clone_url end
+                if r.default_branch and r.default_branch ~= "" then ctx.f_branch = r.default_branch end
+                break
+            end
+        end
+    end
+    ctx.gitea_branches = "[]"
+    local pid = ctx.gitea_provider_id or ""
+    if not api or pid == "" then return end
+    ctx.gitea_msg = "carregando branches…"
+    local okb, resb = api:rpc({ GitBranchList = { provider_id = pid, repo_full_name = full_name } })
+    if okb and resb.GitBranches then
+        ctx.gitea_branches = fmt.git_branches(resb.GitBranches)
+    end
 end
 
 -- ── Ações mutantes ────────────────────────────────────────────────────────
@@ -397,11 +937,96 @@ function docker_prune_images() prune({ PruneImages = { all = false } }, "removen
 function docker_prune_volumes() prune({ PruneVolumes = { all = false } }, "removendo volumes sem uso…") end
 function docker_prune_networks() prune("PruneNetworks", "removendo redes sem uso…") end
 
--- Deploy de um serviço (a partir de um card / detalhe).
+-- Deploy de um serviço (a partir de um card / detalhe). Arma deploy_track para
+-- o timer decorrido (atualizado pelo snapshot de 2s, via engine.active) e o
+-- desfecho (via evento bus DeployStateChanged).
 function start_deploy(id)
     local sid = (id and id ~= "") and id or ctx.selected_service
     if not api or not sid or sid == "" then return end
     ctx.svc_action_msg = "iniciando deploy…"
+    ctx.svc_action_color = "#58A6FF"
     local ok, res = api:rpc_checked({ DeployStart = { service_id = sid } })
-    if not ok then ctx.svc_action_msg = "erro: " .. res end
+    if ok and res.Deployment then
+        deploy_track = { service_id = sid, deployment_id = res.Deployment.id, running = true }
+        ctx.svc_deploy_running = "true"
+        ctx.svc_deploy_elapsed = "0s"
+        ctx.svc_action_msg = "deploy iniciado · " .. tostring(res.Deployment.state)
+    else
+        ctx.svc_action_msg = ok and "resposta inesperada" or ("erro: " .. res)
+        ctx.svc_action_color = "#F85149"
+    end
+    if ctx.selected_service == sid then fetch_service_detail(sid) end
+end
+
+-- ── Parse/reorder de .env (equivalente a services.rs) ─────────────────────
+
+-- Parseia um blob .env em (vars, comments). Comentários ancoram na var seguinte
+-- (before_key), ou nil no fim. `<secret:NAME>` volta a ser referência de secret.
+function parse_dotenv(text)
+    local vars = json.array({})
+    local comments = json.array({})
+    local pending = {}
+    for line in string.gmatch((text or "") .. "\n", "([^\n]*)\n") do
+        local l = trim(line)
+        if l == "" then
+            -- ignora
+        elseif l:sub(1, 1) == "#" then
+            table.insert(pending, l)
+        else
+            local k, v = l:match("^([^=]+)=(.*)$")
+            if k then
+                local key = trim(k)
+                if key ~= "" then
+                    for _, c in ipairs(pending) do
+                        table.insert(comments, { text = c, before_key = key })
+                    end
+                    pending = {}
+                    v = trim(v)
+                    local secret = v:match("^<secret:(.+)>$")
+                    local value = secret and { Secret = secret } or { Plain = v }
+                    table.insert(vars, { key = key, value = value })
+                end
+            end
+        end
+    end
+    for _, c in ipairs(pending) do
+        table.insert(comments, { text = c, before_key = nil })
+    end
+    return vars, comments
+end
+
+-- Aplica uma ordem de keys (vars + linhas `__c<idx>`) a vars/comments: vars
+-- reordenadas; cada comentário reancora na primeira var real que o segue.
+function reorder_env(vars, comments, keys)
+    local var_keys = {}
+    local by_key = {}
+    for _, v in ipairs(vars) do var_keys[v.key] = true; by_key[v.key] = v end
+    local seen = {}
+    local new_vars = json.array({})
+    local new_comments = json.array({})
+    for pos, k in ipairs(keys) do
+        local ci = k:match("^__c(%d+)$")
+        if ci then
+            local idx = tonumber(ci) + 1  -- __c é 0-based
+            local c = comments[idx]
+            if c then
+                seen[idx] = true
+                local anchor = nil
+                for j = pos + 1, #keys do
+                    if var_keys[keys[j]] then anchor = keys[j]; break end
+                end
+                table.insert(new_comments, { text = c.text, before_key = anchor })
+            end
+        elseif by_key[k] then
+            table.insert(new_vars, by_key[k])
+            by_key[k] = nil
+        end
+    end
+    for _, v in ipairs(vars) do
+        if by_key[v.key] then table.insert(new_vars, v) end
+    end
+    for idx, c in ipairs(comments) do
+        if not seen[idx] then table.insert(new_comments, c) end
+    end
+    return new_vars, new_comments
 end

@@ -511,6 +511,190 @@ function M.eng_active(active)
     return enc_array(rows)
 end
 
+-- ── Service detail (equivalente às partes de view.rs usadas por services.rs) ──
+
+M.status_label_color = status_label_color
+
+local function is_terminal(state)
+    return state == "Live" or state == "Stopped" or state == "Failed" or state == "Pruning"
+end
+
+-- ServiceSource → (kind, detail, build_engine) — source_summary().
+function M.source_summary3(source)
+    if type(source) ~= "table" then return "—", "—", "—" end
+    if source.Registry then return "Registry", source.Registry.image or "—", "—"
+    elseif source.Git then
+        local g = source.Git
+        return "Git", (g.url or "") .. " @ " .. (g.branch or ""), g.dockerfile_path or "Dockerfile"
+    elseif source.Compose then return "Compose", "docker-compose", "Compose"
+    end
+    return "—", "—", "—"
+end
+
+-- Resumo de uma linha do healthcheck.
+function M.healthcheck_summary(hc)
+    local k = hc.kind
+    local kind
+    if type(k) == "table" and k.Http then
+        kind = "HTTP " .. (k.Http.path or "") .. " → " .. tostring(k.Http.expected_status)
+    elseif k == "None" then
+        return "disabled"
+    elseif k == "Tcp" then kind = "TCP"
+    elseif k == "DockerNative" then kind = "Docker"
+    else kind = tostring(k) end
+    return string.format("%s · every %ss · timeout %ss · %s retries",
+        kind, tostring(hc.interval_secs), tostring(hc.timeout_secs), tostring(hc.retries))
+end
+
+-- Uma linha de var de ambiente (secret exibido por referência).
+local function env_var_row(v)
+    local value, kind
+    if v.value and v.value.Secret ~= nil then
+        value, kind = "secret:" .. v.value.Secret, "secret"
+    else
+        value, kind = (v.value and v.value.Plain) or "", "plain"
+    end
+    return { key = v.key, value = value, kind = kind }
+end
+
+-- Env vars como linhas JSON, re-interleaving os comentários `# ...` ancorados
+-- (linha `__c<idx>`, idx = índice 0-based em env_comments).
+function M.env_json_with_comments(vars, comments)
+    vars, comments = vars or {}, comments or {}
+    local rows = {}
+    for _, v in ipairs(vars) do
+        for i, c in ipairs(comments) do
+            if c.before_key == v.key then
+                table.insert(rows, { key = "__c" .. (i - 1), value = c.text, kind = "comment" })
+            end
+        end
+        table.insert(rows, env_var_row(v))
+    end
+    for i, c in ipairs(comments) do
+        if c.before_key == nil then
+            table.insert(rows, { key = "__c" .. (i - 1), value = c.text, kind = "comment" })
+        end
+    end
+    return enc_array(rows)
+end
+
+-- Env vars como blob `.env` (KEY=VALUE, secrets por referência), com comentários.
+function M.env_dotenv_with_comments(vars, comments)
+    vars, comments = vars or {}, comments or {}
+    local lines = {}
+    for _, v in ipairs(vars) do
+        for _, c in ipairs(comments) do
+            if c.before_key == v.key then table.insert(lines, c.text) end
+        end
+        local val
+        if v.value and v.value.Secret ~= nil then
+            val = "<secret:" .. v.value.Secret .. ">"
+        else
+            val = (v.value and v.value.Plain) or ""
+        end
+        table.insert(lines, v.key .. "=" .. val)
+    end
+    for _, c in ipairs(comments) do
+        if c.before_key == nil then table.insert(lines, c.text) end
+    end
+    return table.concat(lines, "\n")
+end
+
+-- Linhas de log (LogEntry/BuildLogLine: {stream, line, timestamp}) coloridas.
+local function log_rows(list)
+    local rows = {}
+    for _, e in ipairs(list or {}) do
+        local color = (e.stream == "Stderr") and "#F85149" or "#9DA7B3"
+        table.insert(rows, { time = M.time_hms(e.timestamp), line = e.line, color = color })
+    end
+    return enc_array(rows)
+end
+M.logs_json = log_rows
+M.build_logs_json = log_rows
+
+-- Junta linhas de log num blob de texto ("HH:MM:SS line") p/ o TextArea/copiar.
+function M.join_log_lines(list)
+    local out = {}
+    for _, e in ipairs(list or {}) do
+        table.insert(out, M.time_hms(e.timestamp) .. " " .. e.line)
+    end
+    return table.concat(out, "\n")
+end
+
+-- Histórico de deployments de um serviço (aba Deployments).
+function M.deployments_detail(list)
+    local rows = {}
+    for _, d in ipairs(list or {}) do
+        local label = state_label_color(d.state)
+        table.insert(rows, {
+            id = string.sub(d.id, 1, 12),
+            id_full = d.id,
+            image = d.image,
+            state_label = label,
+            state_kind = state_kind(d.state),
+            duration = fmt_duration(d),
+            start = M.date_dm_hms(d.started_at),
+            can_delete = is_terminal(d.state) and "1" or "0",
+        })
+    end
+    return enc_array(rows)
+end
+
+-- Rotas HTTP de um spec (aba Domains).
+function M.domains_json(spec)
+    local rows = {}
+    for _, r in ipairs(domain_routes(spec)) do
+        local cport = r.port or spec.port
+        table.insert(rows, {
+            domain = r.domain,
+            port = tostring(cport),
+            tls = r.tls and "true" or "false",
+            tls_label = r.tls and "TLS" or "—",
+        })
+    end
+    return enc_array(rows)
+end
+
+-- normalize_name: minúsculas, não-alfanumérico → '_' (colapsado), trim '_'.
+function M.safe_name(name)
+    local out, last_dash = {}, true
+    for i = 1, #name do
+        local ch = string.sub(name, i, i)
+        if string.match(ch, "%w") then
+            table.insert(out, string.lower(ch)); last_dash = false
+        elseif not last_dash then
+            table.insert(out, "_"); last_dash = true
+        end
+    end
+    local s = table.concat(out)
+    return (s:gsub("^_+", ""):gsub("_+$", ""))
+end
+
+local function internal_scheme(db_kind)
+    local k = db_kind and string.lower(db_kind) or nil
+    if k == "postgres" or k == "postgresql" then return "postgres"
+    elseif k == "mysql" or k == "mariadb" then return "mysql"
+    elseif k == "redis" then return "redis"
+    elseif k == "mongodb" or k == "mongo" then return "mongodb"
+    elseif k == "rabbitmq" then return "amqp"
+    elseif k == "nats" then return "nats"
+    elseif k == "kafka" then return nil
+    else return "http" end
+end
+
+function M.internal_url(db_kind, safe, port)
+    local host = "rp_" .. safe .. ":" .. tostring(port)
+    local scheme = internal_scheme(db_kind)
+    if scheme then return scheme .. "://" .. host end
+    return host
+end
+
+function M.external_url(domain, tls)
+    if not domain or domain:gsub("%s", "") == "" then return "—" end
+    domain = domain:gsub("/+$", "")
+    return (tls and "https" or "http") .. "://" .. domain
+end
+
 -- Deploy Engine: "Histórico 24h".
 function M.eng_recent(recent)
     local rows = {}
@@ -528,6 +712,59 @@ function M.eng_recent(recent)
             duration = M.fmt_secs(info.elapsed_secs),
             start = M.time_hms(info.started_at),
         })
+    end
+    return enc_array(rows)
+end
+
+-- ── Git providers / repos / branches ──────────────────────────────────────
+
+function M.git_providers(list)
+    local rows = {}
+    for _, p in ipairs(list or {}) do
+        local login = p.account and p.account.login or nil
+        local connected = login ~= nil
+        local display, account_lbl, account_login
+        if connected then
+            display = p.name .. " (@" .. login .. ")"
+            account_lbl = "@" .. login
+            account_login = login
+        else
+            display = p.name .. " — não conectado"
+            account_lbl = "(pendente — autorize no navegador)"
+            account_login = "não conectado"
+        end
+        local auth_mode = (p.auth_mode == "OAuth") and "OAuth2" or "PAT"
+        table.insert(rows, {
+            id = p.id,
+            name = p.name,
+            display = display,
+            base_url = p.base_url,
+            auth_mode = auth_mode,
+            account = account_lbl,
+            account_login = account_login,
+            connected = connected and "true" or "false",
+        })
+    end
+    return enc_array(rows)
+end
+
+function M.git_repos(list)
+    local rows = {}
+    for _, r in ipairs(list or {}) do
+        table.insert(rows, {
+            full_name = r.full_name,
+            clone_url = r.clone_url,
+            default_branch = r.default_branch,
+            private = r.private and "private" or "public",
+        })
+    end
+    return enc_array(rows)
+end
+
+function M.git_branches(list)
+    local rows = {}
+    for _, b in ipairs(list or {}) do
+        table.insert(rows, { name = b.name })
     end
     return enc_array(rows)
 end
