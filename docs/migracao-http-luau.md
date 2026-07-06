@@ -242,3 +242,53 @@ Para cada tela, um `<script>` com as funções nomeadas pelos `onClick`/`onChang
   efeito, ou migra para arquivo via daemon — manter em Rust é o menor atrito.
 - **Segurança do subdomínio**: API pública exige `token` forte (o guard atual já
   recusa bind não-loopback sem token; manter equivalente no `http_api`).
+
+---
+
+## Progresso da execução
+
+### ✅ Parte 0 — glacier-ui 0.15.0 (`json` nativo) — publicado
+### ✅ Parte 1 — daemon API HTTP/JSON + SSE — feito (RWP mantido em paralelo)
+### 🟡 Parte 2 — GUI em Luau — **fatia 1 feita** (commit `d20c189`)
+
+Descoberta que guiou a execução: o parser SSE do glacier **descarta a linha
+`event:`** e o `LuauComponent` **não fatiava `:` nem escrevia `formControl` no
+contexto**. Ambos resolvidos:
+
+- **glacier-ui 0.16.0** (publicado): `LuauComponent::run` resolve a ação em 3
+  níveis — nome exato → `nome:sufixo` → `nome(sufixo, value)` → write-back
+  `ctx[ação]=value` (fecha o loop de `formControl` sem handler por campo).
+- **daemon**: frames SSE auto-descritivos (`{"kind":"snapshot"|"bus"}`) — o
+  discriminador vai no `data:` porque o cliente só enxerga `data:`.
+- **`templates/lib/`**: `net/api.luau` (POST /api/rpc), `fmt.luau` (porta de
+  `view.rs`), `app.luau` (login/nav/busca + consumidor SSE + ações centrais).
+- **boot**: `register_component("app", app.xml)`; chrome de janela segue em Rust;
+  `root/net/rwp/wizard` **comentados** (não removidos) até o corte final.
+
+Verificado: `cargo check --workspace` (0 erros); teste `templates_render`
+(app.xml + libs Luau parseiam/carregam, todas as telas renderizam). Falta rodar
+o fluxo vivo (login→SSE→dashboard) contra daemon+Docker reais.
+
+**Nota de ambiente**: subir o daemon localmente aqui esbarrou em (a) panic
+pré-existente `env_backup.rs:35 "period must be non-zero"` na config default,
+(b) `SUN_LEN` (socket UDS com caminho longo), (c) porta 8787 já em uso. Nada
+disso vem das mudanças da migração, mas o (a) merece um olhar à parte.
+
+### ⬜ Parte 2 — fatia 2 (próxima sessão)
+Handlers/telas ainda não portados (hoje viram no-op no clique, sem afetar a
+renderização):
+- **service detail** (`service.xml`): sub-abas, logs vivos (`LogLine`/`BuildLog`
+  → `svc_logs`/`dep_build_*` via eventos bus), editor de env com drag-reorder,
+  deploy/reload/stop, domains/healthcheck/advanced/general/compose save.
+- **wizard novo serviço** (`new_service.xml`): passos pick_type/db/app/compose/
+  template + `ns_create` (equivalente a `wizard.rs`).
+- **settings** + **Git/OAuth** (`GitOAuthStart` abre URL no browser).
+- **Prefs** (login lembrado) — hoje sem persistência (era `store::Prefs`, ver
+  aviso dead_code); decidir Rust-hook vs endpoint.
+- **diálogos de confirmação** (stop_all/prune) — hoje ação direta; confirmar se
+  o Luau expõe `show_dialog`.
+
+### ⬜ Corte final
+Remover `rwp/` do daemon e `Rwp*` de `shared`; apagar `root/net/rwp/wizard` do
+GUI; setar `webhook_base_url=https://rustploy.chiquitos.tech`; rota do
+subdomínio no ingress; DNS.
