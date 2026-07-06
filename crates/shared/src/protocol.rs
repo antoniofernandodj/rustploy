@@ -223,6 +223,10 @@ pub enum Command {
         search: String,
     },
     WizardCreate(crate::wizard::WizardCreateReq),
+    /// Snapshot completo do dashboard como JSON (o mesmo que o SSE `/api/events`
+    /// empurra a cada 2s). O cliente usa após uma mutação para refletir a
+    /// mudança na hora, sem esperar o próximo tick. Resposta: `Snapshot(String)`.
+    Snapshot,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -358,6 +362,9 @@ pub enum Response {
     /// Catálogos do wizard, prontos como JSON para o contexto (`ns_dbs`,
     /// `ns_brokers`, `ns_templates`). Resposta de `WizardCatalog`.
     WizardCatalog { dbs: String, brokers: String, templates: String },
+
+    /// Snapshot do dashboard como JSON (resposta de `Snapshot`).
+    Snapshot(String),
 
     Err { code: String, message: String },
 }

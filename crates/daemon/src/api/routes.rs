@@ -57,6 +57,7 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::GitBranchList { .. } => "GitBranchList",
         Command::WizardCatalog { .. } => "WizardCatalog",
         Command::WizardCreate(_) => "WizardCreate",
+        Command::Snapshot => "Snapshot",
         _ => "Unknown",
     };
     info!(
@@ -195,6 +196,11 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         } => handlers::git_branch_list::handle(state, provider_id, repo_full_name).await,
         Command::WizardCatalog { search } => handlers::wizard::catalog(search).await,
         Command::WizardCreate(req) => handlers::wizard::create(state, req).await,
+        // `snapshot` chama `dispatch` internamente (fan-out de DaemonStatus/
+        // ProjectList/…), então boxamos o future para quebrar a recursão async.
+        Command::Snapshot => {
+            RpResponse::Snapshot(Box::pin(super::http_api::snapshot(&state)).await)
+        }
         _ => RpResponse::err("NotImplemented", "command not yet implemented"),
     };
 

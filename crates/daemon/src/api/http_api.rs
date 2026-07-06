@@ -194,7 +194,7 @@ fn events(state: AppState) -> Response<ApiBody> {
 /// for each piece — the same bundle the old client-side 2s poll fetched. The
 /// client (Luau) reshapes/filters it. `services` fans out one `ServiceList` per
 /// project, tagging each service with its project name.
-async fn snapshot(state: &AppState) -> String {
+pub(crate) async fn snapshot(state: &AppState) -> String {
     use serde_json::{json, Map, Value};
     let mut obj = Map::new();
     // Self-describing record (see module docs): the SSE client only sees the

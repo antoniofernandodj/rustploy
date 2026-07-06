@@ -297,6 +297,23 @@ function update_open_project()
     ctx.proj_can_delete = (#proj_pairs == 0) and "1" or "0"
     ctx.proj_loading = "false"
     ctx.project_services = fmt.service_rows(proj_pairs, metrics_by_id, search_term)
+    -- Variáveis de ambiente do projeto (aba "Variáveis (N)"). Sem isto, a aba
+    -- nasce "Variáveis ()" até a primeira edição.
+    local penv = proj.env_vars or {}
+    ctx.proj_env = fmt.env_json_with_comments(penv, {})
+    ctx.proj_env_count = tostring(#penv)
+end
+
+-- Refresh imediato após uma mutação: pega o snapshot completo num único RPC (o
+-- mesmo builder do SSE) e aplica, para a tela refletir na hora sem esperar o
+-- tick de 2s. Chamado pelos handlers de criar/remover projeto/serviço.
+function refresh_now()
+    if not api then return end
+    local ok, res = api:rpc("Snapshot")
+    if ok and res.Snapshot then
+        local okd, m = pcall(json.decode, res.Snapshot)
+        if okd and type(m) == "table" then apply_snapshot(m) end
+    end
 end
 
 -- Eventos vivos do bus: métricas, logs de container/build e transições de deploy.
@@ -899,6 +916,7 @@ function do_svc_stop_id(id)
     ctx.proj_action_msg = "enviando…"
     local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
     ctx.proj_action_msg = ok and "serviço parado" or ("erro: " .. res)
+    refresh_now()
 end
 
 function stop_delete_service(id)
@@ -918,6 +936,7 @@ function do_stop_delete_service(id)
     if not ok then ctx.proj_action_msg = "erro ao parar: " .. res; return end
     local ok2, res2 = api:rpc_checked({ ServiceDelete = { id = id } })
     ctx.proj_action_msg = ok2 and "serviço parado e removido" or ("erro ao remover: " .. res2)
+    refresh_now()
 end
 
 -- ── Picker Gitea (conta → repos → branches) ────────────────────────────────
@@ -1158,6 +1177,7 @@ function ns_create()
         ctx.proj_tab = "services"
         ctx.ns_step = ""
         ctx.ns_msg = ""
+        refresh_now()
     else
         ctx.ns_msg = ok and "resposta inesperada" or ("erro: " .. res)
     end
@@ -1388,6 +1408,7 @@ function create_project()
         ctx.new_proj_name = ""
         ctx.new_proj_desc = ""
         ctx.new_proj_msg = "projeto criado"
+        refresh_now()
     else
         ctx.new_proj_msg = "erro: " .. res
     end
@@ -1411,6 +1432,7 @@ function do_delete_project(id)
     if ok then
         ctx.selected_project_id = ""
         ctx.view = "projects"
+        refresh_now()
     else
         ctx.proj_action_msg = "erro: " .. res
     end
