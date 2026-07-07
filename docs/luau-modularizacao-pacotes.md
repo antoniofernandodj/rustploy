@@ -272,17 +272,119 @@ print("AÇÕES SEM HANDLER:", missing)  # deve ser []
 6. `cargo build -p rustploy-gui` (com `glacier-ui = "0.22.0"` no
    `Cargo.toml`) — 0 erros.
 
-## Lições para o futuro
+## Setup do `luau-lsp` (CLI + editor)
+
+### Instalação do binário
+
+```bash
+curl -L https://github.com/JohnnyMorganz/luau-lsp/releases/latest/download/luau-lsp-linux-x86_64.zip -o /tmp/luau-lsp.zip
+unzip -o /tmp/luau-lsp.zip -d ~/.local/bin/
+luau-lsp --version   # ex.: 1.68.1
+```
+
+(Troque `linux-x86_64` pelo asset certo em
+[releases](https://github.com/JohnnyMorganz/luau-lsp/releases/latest) para
+macOS/Windows. `~/.local/bin` só precisa estar no `PATH`.)
+
+### Extensão do editor (VS Code)
+
+O `.vscode/settings.json` do repo (ver abaixo) só tem efeito se a extensão
+estiver instalada — ela é quem lê essas chaves e fala com o binário
+`luau-lsp`. Publisher/nome: **`johnnymorganz.luau-lsp`** ("Luau Language
+Server", mesmo autor do `luau-lsp`). Instalar pelo marketplace do VS Code
+(`Ctrl+P` → `ext install johnnymorganz.luau-lsp`) ou:
+
+```bash
+code --install-extension johnnymorganz.luau-lsp
+```
+
+A extensão baixa/gerencia seu PRÓPRIO binário `luau-lsp` por padrão (não
+precisa ser o mesmo `~/.local/bin/luau-lsp` da seção anterior — são usos
+independentes: um pela CLI/CI, outro pelo editor). Depois de instalar,
+recarregar a janela (`Ctrl+Shift+P` → "Reload Window") para os settings do
+repo (`.luaurc` + `.vscode/settings.json`) serem lidos.
+
+### Validação via CLI (o que esta investigação usou)
+
+```bash
+luau-lsp analyze --base-luaurc=.luaurc \
+  --definitions=crates/rustploy-gui/views/scripts/glacier.d.luau \
+  <arquivo(s) .luau a checar>
+```
+
+Rodar isso (ou passar TODOS os `.luau` de uma vez) antes de considerar uma
+mudança na camada Luau pronta — pega em segundos um erro de caminho de
+`require` ou de tipo que só apareceria em runtime (ou nem apareceria, se o
+módulo com bug nunca for de fato exercitado pelos testes automatizados). Não
+é substituto de rodar o app de verdade: garante que TIPOS e CAMINHOS de
+módulo batem, mas quem prova que o `require` realmente carrega e executa em
+produção é o `mlua` em runtime (ver
+`crates/rustploy-gui/tests/templates_render.rs`).
+
+### As três peças de configuração e o que cada uma faz
+
+- **`crates/rustploy-gui/views/scripts/glacier.d.luau`** — o *definitions
+  file*: declara os globais que o motor glacier-ui injeta em runtime e que
+  não existem como `require`/arquivo (`ctx: {[string]:string}`, `value`,
+  `fetch`/`sse`/`websocket`→`FetchResult`/`StreamHandle`, `toast`, `confirm`,
+  `json.decode`/`encode`/`array`). Usa a sintaxe especial `declare
+  X: T`/`declare function foo()`, que só é válida quando o arquivo é
+  carregado NO MODO DEFINITIONS (`--definitions=` na CLI, ou
+  `luau-lsp.types.definitionFiles` no editor — ver abaixo). Fora desse modo
+  cada `declare` é um erro de sintaxe (ver "Armadilha" logo abaixo).
+- **`.luaurc`** (raiz do repo) — config do `luau-lsp` em si:
+  ```json
+  {
+      "languageMode": "strict",
+      "globals": ["ctx", "value", "fetch", "websocket", "sse", "require", "json", "confirm", "toast"]
+  }
+  ```
+  `languageMode: strict` liga a checagem de tipos completa por padrão (sem
+  precisar de `--!strict` redundante em cada config); `globals` é a lista de
+  nomes que o checker deve aceitar como ambiente global mesmo sem
+  `declare` — cobre os mesmos nomes do `glacier.d.luau` (o `.luaurc` é uma
+  segurança adicional/redundante; o `glacier.d.luau` é a fonte de tipos
+  precisos).
+- **`.vscode/settings.json`** (raiz do repo) — liga a extensão `luau-lsp` do
+  VS Code ao mesmo setup que a CLI já usava:
+  ```json
+  {
+      "luau-lsp.platform.type": "standard",
+      "luau-lsp.types.definitionFiles": [
+          "crates/rustploy-gui/views/scripts/glacier.d.luau"
+      ]
+  }
+  ```
+  `platform.type: standard` evita o modo Roblox padrão da extensão (não
+  usamos Roblox aqui — sem isso a CLI já avisava: `WARNING: --platform is
+  set to 'roblox'`). `types.definitionFiles` é o equivalente, para a
+  extensão, do `--definitions=` da CLI.
+
+### Armadilha real: sem `.vscode/settings.json`, o editor acusa ~40 erros falsos em `glacier.d.luau`
+
+Sem a config acima, a extensão do VS Code analisa `glacier.d.luau` como um
+script COMUM (não como definitions file) — e `declare ctx: {...}` não é uma
+statement válida em Luau comum. Isso cascateia em dezenas de diagnósticos
+(`SyntaxError: Incomplete statement`, depois `SameLineStatement`,
+`FunctionUnused`, `BuiltinGlobalWrite: Built-in global 'fetch' is
+overwritten here`, ...) — todos FALSOS, o arquivo está correto. Reproduzido e
+confirmado (2026-07-07):
+
+```bash
+# sem --definitions=: ~40 erros (reproduz o que o editor mostrava)
+luau-lsp analyze --base-luaurc=.luaurc crates/rustploy-gui/views/scripts/glacier.d.luau
+
+# com --definitions=: 0 erros
+luau-lsp analyze --base-luaurc=.luaurc \
+  --definitions=crates/rustploy-gui/views/scripts/glacier.d.luau \
+  crates/rustploy-gui/views/scripts/app.luau
+```
+
+O `.vscode/settings.json` documentado acima resolve isso (recarregar a
+janela do VS Code / reiniciar o Luau Language Server depois de criá-lo).
+
+## Outras lições para o futuro
 
 - Ao adicionar um módulo `.luau` novo em qualquer subpasta do rustploy-gui,
-  seguir a convenção acima (nome nu = irmão; `../` = pacote pai). Testar com
-  `luau-lsp analyze` antes de considerar pronto — ele pega em segundos um
-  erro de caminho que só apareceria em runtime (ou nem apareceria, se o
-  módulo com bug nunca for de fato exercitado pelos testes automatizados).
-- O `luau-lsp analyze` não é um substituto de rodar o app de verdade — ele
-  garante que os TIPOS e os CAMINHOS de módulo batem, mas o `mlua` em runtime
-  é quem prova que o `require` realmente carrega e executa (ver
-  `crates/rustploy-gui/tests/templates_render.rs`).
-- Instalação do `luau-lsp` usada nesta investigação: binário standalone
-  (`luau-lsp analyze ...`), sem integração de editor — basta o binário no
-  `PATH`.
+  seguir a convenção de `require` (nome nu = irmão; `../` = pacote pai) e
+  rodar a validação da CLI (seção acima) antes de considerar pronto.

@@ -60,6 +60,13 @@ workspace.
   # X11 (Ubuntu/Debian)
   sudo apt install xclip
   ```
+- (Opcional, só para mexer na camada Luau do `rustploy-gui` em `crates/rustploy-gui/views/scripts/`) `luau-lsp`, para type-check dos `.luau`:
+  ```bash
+  curl -L https://github.com/JohnnyMorganz/luau-lsp/releases/latest/download/luau-lsp-linux-x86_64.zip -o /tmp/luau-lsp.zip
+  unzip -o /tmp/luau-lsp.zip -d ~/.local/bin/
+  luau-lsp --version   # ex.: 1.68.1
+  ```
+  (troque `linux-x86_64` pelo asset certo em [releases](https://github.com/JohnnyMorganz/luau-lsp/releases/latest) para macOS/Windows). Para VS Code, instale também a extensão `johnnymorganz.luau-lsp` — o `.luaurc` e o `.vscode/settings.json` do repo já configuram tudo (incluindo o `glacier.d.luau`, o *definitions file* dos globais injetados pelo motor glacier-ui). Detalhes, comandos de validação e a investigação completa por trás da organização em pacotes (`fmt/`, `handlers/`, `net/`) em `docs/luau-modularizacao-pacotes.md`.
 
 Permissões de sistema não são obrigatórias para desenvolvimento. O daemon detecta se consegue escrever nos paths configurados e faz fallback automático para `~/.local/share/rustploy/` quando necessário. O cliente segue a mesma lógica ao localizar o socket.
 
