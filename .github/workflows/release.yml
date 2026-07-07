@@ -59,8 +59,102 @@ jobs:
           name: rustploy-${{ matrix.artifact }}
           path: rustploy-*.tar.gz
 
+  build-gui-linux:
+    name: Build rustploy-gui (.deb)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-gui-deb-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-gui-deb-cargo-
+
+      - name: Install cargo-deb
+        run: cargo install cargo-deb
+
+      - name: Install native deps (fontconfig, for iced/wgpu text rendering)
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
+
+      # Runtime assets (views/**/*, incl. views/scripts/{app.luau,fmt/,handlers/,
+      # net/}) are declared in crates/rustploy-gui/Cargo.toml's
+      # [package.metadata.deb] assets — cargo-deb globs them into the package
+      # automatically; nothing to copy by hand here (unlike the Windows job
+      # below, which has no such tool and must assemble the tree manually).
+      - name: Build .deb
+        run: cargo deb -p rustploy-gui -o dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustploy-gui-linux-deb
+          path: dist/*.deb
+
+  build-gui-windows:
+    name: Build rustploy-gui (Windows .zip)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-gui-win-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-gui-win-cargo-
+
+      - name: Install cargo-xwin
+        run: cargo install cargo-xwin
+
+      - name: Build (cross-compile to Windows via cargo-xwin)
+        run: |
+          RUSTFLAGS="-C target-feature=+crt-static" \
+            cargo xwin build --release -p rustploy-gui --target x86_64-pc-windows-msvc
+
+      # Same tree assets::locate_and_chdir() expects next to the .exe (portable
+      # layout) — mirrors `make rustploy-gui-windows-dist`. Keep the two in
+      # sync: this is the one packaging path with no glob/manifest tool behind
+      # it (unlike the .deb job above), so a renamed/new asset dir has to be
+      # added by hand in BOTH places.
+      - name: Package
+        run: |
+          set -e
+          DIST=dist/rustploy-gui-windows
+          mkdir -p "$DIST/crates/rustploy-gui" "$DIST/crates/shared/templates"
+          cp target/x86_64-pc-windows-msvc/release/rustploy-gui.exe "$DIST/"
+          cp -r crates/rustploy-gui/views  "$DIST/crates/rustploy-gui/"
+          cp -r crates/rustploy-gui/styles "$DIST/crates/rustploy-gui/"
+          mkdir -p "$DIST/crates/rustploy-gui/assets"
+          cp -r crates/rustploy-gui/assets/icons "$DIST/crates/rustploy-gui/assets/"
+          cp -r crates/shared/templates/blueprints "$DIST/crates/shared/templates/"
+          test -f "$DIST/crates/rustploy-gui/views/scripts/app.luau"
+          printf 'Descompacte e rode rustploy-gui.exe (duplo-clique).\r\n' > "$DIST/LEIA-ME.txt"
+          cd dist && zip -qr "rustploy-gui-windows-${{ github.ref_name }}.zip" rustploy-gui-windows
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustploy-gui-windows-zip
+          path: dist/rustploy-gui-windows-*.zip
+
   release:
-    needs: build
+    needs: [build, build-gui-linux, build-gui-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write

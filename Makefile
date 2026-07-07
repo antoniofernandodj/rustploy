@@ -88,13 +88,23 @@ rustploy-gui-windows-dist: ## Pacote .zip do rustploy-gui p/ Windows (apaga dist
 	@cp $(WIN_BIN) $(WIN_DIST_DIR)/
 	# Assets lidos em runtime por caminho relativo ao CWD (o exe faz chdir p/ a
 	# própria pasta no startup — ver src/assets.rs): mesma estrutura de pastas.
-	@cp -r crates/rustploy-gui/templates $(WIN_DIST_DIR)/crates/rustploy-gui/
-	@cp -r crates/rustploy-gui/styles    $(WIN_DIST_DIR)/crates/rustploy-gui/
+	# `views/` é copiada INTEIRA (templates .xml, components/, e TODA a camada
+	# Luau — views/scripts/{app.luau,state.luau,helpers.luau,glacier.d.luau,
+	# fmt.luau,fmt/,handlers/,net/}): copiar por sub-pasta faz esse target
+	# esquecer um pacote novo silenciosamente (foi o bug real corrigido aqui —
+	# a versão anterior copiava `crates/rustploy-gui/templates`, renomeada p/
+	# `views/` faz tempo, e nunca pegava `views/scripts/`).
+	@cp -r crates/rustploy-gui/views  $(WIN_DIST_DIR)/crates/rustploy-gui/
+	@cp -r crates/rustploy-gui/styles $(WIN_DIST_DIR)/crates/rustploy-gui/
 	@mkdir -p $(WIN_DIST_DIR)/crates/rustploy-gui/assets
 	@cp -r crates/rustploy-gui/assets/icons $(WIN_DIST_DIR)/crates/rustploy-gui/assets/
 	@cp -r crates/shared/templates/blueprints $(WIN_DIST_DIR)/crates/shared/templates/
 	@printf 'Descompacte e rode rustploy-gui.exe (duplo-clique).\r\n' \
 		> $(WIN_DIST_DIR)/LEIA-ME.txt
+	@echo "$(BOLD)Conferindo se a camada Luau foi empacotada...$(RESET)"
+	@test -f $(WIN_DIST_DIR)/crates/rustploy-gui/views/scripts/app.luau || \
+		(echo "$(BOLD)ERRO: views/scripts/app.luau não foi copiado — pacote incompleto$(RESET)" && exit 1)
+	@echo "  $$(find $(WIN_DIST_DIR)/crates/rustploy-gui/views/scripts -name '*.luau' | wc -l) arquivos .luau empacotados"
 	@cd dist && zip -qr rustploy-gui-windows.zip rustploy-gui-windows
 	@echo ""
 	@echo "$(GREEN)Pacote Windows gerado:$(RESET)"

@@ -13,7 +13,7 @@ Plataformas PaaS auto-hospedadas (Dokploy, Coolify, CapRover) são construídas 
 | Runtime         | Node.js / PHP             | Rust — binário nativo       |
 | Orquestrador    | Docker Swarm / K8s        | Daemon próprio              |
 | Proxy           | Traefik (processo Go)     | Proxy hyper embutido        |
-| Banco           | PostgreSQL separado       | SurrealDB embarcado         |
+| Banco           | PostgreSQL separado       | SQLite embarcado (sqlx)     |
 | RAM em idle     | 200–600 MB                | < 50 MB (alvo)              |
 | TLS             | Let's Encrypt via API     | rustls + ACME embutido      |
 | Interface       | Web UI                    | TUI (Ratatui)               |
@@ -79,6 +79,16 @@ cargo build --release
 Gera:
 - `target/release/rustployd` — o daemon
 - `target/release/rustploy` — o cliente TUI
+- `target/release/rustploy-gui` — o cliente desktop opcional (ver [Clientes](#clientes)); em modo dev, `cargo run -p rustploy-gui` a partir da raiz basta — os assets (templates XML, scripts Luau, estilos) são lidos com caminho relativo ao CWD.
+
+Para empacotar o `rustploy-gui` distribuível (binário + assets no mesmo pacote, sem depender do checkout do repo) use os alvos do `Makefile`:
+
+```bash
+make deb-gui                    # .deb para Linux (cargo-deb) — dist/*.deb
+make rustploy-gui-windows-dist   # .zip portável para Windows (cross via cargo-xwin) — dist/rustploy-gui-windows.zip
+```
+
+Os dois embarcam a árvore `views/` inteira (templates + a camada Luau em `views/scripts/`, pacotes `fmt/`/`handlers/`/`net/` — ver `docs/luau-modularizacao-pacotes.md`), `styles/`, ícones e os blueprints de template (`crates/shared/templates/blueprints/`). O release automático (`.github/workflows/release.yml`, disparado por tag `v*`) gera os três pacotes (daemon+TUI Linux, `.deb` do GUI, `.zip` Windows do GUI).
 
 ## Execução
 
@@ -154,28 +164,28 @@ Pending → ResolvingDeps ┬→ PullingImage ───────────�
                                            Live
 ```
 
-Cada transição é persistida no SurrealDB. Ao reiniciar, deploys interrompidos são retomados ou revertidos conforme o estado encontrado no banco.
+Cada transição é persistida no SQLite. Ao reiniciar, deploys interrompidos são retomados ou revertidos conforme o estado encontrado no banco.
 
 ## Arquitetura
 
 ```tree
 crates/
 ├── shared/     # Command, Event, Response, modelos de domínio, RustployConfig
-├── daemon/     # rustployd — API Axum/UDS, SQLite (sqlx), Docker, ingress, deploy engine
+├── daemon/     # rustployd — API UDS+HTTP, SQLite (sqlx), Docker, ingress, deploy engine
 ├── client/     # rustploy — TUI Ratatui (interface primária)
-└── rustploy-gui/  # rustploy-gui — cliente GUI opcional (glacier-ui/KDL→iced), fala HTTP
+└── rustploy-gui/  # rustploy-gui — cliente GUI opcional (glacier-ui/XML→iced), fala HTTP
 ```
 
-Comunicação: HTTP sobre Unix Domain Socket com payload postcard (serialização binária compacta via varint).  
-- `POST /rpc` — comandos imperativos (`Command` → `Response`)  
-- `GET /stream` — eventos push em tempo real (`Event`, chunked, framing `[u32 LE len][postcard bytes]`)
+Dois canais paralelos, reaproveitando o mesmo `dispatch()`/`Command`/`Response` — só o framing muda:
+- **TUI** (`rustploy`) — Unix Domain Socket com payload **postcard** (serialização binária compacta via varint), framing `[u32 LE len][bytes]`. `Rpc(Command)` devolve um `Response`; `Subscribe` vira um stream de `Event` (logs, métricas, progresso de deploy).
+- **GUI** (`rustploy-gui`) — **HTTP/JSON + SSE** (`crates/daemon/src/api/http_api.rs`), porque a lógica do cliente roda em Luau (`fetch`/`sse`), sem acesso a UDS: `POST /api/rpc` (um `Command` por requisição), `GET /api/events` (snapshot completo a cada 2s + eventos do bus, como Server-Sent Events), `GET /api/health`.
 
 ## Status
 
 | Fase | Descrição | Status |
 |------|-----------|--------|
 | 0 | Scaffold do workspace, UDS + Axum + Postcard, TUI base | Concluído |
-| 1 | CRUD de projetos/serviços, SurrealDB, Docker, EventBus | Concluído |
+| 1 | CRUD de projetos/serviços, SQLite, Docker, EventBus | Concluído |
 | 2 | Máquina de estados de deploy, healthcheck, recovery | Concluído |
 | 3 | IngressController com roteamento por domínio | Concluído |
 | 4 | TUI completo (sidebar, projetos, detalhe de serviço, logs, métricas, settings, status do daemon) | Concluído |
