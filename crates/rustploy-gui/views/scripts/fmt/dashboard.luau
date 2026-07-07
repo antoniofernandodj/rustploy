@@ -1,15 +1,15 @@
 --!strict
--- fmt_dashboard.luau — builders de lista do dashboard (deployments/projects/
+-- fmt/dashboard.luau — builders de lista do dashboard (deployments/projects/
 -- services/docker/ingress/monitoring/deploy engine), mesma forma JSON que
 -- view.rs produzia. Iterado pelos ForEach dos templates via a fachada fmt.luau.
 
-local Types = require("fmt_types")
+local Types = require("types")
 type ServicePair = Types.ServicePair
 type MetricsMap = Types.MetricsMap
 type GridCard = Types.GridCard
 
-local Time = require("fmt_time")
-local Util = require("fmt_util")
+local Time = require("time")
+local Util = require("util")
 
 local M = {}
 

@@ -1,9 +1,9 @@
 --!strict
 --!nolint FunctionUnused
--- handlers_nav.luau — navegação da sidebar/tabs e busca do topbar.
+-- handlers/nav.luau — navegação da sidebar/tabs e busca do topbar.
 
-local State = require("state")
-local Stream = require("handlers_stream")
+local State = require("../state")
+local Stream = require("stream")
 
 local function goto_view(v: string): ()
     ctx.view = v

@@ -1,15 +1,15 @@
 --!strict
--- fmt_service_detail.luau — builders da tela de detalhe de serviço (source,
+-- fmt/service_detail.luau — builders da tela de detalhe de serviço (source,
 -- healthcheck, env vars, logs, deployments, domains, connection URLs).
 -- Equivalente às partes de view.rs usadas por services.rs.
 
-local Types = require("fmt_types")
+local Types = require("types")
 type EnvVar = Types.EnvVar
 type EnvComment = Types.EnvComment
 type ServiceSpec = Types.ServiceSpec
 
-local Time = require("fmt_time")
-local Util = require("fmt_util")
+local Time = require("time")
+local Util = require("util")
 
 local M = {}
 

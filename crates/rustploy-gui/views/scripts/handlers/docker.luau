@@ -1,10 +1,10 @@
 --!strict
 --!nolint FunctionUnused
--- handlers_docker.luau — limpeza de recursos Docker sem uso (imagens, volumes,
+-- handlers/docker.luau — limpeza de recursos Docker sem uso (imagens, volumes,
 -- redes). A aba se atualiza no próximo snapshot (2s).
 
-local State = require("state")
-local fmt = require("fmt")
+local State = require("../state")
+local fmt = require("../fmt")
 
 local function prune(cmd: any, label: string): ()
     local api = State.api

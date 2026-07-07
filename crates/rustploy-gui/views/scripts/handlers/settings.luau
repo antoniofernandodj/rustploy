@@ -1,11 +1,11 @@
 --!strict
 --!nolint FunctionUnused
--- handlers_settings.luau — Settings (Web Server) e Settings → Git (provedores
+-- handlers/settings.luau — Settings (Web Server) e Settings → Git (provedores
 -- Gitea: conectar via OAuth/PAT, atualizar lista, remover).
 
-local State = require("state")
-local Helpers = require("helpers")
-local fmt = require("fmt")
+local State = require("../state")
+local Helpers = require("../helpers")
+local fmt = require("../fmt")
 
 -- ── Settings (Web Server) ────────────────────────────────────────────────
 

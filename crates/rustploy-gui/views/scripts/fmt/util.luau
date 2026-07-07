@@ -1,8 +1,8 @@
 --!strict
--- fmt_util.luau — busca, codificação de array e mapas de estado (paleta =
--- view.rs). Usado pelos demais submódulos fmt_*.luau.
+-- fmt/util.luau — busca, codificação de array e mapas de estado (paleta =
+-- view.rs). Usado pelos demais submódulos fmt/*.luau.
 
-local Types = require("fmt_types")
+local Types = require("types")
 type ServicePair = Types.ServicePair
 type ServiceSpec = Types.ServiceSpec
 type DomainRoute = Types.DomainRoute

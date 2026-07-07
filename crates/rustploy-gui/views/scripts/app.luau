@@ -1,19 +1,19 @@
 --!strict
 -- app.luau — ponto de entrada do `<script>` de app.xml. Não define nenhuma
--- lógica própria: apenas carrega (via `require`) todos os módulos de handlers,
--- para que suas funções globais (referenciadas por onClick/onChange/onSubmit
--- nos templates, e pelos callbacks nomeados do sse()) fiquem registradas antes
--- de qualquer ação disparar. Cada handler cuida de UM domínio da UI; o estado
--- mutável compartilhado vive em `state.luau`; utilitários puros em
--- `helpers.luau`/`fmt.luau`. Ver o comentário em `state.luau` sobre por que os
--- módulos são todos irmãos (nomes `escopo_sufixo.luau`) em vez de
--- subdiretórios aninhados.
+-- lógica própria: apenas carrega (via `require`) cada pacote de
+-- `handlers/`, para que suas funções globais (referenciadas por
+-- onClick/onChange/onSubmit nos templates, e pelos callbacks nomeados do
+-- sse()) fiquem registradas antes de qualquer ação disparar. Cada handler
+-- cuida de UM domínio da UI; o estado mutável compartilhado vive em
+-- `state.luau`; utilitários puros em `helpers.luau`/`fmt.luau` (fachada do
+-- pacote `fmt/`). Ver `state.luau` para a convenção de `require` entre
+-- pacotes (nomes nu = irmão no mesmo diretório; `../` = pacote pai).
 
-require("handlers_connection")
-require("handlers_stream")
-require("handlers_nav")
-require("handlers_services")
-require("handlers_projects")
-require("handlers_wizard")
-require("handlers_settings")
-require("handlers_docker")
+require("handlers/connection")
+require("handlers/stream")
+require("handlers/nav")
+require("handlers/services")
+require("handlers/projects")
+require("handlers/wizard")
+require("handlers/settings")
+require("handlers/docker")

@@ -1,5 +1,5 @@
 --!strict
--- fmt_time.luau — timestamps, durações e barra de progresso. chrono (Rust)
+-- fmt/time.luau — timestamps, durações e barra de progresso. chrono (Rust)
 -- formatava em horário LOCAL; aqui parseamos o RFC3339 (UTC, com "Z") e
 -- convertemos para epoch verdadeiro somando o offset local, para então
 -- formatar com os.date (que usa horário local).

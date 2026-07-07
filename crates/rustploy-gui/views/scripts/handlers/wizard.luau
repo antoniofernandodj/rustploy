@@ -1,13 +1,13 @@
 --!strict
 --!nolint FunctionUnused
--- handlers_wizard.luau — wizard "Novo serviço". A construção do ServiceSpec
+-- handlers/wizard.luau — wizard "Novo serviço". A construção do ServiceSpec
 -- (incl. compose de banco/broker e blueprints de template) vive no daemon: o
 -- cliente só coleta os campos e delega via Command::WizardCatalog (catálogos)
 -- + WizardCreate (montagem+criação).
 
-local State = require("state")
-local Helpers = require("helpers")
-local Stream = require("handlers_stream")
+local State = require("../state")
+local Helpers = require("../helpers")
+local Stream = require("stream")
 
 local NS_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 math.randomseed(os.time())

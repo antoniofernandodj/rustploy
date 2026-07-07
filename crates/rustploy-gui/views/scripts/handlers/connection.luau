@@ -1,12 +1,12 @@
 --!strict
 --!nolint FunctionUnused
--- handlers_connection.luau — ciclo de vida da sessão: init (semeia o contexto),
+-- handlers/connection.luau — ciclo de vida da sessão: init (semeia o contexto),
 -- login/logout, configurações do daemon buscadas uma vez na conexão.
 
-local State = require("state")
-local Helpers = require("helpers")
-local Api = require("net/api")
-local Stream = require("handlers_stream")
+local State = require("../state")
+local Helpers = require("../helpers")
+local Api = require("../net/api")
+local Stream = require("stream")
 
 -- ── init: semeia o contexto para a UI pintar antes de qualquer dado ─────────
 function init(): ()

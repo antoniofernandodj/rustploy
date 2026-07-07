@@ -1,13 +1,13 @@
 --!strict
 --!nolint FunctionUnused
--- handlers_projects.luau — grade de projetos: criar/editar/remover projeto,
+-- handlers/projects.luau — grade de projetos: criar/editar/remover projeto,
 -- variáveis de ambiente de projeto, ações de serviço a partir do card do grid
 -- (parar/remover), e o "Stop All" de todo o cluster (topbar).
 
-local State = require("state")
-local Helpers = require("helpers")
-local fmt = require("fmt")
-local Stream = require("handlers_stream")
+local State = require("../state")
+local Helpers = require("../helpers")
+local fmt = require("../fmt")
+local Stream = require("stream")
 
 -- Abrir a lista de serviços de um projeto (grade read-only via snapshot).
 function open_project(id: string): ()

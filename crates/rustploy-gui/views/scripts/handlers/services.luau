@@ -1,14 +1,14 @@
 --!strict
 --!nolint FunctionUnused
--- handlers_services.luau — detalhe do serviço (service.xml): fetch completo,
+-- handlers/services.luau — detalhe do serviço (service.xml): fetch completo,
 -- mutações de spec/env, ciclo de vida (deploy/reload/stop), build logs de
 -- deployments, picker Gitea. Exporta `fetch_service_detail` para
--- handlers_stream.luau reusar no desfecho de um deploy (evento bus
+-- handlers/stream.luau reusar no desfecho de um deploy (evento bus
 -- DeployStateChanged).
 
-local State = require("state")
-local Helpers = require("helpers")
-local fmt = require("fmt")
+local State = require("../state")
+local Helpers = require("../helpers")
+local fmt = require("../fmt")
 
 local M = {}
 
@@ -555,7 +555,7 @@ end
 
 -- Deploy de um serviço (a partir de um card / detalhe). Arma deploy_track para
 -- o timer decorrido (atualizado pelo snapshot de 2s, via engine.active) e o
--- desfecho (via evento bus DeployStateChanged, ver handlers_stream.luau).
+-- desfecho (via evento bus DeployStateChanged, ver handlers/stream.luau).
 local function start_deploy(id: string?): ()
     local sid = (id and id ~= "") and id or ctx.selected_service
     local api = State.api

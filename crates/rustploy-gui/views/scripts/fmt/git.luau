@@ -1,8 +1,8 @@
 --!strict
--- fmt_git.luau — builders dos provedores/repositórios/branches Gitea
+-- fmt/git.luau — builders dos provedores/repositórios/branches Gitea
 -- conectados (Settings → Git e o picker da aba General do serviço).
 
-local Util = require("fmt_util")
+local Util = require("util")
 
 local M = {}
 

@@ -1,17 +1,21 @@
 --!strict
--- state.luau — estado mutável compartilhado entre todos os handlers_*.luau
--- (mesmo interpretador, mesma tabela: `require("state")` é cacheado por
--- identidade, então toda mutação feita por um handler é vista pelos demais).
+-- state.luau — estado mutável compartilhado entre todos os handlers/*.luau
+-- (mesmo interpretador, mesma tabela: `require("../state")` é cacheado por
+-- identidade — pelo CAMINHO resolvido do arquivo, não pela string pedida —
+-- então toda mutação feita por um handler é vista pelos demais).
 --
--- NOTA sobre nomes de arquivo: os módulos deste diretório ficam FLAT (sem
--- subpastas como `handlers/`/`fmt/`) de propósito. O `require` do glacier
--- resolve sempre relativo ao diretório do SCRIPT DE ENTRADA (`app.luau`),
--- **não** ao arquivo que faz o require; já o luau-lsp resolve relativo ao
--- arquivo que chama `require`. As duas resoluções só coincidem quando todo
--- mundo é irmão no mesmo diretório — daí `handlers_stream.luau` em vez de
--- `handlers/stream.luau` (que faria o luau-lsp procurar
--- `handlers/handlers/stream.luau` e reportar erro falso). Ver o commit que
--- introduziu esta modularização para o registro completo dessa investigação.
+-- Convenção de `require` neste projeto (glacier-ui 0.22.0+: resolução
+-- relativa ao ARQUIVO que chama, como Node.js/Lua padrão — ver
+-- CHANGELOG do glacier-ui e docs/luau-modularizacao-pacotes.md):
+--   - Irmão no MESMO diretório/pacote → nome nu: `require("stream")` de
+--     dentro de `handlers/` acha `handlers/stream.luau`.
+--   - Pacote PAI (este arquivo, `helpers.luau`, `fmt.luau`, `net/api.luau`,
+--     todos na raiz de `views/scripts/`) a partir de dentro de `handlers/`
+--     ou `fmt/` → prefixo explícito `../`: `require("../state")`.
+--   - Do script de ENTRADA (`app.luau`, que fica na raiz) → caminho completo
+--     nu: `require("handlers/connection")`, `require("fmt/time")`.
+-- Ver `docs/luau-modularizacao-pacotes.md` (raiz do repo rustploy) para a
+-- investigação completa que motivou essa convenção.
 
 local Api = require("net/api")
 

@@ -4,15 +4,15 @@
 -- + `fmt.foo(...)` sem precisar saber em qual submódulo cada builder mora.
 -- Reimplementação Luau de `src/app/net/view.rs` (Rust pré-migração).
 
-local Time = require("fmt_time")
-local Util = require("fmt_util")
-local Dashboard = require("fmt_dashboard")
-local ServiceDetail = require("fmt_service_detail")
-local Git = require("fmt_git")
+local Time = require("fmt/time")
+local Util = require("fmt/util")
+local Dashboard = require("fmt/dashboard")
+local ServiceDetail = require("fmt/service_detail")
+local Git = require("fmt/git")
 
 local M = {}
 
--- Tempo / números (fmt_time.luau)
+-- Tempo / números (fmt/time.luau)
 M.time_hms = Time.time_hms
 M.date_dm_hm = Time.date_dm_hm
 M.date_dm_hms = Time.date_dm_hms
@@ -21,14 +21,14 @@ M.fmt_uptime = Time.fmt_uptime
 M.fmt_bytes = Time.fmt_bytes
 M.progress_bar = Time.progress_bar
 
--- Busca / codificação / estado (fmt_util.luau)
+-- Busca / codificação / estado (fmt/util.luau)
 M.matches = Util.matches
 M.enc_array = Util.enc_array
 M.status_label_color = Util.status_label_color
 M.pair_list = Util.pair_list
 
 -- Dashboard: deployments/projects/services/docker/ingress/monitoring/engine
--- (fmt_dashboard.luau)
+-- (fmt/dashboard.luau)
 M.deployments = Dashboard.deployments
 M.services = Dashboard.services
 M.service_rows = Dashboard.service_rows
@@ -58,7 +58,7 @@ M.safe_name = ServiceDetail.safe_name
 M.internal_url = ServiceDetail.internal_url
 M.external_url = ServiceDetail.external_url
 
--- Git providers/repos/branches (fmt_git.luau)
+-- Git providers/repos/branches (fmt/git.luau)
 M.git_providers = Git.git_providers
 M.git_repos = Git.git_repos
 M.git_branches = Git.git_branches

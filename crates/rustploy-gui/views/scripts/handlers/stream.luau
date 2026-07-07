@@ -1,13 +1,13 @@
 --!strict
 --!nolint FunctionUnused
--- handlers_stream.luau — consumidor do SSE de /api/events: aplica o snapshot
+-- handlers/stream.luau — consumidor do SSE de /api/events: aplica o snapshot
 -- periódico (2s) e os eventos vivos do bus (métricas, logs, deploy). Exporta
 -- open_stream/rebuild_lists/update_open_project/refresh_now para os demais
 -- handlers (login, busca, abrir projeto, mutações que refletem na hora).
 
-local State = require("state")
-local fmt = require("fmt")
-local Services = require("handlers_services")
+local State = require("../state")
+local fmt = require("../fmt")
+local Services = require("services")
 
 local M = {}
 
@@ -206,7 +206,7 @@ function on_stream_close(): ()
     end
 end
 
--- Abre a conexão SSE (chamado por connect(), em handlers_connection.luau,
+-- Abre a conexão SSE (chamado por connect(), em handlers/connection.luau,
 -- após a autenticação inicial dar certo).
 function M.open_stream(): ()
     if State.state_conn then return end
