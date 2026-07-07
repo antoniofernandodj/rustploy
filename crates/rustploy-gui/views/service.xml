@@ -557,7 +557,7 @@
         />
         <Scrollable direction="vertical" class="env_list_scroll">
           <Column class="kv_list">
-            <ForEach items="svc_env" var="e" onReorder="env_reorder" reorderKey="key">
+            <ForEach items="svc_env" var="e" on_reorder="env_reorder" reorder_key="key">
               <!-- Comentários (# ...) do .env: arrastáveis como as vars (ao
                    soltar, reancoram na var seguinte da nova ordem), mas sem
                    delete — removem-se editando o .env. A classe da linha muda

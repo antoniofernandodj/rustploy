@@ -350,8 +350,8 @@
                     <ForEach
                       items="proj_env"
                       var="e"
-                      onReorder="penv_reorder"
-                      reorderKey="key"
+                      on_reorder="penv_reorder"
+                      reorder_key="key"
                     >
                       <if cond="{e.__dragging}" equals="true">
                         <Row class="kv_row_drag">
