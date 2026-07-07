@@ -366,8 +366,14 @@
                             text="✕"
                           />
                           <Text content=" " />
-                          <Text class="env_key" content="{e.key}" />
-                          <Text class="kv_val_fill" content="{e.value}" />
+                          <Text
+                            class="env_key"
+                            content="{e.key}"
+                          />
+                          <Text
+                            class="kv_val_fill"
+                            content="{e.value}"
+                          />
                         </Row>
                       </if>
                       <else>
@@ -377,7 +383,11 @@
                             dragHandle="true"
                             content="⋮ "
                           />
-                          <Button class="env_del" on_click="penv_del:{e.key}" text="✕" />
+                          <Button
+                            class="env_del"
+                            on_click="penv_del:{e.key}"
+                            text="✕"
+                          />
                           <Text content=" " />
                           <Text class="env_key" content="{e.key}" />
                           <Text class="kv_val_fill" content="{e.value}" />

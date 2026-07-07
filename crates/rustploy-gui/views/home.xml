@@ -301,7 +301,11 @@
           on_toggle="field:docker_prune_all_images"
           label="-a (limpar tudo, não só dangling)"
         />
-        <Button class="btn_danger" on_click="docker_prune_images" text="Limpar sem uso" />
+        <Button
+          class="btn_danger"
+          on_click="docker_prune_images"
+          text="Limpar sem uso"
+        />
       </Row>
       <Text if="{docker_msg}" not_equals="" class="muted" text="{docker_msg}" />
       <Row class="thead">
@@ -314,7 +318,12 @@
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
       </if>
-      <Scrollable if="{data_loading}" not_equals="true" direction="vertical" class="scroll_fill">
+      <Scrollable
+        if="{data_loading}"
+        not_equals="true"
+        direction="vertical"
+        class="scroll_fill"
+      >
         <Column class="table_body">
           <!-- Sub-aba já vem ordenada por tag (docker_images_json); o checkbox
                "Somente em uso" só esconde as linhas SEM USO, sem round-trip. -->
@@ -375,7 +384,12 @@
           text="Limpar sem uso"
         />
       </Row>
-      <Text if="{docker_msg}" not_equals="" class="muted" content="{docker_msg}" />
+      <Text
+        if="{docker_msg}"
+        not_equals=""
+        class="muted"
+        content="{docker_msg}"
+      />
       <Row class="thead">
         <Text class="th col_svc" content="NOME" />
         <Text class="th col_proj" content="DRIVER" />
@@ -445,7 +459,12 @@
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
       </if>
-      <Scrollable if="{data_loading}" not_equals="true" direction="vertical" class="scroll_fill">
+      <Scrollable
+        if="{data_loading}"
+        not_equals="true"
+        direction="vertical"
+        class="scroll_fill"
+      >
         <Column class="table_body">
           <if cond="{docker_networks_only_used}" equals="true">
             <ForEach items="docker_networks" var="n">
@@ -483,8 +502,14 @@
   <if cond="{view}" equals="settings">
     <Row class="header_row">
       <Column class="header_titles">
-        <Text class="title" content="Settings" />
-        <Text class="subtitle" content="Daemon web server, HTTPS e contas Git." />
+        <Text
+          class="title"
+          content="Settings"
+        />
+        <Text
+          class="subtitle"
+          content="Daemon web server, HTTPS e contas Git."
+        />
       </Column>
     </Row>
     <Row class="tabs">
@@ -586,7 +611,12 @@
             text="Abrir autorização no navegador"
           />
 
-          <Form name="git_provider" on_submit="gp_connect" spacing="10" width="fill">
+          <Form
+            name="git_provider"
+            on_submit="gp_connect"
+            spacing="10"
+            width="fill"
+          >
             <Row class="hc_grid">
               <Column class="hc_field">
                 <Text class="label_cap" content="NOME" />
@@ -597,7 +627,12 @@
                   value="gp_name"
                   on_change="field:gp_name"
                 />
-                <Text if="{erro_gp_name}" not_equals="" class="err" content="{erro_gp_name}" />
+                <Text
+                  if="{erro_gp_name}"
+                  not_equals=""
+                  class="err"
+                  content="{erro_gp_name}"
+                />
               </Column>
               <Column class="hc_field">
                 <Text class="label_cap" content="BASE URL" />
@@ -648,10 +683,20 @@
                 on_change="field:gp_client_secret"
               />
 
-              <Text class="label_cap" content="REDIRECT URI (cole no app OAuth do Gitea)" />
+              <Text
+                class="label_cap"
+                content="REDIRECT URI (cole no app OAuth do Gitea)"
+              />
               <Row class="kv_row">
-                <Text class="kv_val_fill" content="{gp_redirect}" />
-                <Button class="copy_btn" on_click="clipboard:gp_redirect" text="Copiar" />
+                <Text
+                  class="kv_val_fill"
+                  content="{gp_redirect}"
+                />
+                <Button
+                  class="copy_btn"
+                  on_click="clipboard:gp_redirect"
+                  text="Copiar"
+                />
               </Row>
               <Text
                 class="muted"
@@ -678,8 +723,16 @@
             </if>
 
             <Row class="env_add">
-              <Button class="btn_primary" on_click="gp_connect" text="Copiar" />
-              <Button class="tab" on_click="gp_refresh" text="Atualizar lista" />
+              <Button
+                class="btn_primary"
+                on_click="gp_connect"
+                text="Copiar"
+              />
+              <Button
+                class="tab"
+                on_click="gp_refresh"
+                text="Atualizar lista"
+              />
             </Row>
           </Form>
         </Column>
@@ -690,11 +743,20 @@
   <!-- ── Schedules / Support (placeholders) ───────────────────────────── -->
   <Column class="content_center" if="{view}" equals="schedules">
     <Text class="title" content="Schedules" />
-    <Text class="subtitle" content="Agendamentos de auto-deploy — em breve." />
+    <Text
+      class="subtitle"
+      content="Agendamentos de auto-deploy — em breve."
+    />
   </Column>
   <Column class="content_center" if="{view}" equals="support">
-    <Text class="title" content="Support" />
-    <Text class="subtitle" content="github.com/antoniofernandodj/rustploy" />
+    <Text
+      class="title"
+      content="Support"
+    />
+    <Text
+      class="subtitle"
+      content="github.com/antoniofernandodj/rustploy"
+    />
   </Column>
 
 </Column>

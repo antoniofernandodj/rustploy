@@ -263,7 +263,11 @@
           </Row>
 
           <Row class="env_add">
-            <Button class="btn_primary" on_click="ns_create" text="Criar {ns_db_label}" />
+            <Button
+              class="btn_primary"
+              on_click="ns_create"
+              text="Criar {ns_db_label}"
+            />
             <Text class="muted" content="{ns_msg}" />
           </Row>
         </Column>
