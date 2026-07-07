@@ -1,0 +1,6 @@
+{
+    "luau-lsp.platform.type": "standard",
+    "luau-lsp.types.definitionFiles": [
+        "crates/rustploy-gui/views/scripts/glacier.d.luau"
+    ]
+}
