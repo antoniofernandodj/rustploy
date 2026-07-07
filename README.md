@@ -37,9 +37,8 @@ Um único binário (`rustployd`) substitui o PaaS inteiro. O cliente TUI (`rustp
 
 Além do TUI (`rustploy`, interface primária), existe um cliente desktop GUI opcional,
 **`rustploy-gui`** (binário `rustploy-gui`, crate `crates/rustploy-gui`), construído com
-o framework próprio `glacier-ui` (UI declarativa em KDL → iced). Conecta ao daemon via
-**RWP** (protocolo administrativo sobre TCP, `rwp://`/`rwps://`) em vez do UDS local — não
-precisa rodar na mesma máquina do daemon. `cargo run -p rustploy-gui` a partir da raiz do
+o framework próprio `glacier-ui` (UI declarativa em XML → iced). Conecta ao daemon via
+**HTTP** em vez do UDS local — não precisa rodar na mesma máquina do daemon. `cargo run -p rustploy-gui` a partir da raiz do
 workspace.
 
 ## Não-objetivos
@@ -152,12 +151,12 @@ Cada transição é persistida no SurrealDB. Ao reiniciar, deploys interrompidos
 
 ## Arquitetura
 
-```
+```tree
 crates/
 ├── shared/     # Command, Event, Response, modelos de domínio, RustployConfig
 ├── daemon/     # rustployd — API Axum/UDS, SQLite (sqlx), Docker, ingress, deploy engine
 ├── client/     # rustploy — TUI Ratatui (interface primária)
-└── rustploy-gui/  # rustploy-gui — cliente GUI opcional (glacier-ui/KDL→iced), fala RWP/TCP
+└── rustploy-gui/  # rustploy-gui — cliente GUI opcional (glacier-ui/KDL→iced), fala HTTP
 ```
 
 Comunicação: HTTP sobre Unix Domain Socket com payload postcard (serialização binária compacta via varint).  
@@ -174,6 +173,6 @@ Comunicação: HTTP sobre Unix Domain Socket com payload postcard (serializaçã
 | 3 | IngressController com roteamento por domínio | Concluído |
 | 4 | TUI completo (sidebar, projetos, detalhe de serviço, logs, métricas, settings, status do daemon) | Concluído |
 | 5 | ACME/TLS automático, gestão de secrets via protocolo | Em andamento¹ |
-| 6 | Testes de integração, systemd unit, benchmark de memória | Pendente |
+| 6 | Testes de integração, systemd unit, benchmark de memória | Concluído |
 
 ¹ Infraestrutura de criptografia (`age`) implementada em `secrets.rs`; comandos `SecretSet/Get` e integração ACME ainda não expostos no protocolo.

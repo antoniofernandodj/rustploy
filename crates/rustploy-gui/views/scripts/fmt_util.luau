@@ -1,0 +1,116 @@
+--!strict
+-- fmt_util.luau — busca, codificação de array e mapas de estado (paleta =
+-- view.rs). Usado pelos demais submódulos fmt_*.luau.
+
+local Types = require("fmt_types")
+type ServicePair = Types.ServicePair
+type ServiceSpec = Types.ServiceSpec
+type DomainRoute = Types.DomainRoute
+
+local M = {}
+
+-- ── Busca ────────────────────────────────────────────────────────────────
+-- Termo vazio sempre casa (a busca é filtro, não requisito). `term` já deve
+-- vir em minúsculas.
+function M.matches(term: string?, fields: {any}): boolean
+    if not term or term == "" then return true end
+    for _, f in ipairs(fields) do
+        if type(f) == "string" and string.find(string.lower(f), term, 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
+-- ── Codificação de arrays ────────────────────────────────────────────────
+-- CUIDADO: uma tabela Luau vazia vira `{}` (objeto) no json.encode, não `[]`.
+-- Os templates iteram arrays, então forçamos "[]" quando vazio.
+function M.enc_array(t: {any}): string
+    if #t == 0 then return "[]" end
+    return json.encode(t)
+end
+
+-- ── Mapas de estado (paleta = view.rs) ───────────────────────────────────
+
+-- ServiceStatus vem como string ("Running") ou tabela ({Error="..."}).
+function M.status_label_color(status: any): (string, string)
+    if type(status) == "table" then
+        if status.Error ~= nil then return "Error", "#F85149" end
+    end
+    if status == "Running" then return "Running", "#3FB950"
+    elseif status == "Deploying" then return "Deploying", "#58A6FF"
+    elseif status == "Degraded" then return "Degraded", "#D29922"
+    elseif status == "Stopping" then return "Stopping", "#8B949E"
+    elseif status == "Stopped" then return "Stopped", "#8B949E"
+    end
+    return "Error", "#F85149"
+end
+
+function M.status_kind(status: any): string
+    if type(status) == "table" and status.Error ~= nil then return "bad" end
+    if status == "Running" then return "ok"
+    elseif status == "Deploying" then return "info"
+    elseif status == "Degraded" then return "warn"
+    elseif status == "Stopping" or status == "Stopped" then return "muted"
+    end
+    return "bad"
+end
+
+-- DeployState vem como string ("Live", "Failed", "BuildingImage", ...).
+function M.state_label_color(state: string?): (string, string)
+    if state == "Live" then return "LIVE", "#3FB950"
+    elseif state == "Stopped" then return "STOPPED", "#8B949E"
+    elseif state == "Failed" then return "FAILED", "#F85149"
+    end
+    return "BUILDING", "#58A6FF"
+end
+
+function M.state_kind(state: string?): string
+    if state == "Live" then return "ok"
+    elseif state == "Stopped" then return "muted"
+    elseif state == "Failed" then return "bad"
+    end
+    return "info"
+end
+
+function M.in_use_kind(in_use: boolean): string
+    if in_use then return "ok" end
+    return "muted"
+end
+
+-- ServiceSource → texto de "imagem/origem" (source_summary().1).
+function M.source_summary(source: any): string
+    if type(source) ~= "table" then return "—" end
+    if source.Registry then return source.Registry.image or "—"
+    elseif source.Git then
+        local g = source.Git
+        return (g.url or "") .. " @ " .. (g.branch or "")
+    elseif source.Compose then return "docker-compose"
+    end
+    return "—"
+end
+
+-- domain_routes(): a lista `domains` nova, ou o legado `domain`/`tls_enabled`.
+function M.domain_routes(spec: ServiceSpec): {DomainRoute}
+    local routes: {DomainRoute} = {}
+    if spec.domains and #spec.domains > 0 then
+        for _, r in ipairs(spec.domains) do
+            table.insert(routes, { domain = r.domain, port = r.port, tls = r.tls == true })
+        end
+    elseif spec.domain and spec.domain ~= "" then
+        table.insert(routes, { domain = spec.domain :: string, port = nil, tls = spec.tls_enabled == true })
+    end
+    return routes
+end
+
+-- `services` do snapshot é uma lista de { project_name, service }.
+-- Normaliza para pares { svc = Service, proj = "nome" }.
+function M.pair_list(services: {any}?): {ServicePair}
+    local out: {ServicePair} = {}
+    for _, e in ipairs(services or {}) do
+        table.insert(out, { svc = e.service, proj = e.project_name or "" })
+    end
+    return out
+end
+
+return M
