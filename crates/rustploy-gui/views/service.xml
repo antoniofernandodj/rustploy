@@ -53,7 +53,11 @@
   <Row class="svc_head">
     <Column class="header_titles">
       <Row class="svc_title_row">
-        <Button class="btn_ghost" on_click="open_project:{svc_project_id}" text="‹ {svc_project}" />
+        <Button
+          class="btn_ghost"
+          on_click="open_project:{svc_project_id}"
+          text="‹ {svc_project}"
+        />
         <Text class="title" content="{svc_name}" />
         <Badge color="{svc_status_color}" label="{svc_status_label}" />
         <!-- Live "1s, 2s, 3s…" deploy timer: shown only while a deploy started
@@ -62,8 +66,16 @@
              hidden once the deploy finishes — the outcome (success/failure) and
              its total elapsed time then show in `svc_action_msg` below instead. -->
         <Row class="badge" if="{svc_deploy_running}" equals="true">
-          <Text class="state_dot" color="#58A6FF" content="⏱" />
-          <Text class="badge_lbl" color="#58A6FF" content="{svc_deploy_elapsed}" />
+          <Text
+            class="state_dot"
+            color="#58A6FF"
+            content="⏱"
+          />
+          <Text
+            class="badge_lbl"
+            color="#58A6FF"
+            content="{svc_deploy_elapsed}"
+          />
         </Row>
       </Row>
       <Text
@@ -215,11 +227,13 @@
             <!-- ── Sub-aba Git: form de URL/imagem crua ─────────────── -->
             <if cond="{prov_tab}" equals="git">
               <Text class="label_cap" content="SOURCE — REPOSITORY URL / IMAGE" />
-              <TextInput class="field_input"
+              <TextInput
+                class="field_input"
                 form_control="f_repo_url"
                 value="f_repo_url"
                 on_change="field:f_repo_url"
-                  placeholder="github.com/user/repo  ou  nginx:latest" />
+                placeholder="github.com/user/repo  ou  nginx:latest"
+              />
 
               <Text
                 class="muted"
@@ -229,15 +243,18 @@
                 <Column class="hc_field">
                   <Text class="label_cap"
                     content="BRANCH" />
-                  <TextInput class="field_input"
+                  <TextInput
+                    class="field_input"
                     form_control="f_branch"
                     value="f_branch"
                     on_change="field:f_branch"
-                      placeholder="main" />
+                    placeholder="main"
+                  />
                 </Column>
                 <Column class="hc_field">
                   <Text class="label_cap" content="PORT" />
-                  <TextInput class="field_input"
+                  <TextInput
+                    class="field_input"
                     form_control="f_gen_port"
                     value="f_gen_port"
                     on_change="field:f_gen_port"
@@ -298,7 +315,8 @@
                 placeholder="src, Cargo.toml"
               />
 
-              <Toggle checked="f_submodules"
+              <Toggle
+                checked="f_submodules"
                 on_toggle="field:f_submodules"
                 label=" Enable submodules" />
 
@@ -309,7 +327,8 @@
                     class="label_cap"
                     content="DOCKERFILE"
                   />
-                  <TextInput class="field_input"
+                  <TextInput
+                    class="field_input"
                     form_control="f_dockerfile"
                     value="f_dockerfile"
                     on_change="field:f_dockerfile"
@@ -321,7 +340,8 @@
                     class="label_cap"
                     content="CONTEXT PATH"
                   />
-                  <TextInput class="field_input"
+                  <TextInput
+                    class="field_input"
                     form_control="f_context_path"
                     value="f_context_path"
                     on_change="field:f_context_path"
@@ -678,7 +698,9 @@
         />
 
         <Text class="label_cap" content="PORTA DO CONTAINER (opcional)" />
-        <TextInput class="field_input" form_control="f_port"
+        <TextInput
+          class="field_input"
+          form_control="f_port"
           value="f_port"
           on_change="field:f_port"
           placeholder="(padrão do serviço)"
@@ -700,7 +722,8 @@
           class="label_cap"
           content="PORTA TCP DO HOST (passthrough, opcional)"
         />
-        <TextInput class="field_input"
+        <TextInput
+          class="field_input"
           form_control="f_host_port"
           value="f_host_port"
           on_change="field:f_host_port"
@@ -822,7 +845,8 @@
             class="label_cap"
             content="HTTP PATH"
           />
-          <TextInput class="field_input"
+          <TextInput
+            class="field_input"
             form_control="f_hc_path"
             value="f_hc_path"
             on_change="field:f_hc_path"
@@ -846,11 +870,13 @@
         <Row class="hc_grid">
           <Column class="hc_field">
             <Text class="label_cap" content="INTERVAL (s)" />
-            <TextInput class="field_input"
+            <TextInput
+              class="field_input"
               form_control="f_hc_interval"
               value="f_hc_interval"
-                on_change="field:f_hc_interval"
-                placeholder="" />
+              on_change="field:f_hc_interval"
+              placeholder=""
+            />
             <Text if="{erro_f_hc_interval}"
               not_equals=""
               class="err"
@@ -868,7 +894,8 @@
               on_change="field:f_hc_timeout"
               placeholder=""
             />
-            <Text if="{erro_f_hc_timeout}"
+            <Text
+              if="{erro_f_hc_timeout}"
               not_equals=""
               class="err"
               content="{erro_f_hc_timeout}" />
@@ -887,15 +914,18 @@
               on_change="field:f_hc_retries"
               placeholder=""
             />
-            <Text if="{erro_f_hc_retries}"
+            <Text
+              if="{erro_f_hc_retries}"
               not_equals=""
               class="err"
               content="{erro_f_hc_retries}"
             />
           </Column>
           <Column class="hc_field">
-            <Text class="label_cap"
-              content="START PERIOD (s)" />
+            <Text
+              class="label_cap"
+              content="START PERIOD (s)"
+            />
             <TextInput
               class="field_input"
               form_control="f_hc_start"
@@ -939,7 +969,8 @@
       </Column>
 
       <!-- Advanced (editável) -->
-      <Form if="{tab}"
+      <Form
+        if="{tab}"
         equals="advanced"
         class="form_panel"
         name="advanced"
@@ -949,15 +980,16 @@
           class="label_cap"
           content="REPLICAS"
         />
-        <TextInput class="field_input"
+        <TextInput
+          class="field_input"
           form_control="f_replicas"
           value="f_replicas"
           on_change="field:f_replicas"
-        
           placeholder="1"
         />
 
-        <Text if="{erro_f_replicas}"
+        <Text
+          if="{erro_f_replicas}"
           not_equals=""
           class="err"
           content="{erro_f_replicas}"
@@ -966,7 +998,8 @@
           class="label_cap"
           content="RUN COMMAND"
         />
-        <TextInput class="field_input"
+        <TextInput
+          class="field_input"
           form_control="f_run_command"
           value="f_run_command"
           on_change="field:f_run_command"
