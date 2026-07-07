@@ -113,7 +113,7 @@
         />
         <Text
           if="{erro_ns_name}"
-          notEquals=""
+          not_equals=""
           class="err"
           content="{erro_ns_name}"
         />
@@ -160,7 +160,7 @@
           on_change="field:ns_name"
         />
         <Text if="{erro_ns_name}"
-          notEquals=""
+          not_equals=""
           class="err"
           content="{erro_ns_name}"
         />
@@ -201,7 +201,7 @@
             value="ns_name"
             on_change="field:ns_name"
           />
-          <Text if="{erro_ns_name}" notEquals=""
+          <Text if="{erro_ns_name}" not_equals=""
             class="err"
             content="{erro_ns_name}"
             />

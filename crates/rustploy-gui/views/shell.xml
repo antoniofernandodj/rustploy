@@ -179,7 +179,7 @@
             </Row>
           </Form>
           
-          <if cond="{erro_new_proj_name}" notEquals="">
+          <if cond="{erro_new_proj_name}" not_equals="">
             <Text class="err" content="{erro_new_proj_name}" />
           </if>
           
@@ -262,7 +262,7 @@
                       form_control="edit_proj_name"
                       placeholder="Nome do projeto"
                     />
-                    <if cond="{erro_edit_proj_name}" notEquals="">
+                    <if cond="{erro_edit_proj_name}" not_equals="">
                       <Text class="err" content="{erro_edit_proj_name}" />
                     </if>
                     <TextInput
@@ -290,7 +290,7 @@
                   <Text class="subtitle" content="{proj_description}" />
                   <Text
                     if="{proj_action_msg}"
-                    notEquals=""
+                    not_equals=""
                     class="muted"
                     content="{proj_action_msg}"
                   />
@@ -342,7 +342,7 @@
                     />
                   </Row>
                 </Form>
-                <if cond="{erro_penv_new_key}" notEquals="">
+                <if cond="{erro_penv_new_key}" not_equals="">
                   <Text class="err" content="{erro_penv_new_key}" />
                 </if>
                 <Scrollable direction="vertical" class="env_list_scroll">

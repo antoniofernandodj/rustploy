@@ -244,7 +244,7 @@
                     placeholder="80"
                   />
                   <Text if="{erro_f_gen_port}"
-                    notEquals=""
+                    not_equals=""
                     class="err"
                     content="{erro_f_gen_port}"
                   />
@@ -418,7 +418,7 @@
                     placeholder="80"
                   />
                   <Text if="{erro_f_gen_port}"
-                    notEquals="" class="err" content="{erro_f_gen_port}" />
+                    not_equals="" class="err" content="{erro_f_gen_port}" />
                 </Column>
               </Row>
               <Row class="hc_grid">
@@ -512,7 +512,7 @@
           <Text content=" " />
           <Button class="copy_btn" on_click="clipboard:svc_internal_url" text="Copiar" />
         </Row>
-        <Row class="kv_row" if="{svc_db_kind}" notEquals="—">
+        <Row class="kv_row" if="{svc_db_kind}" not_equals="—">
           <Text class="kv_key" content="Tipo" />
           <Text class="kv_val_fill" content="{svc_db_kind}" />
         </Row>
@@ -551,7 +551,7 @@
         </Form>
         <Text
           if="{erro_env_new_key}"
-          notEquals=""
+          not_equals=""
           class="err"
           content="{erro_env_new_key}"
         />
@@ -672,7 +672,7 @@
         />
         <Text
           if="{erro_f_domain}"
-          notEquals=""
+          not_equals=""
           class="err"
           content="{erro_f_domain}"
         />
@@ -685,7 +685,7 @@
         />
         <Text
           if="{erro_f_port}"
-          notEquals=""
+          not_equals=""
           class="err"
           content="{erro_f_port}"
         />
@@ -707,7 +707,7 @@
           placeholder="(padrão do serviço)"
         />
         <Text if="{erro_f_host_port}"
-          notEquals=""
+          not_equals=""
           class="err"
           content="{erro_f_host_port}"
         />
@@ -838,7 +838,7 @@
           />
           <Text
             if="{erro_f_hc_status}"
-            notEquals=""
+            not_equals=""
             class="err"
             content="{erro_f_hc_status}"
           />
@@ -852,7 +852,7 @@
                 on_change="field:f_hc_interval"
                 placeholder="" />
             <Text if="{erro_f_hc_interval}"
-              notEquals=""
+              not_equals=""
               class="err"
               content="{erro_f_hc_interval}" />
           </Column>
@@ -869,7 +869,7 @@
               placeholder=""
             />
             <Text if="{erro_f_hc_timeout}"
-              notEquals=""
+              not_equals=""
               class="err"
               content="{erro_f_hc_timeout}" />
           </Column>
@@ -888,7 +888,7 @@
               placeholder=""
             />
             <Text if="{erro_f_hc_retries}"
-              notEquals=""
+              not_equals=""
               class="err"
               content="{erro_f_hc_retries}"
             />
@@ -905,7 +905,7 @@
             />
             <Text
               if="{erro_f_hc_start}"
-              notEquals=""
+              not_equals=""
               class="err"
               content="{erro_f_hc_start}"
             />
@@ -958,7 +958,7 @@
         />
 
         <Text if="{erro_f_replicas}"
-          notEquals=""
+          not_equals=""
           class="err"
           content="{erro_f_replicas}"
         />

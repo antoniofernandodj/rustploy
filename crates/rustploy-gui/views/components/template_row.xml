@@ -52,7 +52,7 @@
     <Text
       class="muted"
       if="{description}"
-      notEquals=""
+      not_equals=""
       content="{description}"
     />
   </Column>

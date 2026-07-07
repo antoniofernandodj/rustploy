@@ -530,7 +530,7 @@
 
           <Text
             if="{erro_ss_email}"
-            notEquals=""
+            not_equals=""
             class="err"
             content="{erro_ss_email}"
           />
@@ -597,7 +597,7 @@
                   value="gp_name"
                   on_change="field:gp_name"
                 />
-                <Text if="{erro_gp_name}" notEquals="" class="err" content="{erro_gp_name}" />
+                <Text if="{erro_gp_name}" not_equals="" class="err" content="{erro_gp_name}" />
               </Column>
               <Column class="hc_field">
                 <Text class="label_cap" content="BASE URL" />
