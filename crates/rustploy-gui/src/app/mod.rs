@@ -5,9 +5,19 @@
 
 mod store;
 
-use glacier_ui::{EngineMessage, GlacierUI};
-use iced::{Element, Point, Subscription, Task, window, Size, window::settings::PlatformSpecific};
 use std::time::Duration;
+use glacier_ui::{
+    EngineMessage,
+    GlacierUI,
+    GlacierApp,
+    Element,
+    Point,
+    Subscription,
+    Task,
+    window,
+    Size,
+    window::settings::PlatformSpecific,
+};
 
 /// App-level message: either an engine event from glacier-ui, the resolved id
 /// of our (single) window (cached on startup so the custom titlebar can drive
@@ -33,8 +43,10 @@ pub(crate) struct App {
     window_id: Option<window::Id>,
 }
 
-impl App {
-    pub(crate) fn boot() -> (Self, Task<Message>) {
+impl GlacierApp for App {
+    type Message = Message;
+
+    fn init() -> (Self, Task<Message>) {
         let mut motor = GlacierUI::new();
 
         if let Err(e) = motor
@@ -50,7 +62,7 @@ impl App {
         )
     }
 
-    pub(crate) fn update(&mut self, msg: Message) -> Task<Message> {
+    fn update(&mut self, msg: Message) -> Task<Message> {
         match msg {
             Message::WindowReady(id) => {
                 self.window_id = id;
@@ -114,14 +126,14 @@ impl App {
         }
     }
 
-    pub(crate) fn view(&self) -> Element<'_, Message> {
+    fn view(&self) -> Element<'_, Message> {
         self.motor
             .render_current()
             .unwrap_or_else(|e| iced::widget::text(e).into())
             .map(Message::Engine)
     }
 
-    pub(crate) fn subscription(&self) -> Subscription<Message> {
+    fn subscription(&self) -> Subscription<Message> {
         let engine = Subscription::batch([
             self.motor.subscription(),
             GlacierUI::reload_subscription(Duration::from_millis(500)),
@@ -134,7 +146,12 @@ impl App {
         });
         Subscription::batch([engine, close_requests, debug_events])
     }
+}
 
+impl App {
+    /// Tema atual do motor, exposto para `main`'s `App::bootstrap()...theme(App::theme)`
+    /// — `bootstrap()` é uma função associada (roda antes de `Self` existir), então
+    /// o tema não pode vir de um valor fixo calculado aqui dentro.
     pub(crate) fn theme(&self) -> iced::Theme {
         self.motor.theme()
     }

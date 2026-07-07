@@ -9,18 +9,17 @@
 
 mod app;
 mod assets;
-
 use app::App;
-use iced::Font;
+use glacier_ui::{GlacierApp, Font};
+
 
 fn main() -> iced::Result {
-    // Assets (KDL templates, styles, icons, blueprint logos) are referenced by
+    // Assets (XML templates, styles, icons, blueprint logos) are referenced by
     // CWD-relative paths; enter their base directory before anything loads.
     assets::locate_and_chdir();
 
-    iced::application(App::boot, App::update, App::view)
+    App::bootstrap()
         .title("Rustploy")
-        .subscription(App::subscription)
         .theme(App::theme)
         .font(include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf").as_slice())
         .font(include_bytes!("../assets/fonts/JetBrainsMono-Bold.ttf").as_slice())
