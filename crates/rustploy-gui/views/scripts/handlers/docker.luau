@@ -8,7 +8,9 @@ local fmt = require("../fmt")
 
 local function prune(cmd: any, label: string): ()
     local api = State.api
-    if not api then return end
+    if not api then
+        return
+    end
     ctx.docker_msg = label
     local ok, res = api:rpc_checked(cmd)
     if ok and res.PruneResult then

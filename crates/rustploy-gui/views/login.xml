@@ -82,12 +82,12 @@
 
         <Checkbox
           checked="remember_url"
-          onToggle="toggle_remember_url"
+          on_toggle="toggle_remember_url"
           label="Remember server"
         />
         <Checkbox
           checked="remember_token"
-          onToggle="toggle_remember_token"
+          on_toggle="toggle_remember_token"
           label="Remember token"
         />
 

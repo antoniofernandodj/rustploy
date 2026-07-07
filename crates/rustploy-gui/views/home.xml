@@ -293,12 +293,12 @@
         <Text class="muted_fill" content="{docker_images_count} imagem(ns)" />
         <Checkbox
           checked="docker_images_only_used"
-          onToggle="field:docker_images_only_used"
+          on_toggle="field:docker_images_only_used"
           label="Somente em uso"
         />
         <Checkbox
           checked="docker_prune_all_images"
-          onToggle="field:docker_prune_all_images"
+          on_toggle="field:docker_prune_all_images"
           label="-a (limpar tudo, não só dangling)"
         />
         <Button class="btn_danger" on_click="docker_prune_images" text="Limpar sem uso" />
@@ -361,12 +361,12 @@
         />
         <Checkbox
           checked="docker_volumes_only_used"
-          onToggle="field:docker_volumes_only_used"
+          on_toggle="field:docker_volumes_only_used"
           label="Somente em uso"
         />
         <Checkbox
           checked="docker_prune_all_volumes"
-          onToggle="field:docker_prune_all_volumes"
+          on_toggle="field:docker_prune_all_volumes"
           label="-a (limpar tudo, não só anônimos)"
         />
         <Button
@@ -425,7 +425,7 @@
         <Text class="muted_fill" content="{docker_networks_count} network(s)" />
         <Checkbox
           checked="docker_networks_only_used"
-          onToggle="field:docker_networks_only_used"
+          on_toggle="field:docker_networks_only_used"
           label="Somente em uso"
         />
         <Button

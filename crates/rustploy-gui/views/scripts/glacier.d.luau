@@ -20,7 +20,7 @@ export type StreamHandle = {
 -- Contexto global do motor: chave→valor string (o motor coage tudo p/ string).
 declare ctx: { [string]: string }
 
--- Valor do onChange/onToggle/ação-com-sufixo (nil quando a ação não traz valor).
+-- Valor do on_change/on_toggle/ação-com-sufixo (nil quando a ação não traz valor).
 declare value: string?
 
 declare function fetch(url: string, opts: any?): FetchResult

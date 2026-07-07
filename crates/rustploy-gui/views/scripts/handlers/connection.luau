@@ -10,8 +10,12 @@ local Stream = require("stream")
 
 -- ── init: semeia o contexto para a UI pintar antes de qualquer dado ─────────
 function init(): ()
-    if not ctx.screen or ctx.screen == "" then ctx.screen = "login" end
-    if not ctx.view or ctx.view == "" then ctx.view = "deployments" end
+    if not ctx.screen or ctx.screen == "" then
+        ctx.screen = "login"
+    end
+    if not ctx.view or ctx.view == "" then
+        ctx.view = "deployments"
+    end
     ctx.connected = ctx.connected or "false"
     ctx.status_line = ctx.status_line or "pronto para conectar"
     ctx.error = ctx.error or ""
@@ -19,19 +23,44 @@ function init(): ()
     ctx.data_loading = "true"
     -- Listas vazias como "[]" (não nil) para os ForEach não verem literal.
     for _, k in ipairs({
-        "deployments", "projects", "project_rows", "services", "service_rows",
-        "docker_rows", "docker_images", "docker_volumes", "docker_networks",
-        "ingress", "monitoring", "eng_active", "eng_recent", "project_services",
+        "deployments",
+        "projects",
+        "project_rows",
+        "services",
+        "service_rows",
+        "docker_rows",
+        "docker_images",
+        "docker_volumes",
+        "docker_networks",
+        "ingress",
+        "monitoring",
+        "eng_active",
+        "eng_recent",
+        "project_services",
     }) do
-        if not ctx[k] or ctx[k] == "" then ctx[k] = "[]" end
+        if not ctx[k] or ctx[k] == "" then
+            ctx[k] = "[]"
+        end
     end
     for _, k in ipairs({
-        "deployments_count", "projects_count", "services_count", "ingress_count",
-        "docker_images_count", "docker_volumes_count", "docker_networks_count",
-        "eng_active_count", "eng_recent_count", "eng_success_24h", "eng_failed_24h",
-        "eng_total_24h", "services_running", "services_total",
+        "deployments_count",
+        "projects_count",
+        "services_count",
+        "ingress_count",
+        "docker_images_count",
+        "docker_volumes_count",
+        "docker_networks_count",
+        "eng_active_count",
+        "eng_recent_count",
+        "eng_success_24h",
+        "eng_failed_24h",
+        "eng_total_24h",
+        "services_running",
+        "services_total",
     }) do
-        if not ctx[k] or ctx[k] == "" then ctx[k] = "0" end
+        if not ctx[k] or ctx[k] == "" then
+            ctx[k] = "0"
+        end
     end
     ctx.remember_url = ctx.remember_url or "false"
     ctx.remember_token = ctx.remember_token or "false"
@@ -62,7 +91,7 @@ local function load_settings(): ()
     end
 end
 
--- onSubmit/onClick do formulário de login. `fetch` suspende a corrotina, então
+-- on_submit/on_click do formulário de login. `fetch` suspende a corrotina, então
 -- validamos a conexão com um DaemonStatus antes de abrir o stream.
 function connect(): ()
     local base = Helpers.normalize_url(ctx.url)
@@ -91,7 +120,9 @@ function connect(): ()
     ctx.connected = "true"
     ctx.status_line = "conectado"
     ctx.screen = "shell"
-    if not ctx.view or ctx.view == "" then ctx.view = "deployments" end
+    if not ctx.view or ctx.view == "" then
+        ctx.view = "deployments"
+    end
 
     load_settings()
     Stream.open_stream()
@@ -99,7 +130,9 @@ end
 
 function disconnect(): ()
     if State.state_conn then
-        pcall(function() State.state_conn:close() end)
+        pcall(function()
+            State.state_conn:close()
+        end)
         State.state_conn = nil
     end
     State.api = nil

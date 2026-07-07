@@ -71,9 +71,18 @@ function M.fetch_service_detail(sid: string): ()
     local skind, sdetail, sbuild = fmt.source_summary3(spec.source)
 
     -- Campos editáveis da aba General (source).
-    local g = { repo_url = "", branch = "", username = "", credentials = "",
-                build_path = "", watch_paths = "", submodules = false,
-                dockerfile = "", context_path = "", build_stage = "" }
+    local g = {
+        repo_url = "",
+        branch = "",
+        username = "",
+        credentials = "",
+        build_path = "",
+        watch_paths = "",
+        submodules = false,
+        dockerfile = "",
+        context_path = "",
+        build_stage = ""
+    }
     local compose_content = ""
     local prov_tab, gen_provider_id, bound_url = "git", "", ""
     if spec.source.Git then
@@ -102,9 +111,13 @@ function M.fetch_service_detail(sid: string): ()
     local hk, hpath, hstatus = "tcp", "", ""
     if type(hc.kind) == "table" and hc.kind.Http then
         hk, hpath, hstatus = "http", hc.kind.Http.path or "", tostring(hc.kind.Http.expected_status)
-    elseif hc.kind == "None" then hk = "none"
-    elseif hc.kind == "DockerNative" then hk = "docker"
-    else hk = "tcp" end
+    elseif hc.kind == "None" then
+        hk = "none"
+    elseif hc.kind == "DockerNative" then
+        hk = "docker"
+    else
+        hk = "tcp"
+    end
 
     -- Rota primária (Connection) + provedores Gitea conectados.
     local routes = {}
@@ -194,11 +207,19 @@ function M.fetch_service_detail(sid: string): ()
                 ctx.gitea_msg = tostring(#resr.GitRepos) .. " repositório(s)"
                 local full
                 for _, r in ipairs(resr.GitRepos) do
-                    if r.clone_url == bound_url then full = r.full_name; break end
+                    if r.clone_url == bound_url then
+                        full = r.full_name;
+                        break
+                    end
                 end
                 if full then
                     ctx.gitea_repo = full
-                    local okb, resb = api:rpc({ GitBranchList = { provider_id = gen_provider_id, repo_full_name = full } })
+                    local okb, resb = api:rpc({
+                        GitBranchList = {
+                            provider_id = gen_provider_id,
+                            repo_full_name = full
+                        }
+                    })
                     if okb and resb.GitBranches then
                         ctx.gitea_branches = fmt.git_branches(resb.GitBranches)
                     end
@@ -216,7 +237,9 @@ end
 local function with_spec(mutate: (spec: any) -> ()): ()
     local sid = ctx.selected_service
     local api = State.api
-    if not api or sid == "" then return end
+    if not api or sid == "" then
+        return
+    end
     local ok, res = api:rpc({ ServiceGet = { id = sid } })
     if not ok or not res.Service then
         ctx.svc_action_msg = "erro ao carregar spec"
@@ -432,10 +455,14 @@ local function reorder_env(vars: {any}, comments: {any}, keys: {any}): ({any}, {
         end
     end
     for _, v in ipairs(vars) do
-        if by_key[v.key] then table.insert(new_vars, v) end
+        if by_key[v.key] then
+            table.insert(new_vars, v)
+        end
     end
     for idx, c in ipairs(comments) do
-        if not seen[idx] then table.insert(new_comments, c) end
+        if not seen[idx] then
+            table.insert(new_comments, c)
+        end
     end
     return new_vars, new_comments
 end
@@ -461,12 +488,16 @@ function env_del(key: string): ()
     with_spec(function(spec: any): ()
         local kept = json.array({})
         for _, v in ipairs(spec.env_vars or {}) do
-            if v.key ~= key then table.insert(kept, v) end
+            if v.key ~= key then
+                table.insert(kept, v)
+            end
         end
         spec.env_vars = kept
         local kc = json.array({})
         for _, c in ipairs(spec.env_comments or {}) do
-            if c.before_key ~= key then table.insert(kc, c) end
+            if c.before_key ~= key then
+                table.insert(kc, c)
+            end
         end
         spec.env_comments = kc
     end)
@@ -500,7 +531,9 @@ end
 function env_reorder(v: string?): ()
     if not v then return end
     local ok, keys = pcall(json.decode, v)
-    if not ok or type(keys) ~= "table" then return end
+    if not ok or type(keys) ~= "table" then
+        return
+    end
     with_spec(function(spec: any): ()
         local nv, nc = reorder_env(spec.env_vars or {}, spec.env_comments or {}, keys)
         spec.env_vars = nv
@@ -512,7 +545,9 @@ end
 
 function dep_logs(id: string): ()
     local api = State.api
-    if not api then return end
+    if not api then
+        return
+    end
     ctx.dep_selected = id
     local ok, res = api:rpc({ GetBuildLogs = { deployment_id = id } })
     local lines = (ok and res.BuildLogs) or {}
@@ -534,10 +569,14 @@ end
 
 function do_delete_deployment(id: string): ()
     local api = State.api
-    if not api then return end
+    if not api then
+        return
+    end
     local ok, res = api:rpc_checked({ DeployDelete = { deployment_id = id } })
     ctx.svc_action_msg = ok and "deployment removido" or ("erro: " .. res)
-    if not ok then Helpers.notify_err(res) end
+    if not ok then
+        Helpers.notify_err(res)
+    end
     M.fetch_service_detail(ctx.selected_service)
 end
 
@@ -546,10 +585,14 @@ end
 local function svc_lifecycle(cmd: any, msg: string): ()
     local sid = ctx.selected_service
     local api = State.api
-    if not api or sid == "" then return end
+    if not api or sid == "" then
+        return
+    end
     ctx.svc_action_msg = msg
     local ok, res = api:rpc_checked(cmd)
-    if not ok then ctx.svc_action_msg = "erro: " .. res end
+    if not ok then
+        ctx.svc_action_msg = "erro: " .. res
+    end
     M.fetch_service_detail(sid)
 end
 
@@ -559,7 +602,9 @@ end
 local function start_deploy(id: string?): ()
     local sid = (id and id ~= "") and id or ctx.selected_service
     local api = State.api
-    if not api or not sid or sid == "" then return end
+    if not api or not sid or sid == "" then
+        return
+    end
     ctx.svc_action_msg = "iniciando deploy…"
     ctx.svc_action_color = "#58A6FF"
     local ok, res = api:rpc_checked({ DeployStart = { service_id = sid } })
@@ -574,14 +619,25 @@ local function start_deploy(id: string?): ()
         ctx.svc_action_color = "#F85149"
         Helpers.notify_err(ok and "resposta inesperada do daemon" or res)
     end
-    if ctx.selected_service == sid then M.fetch_service_detail(sid) end
+    if ctx.selected_service == sid then
+        M.fetch_service_detail(sid)
+    end
 end
 
-function svc_deploy(): () start_deploy(ctx.selected_service) end
-function svc_rebuild(): () start_deploy(ctx.selected_service) end
+function svc_deploy(): ()
+    start_deploy(ctx.selected_service)
+end
+
+function svc_rebuild(): ()
+    start_deploy(ctx.selected_service)
+end
 
 function svc_reload(): ()
-    svc_lifecycle({ ServiceReload = { service_id = ctx.selected_service } }, "recarregando…")
+    svc_lifecycle({
+        ServiceReload = {
+            service_id = ctx.selected_service
+        }
+    }, "recarregando…")
 end
 
 function svc_stop(): ()
@@ -595,7 +651,11 @@ function svc_stop(): ()
 end
 
 function do_svc_stop(): ()
-    svc_lifecycle({ ServiceStop = { service_id = ctx.selected_service } }, "parando…")
+    svc_lifecycle({
+        ServiceStop = {
+            service_id = ctx.selected_service
+        }
+    }, "parando…")
 end
 
 -- ── Picker Gitea (conta → repos → branches) ─────────────────────────────────
@@ -606,7 +666,9 @@ function gitea_provider_pick(id: string): ()
     ctx.gitea_repos = "[]"
     ctx.gitea_branches = "[]"
     local api = State.api
-    if not api or id == "" then return end
+    if not api or id == "" then
+        return
+    end
     ctx.gitea_msg = "carregando repositórios…"
     local ok, res = api:rpc({ GitRepoList = { provider_id = id } })
     if ok and res.GitRepos then
@@ -618,15 +680,21 @@ function gitea_provider_pick(id: string): ()
 end
 
 function gitea_repo_pick(full_name: string): ()
-    if not full_name then return end
+    if not full_name then
+        return
+    end
     ctx.gitea_repo = full_name
     -- Resolve clone_url/branch a partir da lista já carregada.
     local ok, repos = pcall(json.decode, ctx.gitea_repos or "[]")
     if ok and type(repos) == "table" then
         for _, r in ipairs(repos) do
             if r.full_name == full_name then
-                if r.clone_url and r.clone_url ~= "" then ctx.f_repo_url = r.clone_url end
-                if r.default_branch and r.default_branch ~= "" then ctx.f_branch = r.default_branch end
+                if r.clone_url and r.clone_url ~= "" then
+                    ctx.f_repo_url = r.clone_url
+                end
+                if r.default_branch and r.default_branch ~= "" then
+                    ctx.f_branch = r.default_branch
+                end
                 break
             end
         end
@@ -634,7 +702,9 @@ function gitea_repo_pick(full_name: string): ()
     ctx.gitea_branches = "[]"
     local pid = ctx.gitea_provider_id or ""
     local api = State.api
-    if not api or pid == "" then return end
+    if not api or pid == "" then
+        return
+    end
     ctx.gitea_msg = "carregando branches…"
     local okb, resb = api:rpc({ GitBranchList = { provider_id = pid, repo_full_name = full_name } })
     if okb and resb.GitBranches then

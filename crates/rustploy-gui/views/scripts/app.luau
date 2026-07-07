@@ -2,7 +2,7 @@
 -- app.luau — ponto de entrada do `<script>` de app.xml. Não define nenhuma
 -- lógica própria: apenas carrega (via `require`) cada pacote de
 -- `handlers/`, para que suas funções globais (referenciadas por
--- onClick/onChange/onSubmit nos templates, e pelos callbacks nomeados do
+-- on_click/on_change/on_submit nos templates, e pelos callbacks nomeados do
 -- sse()) fiquem registradas antes de qualquer ação disparar. Cada handler
 -- cuida de UM domínio da UI; o estado mutável compartilhado vive em
 -- `state.luau`; utilitários puros em `helpers.luau`/`fmt.luau` (fachada do

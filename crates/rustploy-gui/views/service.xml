@@ -299,7 +299,7 @@
               />
 
               <Toggle checked="f_submodules"
-                onToggle="field:f_submodules"
+                on_toggle="field:f_submodules"
                 label=" Enable submodules" />
 
               <Text class="label_cap" content="BUILD ENGINE: DOCKERFILE" />
@@ -463,7 +463,7 @@
 
               <Toggle
                 checked="f_submodules"
-                onToggle="field:f_submodules"
+                on_toggle="field:f_submodules"
                 label="  Enable submodules"
               />
 
@@ -690,7 +690,7 @@
           content="{erro_f_port}"
         />
 
-        <Toggle checked="f_tls" onToggle="field:f_tls" label="  HTTPS / TLS" />
+        <Toggle checked="f_tls" on_toggle="field:f_tls" label="  HTTPS / TLS" />
         <Row class="env_add">
           <Button class="btn_primary" on_click="dom_add" text="Adicionar domínio" />
           <Text class="muted" content="{svc_action_msg}" />

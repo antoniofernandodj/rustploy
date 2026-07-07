@@ -24,7 +24,9 @@ end
 
 function create_project(): ()
     local api = State.api
-    if not api then return end
+    if not api then
+        return
+    end
     local name = Helpers.trim(ctx.new_proj_name)
     if name == "" then
         ctx.erro_new_proj_name = "informe um nome"
@@ -32,7 +34,12 @@ function create_project(): ()
     end
     ctx.erro_new_proj_name = ""
     local desc = Helpers.trim(ctx.new_proj_desc)
-    local cmd = { ProjectCreate = { name = name, description = (desc ~= "" and desc or nil) } }
+    local cmd = {
+        ProjectCreate = {
+            name = name,
+            description = (desc ~= "" and desc or nil)
+        }
+    }
     ctx.new_proj_msg = "criando…"
     local ok, res = api:rpc_checked(cmd)
     if ok then
@@ -48,7 +55,9 @@ function create_project(): ()
 end
 
 function delete_project(id: string): ()
-    if id == "" then return end
+    if id == "" then
+        return
+    end
     confirm({
         title = "Remover projeto?",
         message = "O projeto será removido. Só é possível remover projetos sem serviços.",
@@ -60,7 +69,9 @@ end
 
 function do_delete_project(id: string): ()
     local api = State.api
-    if not api or id == "" then return end
+    if not api or id == "" then
+        return
+    end
     ctx.proj_action_msg = "removendo…"
     local ok, res = api:rpc_checked({ ProjectDelete = { id = id } })
     if ok then
@@ -83,18 +94,30 @@ function edit_project_toggle(): ()
     ctx.editing_project = "true"
 end
 
-function cancel_project_edit(): () ctx.editing_project = "false" end
+function cancel_project_edit(): ()
+    ctx.editing_project = "false"
+end
 
 function save_project_edit(): ()
     local pid = ctx.selected_project_id or ""
     local api = State.api
-    if pid == "" or not api then return end
+    if pid == "" or not api then
+        return
+    end
     local name = Helpers.trim(ctx.edit_proj_name)
-    if name == "" then ctx.erro_edit_proj_name = "informe um nome"; return end
+    if name == "" then
+        ctx.erro_edit_proj_name = "informe um nome";
+        return
+    end
     ctx.erro_edit_proj_name = ""
     local desc = Helpers.trim(ctx.edit_proj_desc)
-    local ok, res = api:rpc_checked({ ProjectUpdate = { id = pid, name = name,
-        description = (desc ~= "" and desc or nil) } })
+    local ok, res = api:rpc_checked({
+        ProjectUpdate = {
+            id = pid,
+            name = name,
+            description = (desc ~= "" and desc or nil)
+        }
+    })
     if ok then
         ctx.editing_project = "false"
         ctx.proj_action_msg = "projeto atualizado"
@@ -112,16 +135,30 @@ end
 local function with_project_env(mutate: (env: any) -> any): ()
     local pid = ctx.selected_project_id or ""
     local api = State.api
-    if pid == "" or not api then return end
+    if pid == "" or not api then
+        return
+    end
     local ok, res = api:rpc("ProjectList")
-    if not ok or not res.Projects then return end
+    if not ok or not res.Projects then
+        return
+    end
     local env
     for _, p in ipairs(res.Projects) do
-        if p.id == pid then env = p.env_vars or json.array({}); break end
+        if p.id == pid then
+            env = p.env_vars or json.array({});
+            break
+        end
     end
-    if env == nil then return end
+    if env == nil then
+        return
+    end
     local newenv = mutate(env)
-    local ok2, res2 = api:rpc_checked({ ProjectEnvSet = { project_id = pid, env_vars = newenv } })
+    local ok2, res2 = api:rpc_checked({
+        ProjectEnvSet = {
+            project_id = pid,
+            env_vars = newenv
+        }
+    })
     if ok2 then
         ctx.proj_env = fmt.env_json_with_comments(newenv, {})
         ctx.proj_env_count = tostring(#newenv)
@@ -132,12 +169,19 @@ end
 
 function penv_add(): ()
     local key = Helpers.trim(ctx.penv_new_key)
-    if key == "" then ctx.erro_penv_new_key = "chave vazia"; return end
+    if key == "" then
+        ctx.erro_penv_new_key = "chave vazia";
+        return
+    end
     ctx.erro_penv_new_key = ""
     local val = ctx.penv_new_val or ""
     with_project_env(function(env: any): any
         local kept = json.array({})
-        for _, v in ipairs(env) do if v.key ~= key then table.insert(kept, v) end end
+        for _, v in ipairs(env) do
+            if v.key ~= key then
+                table.insert(kept, v)
+            end
+        end
         table.insert(kept, { key = key, value = { Plain = val } })
         return kept
     end)
@@ -148,23 +192,39 @@ end
 function penv_del(key: string): ()
     with_project_env(function(env: any): any
         local kept = json.array({})
-        for _, v in ipairs(env) do if v.key ~= key then table.insert(kept, v) end end
+        for _, v in ipairs(env) do
+            if v.key ~= key then
+                table.insert(kept, v)
+            end
+        end
         return kept
     end)
 end
 
 function penv_reorder(v: string?): ()
-    if not v then return end
+    if not v then
+        return
+    end
     local ok, keys = pcall(json.decode, v)
-    if not ok or type(keys) ~= "table" then return end
+    if not ok or type(keys) ~= "table" then
+        return
+    end
     with_project_env(function(env: any): any
         local by = {}
-        for _, x in ipairs(env) do by[x.key] = x end
+        for _, x in ipairs(env) do
+            by[x.key] = x
+        end
         local out = json.array({})
         for _, k in ipairs(keys) do
-            if by[k] then table.insert(out, by[k]); by[k] = nil end
+            if by[k] then
+                table.insert(out, by[k]); by[k] = nil
+            end
         end
-        for _, x in ipairs(env) do if by[x.key] then table.insert(out, x) end end
+        for _, x in ipairs(env) do
+            if by[x.key] then
+                table.insert(out, x)
+            end
+        end
         return out
     end)
 end
@@ -184,11 +244,15 @@ end
 
 function do_svc_stop_id(id: string): ()
     local api = State.api
-    if not api then return end
+    if not api then
+        return
+    end
     ctx.proj_action_msg = "enviando…"
     local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
     ctx.proj_action_msg = ok and "serviço parado" or ("erro: " .. res)
-    if not ok then Helpers.notify_err(res) end
+    if not ok then
+        Helpers.notify_err(res)
+    end
     Stream.refresh_now()
 end
 
@@ -204,13 +268,22 @@ end
 
 function do_stop_delete_service(id: string): ()
     local api = State.api
-    if not api then return end
+    if not api then
+        return
+    end
     ctx.proj_action_msg = "removendo…"
     local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
-    if not ok then ctx.proj_action_msg = "erro ao parar: " .. res; Helpers.notify_err(res); return end
+    if not ok then
+        ctx.proj_action_msg = "erro ao parar: " .. res;
+        Helpers.notify_err(res); return
+    end
     local ok2, res2 = api:rpc_checked({ ServiceDelete = { id = id } })
     ctx.proj_action_msg = ok2 and "serviço parado e removido" or ("erro ao remover: " .. res2)
-    if ok2 then Helpers.notify_ok("Serviço removido") else Helpers.notify_err(res2) end
+    if ok2 then
+        Helpers.notify_ok("Serviço removido")
+    else
+        Helpers.notify_err(res2)
+    end
     Stream.refresh_now()
 end
 
@@ -228,7 +301,9 @@ end
 
 function do_stop_all(): ()
     local api = State.api
-    if not api then return end
+    if not api then
+        return
+    end
     ctx.status_line = "parando todos…"
     local ok, res = api:rpc_checked("StopAllManaged")
     if ok then

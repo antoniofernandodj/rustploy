@@ -15,7 +15,9 @@ local M = {}
 -- rede, para a busca filtrar na hora (equivalente ao antigo search_pairs).
 local function rebuild_lists(): ()
     local snap = State.snap
-    if not snap then return end
+    if not snap then
+        return
+    end
     local term = State.search_term
     ctx.deployments = fmt.deployments(snap.deployments, term)
     ctx.projects = fmt.projects(snap.projects, State.last_pairs, term)
@@ -32,29 +34,45 @@ M.rebuild_lists = rebuild_lists
 -- Cabeçalho + grade de serviços do projeto aberto (view=project_services).
 local function update_open_project(): ()
     local snap = State.snap
-    if not snap then return end
+    if not snap then
+        return
+    end
     local pid = ctx.selected_project_id or ""
-    if pid == "" then return end
+    if pid == "" then
+        return
+    end
     local proj
     for _, p in ipairs(snap.projects or {}) do
-        if p.id == pid then proj = p; break end
+        if p.id == pid then
+            proj = p;
+            break
+        end
     end
-    if not proj then return end
+    if not proj then
+        return
+    end
     local proj_pairs = {}
     for _, e in ipairs(State.last_pairs) do
-        if e.svc.spec.project_id == pid then table.insert(proj_pairs, e) end
+        if e.svc.spec.project_id == pid then
+            table.insert(proj_pairs, e)
+        end
     end
     ctx.proj_name = proj.name
     ctx.proj_description = proj.description or ""
     ctx.proj_can_delete = (#proj_pairs == 0) and "1" or "0"
     ctx.proj_loading = "false"
-    ctx.project_services = fmt.service_rows(proj_pairs, State.metrics_by_id, State.search_term)
+    ctx.project_services = fmt.service_rows(
+        proj_pairs,
+        State.metrics_by_id,
+        State.search_term
+    )
     -- Variáveis de ambiente do projeto (aba "Variáveis (N)"). Sem isto, a aba
     -- nasce "Variáveis ()" até a primeira edição.
     local penv = proj.env_vars or {}
     ctx.proj_env = fmt.env_json_with_comments(penv, {})
     ctx.proj_env_count = tostring(#penv)
 end
+
 M.update_open_project = update_open_project
 
 local function apply_snapshot(msg: any): ()
@@ -68,7 +86,9 @@ local function apply_snapshot(msg: any): ()
         ctx.daemon_uptime = fmt.fmt_uptime(st.uptime_secs)
         ctx.services_running = tostring(st.services_running or 0)
         ctx.services_total = tostring(st.services_total or 0)
-        ctx.services_label = tostring(st.services_running or 0) .. "/" .. tostring(st.services_total or 0)
+        ctx.services_label = (
+            tostring(st.services_running or 0) .. "/" .. tostring(st.services_total or 0)
+        )
     end
 
     -- Deploy Engine (inline, não filtrado pela busca).
@@ -86,7 +106,10 @@ local function apply_snapshot(msg: any): ()
         -- Timer decorrido do deploy em voo do serviço aberto (granularidade de
         -- 2s — sem timer no Luau, vem do próprio snapshot; ver o plano de
         -- migração). O desfecho terminal vem por DeployStateChanged (apply_bus).
-        if State.deploy_track.running and ctx.selected_service == State.deploy_track.service_id then
+        if
+            State.deploy_track.running and
+            ctx.selected_service == State.deploy_track.service_id
+        then
             for _, a in ipairs(eng.active or {}) do
                 if a.service_id == State.deploy_track.service_id then
                     ctx.svc_deploy_running = "true"
@@ -121,32 +144,54 @@ end
 -- tick de 2s. Chamado pelos handlers de criar/remover projeto/serviço.
 local function refresh_now(): ()
     local api = State.api
-    if not api then return end
+    if not api then
+        return
+    end
     local ok, res = api:rpc("Snapshot")
     if ok and res.Snapshot then
         local okd, m = pcall(json.decode, res.Snapshot)
-        if okd and type(m) == "table" then apply_snapshot(m) end
+        if okd and type(m) == "table" then
+            apply_snapshot(m)
+        end
     end
 end
 M.refresh_now = refresh_now
 
 -- Eventos vivos do bus: métricas, logs de container/build e transições de deploy.
 local function apply_bus(ev: any): ()
-    if type(ev) ~= "table" then return end
+    if type(ev) ~= "table" then
+        return
+    end
     if ev.ContainerMetrics then
         local p = ev.ContainerMetrics
-        if p.service_id then State.metrics_by_id[p.service_id] = p end
+        if p.service_id then
+            State.metrics_by_id[p.service_id] = p
+        end
     elseif ev.SystemMetrics then
         local s = ev.SystemMetrics
         ctx.sys_cpu = string.format("%.0f%%", s.cpu_percent or 0)
-        ctx.sys_mem = fmt.fmt_bytes(s.mem_used_bytes) .. " / " .. fmt.fmt_bytes(s.mem_total_bytes)
-        ctx.sys_disk = fmt.fmt_bytes(s.disk_used_bytes) .. " / " .. fmt.fmt_bytes(s.disk_total_bytes)
-        ctx.sys_load = string.format("%.2f %.2f %.2f", s.load_avg_1 or 0, s.load_avg_5 or 0, s.load_avg_15 or 0)
+        ctx.sys_mem = (
+            fmt.fmt_bytes(s.mem_used_bytes) .. " / " .. fmt.fmt_bytes(s.mem_total_bytes)
+        )
+        ctx.sys_disk = (
+            fmt.fmt_bytes(s.disk_used_bytes) .. " / " .. fmt.fmt_bytes(s.disk_total_bytes)
+        )
+        ctx.sys_load = string.format(
+            "%.2f %.2f %.2f",
+            s.load_avg_1 or 0,
+            s.load_avg_5 or 0,
+            s.load_avg_15 or 0
+        )
     elseif ev.LogLine then
         local e = ev.LogLine
         if e.service_id == ctx.selected_service then
-            table.insert(State.svc_logs_buf, { stream = e.stream, line = e.line, timestamp = e.timestamp })
-            while #State.svc_logs_buf > State.LOG_RING do table.remove(State.svc_logs_buf, 1) end
+            table.insert(
+                State.svc_logs_buf,
+                { stream = e.stream, line = e.line, timestamp = e.timestamp }
+            )
+            while #State.svc_logs_buf > State.LOG_RING do
+                table.remove(State.svc_logs_buf, 1)
+            end
             ctx.svc_logs = fmt.logs_json(State.svc_logs_buf)
             ctx.svc_logs_count = tostring(#State.svc_logs_buf)
             ctx.svc_logs_text = fmt.join_log_lines(State.svc_logs_buf)
@@ -154,8 +199,13 @@ local function apply_bus(ev: any): ()
     elseif ev.BuildLog then
         local e = ev.BuildLog
         if e.deployment_id == ctx.dep_selected then
-            table.insert(State.blog_buf, { stream = "Stdout", line = e.line, timestamp = e.timestamp })
-            while #State.blog_buf > State.BUILD_RING do table.remove(State.blog_buf, 1) end
+            table.insert(
+                State.blog_buf,
+                { stream = "Stdout", line = e.line, timestamp = e.timestamp }
+            )
+            while #State.blog_buf > State.BUILD_RING do
+                table.remove(State.blog_buf, 1)
+            end
             ctx.dep_build_logs = fmt.build_logs_json(State.blog_buf)
             ctx.dep_build_count = tostring(#State.blog_buf)
             ctx.dep_build_text = fmt.join_log_lines(State.blog_buf)
@@ -169,7 +219,9 @@ local function apply_bus(ev: any): ()
                 local live = d.state == "Live"
                 if d.service_id == ctx.selected_service then
                     ctx.svc_deploy_running = "false"
-                    ctx.svc_action_msg = live and "deploy concluído" or ("deploy: " .. tostring(d.state))
+                    ctx.svc_action_msg = (
+                        live and "deploy concluído" or ("deploy: " .. tostring(d.state))
+                    )
                     ctx.svc_action_color = live and "#3FB950" or "#F85149"
                     Services.fetch_service_detail(d.service_id)
                 end
@@ -185,7 +237,9 @@ end
 -- Cada evento SSE traz um `data:` JSON auto-descritivo com `kind`.
 function on_state(data: string): ()
     local ok, msg = pcall(json.decode, data)
-    if not ok or type(msg) ~= "table" then return end
+    if not ok or type(msg) ~= "table" then
+        return
+    end
     if msg.kind == "snapshot" then
         apply_snapshot(msg)
     elseif msg.kind == "bus" then
@@ -209,10 +263,18 @@ end
 -- Abre a conexão SSE (chamado por connect(), em handlers/connection.luau,
 -- após a autenticação inicial dar certo).
 function M.open_stream(): ()
-    if State.state_conn then return end
-    local opts = { on_message = "on_state", on_error = "on_stream_error", on_close = "on_stream_close" }
+    if State.state_conn then
+        return
+    end
+    local opts = {
+        on_message = "on_state",
+        on_error = "on_stream_error",
+        on_close = "on_stream_close"
+    }
     if ctx.api_token and ctx.api_token ~= "" then
-        opts.headers = { Authorization = "Bearer " .. ctx.api_token }
+        opts.headers = {
+            Authorization = "Bearer " .. ctx.api_token
+        }
     end
     State.state_conn = sse(ctx.api_url .. "/api/events", opts)
 end

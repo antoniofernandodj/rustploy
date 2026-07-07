@@ -35,7 +35,7 @@ conferir:
     framework — não precisam mais ser registrados pelo app.
   - **0.4.2 → 0.4.3**: correção do pré-processador KDL — um flag nu (`secure`, `else`)
     numa linha de continuação própria (não colada no nó) virava um nó-filho espúrio que
-    engolia as propriedades seguintes (`value`/`onChange`/`class`). Flags de aplicação
+    engolia as propriedades seguintes (`value`/`on_change`/`class`). Flags de aplicação
     (não intrínsecas a um widget) precisam ser registrados via
     `glacier_ui::register_bare_flags([...])` — em `rustploy-gui` isso é feito no topo de
     `App::boot()` (`["else", "senao"]`).
@@ -111,7 +111,7 @@ conferir:
   **Service detail** (img 4) prontos, com dados reais do daemon via polling RWP.
   Persistência de "remember server/token" (`store.rs`).
 - **Service detail** (`view=service`, sub-`{tab}`): clicar "Open" num card →
-  `open_service:<id>` (id codificado na própria ação, pois `onClick` vira
+  `open_service:<id>` (id codificado na própria ação, pois `on_click` vira
   `UiClick(String)` sem payload, e é template-processado). `Root` guarda
   `selected_service` e dispara `ctx.perform(net::fetch_service_detail)` que faz
   `ServiceGet` + `ProjectList` (p/ nome) + `LogsGet` (tail 200) → keys `svc_*`.
@@ -126,7 +126,7 @@ conferir:
   `Event::BuildLog` **ao vivo** (ring `BUILD_RING=2000`) em `dep_build_logs`.
   Cada painel de log tem "Copiar tudo" (`clipboard:` + `*_text` plano).
 - **Formulários editáveis** (Domains/Healthcheck/Advanced): campos `f_*`
-  populados no fetch, inputs com `onChange="field:<key>"` (handler genérico que
+  populados no fetch, inputs com `on_change="field:<key>"` (handler genérico que
   faz `ctx.set`), Toggle TLS, seletor de kind (`hckind:<k>`), Save → `SpecOp`
   (`net::run_spec_op`: `ServiceGet` → muta spec → `ServiceUpdate` → re-fetch).
   **General** (source/build) também é editável: form genérico Git/Registry
@@ -143,14 +143,14 @@ conferir:
   - **Git**: form de URL/imagem crua (o de antes).
   - **Gitea**: APENAS seleciona contas já conectadas (cadastro/conexão é em
     Settings → Git). Três `<Select>` (dropdowns) — conta (`gitea_providers`,
-    onChange `gitea_provider_pick` → `GitRepoList`), repositório (`gitea_repos`,
-    onChange `gitea_repo_pick`: `find_repo` resolve clone_url/default_branch do
+    on_change `gitea_provider_pick` → `GitRepoList`), repositório (`gitea_repos`,
+    on_change `gitea_repo_pick`: `find_repo` resolve clone_url/default_branch do
     JSON, preenche `f_repo_url`/`f_branch` → `GitBranchList`) e branch
-    (`gitea_branches`, onChange `field:f_branch`). Sem botão de OAuth aqui. +
+    (`gitea_branches`, on_change `field:f_branch`). Sem botão de OAuth aqui. +
     campos de build.
   - **Widget `<Select>` (glacier 0.2.6)**: dropdown `pick_list` que lê um array
     JSON do contexto (mesmo formato do ForEach), com `labelField`/`valueField`,
-    valor selecionado via chave, emite `onChange` com o valor escolhido;
+    valor selecionado via chave, emite `on_change` com o valor escolhido;
     estilizável via `.gss` (classe `.select`: background/border/color). Antes era
     lista de botões (feio); agora são selects de verdade, como no remote-client.
   - `gen_save` (ambas as abas) lê `prov_tab`: Gitea passa `gitea_provider_id`,
@@ -248,12 +248,12 @@ conferir:
 - **`ForEach` aninhado** funciona: um item-objeto cujo valor é array vira string
   JSON na chave `var.campo` (ex.: `r.cards`), e o `ForEach` interno aceita
   `items="r.cards"`. Útil p/ simular grid (sem widget de wrap no glacier).
-- **`onClick` não tem payload** — vira `UiClick(String)` e o `value` no
+- **`on_click` não tem payload** — vira `UiClick(String)` e o `value` no
   `update` é sempre `None` em cliques. Para passar dado (ex.: id da linha),
-  codifique na própria ação: `onClick="open_service:{c.id}"` (a ação é
+  codifique na própria ação: `on_click="open_service:{c.id}"` (a ação é
   template-processada no eval) e faça `action.strip_prefix("open_service:")` no
   `update`. Mesmo padrão p/ `tab:<nome>`.
-- `Column`/`Row` não têm `onClick`; só `Button` clica. Card clicável = um
+- `Column`/`Row` não têm `on_click`; só `Button` clica. Card clicável = um
   `<Button>` dentro do card (ou o card inteiro vira Button text-only).
 - Não consigo screenshot (Wayland sem grim; `import`/D-Bus negados) — depender
   do usuário enviar imagem.

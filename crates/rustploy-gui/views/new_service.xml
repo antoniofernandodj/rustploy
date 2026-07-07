@@ -254,7 +254,7 @@
             if="{ns_db_has_replica}"
             equals="true"
             checked="ns_use_replica"
-            onToggle="field:ns_use_replica"
+            on_toggle="field:ns_use_replica"
           />
 
           <Text class="label_cap" content="DOCKER IMAGE" />
