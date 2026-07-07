@@ -88,14 +88,15 @@ rustploy-gui-windows-dist: ## Pacote .zip do rustploy-gui p/ Windows (apaga dist
 	@cp $(WIN_BIN) $(WIN_DIST_DIR)/
 	# Assets lidos em runtime por caminho relativo ao CWD (o exe faz chdir p/ a
 	# própria pasta no startup — ver src/assets.rs): mesma estrutura de pastas.
-	# `views/` é copiada INTEIRA (templates .xml, components/, e TODA a camada
-	# Luau — views/scripts/{app.luau,state.luau,helpers.luau,glacier.d.luau,
-	# fmt.luau,fmt/,handlers/,net/}): copiar por sub-pasta faz esse target
-	# esquecer um pacote novo silenciosamente (foi o bug real corrigido aqui —
-	# a versão anterior copiava `crates/rustploy-gui/templates`, renomeada p/
-	# `views/` faz tempo, e nunca pegava `views/scripts/`).
+	# `views/` é copiada INTEIRA (templates .xml, views/styles/*.gss+*.json,
+	# components/, e TODA a camada Luau — views/scripts/{app.luau,state.luau,
+	# helpers.luau,glacier.d.luau,fmt.luau,fmt/,handlers/,net/}): copiar por
+	# sub-pasta faz esse target esquecer um pacote novo silenciosamente (foi o
+	# bug real corrigido aqui — a versão anterior copiava
+	# `crates/rustploy-gui/templates`, renomeada p/ `views/` faz tempo, e nunca
+	# pegava `views/scripts/`). Não existe mais um `crates/rustploy-gui/styles/`
+	# separado — foi movido para dentro de `views/`.
 	@cp -r crates/rustploy-gui/views  $(WIN_DIST_DIR)/crates/rustploy-gui/
-	@cp -r crates/rustploy-gui/styles $(WIN_DIST_DIR)/crates/rustploy-gui/
 	@mkdir -p $(WIN_DIST_DIR)/crates/rustploy-gui/assets
 	@cp -r crates/rustploy-gui/assets/icons $(WIN_DIST_DIR)/crates/rustploy-gui/assets/
 	@cp -r crates/shared/templates/blueprints $(WIN_DIST_DIR)/crates/shared/templates/
@@ -105,6 +106,8 @@ rustploy-gui-windows-dist: ## Pacote .zip do rustploy-gui p/ Windows (apaga dist
 	@test -f $(WIN_DIST_DIR)/crates/rustploy-gui/views/scripts/app.luau || \
 		(echo "$(BOLD)ERRO: views/scripts/app.luau não foi copiado — pacote incompleto$(RESET)" && exit 1)
 	@echo "  $$(find $(WIN_DIST_DIR)/crates/rustploy-gui/views/scripts -name '*.luau' | wc -l) arquivos .luau empacotados"
+	@test -f $(WIN_DIST_DIR)/crates/rustploy-gui/views/styles/app.gss || \
+		(echo "$(BOLD)ERRO: views/styles/app.gss não foi copiado — pacote incompleto$(RESET)" && exit 1)
 	@cd dist && zip -qr rustploy-gui-windows.zip rustploy-gui-windows
 	@echo ""
 	@echo "$(GREEN)Pacote Windows gerado:$(RESET)"

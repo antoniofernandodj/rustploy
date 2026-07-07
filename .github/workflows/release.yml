@@ -131,7 +131,10 @@ jobs:
       # layout) — mirrors `make rustploy-gui-windows-dist`. Keep the two in
       # sync: this is the one packaging path with no glob/manifest tool behind
       # it (unlike the .deb job above), so a renamed/new asset dir has to be
-      # added by hand in BOTH places.
+      # added by hand in BOTH places. `views/` is copied WHOLE (there is no
+      # separate `crates/rustploy-gui/styles/` anymore — it moved under
+      # `views/styles/`), so it already carries app.gss/theme.json along with
+      # the templates and the Luau layer.
       - name: Package
         run: |
           set -e
@@ -139,11 +142,11 @@ jobs:
           mkdir -p "$DIST/crates/rustploy-gui" "$DIST/crates/shared/templates"
           cp target/x86_64-pc-windows-msvc/release/rustploy-gui.exe "$DIST/"
           cp -r crates/rustploy-gui/views  "$DIST/crates/rustploy-gui/"
-          cp -r crates/rustploy-gui/styles "$DIST/crates/rustploy-gui/"
           mkdir -p "$DIST/crates/rustploy-gui/assets"
           cp -r crates/rustploy-gui/assets/icons "$DIST/crates/rustploy-gui/assets/"
           cp -r crates/shared/templates/blueprints "$DIST/crates/shared/templates/"
           test -f "$DIST/crates/rustploy-gui/views/scripts/app.luau"
+          test -f "$DIST/crates/rustploy-gui/views/styles/app.gss"
           printf 'Descompacte e rode rustploy-gui.exe (duplo-clique).\r\n' > "$DIST/LEIA-ME.txt"
           cd dist && zip -qr "rustploy-gui-windows-${{ github.ref_name }}.zip" rustploy-gui-windows
 
