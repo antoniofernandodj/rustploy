@@ -61,12 +61,18 @@ pub struct WindowState {
 
 impl Default for WindowState {
     fn default() -> Self {
-        Self { width: 1280.0, height: 820.0, x: None, y: None }
+        Self {
+            width: 1280.0,
+            height: 820.0,
+            x: None,
+            y: None
+        }
     }
 }
 
 fn window_state_path() -> PathBuf {
-    shared::fallback_data_dir().join("rustploy-gui-window.json")
+    shared::fallback_data_dir()
+        .join("rustploy-gui-window.json")
 }
 
 impl WindowState {
@@ -75,7 +81,7 @@ impl WindowState {
     pub fn load() -> Self {
         std::fs::read_to_string(window_state_path())
             .ok()
-            .and_then(|c| serde_json::from_str(&c).ok())
+            .and_then(|c| serde_json::from_str(&c).ok())    
             .unwrap_or_default()
     }
 

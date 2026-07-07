@@ -15,10 +15,11 @@ fn boot() -> GlacierUI {
     std::env::set_current_dir(ws_root).expect("cd workspace root");
 
     let mut m = GlacierUI::new();
-    m.load_stylesheet("crates/rustploy-gui/styles/app.gss")
-        .expect("app.gss must parse (an unknown property drops the whole sheet)");
+    // app.xml itself links app.gss (<link rel="stylesheet">, global since
+    // glacier-ui 0.23), so register_component picks it up — no separate
+    // load_stylesheet call needed here.
     m.register_component("app", "crates/rustploy-gui/views/app.xml")
-        .expect("app.xml + imports must register");
+        .expect("app.xml + imports must register (includes app.gss parsing — an unknown property drops the whole sheet)");
     m.set_initial_screen("app");
     m
 }

@@ -12,7 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Declarative UI engine (published; KDL templates + async bridge + widgets).
-glacier-ui = "0.22.0"
+glacier-ui = "0.23.0"
 
 shared = { path = "../shared" }
 
@@ -54,8 +54,8 @@ assets = [
     ["target/release/rustploy-gui", "usr/bin/rustploy-gui", "755"],
 
     # Runtime assets — keep the `crates/…` layout the KDL paths expect.
+    # (views/**/* already covers views/styles/*.gss+*.json — no separate entry needed.)
     ["views/**/*",            "usr/share/rustploy/crates/rustploy-gui/views/", "644"],
-    ["styles/**/*",               "usr/share/rustploy/crates/rustploy-gui/styles/",    "644"],
     ["assets/icons/**/*",         "usr/share/rustploy/crates/rustploy-gui/assets/icons/", "644"],
     ["../shared/templates/blueprints/**/*", "usr/share/rustploy/crates/shared/templates/blueprints/", "644"],
 

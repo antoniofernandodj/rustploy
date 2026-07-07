@@ -2,10 +2,10 @@
 //!
 //! Every KDL template, stylesheet, icon and blueprint logo is referenced by a
 //! path relative to the process' current working directory — both from Rust
-//! (`crates/rustploy-gui/styles/app.gss`, `crates/rustploy-gui/views/app.xml`,
+//! (`crates/rustploy-gui/views/styles/app.gss`, `crates/rustploy-gui/views/app.xml`,
 //! `crates/shared/views/blueprints/<id>/<logo>`) and from *inside* the KDL
 //! themselves (`import ... from="crates/rustploy-gui/views/service.xml"`,
-//! `theme "crates/rustploy-gui/styles/theme.json"`, `Svg "crates/rustploy-gui/…"`).
+//! `theme "crates/rustploy-gui/views/styles/theme.json"`, `Svg "crates/rustploy-gui/…"`).
 //!
 //! Rather than rewrite every literal, we locate the directory that holds those
 //! `crates/rustploy-gui/…` and `crates/shared/…` trees once at startup and

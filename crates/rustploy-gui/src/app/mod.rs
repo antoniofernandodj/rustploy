@@ -35,23 +35,13 @@ pub(crate) struct App {
 
 impl App {
     pub(crate) fn boot() -> (Self, Task<Message>) {
-        // Nota: as diretivas bare `else`/`senao` (sem valor) agora são
-        // normalizadas pelo próprio glacier-ui (ver `eval.rs`), então não é mais
-        // preciso registrá-las aqui — o antigo `register_bare_flags` saiu na 0.14.
         let mut motor = GlacierUI::new();
-        if let Err(e) = motor.load_stylesheet("crates/rustploy-gui/styles/app.gss") {
-            eprintln!("stylesheet: {e}");
-        }
-        // O componente "app" é o template app.xml com <script src="scripts/app.luau">.
-        // O glacier auto-liga um LuauComponent quando o template tem <script>, então
-        // toda a lógica (login/navegação/SSE/ações) roda em Luau — sem Root Rust.
-        if let Err(e) = motor.register_component("app", "crates/rustploy-gui/views/app.xml") {
-            eprintln!("register: {e}");
-        }
-        // Prefs de login (URL/token lembrados): o Luau não escreve arquivo, então
-        // a persistência local fica em Rust. Aqui semeamos o contexto para o
-        // formulário nascer preenchido; `persist_prefs` (em `update`) grava no
-        // connect/toggle. Ver `store::Prefs`.
+
+        if let Err(e) = motor
+            .register_component("app", "crates/rustploy-gui/views/app.xml") {
+                eprintln!("register: {e}");
+            }
+
         seed_prefs(&mut motor);
         motor.set_initial_screen("app");
         (
