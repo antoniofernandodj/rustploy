@@ -44,17 +44,12 @@
       equals="img">{logo}</image>
   </column>
   <column class="header_titles">
-    <text class="env_key" content="{name}" />
+    <text class="env_key">{name}</text>
     <!-- 
       Só renderiza a descrição quando existe — uma linha vazia empurraria o
       nome pra cima e o desalinharia do logo (align-y center da linha).
     -->
-    <text
-      class="muted"
-      if="{description}"
-      not_equals=""
-      content="{description}"
-    />
+    <text class="muted" if="{description}" not_equals="">{description}</text>
   </column>
   <button
     class="btn_primary"

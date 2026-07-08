@@ -7,8 +7,8 @@
 -->
 <row class="kv_row">
   <column class="header_titles">
-    <text class="env_key" content="{title}" />
-    <text class="muted" content="{subtitle}" />
+    <text class="env_key">{title}</text>
+    <text class="muted">{subtitle}</text>
   </column>
   <button
     class="btn_primary"

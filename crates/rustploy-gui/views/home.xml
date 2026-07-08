@@ -11,7 +11,7 @@
   <if cond="{view}" equals="monitoring">
     <row class="header_row">
       <column class="header_titles">
-        <text class="title" content="Monitoring" />
+        <text class="title">Monitoring</text>
         <text class="subtitle">
           Host and per-container resource usage.
         </text>
@@ -25,12 +25,12 @@
     </row>
     <column class="panel_fill">
       <row class="thead">
-        <text class="th col_svc" content="CONTAINER" />
-        <text class="th col_proj" content="PROJETO" />
-        <text class="th col_dur" content="CPU" />
-        <text class="th col_dur" content="MEM" />
-        <text class="th col_dur" content="RX" />
-        <text class="th col_start" content="TX" />
+        <text class="th col_svc">CONTAINER</text>
+        <text class="th col_proj">PROJETO</text>
+        <text class="th col_dur">CPU</text>
+        <text class="th col_dur">MEM</text>
+        <text class="th col_dur">RX</text>
+        <text class="th col_start">TX</text>
       </row>
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
@@ -44,12 +44,12 @@
         <column class="table_body">
           <column class="row_wrap" for-each="monitoring" var="m">
             <row class="trow">
-              <text class="td_key col_svc" content="{m.name}" />
-              <text class="td col_proj" content="{m.project}" />
-              <text class="td col_dur" content="{m.cpu}" />
-              <text class="td col_dur" content="{m.mem}" />
-              <text class="muted col_dur" content="{m.rx}" />
-              <text class="muted col_start" content="{m.tx}" />
+              <text class="td_key col_svc">{m.name}</text>
+              <text class="td col_proj">{m.project}</text>
+              <text class="td col_dur">{m.cpu}</text>
+              <text class="td col_dur">{m.mem}</text>
+              <text class="muted col_dur">{m.rx}</text>
+              <text class="muted col_start">{m.tx}</text>
             </row>
             <rule />
           </column>
@@ -62,7 +62,7 @@
   <if cond="{view}" equals="ingress">
     <row class="header_row">
       <column class="header_titles">
-        <text class="title" content="Ingress" />
+        <text class="title">Ingress</text>
         <text class="subtitle">
           Active routes in the reverse proxy.
         </text>
@@ -73,10 +73,10 @@
     </row>
     <column class="panel_fill">
       <row class="thead">
-        <text class="th col_svc" content="DOMÍNIO" />
-        <text class="th col_proj" content="SERVIÇO" />
-        <text class="th col_dur" content="UPSTREAM" />
-        <text class="th col_start" content="TLS" />
+        <text class="th col_svc">DOMÍNIO</text>
+        <text class="th col_proj">SERVIÇO</text>
+        <text class="th col_dur">UPSTREAM</text>
+        <text class="th col_start">TLS</text>
       </row>
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
@@ -91,10 +91,10 @@
           <foreach items="ingress" var="i">
             <column class="row_wrap">
               <row class="trow">
-                <text class="td_key col_svc" content="{i.domain}" />
-                <text class="td col_proj" content="{i.service}" />
-                <text class="td col_dur" content="{i.upstream}" />
-                <text class="muted col_start" content="{i.tls}" />
+                <text class="td_key col_svc">{i.domain}</text>
+                <text class="td col_proj">{i.service}</text>
+                <text class="td col_dur">{i.upstream}</text>
+                <text class="muted col_start">{i.tls}</text>
               </row>
               <rule />
             </column>
@@ -110,11 +110,10 @@
   <if cond="{view}" equals="deploy_engine">
     <row class="header_row">
       <column class="header_titles">
-        <text class="title" content="Deploy Engine" />
-        <text
-          class="subtitle"
-          content="Pipeline de deploy: em andamento e histórico recente."
-        />
+        <text class="title">Deploy Engine</text>
+        <text class="subtitle">
+          Pipeline de deploy: em andamento e histórico recente.
+        </text>
       </column>
       <row class="stats_row">
         <StatCard label="ATIVOS" value="{eng_active_count}" accent="1" />
@@ -131,12 +130,12 @@
         EXECUTANDO AGORA ({eng_active_count})
       </text>
       <row class="thead">
-        <text class="th col_svc" content="SERVIÇO" />
-        <text class="th col_proj" content="PROJETO" />
-        <text class="th col_state" content="ESTADO" />
-        <text class="th col_dur" content="PROGRESSO" />
-        <text class="th col_dur" content="TOTAL" />
-        <text class="th col_start" content="FASE" />
+        <text class="th col_svc">SERVIÇO</text>
+        <text class="th col_proj">PROJETO</text>
+        <text class="th col_state">ESTADO</text>
+        <text class="th col_dur">PROGRESSO</text>
+        <text class="th col_dur">TOTAL</text>
+        <text class="th col_start">FASE</text>
       </row>
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
@@ -148,21 +147,18 @@
         class="scroll_fill"
       >
         <column class="table_body">
-          <text
-            if="{eng_active_count}"
-            equals="0"
-            class="muted"
-            content="Nenhum deploy em andamento."
-          />
+          <text if="{eng_active_count}" equals="0" class="muted">
+            Nenhum deploy em andamento.
+          </text>
 
           <column class="row_wrap" for-each="eng_active" var="a">
             <row class="trow">
-              <text class="td_key col_svc" content="{a.service}" />
-              <text class="td col_proj" content="{a.project}" />
+              <text class="td_key col_svc">{a.service}</text>
+              <text class="td col_proj">{a.project}</text>
               <StateCell kind="{a.state_kind}" label="{a.state_label}" />
-              <text class="td col_dur" content="{a.bar} {a.percent}" />
-              <text class="muted col_dur" content="{a.total}" />
-              <text class="muted col_start" content="{a.phase}" />
+              <text class="td col_dur">{a.bar} {a.percent}</text>
+              <text class="muted col_dur">{a.total}</text>
+              <text class="muted col_start">{a.phase}</text>
             </row>
             <rule />
           </column>
@@ -175,12 +171,12 @@
         HISTÓRICO 24H ({eng_recent_count})
       </text>
       <row class="thead">
-        <text class="th col_icon" content="" />
-        <text class="th col_svc" content="SERVIÇO" />
-        <text class="th col_proj" content="PROJETO" />
-        <text class="th col_state" content="ESTADO" />
-        <text class="th col_dur" content="DURAÇÃO" />
-        <text class="th col_start" content="INÍCIO" />
+        <text class="th col_icon"></text>
+        <text class="th col_svc">SERVIÇO</text>
+        <text class="th col_proj">PROJETO</text>
+        <text class="th col_state">ESTADO</text>
+        <text class="th col_dur">DURAÇÃO</text>
+        <text class="th col_start">INÍCIO</text>
       </row>
       <scrollable
         if="{data_loading}"
@@ -189,20 +185,15 @@
         class="scroll_fill"
       >
         <column class="table_body">
-          <text
-            if="{eng_recent_count}"
-            equals="0"
-            class="muted"
-            content="Nenhum deploy concluído nas últimas 24h."
-          />
+          <text if="{eng_recent_count}" equals="0" class="muted">Nenhum deploy concluído nas últimas 24h.</text>
           <column class="row_wrap" for-each="eng_recent" var="r">
             <row class="trow">
-              <text class="td col_icon" content="{r.icon}" />
-              <text class="td_key col_svc" content="{r.service}" />
-              <text class="td col_proj" content="{r.project}" />
+              <text class="td col_icon">{r.icon}</text>
+              <text class="td_key col_svc">{r.service}</text>
+              <text class="td col_proj">{r.project}</text>
               <StateCell kind="{r.state_kind}" label="{r.state_label}" />
-              <text class="muted col_dur" content="{r.duration}" />
-              <text class="muted col_start" content="{r.start}" />
+              <text class="muted col_dur">{r.duration}</text>
+              <text class="muted col_start">{r.start}</text>
             </row>
             <rule />
           </column>
@@ -219,11 +210,8 @@
   <if cond="{view}" equals="docker">
     <row class="header_row">
       <column class="header_titles">
-        <text class="title" content="Docker" />
-        <text
-          class="subtitle"
-          content="Containers, imagens, volumes e networks do host."
-        />
+        <text class="title">Docker</text>
+        <text class="subtitle">Containers, imagens, volumes e networks do host.</text>
       </column>
       <row class="stats_row">
         <StatCard label="IMAGENS" value="{docker_images_count}" />
@@ -264,10 +252,10 @@
          projeto/serviço é direta, já que o container nasce de um Service). -->
     <column class="panel_fill" if="{docker_tab}" equals="containers">
       <row class="thead">
-        <text class="th col_svc" content="SERVIÇO" />
-        <text class="th col_proj" content="IMAGEM" />
-        <text class="th col_state" content="ESTADO" />
-        <text class="th col_start" content="CONTAINER" />
+        <text class="th col_svc">SERVIÇO</text>
+        <text class="th col_proj">IMAGEM</text>
+        <text class="th col_state">ESTADO</text>
+        <text class="th col_start">CONTAINER</text>
       </row>
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
@@ -282,10 +270,10 @@
           <foreach items="docker_rows" var="c">
             <column class="row_wrap">
               <row class="trow">
-                <text class="td_key col_svc" content="{c.name}" />
-                <text class="td col_proj" content="{c.image}" />
+                <text class="td_key col_svc">{c.name}</text>
+                <text class="td col_proj">{c.image}</text>
                 <StateCell kind="{c.status_kind}" label="{c.status_label}" />
-                <text class="muted col_start" content="{c.container}" />
+                <text class="muted col_start">{c.container}</text>
               </row>
               <rule />
             </column>
@@ -321,11 +309,11 @@
         {docker_msg}
       </text>
       <row class="thead">
-        <text class="th col_svc" content="TAGS" />
-        <text class="th col_proj" content="PROJETO / SERVIÇO" />
-        <text class="th col_dur" content="TAMANHO" />
-        <text class="th col_dur" content="CRIADA" />
-        <text class="th col_start" content="USO" />
+        <text class="th col_svc">TAGS</text>
+        <text class="th col_proj">PROJETO / SERVIÇO</text>
+        <text class="th col_dur">TAMANHO</text>
+        <text class="th col_dur">CRIADA</text>
+        <text class="th col_start">USO</text>
       </row>
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
@@ -348,10 +336,10 @@
               equals="EM USO"
             >
               <row class="trow">
-                <text class="td_key col_svc" content="{i.tags}" />
-                <text class="td col_proj" content="{i.project} / {i.service}" />
-                <text class="muted col_dur" content="{i.size}" />
-                <text class="muted col_dur" content="{i.created}" />
+                <text class="td_key col_svc">{i.tags}</text>
+                <text class="td col_proj">{i.project} / {i.service}</text>
+                <text class="muted col_dur">{i.size}</text>
+                <text class="muted col_dur">{i.created}</text>
                 <StateCell kind="{i.in_use_kind}" label="{i.in_use_label}" />
               </row>
               <rule />
@@ -359,10 +347,10 @@
           </if> <else>
             <column class="row_wrap" for-each="docker_images" var="i">
               <row class="trow">
-                <text class="td_key col_svc" content="{i.tags}" />
-                <text class="td col_proj" content="{i.project} / {i.service}" />
-                <text class="muted col_dur" content="{i.size}" />
-                <text class="muted col_dur" content="{i.created}" />
+                <text class="td_key col_svc">{i.tags}</text>
+                <text class="td col_proj">{i.project} / {i.service}</text>
+                <text class="muted col_dur">{i.size}</text>
+                <text class="muted col_dur">{i.created}</text>
                 <StateCell kind="{i.in_use_kind}" label="{i.in_use_label}" />
               </row>
               <rule />
@@ -376,10 +364,7 @@
          sempre externos ao Rustploy (criados manualmente ou por VOLUME da imagem). -->
     <column class="panel_fill" if="{docker_tab}" equals="volumes">
       <row class="env_head">
-        <text
-          class="muted_fill"
-          content="{docker_volumes_count} volume(s)"
-        />
+        <text class="muted_fill">{docker_volumes_count} volume(s)</text>
         <checkbox
           checked="docker_volumes_only_used"
           on_toggle="field:docker_volumes_only_used"
@@ -396,17 +381,12 @@
           text="Limpar sem uso"
         />
       </row>
-      <text
-        if="{docker_msg}"
-        not_equals=""
-        class="muted"
-        content="{docker_msg}"
-      />
+      <text if="{docker_msg}" not_equals="" class="muted">{docker_msg}</text>
       <row class="thead">
-        <text class="th col_svc" content="NOME" />
-        <text class="th col_proj" content="DRIVER" />
-        <text class="th col_dur" content="TAMANHO" />
-        <text class="th col_start" content="USO" />
+        <text class="th col_svc">NOME</text>
+        <text class="th col_proj">DRIVER</text>
+        <text class="th col_dur">TAMANHO</text>
+        <text class="th col_start">USO</text>
       </row>
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
@@ -422,9 +402,9 @@
             <foreach items="docker_volumes" var="v">
               <column class="row_wrap" if="{v.in_use_label}" equals="EM USO">
                 <row class="trow">
-                  <text class="td_key col_svc" content="{v.name}" />
-                  <text class="td col_proj" content="{v.driver}" />
-                  <text class="muted col_dur" content="{v.size}" />
+                  <text class="td_key col_svc">{v.name}</text>
+                  <text class="td col_proj">{v.driver}</text>
+                  <text class="muted col_dur">{v.size}</text>
                   <StateCell kind="{v.in_use_kind}" label="{v.in_use_label}" />
                 </row>
                 <rule />
@@ -433,9 +413,9 @@
           </if> <else>
             <column for-each="docker_volumes" var="v" class="row_wrap">
               <row class="trow">
-                <text class="td_key col_svc" content="{v.name}" />
-                <text class="td col_proj" content="{v.driver}" />
-                <text class="muted col_dur" content="{v.size}" />
+                <text class="td_key col_svc">{v.name}</text>
+                <text class="td col_proj">{v.driver}</text>
+                <text class="muted col_dur">{v.size}</text>
                 <StateCell kind="{v.in_use_kind}" label="{v.in_use_label}" />
               </row>
               <rule />
@@ -466,11 +446,11 @@
         {docker_msg}
       </text>
       <row class="thead">
-        <text class="th col_svc" content="NOME" />
-        <text class="th col_proj" content="PROJETO" />
-        <text class="th col_dur" content="DRIVER" />
-        <text class="th col_dur" content="CONTAINERS" />
-        <text class="th col_start" content="USO" />
+        <text class="th col_svc">NOME</text>
+        <text class="th col_proj">PROJETO</text>
+        <text class="th col_dur">DRIVER</text>
+        <text class="th col_dur">CONTAINERS</text>
+        <text class="th col_start">USO</text>
       </row>
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
@@ -486,10 +466,10 @@
             <foreach items="docker_networks" var="n">
               <column class="row_wrap" if="{n.in_use_label}" equals="EM USO">
                 <row class="trow">
-                  <text class="td_key col_svc" content="{n.name}" />
-                  <text class="td col_proj" content="{n.project}" />
-                  <text class="muted col_dur" content="{n.driver}" />
-                  <text class="muted col_dur" content="{n.containers}" />
+                  <text class="td_key col_svc">{n.name}</text>
+                  <text class="td col_proj">{n.project}</text>
+                  <text class="muted col_dur">{n.driver}</text>
+                  <text class="muted col_dur">{n.containers}</text>
                   <StateCell kind="{n.in_use_kind}" label="{n.in_use_label}" />
                 </row>
                 <rule />
@@ -499,10 +479,10 @@
             <foreach items="docker_networks" var="n">
               <column class="row_wrap">
                 <row class="trow">
-                  <text class="td_key col_svc" content="{n.name}" />
-                  <text class="td col_proj" content="{n.project}" />
-                  <text class="muted col_dur" content="{n.driver}" />
-                  <text class="muted col_dur" content="{n.containers}" />
+                  <text class="td_key col_svc">{n.name}</text>
+                  <text class="td col_proj">{n.project}</text>
+                  <text class="muted col_dur">{n.driver}</text>
+                  <text class="muted col_dur">{n.containers}</text>
                   <StateCell kind="{n.in_use_kind}" label="{n.in_use_label}" />
                 </row>
                 <rule />
@@ -518,14 +498,8 @@
   <if cond="{view}" equals="settings">
     <row class="header_row">
       <column class="header_titles">
-        <text
-          class="title"
-          content="Settings"
-        />
-        <text
-          class="subtitle"
-          content="Daemon web server, HTTPS e contas Git."
-        />
+        <text class="title">Settings</text>
+        <text class="subtitle">Daemon web server, HTTPS e contas Git.</text>
       </column>
     </row>
     <row class="tabs">
@@ -548,41 +522,27 @@
     <if cond="{settings_tab}" not_equals="git">
       <form name="settings" on_submit="settings_save" width="fill">
         <column class="form_panel">
-          <text class="label_cap" content="DOMÍNIO / URL BASE" />
+          <text class="label_cap">DOMÍNIO / URL BASE</text>
           <TextInput
             placeholder="https://rustploy.meusite.com"
             class="field_input"
             formControl="ss_domain"
           />
 
-          <text
-            class="muted"
-            content="Base das URLs de webhook dos serviços e do callback OAuth."
-          />
-          <text
-            class="label_cap"
-            content="E-MAIL LET'S ENCRYPT (HTTPS AUTOMÁTICO)"
-          />
+          <text class="muted">Base das URLs de webhook dos serviços e do callback OAuth.</text>
+          <text class="label_cap">E-MAIL LET'S ENCRYPT (HTTPS AUTOMÁTICO)</text>
           <TextInput
             placeholder="voce@exemplo.com"
             class="field_input"
             formControl="ss_email"
           />
 
-          <text
-            if="{erro_ss_email}"
-            not_equals=""
-            class="err"
-            content="{erro_ss_email}"
-          />
-          <text
-            class="muted"
-            content="Certificados TLS emitidos automaticamente. Requer restart do daemon."
-          />
+          <text if="{erro_ss_email}" not_equals="" class="err">{erro_ss_email}</text>
+          <text class="muted">Certificados TLS emitidos automaticamente. Requer restart do daemon.</text>
 
           <row class="env_add">
             <button class="btn_primary" on_click="settings_save" text="Save" />
-            <text class="muted" content="{settings_msg}" />
+            <text class="muted">{settings_msg}</text>
           </row>
         </column>
       </form>
@@ -595,21 +555,14 @@
           <text class="label_cap">
             CONTAS CONECTADAS ({gitea_count})
           </text>
-          <text
-            if="{gitea_count}"
-            equals="0"
-            class="muted"
-            content="Nenhuma conta Gitea conectada ainda."
-          />
+          <text if="{gitea_count}" equals="0" class="muted">Nenhuma conta Gitea conectada ainda.</text>
 
           <column class="kv_list">
             <foreach items="gitea_providers" var="p">
               <row class="kv_row">
                 <column class="header_titles">
-                  <text class="env_key" content="{p.name}" />
-                  <text
-                    class="muted" content="{p.base_url}  ·  {p.auth_mode}  ·  {p.account}"
-                  />
+                  <text class="env_key">{p.name}</text>
+                  <text class="muted">{p.base_url}  ·  {p.auth_mode}  ·  {p.account}</text>
                 </column>
                 <button class="btn_danger" on_click="gp_delete:{p.id}" text="Remover" />
               </row>
@@ -617,7 +570,7 @@
           </column>
 
           <rule />
-          <text class="label_cap" content="CONECTAR CONTA GITEA" />
+          <text class="label_cap">CONECTAR CONTA GITEA</text>
           <text if="{gp_msg}" not_equals="" class="muted">
             {gp_msg}
           </text>
@@ -639,7 +592,7 @@
           >
             <row class="hc_grid">
               <column class="hc_field">
-                <text class="label_cap" content="NOME" />
+                <text class="label_cap">NOME</text>
                 <TextInput
                   placeholder="Meu Gitea"
                   class="field_input"
@@ -647,15 +600,10 @@
                   value="gp_name"
                   on_change="field:gp_name"
                 />
-                <text
-                  if="{erro_gp_name}"
-                  not_equals=""
-                  class="err"
-                  content="{erro_gp_name}"
-                />
+                <text if="{erro_gp_name}" not_equals="" class="err">{erro_gp_name}</text>
               </column>
               <column class="hc_field">
-                <text class="label_cap" content="BASE URL" />
+                <text class="label_cap">BASE URL</text>
                 <TextInput
                   placeholder="https://gitea.exemplo.com"
                   class="field_input"
@@ -666,7 +614,7 @@
               </column>
             </row>
 
-            <text class="label_cap" content="MÉTODO" />
+            <text class="label_cap">MÉTODO</text>
             <row class="tabs">
               <TabButton
                 label="OAuth2"
@@ -684,7 +632,7 @@
 
             <!-- OAuth2 -->
             <if cond="{gp_mode}" not_equals="pat">
-              <text class="label_cap" content="CLIENT ID" />
+              <text class="label_cap">CLIENT ID</text>
               <TextInput
                 placeholder=""
                 class="field_input"
@@ -693,7 +641,7 @@
                 on_change="field:gp_client_id"
               />
 
-              <text class="label_cap" content="CLIENT SECRET" />
+              <text class="label_cap">CLIENT SECRET</text>
               <TextInput
                 placeholder=""
                 secure="true"
@@ -703,25 +651,16 @@
                 on_change="field:gp_client_secret"
               />
 
-              <text
-                class="label_cap"
-                content="REDIRECT URI (cole no app OAuth do Gitea)"
-              />
+              <text class="label_cap">REDIRECT URI (cole no app OAuth do Gitea)</text>
               <row class="kv_row">
-                <text
-                  class="kv_val_fill"
-                  content="{gp_redirect}"
-                />
+                <text class="kv_val_fill">{gp_redirect}</text>
                 <button
                   class="copy_btn"
                   on_click="clipboard:gp_redirect"
                   text="Copiar"
                 />
               </row>
-              <text
-                class="muted"
-                content="No Gitea: Settings → Applications → crie um OAuth2 app e cole a Redirect URI acima."
-              />
+              <text class="muted">No Gitea: Settings → Applications → crie um OAuth2 app e cole a Redirect URI acima.</text>
             </if>
 
             <!-- PAT -->
@@ -738,10 +677,7 @@
                 on_change="field:gp_pat"
               />
 
-              <text
-                class="muted"
-                content="No Gitea: Settings → Applications → Generate New Token (escopo: repo)."
-              />
+              <text class="muted">No Gitea: Settings → Applications → Generate New Token (escopo: repo).</text>
             </if>
 
             <row class="env_add">
@@ -764,21 +700,12 @@
 
   <!-- ── Schedules / Support (placeholders) ───────────────────────────── -->
   <column class="content_center" if="{view}" equals="schedules">
-    <text class="title" content="Schedules" />
-    <text
-      class="subtitle"
-      content="Agendamentos de auto-deploy — em breve."
-    />
+    <text class="title">Schedules</text>
+    <text class="subtitle">Agendamentos de auto-deploy — em breve.</text>
   </column>
   <column class="content_center" if="{view}" equals="support">
-    <text
-      class="title"
-      content="Support"
-    />
-    <text
-      class="subtitle"
-      content="github.com/antoniofernandodj/rustploy"
-    />
+    <text class="title">Support</text>
+    <text class="subtitle">github.com/antoniofernandodj/rustploy</text>
   </column>
 
 </column>

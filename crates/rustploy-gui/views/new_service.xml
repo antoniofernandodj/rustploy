@@ -12,11 +12,10 @@
 
   <row class="header_row">
     <column class="header_titles">
-      <text class="title" content="Novo Serviço — {proj_name}" />
-      <text
-        class="subtitle"
-        content="Escolha o tipo e configure o serviço antes de criar."
-      />
+      <text class="title">Novo Serviço — {proj_name}</text>
+      <text class="subtitle">
+        Escolha o tipo e configure o serviço antes de criar.
+      </text>
     </column>
     <row class="env_add">
       <button class="btn_ghost" on_click="ns_back" text="‹ Voltar" />
@@ -116,25 +115,21 @@
         <text class="label_cap">
           NOME
         </text>
-        <TextInput
+        <input
           placeholder="minha-app"
           class="field_input"
           form_control="ns_name"
           value="ns_name"
           on_change="field:ns_name"
         />
-        <text
-          if="{erro_ns_name}"
-          not_equals=""
-          class="err"
-          content="{erro_ns_name}"
-        />
+        <text if="{erro_ns_name}" not_equals="" class="err">
+          {erro_ns_name}
+        </text>
         
-        <text
-          class="label_cap"
-          content="APP NAME (OPCIONAL — usado no lugar do nome)"
-        />
-        <TextInput
+        <text class="label_cap">
+          APP NAME (OPCIONAL — usado no lugar do nome)
+        </text>
+        <input
           placeholder="(opcional)"
           class="field_input"
           form_control="ns_app_name"
@@ -142,17 +137,17 @@
           on_change="field:ns_app_name"
         />
         
-        <text
-          class="muted"
-          content="Configure a origem (Git ou imagem) na aba General do serviço depois de criar."
-        />
+        <text class="muted">
+          Configure a origem (Git ou imagem) na aba
+          General do serviço depois de criar.
+        </text>
         <row class="env_add">
           <button
             class="btn_primary"
             on_click="ns_create"
             text="Criar Application"
           />
-          <text class="muted" content="{ns_msg}" />
+          <text class="muted">{ns_msg}</text>
         </row>
       </column>
     </form>
@@ -168,36 +163,39 @@
         <text class="label_cap">
           NOME
         </text>
-        <TextInput
+        <input
           placeholder="minha-stack"
           class="field_input"
           form_control="ns_name"
           value="ns_name"
           on_change="field:ns_name"
         />
-        <text if="{erro_ns_name}"
-          not_equals=""
-          class="err"
-          content="{erro_ns_name}"
-        />
+        <text if="{erro_ns_name}" not_equals="" class="err">
+          {erro_ns_name}
+        </text>
         
-        <text
-          class="label_cap"
-          content="APP NAME (OPCIONAL — usado no lugar do nome)"
-        />
-        <TextInput
+        <text class="label_cap">
+          APP NAME (OPCIONAL — usado no lugar do nome)
+        </text>
+        <input
           placeholder="(opcional)"
           class="field_input"
           form_control="ns_app_name"
-          value="ns_app_name" on_change="field:ns_app_name" />
-        
-        <text
-          class="muted"
-          content="Configure o compose file dentro do serviço antes de fazer deploy."
+          value="ns_app_name" on_change="field:ns_app_name"
         />
+        
+        <text class="muted">
+          Configure o compose file dentro do serviço antes de fazer deploy.
+        </text>
         <row class="env_add">
-          <button class="btn_primary" on_click="ns_create" text="Criar Compose Stack" />
-          <text class="muted" content="{ns_msg}" />
+          <button
+            class="btn_primary"
+            on_click="ns_create"
+            text="Criar Compose Stack"
+          />
+          <text class="muted">
+            {ns_msg}
+          </text>
         </row>
       </column>
     </form>
@@ -208,23 +206,26 @@
     <scrollable direction="vertical" class="scroll_fill">
       <form name="ns_db" on_submit="ns_create" width="fill">
         <column class="form_panel">
-          <text class="label_cap" content="NOVA {ns_db_label}" />
-          <text class="label_cap" content="NOME" />
-          <TextInput
+          <text class="label_cap">
+            NOVA {ns_db_label}
+          </text>
+          <text class="label_cap">NOME</text>
+          <input
             placeholder="meu-banco"
             class="field_input"
             form_control="ns_name"
             value="ns_name"
             on_change="field:ns_name"
           />
-          <text if="{erro_ns_name}" not_equals=""
-            class="err"
-            content="{erro_ns_name}"
-            />
+          <text if="{erro_ns_name}" not_equals="" class="err">
+            {erro_ns_name}
+          </text>
 
           <if cond="{ns_db_has_dbname}" equals="true">
-            <text class="label_cap" content="DATABASE NAME" />
-            <TextInput
+            <text class="label_cap">
+              DATABASE NAME
+            </text>
+            <input
               placeholder="app"
               class="field_input"
               form_control="ns_db_name"
@@ -234,8 +235,10 @@
           </if>
           
           <if cond="{ns_db_has_user}" equals="true">
-            <text class="label_cap" content="USER" />
-            <TextInput
+            <text class="label_cap">
+              USER
+            </text>
+            <input
               placeholder="user"
               class="field_input"
               form_control="ns_db_user"
@@ -248,7 +251,7 @@
             PASSWORD (gerada — pode trocar)
           </text>
 
-          <TextInput
+          <input
             placeholder="(vazio = sem senha, só no Redis)"
             class="field_input"
             form_control="ns_db_password"
@@ -261,7 +264,7 @@
             <text class="label_cap">
               ROOT PASSWORD (gerada — pode trocar)
             </text>
-            <TextInput
+            <input
               placeholder=""
               class="field_input"
               form_control="ns_db_root_password"
@@ -278,9 +281,9 @@
             on_toggle="field:ns_use_replica"
           />
 
-          <text class="label_cap" content="DOCKER IMAGE" />
+          <text class="label_cap">DOCKER IMAGE</text>
           <row class="kv_row">
-            <text class="kv_val_fill" content="{ns_image}" />
+            <text class="kv_val_fill">{ns_image}</text>
           </row>
 
           <row class="env_add">
@@ -289,7 +292,7 @@
               on_click="ns_create"
               text="Criar {ns_db_label}"
             />
-            <text class="muted" content="{ns_msg}" />
+            <text class="muted">{ns_msg}</text>
           </row>
         </column>
       </form>
@@ -300,8 +303,8 @@
   <if cond="{ns_step}" equals="pick_template">
     <column class="env_wrap">
       <column class="hc_field">
-        <text class="label_cap" content="BUSCAR" />
-        <TextInput
+        <text class="label_cap">BUSCAR</text>
+        <input
           placeholder="buscar templates…"
           class="field_input"
           value="ns_tsearch"
@@ -332,8 +335,8 @@
           <text class="label_cap">
             {ns_template_name} — CONFIGURAR
           </text>
-          <text class="label_cap" content="NOME DO SERVIÇO" />
-          <TextInput
+          <text class="label_cap">NOME DO SERVIÇO</text>
+          <input
             placeholder="{ns_template_name}"
             class="field_input"
             form_control="ns_name"
@@ -343,8 +346,8 @@
 
           <foreach items="ns_template_vars" var="v">
             <column class="hc_field">
-              <text class="label_cap" content="{v.label}" />
-              <TextInput
+              <text class="label_cap">{v.label}</text>
+              <input
                 placeholder="{v.placeholder}"
                 class="field_input"
                 value="ns_tv_{v.idx}"
@@ -359,7 +362,7 @@
               on_click="ns_create"
               text="Criar {ns_template_name}"
             />
-            <text class="muted" content="{ns_msg}" />
+            <text class="muted">{ns_msg}</text>
           </row>
         </column>
       </form>

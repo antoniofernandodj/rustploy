@@ -26,14 +26,10 @@
       />
 
       <column class="login_brand">
-        <text
-          class="login_title"
-          content="Rustploy"
-        />
-        <text
-          class="subtitle"
-          content="Infrastructure management for professional teams"
-        />
+        <text class="login_title">Rustploy</text>
+        <text class="subtitle">
+          Infrastructure management for professional teams
+        </text>
       </column>
     </row>
 
@@ -60,8 +56,7 @@
           if="{erro_url}"
           not_equals=""
           class="err"
-          content="{erro_url}"
-        />
+        >{erro_url}</text>
       </column>
 
       <column class="field_group">
@@ -70,7 +65,7 @@
           <text class="field_label_fill">
             ACCESS TOKEN
           </text>
-          <text class="field_label" content="SECURE" />
+          <text class="field_label">SECURE</text>
         </row>
 
         <input
@@ -105,8 +100,8 @@
     <rule />
 
     <row class="status_row">
-      <text class="ok" size="10" content="●" />
-      <text class="muted" content="{status_line}" />
+      <text class="ok" size="10">●</text>
+      <text class="muted">{status_line}</text>
     </row>
   </column>
 </container>

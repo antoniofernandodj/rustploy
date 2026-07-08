@@ -43,12 +43,6 @@
 </style>
 
 <row class="state_cell">
-  <text
-    class="state_dot state_{kind}"
-    content="●"
-  />
-  <text
-    class="state_lbl state_{kind}"
-    content="{label}"
-  />
+  <text class="state_dot state_{kind}">●</text>
+  <text class="state_lbl state_{kind}">{label}</text>
 </row>

@@ -41,19 +41,19 @@
 <column if="{filler}" equals="1" class="card_filler" />
 <column else class="card">
   <row class="card_head">
-    <text class="card_name" content="{name}" />
+    <text class="card_name">{name}</text>
     <rp-badge color="{status_color}" label="{status_label}" />
   </row>
-  <text class="muted" content=":{port}" />
+  <text class="muted">:{port}</text>
   <rule />
   <row class="card_stats">
     <column class="card_stat">
-      <text class="label_cap" content="CPU" />
-      <text class="card_stat_num" content="{cpu}" />
+      <text class="label_cap">CPU</text>
+      <text class="card_stat_num">{cpu}</text>
     </column>
     <column class="card_stat">
-      <text class="label_cap" content="MEM" />
-      <text class="card_stat_num" content="{mem}" />
+      <text class="label_cap">MEM</text>
+      <text class="card_stat_num">{mem}</text>
     </column>
   </row>
   <!-- 

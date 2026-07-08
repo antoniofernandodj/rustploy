@@ -29,9 +29,9 @@
 </style>
 
 <column class="stat_card">
-  <text class="label_cap" content="{label}" />
+  <text class="label_cap">{label}</text>
   <text class="stat_num_g" if="{accent}" equals="1">
     {value}
   </text>
-  <text class="stat_num" else content="{value}" />
+  <text class="stat_num" else>{value}</text>
 </column>

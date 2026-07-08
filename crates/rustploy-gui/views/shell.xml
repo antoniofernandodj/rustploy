@@ -57,17 +57,17 @@
   <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
   <column class="sidebar">
     <column class="brand_box">
-      <text class="brand" content="Rustploy" />
-      <text class="brand_sub" content="PRODUCTION CLUSTER" />
+      <text class="brand">Rustploy</text>
+      <text class="brand_sub">PRODUCTION CLUSTER</text>
     </column>
-    <text class="nav_section" content="DEPLOYMENT OPS" />
+    <text class="nav_section">DEPLOYMENT OPS</text>
     <NavItem label="  Deployments" target="deployments" action="nav_deployments" />
     <NavItem label="  Deploy Engine" target="deploy_engine" action="nav_deploy_engine" />
     <NavItem label="  Monitoring" target="monitoring" action="nav_monitoring" />
     <NavItem label="  Schedules" target="schedules" action="nav_schedules" />
     <NavItem label="  Ingress" target="ingress" action="nav_ingress" />
     <NavItem label="  Docker" target="docker" action="nav_docker" />
-    <text class="nav_section" content="MANAGEMENT" />
+    <text class="nav_section">MANAGEMENT</text>
     <NavItem label="  Projects ({projects_count})" target="projects" action="nav_projects" />
     <column class="nav_spacer" />
     <rule />
@@ -96,7 +96,7 @@
       <column class="content">
         <row class="header_row">
           <column class="header_titles">
-            <text class="title" content="Deployments" />
+            <text class="title">Deployments</text>
             <text class="subtitle">
               Real-time status of services in the cluster.
             </text>
@@ -108,11 +108,11 @@
         </row>
         <column class="panel_fill">
           <row class="thead">
-            <text class="th col_svc" content="SERVIÇO" />
-            <text class="th col_proj" content="PROJETO" />
-            <text class="th col_state" content="ESTADO" />
-            <text class="th col_dur" content="DURAÇÃO" />
-            <text class="th col_start" content="INÍCIO" />
+            <text class="th col_svc">SERVIÇO</text>
+            <text class="th col_proj">PROJETO</text>
+            <text class="th col_state">ESTADO</text>
+            <text class="th col_dur">DURAÇÃO</text>
+            <text class="th col_start">INÍCIO</text>
           </row>
           
           <if cond="{data_loading}" equals="true">
@@ -128,11 +128,11 @@
             <column class="table_body">
               <column class="row_wrap" for-each="deployments" var="d">
                 <row class="trow">
-                  <text class="td_key col_svc" content="{d.service}" />
-                  <text class="td col_proj" content="{d.project}" />
+                  <text class="td_key col_svc">{d.service}</text>
+                  <text class="td col_proj">{d.project}</text>
                   <StateCell kind="{d.state_kind}" label="{d.state_label}" />
-                  <text class="td col_dur" content="{d.duration}" />
-                  <text class="muted col_start" content="{d.start}" />
+                  <text class="td col_dur">{d.duration}</text>
+                  <text class="muted col_start">{d.start}</text>
                 </row>
                 <rule />
               </column>
@@ -148,11 +148,10 @@
         <column class="content">
           <row class="header_row">
             <column class="header_titles">
-              <text class="title" content="Projects" />
-              <text
-                class="subtitle"
-                content="Projetos do cluster e a contagem de serviços de cada um."
-              />
+              <text class="title">Projects</text>
+              <text class="subtitle">
+                Projetos do cluster e a contagem de serviços de cada um.
+              </text>
             </column>
             <row class="stats_row">
               <StatCard label="SERVICES" value="{services_count}" />
@@ -184,11 +183,11 @@
           </form>
           
           <if cond="{erro_new_proj_name}" not_equals="">
-            <text class="err" content="{erro_new_proj_name}" />
+            <text class="err">{erro_new_proj_name}</text>
           </if>
           
           <if cond="{new_proj_msg}" not_equals="">
-            <text class="muted" content="{new_proj_msg}" />
+            <text class="muted">{new_proj_msg}</text>
           </if>
           <if cond="{data_loading}" equals="true">
             <LoadingRow />
@@ -267,7 +266,7 @@
                       placeholder="Nome do projeto"
                     />
                     <if cond="{erro_edit_proj_name}" not_equals="">
-                      <text class="err" content="{erro_edit_proj_name}" />
+                      <text class="err">{erro_edit_proj_name}</text>
                     </if>
                     <input
                       class="field_input"
@@ -285,19 +284,14 @@
                         on_click="cancel_project_edit"
                         text="Cancelar"
                       />
-                      <text class="muted" content="{proj_action_msg}" />
+                      <text class="muted">{proj_action_msg}</text>
                     </row>
                   </form>
                 </if>
                 <else>
-                  <text class="title" content="{proj_name}" />
-                  <text class="subtitle" content="{proj_description}" />
-                  <text
-                    if="{proj_action_msg}"
-                    not_equals=""
-                    class="muted"
-                    content="{proj_action_msg}"
-                  />
+                  <text class="title">{proj_name}</text>
+                  <text class="subtitle">{proj_description}</text>
+                  <text if="{proj_action_msg}" not_equals="" class="muted">{proj_action_msg}</text>
                 </else>
               </column>
             </row>
@@ -323,10 +317,10 @@
             <if cond="{proj_tab}" equals="env">
               <!-- ── Variáveis de ambiente do projeto ────────────────────── -->
               <column class="env_wrap" if="{proj_loading}" not_equals="true">
-                <text
-                  class="muted"
-                  content="Herdadas por todos os serviços deste projeto no deploy — as do serviço têm precedência."
-                />
+                <text class="muted">
+                  Herdadas por todos os serviços deste projeto no deploy — 
+                  as do serviço têm precedência.
+                </text>
                 <form name="penv_add" on_submit="penv_add" width="fill">
                   <row class="env_add">
                     <input
@@ -347,7 +341,7 @@
                   </row>
                 </form>
                 <if cond="{erro_penv_new_key}" not_equals="">
-                  <text class="err" content="{erro_penv_new_key}" />
+                  <text class="err">{erro_penv_new_key}</text>
                 </if>
                 <scrollable direction="vertical" class="env_list_scroll">
                   <column class="kv_list">
@@ -359,42 +353,30 @@
                     >
                       <if cond="{e.__dragging}" equals="true">
                         <row class="kv_row_drag">
-                          <text
-                            class="env_drag_handle env_dragging"
-                            dragHandle="true"
-                            content="⋮ "
-                          />
+                          <text class="env_drag_handle env_dragging" dragHandle="true">
+                             
+                          </text>
                           <button
                             class="env_del"
                             on_click="penv_del:{e.key}"
                             text="✕"
                           />
-                          <text content=" " />
-                          <text
-                            class="env_key"
-                            content="{e.key}"
-                          />
-                          <text
-                            class="kv_val_fill"
-                            content="{e.value}"
-                          />
+                          <text> </text>
+                          <text class="env_key">{e.key}</text>
+                          <text class="kv_val_fill">{e.value}</text>
                         </row>
                       </if>
                       <else>
                         <row class="kv_row">
-                          <text
-                            class="env_drag_handle"
-                            dragHandle="true"
-                            content="⋮ "
-                          />
+                          <text class="env_drag_handle" dragHandle="true">⋮ </text>
                           <button
                             class="env_del"
                             on_click="penv_del:{e.key}"
                             text="✕"
                           />
-                          <text content=" " />
-                          <text class="env_key" content="{e.key}" />
-                          <text class="kv_val_fill" content="{e.value}" />
+                          <text> </text>
+                          <text class="env_key">{e.key}</text>
+                          <text class="kv_val_fill">{e.value}</text>
                         </row>
                       </else>
                     </foreach>

@@ -7,11 +7,9 @@
   <text
     class="state_dot"
     color="{color}"
-    content="●"
-  />
+  >●</text>
   <text
     class="badge_lbl"
     color="{color}"
-    content="{label}"
-  />
+  >{label}</text>
 </row>

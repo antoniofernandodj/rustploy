@@ -7,7 +7,7 @@
   uma vez e não re-avalia quando o flag muda — então um `if` interno à prop
   ficava preso em "true" e o spinner nunca sumia. O `if` inline do chamador é
   re-avaliado ao vivo (mesmo padrão do `if` que esconde/mostra a grid).
-  `note` sobrescreve o texto padrão quando fornecido (prop ausente → vazio).
+  `note` sobrescreve o spano padrão quando fornecido (prop ausente → vazio).
 -->
 <style>
 .loading_row  {
@@ -28,7 +28,7 @@
 </style>
 
 <row class="loading_row">
-  <text class="loading_spin" content="⟳" />
+  <text class="loading_spin">⟳</text>
   <text class="loading_note" if="{note}" not_equals="">
     {note}
   </text>

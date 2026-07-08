@@ -55,8 +55,8 @@
           on_press="window:drag"
           on_double_click="window:maximize"
         >
-          <text class="titlebar_dot" content="●" />
-          <text class="titlebar_title" content="Rustploy" />
+          <text class="titlebar_dot">●</text>
+          <text class="titlebar_title">Rustploy</text>
         </row>
         <button 
           class="win_btn" 
