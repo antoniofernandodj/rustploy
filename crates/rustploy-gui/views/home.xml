@@ -12,7 +12,9 @@
     <Row class="header_row">
       <Column class="header_titles">
         <Text class="title" content="Monitoring" />
-        <Text class="subtitle" content="Host and per-container resource usage." />
+        <Text class="subtitle">
+          Host and per-container resource usage.
+        </Text>
       </Column>
     </Row>
     <Row class="stats_row">
@@ -61,7 +63,9 @@
     <Row class="header_row">
       <Column class="header_titles">
         <Text class="title" content="Ingress" />
-        <Text class="subtitle" content="Active routes in the reverse proxy." />
+        <Text class="subtitle">
+          Active routes in the reverse proxy.
+        </Text>
       </Column>
       <Row class="stats_row">
         <StatCard label="ROUTES" value="{ingress_count}" />
@@ -123,7 +127,9 @@
 
     <!-- Executando agora -->
     <Column class="panel_fill">
-      <Text class="label_cap" content="EXECUTANDO AGORA ({eng_active_count})" />
+      <Text class="label_cap">
+        EXECUTANDO AGORA ({eng_active_count})
+      </Text>
       <Row class="thead">
         <Text class="th col_svc" content="SERVIÇO" />
         <Text class="th col_proj" content="PROJETO" />
@@ -165,7 +171,9 @@
       </Scrollable>
 
       <!-- Histórico 24h -->
-      <Text class="label_cap" content="HISTÓRICO 24H ({eng_recent_count})" />
+      <Text class="label_cap">
+        HISTÓRICO 24H ({eng_recent_count})
+      </Text>
       <Row class="thead">
         <Text class="th col_icon" content="" />
         <Text class="th col_svc" content="SERVIÇO" />
@@ -290,7 +298,9 @@
          manuais/de terceiros ficam com "—"). -->
     <Column class="panel_fill" if="{docker_tab}" equals="images">
       <Row class="env_head">
-        <Text class="muted_fill" content="{docker_images_count} imagem(ns)" />
+        <Text class="muted_fill">
+          {docker_images_count} imagem(ns)
+        </Text>
         <Checkbox
           checked="docker_images_only_used"
           on_toggle="field:docker_images_only_used"
@@ -307,7 +317,9 @@
           text="Limpar sem uso"
         />
       </Row>
-      <Text if="{docker_msg}" not_equals="" class="muted" text="{docker_msg}" />
+      <Text if="{docker_msg}" not_equals="" class="muted">
+        {docker_msg}
+      </Text>
       <Row class="thead">
         <Text class="th col_svc" content="TAGS" />
         <Text class="th col_proj" content="PROJETO / SERVIÇO" />
@@ -436,7 +448,9 @@
     <!-- Networks — projeto reconhecido pela convenção rp_net_&lt;id curto&gt;. -->
     <Column class="panel_fill" if="{docker_tab}" equals="networks">
       <Row class="env_head">
-        <Text class="muted_fill" content="{docker_networks_count} network(s)" />
+        <Text class="muted_fill">
+          {docker_networks_count} network(s)
+        </Text>
         <Checkbox
           checked="docker_networks_only_used"
           on_toggle="field:docker_networks_only_used"
@@ -448,7 +462,9 @@
           text="Limpar sem uso"
         />
       </Row>
-      <Text if="{docker_msg}" not_equals="" class="muted" content="{docker_msg}" />
+      <Text if="{docker_msg}" not_equals="" class="muted">
+        {docker_msg}
+      </Text>
       <Row class="thead">
         <Text class="th col_svc" content="NOME" />
         <Text class="th col_proj" content="PROJETO" />
@@ -576,7 +592,9 @@
     <if cond="{settings_tab}" equals="git">
       <Scrollable direction="vertical" class="scroll_fill">
         <Column class="form_panel">
-          <Text class="label_cap" content="CONTAS CONECTADAS ({gitea_count})" />
+          <Text class="label_cap">
+            CONTAS CONECTADAS ({gitea_count})
+          </Text>
           <Text
             if="{gitea_count}"
             equals="0"
@@ -600,7 +618,9 @@
 
           <Rule />
           <Text class="label_cap" content="CONECTAR CONTA GITEA" />
-          <Text if="{gp_msg}" not_equals="" class="muted" content="{gp_msg}" />
+          <Text if="{gp_msg}" not_equals="" class="muted">
+            {gp_msg}
+          </Text>
           <!-- OAuth: o Luau não abre o navegador; guarda a URL em gp_oauth_url e
                o built-in open:<chave> do glacier abre no navegador padrão. -->
           <Button
@@ -706,7 +726,9 @@
 
             <!-- PAT -->
             <if cond="{gp_mode}" equals="pat">
-              <Text class="label_cap" content="PERSONAL ACCESS TOKEN" />
+              <Text class="label_cap">
+                PERSONAL ACCESS TOKEN
+              </Text>
               <TextInput
                 placeholder=""
                 secure="true"

@@ -29,6 +29,10 @@
 
 <Row class="loading_row">
   <Text class="loading_spin" content="⟳" />
-  <Text class="loading_note" if="{note}" not_equals="" content="{note}" />
-  <Text class="loading_note" if="{note}" equals="" content="Carregando dados…" />
+  <Text class="loading_note" if="{note}" not_equals="">
+    {note}
+  </Text>
+  <Text class="loading_note" if="{note}" equals="">
+    Carregando dados…
+  </Text>
 </Row>

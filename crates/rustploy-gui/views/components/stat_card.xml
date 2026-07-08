@@ -30,6 +30,8 @@
 
 <Column class="stat_card">
   <Text class="label_cap" content="{label}" />
-  <Text class="stat_num_g" if="{accent}" equals="1" content="{value}" />
+  <Text class="stat_num_g" if="{accent}" equals="1">
+    {value}
+  </Text>
   <Text class="stat_num" else content="{value}" />
 </Column>

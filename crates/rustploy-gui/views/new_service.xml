@@ -24,12 +24,16 @@
     </Row>
   </Row>
 
-  <Text if="{ns_msg}" not_equals="" class="warn" content="{ns_msg}" />
+  <Text if="{ns_msg}" not_equals="" class="warn">
+    {ns_msg}
+  </Text>
 
   <!-- ── Passo 1: tipo de serviço ──────────────────────────────────────── -->
   <if cond="{ns_step}" equals="pick_type">
     <Column class="form_panel">
-      <Text class="label_cap" content="ESCOLHA O TIPO DE SERVIÇO" />
+      <Text class="label_cap">
+        ESCOLHA O TIPO DE SERVIÇO
+      </Text>
       <Column class="kv_list">
         <PickerRow
           title="Application"
@@ -68,7 +72,9 @@
   <!-- ── Passo 2 (Database): escolha do banco ─────────────────────────── -->
   <if cond="{ns_step}" equals="pick_db">
     <Column class="form_panel">
-      <Text class="label_cap" content="ESCOLHA O BANCO DE DADOS" />
+      <Text class="label_cap">
+        ESCOLHA O BANCO DE DADOS
+      </Text>
       <Column class="kv_list">
         <PickerRow
           for-each="ns_dbs"
@@ -85,7 +91,9 @@
   <!-- ── Passo 2 (Broker): escolha do broker ──────────────────────────── -->
   <if cond="{ns_step}" equals="pick_broker">
     <Column class="form_panel">
-      <Text class="label_cap" content="ESCOLHA O BROKER" />
+      <Text class="label_cap">
+        ESCOLHA O BROKER
+      </Text>
       <Column class="kv_list">
         <PickerRow
           for-each="ns_brokers"
@@ -102,8 +110,12 @@
   <if cond="{ns_step}" equals="app_form">
     <Form name="ns_app" on_submit="ns_create" width="fill">
       <Column class="form_panel">
-        <Text class="label_cap" content="NOVA APPLICATION" />
-        <Text class="label_cap" content="NOME" />
+        <Text class="label_cap">
+          NOVA APPLICATION
+        </Text>
+        <Text class="label_cap">
+          NOME
+        </Text>
         <TextInput
           placeholder="minha-app"
           class="field_input"
@@ -150,8 +162,12 @@
   <if cond="{ns_step}" equals="compose_form">
     <Form name="ns_compose" on_submit="ns_create" width="fill">
       <Column class="form_panel">
-        <Text class="label_cap" content="NOVA COMPOSE STACK" />
-        <Text class="label_cap" content="NOME" />
+        <Text class="label_cap">
+          NOVA COMPOSE STACK
+        </Text>
+        <Text class="label_cap">
+          NOME
+        </Text>
         <TextInput
           placeholder="minha-stack"
           class="field_input"
@@ -228,7 +244,10 @@
             />
           </if>
           
-          <Text class="label_cap" content="PASSWORD (gerada — pode trocar)" />
+          <Text class="label_cap">
+            PASSWORD (gerada — pode trocar)
+          </Text>
+
           <TextInput
             placeholder="(vazio = sem senha, só no Redis)"
             class="field_input"
@@ -239,7 +258,9 @@
           
           <if cond="{ns_db_has_rootpw}"
             equals="true">
-            <Text class="label_cap" content="ROOT PASSWORD (gerada — pode trocar)" />
+            <Text class="label_cap">
+              ROOT PASSWORD (gerada — pode trocar)
+            </Text>
             <TextInput
               placeholder=""
               class="field_input"
@@ -308,7 +329,9 @@
     <Scrollable direction="vertical" class="scroll_fill">
       <Form name="ns_template" on_submit="ns_create" width="fill">
         <Column class="form_panel">
-          <Text class="label_cap" content="{ns_template_name} — CONFIGURAR" />
+          <Text class="label_cap">
+            {ns_template_name} — CONFIGURAR
+          </Text>
           <Text class="label_cap" content="NOME DO SERVIÇO" />
           <TextInput
             placeholder="{ns_template_name}"

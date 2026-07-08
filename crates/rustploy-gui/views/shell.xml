@@ -84,7 +84,9 @@
         on_change="search_changed"
         placeholder="Search deployments, nodes…"
       />
-      <Text class="muted topbar_status" content="● daemon v{daemon_version}" />
+      <Text class="muted topbar_status">
+        ● daemon v{daemon_version}
+      </Text>
       <Button class="btn_danger" on_click="stop_all" text="Stop All" />
       <Button class="btn_ghost" on_click="disconnect" text="Disconnect" />
     </Row>
@@ -95,7 +97,9 @@
         <Row class="header_row">
           <Column class="header_titles">
             <Text class="title" content="Deployments" />
-            <Text class="subtitle" content="Real-time status of services in the cluster." />
+            <Text class="subtitle">
+              Real-time status of services in the cluster.
+            </Text>
           </Column>
           <Row class="stats_row">
             <StatCard label="STATUS" value="{services_label}" accent="1" />

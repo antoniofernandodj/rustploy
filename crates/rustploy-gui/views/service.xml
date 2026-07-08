@@ -151,7 +151,9 @@
   <!-- ── Corpo: conteúdo da aba + painel lateral ──────────────────────── -->
   <Row class="svc_body">
     <Column class="svc_main">
-      <Text if="{svc_error}" not_equals="" class="svc_err" content="{svc_error}" />
+      <Text if="{svc_error}" not_equals="" class="svc_err">
+        {svc_error}
+      </Text>
 
       <!-- General (source / build, editável) -->
       <Scrollable if="{tab}" equals="general" direction="vertical" class="scroll_fill">
@@ -226,7 +228,9 @@
 
             <!-- ── Sub-aba Git: form de URL/imagem crua ─────────────── -->
             <if cond="{prov_tab}" equals="git">
-              <Text class="label_cap" content="SOURCE — REPOSITORY URL / IMAGE" />
+              <Text class="label_cap">
+                SOURCE — REPOSITORY URL / IMAGE
+              </Text>
               <TextInput
                 class="field_input"
                 form_control="f_repo_url"
@@ -320,7 +324,9 @@
                 on_toggle="field:f_submodules"
                 label=" Enable submodules" />
 
-              <Text class="label_cap" content="BUILD ENGINE: DOCKERFILE" />
+              <Text class="label_cap">
+                BUILD ENGINE: DOCKERFILE
+              </Text>
               <Row class="hc_grid">
                 <Column class="hc_field">
                   <Text
@@ -387,7 +393,9 @@
                 valueField="id"
               />
 
-              <Text class="muted" content="Conecte contas em Settings → Git." />
+              <Text class="muted">
+                Conecte contas em Settings → Git.
+              </Text>
 
               <Text class="label_cap" content="REPOSITÓRIO" />
               <Select
@@ -541,7 +549,9 @@
       <!-- Environment -->
       <Column if="{tab}" equals="environment" class="env_wrap">
         <Row class="env_head">
-          <Text class="muted_fill" content="{svc_env_count} variável(eis)" />
+          <Text class="muted_fill">
+            {svc_env_count} variável(eis)
+          </Text>
           <Button class="btn_export" on_click="env_export" text="Exportar" />
           <Text content=" " />
           <if cond="{env_text_open}" equals="true">
@@ -664,7 +674,9 @@
       <!-- Domains (editável): lista de rotas HTTP (domínio → porta de container,
            TLS por rota), mais o form de adição e a porta TCP crua do host. -->
       <Column if="{tab}" equals="domains" class="form_panel">
-        <Text class="label_cap" content="DOMÍNIOS ({svc_domains_count})" />
+        <Text class="label_cap">
+          DOMÍNIOS ({svc_domains_count})
+        </Text>
         <Text
           class="muted"
           content="Cada domínio pode apontar para uma porta de container diferente."
@@ -682,7 +694,9 @@
           </Column>
         </Scrollable>
 
-        <Text class="label_cap" content="ADICIONAR DOMÍNIO" />
+        <Text class="label_cap">
+          ADICIONAR DOMÍNIO
+        </Text>
         <TextInput
           class="field_input"
           form_control="f_domain"
@@ -697,7 +711,9 @@
           content="{erro_f_domain}"
         />
 
-        <Text class="label_cap" content="PORTA DO CONTAINER (opcional)" />
+        <Text class="label_cap">
+          PORTA DO CONTAINER (opcional)
+        </Text>
         <TextInput
           class="field_input"
           form_control="f_port"
@@ -744,7 +760,9 @@
 
       <!-- Deployments -->
       <Column if="{tab}" equals="deployments" class="dep_wrap">
-        <Text class="muted" content="{svc_deployments_count} deployments" />
+        <Text class="muted">
+          {svc_deployments_count} deployments
+        </Text>
         <Scrollable direction="vertical" class="dep_list_scroll">
           <Column class="table_body">
             <Column class="row_wrap" for-each="svc_deployments" var="d">

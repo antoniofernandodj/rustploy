@@ -95,7 +95,9 @@
 
       <Button class="connect_btn" on_click="connect" text="Connect" />
     </Form>
-    <Text if="{error}" not_equals="" class="err" content="⚠ {error}" />
+    <Text if="{error}" not_equals="" class="err">
+      ⚠ {error}
+    </Text>
 
     <Rule />
 
