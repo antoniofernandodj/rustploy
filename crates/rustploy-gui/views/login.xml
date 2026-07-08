@@ -14,96 +14,99 @@
 .ok           { color: var(--ok); }
 </style>
 
-<Container class="login_wrap">
-  <Column class="login_card">
-    <Row class="login_head">
+<container class="login_wrap">
+  <column class="login_card">
+    <row class="login_head">
 
-      <Svg
+      <svg
         src="crates/rustploy-gui/assets/icons/terminal.svg"
         color="#2F81F7"
         width="34"
         height="34"
       />
 
-      <Column class="login_brand">
-        <Text
+      <column class="login_brand">
+        <text
           class="login_title"
           content="Rustploy"
         />
-        <Text
+        <text
           class="subtitle"
           content="Infrastructure management for professional teams"
         />
-      </Column>
-    </Row>
+      </column>
+    </row>
 
-    <Form name="login" on_submit="connect" spacing="16" width="fill">
+    <form name="login" on_submit="connect" spacing="16" width="fill">
 
-      <Column class="field_group">
+      <column class="field_group">
 
-        <Row class="field_row">
-          <Text class="field_label_fill" content="SERVER URL" />
-          <Text class="field_label" content="ENDPOINT" />
-        </Row>
+        <row class="field_row">
+          <text class="field_label_fill">
+            SERVER URL
+          </text>
+          <text class="field_label">
+            ENDPOINT
+          </text>
+        </row>
 
-        <TextInput
+        <input
           placeholder="https://rustploy.chiquitos.tech"
           class="field_input"
           form_control="url"
         />
 
-        <Text
+        <text
           if="{erro_url}"
           not_equals=""
           class="err"
           content="{erro_url}"
         />
-      </Column>
+      </column>
 
-      <Column class="field_group">
+      <column class="field_group">
 
-        <Row class="field_row">
-          <Text
-            class="field_label_fill"
-            content="ACCESS TOKEN"
-          />
-          <Text class="field_label" content="SECURE" />
-        </Row>
+        <row class="field_row">
+          <text class="field_label_fill">
+            ACCESS TOKEN
+          </text>
+          <text class="field_label" content="SECURE" />
+        </row>
 
-        <TextInput
+        <input
           placeholder="token de acesso"
           class="field_input"
           form_control="token"
         />
 
-      </Column>
+      </column>
 
-      <Column class="login_checks">
+      <column class="login_checks">
 
-        <Checkbox
+        <checkbox
           checked="remember_url"
           on_toggle="toggle_remember_url"
           label="Remember server"
         />
-        <Checkbox
+        <checkbox
           checked="remember_token"
           on_toggle="toggle_remember_token"
           label="Remember token"
         />
 
-      </Column>
+      </column>
 
-      <Button class="connect_btn" on_click="connect" text="Connect" />
-    </Form>
-    <Text if="{error}" not_equals="" class="err">
+      <button class="connect_btn" on_click="connect" text="Connect" />
+    </form>
+    <text if="{error}" not_equals="" class="err">
       ⚠ {error}
-    </Text>
+    </text>
 
-    <Rule />
+    <rule />
 
-    <Row class="status_row">
-      <Text class="ok" size="10" content="●" />
-      <Text class="muted" content="{status_line}" />
-    </Row>
-  </Column>
-</Container>
+    <row class="status_row">
+      <text class="ok" size="10" content="●" />
+      <text class="muted" content="{status_line}" />
+    </row>
+  </column>
+</container>

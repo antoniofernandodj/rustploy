@@ -15,13 +15,13 @@
 </style>
 
 <if cond="{current}" equals="{target}">
-  <Button
+  <button
     class="tab_on"
     on_click="{action}"
     text="{label}"
   />
 </if> <else>
-  <Button
+  <button
     class="tab"
     on_click="{action}"
     text="{label}"

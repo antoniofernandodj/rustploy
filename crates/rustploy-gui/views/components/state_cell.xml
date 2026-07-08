@@ -42,13 +42,13 @@
 }
 </style>
 
-<Row class="state_cell">
-  <Text
+<row class="state_cell">
+  <text
     class="state_dot state_{kind}"
     content="●"
   />
-  <Text
+  <text
     class="state_lbl state_{kind}"
     content="{label}"
   />
-</Row>
+</row>

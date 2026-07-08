@@ -7,13 +7,13 @@
 -->
 
 <if cond="{filler}" equals="1">
-    <Column class="card_filler" />
+    <column class="card_filler" />
 </if> <else>
-  <Column class="card">
-    <Row class="card_head">
-      <Text class="card_name" content="{name}" />
-    </Row>
-    <Text
+  <column class="card">
+    <row class="card_head">
+      <text class="card_name" content="{name}" />
+    </row>
+    <text
       class="muted"
       size="11"
       content="{service_count} serviço(s) · {running_count} rodando"
@@ -23,29 +23,29 @@
       descrição, mantendo os cards da fileira mais próximos em
       altura mesmo quando só um tem descrição.
     -->
-    <Text class="muted" content="{description}" />
-    <Rule />
+    <text class="muted" content="{description}" />
+    <rule />
     <!-- 
       Ações empilhadas: um botão fill disputando a linha com
       texto/botão fica torto quando o card está estreito.
     -->
-    <Button
+    <button
       class="card_open"
       on_click="open_project:{id}"
       text="Abrir  ›"
     />
-    <Button
+    <button
       class="card_remove"
       if="{can_delete}"
       equals="1"
       on_click="delete_project:{id}"
       text="Remover"
     />
-    <Text
+    <text
       class="muted"
       if="{can_delete}"
       not_equals="1"
       content="Não removível: tem serviços"
     />
-  </Column>
+  </column>
 </else>

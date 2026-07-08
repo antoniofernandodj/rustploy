@@ -76,7 +76,7 @@
 .col_start  { width: fill; }
 .panel_fill { width: fill; height: fill; background: var(--surface); border-radius: 14; border-width: 1; border-color: var(--border); padding: 4; }
 .form_panel { width: fill; max-width: 640; background: var(--surface); border-radius: 14; border-width: 1; border-color: var(--border); padding: 24; spacing: 10; }
-/* Ponto colorido do StateCell/Badge — compartilhado; o rótulo e a paleta
+/* Ponto colorido do StateCell/rp-badge — compartilhado; o rótulo e a paleta
    (state_<kind>) moram no <style> do state_cell.xml. */
 .state_dot  { size: 11; }
 

@@ -32,62 +32,62 @@
 .win_close      { width: 48; padding: 5 0; color: var(--danger); text-align: center; }
 </style>
 
-<Column class="screen">
+<column class="screen">
 
   <!-- ── Top edge + top corners (north / nw / ne) ─────────────────────────── -->
-  <Row class="rz_top">
-    <Column class="rz_corner rz_nw" on_press="window:resize:nw" />
-    <Column class="rz_h" on_press="window:resize:n" />
-    <Column class="rz_corner rz_ne" on_press="window:resize:ne" />
-  </Row>
+  <row class="rz_top">
+    <column class="rz_corner rz_nw" on_press="window:resize:nw" />
+    <column class="rz_h" on_press="window:resize:n" />
+    <column class="rz_corner rz_ne" on_press="window:resize:ne" />
+  </row>
 
   <!-- ── Middle band: left edge | body | right edge (west / east) ──────────── -->
-  <Row class="rz_mid">
-    <Column class="rz_v" on_press="window:resize:w" />
-    <Column class="rz_body">
+  <row class="rz_mid">
+    <column class="rz_v" on_press="window:resize:w" />
+    <column class="rz_body">
       <!-- ── Custom titlebar ───────────────────────────────────────────
         titlebar_drag (width:fill) is the drag handle and pushes the
         controls to the right edge. on_press/on_click window:* actions are
         handled in main.rs against the cached window id. -->
-      <Row class="titlebar">
-        <Row
+      <row class="titlebar">
+        <row
           class="titlebar_drag"
           on_press="window:drag"
           on_double_click="window:maximize"
         >
-          <Text class="titlebar_dot" content="●" />
-          <Text class="titlebar_title" content="Rustploy" />
-        </Row>
-        <Button 
+          <text class="titlebar_dot" content="●" />
+          <text class="titlebar_title" content="Rustploy" />
+        </row>
+        <button 
           class="win_btn" 
           on_click="window:minimize" 
           text="—"
         />
-        <Button 
+        <button 
           class="win_btn" 
           on_click="window:maximize" 
           text="▢"
         />
-        <Button 
+        <button 
           class="win_close" 
           on_click="window:close" 
           text="✕"
         />
-      </Row>
+      </row>
 
       <if cond="{screen}" equals="login"> <Login /> </if>
       <else> <Shell /> </else>
-    </Column>
-    <Column class="rz_v" on_press="window:resize:e" />
-  </Row>
+    </column>
+    <column class="rz_v" on_press="window:resize:e" />
+  </row>
 
   <!-- ── Bottom edge + bottom corners (south / sw / se) ────────────────────── -->
-  <Row class="rz_bottom">
-    <Column class="rz_corner rz_sw" on_press="window:resize:sw" />
-    <Column class="rz_h" on_press="window:resize:s" />
-    <Column class="rz_corner rz_se" on_press="window:resize:se"/>
-  </Row>
-</Column>
+  <row class="rz_bottom">
+    <column class="rz_corner rz_sw" on_press="window:resize:sw" />
+    <column class="rz_h" on_press="window:resize:s" />
+    <column class="rz_corner rz_se" on_press="window:resize:se"/>
+  </row>
+</column>
 
 <!-- Toda a lógica de rede/estado (login, navegação, busca, stream SSE e ações)
   vive em Luau, no script abaixo: sucessor de app/root.rs + app/net/*. É o

@@ -3,15 +3,15 @@
   espaçamento/estilo de crachá — `badge_lbl`). Usada no card de serviço e no
   cabeçalho/aside do detalhe do serviço.
 -->
-<Row class="badge">
-  <Text
+<row class="badge">
+  <text
     class="state_dot"
     color="{color}"
     content="●"
   />
-  <Text
+  <text
     class="badge_lbl"
     color="{color}"
     content="{label}"
   />
-</Row>
+</row>

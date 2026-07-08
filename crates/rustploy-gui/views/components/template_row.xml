@@ -27,38 +27,38 @@
 }
 </style>
 
-<Row class="tpl_row">
+<row class="tpl_row">
   <!--
     Caixa quadrada fixa e centralizada: os logos têm proporções diferentes
     (quadrado, largo, estreito), então reservamos sempre o mesmo espaço e
     centralizamos o logo dentro dele — mantém a coluna de texto alinhada.
   -->
-  <Column class="tpl_logo_box">
-    <Svg
+  <column class="tpl_logo_box">
+    <svg
       class="tpl_logo"
       if="{logo_kind}"
-      equals="svg">{logo}</Svg>
-    <Image
+      equals="svg">{logo}</svg>
+    <image
       class="tpl_logo"
       if="{logo_kind}"
-      equals="img">{logo}</Image>
-  </Column>
-  <Column class="header_titles">
-    <Text class="env_key" content="{name}" />
+      equals="img">{logo}</image>
+  </column>
+  <column class="header_titles">
+    <text class="env_key" content="{name}" />
     <!-- 
       Só renderiza a descrição quando existe — uma linha vazia empurraria o
       nome pra cima e o desalinharia do logo (align-y center da linha).
     -->
-    <Text
+    <text
       class="muted"
       if="{description}"
       not_equals=""
       content="{description}"
     />
-  </Column>
-  <Button
+  </column>
+  <button
     class="btn_primary"
     on_click="{action}"
     text="Escolher ›"
   />
-</Row>
+</row>

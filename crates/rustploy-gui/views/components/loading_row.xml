@@ -27,12 +27,12 @@
 }
 </style>
 
-<Row class="loading_row">
-  <Text class="loading_spin" content="⟳" />
-  <Text class="loading_note" if="{note}" not_equals="">
+<row class="loading_row">
+  <text class="loading_spin" content="⟳" />
+  <text class="loading_note" if="{note}" not_equals="">
     {note}
-  </Text>
-  <Text class="loading_note" if="{note}" equals="">
+  </text>
+  <text class="loading_note" if="{note}" equals="">
     Carregando dados…
-  </Text>
-</Row>
+  </text>
+</row>

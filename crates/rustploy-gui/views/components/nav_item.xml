@@ -13,14 +13,14 @@
 }
 </style>
 
-<Button
+<button
   class="nav_item_on"
   if="{view}"
   equals="{target}"
   on_click="{action}"
   text="{label}"
 />
-<Button
+<button
   class="nav_item"
   else
   on_click="{action}"

@@ -41,7 +41,7 @@ conferir:
     `App::boot()` (`["else", "senao"]`).
   - Loading gate na aba **General** do detalhe do serviço: enquanto o fetch (spec +
     contas/repos/branches Gitea) não completa, mostra "Carregando…" em vez dos
-    `<Select>` piscarem vazios antes de terem opções.
+    `<select>` piscarem vazios antes de terem opções.
   - **Timer de deploy ao vivo**: `Deploy`/`Rebuild` armam um `DeployTrack` (id do
     deployment + `started_at` do servidor); um badge "⏱ Ns" no header do serviço
     atualiza a cada segundo (tick de 1Hz local, sem RPC) enquanto o deploy roda; ao
@@ -93,11 +93,11 @@ conferir:
     .title(…).run()`; `Subscription::run_with(key, fn(&key)->stream)` (chave
     `PollKey`, Hash só do `seq`); `stream::channel` com `Sender` anotado.
 - **glacier-ui 0.2.7**: `<TextInput secure="true">`
-  (mascara senhas/tokens). 0.2.6: **widget `<Select>`** (dropdown `pick_list`,
+  (mascara senhas/tokens). 0.2.6: **widget `<select>`** (dropdown `pick_list`,
   opções de array JSON do contexto, estilizável via `.gss`; aliases
   `Dropdown`/`PickList`/`ComboBox`/`Seletor`). 0.2.4: ação built-in
   `clipboard:<key>` (copia valor do contexto p/ a área de transferência).
-  0.2.3: **widget `<TextArea>`**
+  0.2.3: **widget `<textarea>`**
   (editor multiline stateful). Como o `text_editor` do iced é stateful
   (`Content`), o `GlacierUI` mantém um `EditorMap` (binding→`Content`) +
   `editor_synced`; `sync_editors()` (fim de `reevaluate_all`) cria/recarrega o
@@ -142,13 +142,13 @@ conferir:
   `gitea` quando o source já tem `provider_id` (e ecoa `gitea_provider_id`).
   - **Git**: form de URL/imagem crua (o de antes).
   - **Gitea**: APENAS seleciona contas já conectadas (cadastro/conexão é em
-    Settings → Git). Três `<Select>` (dropdowns) — conta (`gitea_providers`,
+    Settings → Git). Três `<select>` (dropdowns) — conta (`gitea_providers`,
     on_change `gitea_provider_pick` → `GitRepoList`), repositório (`gitea_repos`,
     on_change `gitea_repo_pick`: `find_repo` resolve clone_url/default_branch do
     JSON, preenche `f_repo_url`/`f_branch` → `GitBranchList`) e branch
     (`gitea_branches`, on_change `field:f_branch`). Sem botão de OAuth aqui. +
     campos de build.
-  - **Widget `<Select>` (glacier 0.2.6)**: dropdown `pick_list` que lê um array
+  - **Widget `<select>` (glacier 0.2.6)**: dropdown `pick_list` que lê um array
     JSON do contexto (mesmo formato do ForEach), com `labelField`/`valueField`,
     valor selecionado via chave, emite `on_change` com o valor escolhido;
     estilizável via `.gss` (classe `.select`: background/border/color). Antes era
@@ -177,12 +177,12 @@ conferir:
   do service (incl. editor `.env` e painel de build log) — pega KDL malformado e
   propriedade `.gss` desconhecida sem precisar de display. (`cargo test -p rustploy-gui`.)
 - **Copiar / selecionar**: glacier 0.2.4 tem ação `clipboard:<key>`. Aba Logs é
-  um `<TextArea value="svc_logs_text">` (selecionável/Ctrl+C) + "Copiar tudo";
+  um `<textarea value="svc_logs_text">` (selecionável/Ctrl+C) + "Copiar tudo";
   Connection tem "Copiar" por valor (`clipboard:svc_port` etc.).
 - **Edição de env vars**: aba Environment tem (a) form Adicionar (KEY+value) e ✕
   por linha → `net::run_env_op` (`ServiceGet` → muta `env_vars` → `ServiceUpdate`
   → re-fetch); (b) **editor `.env`** colapsável: botão `.env`/`Fechar .env`
-  (`env_text_open`) revela um `<TextArea value="svc_env_text">` com botões
+  (`env_text_open`) revela um `<textarea value="svc_env_text">` com botões
   Importar (`EnvOp::ImportDotenv`: parse `KEY=VALUE`, `#` comentário,
   `<secret:NAME>` volta a Secret, **substitui todas**) e Cancelar (descarta via
   `svc_env_text_orig`, cópia pristina salva no fetch); e "Exportar .env" grava
@@ -206,7 +206,7 @@ conferir:
   — basta `Subscribe { service_id: None }`), acumulados num `HashMap` e
   mesclados nos cards. glacier não tem grid com wrap → fatiei em linhas de 3
   (`GRID_COLS`) no `service_rows_json` (`[{"cards":[…]}]`) e renderizo com
-  `<ForEach>` aninhado (`items="r.cards"`); fillers invisíveis (`filler="1"`)
+  `<foreach>` aninhado (`items="r.cards"`); fillers invisíveis (`filler="1"`)
   mantêm as colunas alinhadas. Classes `.card`/`.grid`/`.card_*` no `.gss`.
 - **Home screens** (`views/home.xml`, importado no `shell.xml`; ifs
   independentes por `{view}`): **Monitoring** (stat cards de host CPU/MEM/DISK/
@@ -229,14 +229,14 @@ conferir:
    Settings só tem Web Server (remote-client tem Git/Registry/Certs… quase todas
    placeholder lá também).
 2. Sidebar com ícones SVG (já em `assets/icons/`). Botão gradiente real (hoje
-   `<Button>` só cor sólida; gradiente já funciona em containers).
+   `<button>` só cor sólida; gradiente já funciona em containers).
 3. **Fonte mono** do design: JetBrains Mono está em `assets/fonts/` com o
    `.font()/.default_font()` COMENTADO no `main.rs`. Reabilitar quando
    descobrirmos por que a fonte custom sumia (provável: registrar a fonte e
    garantir que o iced a use; testar `WGPU_BACKEND=gl`).
 
 ## Armadilhas aprendidas
-- **`width="fill"` dentro de `<Row>` sem `width="fill"`** (Row default=shrink)
+- **`width="fill"` dentro de `<row>` sem `width="fill"`** (Row default=shrink)
   COLAPSA o filho → texto quebra 1 letra/linha (vira "invisível" e estica o
   pai). Regra: toda Row com filho fill precisa `width: fill`. (Foi o que
   quebrava o login — NÃO era fonte.)
@@ -254,7 +254,7 @@ conferir:
   template-processada no eval) e faça `action.strip_prefix("open_service:")` no
   `update`. Mesmo padrão p/ `tab:<nome>`.
 - `Column`/`Row` não têm `on_click`; só `Button` clica. Card clicável = um
-  `<Button>` dentro do card (ou o card inteiro vira Button text-only).
+  `<button>` dentro do card (ou o card inteiro vira Button text-only).
 - Não consigo screenshot (Wayland sem grim; `import`/D-Bus negados) — depender
   do usuário enviar imagem.
 - Disco do `/` enche fácil; `target/` do glacier chegou a 19G. `cargo clean` lá

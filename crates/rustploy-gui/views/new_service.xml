@@ -8,33 +8,33 @@
 .warn { color: var(--warn); }
 </style>
 
-<Column class="content">
+<column class="content">
 
-  <Row class="header_row">
-    <Column class="header_titles">
-      <Text class="title" content="Novo Serviço — {proj_name}" />
-      <Text
+  <row class="header_row">
+    <column class="header_titles">
+      <text class="title" content="Novo Serviço — {proj_name}" />
+      <text
         class="subtitle"
         content="Escolha o tipo e configure o serviço antes de criar."
       />
-    </Column>
-    <Row class="env_add">
-      <Button class="btn_ghost" on_click="ns_back" text="‹ Voltar" />
-      <Button class="btn_ghost" on_click="ns_cancel" text="Cancelar" />
-    </Row>
-  </Row>
+    </column>
+    <row class="env_add">
+      <button class="btn_ghost" on_click="ns_back" text="‹ Voltar" />
+      <button class="btn_ghost" on_click="ns_cancel" text="Cancelar" />
+    </row>
+  </row>
 
-  <Text if="{ns_msg}" not_equals="" class="warn">
+  <text if="{ns_msg}" not_equals="" class="warn">
     {ns_msg}
-  </Text>
+  </text>
 
   <!-- ── Passo 1: tipo de serviço ──────────────────────────────────────── -->
   <if cond="{ns_step}" equals="pick_type">
-    <Column class="form_panel">
-      <Text class="label_cap">
+    <column class="form_panel">
+      <text class="label_cap">
         ESCOLHA O TIPO DE SERVIÇO
-      </Text>
-      <Column class="kv_list">
+      </text>
+      <column class="kv_list">
         <PickerRow
           title="Application"
           subtitle="Web app via Git ou imagem"
@@ -65,17 +65,17 @@
           button_label="Selecionar ›"
           action="ns_kind:template"
         />
-      </Column>
-    </Column>
+      </column>
+    </column>
   </if>
 
   <!-- ── Passo 2 (Database): escolha do banco ─────────────────────────── -->
   <if cond="{ns_step}" equals="pick_db">
-    <Column class="form_panel">
-      <Text class="label_cap">
+    <column class="form_panel">
+      <text class="label_cap">
         ESCOLHA O BANCO DE DADOS
-      </Text>
-      <Column class="kv_list">
+      </text>
+      <column class="kv_list">
         <PickerRow
           for-each="ns_dbs"
           var="d"
@@ -84,17 +84,17 @@
           button_label="Selecionar ›"
           action="ns_db:{d.id}"
         />
-      </Column>
-    </Column>
+      </column>
+    </column>
   </if>
 
   <!-- ── Passo 2 (Broker): escolha do broker ──────────────────────────── -->
   <if cond="{ns_step}" equals="pick_broker">
-    <Column class="form_panel">
-      <Text class="label_cap">
+    <column class="form_panel">
+      <text class="label_cap">
         ESCOLHA O BROKER
-      </Text>
-      <Column class="kv_list">
+      </text>
+      <column class="kv_list">
         <PickerRow
           for-each="ns_brokers"
           var="b"
@@ -102,20 +102,20 @@
           subtitle="{b.image}"
           button_label="Selecionar ›"
           action="ns_broker:{b.id}" />
-      </Column>
-    </Column>
+      </column>
+    </column>
   </if>
 
   <!-- ── Application ───────────────────────────────────────────────────── -->
   <if cond="{ns_step}" equals="app_form">
-    <Form name="ns_app" on_submit="ns_create" width="fill">
-      <Column class="form_panel">
-        <Text class="label_cap">
+    <form name="ns_app" on_submit="ns_create" width="fill">
+      <column class="form_panel">
+        <text class="label_cap">
           NOVA APPLICATION
-        </Text>
-        <Text class="label_cap">
+        </text>
+        <text class="label_cap">
           NOME
-        </Text>
+        </text>
         <TextInput
           placeholder="minha-app"
           class="field_input"
@@ -123,14 +123,14 @@
           value="ns_name"
           on_change="field:ns_name"
         />
-        <Text
+        <text
           if="{erro_ns_name}"
           not_equals=""
           class="err"
           content="{erro_ns_name}"
         />
         
-        <Text
+        <text
           class="label_cap"
           content="APP NAME (OPCIONAL — usado no lugar do nome)"
         />
@@ -142,32 +142,32 @@
           on_change="field:ns_app_name"
         />
         
-        <Text
+        <text
           class="muted"
           content="Configure a origem (Git ou imagem) na aba General do serviço depois de criar."
         />
-        <Row class="env_add">
-          <Button
+        <row class="env_add">
+          <button
             class="btn_primary"
             on_click="ns_create"
             text="Criar Application"
           />
-          <Text class="muted" content="{ns_msg}" />
-        </Row>
-      </Column>
-    </Form>
+          <text class="muted" content="{ns_msg}" />
+        </row>
+      </column>
+    </form>
   </if>
 
   <!-- ── Compose ───────────────────────────────────────────────────────── -->
   <if cond="{ns_step}" equals="compose_form">
-    <Form name="ns_compose" on_submit="ns_create" width="fill">
-      <Column class="form_panel">
-        <Text class="label_cap">
+    <form name="ns_compose" on_submit="ns_create" width="fill">
+      <column class="form_panel">
+        <text class="label_cap">
           NOVA COMPOSE STACK
-        </Text>
-        <Text class="label_cap">
+        </text>
+        <text class="label_cap">
           NOME
-        </Text>
+        </text>
         <TextInput
           placeholder="minha-stack"
           class="field_input"
@@ -175,13 +175,13 @@
           value="ns_name"
           on_change="field:ns_name"
         />
-        <Text if="{erro_ns_name}"
+        <text if="{erro_ns_name}"
           not_equals=""
           class="err"
           content="{erro_ns_name}"
         />
         
-        <Text
+        <text
           class="label_cap"
           content="APP NAME (OPCIONAL — usado no lugar do nome)"
         />
@@ -191,25 +191,25 @@
           form_control="ns_app_name"
           value="ns_app_name" on_change="field:ns_app_name" />
         
-        <Text
+        <text
           class="muted"
           content="Configure o compose file dentro do serviço antes de fazer deploy."
         />
-        <Row class="env_add">
-          <Button class="btn_primary" on_click="ns_create" text="Criar Compose Stack" />
-          <Text class="muted" content="{ns_msg}" />
-        </Row>
-      </Column>
-    </Form>
+        <row class="env_add">
+          <button class="btn_primary" on_click="ns_create" text="Criar Compose Stack" />
+          <text class="muted" content="{ns_msg}" />
+        </row>
+      </column>
+    </form>
   </if>
 
   <!-- ── Database (form do banco escolhido) ────────────────────────────── -->
   <if cond="{ns_step}" equals="db_form">
-    <Scrollable direction="vertical" class="scroll_fill">
-      <Form name="ns_db" on_submit="ns_create" width="fill">
-        <Column class="form_panel">
-          <Text class="label_cap" content="NOVA {ns_db_label}" />
-          <Text class="label_cap" content="NOME" />
+    <scrollable direction="vertical" class="scroll_fill">
+      <form name="ns_db" on_submit="ns_create" width="fill">
+        <column class="form_panel">
+          <text class="label_cap" content="NOVA {ns_db_label}" />
+          <text class="label_cap" content="NOME" />
           <TextInput
             placeholder="meu-banco"
             class="field_input"
@@ -217,13 +217,13 @@
             value="ns_name"
             on_change="field:ns_name"
           />
-          <Text if="{erro_ns_name}" not_equals=""
+          <text if="{erro_ns_name}" not_equals=""
             class="err"
             content="{erro_ns_name}"
             />
 
           <if cond="{ns_db_has_dbname}" equals="true">
-            <Text class="label_cap" content="DATABASE NAME" />
+            <text class="label_cap" content="DATABASE NAME" />
             <TextInput
               placeholder="app"
               class="field_input"
@@ -234,7 +234,7 @@
           </if>
           
           <if cond="{ns_db_has_user}" equals="true">
-            <Text class="label_cap" content="USER" />
+            <text class="label_cap" content="USER" />
             <TextInput
               placeholder="user"
               class="field_input"
@@ -244,9 +244,9 @@
             />
           </if>
           
-          <Text class="label_cap">
+          <text class="label_cap">
             PASSWORD (gerada — pode trocar)
-          </Text>
+          </text>
 
           <TextInput
             placeholder="(vazio = sem senha, só no Redis)"
@@ -258,9 +258,9 @@
           
           <if cond="{ns_db_has_rootpw}"
             equals="true">
-            <Text class="label_cap">
+            <text class="label_cap">
               ROOT PASSWORD (gerada — pode trocar)
-            </Text>
+            </text>
             <TextInput
               placeholder=""
               class="field_input"
@@ -270,7 +270,7 @@
             />
           </if>
           
-          <Checkbox
+          <checkbox
             label="Use Replica Sets"
             if="{ns_db_has_replica}"
             equals="true"
@@ -278,38 +278,38 @@
             on_toggle="field:ns_use_replica"
           />
 
-          <Text class="label_cap" content="DOCKER IMAGE" />
-          <Row class="kv_row">
-            <Text class="kv_val_fill" content="{ns_image}" />
-          </Row>
+          <text class="label_cap" content="DOCKER IMAGE" />
+          <row class="kv_row">
+            <text class="kv_val_fill" content="{ns_image}" />
+          </row>
 
-          <Row class="env_add">
-            <Button
+          <row class="env_add">
+            <button
               class="btn_primary"
               on_click="ns_create"
               text="Criar {ns_db_label}"
             />
-            <Text class="muted" content="{ns_msg}" />
-          </Row>
-        </Column>
-      </Form>
-    </Scrollable>
+            <text class="muted" content="{ns_msg}" />
+          </row>
+        </column>
+      </form>
+    </scrollable>
   </if>
 
   <!-- ── Template: catálogo ─────────────────────────────────────────────── -->
   <if cond="{ns_step}" equals="pick_template">
-    <Column class="env_wrap">
-      <Column class="hc_field">
-        <Text class="label_cap" content="BUSCAR" />
+    <column class="env_wrap">
+      <column class="hc_field">
+        <text class="label_cap" content="BUSCAR" />
         <TextInput
           placeholder="buscar templates…"
           class="field_input"
           value="ns_tsearch"
           on_change="ns_tsearch"
         />
-      </Column>
-      <Scrollable direction="vertical" class="scroll_fill">
-        <Column class="kv_list">
+      </column>
+      <scrollable direction="vertical" class="scroll_fill">
+        <column class="kv_list">
           <TemplateRow
             for-each="ns_templates"
             var="t"
@@ -319,20 +319,20 @@
             logo_kind="{t.logo_kind}"
             action="ns_pick_template:{t.id}"
           />
-        </Column>
-      </Scrollable>
-    </Column>
+        </column>
+      </scrollable>
+    </column>
   </if>
 
   <!-- ── Template: configuração ─────────────────────────────────────────── -->
   <if cond="{ns_step}" equals="template_form">
-    <Scrollable direction="vertical" class="scroll_fill">
-      <Form name="ns_template" on_submit="ns_create" width="fill">
-        <Column class="form_panel">
-          <Text class="label_cap">
+    <scrollable direction="vertical" class="scroll_fill">
+      <form name="ns_template" on_submit="ns_create" width="fill">
+        <column class="form_panel">
+          <text class="label_cap">
             {ns_template_name} — CONFIGURAR
-          </Text>
-          <Text class="label_cap" content="NOME DO SERVIÇO" />
+          </text>
+          <text class="label_cap" content="NOME DO SERVIÇO" />
           <TextInput
             placeholder="{ns_template_name}"
             class="field_input"
@@ -341,28 +341,28 @@
             on_change="field:ns_name"
           />
 
-          <ForEach items="ns_template_vars" var="v">
-            <Column class="hc_field">
-              <Text class="label_cap" content="{v.label}" />
+          <foreach items="ns_template_vars" var="v">
+            <column class="hc_field">
+              <text class="label_cap" content="{v.label}" />
               <TextInput
                 placeholder="{v.placeholder}"
                 class="field_input"
                 value="ns_tv_{v.idx}"
                 on_change="field:ns_tv_{v.idx}"
               />
-            </Column>
-          </ForEach>
+            </column>
+          </foreach>
 
-          <Row class="env_add">
-            <Button
+          <row class="env_add">
+            <button
               class="btn_primary"
               on_click="ns_create"
               text="Criar {ns_template_name}"
             />
-            <Text class="muted" content="{ns_msg}" />
-          </Row>
-        </Column>
-      </Form>
-    </Scrollable>
+            <text class="muted" content="{ns_msg}" />
+          </row>
+        </column>
+      </form>
+    </scrollable>
   </if>
-</Column>
+</column>

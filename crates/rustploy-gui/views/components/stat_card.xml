@@ -28,10 +28,10 @@
 }
 </style>
 
-<Column class="stat_card">
-  <Text class="label_cap" content="{label}" />
-  <Text class="stat_num_g" if="{accent}" equals="1">
+<column class="stat_card">
+  <text class="label_cap" content="{label}" />
+  <text class="stat_num_g" if="{accent}" equals="1">
     {value}
-  </Text>
-  <Text class="stat_num" else content="{value}" />
-</Column>
+  </text>
+  <text class="stat_num" else content="{value}" />
+</column>
