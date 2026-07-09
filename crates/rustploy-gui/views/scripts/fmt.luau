@@ -57,6 +57,7 @@ M.domains_json = ServiceDetail.domains_json
 M.safe_name = ServiceDetail.safe_name
 M.internal_url = ServiceDetail.internal_url
 M.external_url = ServiceDetail.external_url
+M.containers = ServiceDetail.containers
 
 -- Git providers/repos/branches (fmt/git.luau)
 M.git_providers = Git.git_providers

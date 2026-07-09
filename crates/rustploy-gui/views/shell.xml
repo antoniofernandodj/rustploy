@@ -401,7 +401,10 @@
                       status_color="{c.status_color}"
                       status_label="{c.status_label}"
                       cpu="{c.cpu}"
-                      mem="{c.mem}" />
+                      mem="{c.mem}"
+                      container_name="{c.container_name}"
+                      container_id="{c.container_id}"
+                      container_extra="{c.container_extra}" />
                   </row>
                 </column>
               </scrollable>

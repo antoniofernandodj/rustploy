@@ -1,5 +1,6 @@
-<!-- 
-  Props: id, name, port, status_color, status_label, cpu, mem, filler
+<!--
+  Props: id, name, port, status_color, status_label, cpu, mem, filler,
+         container_name, container_id, container_extra
 
   Card de serviço da aba "Serviços" de um projeto — o análogo do ProjectCard.
   Mesmo esquema if/else de topo: `filler=1` rende só o slot vazio que preenche
@@ -21,6 +22,19 @@
   size: 18;
   bold: true;
   color: var(--text-2);
+}
+
+.card_ctr {
+  width: fill;
+  spacing: 6;
+}
+
+.card_ctr_id {
+  color: var(--text-3);
+}
+
+.card_ctr_extra {
+  color: var(--text-3);
 }
 
 .card_actions  {
@@ -45,6 +59,11 @@
     <rp-badge color="{status_color}" label="{status_label}" />
   </row>
   <text class="muted">:{port}</text>
+  <row class="card_ctr">
+    <text class="muted">{container_name}</text>
+    <text class="card_ctr_id">{container_id}</text>
+    <text class="card_ctr_extra">{container_extra}</text>
+  </row>
   <rule />
   <row class="card_stats">
     <column class="card_stat">

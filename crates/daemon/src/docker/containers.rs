@@ -341,6 +341,60 @@ pub async fn find_all_by_service_id(docker: &Docker, service_id: &str) -> Result
     Ok(ids)
 }
 
+/// Container gerenciado pelo rustploy, no formato leve que o GUI exibe
+/// (id + nome + estado). Serializado direto no snapshot HTTP/JSON.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ManagedContainer {
+    /// ID completo do container (o GUI encurta para exibição).
+    pub id: String,
+    /// Nome do container (sem a barra inicial que o Docker devolve), ex. `rp_web`.
+    pub name: String,
+    /// Estado do container: `running`, `exited`, `created`, ...
+    pub state: String,
+}
+
+/// Lista **todos** os containers gerenciados pelo rustploy numa única chamada
+/// ao Docker e os agrupa por `service_id` (label `rustploy.service_id`). Usado
+/// pelo snapshot para anexar, a cada serviço, os containers que ele está de fato
+/// executando — cobre réplicas, staging em andamento e serviços Compose. Erros
+/// de Docker degradam para um mapa vazio (o snapshot segue sem a informação).
+pub async fn list_managed_grouped(docker: &Docker) -> HashMap<String, Vec<ManagedContainer>> {
+    use bollard::container::ListContainersOptions;
+    let mut filters = HashMap::new();
+    filters.insert("label".to_string(), vec!["rustploy.managed=true".to_string()]);
+    let opts = ListContainersOptions { all: true, filters, ..Default::default() };
+    let list = match docker.list_containers(Some(opts)).await {
+        Ok(l) => l,
+        Err(e) => {
+            warn!(error = %e, "containers::list_managed_grouped: falha ao listar containers");
+            return HashMap::new();
+        }
+    };
+    let mut out: HashMap<String, Vec<ManagedContainer>> = HashMap::new();
+    for c in list {
+        let Some(service_id) = c
+            .labels
+            .as_ref()
+            .and_then(|l| l.get("rustploy.service_id"))
+            .cloned()
+        else {
+            continue;
+        };
+        let name = c
+            .names
+            .as_ref()
+            .and_then(|n| n.first())
+            .map(|n| n.trim_start_matches('/').to_string())
+            .unwrap_or_default();
+        out.entry(service_id).or_default().push(ManagedContainer {
+            id: c.id.unwrap_or_default(),
+            name,
+            state: c.state.unwrap_or_default(),
+        });
+    }
+    out
+}
+
 /// Returns container IDs for a service excluding those from the given deployment.
 pub async fn find_old_containers(
     docker: &Docker,

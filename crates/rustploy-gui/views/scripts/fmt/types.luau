@@ -34,11 +34,19 @@ export type ServiceSpec = {
     project_id: string,
 }
 
+export type ManagedContainer = {
+    id: string,
+    name: string,
+    state: string,
+}
+
 export type Service = {
     id: string,
     status: string | { Error: string? },
     spec: ServiceSpec,
     live_container_id: string?,
+    -- Containers reais em execução (anexado pelo snapshot do daemon).
+    containers: { ManagedContainer }?,
 }
 
 export type MetricEntry = {

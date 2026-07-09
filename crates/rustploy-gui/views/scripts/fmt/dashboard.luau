@@ -47,6 +47,21 @@ function M.deployments(list: {any}?, term: string?): string
     return Util.enc_array(rows)
 end
 
+-- Escolhe o container "primário" de um serviço p/ exibir no card: o live, senão
+-- o primeiro em execução, senão o primeiro da lista. Devolve (nome, id_curto,
+-- extra) onde extra é "+N" quando há mais de um container.
+local function primary_container(svc: Types.Service): (string, string, string)
+    local list = svc.containers or {}
+    if #list == 0 then return "—", "", "" end
+    local chosen = list[1]
+    for _, c in ipairs(list) do
+        if svc.live_container_id and c.id == svc.live_container_id then chosen = c; break end
+        if c.state == "running" and chosen.state ~= "running" then chosen = c end
+    end
+    local extra = #list > 1 and string.format("+%d", #list - 1) or ""
+    return chosen.name or "—", string.sub(chosen.id or "", 1, 12), extra
+end
+
 -- Card de serviço (com CPU/mem mesclados de `metrics_by_id[svc.id]`).
 local function service_card(svc: Types.Service, proj: string, metrics: MetricsMap?)
     local status_label, status_color = Util.status_label_color(svc.status)
@@ -56,6 +71,7 @@ local function service_card(svc: Types.Service, proj: string, metrics: MetricsMa
         cpu = string.format("%.1f%%", m.cpu_percent or 0)
         mem = Time.fmt_bytes(m.mem_used_bytes)
     end
+    local cname, cid, cextra = primary_container(svc)
     return {
         filler = "0",
         id = svc.id,
@@ -66,6 +82,9 @@ local function service_card(svc: Types.Service, proj: string, metrics: MetricsMa
         status_color = status_color,
         cpu = cpu,
         mem = mem,
+        container_name = cname,
+        container_id = cid,
+        container_extra = cextra,
     }
 end
 

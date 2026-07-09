@@ -138,6 +138,19 @@ function M.fetch_service_detail(sid: string): ()
     ctx.svc_project_id = spec.project_id
     ctx.svc_status_label = status_label
     ctx.svc_status_color = status_color
+    -- Containers reais em execução: o snapshot (State.snap) anexa a lista a cada
+    -- serviço; buscamos pelo id (ServiceGet não carrega essa informação).
+    local svc_containers = {}
+    if snap then
+        for _, e in ipairs(snap.services or {}) do
+            if e.service and e.service.id == sid then
+                svc_containers = e.service.containers or {}
+                break
+            end
+        end
+    end
+    ctx.svc_containers = fmt.containers(svc_containers)
+    ctx.svc_containers_count = tostring(#svc_containers)
     ctx.svc_source_kind = skind
     ctx.svc_source_detail = sdetail
     ctx.svc_compose = compose_content

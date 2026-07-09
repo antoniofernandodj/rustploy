@@ -486,6 +486,18 @@
           <text class="kv_key">Tipo</text>
           <text class="kv_val_fill">{svc_db_kind}</text>
         </row>
+
+        <!-- Containers reais em execução para este serviço (id + nome + estado). -->
+        <rule />
+        <text class="label_cap">CONTAINERS ({svc_containers_count})</text>
+        <text class="muted" if="{svc_containers_count}" equals="0">
+          Nenhum container em execução.
+        </text>
+        <row class="kv_row" for-each="svc_containers" var="c">
+          <rp-badge color="{c.state_color}" label="{c.state}" />
+          <text class="kv_val_fill">{c.name}</text>
+          <text class="muted">{c.id_short}</text>
+        </row>
       </column>
 
       <!-- Environment -->

@@ -264,13 +264,26 @@ pub(crate) async fn snapshot(state: &AppState) -> String {
         obj.insert("deployments".into(), serde_json::to_value(list).unwrap_or(Value::Null));
     }
     if let RpResponse::Projects(projects) = dispatch(state.clone(), Command::ProjectList).await {
+        // Uma única consulta ao Docker agrupa todos os containers gerenciados por
+        // service_id, para anexar a cada serviço os containers reais em execução
+        // (id + nome + estado) — cobre réplicas, staging e Compose.
+        let mut containers_by_service =
+            crate::docker::containers::list_managed_grouped(&state.docker.inner).await;
         let mut services = Vec::new();
         for p in &projects {
             if let RpResponse::Services(svcs) =
                 dispatch(state.clone(), Command::ServiceList { project_id: p.id.clone() }).await
             {
                 for s in svcs {
-                    services.push(json!({ "project_name": p.name, "service": s }));
+                    let conts = containers_by_service.remove(&s.id).unwrap_or_default();
+                    let mut sv = serde_json::to_value(&s).unwrap_or(Value::Null);
+                    if let Value::Object(m) = &mut sv {
+                        m.insert(
+                            "containers".into(),
+                            serde_json::to_value(conts).unwrap_or(Value::Null),
+                        );
+                    }
+                    services.push(json!({ "project_name": p.name, "service": sv }));
                 }
             }
         }

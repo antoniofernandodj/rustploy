@@ -13,6 +13,27 @@ local Util = require("util")
 
 local M = {}
 
+-- Lista de containers do serviço (id + nome + estado) → linhas para a UI de
+-- detalhe. `list` = Vec<ManagedContainer> anexado ao serviço no snapshot.
+function M.containers(list: { Types.ManagedContainer }?): string
+    local rows = {}
+    for _, c in ipairs(list or {}) do
+        local color = "#8B949E"
+        if c.state == "running" then color = "#3FB950"
+        elseif c.state == "restarting" or c.state == "created" or c.state == "paused" then
+            color = "#D29922"
+        end
+        table.insert(rows, {
+            id = c.id or "",
+            id_short = string.sub(c.id or "", 1, 12),
+            name = c.name or "—",
+            state = c.state or "—",
+            state_color = color,
+        })
+    end
+    return Util.enc_array(rows)
+end
+
 local function is_terminal(state: string?): boolean
     return state == "Live" or state == "Stopped" or state == "Failed" or state == "Pruning"
 end
