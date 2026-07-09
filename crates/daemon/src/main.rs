@@ -225,6 +225,7 @@ async fn main() -> Result<()> {
         let routes = ingress.table_handle();
         let http_port = config.ingress.http_port;
         let https_port = config.ingress.https_port;
+        let tls = tls.clone();
         tokio::spawn(async move {
             ingress::proxy::start_proxy(routes, http_port, https_port, Some(tls)).await;
         });
@@ -240,13 +241,15 @@ async fn main() -> Result<()> {
     }
 
     // API HTTP/JSON + SSE — canal administrativo remoto; é o que o GUI
-    // (glacier-ui/Luau) e clientes externos consomem. Bind loopback por padrão,
-    // atrás do ingress no subdomínio (TLS terminado lá).
+    // (glacier-ui/Luau) e clientes externos consomem. Bind loopback + HTTP puro
+    // por padrão (atrás do ingress); se `api.domain` estiver setado, o próprio
+    // listener termina TLS na sua porta com cert automático via ACME.
     if config.api.enabled {
         let state2 = state.clone();
         let api_cfg = config.api.clone();
+        let tls2 = tls.clone();
         tokio::spawn(async move {
-            api::http_api::run(state2, api_cfg).await;
+            api::http_api::run(state2, api_cfg, Some(tls2)).await;
         });
     }
 

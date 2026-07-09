@@ -46,6 +46,13 @@ pub struct ApiConfig {
     pub port: u16,
     #[serde(default)]
     pub token: Option<String>,
+    /// Domínio público da própria API. Quando definido (não vazio), o listener
+    /// da API termina TLS **nesta mesma porta** com um certificado Let's Encrypt
+    /// provisionado automaticamente via ACME (requer ACME habilitado + porta 80
+    /// acessível pela internet para o desafio HTTP-01). Vazio/`None` = HTTP puro,
+    /// para uso local ou atrás de um proxy externo.
+    #[serde(default)]
+    pub domain: Option<String>,
     #[serde(default = "default_api_max_connections")]
     pub max_connections: usize,
 }
@@ -70,6 +77,7 @@ impl Default for ApiConfig {
             bind_address: default_api_bind(),
             port: default_api_port(),
             token: None,
+            domain: None,
             max_connections: default_api_max_connections(),
         }
     }
@@ -236,6 +244,9 @@ impl RustployConfig {
         }
         if let Ok(v) = std::env::var("RUSTPLOY_API_TOKEN") {
             cfg.api.token = Some(v).filter(|s| !s.is_empty());
+        }
+        if let Ok(v) = std::env::var("RUSTPLOY_API_DOMAIN") {
+            cfg.api.domain = Some(v).filter(|s| !s.is_empty());
         }
         cfg
     }

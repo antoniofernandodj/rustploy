@@ -1,10 +1,12 @@
 //! HTTP/JSON + SSE control API — the daemon's remote administrative channel.
 //!
 //! Serves the same `Command`→`Response` surface the local UDS server does, but
-//! over plain HTTP so the glacier-ui client can drive it entirely from Luau
+//! over HTTP so the glacier-ui client can drive it entirely from Luau
 //! (`fetch`/`sse`). It reuses [`dispatch`] wholesale — only the transport
-//! changes. Meant to bind loopback and sit behind the ingress proxy, which
-//! terminates TLS for `rustploy.chiquitos.tech` and forwards here.
+//! changes. By default it binds loopback and serves plain HTTP, meant to sit
+//! behind the ingress proxy. Alternatively, setting `api.domain` in the config
+//! makes this listener terminate TLS on its own port with an ACME-provisioned
+//! certificate, so the GUI can reach it directly over HTTPS.
 //!
 //! - `POST /api/rpc` — body is a JSON-encoded [`Command`]; the reply is a
 //!   JSON-encoded [`Response`](shared::Response). One endpoint covers every
@@ -33,6 +35,7 @@ use tracing::{error, info, warn};
 
 use super::routes::dispatch;
 use super::AppState;
+use crate::ingress::TlsManager;
 
 /// Unified response body: both the buffered (`Full`) replies and the streaming
 /// (`StreamBody`) SSE body box to this, so a single `service_fn` can return
@@ -41,7 +44,12 @@ type ApiBody = BoxBody<Bytes, Infallible>;
 
 /// Starts the API listener. Returns on bind failure; otherwise loops forever.
 /// Intended to be `tokio::spawn`ed from `main`.
-pub async fn run(state: AppState, cfg: ApiConfig) {
+///
+/// When `cfg.domain` is set (non-empty), the listener terminates TLS **on this
+/// same port** using a Let's Encrypt certificate provisioned through `tls`
+/// (auto-renewed by the ingress' ACME loop). Otherwise it serves plain HTTP,
+/// as before. The port is always taken from `cfg.port` (config.toml `[api].port`).
+pub async fn run(state: AppState, cfg: ApiConfig, tls: Option<Arc<TlsManager>>) {
     // Safety guard: refuse a non-loopback bind without a token.
     if cfg.is_public_bind() && cfg.token.as_deref().unwrap_or("").is_empty() {
         warn!(
@@ -61,8 +69,40 @@ pub async fn run(state: AppState, cfg: ApiConfig) {
         }
     };
 
+    // TLS opcional: se `api.domain` estiver definido, a própria porta da API
+    // termina HTTPS com cert automático via ACME. Provisiona/valida o cert
+    // ANTES de aceitar conexões (o desafio HTTP-01 exige a porta 80 acessível).
+    let acceptor: Option<tokio_rustls::TlsAcceptor> =
+        match cfg.domain.as_deref().filter(|d| !d.is_empty()) {
+            Some(domain) => {
+                let Some(tls) = tls else {
+                    error!(
+                        domain,
+                        "API: api.domain configurado mas TlsManager indisponível — \
+                         listener NÃO iniciado"
+                    );
+                    return;
+                };
+                if let Err(e) = tls.ensure_cert(domain).await {
+                    warn!(
+                        domain, error = %e,
+                        "API: falha ao provisionar certificado TLS — o handshake HTTPS \
+                         falhará até o cert existir (confira ACME habilitado + porta 80)"
+                    );
+                }
+                info!(domain, "API HTTP/SSE: TLS ativo (cert automático via ACME)");
+                Some(tls.tls_acceptor())
+            }
+            None => None,
+        };
+
     let token = Arc::new(cfg.token.clone().filter(|s| !s.is_empty()));
-    info!(addr = %addr, auth = token.is_some(), "API HTTP/SSE: escutando");
+    info!(
+        addr = %addr,
+        auth = token.is_some(),
+        tls = acceptor.is_some(),
+        "API HTTP/SSE: escutando"
+    );
 
     loop {
         let (stream, peer) = match listener.accept().await {
@@ -74,18 +114,32 @@ pub async fn run(state: AppState, cfg: ApiConfig) {
         };
         let state = state.clone();
         let token = token.clone();
+        let acceptor = acceptor.clone();
         tokio::spawn(async move {
-            let io = TokioIo::new(stream);
-            let svc = service_fn(move |req| handle(req, state.clone(), token.clone()));
-            if let Err(e) = hyper::server::conn::http1::Builder::new()
-                .serve_connection(io, svc)
-                .await
-            {
-                // Long-lived SSE connections end with an error when the client
-                // drops — expected, so keep it at debug.
-                tracing::debug!(peer = %peer, error = %e, "API: conexão encerrada");
+            match acceptor {
+                Some(acc) => match acc.accept(stream).await {
+                    Ok(tls_stream) => serve_conn(TokioIo::new(tls_stream), state, token, peer).await,
+                    Err(e) => tracing::debug!(peer = %peer, error = %e, "API: TLS handshake falhou"),
+                },
+                None => serve_conn(TokioIo::new(stream), state, token, peer).await,
             }
         });
+    }
+}
+
+/// Serves one HTTP/1.1 connection over `io` (plain TCP or a TLS stream).
+async fn serve_conn<I>(io: I, state: AppState, token: Arc<Option<String>>, peer: std::net::SocketAddr)
+where
+    I: hyper::rt::Read + hyper::rt::Write + Unpin + 'static,
+{
+    let svc = service_fn(move |req| handle(req, state.clone(), token.clone()));
+    if let Err(e) = hyper::server::conn::http1::Builder::new()
+        .serve_connection(io, svc)
+        .await
+    {
+        // Long-lived SSE connections end with an error when the client
+        // drops — expected, so keep it at debug.
+        tracing::debug!(peer = %peer, error = %e, "API: conexão encerrada");
     }
 }
 
