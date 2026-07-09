@@ -101,6 +101,8 @@ jobs:
   build-gui-windows:
     name: Build rustploy-gui (Windows .zip)
     runs-on: ubuntu-latest
+    outputs:
+      unsigned-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v4
 
@@ -127,6 +129,69 @@ jobs:
           RUSTFLAGS="-C target-feature=+crt-static" \
             cargo xwin build --release -p rustploy-gui --target x86_64-pc-windows-msvc
 
+      # Publica o .exe cru para o job de assinatura (SignPath) consumir.
+      - name: Upload unsigned .exe
+        id: upload-unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustploy-gui-exe-unsigned
+          path: target/x86_64-pc-windows-msvc/release/rustploy-gui.exe
+          if-no-files-found: error
+
+  # Assina o .exe com o SignPath (tier OSS, grátis para projetos open source).
+  # INERTE até o projeto estar registrado: o job só roda quando a variável de
+  # repositório SIGNPATH_ORGANIZATION_ID existe (Settings > Secrets and
+  # variables > Actions > Variables). Passos de registro em
+  # docs/windows-code-signing.md. Sem isso, o pipeline segue com o .exe cru.
+  sign-gui-windows:
+    name: Sign rustploy-gui (SignPath)
+    needs: build-gui-windows
+    runs-on: ubuntu-latest
+    if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' }}
+    steps:
+      - name: Submit signing request to SignPath
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: rustploy
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIG_SLUG || 'exe' }}
+          github-artifact-id: ${{ needs.build-gui-windows.outputs.unsigned-artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+
+      - name: Upload signed .exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustploy-gui-exe-signed
+          path: signed/rustploy-gui.exe
+          if-no-files-found: error
+
+  # Monta a árvore de assets ao redor do .exe e gera o .zip. Roda sempre; usa o
+  # .exe assinado se o job de assinatura tiver rodado, senão o cru.
+  package-gui-windows:
+    name: Package rustploy-gui (Windows .zip)
+    needs: [build-gui-windows, sign-gui-windows]
+    if: ${{ always() && needs.build-gui-windows.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download signed .exe
+        if: ${{ needs.sign-gui-windows.result == 'success' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: rustploy-gui-exe-signed
+          path: exe
+
+      - name: Download unsigned .exe (fallback)
+        if: ${{ needs.sign-gui-windows.result != 'success' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: rustploy-gui-exe-unsigned
+          path: exe
+
       # Same tree assets::locate_and_chdir() expects next to the .exe (portable
       # layout) — mirrors `make rustploy-gui-windows-dist`. Keep the two in
       # sync: this is the one packaging path with no glob/manifest tool behind
@@ -140,7 +205,7 @@ jobs:
           set -e
           DIST=dist/rustploy-gui-windows
           mkdir -p "$DIST/crates/rustploy-gui" "$DIST/crates/shared/templates"
-          cp target/x86_64-pc-windows-msvc/release/rustploy-gui.exe "$DIST/"
+          cp exe/rustploy-gui.exe "$DIST/"
           cp -r crates/rustploy-gui/views  "$DIST/crates/rustploy-gui/"
           mkdir -p "$DIST/crates/rustploy-gui/assets"
           cp -r crates/rustploy-gui/assets/icons "$DIST/crates/rustploy-gui/assets/"
@@ -157,7 +222,7 @@ jobs:
           path: dist/rustploy-gui-windows-*.zip
 
   release:
-    needs: [build, build-gui-linux, build-gui-windows]
+    needs: [build, build-gui-linux, package-gui-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write

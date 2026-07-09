@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Application manifest embutido no .exe (RT_MANIFEST, id 1) pelo rustploy.rc.
+
+  Não corrige o Smart App Control, mas é o que o SmartScreen "comum" e o
+  Windows esperam de um app bem-comportado: identidade declarada, execução
+  sem elevação (asInvoker), consciência de DPI (sem tela borrada) e suporte a
+  caminhos longos. Um .exe COM manifest válido pesa melhor na heurística de
+  reputação do que um binário "pelado".
+-->
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+
+  <assemblyIdentity
+      type="win32"
+      name="tech.chiquitos.rustploy-gui"
+      version="1.0.0.0"
+      processorArchitecture="amd64"/>
+
+  <!-- Roda com o token do usuário; nunca pede UAC/elevação. -->
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+
+  <!-- Declara compatibilidade com Windows 10/11 (evita shims de compat). -->
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <!-- Windows 10 e 11 -->
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
+    </application>
+  </compatibility>
+
+  <!-- Per-monitor DPI v2 + caminhos longos (>260 chars). -->
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
+      <longPathAware xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">true</longPathAware>
+    </windowsSettings>
+  </application>
+
+</assembly>

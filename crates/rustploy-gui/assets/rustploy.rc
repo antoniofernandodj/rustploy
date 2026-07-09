@@ -1,3 +1,44 @@
-// Windows resource script: embeds the application icon into the .exe so it
-// shows in Explorer and the taskbar. Icon id 1 is the app default icon.
+// Windows resource script embutido no .exe pelo build.rs.
+//
+// Sem `#include <windows.h>` DE PROPÓSITO: no cross-build Linux->Windows o RC
+// é compilado pelo llvm-rc, que não tem os headers do Windows SDK. Por isso
+// todas as constantes (FILEOS/FILETYPE, langid, RT_MANIFEST=24) são numéricas.
+//
+// As macros RUSTPLOY_VER_COMMA / RUSTPLOY_VER_STR são definidas pelo build.rs
+// a partir de CARGO_PKG_VERSION, então a versão nunca fica dessincronizada.
+
+// Ícone do app (mostrado no Explorer e na taskbar). Id 1 = ícone default.
 1 ICON "rustploy.ico"
+
+// Manifest da aplicação (RT_MANIFEST = 24, id 1 = CREATEPROCESS_MANIFEST).
+1 24 "application.manifest"
+
+// Bloco de versão/metadados. Sem isto o Windows mostra "Editor: Desconhecido"
+// e o SmartScreen trata o binário como totalmente anônimo.
+1 VERSIONINFO
+FILEVERSION     RUSTPLOY_VER_COMMA
+PRODUCTVERSION  RUSTPLOY_VER_COMMA
+FILEOS          0x40004L    // VOS_NT_WINDOWS32
+FILETYPE        0x1L        // VFT_APP
+FILESUBTYPE     0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        // 0409 = en-US, 04B0 = Unicode (1200).
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName",      "Chiquitos"
+            VALUE "FileDescription",  "Rustploy - desktop client for the Rustploy PaaS daemon"
+            VALUE "FileVersion",      RUSTPLOY_VER_STR
+            VALUE "InternalName",     "rustploy-gui"
+            VALUE "OriginalFilename", "rustploy-gui.exe"
+            VALUE "ProductName",      "Rustploy GUI"
+            VALUE "ProductVersion",   RUSTPLOY_VER_STR
+            VALUE "LegalCopyright",   "Copyright (C) 2026 Antonio Fernando"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

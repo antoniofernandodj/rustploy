@@ -113,6 +113,56 @@ rustploy-gui-windows-dist: ## Pacote .zip do rustploy-gui p/ Windows (apaga dist
 	@echo "$(GREEN)Pacote Windows gerado:$(RESET)"
 	@ls -lh $(WIN_DIST_ZIP)
 
+# ── Assinatura Windows (Authenticode) ─────────────────────────────────────────
+# IMPORTANTE sobre o teto disto: o Smart App Control (Win 11) NÃO é resolvido
+# por auto-assinatura. Um cert self-signed só remove avisos em máquinas que
+# importarem o .cer no "Trusted Root" + "Trusted Publishers" (cenário de
+# time/interno). Para o público, o caminho grátis de verdade é o SignPath
+# (tier OSS) rodando no CI — ver .github/workflows/release.yml e
+# docs/windows-code-signing.md. Este alvo serve para testes locais/internos.
+
+WIN_SIGN_CERT   := dist/rustploy-selfsign.pfx
+WIN_SIGN_CER    := dist/rustploy-selfsign.cer
+WIN_SIGN_PASS   := rustploy
+WIN_SIGN_TS_URL := http://timestamp.digicert.com
+
+.PHONY: win-selfsign-cert
+win-selfsign-cert: ## Gera um certificado self-signed p/ testes (dist/*.pfx e *.cer)
+	@command -v openssl >/dev/null 2>&1 || \
+		(echo "$(BOLD)Instale openssl$(RESET)" && exit 1)
+	@mkdir -p dist
+	@if [ -f $(WIN_SIGN_CERT) ]; then \
+		echo "$(WIN_SIGN_CERT) já existe — apague-o para regerar."; \
+	else \
+		echo "$(BOLD)Gerando cert self-signed (code signing)...$(RESET)"; \
+		openssl req -x509 -newkey rsa:3072 -keyout dist/_key.pem -out dist/_crt.pem \
+			-days 1095 -nodes -subj "/CN=Chiquitos/O=Chiquitos" \
+			-addext "extendedKeyUsage=codeSigning" 2>/dev/null; \
+		openssl pkcs12 -export -out $(WIN_SIGN_CERT) -inkey dist/_key.pem \
+			-in dist/_crt.pem -passout pass:$(WIN_SIGN_PASS); \
+		openssl x509 -in dist/_crt.pem -outform DER -out $(WIN_SIGN_CER); \
+		rm -f dist/_key.pem dist/_crt.pem; \
+		echo "$(GREEN)  $(WIN_SIGN_CERT) (senha: $(WIN_SIGN_PASS))$(RESET)"; \
+		echo "$(GREEN)  $(WIN_SIGN_CER)  — importe no Windows p/ o app ser aceito$(RESET)"; \
+	fi
+
+.PHONY: rustploy-gui-windows-sign
+rustploy-gui-windows-sign: win-selfsign-cert ## Assina o .exe (self-signed) com osslsigncode + timestamp
+	@command -v osslsigncode >/dev/null 2>&1 || \
+		(echo "$(BOLD)Instale osslsigncode (sudo apt install osslsigncode)$(RESET)" && exit 1)
+	@test -f $(WIN_BIN) || \
+		(echo "$(BOLD)$(WIN_BIN) não existe — rode 'make rustploy-gui-windows' antes$(RESET)" && exit 1)
+	@echo "$(BOLD)Assinando $(WIN_BIN)...$(RESET)"
+	osslsigncode sign \
+		-pkcs12 $(WIN_SIGN_CERT) -pass $(WIN_SIGN_PASS) \
+		-h sha256 -t $(WIN_SIGN_TS_URL) \
+		-n "Rustploy GUI" -i https://github.com/antoniofernandodj/rustploy \
+		-in  $(WIN_BIN) \
+		-out $(WIN_BIN).signed
+	@mv $(WIN_BIN).signed $(WIN_BIN)
+	@echo "$(GREEN)Assinado. Verificando...$(RESET)"
+	@osslsigncode verify $(WIN_BIN) 2>&1 | grep -E 'Signature|Timestamp|CN' || true
+
 .PHONY: deb-gui
 deb-gui: ## Pacote .deb do remote-gui p/ Linux (apaga dist e regera)
 	@command -v cargo-deb >/dev/null 2>&1 || \
