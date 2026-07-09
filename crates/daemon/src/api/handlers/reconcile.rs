@@ -98,6 +98,14 @@ async fn transition_deployment(state: &AppState, dep: &mut Deployment, to: Deplo
     dep.state = to;
 }
 
+// Um deploy recém-promovido pode ter seu container ainda propagando o estado
+// "running" no Docker Engine no instante exato em que este reconcile roda
+// (ex.: GUI busca a lista de deployments quase junto com o evento DeployStateChanged
+// de Live). Sem essa margem, esse read prematuro derruba um deploy que na
+// prática subiu certo — visto em produção com um serviço Compose.
+const RUNNING_CHECK_RETRIES: u32 = 3;
+const RUNNING_CHECK_DELAY: std::time::Duration = std::time::Duration::from_millis(300);
+
 async fn is_container_running(state: &AppState, service_id: &str) -> bool {
     let svc = match crate::db::services::get(&state.db, service_id).await {
         Ok(Some(s)) => s,
@@ -108,13 +116,21 @@ async fn is_container_running(state: &AppState, service_id: &str) -> bool {
         return false;
     }
 
-    let container_id = match svc.live_container_id {
-        Some(id) => id,
-        None => return false,
+    let Some(container_id) = svc.live_container_id else {
+        return false;
     };
 
-    match docker::containers::inspect(&state.docker.inner, &container_id).await {
-        Ok(info) => info.state.as_ref().and_then(|s| s.running).unwrap_or(false),
-        Err(_) => false,
+    for attempt in 0..RUNNING_CHECK_RETRIES {
+        let running = match docker::containers::inspect(&state.docker.inner, &container_id).await {
+            Ok(info) => info.state.as_ref().and_then(|s| s.running).unwrap_or(false),
+            Err(_) => false,
+        };
+        if running {
+            return true;
+        }
+        if attempt + 1 < RUNNING_CHECK_RETRIES {
+            tokio::time::sleep(RUNNING_CHECK_DELAY).await;
+        }
     }
+    false
 }

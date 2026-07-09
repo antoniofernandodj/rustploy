@@ -816,8 +816,13 @@ impl DeployExecutor {
                 // O nome interno do serviço no compose file pode diferir do nome rustploy,
                 // então usamos só o prefixo do projeto em vez de "rp_<name>-<name>".
                 let main_container = format!("{}-", project_name);
-                if let Ok(Some(cid)) = containers::find_by_prefix(&self.docker.inner, &main_container).await {
-                    if let Ok(ip) = containers::get_container_ip(&self.docker.inner, &cid, &network_name).await {
+                let live_container_id = containers::find_by_prefix(&self.docker.inner, &main_container)
+                    .await
+                    .ok()
+                    .flatten();
+
+                if let Some(cid) = &live_container_id {
+                    if let Ok(ip) = containers::get_container_ip(&self.docker.inner, cid, &network_name).await {
                         let ips = vec![ip];
                         if !svc.spec.domain_routes().is_empty() {
                             info!(deployment_id = %dep.id, ?ips, "ComposingUp: registrando rotas de domínio");
@@ -835,13 +840,14 @@ impl DeployExecutor {
                 info!(
                     deployment_id = %dep.id,
                     project = %project_name,
+                    container_id = ?live_container_id,
                     "step[ComposingUp]: compose up concluído, promovendo serviço"
                 );
                 crate::db::services::update_status(
                     &self.db,
                     &svc.id,
                     &ServiceStatus::Running,
-                    None,
+                    live_container_id.as_deref(),
                 )
                 .await?;
                 self.bus.publish(Event::ServiceStatusChanged {
