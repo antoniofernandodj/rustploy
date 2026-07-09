@@ -49,7 +49,11 @@ type ApiBody = BoxBody<Bytes, Infallible>;
 /// same port** using a Let's Encrypt certificate provisioned through `tls`
 /// (auto-renewed by the ingress' ACME loop). Otherwise it serves plain HTTP,
 /// as before. The port is always taken from `cfg.port` (config.toml `[api].port`).
-pub async fn run(state: AppState, cfg: ApiConfig, tls: Option<Arc<TlsManager>>) {
+pub async fn run(
+    state: AppState,
+    cfg: ApiConfig,
+    tls: Option<Arc<TlsManager>>
+) {
     // Safety guard: refuse a non-loopback bind without a token.
     if cfg.is_public_bind() && cfg.token.as_deref().unwrap_or("").is_empty() {
         warn!(
@@ -64,7 +68,11 @@ pub async fn run(state: AppState, cfg: ApiConfig, tls: Option<Arc<TlsManager>>) 
     let listener = match tokio::net::TcpListener::bind(&addr).await {
         Ok(l) => l,
         Err(e) => {
-            error!(error = %e, addr = %addr, "API: falha ao bind, listener desabilitado");
+            error!(
+                error = %e,
+                addr = %addr,
+                "API: falha ao bind, listener desabilitado"
+            );
             return;
         }
     };
@@ -118,8 +126,12 @@ pub async fn run(state: AppState, cfg: ApiConfig, tls: Option<Arc<TlsManager>>) 
         tokio::spawn(async move {
             match acceptor {
                 Some(acc) => match acc.accept(stream).await {
-                    Ok(tls_stream) => serve_conn(TokioIo::new(tls_stream), state, token, peer).await,
-                    Err(e) => tracing::debug!(peer = %peer, error = %e, "API: TLS handshake falhou"),
+                    Ok(tls_stream) => serve_conn(
+                        TokioIo::new(tls_stream), state, token, peer
+                    ).await,
+                    Err(e) => tracing::debug!(
+                        peer = %peer, error = %e, "API: TLS handshake falhou"
+                    ),
                 },
                 None => serve_conn(TokioIo::new(stream), state, token, peer).await,
             }
@@ -128,7 +140,12 @@ pub async fn run(state: AppState, cfg: ApiConfig, tls: Option<Arc<TlsManager>>) 
 }
 
 /// Serves one HTTP/1.1 connection over `io` (plain TCP or a TLS stream).
-async fn serve_conn<I>(io: I, state: AppState, token: Arc<Option<String>>, peer: std::net::SocketAddr)
+async fn serve_conn<I>(
+    io: I,
+    state: AppState,
+    token: Arc<Option<String>>,
+    peer: std::net::SocketAddr
+)
 where
     I: hyper::rt::Read + hyper::rt::Write + Unpin + 'static,
 {
@@ -165,14 +182,21 @@ async fn handle(
 
 /// `POST /api/rpc`: decode a `Command`, run it through `dispatch`, encode the
 /// `Response` back as JSON.
-async fn rpc(req: Request<Incoming>, state: AppState) -> Response<ApiBody> {
+async fn rpc(
+    req: Request<Incoming>,
+    state: AppState
+) -> Response<ApiBody> {
     let body = match req.into_body().collect().await {
         Ok(c) => c.to_bytes(),
-        Err(_) => return text(StatusCode::BAD_REQUEST, "erro ao ler o corpo"),
+        Err(_) => return text(
+            StatusCode::BAD_REQUEST, "erro ao ler o corpo"
+        ),
     };
     let cmd: Command = match serde_json::from_slice(&body) {
         Ok(c) => c,
-        Err(e) => return text(StatusCode::BAD_REQUEST, format!("comando inválido: {e}")),
+        Err(e) => return text(
+            StatusCode::BAD_REQUEST, format!("comando inválido: {e}")
+        ),
     };
     let resp = dispatch(state, cmd).await;
     match serde_json::to_vec(&resp) {
@@ -193,7 +217,9 @@ fn events(state: AppState) -> Response<ApiBody> {
     tokio::spawn(async move {
         use tokio::sync::broadcast::error::RecvError;
         let mut bus_rx = state.bus.subscribe();
-        let mut ticker = tokio::time::interval(std::time::Duration::from_secs(2));
+        let mut ticker = tokio::time::interval(
+            std::time::Duration::from_secs(2)
+        );
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
         // Snapshot inicial imediato, para o cliente pintar sem esperar o 1º tick.
@@ -204,7 +230,9 @@ fn events(state: AppState) -> Response<ApiBody> {
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
-                    if tx.send(sse_frame("snapshot", &snapshot(&state).await)).await.is_err() {
+                    if tx.send(
+                        sse_frame("snapshot", &snapshot(&state).await)
+                    ).await.is_err() {
                         break;
                     }
                 }
@@ -213,7 +241,9 @@ fn events(state: AppState) -> Response<ApiBody> {
                         // Self-describing: the SSE client only sees `data:` (the
                         // `event:` line is dropped), so tag the payload with
                         // `kind:"bus"` and nest the event under `event`.
-                        let wrapped = serde_json::json!({ "kind": "bus", "event": ev });
+                        let wrapped = serde_json::json!(
+                            { "kind": "bus", "event": ev }
+                        );
                         if let Ok(js) = serde_json::to_string(&wrapped) {
                             if tx.send(sse_frame("bus", &js)).await.is_err() {
                                 break;
@@ -255,49 +285,94 @@ pub(crate) async fn snapshot(state: &AppState) -> String {
     // `data:` payload, so the `snapshot`/`bus` discriminator lives here.
     obj.insert("kind".into(), Value::String("snapshot".into()));
 
-    if let RpResponse::DaemonStatus(d) = dispatch(state.clone(), Command::DaemonStatus).await {
-        obj.insert("status".into(), serde_json::to_value(d).unwrap_or(Value::Null));
+    if let RpResponse::DaemonStatus(d) =
+        dispatch(
+            state.clone(),
+            Command::DaemonStatus
+        ).await {
+            obj.insert(
+                "status".into(),
+                serde_json::to_value(d).unwrap_or(Value::Null)
+            );
     }
     if let RpResponse::DeploymentSummaries(list) =
-        dispatch(state.clone(), Command::RecentDeployments { limit: 40 }).await
+        dispatch(
+            state.clone(),
+            Command::RecentDeployments { limit: 40 }
+        ).await
     {
-        obj.insert("deployments".into(), serde_json::to_value(list).unwrap_or(Value::Null));
+        obj.insert(
+            "deployments".into(),
+            serde_json::to_value(list)
+                .unwrap_or(Value::Null)
+        );
     }
-    if let RpResponse::Projects(projects) = dispatch(state.clone(), Command::ProjectList).await {
-        // Uma única consulta ao Docker agrupa todos os containers gerenciados por
-        // service_id, para anexar a cada serviço os containers reais em execução
-        // (id + nome + estado) — cobre réplicas, staging e Compose.
-        let mut containers_by_service =
-            crate::docker::containers::list_managed_grouped(&state.docker.inner).await;
+    if let RpResponse::Projects(projects) =
+        dispatch(
+            state.clone(),
+            Command::ProjectList
+        ).await {
+        // Uma única listagem do Docker indexa todos os containers por service_id
+        // e por projeto Compose, para anexar a cada serviço os containers reais
+        // em execução (id + nome + estado) — cobre réplicas, staging e Compose.
+        let container_index =
+            crate::docker::containers::index_containers(
+                &state.docker.inner
+            ).await;
         let mut services = Vec::new();
         for p in &projects {
             if let RpResponse::Services(svcs) =
-                dispatch(state.clone(), Command::ServiceList { project_id: p.id.clone() }).await
+                dispatch(
+                    state.clone(),
+                    Command::ServiceList { project_id: p.id.clone() }
+                ).await
             {
                 for s in svcs {
-                    let conts = containers_by_service.remove(&s.id).unwrap_or_default();
-                    let mut sv = serde_json::to_value(&s).unwrap_or(Value::Null);
+                    let conts = container_index.for_service(&s.id, &s.spec.name);
+                    let mut sv = serde_json::to_value(&s)
+                        .unwrap_or(Value::Null);
                     if let Value::Object(m) = &mut sv {
                         m.insert(
                             "containers".into(),
-                            serde_json::to_value(conts).unwrap_or(Value::Null),
+                            serde_json::to_value(conts)
+                                .unwrap_or(Value::Null),
                         );
                     }
-                    services.push(json!({ "project_name": p.name, "service": sv }));
+                    services.push(
+                        json!({ "project_name": p.name, "service": sv })
+                    );
                 }
             }
         }
-        obj.insert("projects".into(), serde_json::to_value(&projects).unwrap_or(Value::Null));
-        obj.insert("services".into(), Value::Array(services));
+
+        obj.insert(
+            "projects".into(),
+            serde_json::to_value(&projects).unwrap_or(Value::Null)
+        );
+
+        obj.insert(
+            "services".into(),
+            Value::Array(services)
+        );
+
     }
-    if let RpResponse::DockerImages(list) = dispatch(state.clone(), Command::DockerImages).await {
-        obj.insert("docker_images".into(), serde_json::to_value(list).unwrap_or(Value::Null));
+    if let RpResponse::DockerImages(list) =
+        dispatch(state.clone(), Command::DockerImages).await {
+            obj.insert("docker_images".into(),
+            serde_json::to_value(list).unwrap_or(Value::Null)
+        );
     }
-    if let RpResponse::DockerVolumes(list) = dispatch(state.clone(), Command::DockerVolumes).await {
-        obj.insert("docker_volumes".into(), serde_json::to_value(list).unwrap_or(Value::Null));
+    if let RpResponse::DockerVolumes(list) =
+        dispatch(state.clone(), Command::DockerVolumes).await {
+            obj.insert("docker_volumes".into(),
+            serde_json::to_value(list).unwrap_or(Value::Null)
+        );
     }
-    if let RpResponse::DockerNetworks(list) = dispatch(state.clone(), Command::DockerNetworks).await {
-        obj.insert("docker_networks".into(), serde_json::to_value(list).unwrap_or(Value::Null));
+    if let RpResponse::DockerNetworks(list) =
+        dispatch(state.clone(), Command::DockerNetworks).await {
+            obj.insert("docker_networks".into(),
+            serde_json::to_value(list).unwrap_or(Value::Null)
+        );
     }
     if let RpResponse::DeployEngineStatus(eng) =
         dispatch(state.clone(), Command::DeployEngineStatus).await

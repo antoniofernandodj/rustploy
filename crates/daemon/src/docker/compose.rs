@@ -6,25 +6,62 @@ use std::sync::Arc;
 use tokio::fs::{File, remove_file};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
-use tracing::{error, info};
+use tracing::info;
 use std::path::Path;
 
 const PROJECT_NET_ALIAS: &str = "rp_project_net";
 
-pub fn inject_project_network(content: &str, network_name: &str) -> Result<String> {
+pub fn inject_project_network(
+    content: &str,
+    network_name: &str
+) -> Result<String> {
     use serde_yaml::Value;
-    let mut doc: Value = serde_yaml::from_str(content).map_err(|e| anyhow!("compose YAML inválido: {e}"))?;
-    if doc.is_null() { doc = Value::Mapping(serde_yaml::Mapping::new()); }
-    let root = doc.as_mapping_mut().ok_or_else(|| anyhow!("compose YAML não é um mapping no nível raiz"))?;
+    let mut doc: Value = serde_yaml::from_str(content)
+        .map_err(|e| anyhow!("compose YAML inválido: {e}"))?;
+
+    if doc.is_null() {
+        doc = Value::Mapping(serde_yaml::Mapping::new());
+    }
+    let root = doc.as_mapping_mut()
+        .ok_or_else(|| anyhow!("compose YAML não é um mapping no nível raiz"))?;
+
     let alias_key = Value::String(PROJECT_NET_ALIAS.to_string());
     let networks_key = Value::String("networks".to_string());
-    if !root.contains_key(&networks_key) { root.insert(networks_key.clone(), Value::Mapping(serde_yaml::Mapping::new())); }
-    let networks = root.get_mut(&networks_key).and_then(Value::as_mapping_mut).ok_or_else(|| anyhow!("`networks:` no compose não é um mapping"))?;
-    let already_present = networks.contains_key(&alias_key) || networks.values().any(|v| v.as_mapping().and_then(|m| m.get(Value::String("name".to_string()))).and_then(Value::as_str) == Some(network_name));
+    if !root.contains_key(&networks_key) {
+        root.insert(
+            networks_key.clone(),
+            Value::Mapping(serde_yaml::Mapping::new())
+        );
+    }
+    let networks = root.get_mut(&networks_key)
+        .and_then(Value::as_mapping_mut)
+        .ok_or_else(|| anyhow!("`networks:` no compose não é um mapping"))?;
+
+    let already_present = networks
+        .contains_key(&alias_key) ||
+            networks.values()
+                .any(
+                    |v| v.as_mapping()
+                        .and_then(
+                            |m| m.get(
+                                Value::String("name".to_string())
+                            )
+                        )
+                        .and_then(Value::as_str) == Some(network_name)
+                );
+
     if !already_present {
         let mut entry = serde_yaml::Mapping::new();
-        entry.insert(Value::String("external".to_string()), Value::Bool(true));
-        entry.insert(Value::String("name".to_string()), Value::String(network_name.to_string()));
+        entry.insert(
+            Value::String(
+                "external".to_string()
+            ),
+            Value::Bool(true)
+        );
+        entry.insert(
+            Value::String("name".to_string()),
+            Value::String(network_name.to_string())
+        );
         networks.insert(alias_key.clone(), Value::Mapping(entry));
     }
     let services_key = Value::String("services".to_string());

@@ -353,46 +353,65 @@ pub struct ManagedContainer {
     pub state: String,
 }
 
-/// Lista **todos** os containers gerenciados pelo rustploy numa única chamada
-/// ao Docker e os agrupa por `service_id` (label `rustploy.service_id`). Usado
-/// pelo snapshot para anexar, a cada serviço, os containers que ele está de fato
-/// executando — cobre réplicas, staging em andamento e serviços Compose. Erros
-/// de Docker degradam para um mapa vazio (o snapshot segue sem a informação).
-pub async fn list_managed_grouped(docker: &Docker) -> HashMap<String, Vec<ManagedContainer>> {
+/// Índice de containers do host resolvido numa única listagem, com duas chaves:
+/// por `rustploy.service_id` (serviços normais — live/staging/réplicas) e por
+/// `com.docker.compose.project` (serviços Compose, cujos containers são criados
+/// pelo `docker compose` e **não** carregam os labels `rustploy.*`). O snapshot
+/// consulta com [`ContainerIndex::for_service`], que tenta o service_id e cai
+/// para o nome de projeto Compose.
+#[derive(Default)]
+pub struct ContainerIndex {
+    by_service_id: HashMap<String, Vec<ManagedContainer>>,
+    by_compose_project: HashMap<String, Vec<ManagedContainer>>,
+}
+
+impl ContainerIndex {
+    /// Containers de um serviço: pelos labels `rustploy.service_id`, ou — quando
+    /// vazio (serviço Compose) — pelo `com.docker.compose.project` derivado de
+    /// `compose_project_name(id, name)`.
+    pub fn for_service(&self, service_id: &str, service_name: &str) -> Vec<ManagedContainer> {
+        if let Some(v) = self.by_service_id.get(service_id) {
+            return v.clone();
+        }
+        let project = shared::compose_project_name(service_id, service_name);
+        self.by_compose_project.get(&project).cloned().unwrap_or_default()
+    }
+}
+
+/// Lista **todos** os containers do host numa única chamada e os indexa por
+/// service_id e por projeto Compose (ver [`ContainerIndex`]). Erros de Docker
+/// degradam para um índice vazio (o snapshot segue sem a informação).
+pub async fn index_containers(docker: &Docker) -> ContainerIndex {
     use bollard::container::ListContainersOptions;
-    let mut filters = HashMap::new();
-    filters.insert("label".to_string(), vec!["rustploy.managed=true".to_string()]);
-    let opts = ListContainersOptions { all: true, filters, ..Default::default() };
+    let opts = ListContainersOptions::<String> { all: true, ..Default::default() };
     let list = match docker.list_containers(Some(opts)).await {
         Ok(l) => l,
         Err(e) => {
-            warn!(error = %e, "containers::list_managed_grouped: falha ao listar containers");
-            return HashMap::new();
+            warn!(error = %e, "containers::index_containers: falha ao listar containers");
+            return ContainerIndex::default();
         }
     };
-    let mut out: HashMap<String, Vec<ManagedContainer>> = HashMap::new();
+    let mut idx = ContainerIndex::default();
     for c in list {
-        let Some(service_id) = c
-            .labels
-            .as_ref()
-            .and_then(|l| l.get("rustploy.service_id"))
-            .cloned()
-        else {
-            continue;
-        };
+        let labels = c.labels.clone().unwrap_or_default();
         let name = c
             .names
             .as_ref()
             .and_then(|n| n.first())
             .map(|n| n.trim_start_matches('/').to_string())
             .unwrap_or_default();
-        out.entry(service_id).or_default().push(ManagedContainer {
+        let mc = ManagedContainer {
             id: c.id.unwrap_or_default(),
             name,
             state: c.state.unwrap_or_default(),
-        });
+        };
+        if let Some(service_id) = labels.get("rustploy.service_id") {
+            idx.by_service_id.entry(service_id.clone()).or_default().push(mc);
+        } else if let Some(project) = labels.get("com.docker.compose.project") {
+            idx.by_compose_project.entry(project.clone()).or_default().push(mc);
+        }
     }
-    out
+    idx
 }
 
 /// Returns container IDs for a service excluding those from the given deployment.
