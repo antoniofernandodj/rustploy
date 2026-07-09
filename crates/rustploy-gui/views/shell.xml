@@ -61,18 +61,54 @@
       <text class="brand_sub">PRODUCTION CLUSTER</text>
     </column>
     <text class="nav_section">DEPLOYMENT OPS</text>
-    <NavItem label="  Deployments" target="deployments" action="nav_deployments" />
-    <NavItem label="  Deploy Engine" target="deploy_engine" action="nav_deploy_engine" />
-    <NavItem label="  Monitoring" target="monitoring" action="nav_monitoring" />
-    <NavItem label="  Schedules" target="schedules" action="nav_schedules" />
-    <NavItem label="  Ingress" target="ingress" action="nav_ingress" />
-    <NavItem label="  Docker" target="docker" action="nav_docker" />
+    <NavItem
+      label="  Deployments"
+      target="deployments"
+      action="nav_deployments"
+    />
+    <NavItem
+      label="  Deploy Engine"
+      target="deploy_engine"
+      action="nav_deploy_engine"
+    />
+    <NavItem
+      label="  Monitoring"
+      target="monitoring"
+      action="nav_monitoring"
+    />
+    <NavItem
+      label="  Schedules"
+      target="schedules"
+      action="nav_schedules"
+    />
+    <NavItem
+      label="  Ingress"
+      target="ingress"
+      action="nav_ingress"
+    />
+    <NavItem
+      label="  Docker"
+      target="docker"
+      action="nav_docker"
+    />
     <text class="nav_section">MANAGEMENT</text>
-    <NavItem label="  Projects ({projects_count})" target="projects" action="nav_projects" />
+    <NavItem
+      label="  Projects ({projects_count})"
+      target="projects"
+      action="nav_projects"
+    />
     <column class="nav_spacer" />
     <rule />
-    <button class="nav_item" on_click="nav_settings" text="Settings" />
-    <button class="nav_item" on_click="nav_support" text="Support" />
+    <button
+      class="nav_item"
+      on_click="nav_settings"
+      text="Settings"
+    />
+    <button
+      class="nav_item"
+      on_click="nav_support"
+      text="Support"
+    />
   </column>
   <!-- ── Main column ──────────────────────────────────────────────────── -->
   <column class="main_col">
@@ -229,7 +265,11 @@
                      empurradas para a extremidade direita (hspacer = width:fill).
                      Em modo de edição as ações somem (o form tem Salvar/Cancelar). -->
                 <row class="proj_topbar">
-                  <button class="btn_ghost" on_click="nav_projects" text="‹ Projetos" />
+                  <button
+                    class="btn_ghost"
+                    on_click="nav_projects"
+                    text="‹ Projetos"
+                  />
                   <column class="hspacer" />
                   <if cond="{editing_project}" not_equals="true">
                     <row class="proj_actions">
@@ -291,7 +331,9 @@
                 <else>
                   <text class="title">{proj_name}</text>
                   <text class="subtitle">{proj_description}</text>
-                  <text if="{proj_action_msg}" not_equals="" class="muted">{proj_action_msg}</text>
+                  <text if="{proj_action_msg}" not_equals="" class="muted">
+                    {proj_action_msg}
+                  </text>
                 </else>
               </column>
             </row>
@@ -317,10 +359,32 @@
             <if cond="{proj_tab}" equals="env">
               <!-- ── Variáveis de ambiente do projeto ────────────────────── -->
               <column class="env_wrap" if="{proj_loading}" not_equals="true">
-                <text class="muted">
-                  Herdadas por todos os serviços deste projeto no deploy — 
-                  as do serviço têm precedência.
-                </text>
+                <row class="env_head">
+                  <text class="muted_fill">
+                    Herdadas por todos os serviços deste projeto no deploy —
+                    as do serviço têm precedência.
+                  </text>
+                  <button
+                    class="btn_export"
+                    on_click="penv_export"
+                    text="Exportar"
+                  />
+                  <text>&nbsp;</text>
+                  <if cond="{penv_text_open}" equals="true">
+                    <button
+                      class="btn_export_on"
+                      on_click="penv_text_toggle"
+                      text="Fechar"
+                    />
+                  </if>
+                  <else>
+                    <button
+                      class="tab"
+                      on_click="penv_text_toggle"
+                      text=".env"
+                    />
+                  </else>
+                </row>
                 <form name="penv_add" on_submit="penv_add" width="fill">
                   <row class="env_add">
                     <input
@@ -351,30 +415,43 @@
                       on_reorder="penv_reorder"
                       reorder_key="key"
                     >
+                      <!-- Comentários (# ...) do .env: arrastáveis como as vars
+                           (reancoram na var seguinte da nova ordem), mas sem
+                           delete — removem-se editando o .env. -->
                       <if cond="{e.__dragging}" equals="true">
-                        <row class="kv_row_drag">
+                        <row class="kv_row_drag" if="{e.kind}" equals="comment">
                           <text class="env_drag_handle env_dragging" dragHandle="true">
-                             
+                            ⋮&nbsp;
+                          </text>
+                          <text class="muted">{e.value}</text>
+                        </row>
+                        <row class="kv_row_drag" else>
+                          <text class="env_drag_handle env_dragging" dragHandle="true">
+                            ⋮&nbsp;
                           </text>
                           <button
                             class="env_del"
                             on_click="penv_del:{e.key}"
                             text="✕"
                           />
-                          <text> </text>
+                          <text class="env_sep"></text>
                           <text class="env_key">{e.key}</text>
                           <text class="kv_val_fill">{e.value}</text>
                         </row>
                       </if>
                       <else>
-                        <row class="kv_row">
-                          <text class="env_drag_handle" dragHandle="true">⋮ </text>
+                        <row class="kv_row" if="{e.kind}" equals="comment">
+                          <text class="env_drag_handle" dragHandle="true">⋮&nbsp;</text>
+                          <text class="muted">{e.value}</text>
+                        </row>
+                        <row class="kv_row" else>
+                          <text class="env_drag_handle" dragHandle="true">⋮&nbsp;</text>
                           <button
                             class="env_del"
                             on_click="penv_del:{e.key}"
                             text="✕"
                           />
-                          <text> </text>
+                          <text class="env_sep"></text>
                           <text class="env_key">{e.key}</text>
                           <text class="kv_val_fill">{e.value}</text>
                         </row>
@@ -382,6 +459,32 @@
                     </foreach>
                   </column>
                 </scrollable>
+                <!-- Editor .env: vários filhos condicionais → TAG if (o atributo
+                     if= só esconderia o Text, deixando TextArea/botões sempre
+                     visíveis). -->
+                <if cond="{penv_text_open}" equals="true">
+                  <text class="muted">
+                    Cole/edite no formato KEY=VALUE (# comentário).
+                  </text>
+                  <textarea
+                    class="env_editor"
+                    font="mono"
+                    value="proj_env_text"
+                    placeholder="KEY=VALUE   (# comentário)"
+                  />
+                  <row class="env_add">
+                    <button
+                      class="btn_primary"
+                      on_click="penv_import"
+                      text="Salvar"
+                    />
+                    <button
+                      class="btn_ghost"
+                      on_click="penv_text_cancel"
+                      text="Cancelar"
+                    />
+                  </row>
+                </if>
               </column>
             </if>
             <else>

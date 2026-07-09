@@ -81,7 +81,15 @@
   -->
   <button class="card_open" on_click="open_service:{id}" text="Abrir  ›" />
   <row class="card_actions">
-    <button class="card_stop" on_click="svc_stop_id:{id}" text="Parar" />
-    <button class="card_remove" on_click="stop_delete_service:{id}" text="Remover" />
+    <button
+      class="card_stop"
+      on_click="svc_stop_id:{id}"
+      text="Parar"
+    />
+    <button
+      class="card_remove"
+      on_click="stop_delete_service:{id}"
+      text="Remover"
+    />
   </row>
 </column>

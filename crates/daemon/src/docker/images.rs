@@ -17,7 +17,12 @@ pub async fn pull(
     bus: &EventBus,
     db: &Arc<Db>,
 ) -> Result<()> {
-    info!(image = %image, deployment_id = %deployment_id, "images::pull: iniciando pull");
+
+    info!(
+        image = %image,
+        deployment_id = %deployment_id,
+        "images::pull: iniciando pull"
+    );
     let options = Some(CreateImageOptions {
         from_image: image,
         ..Default::default()
@@ -32,7 +37,9 @@ pub async fn pull(
             Ok(info) => {
                 if let Some(status) = &info.status {
                     let layer_id = info.id.as_deref().unwrap_or("-");
-                    if status.contains("Pull complete") || status.contains("Already exists") {
+                    if status.contains("Pull complete") ||
+                        status.contains("Already exists") {
+
                         layers_done += 1;
                         debug!(
                             image = %image,
@@ -44,7 +51,10 @@ pub async fn pull(
                     }
                     if status.contains("Pulling from") {
                         layer_count += 1;
-                        info!(image = %image, "images::pull: baixando layers do registry");
+                        info!(
+                            image = %image,
+                            "images::pull: baixando layers do registry"
+                        );
                     }
                     let percent = if layer_count > 0 {
                         ((layers_done as f32 / layer_count as f32) * 100.0) as u8
@@ -66,17 +76,32 @@ pub async fn pull(
                         percent,
                         description: line.clone(),
                     });
-                    let _ = crate::db::build_logs::append(db, deployment_id, &line, ts).await;
+                    let _ = crate::db::build_logs::append(
+                        db,
+                        deployment_id,
+                        &line,
+                        ts
+                    ).await;
                 }
             }
             Err(e) => {
-                tracing::error!(image = %image, error = %e, "images::pull: falhou");
-                return Err(anyhow!("image pull failed: {e}"));
+                tracing::error!(
+                    image = %image,
+                    error = %e, "images::pull: falhou"
+                );
+                return Err(
+                    anyhow!("image pull failed: {e}")
+                );
             }
         }
     }
 
-    info!(image = %image, deployment_id = %deployment_id, layers_done = layers_done, "images::pull: pull concluído");
+    info!(
+        image = %image,
+        deployment_id = %deployment_id,
+        layers_done = layers_done,
+        "images::pull: pull concluído"
+    );
     Ok(())
 }
 
@@ -122,9 +147,18 @@ pub async fn build(
                             timestamp: now,
                         });
                         if let Err(e) =
-                            crate::db::build_logs::append(db, deployment_id, line, now).await
+                            crate::db::build_logs::append(
+                                db,
+                                deployment_id,
+                                line,
+                                now
+                            ).await
                         {
-                            warn!(deployment_id, error = %e, "failed to persist build log line");
+                            warn!(
+                                deployment_id,
+                                error = %e,
+                                "failed to persist build log line"
+                            );
                         }
                     }
                 }
@@ -146,7 +180,9 @@ pub async fn build(
 fn create_tar_gz(context_path: &Path, _dockerfile: &str) -> Result<Vec<u8>> {
     let mut tar_data = Vec::new();
     {
-        let enc = flate2::write::GzEncoder::new(&mut tar_data, flate2::Compression::default());
+        let enc = flate2::write::GzEncoder::new(
+            &mut tar_data, flate2::Compression::default()
+        );
         let mut tar = tar::Builder::new(enc);
         // Adiciona recursivamente excluindo .git (que pode ser muito grande
         // e não é necessário para o build da imagem Docker)
@@ -177,7 +213,10 @@ fn append_dir_filtered(
         } else if path.is_file() {
             tar.append_path_with_name(&path, &archive_path)
                 .map_err(|e| {
-                    anyhow::anyhow!("tar: falha ao adicionar '{}': {e}", path.display())
+                    anyhow::anyhow!(
+                        "tar: falha ao adicionar '{}': {e}",
+                        path.display()
+                    )
                 })?;
         }
         // symlinks são ignorados (seguro para contexto Docker)

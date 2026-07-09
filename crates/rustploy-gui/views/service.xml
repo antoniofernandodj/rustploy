@@ -12,10 +12,8 @@
 /* Connection (pares chave/valor) */
 .kv_key        { width: fill; size: 13; color: var(--muted); }
 .kv_val        { size: 16; bold: true; color: var(--text); }
-/* Environment / General (editores) */
-.btn_export_on { color: var(--blue); padding: 11 22; border-radius: 10; }
-.btn_export    { color: var(--border); padding: 11 22; border-radius: 10; }
-.env_editor    { width: fill; height: 200; padding: 10 12; font: mono; }
+/* Environment / General (editores) — .btn_export/.btn_export_on/.env_editor
+   agora vivem em app.gss (compartilhados com shell.xml). */
 .select        { width: fill; padding: 12 14; background: var(--raised); border-radius: 8; border-width: 1; border-color: #30363D; color: var(--text-2); }
 /* Deployments (lista + build log) */
 .col_dep_id    { width: 130; }
@@ -70,7 +68,9 @@
           <text class="badge_lbl" color="#58A6FF">{svc_deploy_elapsed}</text>
         </row>
       </row>
-      <text if="{svc_action_msg}" not_equals="" class="muted" color="{svc_action_color}">{svc_action_msg}</text>
+      <text if="{svc_action_msg}" not_equals="" class="muted" color="{svc_action_color}">
+        {svc_action_msg}
+      </text>
     </column>
     <row class="svc_actions">
       <button class="btn_primary" on_click="svc_deploy" text="Deploy" />
@@ -165,7 +165,10 @@
                  provider Git/Registry. -->
             <if cond="{svc_source_kind}" equals="Compose">
               <text class="label_cap">DOCKER COMPOSE (YAML)</text>
-              <text class="muted">Edite o compose do serviço. Salvar aplica no próximo deploy.</text>
+              <text class="muted">
+                Edite o compose do serviço.
+                Salvar aplica no próximo deploy.
+              </text>
 
               <textarea
                 class="env_editor"
@@ -194,7 +197,12 @@
 
             <text class="label_cap">PROVIDER</text>
             <row class="tabs">
-              <TabButton label="Git" current="{prov_tab}" target="git" action="prov:git" />
+              <TabButton
+                label="Git"
+                current="{prov_tab}"
+                target="git"
+                action="prov:git"
+              />
               <if cond="{gitea_count}" not_equals="0">
                 <TabButton
                   label="Gitea"
@@ -219,7 +227,10 @@
                 placeholder="github.com/user/repo  ou  nginx:latest"
               />
 
-              <text class="muted">URL de repositório vira Git; caso contrário é imagem de registry.</text>
+              <text class="muted">
+                URL de repositório vira Git;
+                caso contrário é imagem de registry.
+              </text>
               <row class="hc_grid">
                 <column class="hc_field">
                   <text class="label_cap">BRANCH</text>
@@ -240,7 +251,9 @@
                     on_change="field:f_gen_port"
                     placeholder="80"
                   />
-                  <text if="{erro_f_gen_port}" not_equals="" class="err">{erro_f_gen_port}</text>
+                  <text if="{erro_f_gen_port}" not_equals="" class="err">
+                    {erro_f_gen_port}
+                  </text>
                 </column>
               </row>
               <row class="hc_grid">
@@ -275,7 +288,9 @@
                 placeholder="."
               />
 
-              <text class="label_cap">WATCH PATHS (separados por vírgula)</text>
+              <text class="label_cap">
+                WATCH PATHS (separados por vírgula)
+              </text>
 
               <input
                 class="field_input"
@@ -334,8 +349,13 @@
 
             <!-- ── Sub-aba Gitea: picker de conta/repo/branch conectados ─ -->
             <if cond="{prov_tab}" equals="gitea">
-              <text class="muted">Selecione a conta conectada, o repositório e a branch a implantar.</text>
-              <text if="{gitea_msg}" not_equals="" class="muted">{gitea_msg}</text>
+              <text class="muted">
+                Selecione a conta conectada,
+                o repositório e a branch a implantar.
+              </text>
+              <text if="{gitea_msg}" not_equals="" class="muted">
+                {gitea_msg}
+              </text>
               <text class="label_cap">CONTA GITEA</text>
               <select
                 class="select"
@@ -397,7 +417,9 @@
                     on_change="field:f_gen_port"
                     placeholder="80"
                   />
-                  <text if="{erro_f_gen_port}" not_equals="" class="err">{erro_f_gen_port}</text>
+                  <text if="{erro_f_gen_port}" not_equals="" class="err">
+                    {erro_f_gen_port}
+                  </text>
                 </column>
               </row>
               <row class="hc_grid">
@@ -422,7 +444,9 @@
                   />
                 </column>
               </row>
-              <text class="label_cap">WATCH PATHS (separados por vírgula)</text>
+              <text class="label_cap">
+                WATCH PATHS (separados por vírgula)
+              </text>
               <input
                 class="field_input"
                 form_control="f_watch_paths"
@@ -556,7 +580,7 @@
                     ⋮ 
                   </text>
                   <button class="env_del" on_click="env_del:{e.key}" text="✕" />
-                  <text> </text>
+                  <text class="env_sep"> </text>
                   <text class="env_key">{e.key}</text>
                   <text class="kv_val_fill">{e.value}</text>
                 </row>
@@ -572,7 +596,7 @@
                 <row class="kv_row" else>
                   <text class="env_drag_handle" dragHandle="true">⋮ </text>
                   <button class="env_del" on_click="env_del:{e.key}" text="✕" />
-                  <text> </text>
+                  <text class="env_sep"> </text>
                   <text class="env_key">{e.key}</text>
                   <text class="kv_val_fill">{e.value}</text>
                 </row>
@@ -585,7 +609,6 @@
         <if cond="{env_text_open}" equals="true">
           <text class="muted">
             Cole/edite no formato KEY=VALUE (# comentário).
-            Importar substitui todas as variáveis.
           </text>
 
           <textarea
@@ -599,7 +622,7 @@
             <button
               class="btn_primary"
               on_click="env_import"
-              text="Importar"
+              text="Salvar"
             />
             <button
               class="btn_ghost"
@@ -624,7 +647,7 @@
           <column class="kv_list">
             <row class="kv_row" for-each="svc_domains" var="d">
               <button class="env_del" on_click="dom_del:{d.domain}" text="✕" />
-              <text> </text>
+              <text class="env_sep"> </text>
               <text class="env_key">{d.domain}</text>
               <text class="kv_val_fill">→ {d.port}</text>
               <text class="muted">{d.tls_label}</text>

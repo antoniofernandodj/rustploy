@@ -325,10 +325,12 @@ fn handle_project_env_tab(app: &mut App, key: KeyEvent) {
                                             shared::EnvVarValue::Plain(v)
                                         },
                             });
+                            let env_comments = project.env_comments.clone();
                             app.pending_commands.push(PendingCommand {
                                 command: shared::Command::ProjectEnvSet {
                                     project_id: pid,
                                     env_vars,
+                                    env_comments,
                                 },
                                 context: CmdContext::UpdateProjectEnv,
                             });
@@ -410,10 +412,17 @@ fn handle_project_env_tab(app: &mut App, key: KeyEvent) {
                         let key = ev.key.clone();
                         let mut env_vars = project.env_vars.clone();
                         env_vars.retain(|e| e.key != key);
+                        let env_comments = project
+                            .env_comments
+                            .iter()
+                            .filter(|c| c.before_key.as_deref() != Some(key.as_str()))
+                            .cloned()
+                            .collect();
                         app.pending_commands.push(PendingCommand {
                             command: shared::Command::ProjectEnvSet {
                                 project_id: pid,
                                 env_vars,
+                                env_comments,
                             },
                             context: CmdContext::UpdateProjectEnv,
                         });
@@ -475,11 +484,20 @@ fn save_project_env_text(app: &mut App) {
         None => return,
     };
     let env_vars = app.project_env_text.parse_env_vars();
+    // O editor de texto do TUI não faz parsing de comentários; preserva os
+    // existentes do projeto para não os apagar ao salvar.
+    let env_comments = app
+        .projects
+        .iter()
+        .find(|p| p.id == pid)
+        .map(|p| p.env_comments.clone())
+        .unwrap_or_default();
     app.project_env_text.set_editing(false);
     app.pending_commands.push(PendingCommand {
         command: shared::Command::ProjectEnvSet {
             project_id: pid,
             env_vars,
+            env_comments,
         },
         context: CmdContext::UpdateProjectEnv,
     });

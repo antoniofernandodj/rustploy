@@ -1,7 +1,7 @@
 use crate::db::Db;
 use chrono::{Datelike, Utc};
 use serde::{Deserialize, Serialize};
-use shared::{EnvVar, EnvVarValue};
+use shared::{EnvComment, EnvVar, EnvVarValue};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tokio::time::interval;
 use tracing::{info, warn};
@@ -19,6 +19,10 @@ pub struct ProjectEnvEntry {
     pub id: String,
     pub name: String,
     pub env_vars: Vec<EnvVar>,
+    /// Comentários do `.env` do projeto. `default` para ler snapshots antigos
+    /// (anteriores ao suporte a comentários) sem falhar.
+    #[serde(default)]
+    pub env_comments: Vec<EnvComment>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -83,6 +87,7 @@ pub async fn collect_snapshot(db: &Db) -> anyhow::Result<EnvSnapshot> {
             id: proj.id.clone(),
             name: proj.name.clone(),
             env_vars: proj.env_vars.clone(),
+            env_comments: proj.env_comments.clone(),
         });
 
         let services = crate::db::services::list(db, &proj.id).await?;
@@ -141,7 +146,13 @@ pub async fn restore_snapshot(db: &Db, backup_dir: &PathBuf, snapshot: &str) -> 
     for entry in &snap.projects {
         // Só actualiza se o projecto ainda existe com o mesmo ID
         if crate::db::projects::get(db, &entry.id).await?.is_some() {
-            crate::db::projects::update_env_vars(db, &entry.id, entry.env_vars.clone()).await?;
+            crate::db::projects::update_env_vars(
+                db,
+                &entry.id,
+                entry.env_vars.clone(),
+                entry.env_comments.clone(),
+            )
+            .await?;
             restored += 1;
         }
     }

@@ -16,6 +16,7 @@ function open_project(id: string): ()
     ctx.proj_tab = "services"
     ctx.editing_project = "false"
     ctx.proj_action_msg = ""
+    ctx.penv_text_open = "false"
     ctx.proj_loading = "true"
     Stream.update_open_project()
 end
@@ -129,10 +130,11 @@ function save_project_edit(): ()
 end
 
 -- ── Variáveis de ambiente do projeto (aba "Variáveis") ──────────────────
+-- Fluxo idêntico ao do serviço: env_vars + env_comments (`# ...` ancorados por
+-- key). O `mutate` recebe uma tabela `pe = { env_vars, env_comments }` e a
+-- altera in place; enviamos as duas listas no ProjectEnvSet.
 
--- Busca o projeto fresco, aplica `mutate(env_vars)` (devolve o novo array),
--- envia ProjectEnvSet e reescreve proj_env.
-local function with_project_env(mutate: (env: any) -> any): ()
+local function with_project_env(mutate: (pe: any) -> ()): ()
     local pid = ctx.selected_project_id or ""
     local api = State.api
     if pid == "" or not api then
@@ -142,29 +144,116 @@ local function with_project_env(mutate: (env: any) -> any): ()
     if not ok or not res.Projects then
         return
     end
-    local env
+    local proj
     for _, p in ipairs(res.Projects) do
         if p.id == pid then
-            env = p.env_vars or json.array({});
+            proj = p;
             break
         end
     end
-    if env == nil then
+    if proj == nil then
         return
     end
-    local newenv = mutate(env)
+    local pe = {
+        env_vars = proj.env_vars or json.array({}),
+        env_comments = proj.env_comments or json.array({}),
+    }
+    mutate(pe)
     local ok2, res2 = api:rpc_checked({
         ProjectEnvSet = {
             project_id = pid,
-            env_vars = newenv
+            env_vars = pe.env_vars,
+            env_comments = pe.env_comments,
         }
     })
     if ok2 then
-        ctx.proj_env = fmt.env_json_with_comments(newenv, {})
-        ctx.proj_env_count = tostring(#newenv)
+        ctx.proj_env = fmt.env_json_with_comments(pe.env_vars, pe.env_comments)
+        ctx.proj_env_count = tostring(#pe.env_vars)
+        -- Não sobrescrever o textarea enquanto o usuário edita (ver stream.luau).
+        if ctx.penv_text_open ~= "true" then
+            local dotenv = fmt.env_dotenv_with_comments(pe.env_vars, pe.env_comments)
+            ctx.proj_env_text = dotenv
+            ctx.proj_env_text_orig = dotenv
+        end
     else
         Helpers.notify_err(res2)
     end
+end
+
+-- Parser .env (KEY=VALUE, # comentário, <secret:nome>) → (env_vars, comments).
+-- Comentários pendentes ancoram na próxima var real (before_key); os do fim
+-- ficam sem âncora (before_key = nil).
+local function parse_project_dotenv(text: string?): ({any}, {any})
+    local vars = json.array({})
+    local comments = json.array({})
+    local pending = {}
+    for line in string.gmatch((text or "") .. "\n", "([^\n]*)\n") do
+        local l = Helpers.trim(line)
+        if l == "" then
+            -- ignora
+        elseif l:sub(1, 1) == "#" then
+            table.insert(pending, l)
+        else
+            local k, v = l:match("^([^=]+)=(.*)$")
+            if k and v then
+                local key = Helpers.trim(k)
+                if key ~= "" then
+                    for _, c in ipairs(pending) do
+                        table.insert(comments, { text = c, before_key = key })
+                    end
+                    pending = {}
+                    v = Helpers.trim(v)
+                    local secret = v:match("^<secret:(.+)>$")
+                    local value = secret and { Secret = secret } or { Plain = v }
+                    table.insert(vars, { key = key, value = value })
+                end
+            end
+        end
+    end
+    for _, c in ipairs(pending) do
+        table.insert(comments, { text = c, before_key = nil })
+    end
+    return vars, comments
+end
+
+-- Reordena vars/comments a partir de uma ordem de keys (vars + linhas
+-- `__c<idx>`): cada comentário reancora na primeira var real que o segue.
+local function reorder_project_env(vars: {any}, comments: {any}, keys: {any}): ({any}, {any})
+    local var_keys = {}
+    local by_key = {}
+    for _, v in ipairs(vars) do var_keys[v.key] = true; by_key[v.key] = v end
+    local seen = {}
+    local new_vars = json.array({})
+    local new_comments = json.array({})
+    for pos, k in ipairs(keys) do
+        local ci = k:match("^__c(%d+)$")
+        if ci then
+            local idx = (tonumber(ci) or 0) + 1 -- __c é 0-based
+            local c = comments[idx]
+            if c then
+                seen[idx] = true
+                local anchor = nil
+                for j = pos + 1, #keys do
+                    if var_keys[keys[j]] then anchor = keys[j]; break end
+                end
+                table.insert(new_comments, { text = c.text, before_key = anchor })
+            end
+        elseif by_key[k] then
+            table.insert(new_vars, by_key[k])
+            by_key[k] = nil
+        end
+    end
+    for _, v in ipairs(vars) do
+        if by_key[v.key] then
+            table.insert(new_vars, v)
+        end
+    end
+    for idx, c in ipairs(comments) do
+        if not seen[idx] then
+            table.insert(new_comments, c)
+        end
+    end
+    return new_vars, new_comments
 end
 
 function penv_add(): ()
@@ -175,29 +264,36 @@ function penv_add(): ()
     end
     ctx.erro_penv_new_key = ""
     local val = ctx.penv_new_val or ""
-    with_project_env(function(env: any): any
+    with_project_env(function(pe: any): ()
         local kept = json.array({})
-        for _, v in ipairs(env) do
+        for _, v in ipairs(pe.env_vars) do
             if v.key ~= key then
                 table.insert(kept, v)
             end
         end
         table.insert(kept, { key = key, value = { Plain = val } })
-        return kept
+        pe.env_vars = kept
     end)
     ctx.penv_new_key = ""
     ctx.penv_new_val = ""
 end
 
 function penv_del(key: string): ()
-    with_project_env(function(env: any): any
+    with_project_env(function(pe: any): ()
         local kept = json.array({})
-        for _, v in ipairs(env) do
+        for _, v in ipairs(pe.env_vars) do
             if v.key ~= key then
                 table.insert(kept, v)
             end
         end
-        return kept
+        pe.env_vars = kept
+        local kc = json.array({})
+        for _, c in ipairs(pe.env_comments) do
+            if c.before_key ~= key then
+                table.insert(kc, c)
+            end
+        end
+        pe.env_comments = kc
     end)
 end
 
@@ -209,24 +305,36 @@ function penv_reorder(v: string?): ()
     if not ok or type(keys) ~= "table" then
         return
     end
-    with_project_env(function(env: any): any
-        local by = {}
-        for _, x in ipairs(env) do
-            by[x.key] = x
-        end
-        local out = json.array({})
-        for _, k in ipairs(keys) do
-            if by[k] then
-                table.insert(out, by[k]); by[k] = nil
-            end
-        end
-        for _, x in ipairs(env) do
-            if by[x.key] then
-                table.insert(out, x)
-            end
-        end
-        return out
+    with_project_env(function(pe: any): ()
+        local nv, nc = reorder_project_env(pe.env_vars, pe.env_comments, keys)
+        pe.env_vars = nv
+        pe.env_comments = nc
     end)
+end
+
+-- ── Editor .env do projeto (mesmo fluxo do serviço) ─────────────────────
+
+function penv_text_toggle(): ()
+    ctx.penv_text_open = (ctx.penv_text_open == "true") and "false" or "true"
+end
+
+function penv_export(): ()
+    -- Abre o editor .env já preenchido (o texto vem do snapshot em proj_env_text).
+    ctx.penv_text_open = "true"
+end
+
+function penv_text_cancel(): ()
+    ctx.proj_env_text = ctx.proj_env_text_orig or ""
+    ctx.penv_text_open = "false"
+end
+
+function penv_import(): ()
+    local vars, comments = parse_project_dotenv(ctx.proj_env_text)
+    with_project_env(function(pe: any): ()
+        pe.env_vars = vars
+        pe.env_comments = comments
+    end)
+    ctx.penv_text_open = "false"
 end
 
 -- ── Ações de serviço a partir de um card do grid do projeto ─────────────

@@ -109,8 +109,15 @@
 .env_drag_handle { color: var(--faint); padding: 0 6 0 0; cursor: grab; }
 .env_dragging    { cursor: grabbing; }
 .env_del       { color: var(--danger); padding: 4 10; }
+/* Respiro entre o botão ✕ e a chave da variável (evita que o vermelho encoste
+   no texto). Usado nas linhas de env de serviço e de projeto. */
+.env_sep       { width: 10; }
 .env_key       { size: 13; bold: true; color: var(--accent); width: 200; }
 .env_list_scroll { width: fill; height: fill; }
+/* Editor .env (textarea + toggle), compartilhado por service.xml e shell.xml. */
+.env_editor    { width: fill; height: 200; padding: 10 12; font: mono; }
+.btn_export    { color: var(--border); padding: 11 22; border-radius: 10; }
+.btn_export_on { color: var(--blue); padding: 11 22; border-radius: 10; }
 .copy_btn      { color: var(--border); padding: 5 12; border-radius: 8 }
 .hc_grid       { width: fill; spacing: 14; }
 .hc_field      { width: fill; spacing: 6; }

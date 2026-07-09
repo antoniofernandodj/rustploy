@@ -185,7 +185,9 @@
         class="scroll_fill"
       >
         <column class="table_body">
-          <text if="{eng_recent_count}" equals="0" class="muted">Nenhum deploy concluído nas últimas 24h.</text>
+          <text if="{eng_recent_count}" equals="0" class="muted">
+            Nenhum deploy concluído nas últimas 24h.
+          </text>
           <column class="row_wrap" for-each="eng_recent" var="r">
             <row class="trow">
               <text class="td col_icon">{r.icon}</text>
@@ -529,16 +531,25 @@
             formControl="ss_domain"
           />
 
-          <text class="muted">Base das URLs de webhook dos serviços e do callback OAuth.</text>
-          <text class="label_cap">E-MAIL LET'S ENCRYPT (HTTPS AUTOMÁTICO)</text>
+          <text class="muted">
+            Base das URLs de webhook dos serviços e do callback OAuth.
+          </text>
+          <text class="label_cap">
+            E-MAIL LET'S ENCRYPT (HTTPS AUTOMÁTICO)
+          </text>
           <TextInput
             placeholder="voce@exemplo.com"
             class="field_input"
             formControl="ss_email"
           />
 
-          <text if="{erro_ss_email}" not_equals="" class="err">{erro_ss_email}</text>
-          <text class="muted">Certificados TLS emitidos automaticamente. Requer restart do daemon.</text>
+          <text if="{erro_ss_email}" not_equals="" class="err">
+            {erro_ss_email}
+          </text>
+          <text class="muted">
+            Certificados TLS emitidos automaticamente.
+            Requer restart do daemon.
+          </text>
 
           <row class="env_add">
             <button class="btn_primary" on_click="settings_save" text="Save" />
@@ -555,14 +566,18 @@
           <text class="label_cap">
             CONTAS CONECTADAS ({gitea_count})
           </text>
-          <text if="{gitea_count}" equals="0" class="muted">Nenhuma conta Gitea conectada ainda.</text>
+          <text if="{gitea_count}" equals="0" class="muted">
+            Nenhuma conta Gitea conectada ainda.
+          </text>
 
           <column class="kv_list">
             <foreach items="gitea_providers" var="p">
               <row class="kv_row">
                 <column class="header_titles">
                   <text class="env_key">{p.name}</text>
-                  <text class="muted">{p.base_url}  ·  {p.auth_mode}  ·  {p.account}</text>
+                  <text class="muted">
+                    {p.base_url}  ·  {p.auth_mode}  ·  {p.account}
+                  </text>
                 </column>
                 <button class="btn_danger" on_click="gp_delete:{p.id}" text="Remover" />
               </row>
@@ -600,7 +615,9 @@
                   value="gp_name"
                   on_change="field:gp_name"
                 />
-                <text if="{erro_gp_name}" not_equals="" class="err">{erro_gp_name}</text>
+                <text if="{erro_gp_name}" not_equals="" class="err">
+                  {erro_gp_name}
+                </text>
               </column>
               <column class="hc_field">
                 <text class="label_cap">BASE URL</text>
@@ -651,7 +668,9 @@
                 on_change="field:gp_client_secret"
               />
 
-              <text class="label_cap">REDIRECT URI (cole no app OAuth do Gitea)</text>
+              <text class="label_cap">
+                REDIRECT URI (cole no app OAuth do Gitea)
+              </text>
               <row class="kv_row">
                 <text class="kv_val_fill">{gp_redirect}</text>
                 <button
@@ -660,7 +679,10 @@
                   text="Copiar"
                 />
               </row>
-              <text class="muted">No Gitea: Settings → Applications → crie um OAuth2 app e cole a Redirect URI acima.</text>
+              <text class="muted">
+                No Gitea: Settings → Applications → crie um OAuth2
+                app e cole a Redirect URI acima.
+              </text>
             </if>
 
             <!-- PAT -->
@@ -677,7 +699,9 @@
                 on_change="field:gp_pat"
               />
 
-              <text class="muted">No Gitea: Settings → Applications → Generate New Token (escopo: repo).</text>
+              <text class="muted">
+                No Gitea: Settings → Applications → Generate New Token (escopo: repo).
+              </text>
             </if>
 
             <row class="env_add">

@@ -92,7 +92,8 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::ProjectEnvSet {
             project_id,
             env_vars,
-        } => handlers::project_env_set::handle(state, project_id, env_vars).await,
+            env_comments,
+        } => handlers::project_env_set::handle(state, project_id, env_vars, env_comments).await,
         Command::ServiceCreate(spec) => handlers::service_create::handle(state, spec).await,
         Command::ServiceList { project_id } => {
             handlers::service_list::handle(state, project_id).await

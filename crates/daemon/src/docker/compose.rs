@@ -66,20 +66,51 @@ pub fn inject_project_network(
     }
     let services_key = Value::String("services".to_string());
     if let Some(services_val) = root.get_mut(&services_key) {
-        let services = services_val.as_mapping_mut().ok_or_else(|| anyhow!("`services:` no compose não é um mapping"))?;
+        let services = services_val
+            .as_mapping_mut()
+            .ok_or_else(
+                || anyhow!("`services:` no compose não é um mapping")
+            )?;
+
         let svc_net_key = Value::String("networks".to_string());
         for (_, svc) in services.iter_mut() {
             let Some(svc_map) = svc.as_mapping_mut() else { continue; };
             match svc_map.get_mut(&svc_net_key) {
-                Some(Value::Sequence(seq)) => { if !seq.iter().any(|v| v.as_str() == Some(PROJECT_NET_ALIAS)) { seq.push(Value::String(PROJECT_NET_ALIAS.to_string())); } }
-                Some(Value::Mapping(map)) => { if !map.contains_key(&alias_key) { map.insert(alias_key.clone(), Value::Mapping(serde_yaml::Mapping::new())); } }
-                Some(other) if other.is_null() => { *other = Value::Sequence(vec![Value::String(PROJECT_NET_ALIAS.to_string())]); }
+                Some(Value::Sequence(seq)) => {
+                    if !seq.iter().any(
+                        |v| v.as_str() == Some(PROJECT_NET_ALIAS)) {
+                            seq.push(Value::String(PROJECT_NET_ALIAS.to_string()));
+                    }
+                }
+                Some(Value::Mapping(map)) => {
+                    if !map.contains_key(&alias_key) {
+                        map.insert(
+                            alias_key.clone(),
+                            Value::Mapping(serde_yaml::Mapping::new())
+                        );
+                    }
+                }
+                Some(other) if other.is_null() => {
+                    *other = Value::Sequence(
+                        vec![Value::String(PROJECT_NET_ALIAS.to_string())]
+                    );
+                }
                 Some(_) => {}
-                None => { svc_map.insert(svc_net_key.clone(), Value::Sequence(vec![Value::String(PROJECT_NET_ALIAS.to_string())])); }
+                None => {
+                    svc_map.insert(
+                        svc_net_key.clone(),
+                        Value::Sequence(
+                            vec![Value::String(PROJECT_NET_ALIAS.to_string())]
+                        )
+                    );
+                }
             }
         }
     }
-    serde_yaml::to_string(&doc).map_err(|e| anyhow!("falha ao serializar compose YAML: {e}"))
+    serde_yaml::to_string(&doc)
+        .map_err(
+            |e| anyhow!("falha ao serializar compose YAML: {e}")
+        )
 }
 
 pub async fn up(
@@ -116,7 +147,6 @@ pub async fn up(
     compose_file.write_all(content.as_bytes()).await?;
     compose_file.flush().await?;
     drop(compose_file);
-
     let mut child = Command::new("docker")
         .args([
             "compose",
@@ -149,8 +179,17 @@ pub async fn up(
         while let Ok(Some(line)) = lines.next_line().await {
             if line.trim().is_empty() { continue; }
             let ts = Utc::now();
-            bus_s.publish(Event::BuildLog { deployment_id: did.clone(), service_id: sid.clone(), line: line.clone(), timestamp: ts });
-            let _ = crate::db::build_logs::append(&db_s, &did, &line, ts).await;
+            bus_s.publish(
+                Event::BuildLog {
+                    deployment_id: did.clone(),
+                    service_id: sid.clone(),
+                    line: line.clone(),
+                    timestamp: ts
+                }
+            );
+            let _ = crate::db::build_logs::append(
+                &db_s, &did, &line, ts
+            ).await;
         }
     };
     let bus_e = bus.clone();
@@ -162,13 +201,29 @@ pub async fn up(
         while let Ok(Some(line)) = lines.next_line().await {
             if line.trim().is_empty() { continue; }
             let ts = Utc::now();
-            bus_e.publish(Event::BuildLog { deployment_id: did_e.clone(), service_id: sid_e.clone(), line: line.clone(), timestamp: ts });
-            let _ = crate::db::build_logs::append(&db_e, &did_e, &line, ts).await;
+            bus_e.publish(
+                Event::BuildLog {
+                    deployment_id: did_e.clone(),
+                    service_id: sid_e.clone(),
+                    line: line.clone(),
+                    timestamp: ts
+                }
+            );
+            let _ = crate::db::build_logs::append(
+                &db_e,
+                &did_e,
+                &line,
+                ts
+            ).await;
         }
     };
 
     tokio::join!(read_stdout, read_stderr);
-    let status = child.wait().await.map_err(|e| anyhow!("falha ao aguardar: {e}"))?;
+    let status = child.wait()
+        .await
+        .map_err(
+            |e| anyhow!("falha ao aguardar: {e}")
+        )?;
     
     // Limpeza
     let _ = remove_file(&env_file_path).await;
@@ -180,10 +235,23 @@ pub async fn up(
     Ok(())
 }
 
-pub async fn down(content: &str, project_name: &str, _network_name: &str, env_vars: &[(String, String)]) -> Result<()> {
+pub async fn down(
+    content: &str,
+    project_name: &str,
+    _network_name: &str,
+    env_vars: &[(String, String)]
+) -> Result<()> {
     info!(project = %project_name, "compose_down: iniciando");
     let mut child = Command::new("docker")
-        .args([ "compose", "-p", project_name, "-f", "-", "down", "--remove-orphans", ])
+        .args([
+            "compose",
+            "-p",
+            project_name,
+            "-f",
+            "-",
+            "down",
+            "--remove-orphans",
+        ])
         .envs(env_vars.iter().map(|(k, v)| (k.as_str(), v.as_str())))
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -194,7 +262,13 @@ pub async fn down(content: &str, project_name: &str, _network_name: &str, env_va
         let _ = stdin.write_all(content.as_bytes()).await;
         stdin.shutdown().await.ok();
     }
-    let output = child.wait_with_output().await.map_err(|e| anyhow!("falha ao aguardar compose down: {e}"))?;
+    let output = child
+        .wait_with_output()
+        .await
+        .map_err(
+            |e| anyhow!("falha ao aguardar compose down: {e}")
+        )?;
+
     if !output.status.success() {
         return Err(anyhow!("docker compose down falhou"));
     }

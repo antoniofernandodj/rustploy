@@ -23,6 +23,7 @@ pub fn transform(data: DokployData, gitea_url: Option<&str>) -> (TransformedData
             name: dp.name,
             description: dp.description,
             env_vars: vec![], // Dokploy doesn't seem to have shared project env vars in the same way
+            env_comments: vec![],
             created_at: Utc::now(),
         });
     }

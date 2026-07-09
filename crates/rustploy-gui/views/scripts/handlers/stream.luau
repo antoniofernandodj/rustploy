@@ -69,8 +69,17 @@ local function update_open_project(): ()
     -- Variáveis de ambiente do projeto (aba "Variáveis (N)"). Sem isto, a aba
     -- nasce "Variáveis ()" até a primeira edição.
     local penv = proj.env_vars or {}
-    ctx.proj_env = fmt.env_json_with_comments(penv, {})
+    local pcomments = proj.env_comments or {}
+    ctx.proj_env = fmt.env_json_with_comments(penv, pcomments)
     ctx.proj_env_count = tostring(#penv)
+    -- O snapshot chega ~1x/s; se reescrevêssemos proj_env_text (o value do
+    -- textarea) toda vez, o que o usuário digita seria resetado. Só
+    -- ressincroniza o editor .env quando ele está fechado.
+    if ctx.penv_text_open ~= "true" then
+        local pdotenv = fmt.env_dotenv_with_comments(penv, pcomments)
+        ctx.proj_env_text = pdotenv
+        ctx.proj_env_text_orig = pdotenv
+    end
 end
 
 M.update_open_project = update_open_project

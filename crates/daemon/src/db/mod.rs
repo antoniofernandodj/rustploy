@@ -130,5 +130,24 @@ async fn migrate(pool: &SqlitePool) -> Result<()> {
     )
     .execute(pool)
     .await?;
+
+    // Migrações incrementais (SQLite não tem `ADD COLUMN IF NOT EXISTS`): rode
+    // o ALTER e ignore o erro "duplicate column name" quando já foi aplicado.
+    add_column_if_missing(
+        pool,
+        "ALTER TABLE project ADD COLUMN env_comments TEXT NOT NULL DEFAULT '[]'",
+    )
+    .await?;
+
     Ok(())
+}
+
+/// Executa um `ALTER TABLE ... ADD COLUMN`, tratando como no-op se a coluna já
+/// existe (SQLite responde "duplicate column name").
+async fn add_column_if_missing(pool: &SqlitePool, sql: &str) -> Result<()> {
+    match sqlx::query(sql).execute(pool).await {
+        Ok(_) => Ok(()),
+        Err(e) if e.to_string().contains("duplicate column name") => Ok(()),
+        Err(e) => Err(e.into()),
+    }
 }

@@ -28,9 +28,11 @@ const SYSTEM_PREFIX: &str = "/usr/share/rustploy";
 ///
 /// 1. `$RUSTPLOY_UI_ASSETS` — explicit override.
 /// 2. The executable's own directory — portable / Windows `.zip` layout.
-/// 3. [`SYSTEM_PREFIX`] — Debian package layout.
-/// 4. The current directory, if it already contains the assets — `cargo run`
-///    from the workspace root during development (no `chdir` needed).
+/// 3. The current directory, if it already contains the assets — `cargo run`
+///    from the workspace root during development (no `chdir` needed). Checked
+///    *before* [`SYSTEM_PREFIX`] so an installed `.deb` doesn't shadow the
+///    working tree during a dev run.
+/// 4. [`SYSTEM_PREFIX`] — Debian package layout.
 ///
 /// Best-effort: if none match, the CWD is left as-is and the app will surface
 /// a "stylesheet/template not found" error, which is the clearest signal.
@@ -58,12 +60,21 @@ fn find_base() -> Option<PathBuf> {
         }
     }
 
+    // Dev run from the workspace root: the CWD already holds the assets. Prefer
+    // it over SYSTEM_PREFIX so an installed `.deb` under /usr/share/rustploy
+    // doesn't shadow the working tree during `cargo run`. No chdir needed —
+    // returning None leaves the CWD as-is.
+    if let Ok(cwd) = std::env::current_dir() {
+        if has_marker(&cwd) {
+            return None;
+        }
+    }
+
     let system = PathBuf::from(SYSTEM_PREFIX);
     if has_marker(&system) {
         return Some(system);
     }
 
-    // Already at a valid base (dev run from the workspace root): stay put.
     None
 }
 

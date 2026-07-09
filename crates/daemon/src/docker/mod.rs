@@ -13,7 +13,11 @@ pub struct DockerClient {
 
 impl DockerClient {
     pub fn connect(socket_path: &str) -> Result<Self> {
-        let docker = Docker::connect_with_unix(socket_path, 120, bollard::API_DEFAULT_VERSION)?;
+        let docker = Docker::connect_with_unix(
+            socket_path,
+            120,
+            bollard::API_DEFAULT_VERSION
+        )?;
         Ok(Self {
             inner: docker,
             _socket_path: socket_path.to_string(),

@@ -31,6 +31,7 @@ pub enum Command {
     ProjectEnvSet {
         project_id: String,
         env_vars: Vec<EnvVar>,
+        env_comments: Vec<EnvComment>,
     },
 
     // Services

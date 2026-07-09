@@ -12,7 +12,7 @@ pra capturar tela aqui (Wayland). Rodar `cargo run -p rustploy-gui`, conectar e
 conferir:
 - **Saves** persistem de fato (re-fetch após `ServiceUpdate`): General (editar
   branch/imagem), Domains, Healthcheck, Advanced, Settings (web server).
-- **Env**: adicionar/remover var, editar/Importar `.env`, Exportar `.env`.
+- **Env**: adicionar/remover var, editar/Salvar `.env`, Exportar `.env`.
 - **Logs ao vivo**: aba Logs / LIVE OUTPUT (runtime) e Build log (deployment em
   andamento) crescendo em tempo real; "Copiar tudo" e seleção/Ctrl+C.
 - **Ações**: Deploy/Reload/Rebuild/Stop, Stop All do topbar (agora `Command::StopAllManaged`,
@@ -183,7 +183,7 @@ conferir:
   por linha → `net::run_env_op` (`ServiceGet` → muta `env_vars` → `ServiceUpdate`
   → re-fetch); (b) **editor `.env`** colapsável: botão `.env`/`Fechar .env`
   (`env_text_open`) revela um `<textarea value="svc_env_text">` com botões
-  Importar (`EnvOp::ImportDotenv`: parse `KEY=VALUE`, `#` comentário,
+  Salvar (`EnvOp::ImportDotenv`: parse `KEY=VALUE`, `#` comentário,
   `<secret:NAME>` volta a Secret, **substitui todas**) e Cancelar (descarta via
   `svc_env_text_orig`, cópia pristina salva no fetch); e "Exportar .env" grava
   `~/<svc>.env`. "Adicionar" com KEY existente substitui (= editar).

@@ -85,7 +85,7 @@ async fn apply_one(
                 crate::db::projects::update(&state.db, &p.id, name.clone(), description)
                     .await
                     .map_err(db_err)?;
-                crate::db::projects::update_env_vars(&state.db, &p.id, env_vars)
+                crate::db::projects::update_env_vars(&state.db, &p.id, env_vars, Vec::new())
                     .await
                     .map_err(db_err)?;
                 (p.id, ActionVerb::Updated)
@@ -98,7 +98,7 @@ async fn apply_one(
                 .await
                 .map_err(db_err)?;
             if !env_vars.is_empty() {
-                crate::db::projects::update_env_vars(&state.db, &p.id, env_vars)
+                crate::db::projects::update_env_vars(&state.db, &p.id, env_vars, Vec::new())
                     .await
                     .map_err(db_err)?;
             }
@@ -109,7 +109,7 @@ async fn apply_one(
                 .await
                 .map_err(db_err)?;
             if !env_vars.is_empty() {
-                crate::db::projects::update_env_vars(&state.db, &created.id, env_vars)
+                crate::db::projects::update_env_vars(&state.db, &created.id, env_vars, Vec::new())
                     .await
                     .map_err(db_err)?;
             }
