@@ -519,7 +519,9 @@
         </text>
         <row class="kv_row" for-each="svc_containers" var="c">
           <rp-badge color="{c.state_color}" label="{c.state}" />
+          <text class="kv_val_fill">&nbsp;&nbsp;</text>
           <text class="kv_val_fill">{c.name}</text>
+          <text class="kv_val_fill">&nbsp;&nbsp;</text>
           <text class="muted">{c.id_short}</text>
         </row>
       </column>
