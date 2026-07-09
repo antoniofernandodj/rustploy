@@ -475,19 +475,19 @@
         <row class="kv_row">
           <text class="kv_key">Container port</text>
           <text class="kv_val_fill">{svc_port}</text>
-          <text> </text>
+          <text>&nbsp;</text>
           <button class="copy_btn" on_click="clipboard:svc_port" text="Copiar" />
         </row>
         <row class="kv_row">
           <text class="kv_key">Host port</text>
           <text class="kv_val_fill">{svc_host_port}</text>
-          <text> </text>
+          <text>&nbsp;</text>
           <button class="copy_btn" on_click="clipboard:svc_host_port" text="Copiar" />
         </row>
         <row class="kv_row">
           <text class="kv_key">Domain</text>
           <text class="kv_val_fill">{svc_domain}</text>
-          <text> </text>
+          <text>&nbsp;</text>
           <button class="copy_btn" on_click="clipboard:svc_domain" text="Copiar" />
         </row>
         <row class="kv_row">
@@ -496,14 +496,14 @@
         </row>
         <row class="kv_row">
           <text class="kv_key">External URL</text>
-          <text class="kv_val_fill">{svc_external_url}</text>
-          <text> </text>
+          <text class="kv_val_fill">{svc_external_url_short}</text>
+          <text>&nbsp;</text>
           <button class="copy_btn" on_click="clipboard:svc_external_url" text="Copiar" />
         </row>
         <row class="kv_row">
           <text class="kv_key">Internal URL</text>
-          <text class="kv_val_fill">{svc_internal_url}</text>
-          <text> </text>
+          <text class="kv_val_fill">{svc_internal_url_short}</text>
+          <text>&nbsp;</text>
           <button class="copy_btn" on_click="clipboard:svc_internal_url" text="Copiar" />
         </row>
         <row class="kv_row" if="{svc_db_kind}" not_equals="—">
@@ -531,7 +531,7 @@
             {svc_env_count} variável(eis)
           </text>
           <button class="btn_export" on_click="env_export" text="Exportar" />
-          <text> </text>
+          <text>&nbsp;</text>
           <if cond="{env_text_open}" equals="true">
             <button class="btn_export_on" on_click="env_text_toggle" text="Fechar" />
           </if>

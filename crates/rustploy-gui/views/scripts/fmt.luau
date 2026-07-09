@@ -23,6 +23,7 @@ M.progress_bar = Time.progress_bar
 
 -- Busca / codificação / estado (fmt/util.luau)
 M.matches = Util.matches
+M.ellipsis = Util.ellipsis
 M.enc_array = Util.enc_array
 M.status_label_color = Util.status_label_color
 M.pair_list = Util.pair_list

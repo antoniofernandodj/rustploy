@@ -49,12 +49,19 @@ function M.fetch_service_detail(sid: string): ()
     local svc = res.Service
     local spec = svc.spec
 
-    -- Nome do projeto (ServiceGet só traz o id).
+    -- Nome + env vars do projeto (ServiceGet só traz o id). As env vars do
+    -- projeto são a base herdada por todos os serviços; usamos elas junto do
+    -- serviço para montar a URL externa (ver merged_env abaixo).
     local project_name = spec.project_id
+    local project_env = {}
     local snap = State.snap
     if snap then
         for _, p in ipairs(snap.projects or {}) do
-            if p.id == spec.project_id then project_name = p.name; break end
+            if p.id == spec.project_id then
+                project_name = p.name
+                project_env = p.env_vars or {}
+                break
+            end
         end
     end
 
@@ -163,8 +170,19 @@ function M.fetch_service_detail(sid: string): ()
     ctx.svc_replicas = tostring(spec.replicas)
     ctx.svc_domains = fmt.domains_json(spec)
     ctx.svc_domains_count = tostring(#routes)
-    ctx.svc_external_url = fmt.external_url(pr_domain, pr_tls, spec.host_port, spec.db_kind, ctx.api_url)
+    -- Credenciais para a URL externa: mesma fusão que o daemon faz em
+    -- resolve_env (projeto = base, serviço sobrescreve). Serviços Compose de
+    -- banco têm spec.env_vars vazio — os ${POSTGRES_*} vêm do projeto. Como
+    -- env_plain retorna o primeiro match por chave, o serviço vem primeiro.
+    local merged_env = {}
+    for _, v in ipairs(spec.env_vars or {}) do table.insert(merged_env, v) end
+    for _, v in ipairs(project_env) do table.insert(merged_env, v) end
+    -- Valor completo (`*_url`) alimenta o clipboard; `*_url_short` é o que a
+    -- markup exibe, truncado para não empurrar o botão "Copiar" para fora.
+    ctx.svc_external_url = fmt.external_url(pr_domain, pr_tls, spec.host_port, spec.db_kind, ctx.api_url, merged_env)
+    ctx.svc_external_url_short = fmt.ellipsis(ctx.svc_external_url, 20)
     ctx.svc_internal_url = fmt.internal_url(spec.db_kind, fmt.safe_name(spec.name), spec.port)
+    ctx.svc_internal_url_short = fmt.ellipsis(ctx.svc_internal_url, 20)
     ctx.svc_db_kind = spec.db_kind or "—"
     ctx.svc_hc = fmt.healthcheck_summary(spec.healthcheck)
     ctx.svc_run_command = spec.run_command or "—"

@@ -197,7 +197,7 @@ end
 
 local function internal_scheme(db_kind: string?): string?
     local k = db_kind and string.lower(db_kind) or nil
-    if k == "postgres" or k == "postgresql" then return "postgres"
+    if k == "postgres" or k == "postgresql" then return "postgresql"
     elseif k == "mysql" or k == "mariadb" then return "mysql"
     elseif k == "redis" then return "redis"
     elseif k == "mongodb" or k == "mongo" then return "mongodb"
@@ -223,19 +223,147 @@ local function url_host(api_url: string?): string?
     return host and host ~= "" and host or nil
 end
 
+-- Valor Plain de uma env var pela chave (secrets/ausentes → nil).
+local function env_plain(vars: {EnvVar}?, key: string): string?
+    for _, v in ipairs(vars or {}) do
+        if v.key == key and v.value and v.value.Plain ~= nil and v.value.Plain ~= "" then
+            return v.value.Plain
+        end
+    end
+    return nil
+end
+
+-- Credenciais (database/user/password) de um serviço de banco/broker, lidas das
+-- env vars nas mesmas convenções que o wizard grava (ver shared::wizard).
+-- Retorna nil em cada campo que não se aplica ao db_kind.
+local function db_credentials(db_kind: string?, vars: {EnvVar}?): (string?, string?, string?)
+    local k = db_kind and string.lower(db_kind) or nil
+    if k == "postgres" or k == "postgresql" then
+        return env_plain(vars, "POSTGRES_DB"), env_plain(vars, "POSTGRES_USER"), env_plain(vars, "POSTGRES_PASSWORD")
+    elseif k == "mysql" or k == "mariadb" then
+        return env_plain(vars, "MYSQL_DATABASE"), env_plain(vars, "MYSQL_USER"), env_plain(vars, "MYSQL_PASSWORD")
+    elseif k == "mongodb" or k == "mongo" then
+        return nil, env_plain(vars, "MONGO_INITDB_ROOT_USERNAME"), env_plain(vars, "MONGO_INITDB_ROOT_PASSWORD")
+    elseif k == "redis" then
+        return nil, nil, env_plain(vars, "REDIS_PASSWORD")
+    elseif k == "rabbitmq" then
+        return nil, env_plain(vars, "RABBITMQ_DEFAULT_USER"), env_plain(vars, "RABBITMQ_DEFAULT_PASS")
+    end
+    return nil, nil, nil
+end
+
+-- Anexa `/database?user=…&password=…` a uma URL de banco, no formato pedido
+-- (query-params, ex.: postgresql://host:5432/app?user=app&password=…).
+-- Só inclui os campos presentes; sem credenciais, retorna a base intacta.
+local function with_db_credentials(base: string, database: string?, user: string?, password: string?): string
+    local url = base
+    if database and database ~= "" then
+        url = url .. "/" .. database
+    end
+    local params: {string} = {}
+    if user and user ~= "" then table.insert(params, "user=" .. user) end
+    if password and password ~= "" then table.insert(params, "password=" .. password) end
+    if #params > 0 then
+        url = url .. "?" .. table.concat(params, "&")
+    end
+    return url
+end
+
+-- Percent-encode de um componente de userinfo (user/password) — protege chars
+-- estruturais do URI (`@`, `:`, `/`, `?`, `#`, …). Senhas do wizard usam base64
+-- url-safe (só passa reto), mas senhas custom podem ter reservados.
+local function pct(s: string): string
+    return (s:gsub("[^%w%-._~]", function(c: string): string
+        return string.format("%%%02X", string.byte(c))
+    end))
+end
+
+-- Monta a parte de userinfo `user:pass@` de uma URI RFC 3986. Casos:
+--   user+pass → "user:pass@"  |  só pass (ex.: Redis) → ":pass@"
+--   só user   → "user@"       |  nenhum → "" (sem `@`)
+local function userinfo(user: string?, password: string?): string
+    local u = (user and user ~= "") and pct(user) or ""
+    local p = (password and password ~= "") and pct(password) or ""
+    if u == "" and p == "" then return "" end
+    if p == "" then return u .. "@" end
+    return u .. ":" .. p .. "@"
+end
+
+-- Esquema de URI externo por banco (userinfo). Difere do `internal_scheme` em
+-- dois pontos: MariaDB ganha `mariadb://` próprio (mais preciso que `mysql://`),
+-- e Postgres NÃO entra aqui (é tratado à parte como string JDBC). `nil` = sem
+-- esquema de banco (Kafka/serviço comum) → passthrough TCP puro `host:porta`.
+local function external_scheme(k: string?): string?
+    if k == "mysql" then return "mysql"
+    elseif k == "mariadb" then return "mariadb"
+    elseif k == "redis" then return "redis"
+    elseif k == "mongodb" or k == "mongo" then return "mongodb"
+    elseif k == "rabbitmq" then return "amqp"
+    elseif k == "nats" then return "nats"
+    end
+    return nil
+end
+
+-- URL de conexão externa por tipo de banco, sobre o host:porta do daemon.
+--   • Postgres → string JDBC (jdbc:postgresql://host:porta/db?user=&password=),
+--     reaproveitando `with_db_credentials` (formato que os drivers JDBC/libpq
+--     aceitam — confirmado em uso).
+--   • Demais → URI padrão RFC com credenciais no userinfo
+--     (scheme://user:pass@host:porta/db). Redis omite user (":pass@"); Mongo põe
+--     barra final + `?authSource=admin` (o root do MONGO_INITDB mora no admin).
+--   • Sem esquema de banco (Kafka/serviço comum) → só `host:porta`.
+local function db_connection_url(
+    db_kind: string?,
+    host: string,
+    port: string,
+    database: string?,
+    user: string?,
+    password: string?
+): string
+    local k = db_kind and string.lower(db_kind) or nil
+    local hp = host .. ":" .. port
+
+    if k == "postgres" or k == "postgresql" then
+        return "jdbc:" .. with_db_credentials("postgresql://" .. hp, database, user, password)
+    end
+
+    local scheme = external_scheme(k)
+    if not scheme then
+        return hp
+    end
+
+    local url = scheme .. "://" .. userinfo(user, password) .. hp
+    if database and database ~= "" then
+        url = url .. "/" .. database
+    elseif k == "mongodb" or k == "mongo" then
+        url = url .. "/"
+    end
+    if (k == "mongodb" or k == "mongo") and user and user ~= "" then
+        url = url .. "?authSource=admin"
+    end
+    return url
+end
+
 -- Domínio HTTP tem prioridade (rota de ingress); na ausência dele, cai para o
--- passthrough TCP (`host_port`) usando o host do daemon (`api_url` da sessão)
--- e o esquema do `db_kind`, do mesmo jeito que `internal_url` monta a URL interna.
-function M.external_url(domain: string?, tls: boolean, host_port: any, db_kind: string?, api_url: string?): string
+-- passthrough TCP (`host_port`) usando o host do daemon (`api_url` da sessão) e a
+-- URL de conexão idiomática do `db_kind` (ver `db_connection_url`), com database
+-- + credenciais lidas das env vars.
+function M.external_url(
+    domain: string?,
+    tls: boolean,
+    host_port: any,
+    db_kind: string?,
+    api_url: string?,
+    env_vars: {EnvVar}?
+): string
+    local database, user, password = db_credentials(db_kind, env_vars)
     if domain and domain:gsub("%s", "") ~= "" then
         local clean_domain = domain:gsub("/+$", "")
         return (tls and "https" or "http") .. "://" .. clean_domain
     end
     if host_port and tostring(host_port) ~= "" then
         local host = url_host(api_url) or "<host>"
-        local scheme = internal_scheme(db_kind)
-        local prefix = (scheme and scheme ~= "http") and (scheme .. "://") or ""
-        return prefix .. host .. ":" .. tostring(host_port)
+        return db_connection_url(db_kind, host, tostring(host_port), database, user, password)
     end
     return "—"
 end

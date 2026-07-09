@@ -22,6 +22,22 @@ function M.matches(term: string?, fields: {any}): boolean
     return false
 end
 
+-- ── Texto ────────────────────────────────────────────────────────────────
+-- Trunca `s` para no máximo `max` caracteres, anexando "…" quando corta. Usado
+-- em valores longos (ex.: URL de conexão) que senão empurram os controles ao
+-- lado (o botão "Copiar") para fora da área visível. O valor completo continua
+-- disponível noutra chave de contexto para o clipboard.
+function M.ellipsis(s: string?, max: number): string
+    local str = s or ""
+    if utf8.len(str) and (utf8.len(str) :: number) > max then
+        local cut = utf8.offset(str, max + 1)
+        if cut then
+            return string.sub(str, 1, cut - 1) .. "…"
+        end
+    end
+    return str
+end
+
 -- ── Codificação de arrays ────────────────────────────────────────────────
 -- CUIDADO: uma tabela Luau vazia vira `{}` (objeto) no json.encode, não `[]`.
 -- Os templates iteram arrays, então forçamos "[]" quando vazio.
