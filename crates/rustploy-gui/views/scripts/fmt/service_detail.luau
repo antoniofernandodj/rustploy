@@ -214,10 +214,30 @@ function M.internal_url(db_kind: string?, safe: string, port: any): string
     return host
 end
 
-function M.external_url(domain: string?, tls: boolean): string
-    if not domain or domain:gsub("%s", "") == "" then return "—" end
-    local clean_domain = domain:gsub("/+$", "")
-    return (tls and "https" or "http") .. "://" .. clean_domain
+-- Extrai só o host (sem esquema/porta) de uma api_url tipo "https://1.2.3.4:8443".
+local function url_host(api_url: string?): string?
+    local u = api_url and api_url:gsub("%s", "") or ""
+    if u == "" then return nil end
+    local rest = string.match(u, "^[%a][%w+.-]*://(.*)$") or u
+    local host = string.match(rest, "^([^:/]+)")
+    return host and host ~= "" and host or nil
+end
+
+-- Domínio HTTP tem prioridade (rota de ingress); na ausência dele, cai para o
+-- passthrough TCP (`host_port`) usando o host do daemon (`api_url` da sessão)
+-- e o esquema do `db_kind`, do mesmo jeito que `internal_url` monta a URL interna.
+function M.external_url(domain: string?, tls: boolean, host_port: any, db_kind: string?, api_url: string?): string
+    if domain and domain:gsub("%s", "") ~= "" then
+        local clean_domain = domain:gsub("/+$", "")
+        return (tls and "https" or "http") .. "://" .. clean_domain
+    end
+    if host_port and tostring(host_port) ~= "" then
+        local host = url_host(api_url) or "<host>"
+        local scheme = internal_scheme(db_kind)
+        local prefix = (scheme and scheme ~= "http") and (scheme .. "://") or ""
+        return prefix .. host .. ":" .. tostring(host_port)
+    end
+    return "—"
 end
 
 return M

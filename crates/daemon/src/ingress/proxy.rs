@@ -259,9 +259,11 @@ async fn forward(
     }
 }
 
-// ─── Port proxy (sem TLS, igual ao anterior) ─────────────────────────────────
+// ─── Port proxy (passthrough TCP puro, sem parsing de protocolo) ─────────────
 
-/// Listener HTTP dedicado para uma porta específica de serviço.
+/// Listener TCP dedicado para uma porta específica de serviço. Encaminha bytes
+/// crus entre o cliente e o backend — usado por serviços não-HTTP (bancos de
+/// dados, filas, etc.) onde o proxy HTTP acima não se aplica.
 pub async fn serve_port_proxy(port: u16, backend: PortBackend) {
     let addr: SocketAddr = format!("0.0.0.0:{port}").parse().expect("valid addr");
     let listener = match TcpListener::bind(addr).await {
@@ -285,57 +287,22 @@ pub async fn serve_port_proxy(port: u16, backend: PortBackend) {
     }
 }
 
-async fn serve_port_connection(stream: TcpStream, backend: PortBackend) {
-    use hyper::server::conn::http1;
-    use hyper::service::service_fn;
-
-    let io = TokioIo::new(stream);
-    let svc = service_fn(move |req: Request<Incoming>| {
-        let backend = backend.clone();
-        async move { handle_port(req, backend).await }
-    });
-    if let Err(e) = http1::Builder::new().serve_connection(io, svc).await {
-        debug!(error = %e, "port proxy connection closed");
-    }
-}
-
-async fn handle_port(
-    req: Request<Incoming>,
-    backend: PortBackend,
-) -> Result<Response<ProxyBody>, std::convert::Infallible> {
+async fn serve_port_connection(mut inbound: TcpStream, backend: PortBackend) {
     let Some(backend_addr) = (**backend.load()).as_ref().and_then(|b| b.next()) else {
-        return Ok(status_response(StatusCode::SERVICE_UNAVAILABLE));
+        warn!("port proxy: no backend available");
+        return;
     };
 
-    let stream = match TcpStream::connect(&backend_addr).await {
+    let mut outbound = match TcpStream::connect(&backend_addr).await {
         Ok(s) => s,
         Err(e) => {
             warn!(backend = backend_addr, error = %e, "port proxy: backend connect failed");
-            return Ok(status_response(StatusCode::BAD_GATEWAY));
+            return;
         }
     };
 
-    let io = TokioIo::new(stream);
-    let (mut sender, conn) = match hyper::client::conn::http1::handshake(io).await {
-        Ok(r) => r,
-        Err(e) => {
-            warn!(error = %e, "port proxy: backend handshake failed");
-            return Ok(status_response(StatusCode::BAD_GATEWAY));
-        }
-    };
-    tokio::spawn(async move {
-        let _ = conn.await;
-    });
-
-    match sender.send_request(req).await {
-        Ok(resp) => {
-            let (parts, body) = resp.into_parts();
-            Ok(Response::from_parts(parts, body.map_err(|e| e).boxed()))
-        }
-        Err(e) => {
-            warn!(error = %e, "port proxy: backend request failed");
-            Ok(status_response(StatusCode::BAD_GATEWAY))
-        }
+    if let Err(e) = tokio::io::copy_bidirectional(&mut inbound, &mut outbound).await {
+        debug!(error = %e, "port proxy: connection closed");
     }
 }
 

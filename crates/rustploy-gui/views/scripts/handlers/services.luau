@@ -163,7 +163,7 @@ function M.fetch_service_detail(sid: string): ()
     ctx.svc_replicas = tostring(spec.replicas)
     ctx.svc_domains = fmt.domains_json(spec)
     ctx.svc_domains_count = tostring(#routes)
-    ctx.svc_external_url = fmt.external_url(pr_domain, pr_tls)
+    ctx.svc_external_url = fmt.external_url(pr_domain, pr_tls, spec.host_port, spec.db_kind, ctx.api_url)
     ctx.svc_internal_url = fmt.internal_url(spec.db_kind, fmt.safe_name(spec.name), spec.port)
     ctx.svc_db_kind = spec.db_kind or "—"
     ctx.svc_hc = fmt.healthcheck_summary(spec.healthcheck)
