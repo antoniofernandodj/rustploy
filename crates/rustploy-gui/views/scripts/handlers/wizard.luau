@@ -8,11 +8,6 @@
 local State = require("../state")
 local Helpers = require("../helpers")
 
--- Módulo exportado: `load_catalog` é consumido pela janela do wizard
--- (new_service_window.luau) no seu init. As funções `ns_*`/open_* seguem GLOBAIS
--- (referenciadas por onClick/onSubmit nos templates).
-local M = {}
-
 local NS_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 math.randomseed(os.time())
 local function token_urlsafe(n: number): string
@@ -28,33 +23,27 @@ local function ns_is_broker(id: string): boolean
     return id == "kafka" or id == "rabbitmq" or id == "nats"
 end
 
--- Busca o catálogo do wizard (dbs/brokers/templates) no daemon e o guarda no
--- contexto + State. Reutilizado pelo init da janela do wizard.
-local function load_catalog(): ()
-    local api = State.api
-    if not api then
-        return
-    end
-    local ok, res = api:rpc({ WizardCatalog = { search = "" } })
-    if ok and res.WizardCatalog then
-        ctx.ns_dbs = res.WizardCatalog.dbs
-        ctx.ns_brokers = res.WizardCatalog.brokers
-        ctx.ns_templates = res.WizardCatalog.templates
-        local okt, all = pcall(json.decode, res.WizardCatalog.templates)
-        State.ns_templates_all = (okt and type(all) == "table") and all or {}
-    end
-end
-M.load_catalog = load_catalog
-
 -- Botão "+ Novo serviço" (cabeçalho do projeto): abre o wizard numa JANELA à
--- parte (motor Glacier próprio), passando a conexão e o projeto-alvo via `data`.
--- Ao criar, a janela envia broadcast("service_created") e se fecha (ver
--- new_service_window.luau / ns_create). Substitui o antigo fluxo inline
--- (view=new_service), removido do shell.xml.
+-- parte (motor Glacier próprio). O catálogo (dbs/brokers/templates) é buscado
+-- AQUI e passado via `data` — buscar no init da janela NÃO funciona: o `init`
+-- roda no register do componente e o glacier descarta o `fetch` disparado por
+-- ele (só efeitos/streams de AÇÕES despachadas rodam no executor). Este handler
+-- é uma ação despachada, então o `fetch` do WizardCatalog resolve normalmente e
+-- a janela abre depois, já com o catálogo. Ao criar, a janela envia
+-- broadcast("service_created") e se fecha (ver ns_create). Substitui o antigo
+-- fluxo inline (view=new_service), removido do shell.xml.
 function open_new_service_window(): ()
     local pid = ctx.selected_project_id or ""
-    if pid == "" then
+    local api = State.api
+    if pid == "" or not api then
         return
+    end
+    local dbs, brokers, templates = "[]", "[]", "[]"
+    local ok, res = api:rpc({ WizardCatalog = { search = "" } })
+    if ok and res.WizardCatalog then
+        dbs = res.WizardCatalog.dbs or "[]"
+        brokers = res.WizardCatalog.brokers or "[]"
+        templates = res.WizardCatalog.templates or "[]"
     end
     open_window({
         file = "crates/rustploy-gui/views/new_service_window.xml",
@@ -67,6 +56,9 @@ function open_new_service_window(): ()
             api_token = ctx.api_token or "",
             selected_project_id = pid,
             proj_name = ctx.proj_name or "",
+            ns_dbs = dbs,
+            ns_brokers = brokers,
+            ns_templates = templates,
         },
     })
 end
@@ -269,5 +261,3 @@ function ns_create(): ()
         Helpers.notify_err(ok and "resposta inesperada do daemon" or res)
     end
 end
-
-return M
