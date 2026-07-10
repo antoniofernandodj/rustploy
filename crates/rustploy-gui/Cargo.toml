@@ -14,7 +14,7 @@ path = "src/main.rs"
 # Declarative UI engine (published; XML templates + async bridge + widgets).
 # 0.36 traz o runner multi-janela (iced::daemon): a casca em `src/app/` é um
 # runtime `iced::daemon` próprio, um `GlacierUI` por janela — ver `app/mod.rs`.
-glacier-ui = "0.36.0"
+glacier-ui = "0.37.0"
 
 shared = { path = "../shared" }
 

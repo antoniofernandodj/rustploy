@@ -24,6 +24,33 @@ fn boot() -> GlacierUI {
     m
 }
 
+/// Cd's to the workspace root (idempotent — safe alongside `boot`).
+fn cd_ws_root() {
+    let crate_dir = env!("CARGO_MANIFEST_DIR");
+    let ws_root = std::path::Path::new(crate_dir)
+        .parent()
+        .and_then(|p| p.parent())
+        .expect("workspace root");
+    std::env::set_current_dir(ws_root).expect("cd workspace root");
+}
+
+/// A janela "Novo projeto" (`new_project_form.xml` + `new_project_window.luau`) é
+/// um motor à parte, aberto por `open_window`; não passa pelo `app.xml` acima,
+/// então validamos que registra e renderiza por conta própria — semeando a
+/// conexão como `open_window({ data = ... })` faria.
+#[test]
+fn new_project_form_window_renders() {
+    cd_ws_root();
+    let mut m = GlacierUI::new();
+    m.define_data("api_url", "http://localhost");
+    m.define_data("api_token", "t");
+    m.register_component("new_project_form", "crates/rustploy-gui/views/new_project_form.xml")
+        .expect("new_project_form.xml must register");
+    m.set_initial_screen("new_project_form");
+    m.reevaluate_all().expect("eval new_project_form");
+    assert!(m.render("new_project_form").is_ok(), "render new_project_form");
+}
+
 #[test]
 fn all_screens_and_service_tabs_render() {
     let mut m = boot();

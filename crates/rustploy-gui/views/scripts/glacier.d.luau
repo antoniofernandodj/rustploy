@@ -29,6 +29,13 @@ declare function websocket(url: string, opts: any?): StreamHandle
 declare function toast(opts: any): ()
 declare function confirm(opts: any): ()
 
+-- Multi-janela (glacier-ui 0.36+/0.37+): abrir janela, mensagear entre janelas e
+-- fechar a própria. `on_broadcast(event, payload)` é definido pelo usuário (a
+-- janela receptora), não injetado — por isso não é declarado aqui.
+declare function open_window(opts: any): ()
+declare function broadcast(event: string, payload: any?): ()
+declare function close_window(): ()
+
 declare json: {
     decode: (s: string) -> any,
     encode: (v: any) -> string,

@@ -186,7 +186,13 @@ impl Runtime {
 
         // 1. despacha ao motor da janela (borrow escopado)
         let ui_task = match self.windows.get_mut(&id) {
-            Some(engine) => engine.dispatch(&msg).map(move |m| Message::Ui { id, msg: m }),
+            Some(engine) => {
+                engine
+                    .dispatch(&msg)
+                    .map(
+                        move |m| Message::Ui { id, msg: m }
+                    )
+            },
             None => return Task::none(),
         };
         if persist {
@@ -203,6 +209,36 @@ impl Runtime {
         for spec in pending {
             tasks.push(self.open_child(spec));
         }
+
+        // 3. drena os broadcasts desse motor e entrega às OUTRAS janelas (ex.: a
+        // janela de "Novo projeto" avisa a principal via broadcast("project_created")).
+        let broadcasts = self
+            .windows
+            .get_mut(&id)
+            .map(|e| e.take_pending_broadcasts())
+            .unwrap_or_default();
+        if !broadcasts.is_empty() {
+            let others: Vec<window::Id> =
+                self.windows.keys().copied().filter(|w| *w != id).collect();
+            for b in &broadcasts {
+                for &oid in &others {
+                    if let Some(engine) = self.windows.get_mut(&oid) {
+                        tasks.push(
+                            engine
+                                .deliver_broadcast(&b.event, &b.payload)
+                                .map(move |m| Message::Ui { id: oid, msg: m }),
+                        );
+                    }
+                }
+            }
+        }
+
+        // 4. se o motor pediu para fechar a própria janela (close_window na Lua),
+        // fecha: a principal salva a geometria antes; as filhas fecham direto.
+        if self.windows.get_mut(&id).map(|e| e.take_close_requested()).unwrap_or(false) {
+            tasks.push(if id == self.main_id { close_and_save(id) } else { window::close(id) });
+        }
+
         Task::batch(tasks)
     }
 
@@ -211,8 +247,8 @@ impl Runtime {
     /// registra motor + título. `Named` já vem resolvido para `File` pelo motor
     /// de origem, então [`build_engine`] só trata `Component`/`File`.
     fn open_child(&mut self, spec: WindowSpec) -> Task<Message> {
-        let WindowSpec { source, title, size, resizable } = spec;
-        let (engine, fallback_title) = build_engine(source);
+        let WindowSpec { source, title, size, resizable, data } = spec;
+        let (engine, fallback_title) = build_engine(source, &data);
         let (w, h) = size.unwrap_or((640.0, 480.0));
         let settings = window::Settings {
             size: Size::new(w, h),
@@ -333,8 +369,13 @@ fn seed_prefs(motor: &mut GlacierUI) {
 /// Constrói um [`GlacierUI`] novo para uma janela-filha a partir da sua fonte, e
 /// devolve também o título de fallback (nome do componente). `Named` já deve ter
 /// sido resolvido para `File` no motor de origem (por isso aqui é erro).
-fn build_engine(source: WindowSource) -> (GlacierUI, String) {
+fn build_engine(source: WindowSource, data: &[(String, String)]) -> (GlacierUI, String) {
     let mut engine = GlacierUI::new();
+    // Semeia `data` (ex.: api_url/api_token passados por open_window) ANTES de
+    // registrar o componente, para que seu `init` já enxergue os valores.
+    for (k, v) in data {
+        engine.define_data(k, v);
+    }
     let title = match source {
         WindowSource::Component(comp) => {
             let name = comp.name().to_string();

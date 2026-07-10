@@ -194,37 +194,17 @@
               <StatCard label="PROJECTS" value="{projects_count}" accent="1" />
             </row>
           </row>
-          <form name="new_project" on_submit="create_project" width="fill">
-            <row class="env_add">
-              <input
-                class="env_in_key"
-                form_control="new_proj_name"
-                value="new_proj_name"
-                on_change="field:new_proj_name"
-                placeholder="Nome do projeto"
-              />
-              <input
-                class="env_in_val"
-                form_control="new_proj_desc"
-                value="new_proj_desc"
-                on_change="field:new_proj_desc"
-                placeholder="Descrição (opcional)"
-              />
-              <button
-                class="btn_primary"
-                on_click="create_project"
-                text="Criar projeto"
-              />
-            </row>
-          </form>
-          
-          <if cond="{erro_new_proj_name}" not_equals="">
-            <text class="err">{erro_new_proj_name}</text>
-          </if>
-          
-          <if cond="{new_proj_msg}" not_equals="">
-            <text class="muted">{new_proj_msg}</text>
-          </if>
+          <!-- Criar projeto agora abre uma JANELA à parte (new_project_form.xml,
+            motor Glacier próprio); ao concluir, ela envia um broadcast
+            "project_created" que `on_broadcast` (handlers/projects.luau) recebe
+            para atualizar a grade. Ver open_new_project_window. -->
+          <row class="env_add">
+            <button
+              class="btn_primary"
+              on_click="open_new_project_window"
+              text="+ Novo projeto"
+            />
+          </row>
           <if cond="{data_loading}" equals="true">
             <LoadingRow />
           </if>

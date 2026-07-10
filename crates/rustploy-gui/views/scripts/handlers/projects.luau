@@ -21,8 +21,43 @@ function open_project(id: string): ()
     Stream.update_open_project()
 end
 
+-- ── Criar projeto (agora em uma JANELA à parte) ──────────────────────────
+
+-- Abre a janela de cadastro de projeto (motor Glacier próprio, isolado). Passa a
+-- conexão atual (api_url/api_token) via `data` para que a janela chame
+-- ProjectCreate por conta própria; ao concluir, ela emite broadcast(
+-- "project_created"), recebido por `on_broadcast` abaixo. Ver
+-- views/new_project_form.xml + scripts/new_project_window.luau.
+function open_new_project_window(): ()
+    open_window({
+        file = "crates/rustploy-gui/views/new_project_form.xml",
+        title = "Novo projeto — Rustploy",
+        width = 460,
+        height = 340,
+        data = {
+            api_url = ctx.api_url or "",
+            api_token = ctx.api_token or "",
+        },
+    })
+end
+
+-- Recebe mensagens de OUTRAS janelas (glacier broadcast). "project_created": a
+-- janela de cadastro concluiu — força um refresh imediato da grade (o card novo
+-- aparece na hora, sem esperar o próximo snapshot do SSE) e confirma num toast
+-- com o nome que veio no payload.
+function on_broadcast(event: string, payload: any): ()
+    if event == "project_created" then
+        local name = (type(payload) == "table" and payload.name) or "projeto"
+        Helpers.notify_ok("Projeto \"" .. tostring(name) .. "\" criado")
+        Stream.refresh_now()
+    end
+end
+
 -- ── Criar / remover projeto ──────────────────────────────────────────────
 
+-- NOTA: create_project (formulário inline, removido da UI em favor da janela
+-- acima) é mantido por ser reutilizável — um fluxo de criação embutido poderia
+-- voltar a chamá-lo. Hoje não há call-site na UI.
 function create_project(): ()
     local api = State.api
     if not api then
