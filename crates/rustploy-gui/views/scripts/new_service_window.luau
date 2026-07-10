@@ -42,3 +42,13 @@ function init(): ()
     ctx.ns_tsearch = ""
     ctx.ns_step = "pick_type"
 end
+
+-- Setter genérico de campo (on_change="field:<chave>" dos inputs do wizard).
+-- Precisa existir NESTE motor: `field` mora em handlers/nav.luau, que a janela
+-- não carrega (só carrega handlers/wizard); sem ele, digitar nos inputs não
+-- escrevia nada no contexto. Mesmo papel do `field` de new_project_window.luau.
+function field(key: string?, v: string?): ()
+    if key then
+        ctx[key] = v or ""
+    end
+end
