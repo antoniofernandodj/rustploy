@@ -7,7 +7,11 @@
 
 local State = require("../state")
 local Helpers = require("../helpers")
-local Stream = require("stream")
+
+-- Módulo exportado: `load_catalog` é consumido pela janela do wizard
+-- (new_service_window.luau) no seu init. As funções `ns_*`/open_* seguem GLOBAIS
+-- (referenciadas por onClick/onSubmit nos templates).
+local M = {}
 
 local NS_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 math.randomseed(os.time())
@@ -24,17 +28,9 @@ local function ns_is_broker(id: string): boolean
     return id == "kafka" or id == "rabbitmq" or id == "nats"
 end
 
-function new_service_open(): ()
-    if (ctx.selected_project_id or "") == "" then
-        return
-    end
-    ctx.ns_name = ""
-    ctx.ns_app_name = ""
-    ctx.ns_msg = ""
-    ctx.erro_ns_name = ""
-    ctx.ns_tsearch = ""
-    ctx.ns_step = "pick_type"
-    ctx.view = "new_service"
+-- Busca o catálogo do wizard (dbs/brokers/templates) no daemon e o guarda no
+-- contexto + State. Reutilizado pelo init da janela do wizard.
+local function load_catalog(): ()
     local api = State.api
     if not api then
         return
@@ -48,24 +44,50 @@ function new_service_open(): ()
         State.ns_templates_all = (okt and type(all) == "table") and all or {}
     end
 end
+M.load_catalog = load_catalog
 
-function ns_cancel(): ()
-    ctx.view = "project_services"
-    ctx.ns_step = ""
-    ctx.ns_msg = ""
+-- Botão "+ Novo serviço" (cabeçalho do projeto): abre o wizard numa JANELA à
+-- parte (motor Glacier próprio), passando a conexão e o projeto-alvo via `data`.
+-- Ao criar, a janela envia broadcast("service_created") e se fecha (ver
+-- new_service_window.luau / ns_create). Substitui o antigo fluxo inline
+-- (view=new_service), removido do shell.xml.
+function open_new_service_window(): ()
+    local pid = ctx.selected_project_id or ""
+    if pid == "" then
+        return
+    end
+    open_window({
+        file = "crates/rustploy-gui/views/new_service_window.xml",
+        title = "Novo serviço — Rustploy",
+        width = 560,
+        height = 700,
+        resizable = false,
+        data = {
+            api_url = ctx.api_url or "",
+            api_token = ctx.api_token or "",
+            selected_project_id = pid,
+            proj_name = ctx.proj_name or "",
+        },
+    })
 end
 
+-- "Cancelar": fecha a janela do wizard.
+function ns_cancel(): ()
+    close_window()
+end
+
+-- "‹ Voltar": num passo interno volta à escolha de tipo; no passo inicial
+-- (pick_type) fecha a janela.
 function ns_back(): ()
     local step = ctx.ns_step
     if step == "pick_db" or step == "pick_broker" or step == "app_form"
         or step == "compose_form" or step == "pick_template" or step == "db_form"
         or step == "template_form" then
         ctx.ns_step = "pick_type"
+        ctx.ns_msg = ""
     else
-        ctx.view = "project_services"
-        ctx.ns_step = ""
+        close_window()
     end
-    ctx.ns_msg = ""
 end
 
 function ns_kind(k: string): ()
@@ -234,14 +256,18 @@ function ns_create(): ()
     ctx.ns_msg = "criando…"
     local ok, res = api:rpc_checked({ WizardCreate = req })
     if ok and res.Service then
-        ctx.view = "project_services"
-        ctx.proj_tab = "services"
-        ctx.ns_step = ""
-        ctx.ns_msg = ""
-        Helpers.notify_ok("Serviço criado")
-        Stream.refresh_now()
+        -- Sucesso: avisa a janela principal (que atualiza a grade de serviços do
+        -- projeto aberto) e fecha esta janela do wizard.
+        local disp = (name ~= "" and name) or Helpers.trim(ctx.ns_app_name)
+        broadcast("service_created", {
+            project_id = pid,
+            name = disp,
+        })
+        close_window()
     else
         ctx.ns_msg = ok and "resposta inesperada" or ("erro: " .. res)
         Helpers.notify_err(ok and "resposta inesperada do daemon" or res)
     end
 end
+
+return M

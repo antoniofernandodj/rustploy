@@ -42,14 +42,19 @@ function open_new_project_window(): ()
     })
 end
 
--- Recebe mensagens de OUTRAS janelas (glacier broadcast). "project_created": a
--- janela de cadastro concluiu — força um refresh imediato da grade (o card novo
--- aparece na hora, sem esperar o próximo snapshot do SSE) e confirma num toast
--- com o nome que veio no payload.
+-- Recebe mensagens de OUTRAS janelas (glacier broadcast). Em ambos os casos
+-- força um refresh imediato do snapshot (o card novo aparece na hora, sem
+-- esperar o próximo tick do SSE) e confirma num toast:
+--   "project_created" — a janela de cadastro de projeto concluiu.
+--   "service_created" — a janela do wizard de serviço concluiu (a grade do
+--                       projeto aberto é reconstruída pelo update_open_project).
 function on_broadcast(event: string, payload: any): ()
+    local name = (type(payload) == "table" and payload.name) or ""
     if event == "project_created" then
-        local name = (type(payload) == "table" and payload.name) or "projeto"
-        Helpers.notify_ok("Projeto \"" .. tostring(name) .. "\" criado")
+        Helpers.notify_ok("Projeto \"" .. (name ~= "" and name or "projeto") .. "\" criado")
+        Stream.refresh_now()
+    elseif event == "service_created" then
+        Helpers.notify_ok("Serviço \"" .. (name ~= "" and name or "serviço") .. "\" criado")
         Stream.refresh_now()
     end
 end

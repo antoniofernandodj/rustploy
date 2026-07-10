@@ -2,7 +2,6 @@
 <!-- ── Imports ──────────────────────────────────────────────────────── -->
 <link rel="import" href="crates/rustploy-gui/views/service.xml" as="ServiceDetail" />
 <link rel="import" href="crates/rustploy-gui/views/home.xml" as="HomeViews" />
-<link rel="import" href="crates/rustploy-gui/views/new_service.xml" as="NewServiceWizard" />
 <link rel="import" href="crates/rustploy-gui/views/components/project_card.xml" as="ProjectCard" />
 <link rel="import" href="crates/rustploy-gui/views/components/service_card.xml" as="ServiceCard" />
 <link rel="import" href="crates/rustploy-gui/views/components/stat_card.xml" as="StatCard" />
@@ -255,7 +254,7 @@
                     <row class="proj_actions">
                       <button
                         class="btn_sm_primary"
-                        on_click="new_service_open"
+                        on_click="open_new_service_window"
                         text="+ Novo serviço"
                       />
                       <button
@@ -495,17 +494,15 @@
           </column>
         </if>
         <else>
-          <!-- ── Service detail / wizard de novo serviço / demais views ─ -->
+          <!-- ── Service detail / demais views ────────────────────────────
+            O wizard "Novo serviço" saiu daqui (view=new_service): agora abre
+            numa JANELA à parte (new_service_window.xml), disparada por
+            open_new_service_window. -->
           <if cond="{view}" equals="service">
             <ServiceDetail />
           </if>
           <else>
-            <if cond="{view}" equals="new_service">
-              <NewServiceWizard />
-            </if>
-            <else>
-                <HomeViews />
-            </else>
+            <HomeViews />
           </else>
         </else>
       </else>

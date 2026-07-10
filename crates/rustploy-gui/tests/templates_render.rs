@@ -51,6 +51,45 @@ fn new_project_form_window_renders() {
     assert!(m.render("new_project_form").is_ok(), "render new_project_form");
 }
 
+/// O wizard "Novo serviço" (`new_service_window.xml`, que importa `new_service.xml`
+/// + `new_service_window.luau`) também é uma janela à parte, aberta por
+/// `open_new_service_window`. Validamos que registra e renderiza cada passo do
+/// wizard como motor isolado — semeando a conexão/projeto como `open_window`.
+#[test]
+fn new_service_wizard_window_renders() {
+    cd_ws_root();
+    let mut m = GlacierUI::new();
+    m.define_data("api_url", "http://localhost");
+    m.define_data("api_token", "t");
+    m.define_data("selected_project_id", "p1");
+    m.define_data("proj_name", "demo");
+    m.register_component("new_service_window", "crates/rustploy-gui/views/new_service_window.xml")
+        .expect("new_service_window.xml must register");
+    m.set_initial_screen("new_service_window");
+
+    // Dados que os passos de banco/template esperam (o init do script tenta o
+    // catálogo real, mas o fetch suspende sem executor — semeamos à mão).
+    m.define_data("ns_db_has_dbname", "true");
+    m.define_data("ns_db_has_user", "true");
+    m.define_data("ns_db_has_rootpw", "true");
+    m.define_data("ns_db_has_replica", "true");
+    m.define_data("ns_dbs", r#"[{"id":"postgres","label":"PostgreSQL","image":"postgres:18"}]"#);
+    m.define_data(
+        "ns_templates",
+        r#"[{"id":"forgejo","name":"Forgejo","description":"git","logo":"crates/shared/templates/blueprints/forgejo/forgejo.svg","logo_kind":"svg"},{"id":"wordpress","name":"WordPress","description":"cms","logo":"crates/shared/templates/blueprints/wordpress/wordpress.png","logo_kind":"img"}]"#,
+    );
+    m.define_data("ns_template_vars", r#"[{"idx":"0","label":"Domínio","placeholder":"x"}]"#);
+
+    for step in [
+        "pick_type", "pick_db", "app_form", "db_form", "compose_form",
+        "pick_template", "template_form",
+    ] {
+        m.define_data("ns_step", step);
+        m.reevaluate_all().unwrap_or_else(|e| panic!("eval new_service/{step}: {e}"));
+        assert!(m.render("new_service_window").is_ok(), "render new_service/{step}");
+    }
+}
+
 #[test]
 fn all_screens_and_service_tabs_render() {
     let mut m = boot();
@@ -78,30 +117,6 @@ fn all_screens_and_service_tabs_render() {
         m.define_data("proj_loading", "false");
         m.reevaluate_all().unwrap_or_else(|e| panic!("eval project_services/{proj_tab}: {e}"));
         assert!(m.render("app").is_ok(), "render project_services/{proj_tab}");
-    }
-
-    // Wizard "Novo serviço": todos os passos.
-    for step in [
-        "pick_type", "pick_db", "app_form", "db_form", "compose_form",
-        "pick_template", "template_form",
-    ] {
-        m.define_data("view", "new_service");
-        m.define_data("ns_step", step);
-        // Flags/listas que os passos de banco/template esperam.
-        m.define_data("ns_db_has_dbname", "true");
-        m.define_data("ns_db_has_user", "true");
-        m.define_data("ns_db_has_rootpw", "true");
-        m.define_data("ns_db_has_replica", "true");
-        m.define_data("ns_dbs", r#"[{"id":"postgres","label":"PostgreSQL","image":"postgres:18"}]"#);
-        // Duas linhas do catálogo com logos reais (um vetor, um raster) para
-        // exercitar os dois ramos do TemplateRow (Svg vs Image).
-        m.define_data(
-            "ns_templates",
-            r#"[{"id":"forgejo","name":"Forgejo","description":"git","logo":"crates/shared/templates/blueprints/forgejo/forgejo.svg","logo_kind":"svg"},{"id":"wordpress","name":"WordPress","description":"cms","logo":"crates/shared/templates/blueprints/wordpress/wordpress.png","logo_kind":"img"}]"#,
-        );
-        m.define_data("ns_template_vars", r#"[{"idx":"0","label":"Domínio","placeholder":"x"}]"#);
-        m.reevaluate_all().unwrap_or_else(|e| panic!("eval new_service/{step}: {e}"));
-        assert!(m.render("app").is_ok(), "render new_service/{step}");
     }
 
     // Settings → Git sub-tab (provider list + connect form, both methods).
