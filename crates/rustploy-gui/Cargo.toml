@@ -11,8 +11,10 @@ name = "rustploy-gui"
 path = "src/main.rs"
 
 [dependencies]
-# Declarative UI engine (published; KDL templates + async bridge + widgets).
-glacier-ui = "0.33.1"
+# Declarative UI engine (published; XML templates + async bridge + widgets).
+# 0.36 traz o runner multi-janela (iced::daemon): a casca em `src/app/` é um
+# runtime `iced::daemon` próprio, um `GlacierUI` por janela — ver `app/mod.rs`.
+glacier-ui = "0.36.0"
 
 shared = { path = "../shared" }
 
