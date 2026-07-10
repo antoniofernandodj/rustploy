@@ -163,18 +163,18 @@ impl Runtime {
     /// antes as ações `window:*` da titlebar custom da janela principal (contra
     /// o id cacheado — ver [`Runtime::main_id`]).
     fn route(&mut self, id: window::Id, msg: EngineMessage) -> Task<Message> {
-        // Controles de janela da titlebar borderless (só a principal os tem).
-        // Tratados síncronos contra o id cacheado para manter o pointer-grab
-        // serial vivo no Wayland; o motor também os trataria (via `latest()`),
-        // mas por um round-trip que perderia o serial do drag.
-        if id == self.main_id {
-            if let EngineMessage::UiClick(action) = &msg {
-                if let Some(cmd) = action.strip_prefix("window:") {
-                    if cmd == "close" {
-                        return close_and_save(id);
-                    }
-                    return window_control(id, cmd);
+        // Controles de janela da titlebar borderless — tanto a principal quanto
+        // as janelas-filhas (que também são borderless, com titlebar custom).
+        // Tratados síncronos contra o id da PRÓPRIA janela em roteamento (não
+        // via `window::latest()`) para manter o pointer-grab serial vivo no
+        // Wayland (senão `window:drag` vira no-op). Só a principal salva a
+        // geometria ao fechar; as filhas fecham direto.
+        if let EngineMessage::UiClick(action) = &msg {
+            if let Some(cmd) = action.strip_prefix("window:") {
+                if cmd == "close" {
+                    return if id == self.main_id { close_and_save(id) } else { window::close(id) };
                 }
+                return window_control(id, cmd);
             }
         }
 
@@ -250,9 +250,15 @@ impl Runtime {
         let WindowSpec { source, title, size, resizable, data } = spec;
         let (engine, fallback_title) = build_engine(source, &data);
         let (w, h) = size.unwrap_or((640.0, 480.0));
+        // Janelas-filhas também são borderless (decorations: false) — o template
+        // traz seu próprio titlebar custom, igual à principal; sem isto o OS
+        // desenharia a barra nativa e a janela destoaria. Seus `window:*` são
+        // tratados em `route` contra o próprio id.
         let settings = window::Settings {
             size: Size::new(w, h),
             resizable,
+            decorations: false,
+            platform_specific: platform_specific(),
             ..window::Settings::default()
         };
         let (id, open) = window::open(settings);

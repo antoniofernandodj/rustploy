@@ -3,11 +3,22 @@
   a conexão (api_url/api_token) via open_window({ data = ... }). Ao concluir,
   o script (scripts/new_project_window.luau) emite broadcast("project_created")
   e chama close_window(). Linka o tema + o app.gss para herdar a mesma aparência
-  (cada janela é um motor isolado; o stylesheet não vem "de graça"). -->
+  (cada janela é um motor isolado; o stylesheet não vem "de graça"). Borderless
+  (a janela é aberta com decorations=false, como a principal): o titlebar abaixo
+  é custom, e suas ações window:* são tratadas no runtime (app/mod.rs). -->
 <link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />
 <link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />
 
 <style>
+/* Titlebar custom (mesma linguagem visual do app.xml) */
+.titlebar       { width: fill; height: 32; background: var(--surface); align-y: center; }
+.titlebar_drag  { width: fill; height: fill; align-y: center; padding: 0 0 0 16; spacing: 9; }
+.titlebar_dot   { size: 10; color: var(--blue); }
+.titlebar_title { size: 12; bold: true; color: var(--muted); }
+.win_btn        { width: 48; padding: 5 0; color: var(--border); text-align: center; }
+.win_close      { width: 48; padding: 5 0; color: var(--danger); text-align: center; }
+
+.np_screen  { width: fill; height: fill; background: var(--bg); }
 .np_wrap    { width: fill; height: fill; background: var(--bg); padding: 24; spacing: 18; }
 .np_head    { width: fill; spacing: 5; }
 .np_title   { size: 20; bold: true; color: var(--text); }
@@ -18,47 +29,62 @@
 .np_spacer  { width: fill; }
 </style>
 
-<column class="np_wrap">
+<column class="np_screen">
 
-  <column class="np_head">
-    <text class="np_title">Novo projeto</text>
-    <text class="muted">Cadastre um projeto no cluster conectado.</text>
-  </column>
-
-  <form name="np_form" on_submit="submit_project" width="fill" spacing="14">
-
-    <column class="np_group">
-      <text class="np_label">NOME</text>
-      <input
-        class="np_input"
-        form_control="np_name"
-        value="np_name"
-        on_change="field:np_name"
-        placeholder="Nome do projeto"
-      />
-    </column>
-
-    <column class="np_group">
-      <text class="np_label">DESCRIÇÃO (OPCIONAL)</text>
-      <input
-        class="np_input"
-        form_control="np_desc"
-        value="np_desc"
-        on_change="field:np_desc"
-        placeholder="Descrição"
-      />
-    </column>
-
-    <text if="{np_err}" not_equals="" class="err">{np_err}</text>
-    <text if="{np_msg}" not_equals="" class="muted">{np_msg}</text>
-
-    <row class="np_actions">
-      <column class="np_spacer" />
-      <button class="btn_ghost"   on_click="cancel"         text="Cancelar" />
-      <button class="btn_primary" on_click="submit_project" text="Criar projeto" />
+  <!-- Titlebar custom (janela borderless). window:drag/minimize/close tratados
+    no runtime contra o id desta janela; sem maximize (é um diálogo fixo). -->
+  <row class="titlebar">
+    <row class="titlebar_drag" on_press="window:drag">
+      <text class="titlebar_dot">●</text>
+      <text class="titlebar_title">Novo projeto — Rustploy</text>
     </row>
+    <button class="win_btn"   on_click="window:minimize" text="—" />
+    <button class="win_close" on_click="window:close"    text="✕" />
+  </row>
 
-  </form>
+  <column class="np_wrap">
+
+    <column class="np_head">
+      <text class="np_title">Novo projeto</text>
+      <text class="muted">Cadastre um projeto no cluster conectado.</text>
+    </column>
+
+    <form name="np_form" on_submit="submit_project" width="fill" spacing="14">
+
+      <column class="np_group">
+        <text class="np_label">NOME</text>
+        <input
+          class="np_input"
+          form_control="np_name"
+          value="np_name"
+          on_change="field:np_name"
+          placeholder="Nome do projeto"
+        />
+      </column>
+
+      <column class="np_group">
+        <text class="np_label">DESCRIÇÃO (OPCIONAL)</text>
+        <input
+          class="np_input"
+          form_control="np_desc"
+          value="np_desc"
+          on_change="field:np_desc"
+          placeholder="Descrição"
+        />
+      </column>
+
+      <text if="{np_err}" not_equals="" class="err">{np_err}</text>
+      <text if="{np_msg}" not_equals="" class="muted">{np_msg}</text>
+
+      <row class="np_actions">
+        <column class="np_spacer" />
+        <button class="btn_ghost"   on_click="cancel"         text="Cancelar" />
+        <button class="btn_primary" on_click="submit_project" text="Criar projeto" />
+      </row>
+
+    </form>
+
+  </column>
 
   <script src="scripts/new_project_window.luau"></script>
 </column>
