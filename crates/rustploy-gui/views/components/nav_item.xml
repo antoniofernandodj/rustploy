@@ -15,6 +15,12 @@
   não cabia na sidebar encolhida e, sem espaço para quebrar (ou sendo uma
   palavra só), estourava e quebrava o layout — abaixo do breakpoint, só o
   ícone fica visível.
+
+  `tooltip="{label}"` (glacier-ui 0.37.5) mostra o rótulo completo ao pairar o
+  mouse — essencial no modo colapsado (ícone sozinho, sem texto nenhum), e sem
+  custo no modo largo (o rótulo já está visível do lado, o balão é redundante
+  mas inofensivo). O wrap acontece depois do mouse_area em widget.rs, então o
+  hover funciona na linha inteira, não só no ícone.
 -->
 <style>
 .nav_row_on  { width: fill; padding: 11 14; spacing: 10; align-y: center; background: var(--blue); cursor: pointer; }
@@ -41,11 +47,11 @@
 }
 </style>
 
-<row class="nav_row_on" if="{view}" equals="{target}" on_press="{action}">
+<row class="nav_row_on" if="{view}" equals="{target}" on_press="{action}" tooltip="{label}">
   <text class="nav_icon_on">{icon}</text>
   <text class="nav_label_on">{label}</text>
 </row>
-<row class="nav_row_off" else on_press="{action}">
+<row class="nav_row_off" else on_press="{action}" tooltip="{label}">
   <text class="nav_icon_off">{icon}</text>
   <text class="nav_label_off">{label}</text>
 </row>
