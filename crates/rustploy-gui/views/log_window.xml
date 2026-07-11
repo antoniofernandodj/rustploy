@@ -79,17 +79,22 @@
         <row class="lw_head">
           <text class="lw_title">{lw_title}</text>
           <text class="lw_count">{lw_count} linhas · ao vivo</text>
+          <button class="tab" on_click="textarea_end:lw_logs_text" text="Ir ao fim" />
           <button class="tab" on_click="clipboard:lw_logs_text" text="Copiar tudo" />
         </row>
 
-        <!-- Corpo = <textarea> (text_editor do iced): texto SELECIONÁVEL e
-          copiável (arrastar + Ctrl+C). Cada linha nova é APPENDADA no fim via
-          append_textarea (o motor insere incrementalmente, sem recriar o buffer
-          — preserva o scroll), então rolar o log não "pula pro topo" nem apaga a
-          seleção a cada linha. Ver log_window.luau. -->
+        <!-- Corpo = <textarea readonly> (text_editor do iced): texto SELECIONÁVEL
+          e copiável (arrastar + Ctrl+C), mas NÃO editável (readonly ignora
+          digitação/apagar/colar; seleção e scroll seguem funcionando). Cada linha
+          nova é APPENDADA no fim via append_textarea (o motor insere sem recriar
+          o buffer — preserva o scroll). O botão "Ir ao fim" rola até o fundo
+          (textarea_end:) sem precisar arrastar a roda por muito tempo. O
+          text_editor do iced 0.14 não desenha barra de rolagem própria; rola por
+          roda do mouse/teclado + o botão. Ver log_window.luau. -->
         <textarea
           class="lw_editor"
           font="mono"
+          readonly="true"
           value="lw_logs_text"
           placeholder="(sem logs ainda — aguardando o serviço emitir saída)"
         />
