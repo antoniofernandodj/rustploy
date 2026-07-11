@@ -541,20 +541,21 @@
             <button class="tab" on_click="env_text_toggle" text=".env" />
           </else>
         </row>
-
-        <form name="env_add" on_submit="env_add" width="fill">
+        <form name="env_add" on_submit="env_add" width="fill" spacing="8">
           <row class="env_add">
             <input
               class="env_in_key"
               form_control="env_new_key"
               placeholder="KEY"
             />
-
+          </row>
+          <row class="env_add">
             <input
               class="env_in_val"
               form_control="env_new_val" placeholder="value"
             />
-
+          </row>
+          <row class="env_add">
             <button class="btn_primary" on_click="env_add" text="Adicionar" />
           </row>
         </form>
@@ -582,7 +583,7 @@
                   </text>
                   <button class="env_del" on_click="env_del:{e.key}" text="✕" />
                   <text class="env_sep"> </text>
-                  <text class="env_key">{e.key}</text>
+                  <text class="env_key">{e.key_display}</text>
                   <text class="kv_val_fill">{e.value}</text>
                 </row>
               </if>
@@ -598,7 +599,7 @@
                   <text class="env_drag_handle" dragHandle="true">⋮ </text>
                   <button class="env_del" on_click="env_del:{e.key}" text="✕" />
                   <text class="env_sep"> </text>
-                  <text class="env_key">{e.key}</text>
+                  <text class="env_key">{e.key_display}</text>
                   <text class="kv_val_fill">{e.value}</text>
                 </row>
               </else>

@@ -113,7 +113,7 @@
 .env_head      { width: fill; align-y: center; }
 .muted_fill    { width: fill; size: 12; color: var(--muted); }
 .env_add       { width: fill; spacing: 8; align-y: center; }
-.env_in_key    { width: 220; padding: 9 12; }
+.env_in_key    { width: fill; padding: 9 12; }
 .env_in_val    { width: fill; padding: 9 12; }
 .env_drag_handle { color: var(--faint); padding: 0 6 0 0; cursor: grab; }
 .env_dragging    { cursor: grabbing; }
@@ -121,7 +121,7 @@
 /* Respiro entre o botão ✕ e a chave da variável (evita que o vermelho encoste
    no texto). Usado nas linhas de env de serviço e de projeto. */
 .env_sep       { width: 10; }
-.env_key       { size: 13; bold: true; color: var(--accent); width: 200; }
+.env_key       { size: 13; bold: true; color: var(--accent); width: 400; }
 .env_list_scroll { width: fill; height: fill; }
 /* Editor .env (textarea + toggle), compartilhado por service.xml e shell.xml. */
 .env_editor    { width: fill; height: 200; padding: 10 12; font: mono; }

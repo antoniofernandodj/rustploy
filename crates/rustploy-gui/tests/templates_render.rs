@@ -143,6 +143,13 @@ fn all_screens_and_service_tabs_render() {
 
     // Projeto aberto (project_services): grid de serviços e a aba de
     // variáveis de ambiente de nível de projeto.
+    // Nome de env var absurdamente longo: exercita o truncamento de
+    // `key_display` (env_var_row em fmt/service_detail.luau) sem quebrar o
+    // `key` completo usado por delete/reorder/.env.
+    m.define_data(
+        "proj_env",
+        r##"[{"key":"__c0","value":"# comentário","kind":"comment"},{"key":"A_VERY_LONG_ENVIRONMENT_VARIABLE_NAME_THAT_SHOULD_BE_TRUNCATED","key_display":"A_VERY_LONG_ENVIRONMENT_VARIABLE_NAME_TH…","value":"x","kind":"plain"}]"##,
+    );
     for proj_tab in ["services", "env"] {
         m.define_data("view", "project_services");
         m.define_data("proj_tab", proj_tab);
@@ -192,10 +199,11 @@ fn all_screens_and_service_tabs_render() {
         m.define_data("tab", tab);
         // Exercise the env editor + build-log panel + Gitea sub-tab branches too.
         m.define_data("env_text_open", "true");
-        // Lista de env com um comentário (linha display-only) e uma var normal.
+        // Lista de env com um comentário (linha display-only), uma var normal e
+        // um nome absurdamente longo (exercita o truncamento de `key_display`).
         m.define_data(
             "svc_env",
-            r##"[{"key":"__c0","value":"# comentário","kind":"comment"},{"key":"OLA","value":"mundo","kind":"plain"}]"##,
+            r##"[{"key":"__c0","value":"# comentário","kind":"comment"},{"key":"OLA","key_display":"OLA","value":"mundo","kind":"plain"},{"key":"A_VERY_LONG_ENVIRONMENT_VARIABLE_NAME_THAT_SHOULD_BE_TRUNCATED","key_display":"A_VERY_LONG_ENVIRONMENT_VARIABLE_NAME_TH…","value":"x","kind":"plain"}]"##,
         );
         m.define_data("dep_selected", "abc123");
         // Show the Gitea sub-tab and render its picker body.

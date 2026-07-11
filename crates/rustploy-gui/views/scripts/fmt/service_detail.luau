@@ -65,6 +65,11 @@ function M.healthcheck_summary(hc: any): string
         kind, tostring(hc.interval_secs), tostring(hc.timeout_secs), tostring(hc.retries))
 end
 
+-- Nome máximo (em caracteres) de uma chave de env var na lista da UI — nomes
+-- maiores truncam com "…" (só na exibição; `key` continua completo e é o que
+-- os botões ✕/drag e o .env usam de verdade).
+local ENV_KEY_MAX = 30
+
 -- Uma linha de var de ambiente (secret exibido por referência).
 local function env_var_row(v: EnvVar)
     local value: string
@@ -74,7 +79,7 @@ local function env_var_row(v: EnvVar)
     else
         value, kind = (v.value and v.value.Plain) or "", "plain"
     end
-    return { key = v.key, value = value, kind = kind }
+    return { key = v.key, key_display = Util.ellipsis(v.key, ENV_KEY_MAX), value = value, kind = kind }
 end
 
 -- Env vars como linhas JSON, re-interleaving os comentários `# ...` ancorados

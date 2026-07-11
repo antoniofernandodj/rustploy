@@ -384,18 +384,22 @@
                     />
                   </else>
                 </row>
-                <form name="penv_add" on_submit="penv_add" width="fill">
+                <form name="penv_add" on_submit="penv_add" width="fill" spacing="8">
                   <row class="env_add">
                     <input
                       class="env_in_key"
                       form_control="penv_new_key"
                       placeholder="KEY"
                     />
+                  </row>
+                  <row class="env_add">
                     <input
                       class="env_in_val"
                       form_control="penv_new_val"
                       placeholder="value"
                     />
+                  </row>
+                  <row>
                     <button
                       class="btn_primary"
                       on_click="penv_add"
@@ -434,7 +438,7 @@
                             text="✕"
                           />
                           <text class="env_sep"></text>
-                          <text class="env_key">{e.key}</text>
+                          <text class="env_key">{e.key_display}</text>
                           <text class="kv_val_fill">{e.value}</text>
                         </row>
                       </if>
@@ -451,7 +455,7 @@
                             text="✕"
                           />
                           <text class="env_sep"></text>
-                          <text class="env_key">{e.key}</text>
+                          <text class="env_key">{e.key_display}</text>
                           <text class="kv_val_fill">{e.value}</text>
                         </row>
                       </else>
