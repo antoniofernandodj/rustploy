@@ -111,6 +111,28 @@ function M.in_use_kind(in_use: boolean): string
     return "muted"
 end
 
+-- Estado bruto de um container Docker ("running"/"exited"/… ) → (rótulo, kind).
+-- Só "running"/"restarting"/"paused" contam como "ativo" (não removíveis sem
+-- force); o resto é parado e pode ser removido individualmente.
+function M.container_state(state: string?): (string, string)
+    local s = string.lower(state or "")
+    if s == "running" then return "running", "ok"
+    elseif s == "restarting" then return "restarting", "info"
+    elseif s == "paused" then return "paused", "warn"
+    elseif s == "created" then return "created", "info"
+    elseif s == "dead" then return "dead", "bad"
+    end
+    -- exited, removing, ou desconhecido
+    return (s ~= "" and s or "exited"), "muted"
+end
+
+-- `true` quando o container está PARADO (removível sem force). Espelha o daemon
+-- (Docker recusa `rm` de um container rodando/reiniciando sem `-f`).
+function M.container_stopped(state: string?): boolean
+    local s = string.lower(state or "")
+    return s ~= "running" and s ~= "restarting" and s ~= "paused"
+end
+
 -- ServiceSource → texto de "imagem/origem" (source_summary().1).
 function M.source_summary(source: any): string
     if type(source) ~= "table" then return "—" end

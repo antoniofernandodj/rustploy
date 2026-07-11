@@ -4,8 +4,8 @@
 
 use crate::{api::AppState, docker};
 use shared::{
-    DockerImageInfo, DockerNetworkInfo, DockerVolumeInfo, Response as RpResponse, ServiceSource,
-    ServiceStatus,
+    DockerContainerInfo, DockerImageInfo, DockerNetworkInfo, DockerVolumeInfo,
+    Response as RpResponse, ServiceSource, ServiceStatus,
 };
 use std::collections::HashMap;
 
@@ -20,6 +20,9 @@ struct ServiceIndex {
     by_safe_name: HashMap<String, (String, String)>,
     by_registry_image: HashMap<String, (String, String)>,
     by_project_short: HashMap<String, String>,
+    /// service_id → (nome do projeto, nome do serviço), para atribuir um
+    /// container pelo label `rustploy.service_id` (exato). Ver `list_containers`.
+    by_service_id: HashMap<String, (String, String)>,
 }
 
 impl ServiceIndex {
@@ -35,11 +38,13 @@ impl ServiceIndex {
         let services = crate::db::services::list_all(&state.db).await.unwrap_or_default();
         let mut by_safe_name = HashMap::new();
         let mut by_registry_image = HashMap::new();
+        let mut by_service_id = HashMap::new();
         for s in &services {
             let project_name = project_names
                 .get(&s.spec.project_id)
                 .cloned()
                 .unwrap_or_else(|| s.spec.project_id.clone());
+            by_service_id.insert(s.id.clone(), (project_name.clone(), s.spec.name.clone()));
             match &s.spec.source {
                 ServiceSource::Git(_) => {
                     by_safe_name.insert(s.spec.safe_name(), (project_name, s.spec.name.clone()));
@@ -50,7 +55,7 @@ impl ServiceIndex {
                 ServiceSource::Compose(_) => {}
             }
         }
-        Self { by_safe_name, by_registry_image, by_project_short }
+        Self { by_safe_name, by_registry_image, by_project_short, by_service_id }
     }
 
     /// Resolves an image's owner from its tags: exact match for registry
@@ -200,6 +205,53 @@ async fn compute_networks(state: &AppState) -> Result<Vec<DockerNetworkInfo>, St
             }
         })
         .collect())
+}
+
+/// Lists every container on the host (running + stopped) for the Docker tab's
+/// Containers sub-tab. Host-wide, não só rustploy: `managed`/`project`/`service`
+/// são atribuição best-effort pelo label `rustploy.service_id` (exato, quando
+/// presente). Não é cacheado — estado de container muda a cada start/stop.
+pub async fn list_containers(state: AppState) -> RpResponse {
+    use bollard::container::ListContainersOptions;
+    let containers = match state
+        .docker
+        .inner
+        .list_containers(Some(ListContainersOptions::<String> { all: true, ..Default::default() }))
+        .await
+    {
+        Ok(c) => c,
+        Err(e) => return RpResponse::err("DockerError", e.to_string()),
+    };
+    let idx = ServiceIndex::build(&state).await;
+    let infos: Vec<DockerContainerInfo> = containers
+        .into_iter()
+        .map(|c| {
+            let name = c
+                .names
+                .as_ref()
+                .and_then(|n| n.first())
+                .map(|n| n.trim_start_matches('/').to_string())
+                .unwrap_or_default();
+            let labels = c.labels.unwrap_or_default();
+            let managed = labels.get("rustploy.managed").map(|v| v == "true").unwrap_or(false);
+            let (project, service) = labels
+                .get("rustploy.service_id")
+                .and_then(|sid| idx.by_service_id.get(sid))
+                .map(|(p, s)| (Some(p.clone()), Some(s.clone())))
+                .unwrap_or((None, None));
+            DockerContainerInfo {
+                id: c.id.unwrap_or_default(),
+                name,
+                image: c.image.unwrap_or_default(),
+                state: c.state.unwrap_or_default(),
+                status: c.status.unwrap_or_default(),
+                managed,
+                project,
+                service,
+            }
+        })
+        .collect();
+    RpResponse::DockerContainers(infos)
 }
 
 /// Stops every rustploy-managed service, regardless of what the DB's status

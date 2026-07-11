@@ -216,6 +216,7 @@ function M.docker_images(list: {any}?, term: string?): string
             id = string.gsub(id, "^sha256:", "")
             table.insert(rows, {
                 id = string.sub(id, 1, 12),
+                id_full = id, -- sem "sha256:" (o `:` quebraria a ação nome:sufixo)
                 tags = tags,
                 size = Time.fmt_bytes(img.size_bytes),
                 created = Time.date_dm_hm(img.created),
@@ -258,12 +259,48 @@ function M.docker_networks(list: {any}?, term: string?): string
         if Util.matches(term, { n.name, n.project or "" }) then
             table.insert(rows, {
                 name = n.name,
+                id_full = n.id or "",
                 driver = n.driver,
                 scope = n.scope,
                 project = n.project or "—",
                 containers = tostring(n.container_count or 0),
                 in_use_label = n.in_use and "EM USO" or "SEM USO",
                 in_use_kind = Util.in_use_kind(n.in_use),
+            })
+        end
+    end
+    return Util.enc_array(rows)
+end
+
+-- Containers do host (DockerContainerInfo): todos, rodando + parados. `can_remove`
+-- = "1" só nos parados (o Docker recusa remover um rodando sem force). `owner`
+-- mostra projeto/serviço quando atribuído (label rustploy.service_id), senão
+-- "rustploy" (managed) ou "—".
+function M.docker_containers(list: {any}?, term: string?): string
+    local sorted = {}
+    for _, c in ipairs(list or {}) do table.insert(sorted, c) end
+    table.sort(sorted, function(a: any, b: any) return (a.name or "") < (b.name or "") end)
+    local rows = {}
+    for _, c in ipairs(sorted) do
+        if Util.matches(term, { c.name, c.image, c.state, c.project or "", c.service or "" }) then
+            local label, kind = Util.container_state(c.state)
+            local owner: string
+            if c.project and c.service then
+                owner = tostring(c.project) .. " / " .. tostring(c.service)
+            elseif c.managed then
+                owner = "rustploy"
+            else
+                owner = "—"
+            end
+            table.insert(rows, {
+                id_full = c.id or "",
+                id = string.sub(c.id or "", 1, 12),
+                name = c.name or "—",
+                image = c.image or "—",
+                owner = owner,
+                state_label = label,
+                state_kind = kind,
+                can_remove = Util.container_stopped(c.state) and "1" or "0",
             })
         end
     end

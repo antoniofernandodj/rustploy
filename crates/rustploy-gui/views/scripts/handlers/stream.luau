@@ -24,7 +24,11 @@ local function rebuild_lists(): ()
     ctx.project_rows = fmt.project_rows(snap.projects, State.last_pairs, term)
     ctx.services = fmt.services(State.last_pairs, State.metrics_by_id, term)
     ctx.service_rows = fmt.service_rows(State.last_pairs, State.metrics_by_id, term)
-    ctx.docker_rows = fmt.docker_rows(State.last_pairs, term)
+    -- ctx.docker_rows: a antiga sub-aba Containers (só serviços rustploy) foi
+    -- substituída pela lista host-wide (docker_containers). fmt.docker_rows fica
+    -- disponível para reuso; não recalculamos aqui à toa.
+    -- ctx.docker_rows = fmt.docker_rows(State.last_pairs, term)
+    ctx.docker_containers = fmt.docker_containers(snap.docker_containers, term)
     ctx.docker_images = fmt.docker_images(snap.docker_images, term)
     ctx.docker_volumes = fmt.docker_volumes(snap.docker_volumes, term)
     ctx.docker_networks = fmt.docker_networks(snap.docker_networks, term)
@@ -136,6 +140,7 @@ local function apply_snapshot(msg: any): ()
     ctx.docker_images_count = tostring(#(msg.docker_images or {}))
     ctx.docker_volumes_count = tostring(#(msg.docker_volumes or {}))
     ctx.docker_networks_count = tostring(#(msg.docker_networks or {}))
+    ctx.docker_containers_count = tostring(#(msg.docker_containers or {}))
 
     -- Ingress + Monitoring (não filtrados pela busca).
     local ingress, icount = fmt.ingress(State.last_pairs)

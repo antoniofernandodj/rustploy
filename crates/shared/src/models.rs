@@ -589,6 +589,27 @@ pub struct DockerVolumeInfo {
     pub size_bytes: i64,
 }
 
+/// One Docker container on the host (running or stopped), for the Docker tab's
+/// Containers sub-tab. Host-wide (not just rustploy-managed) — `managed`/
+/// `project`/`service` are best-effort attribution (label `rustploy.managed` +
+/// the `rp_<safe_name>_...` container-name convention).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DockerContainerInfo {
+    /// Full container id (for removal).
+    pub id: String,
+    /// Primary name, sem a barra inicial que o Docker prefixa.
+    pub name: String,
+    pub image: String,
+    /// Estado bruto do Docker: "running", "exited", "created", "paused", …
+    pub state: String,
+    /// Linha de status legível do Docker (ex.: "Exited (0) 2 hours ago").
+    pub status: String,
+    /// `true` quando tem o label `rustploy.managed=true`.
+    pub managed: bool,
+    pub project: Option<String>,
+    pub service: Option<String>,
+}
+
 /// One Docker network.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DockerNetworkInfo {

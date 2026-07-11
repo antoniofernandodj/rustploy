@@ -170,6 +170,15 @@ pub enum Command {
     DockerImages,
     DockerVolumes,
     DockerNetworks,
+    /// Todo container do host (rodando + parado), para a sub-aba Containers.
+    DockerContainers,
+
+    // Remoção INDIVIDUAL de um recurso Docker (o par por-item dos `Prune*`).
+    // O Docker recusa remover recursos em uso (sem force) — o erro é propagado.
+    RemoveContainer { id: String },
+    RemoveImage { id: String },
+    RemoveVolume { name: String },
+    RemoveNetwork { id: String },
     /// Stops every container labeled `rustploy.managed=true`, regardless of
     /// what the DB's service status currently says (more robust than
     /// looping over `Service` rows one `ServiceStop` at a time — see
@@ -357,6 +366,8 @@ pub enum Response {
     DockerImages(Vec<DockerImageInfo>),
     DockerVolumes(Vec<DockerVolumeInfo>),
     DockerNetworks(Vec<DockerNetworkInfo>),
+    /// Todo container do host (rodando + parado), resposta de `DockerContainers`.
+    DockerContainers(Vec<DockerContainerInfo>),
     /// Count of rustploy-managed containers stopped (resposta de `StopAllManaged`).
     StopAllResult { count: u32 },
 

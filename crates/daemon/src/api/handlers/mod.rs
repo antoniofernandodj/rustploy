@@ -17,6 +17,7 @@ pub fn humanize_db_error(err: &(impl std::fmt::Display + ?Sized), subject: &str)
 pub mod daemon_status;
 pub mod docker_inventory;
 pub mod docker_prune;
+pub mod docker_remove;
 pub mod secret_delete;
 pub mod secret_list;
 pub mod secret_set;

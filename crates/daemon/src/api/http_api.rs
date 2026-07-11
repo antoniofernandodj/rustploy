@@ -526,6 +526,12 @@ pub(crate) async fn snapshot(state: &AppState) -> String {
             serde_json::to_value(list).unwrap_or(Value::Null)
         );
     }
+    if let RpResponse::DockerContainers(list) =
+        dispatch(state.clone(), Command::DockerContainers).await {
+            obj.insert("docker_containers".into(),
+            serde_json::to_value(list).unwrap_or(Value::Null)
+        );
+    }
     if let RpResponse::DeployEngineStatus(eng) =
         dispatch(state.clone(), Command::DeployEngineStatus).await
     {

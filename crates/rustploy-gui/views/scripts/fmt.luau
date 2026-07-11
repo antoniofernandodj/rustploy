@@ -36,6 +36,7 @@ M.service_rows = Dashboard.service_rows
 M.projects = Dashboard.projects
 M.project_rows = Dashboard.project_rows
 M.docker_rows = Dashboard.docker_rows
+M.docker_containers = Dashboard.docker_containers
 M.docker_images = Dashboard.docker_images
 M.docker_volumes = Dashboard.docker_volumes
 M.docker_networks = Dashboard.docker_networks

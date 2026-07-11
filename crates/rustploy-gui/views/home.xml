@@ -1,6 +1,9 @@
 <style>
 .col_icon       { width: 28; }
 .content_center { width: fill; height: fill; align-x: center; align-y: center; }
+/* Botão "Remover" compacto por-linha nas sub-abas Docker. */
+.dk_rm    { color: var(--danger); padding: 5 12; border-radius: 6; }
+.col_act  { width: 120; align-x: end; }
 </style>
 
 <column class="content">
@@ -216,6 +219,7 @@
         <text class="subtitle">Containers, imagens, volumes e networks do host.</text>
       </column>
       <row class="stats_row">
+        <StatCard label="CONTAINERS" value="{docker_containers_count}" />
         <StatCard label="IMAGENS" value="{docker_images_count}" />
         <StatCard label="VOLUMES" value="{docker_volumes_count}" />
         <StatCard label="NETWORKS" value="{docker_networks_count}" accent="1" />
@@ -252,12 +256,24 @@
 
     <!-- Containers — um por serviço gerido pelo Rustploy (ligação com
          projeto/serviço é direta, já que o container nasce de um Service). -->
+    <!-- Containers — todos do host (rodando + parados). Remover é oferecido só
+         nos PARADOS (o Docker recusa `rm` de um rodando sem force). -->
     <column class="panel_fill" if="{docker_tab}" equals="containers">
+      <row class="env_head">
+        <text class="muted_fill">{docker_containers_count} container(s)</text>
+        <button
+          class="btn_danger"
+          on_click="docker_prune_containers"
+          text="Limpar parados"
+        />
+      </row>
+      <text if="{docker_msg}" not_equals="" class="muted">{docker_msg}</text>
       <row class="thead">
-        <text class="th col_svc">SERVIÇO</text>
+        <text class="th col_svc">NOME</text>
         <text class="th col_proj">IMAGEM</text>
-        <text class="th col_state">ESTADO</text>
-        <text class="th col_start">CONTAINER</text>
+        <text class="th col_state">DONO</text>
+        <text class="th col_dur">ESTADO</text>
+        <text class="th col_act">AÇÃO</text>
       </row>
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
@@ -269,17 +285,24 @@
         class="scroll_fill"
       >
         <column class="table_body">
-          <foreach items="docker_rows" var="c">
-            <column class="row_wrap">
-              <row class="trow">
-                <text class="td_key col_svc">{c.name}</text>
-                <text class="td col_proj">{c.image}</text>
-                <StateCell kind="{c.status_kind}" label="{c.status_label}" />
-                <text class="muted col_start">{c.container}</text>
+          <column class="row_wrap" for-each="docker_containers" var="c">
+            <row class="trow">
+              <text class="td_key col_svc">{c.name}</text>
+              <text class="td col_proj">{c.image}</text>
+              <text class="muted col_state">{c.owner}</text>
+              <StateCell kind="{c.state_kind}" label="{c.state_label}" />
+              <row class="col_act">
+                <button
+                  if="{c.can_remove}"
+                  equals="1"
+                  class="dk_rm"
+                  on_click="docker_rm_container:{c.id_full}"
+                  text="Remover"
+                />
               </row>
-              <rule />
-            </column>
-          </foreach>
+            </row>
+            <rule />
+          </column>
         </column>
       </scrollable>
     </column>
@@ -315,7 +338,8 @@
         <text class="th col_proj">PROJETO / SERVIÇO</text>
         <text class="th col_dur">TAMANHO</text>
         <text class="th col_dur">CRIADA</text>
-        <text class="th col_start">USO</text>
+        <text class="th col_state">USO</text>
+        <text class="th col_act">AÇÃO</text>
       </row>
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
@@ -343,6 +367,15 @@
                 <text class="muted col_dur">{i.size}</text>
                 <text class="muted col_dur">{i.created}</text>
                 <StateCell kind="{i.in_use_kind}" label="{i.in_use_label}" />
+                <row class="col_act">
+                  <button
+                    if="{i.in_use_label}"
+                    equals="SEM USO"
+                    class="dk_rm"
+                    on_click="docker_rm_image:{i.id_full}"
+                    text="Remover"
+                  />
+                </row>
               </row>
               <rule />
             </column>
@@ -354,6 +387,15 @@
                 <text class="muted col_dur">{i.size}</text>
                 <text class="muted col_dur">{i.created}</text>
                 <StateCell kind="{i.in_use_kind}" label="{i.in_use_label}" />
+                <row class="col_act">
+                  <button
+                    if="{i.in_use_label}"
+                    equals="SEM USO"
+                    class="dk_rm"
+                    on_click="docker_rm_image:{i.id_full}"
+                    text="Remover"
+                  />
+                </row>
               </row>
               <rule />
             </column>
@@ -388,7 +430,8 @@
         <text class="th col_svc">NOME</text>
         <text class="th col_proj">DRIVER</text>
         <text class="th col_dur">TAMANHO</text>
-        <text class="th col_start">USO</text>
+        <text class="th col_state">USO</text>
+        <text class="th col_act">AÇÃO</text>
       </row>
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
@@ -408,6 +451,7 @@
                   <text class="td col_proj">{v.driver}</text>
                   <text class="muted col_dur">{v.size}</text>
                   <StateCell kind="{v.in_use_kind}" label="{v.in_use_label}" />
+                  <row class="col_act" />
                 </row>
                 <rule />
               </column>
@@ -419,6 +463,15 @@
                 <text class="td col_proj">{v.driver}</text>
                 <text class="muted col_dur">{v.size}</text>
                 <StateCell kind="{v.in_use_kind}" label="{v.in_use_label}" />
+                <row class="col_act">
+                  <button
+                    if="{v.in_use_label}"
+                    equals="SEM USO"
+                    class="dk_rm"
+                    on_click="docker_rm_volume:{v.name}"
+                    text="Remover"
+                  />
+                </row>
               </row>
               <rule />
             </column>
@@ -452,7 +505,8 @@
         <text class="th col_proj">PROJETO</text>
         <text class="th col_dur">DRIVER</text>
         <text class="th col_dur">CONTAINERS</text>
-        <text class="th col_start">USO</text>
+        <text class="th col_state">USO</text>
+        <text class="th col_act">AÇÃO</text>
       </row>
       <if cond="{data_loading}" equals="true">
         <LoadingRow />
@@ -473,6 +527,15 @@
                   <text class="muted col_dur">{n.driver}</text>
                   <text class="muted col_dur">{n.containers}</text>
                   <StateCell kind="{n.in_use_kind}" label="{n.in_use_label}" />
+                  <row class="col_act">
+                    <button
+                      if="{n.in_use_label}"
+                      equals="SEM USO"
+                      class="dk_rm"
+                      on_click="docker_rm_network:{n.id_full}"
+                      text="Remover"
+                    />
+                  </row>
                 </row>
                 <rule />
               </column>
@@ -486,6 +549,15 @@
                   <text class="muted col_dur">{n.driver}</text>
                   <text class="muted col_dur">{n.containers}</text>
                   <StateCell kind="{n.in_use_kind}" label="{n.in_use_label}" />
+                  <row class="col_act">
+                    <button
+                      if="{n.in_use_label}"
+                      equals="SEM USO"
+                      class="dk_rm"
+                      on_click="docker_rm_network:{n.id_full}"
+                      text="Remover"
+                    />
+                  </row>
                 </row>
                 <rule />
               </column>
