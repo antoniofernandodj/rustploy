@@ -15,6 +15,12 @@ TimeoutStopSec=30
 
 RuntimeDirectory=rustploy
 RuntimeDirectoryMode=0755
+# Sem isso, `systemctl restart rustployd` apaga /run/rustploy inteiro no stop
+# (comportamento padrão de RuntimeDirectory=) e leva junto o fw.sock que
+# rustployd-fw.socket já tinha vinculado ali — o socket some do disco mas
+# `systemctl status rustployd-fw.socket` continua reportando active/listening
+# (o fd do systemd segue aberto, só a entrada no diretório é que sume).
+RuntimeDirectoryPreserve=yes
 StateDirectory=rustploy
 ConfigurationDirectory=rustploy
 
