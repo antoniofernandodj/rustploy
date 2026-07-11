@@ -4,11 +4,13 @@ mod deploy;
 mod docker;
 mod env_backup;
 mod event_bus;
+mod firewall;
 mod git_providers;
 mod health;
 mod ingress;
 mod logs;
 mod metrics;
+mod ports;
 mod secrets;
 mod watchdog;
 

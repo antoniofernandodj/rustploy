@@ -64,6 +64,10 @@ chmod 640 "$CONFIG" 2>/dev/null || true
 if [ "$1" = "configure" ]; then
     systemctl daemon-reload              >/dev/null 2>&1 || true
     systemctl enable  rustployd          >/dev/null 2>&1 || true
+    # Helper privilegiado de firewall (socket activation): o daemon pede
+    # allow/deny de portas externas via /run/rustploy/fw.sock.
+    systemctl enable  rustployd-fw.socket >/dev/null 2>&1 || true
+    systemctl restart rustployd-fw.socket >/dev/null 2>&1 || true
     systemctl restart rustployd          >/dev/null 2>&1 || true
 fi
 

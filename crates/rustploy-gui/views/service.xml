@@ -710,7 +710,14 @@
             on_click="dom_hostport_save"
             text="Salvar porta"
           />
+          <button class="btn_ghost"
+            on_click="dom_hostport_auto"
+            text="Automática"
+          />
         </row>
+        <text class="muted">
+          "Automática" aloca uma porta livre e a libera no firewall do host.
+        </text>
       </column>
 
       <!-- Deployments -->

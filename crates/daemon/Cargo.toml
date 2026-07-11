@@ -19,9 +19,12 @@ depends              = "$auto, docker.io | docker-ce"
 conf-files           = ["/etc/rustploy/config.toml"]
 maintainer-scripts   = "../../packaging/debian"
 assets = [
-    ["target/release/rustployd",          "usr/bin/rustployd",                   "755"],
-    ["../../packaging/config.toml",       "etc/rustploy/config.toml",            "644"],
-    ["../../packaging/rustployd.service", "lib/systemd/system/rustployd.service", "644"],
+    ["target/release/rustployd",             "usr/bin/rustployd",                       "755"],
+    ["target/release/rustployd-fw",          "usr/libexec/rustployd-fw",                "755"],
+    ["../../packaging/config.toml",          "etc/rustploy/config.toml",                "644"],
+    ["../../packaging/rustployd.service",    "lib/systemd/system/rustployd.service",    "644"],
+    ["../../packaging/rustployd-fw.socket",  "lib/systemd/system/rustployd-fw.socket",  "644"],
+    ["../../packaging/rustployd-fw.service", "lib/systemd/system/rustployd-fw.service", "644"],
 ]
 
 [dependencies]

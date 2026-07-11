@@ -5,6 +5,7 @@ members = [
     "crates/shared",
     "crates/importer",
     "crates/rustploy-gui",
+    "crates/fw-helper",
 ]
 resolver = "2"
 

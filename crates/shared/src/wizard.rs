@@ -505,6 +505,11 @@ pub struct WizardCreateReq {
     pub image: String,
     pub use_replica: bool,
     pub template_values: Vec<String>,
+    /// Quando true, o serviço nasce com `host_port = Some(0)` — a sentinela que
+    /// faz o daemon alocar uma porta externa automaticamente (faixa
+    /// `[external_ports]` da config) e liberá-la no firewall via `rustployd-fw`.
+    /// Sem `serde(default)`: tipos de `Command` trafegam em postcard posicional.
+    pub expose_external: bool,
 }
 
 impl WizardCreateReq {
@@ -532,6 +537,16 @@ impl WizardCreateReq {
 /// Monta o `ServiceSpec` a partir da requisição do wizard. `Err` para tipo/id
 /// desconhecido.
 pub fn build_spec(req: &WizardCreateReq) -> Result<ServiceSpec, String> {
+    let mut spec = build_spec_inner(req)?;
+    if req.expose_external {
+        // Sentinela "aloque para mim": o handler service_create troca o 0 por
+        // uma porta livre da faixa configurada antes de persistir.
+        spec.host_port = Some(0);
+    }
+    Ok(spec)
+}
+
+fn build_spec_inner(req: &WizardCreateReq) -> Result<ServiceSpec, String> {
     let name = req.effective_name();
     match req.kind.as_str() {
         "application" => Ok(app_spec(name, req.project_id.clone())),

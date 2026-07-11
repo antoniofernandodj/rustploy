@@ -181,7 +181,7 @@ deb-gui: ## Pacote .deb do remote-gui p/ Linux (apaga dist e regera)
 
 .PHONY: deb-daemon
 deb-daemon: ## Compila e gera apenas o .deb do daemon
-	cargo build --release -p daemon
+	cargo build --release -p daemon -p fw-helper
 	cargo deb -p daemon --no-build
 	@echo ""
 	@echo "$(GREEN)Pacote gerado:$(RESET)"

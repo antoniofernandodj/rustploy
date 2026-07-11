@@ -30,6 +30,42 @@ pub struct RustployConfig {
     pub api: ApiConfig,
     #[serde(default)]
     pub env_backup: EnvBackupConfig,
+    #[serde(default)]
+    pub external_ports: ExternalPortsConfig,
+}
+
+/// Faixa de portas de host que o rustploy pode alocar automaticamente para
+/// exposição externa de serviços TCP (`ServiceSpec.host_port`). Também é a
+/// única faixa que o helper privilegiado de firewall (`rustployd-fw`) aceita
+/// liberar/bloquear — portas fora dela são recusadas por construção.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExternalPortsConfig {
+    #[serde(default = "default_external_range_start")]
+    pub range_start: u16,
+    #[serde(default = "default_external_range_end")]
+    pub range_end: u16,
+}
+
+fn default_external_range_start() -> u16 {
+    20000
+}
+fn default_external_range_end() -> u16 {
+    20999
+}
+
+impl Default for ExternalPortsConfig {
+    fn default() -> Self {
+        Self {
+            range_start: default_external_range_start(),
+            range_end: default_external_range_end(),
+        }
+    }
+}
+
+impl ExternalPortsConfig {
+    pub fn contains(&self, port: u16) -> bool {
+        port >= self.range_start && port <= self.range_end
+    }
 }
 
 /// Configuration for the HTTP/JSON + SSE control API — o canal administrativo remoto.
@@ -175,6 +211,7 @@ impl Default for RustployConfig {
             },
             api: ApiConfig::default(),
             env_backup: EnvBackupConfig::default(),
+            external_ports: ExternalPortsConfig::default(),
         }
     }
 }

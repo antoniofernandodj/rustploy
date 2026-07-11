@@ -2,7 +2,13 @@ use crate::api::AppState;
 use shared::{Response as RpResponse, ServiceSource, ServiceSpec};
 use tracing::info;
 
-pub async fn handle(state: AppState, spec: ServiceSpec) -> RpResponse {
+pub async fn handle(state: AppState, mut spec: ServiceSpec) -> RpResponse {
+    // Sentinela 0 → aloca porta externa da faixa configurada; porta manual
+    // duplicada → erro antes de persistir.
+    if let Err(e) = crate::ports::resolve_host_port(&state.db, &mut spec, None).await {
+        return RpResponse::err("PortAllocationError", e);
+    }
+
     info!(
         name = %spec.name,
         project_id = %spec.project_id,
@@ -20,6 +26,9 @@ pub async fn handle(state: AppState, spec: ServiceSpec) -> RpResponse {
     match crate::db::services::create(&state.db, spec).await {
         Ok(s) => {
             info!(service_id = %s.id, name = %s.spec.name, "service_create: serviço criado no banco");
+            if let Some(port) = s.spec.host_port {
+                crate::firewall::ensure_allowed_bg(port);
+            }
             RpResponse::Service(s)
         }
         Err(e) => {

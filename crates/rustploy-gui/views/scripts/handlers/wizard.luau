@@ -112,6 +112,7 @@ function ns_db(id: string): ()
             ctx.ns_db_password = token_urlsafe(22)
             ctx.ns_db_root_password = token_urlsafe(22)
             ctx.ns_use_replica = "false"
+            ctx.ns_expose_external = "false"
             ctx.ns_db_has_dbname = d.has_db_name and "true" or "false"
             ctx.ns_db_has_user = d.has_user and "true" or "false"
             ctx.ns_db_has_rootpw = d.has_rootpw and "true" or "false"
@@ -139,6 +140,7 @@ function ns_broker(id: string): ()
             ctx.ns_db_password = token_urlsafe(22)
             ctx.ns_db_root_password = ""
             ctx.ns_use_replica = "false"
+            ctx.ns_expose_external = "false"
             ctx.ns_db_has_dbname = "false"
             ctx.ns_db_has_user = b.has_user and "true" or "false"
             ctx.ns_db_has_rootpw = "false"
@@ -244,6 +246,9 @@ function ns_create(): ()
         image = Helpers.trim(ctx.ns_image),
         use_replica = (ctx.ns_use_replica == "true"),
         template_values = tvals,
+        -- Porta externa automática + liberação no firewall (daemon aloca da
+        -- faixa [external_ports]; sentinela host_port=0 no build_spec).
+        expose_external = (ctx.ns_expose_external == "true"),
     }
     ctx.ns_msg = "criando…"
     local ok, res = api:rpc_checked({ WizardCreate = req })

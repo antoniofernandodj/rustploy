@@ -1,0 +1,16 @@
+[Unit]
+Description=Rustploy firewall helper socket
+PartOf=rustployd-fw.service
+
+[Socket]
+ListenStream=/run/rustploy/fw.sock
+# Só root e o daemon (grupo rustploy) conseguem conectar.
+SocketUser=root
+SocketGroup=rustploy
+SocketMode=0660
+# /run/rustploy também é criado pelo RuntimeDirectory= do rustployd.service;
+# declarar aqui garante o diretório mesmo que o socket suba primeiro.
+ExecStartPre=/bin/mkdir -p /run/rustploy
+
+[Install]
+WantedBy=sockets.target

@@ -327,6 +327,15 @@ function dom_hostport_save(): ()
     end)
 end
 
+-- Sentinela 0 = "aloque para mim": o daemon troca por uma porta livre da faixa
+-- [external_ports] e a libera no firewall (rustployd-fw). O fetch pós-update do
+-- with_spec já re-renderiza svc_host_port/svc_external_url com a porta real.
+function dom_hostport_auto(): ()
+    with_spec(function(spec: any): ()
+        spec.host_port = 0
+    end)
+end
+
 function compose_save(): ()
     with_spec(function(spec: any): ()
         if spec.source.Compose then

@@ -36,3 +36,11 @@ history_points = 60
 
 [secrets]
 master_key_path = "/etc/rustploy/master.key"
+
+# Faixa de portas de host que o rustploy aloca automaticamente para exposição
+# externa de serviços TCP (bancos, brokers…) — o "host_port" automático.
+# Também é a ÚNICA faixa que o helper privilegiado de firewall (rustployd-fw)
+# aceita liberar/bloquear no ufw; portas fora dela são recusadas.
+[external_ports]
+range_start = 20000
+range_end   = 20999

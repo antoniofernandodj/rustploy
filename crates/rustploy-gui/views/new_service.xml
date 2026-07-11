@@ -281,6 +281,16 @@
             on_toggle="field:ns_use_replica"
           />
 
+          <checkbox
+            label="Gerar URL de conexão externa (porta e firewall automáticos)"
+            checked="ns_expose_external"
+            on_toggle="field:ns_expose_external"
+          />
+          <text if="{ns_expose_external}" equals="true" class="muted">
+            O serviço ficará acessível pela internet numa porta alocada pelo
+            rustploy, protegido pela senha acima.
+          </text>
+
           <text class="label_cap">DOCKER IMAGE</text>
           <row class="kv_row">
             <text class="kv_val_fill">{ns_image}</text>

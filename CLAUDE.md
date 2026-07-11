@@ -60,6 +60,7 @@ Default master key: `/etc/rustploy/master.key`
 | `daemon` | `rustployd` | Long-running server: API, DB, Docker, ingress, deploy engine |
 | `client` | `rustploy` | Ratatui TUI that talks to the daemon |
 | `rustploy-gui` | `rustploy-gui` | glacier-ui (XML→iced) desktop client. Toda a rede/lógica de negócio vive em Luau (`views/scripts/`, pacotes `fmt/`/`handlers/`/`net/` — ver `docs/luau-modularizacao-pacotes.md`), falando com o daemon pela **API HTTP/JSON + SSE** (`crates/daemon/src/api/http_api.rs`), não pelo UDS local. |
+| `fw-helper` | `rustployd-fw` | Helper privilegiado de firewall (roda como root via socket activation em `/run/rustploy/fw.sock`). O daemon pede allow/deny de portas externas (`daemon/src/firewall.rs`); o helper só aceita portas dentro da faixa `[external_ports]` da config e só fala com o ufw. Sem dependência da crate `shared`, de propósito. Ver `docs/relatorio-porta-externa-automatica.md`. |
 
 ### IPC protocol
 

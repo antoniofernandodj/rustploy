@@ -1,0 +1,20 @@
+[Unit]
+Description=Rustploy firewall helper (allow/deny de portas externas via ufw)
+Requires=rustployd-fw.socket
+
+[Service]
+Type=simple
+# Root de propósito: é o único processo privilegiado do rustploy, com
+# superfície mínima (só allow/deny de portas TCP dentro da faixa
+# [external_ports] da config — ver crates/fw-helper/src/main.rs).
+ExecStart=/usr/libexec/rustployd-fw
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rustployd-fw
+
+# Hardening: nada de home, /tmp privado, sistema de arquivos só-leitura
+# (o ufw escreve em /etc/ufw e /run — liberados explicitamente).
+ProtectHome=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/etc/ufw /lib/ufw /run

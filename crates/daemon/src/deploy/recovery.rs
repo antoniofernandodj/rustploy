@@ -345,6 +345,9 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
                 ips.iter().map(|ip| format!("{ip}:{}", svc.spec.port)).collect();
             ingress.upsert_port_route(host_port, backends.clone());
             info!(service = svc.spec.name, host_port, ?backends, "port routes restored");
+            // Auto-cura: se o admin resetou o ufw (ou o SO foi reinstalado), a
+            // regra da porta volta sozinha junto com a rota.
+            crate::firewall::ensure_allowed_bg(host_port);
         }
     }
 }

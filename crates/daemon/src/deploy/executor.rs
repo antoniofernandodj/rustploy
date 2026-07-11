@@ -520,6 +520,7 @@ impl DeployExecutor {
                         "step[SwappingIn]: atualizando rota de porta no ingress"
                     );
                     self.ingress.upsert_port_route(host_port, backends);
+                    self.ensure_firewall(&dep.id, &svc.id, host_port).await;
                 }
                 if svc.spec.domain_routes().is_empty() && svc.spec.host_port.is_none() {
                     info!(
@@ -832,6 +833,7 @@ impl DeployExecutor {
                             let backend = format!("{}:{}", ips[0], svc.spec.port);
                             info!(deployment_id = %dep.id, host_port, backend, "ComposingUp: registrando rota de porta");
                             self.ingress.upsert_port_route(host_port, vec![backend]);
+                            self.ensure_firewall(&dep.id, &svc.id, host_port).await;
                         }
                     }
                 }
@@ -1010,6 +1012,24 @@ impl DeployExecutor {
     }
 
     /// Persiste uma linha de log de build no banco e a publica no event bus.
+    /// Garante a liberação da porta externa no firewall do host (helper
+    /// `rustployd-fw`) e registra o resultado no deploy log. Idempotente — rodar
+    /// a cada deploy também re-cria a regra caso o admin a tenha removido.
+    /// Falha nunca aborta o deploy (pior caso = porta bloqueada, como antes).
+    async fn ensure_firewall(&self, deployment_id: &str, service_id: &str, host_port: u16) {
+        let line = match crate::firewall::ensure_allowed(host_port).await {
+            Ok(backend) if backend == "none" => format!(
+                "--> Porta externa {host_port} exposta (nenhum firewall ativo no host)"
+            ),
+            Ok(backend) => format!("--> Porta externa {host_port} liberada no firewall ({backend})"),
+            Err(e) => format!(
+                "--> Aviso: não foi possível liberar a porta {host_port} no firewall: {e}. \
+                 Se a conexão externa falhar, libere-a manualmente."
+            ),
+        };
+        self.log_step(deployment_id, service_id, &line).await;
+    }
+
     async fn log_step(&self, deployment_id: &str, service_id: &str, line: &str) {
         let ts = chrono::Utc::now();
         let _ = crate::db::build_logs::append(&self.db, deployment_id, line, ts).await;
