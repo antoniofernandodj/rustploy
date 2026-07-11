@@ -36,6 +36,10 @@ declare function open_window(opts: any): ()
 declare function broadcast(event: string, payload: any?): ()
 declare function close_window(): ()
 
+-- Anexa texto ao fim do <textarea> ligado a `binding` (chave do `value`), de
+-- forma incremental (o motor insere no Content sem recriá-lo — preserva scroll).
+declare function append_textarea(binding: string, text: string): ()
+
 declare json: {
     decode: (s: string) -> any,
     encode: (v: any) -> string,

@@ -43,6 +43,7 @@
 .lw_title  { size: 13; bold: true; color: var(--text); }
 .lw_count  { width: fill; size: 11; color: var(--muted); }
 .lw_scroll { width: fill; height: fill; background: var(--surface); border-radius: 8; padding: 10; }
+.lw_editor { width: fill; height: fill; background: var(--surface); border-radius: 8; padding: 10 12; font: mono; }
 </style>
 
 <column class="screen">
@@ -81,14 +82,17 @@
           <button class="tab" on_click="clipboard:lw_logs_text" text="Copiar tudo" />
         </row>
 
-        <scrollable direction="vertical" class="lw_scroll">
-          <column class="log_body">
-            <row class="log_line" for-each="lw_logs" var="l">
-              <text class="log_time">{l.time}</text>
-              <text class="log_text" color="{l.color}">{l.line}</text>
-            </row>
-          </column>
-        </scrollable>
+        <!-- Corpo = <textarea> (text_editor do iced): texto SELECIONÁVEL e
+          copiável (arrastar + Ctrl+C). Cada linha nova é APPENDADA no fim via
+          append_textarea (o motor insere incrementalmente, sem recriar o buffer
+          — preserva o scroll), então rolar o log não "pula pro topo" nem apaga a
+          seleção a cada linha. Ver log_window.luau. -->
+        <textarea
+          class="lw_editor"
+          font="mono"
+          value="lw_logs_text"
+          placeholder="(sem logs ainda — aguardando o serviço emitir saída)"
+        />
       </column>
 
     </column>
