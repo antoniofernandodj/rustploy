@@ -60,8 +60,8 @@ fn log_window_renders() {
     let mut m = GlacierUI::new();
     m.define_data("api_url", "http://localhost");
     m.define_data("api_token", "t");
-    m.define_data("lw_service_id", "svc1");
-    m.define_data("lw_service_name", "api");
+    m.define_data("lw_title", "Logs · api");
+    m.define_data("lw_stream_url", "/api/services/svc1/logs");
     m.define_data(
         "lw_seed",
         r#"[{"stream":"Stdout","line":"hello","timestamp":"2026-07-10T23:00:00Z"}]"#,

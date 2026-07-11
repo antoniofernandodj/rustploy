@@ -25,12 +25,6 @@ function open_service(id: string): ()
     ctx.dep_selected = ""
     ctx.svc_action_msg = ""
     ctx.svc_action_color = "#8B949E"
-    State.blog_buf = {}
-    State.svc_logs_buf = {}
-    -- Ao reabrir um serviço o seed abaixo (linhas ctx.svc_logs*) reflete o ring
-    -- na hora; zera o debounce p/ não deixar resíduo pendente da sessão anterior.
-    State.svc_logs_dirty = false
-    State.blog_dirty = false
     if State.deploy_track.service_id ~= id then
         ctx.svc_deploy_running = "false"
         ctx.svc_deploy_elapsed = ""
@@ -69,11 +63,9 @@ function M.fetch_service_detail(sid: string): ()
         end
     end
 
-    -- Logs recentes (seed do ring vivo) + histórico de deployments.
-    local logs = {}
-    local okl, resl = api:rpc({ LogsGet = { service_id = sid, tail = State.LOG_RING } })
-    if okl and resl.Logs then logs = resl.Logs end
-    State.svc_logs_buf = logs
+    -- Runtime logs NÃO são carregados aqui: vivem só na janela isolada de logs
+    -- (open_logs_window, que busca o próprio tail). A janela principal não os
+    -- renderiza nem os transmite, para não pagar reavaliação por linha.
     local deployments = {}
     local okd, resd = api:rpc({ DeployHistory = { service_id = sid, limit = 30 } })
     if okd and resd.Deployments then deployments = resd.Deployments end
@@ -196,9 +188,6 @@ function M.fetch_service_detail(sid: string): ()
     local dotenv = fmt.env_dotenv_with_comments(spec.env_vars, spec.env_comments)
     ctx.svc_env_text = dotenv
     ctx.svc_env_text_orig = dotenv
-    ctx.svc_logs = fmt.logs_json(logs)
-    ctx.svc_logs_count = tostring(#logs)
-    ctx.svc_logs_text = fmt.join_log_lines(logs)
     ctx.svc_deployments = fmt.deployments_detail(deployments)
     ctx.svc_deployments_count = tostring(#deployments)
     -- Campos editáveis.
@@ -578,18 +567,37 @@ end
 
 -- ── Deployments (build log + delete) ────────────────────────────────────────
 
+-- Abre os build logs de um deployment numa JANELA à parte (mesma janela genérica
+-- dos runtime logs — ver open_logs_window). Busca o histórico na hora via
+-- GetBuildLogs (ação despachada → fetch funciona) e semeia; a janela então segue
+-- ao vivo pelo endpoint dedicado /api/deployments/<id>/build-logs. Isola o custo
+-- de rolar milhares de linhas de build fora da árvore da janela principal.
 function dep_logs(id: string): ()
-    local api = State.api
-    if not api then
+    if not id or id == "" then
         return
     end
-    ctx.dep_selected = id
-    local ok, res = api:rpc({ GetBuildLogs = { deployment_id = id } })
-    local lines = (ok and res.BuildLogs) or {}
-    State.blog_buf = lines
-    ctx.dep_build_logs = fmt.build_logs_json(lines)
-    ctx.dep_build_count = tostring(#lines)
-    ctx.dep_build_text = fmt.join_log_lines(lines)
+    local seed = "[]"
+    local api = State.api
+    if api then
+        local ok, res = api:rpc({ GetBuildLogs = { deployment_id = id } })
+        if ok and res.BuildLogs then
+            seed = json.encode(res.BuildLogs)
+        end
+    end
+    open_window({
+        file = "crates/rustploy-gui/views/log_window.xml",
+        title = "Build — " .. string.sub(id, 1, 12),
+        width = 900,
+        height = 560,
+        resizable = true,
+        data = {
+            api_url = ctx.api_url or "",
+            api_token = ctx.api_token or "",
+            lw_title = "Build logs · " .. string.sub(id, 1, 12),
+            lw_stream_url = "/api/deployments/" .. id .. "/build-logs",
+            lw_seed = seed,
+        },
+    })
 end
 
 function delete_deployment(id: string): ()
@@ -776,8 +784,8 @@ function open_logs_window(): ()
         data = {
             api_url = ctx.api_url or "",
             api_token = ctx.api_token or "",
-            lw_service_id = sid,
-            lw_service_name = ctx.svc_name or sid,
+            lw_title = "Logs · " .. (ctx.svc_name or sid),
+            lw_stream_url = "/api/services/" .. sid .. "/logs",
             lw_seed = seed,
         },
     })

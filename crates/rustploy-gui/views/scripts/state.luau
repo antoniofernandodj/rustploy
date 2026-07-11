@@ -28,20 +28,12 @@ export type State = {
     last_pairs: { any },               -- serviços normalizados { svc, proj } do snapshot
     metrics_by_id: { [string]: any },  -- service_id → ContainerMetricsPoint (bus)
     search_term: string,              -- termo de busca corrente (minúsculas)
-    svc_logs_buf: { any },             -- ring de logs vivos do serviço aberto (LogLine)
-    blog_buf: { any },                 -- ring de build logs do deployment selecionado
-    -- Debounce dos logs: reconstruir o JSON/textão + reparse do <textarea> a cada
-    -- LogLine é O(n) por linha (O(n²) numa rajada) e trava a UI. Acumulamos no
-    -- ring e só recalculamos o ctx a cada LOG_FLUSH_SECS (ou no snapshot ~2s).
-    svc_logs_dirty: boolean,           -- há linhas no ring ainda não refletidas no ctx
-    svc_logs_flush_at: number,         -- os.clock() mínimo p/ o próximo flush
-    blog_dirty: boolean,
-    blog_flush_at: number,
+    -- Logs (runtime/build) NÃO vivem mais aqui: cada tipo roda numa janela
+    -- isolada (log_window.luau) com seu próprio ring e SSE dedicada, para não
+    -- pesar na reavaliação da árvore da janela principal. Ver handlers/services
+    -- (open_logs_window / dep_logs) e o daemon (endpoints /api/.../logs).
     deploy_track: DeployTrack,
     ns_templates_all: { any },         -- catálogo completo de templates (filtrar busca)
-    LOG_RING: number,
-    BUILD_RING: number,
-    LOG_FLUSH_SECS: number,            -- intervalo mínimo entre flushes de log (s)
 }
 
 local S: State = {
@@ -51,17 +43,8 @@ local S: State = {
     last_pairs = {},
     metrics_by_id = {},
     search_term = "",
-    svc_logs_buf = {},
-    blog_buf = {},
-    svc_logs_dirty = false,
-    svc_logs_flush_at = 0,
-    blog_dirty = false,
-    blog_flush_at = 0,
     deploy_track = { service_id = "", deployment_id = "", running = false },
     ns_templates_all = {},
-    LOG_RING = 200,
-    BUILD_RING = 2000,
-    LOG_FLUSH_SECS = 0.1,
 }
 
 return S

@@ -176,7 +176,7 @@ async fn handle(
         (&Method::POST, "/api/rpc") => rpc(req, state).await,
         (&Method::GET, "/api/events") => events(state),
         (&Method::GET, "/api/health") => text(StatusCode::OK, "ok"),
-        // SSE dedicado de logs de um serviço: `/api/services/<id>/logs`.
+        // SSE dedicado de logs de runtime de um serviço: `/api/services/<id>/logs`.
         (&Method::GET, p) if p.starts_with("/api/services/") && p.ends_with("/logs") => {
             // strip_prefix + strip_suffix (não aritmética de índices) para o caso
             // sem id (`/api/services/logs`) cair fora em vez de fatiar inválido.
@@ -188,6 +188,20 @@ async fn handle(
                 text(StatusCode::NOT_FOUND, "not found")
             } else {
                 service_logs(state, id.to_string())
+            }
+        }
+        // SSE dedicado de build logs de um deployment: `/api/deployments/<id>/build-logs`.
+        (&Method::GET, p)
+            if p.starts_with("/api/deployments/") && p.ends_with("/build-logs") =>
+        {
+            let id = p
+                .strip_prefix("/api/deployments/")
+                .and_then(|s| s.strip_suffix("/build-logs"))
+                .unwrap_or("");
+            if id.is_empty() {
+                text(StatusCode::NOT_FOUND, "not found")
+            } else {
+                deployment_build_logs(state, id.to_string())
             }
         }
         _ => text(StatusCode::NOT_FOUND, "not found"),
@@ -241,78 +255,38 @@ fn events(state: AppState) -> Response<ApiBody> {
             return;
         }
 
-        // Firehose do dashboard: NÃO carrega `LogLine` de container. Logs de
-        // container de um serviço verborrágico (logando por request) chegam a
-        // centenas de linhas/s; entregá-los aqui forçaria a janela PRINCIPAL a
+        // Firehose do dashboard: NÃO carrega logs de container (`LogLine`) nem de
+        // build (`BuildLog`). Um serviço verborrágico (logando por request) emite
+        // centenas de linhas/s; entregá-las aqui forçaria a janela PRINCIPAL a
         // reavaliar sua árvore inteira por linha (todas as janelas do iced::daemon
-        // dividem uma thread de UI), congelando tudo. Eles vão pelo endpoint
-        // dedicado `/api/services/{id}/logs` (ver `service_logs`), consumido só
-        // pela janela de logs (motor leve). `BuildLog` (saída de `docker build`,
-        // limitada à duração de um deploy) segue aqui, ainda coalescido em lotes
-        // `bus_batch`; eventos não-log (métricas, deploy) seguem imediatos, com o
-        // lote escoado antes p/ preservar a ordem. Ver `on_state` no cliente.
-        const LOG_BATCH_MAX: usize = 400;
-        let mut log_batch: Vec<Event> = Vec::new();
-        let mut batch_flush = tokio::time::interval(
-            std::time::Duration::from_millis(80)
-        );
-        batch_flush.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-
+        // dividem UMA thread de UI), congelando tudo. Logs vão por endpoints
+        // dedicados, consumidos só pelas janelas de log ISOLADAS (motores leves):
+        //   • runtime → `/api/services/{id}/logs`         (ver `service_logs`)
+        //   • build   → `/api/deployments/{id}/build-logs` (ver `deployment_build_logs`)
+        // Aqui ficam só snapshot + eventos não-log (métricas, deploy, status),
+        // todos de baixa frequência e enviados imediatamente.
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
-                    // Escoa logs pendentes antes do snapshot (ordem).
-                    if !log_batch.is_empty()
-                        && send_log_batch(&tx, std::mem::take(&mut log_batch)).await.is_err()
-                    {
-                        break;
-                    }
                     if tx.send(
                         sse_frame("snapshot", &snapshot(&state).await)
                     ).await.is_err() {
                         break;
                     }
                 }
-                _ = batch_flush.tick() => {
-                    if !log_batch.is_empty()
-                        && send_log_batch(&tx, std::mem::take(&mut log_batch)).await.is_err()
-                    {
-                        break;
-                    }
-                }
                 r = bus_rx.recv() => match r {
                     Ok(ev) => {
-                        // LogLine de container não vai pelo firehose (ver acima) —
-                        // descartado aqui; a janela de logs o recebe pelo endpoint
-                        // dedicado. BuildLog é coalescido em lote.
-                        if matches!(ev, Event::LogLine { .. }) {
+                        // Logs (runtime/build) só pelos endpoints dedicados.
+                        if matches!(ev, Event::LogLine { .. } | Event::BuildLog { .. }) {
                             continue;
                         }
-                        if matches!(ev, Event::BuildLog { .. }) {
-                            log_batch.push(ev);
-                            // Teto de lote: limita latência/memória sob rajada extrema.
-                            if log_batch.len() >= LOG_BATCH_MAX
-                                && send_log_batch(&tx, std::mem::take(&mut log_batch)).await.is_err()
-                            {
+                        // Self-describing: the SSE client only sees `data:` (the
+                        // `event:` line is dropped), so tag the payload with
+                        // `kind:"bus"` and nest the event under `event`.
+                        let wrapped = serde_json::json!({ "kind": "bus", "event": ev });
+                        if let Ok(js) = serde_json::to_string(&wrapped) {
+                            if tx.send(sse_frame("bus", &js)).await.is_err() {
                                 break;
-                            }
-                        } else {
-                            // Não-log: escoa o lote pendente antes, p/ manter a ordem.
-                            if !log_batch.is_empty()
-                                && send_log_batch(&tx, std::mem::take(&mut log_batch)).await.is_err()
-                            {
-                                break;
-                            }
-                            // Self-describing: the SSE client only sees `data:` (the
-                            // `event:` line is dropped), so tag the payload with
-                            // `kind:"bus"` and nest the event under `event`.
-                            let wrapped = serde_json::json!(
-                                { "kind": "bus", "event": ev }
-                            );
-                            if let Ok(js) = serde_json::to_string(&wrapped) {
-                                if tx.send(sse_frame("bus", &js)).await.is_err() {
-                                    break;
-                                }
                             }
                         }
                     }
@@ -380,9 +354,61 @@ fn service_logs(state: AppState, service_id: String) -> Response<ApiBody> {
     sse_response(rx)
 }
 
-/// Response body comum dos endpoints SSE (`events`/`service_logs`): drena o
-/// `rx` para o corpo `text/event-stream`, com buffering de proxy desligado p/ os
-/// eventos saírem na hora através do ingress.
+/// `GET /api/deployments/{id}/build-logs`: SSE dedicado à saída de `docker build`
+/// de UM deployment. Gêmeo de `service_logs`, mas filtrando `Event::BuildLog` por
+/// `deployment_id`; existe para tirar os build logs do firehose (ver `events`) e
+/// os isolar na janela de build logs (motor leve). Não manda o histórico — a
+/// janela o semeia via `GetBuildLogs` em `open_window({data})`.
+fn deployment_build_logs(state: AppState, deployment_id: String) -> Response<ApiBody> {
+    let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(64);
+
+    tokio::spawn(async move {
+        use tokio::sync::broadcast::error::RecvError;
+        let mut bus_rx = state.bus.subscribe();
+        const LOG_BATCH_MAX: usize = 400;
+        let mut batch: Vec<Event> = Vec::new();
+        let mut batch_flush = tokio::time::interval(
+            std::time::Duration::from_millis(80)
+        );
+        batch_flush.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+        loop {
+            tokio::select! {
+                _ = batch_flush.tick() => {
+                    if !batch.is_empty()
+                        && send_log_batch(&tx, std::mem::take(&mut batch)).await.is_err()
+                    {
+                        break;
+                    }
+                }
+                r = bus_rx.recv() => match r {
+                    Ok(ev) => {
+                        let keep = matches!(
+                            &ev,
+                            Event::BuildLog { deployment_id: did, .. } if *did == deployment_id
+                        );
+                        if keep {
+                            batch.push(ev);
+                            if batch.len() >= LOG_BATCH_MAX
+                                && send_log_batch(&tx, std::mem::take(&mut batch)).await.is_err()
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    Err(RecvError::Lagged(_)) => continue,
+                    Err(RecvError::Closed) => break,
+                }
+            }
+        }
+    });
+
+    sse_response(rx)
+}
+
+/// Response body comum dos endpoints SSE (`events`/`service_logs`/
+/// `deployment_build_logs`): drena o `rx` para o corpo `text/event-stream`, com
+/// buffering de proxy desligado p/ os eventos saírem na hora através do ingress.
 fn sse_response(mut rx: tokio::sync::mpsc::Receiver<Bytes>) -> Response<ApiBody> {
     let stream = futures::stream::poll_fn(move |cx| {
         rx.poll_recv(cx)

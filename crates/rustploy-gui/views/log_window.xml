@@ -1,7 +1,9 @@
-<!-- Janela de LOGS AO VIVO de um serviço: motor Glacier próprio e ISOLADO do app
-  principal (aberto via open_window por handlers/services.luau::open_logs_window).
-  Recebe a conexão (api_url/api_token), o serviço-alvo (lw_service_id/lw_service_name)
-  e o tail inicial (lw_seed, JSON do ring atual) semeados por open_window({data}).
+<!-- Janela de LOGS AO VIVO (runtime OU build): motor Glacier próprio e ISOLADO do
+  app principal, aberta via open_window por handlers/services.luau
+  (open_logs_window / open_build_logs_window). Genérica — o script decide o tipo
+  pelos dados semeados por open_window({data}): api_url/api_token, lw_title,
+  lw_stream_url (endpoint SSE dedicado) e lw_seed (histórico inicial). Ver
+  scripts/log_window.luau.
 
   MOTIVO desta janela: o glacier reavalia TODOS os templates registrados a cada
   reavaliação; na janela principal (shell+home+service+wizard, com dezenas de
@@ -9,12 +11,9 @@
   coalescido a 30fps. Aqui o motor só tem ESTE template minúsculo, então cada
   reavaliação é trivial — o log rola liso independentemente da taxa de chegada.
 
-  O script (scripts/log_window.luau) abre sua PRÓPRIA SSE (sse() no init é
-  ligado pelo motor — só fetch no init é descartado; ver install_component no
-  glacier) e filtra LogLine pelo lw_service_id. Borderless (decorations=false):
-  titlebar + alças de resize custom, window:* tratados no runtime (app/mod.rs).
-  Relinka tema + app.gss (cada janela é um motor isolado; classes globais como
-  .log_line/.scroll_fill não vêm "de graça"). -->
+  Borderless (decorations=false): titlebar + alças de resize custom, window:*
+  tratados no runtime (app/mod.rs). Relinka tema + app.gss (cada janela é um
+  motor isolado; classes globais como .log_line/.scroll_fill não vêm "de graça"). -->
 <link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />
 <link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />
 
@@ -68,7 +67,7 @@
           on_double_click="window:maximize"
         >
           <text class="titlebar_dot">●</text>
-          <text class="titlebar_title">Logs — {lw_service_name}</text>
+          <text class="titlebar_title">{lw_title}</text>
         </row>
         <button class="win_btn"   on_click="window:minimize" text="—" />
         <button class="win_btn"   on_click="window:maximize" text="▢" />
@@ -77,7 +76,7 @@
 
       <column class="lw_body">
         <row class="lw_head">
-          <text class="lw_title">{lw_service_name}</text>
+          <text class="lw_title">{lw_title}</text>
           <text class="lw_count">{lw_count} linhas · ao vivo</text>
           <button class="tab" on_click="clipboard:lw_logs_text" text="Copiar tudo" />
         </row>

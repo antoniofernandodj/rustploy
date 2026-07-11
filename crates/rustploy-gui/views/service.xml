@@ -25,8 +25,7 @@
 .dep_logs_btn  { color: var(--border); padding: 7 15; border-radius: 6 }
 .dep_del_btn   { color: var(--danger); padding: 7 15; border-radius: 6 }
 .label_cap_fill { width: fill; size: 11; bold: true; color: var(--faint); }
-/* Logs / live output */
-.log_editor    { width: fill; height: fill; padding: 10 12; font: mono; }
+/* Logs (aba Logs = launcher da janela isolada; painel usado só p/ layout) */
 .log_panel     { width: fill; height: fill; background: var(--surface); border-radius: 12; border-width: 1; border-color: var(--border); padding: 14 16; spacing: 8; }
 .log_body      { width: fill; spacing: 2; }
 .log_line      { width: fill; spacing: 12; }
@@ -731,7 +730,7 @@
                   <button
                     class="dep_logs_btn"
                     on_click="dep_logs:{d.id_full}"
-                    text="Build log"
+                    text="Build log ↗"
                   />
                   <button
                     if="{d.can_delete}"
@@ -749,31 +748,8 @@
             </column>
           </column>
         </scrollable>
-
-        <!-- Cabeçalho + painel do build log: dois filhos condicionais → TAG if
-             (o atributo if= só esconderia o Row, deixando o log sempre visível). -->
-        <if cond="{dep_selected}" not_equals="">
-          <row class="env_head">
-            <text class="label_cap_fill">
-              BUILD LOG · {dep_build_count} linhas
-            </text>
-            <button
-              class="tab"
-              on_click="clipboard:dep_build_text"
-              text="Copiar tudo"
-            />
-          </row>
-          <column class="log_panel">
-            <scrollable direction="vertical" class="scroll_fill">
-              <column class="log_body">
-                <row class="log_line" for-each="dep_build_logs" var="l">
-                  <text class="log_time">{l.time}</text>
-                  <text class="log_text" color="{l.color}">{l.line}</text>
-                </row>
-              </column>
-            </scrollable>
-          </column>
-        </if>
+        <!-- Build log abre em JANELA isolada (dep_logs → open_window), não inline:
+             render de milhares de linhas por reavaliação travava a principal. -->
       </column>
 
       <!-- Healthcheck (editável) -->
@@ -906,29 +882,21 @@
         </row>
       </form>
 
-      <!-- Logs (texto selecionável + copiar) -->
+      <!-- Logs de runtime: vivem numa JANELA isolada (motor leve), não inline —
+        renderizar o stream aqui reavaliaria a árvore inteira da janela principal
+        por linha e a travava. A aba é só o launcher. -->
       <column if="{tab}" equals="logs" class="log_panel">
-        <row class="env_head">
-          <text class="muted_fill">
-            {svc_logs_count} linhas (tail) — para acompanhar ao vivo, abra em janela
-          </text>
+        <text class="muted">
+          Os logs de runtime abrem numa janela própria, isolada do restante do
+          app (para não travar a interface sob alto volume de logs).
+        </text>
+        <row class="env_add">
           <button
-            class="tab"
+            class="btn_primary"
             on_click="open_logs_window"
-            text="Abrir em janela"
-          />
-          <button
-            class="tab"
-            on_click="clipboard:svc_logs_text"
-            text="Copiar tudo"
+            text="Abrir logs em janela"
           />
         </row>
-        <textarea
-          class="log_editor"
-          font="mono"
-          value="svc_logs_text"
-          placeholder="(sem logs — o serviço precisa estar Running)"
-        />
       </column>
 
       <!-- Advanced (editável) -->
@@ -975,7 +943,8 @@
       </form>
     </column>
 
-    <!-- Painel lateral: status + live output -->
+    <!-- Painel lateral: status. O log ao vivo saiu daqui (era um for-each sempre
+      renderizado que a reavaliação processava a cada tick) — agora é janela. -->
     <column class="svc_aside">
       <column class="aside_panel">
         <text class="label_cap">STATUS</text>
@@ -987,15 +956,13 @@
       </column>
 
       <column class="aside_panel_fill">
-        <text class="label_cap">SAÍDA RECENTE (TAIL)</text>
-        <scrollable direction="vertical" class="scroll_fill">
-          <column class="log_body">
-            <row class="log_line" for-each="svc_logs" var="l">
-              <text class="log_time">{l.time}</text>
-              <text class="log_text" color="{l.color}">{l.line}</text>
-            </row>
-          </column>
-        </scrollable>
+        <text class="label_cap">LOGS</text>
+        <text class="muted">
+          Runtime e build logs abrem em janelas próprias (isoladas).
+        </text>
+        <row class="env_add">
+          <button class="tab" on_click="open_logs_window" text="Logs de runtime" />
+        </row>
       </column>
     </column>
   </row>
