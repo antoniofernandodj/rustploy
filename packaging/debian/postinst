@@ -19,10 +19,12 @@ chown -R rustploy:rustploy /etc/rustploy 2>/dev/null || true
 chmod 750 /etc/rustploy 2>/dev/null || true
 
 # Generate the RWP remote-admin block once, with a random token but disabled
-# by default. Appended only on first install (when no [rwp] section exists),
-# so it survives upgrades and never overwrites an admin's edits.
+# by default. Only on a genuine first install (dpkg passes an empty $2 when
+# there's no previously-configured version) — NOT merely "section absent",
+# so an admin who deletes [rwp] after install never gets it silently
+# reappended on the next upgrade/reinstall.
 CONFIG=/etc/rustploy/config.toml
-if [ -f "$CONFIG" ] && ! grep -q '^\[rwp\]' "$CONFIG"; then
+if [ -z "$2" ] && [ -f "$CONFIG" ] && ! grep -q '^\[rwp\]' "$CONFIG"; then
     TOKEN=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16)
     cat >> "$CONFIG" <<EOF
 
