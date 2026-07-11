@@ -25,12 +25,19 @@
 .nav_label_off { color: var(--muted); }
 
 @media (max-width: 900) {
-  .nav_row_on, .nav_row_off { padding: 11 0; spacing: 0; }
-  .nav_label_on, .nav_label_off { hidden: true; }
+  /* O GSS não suporta seletor agrupado por vírgula (".a, .b { }") — cada
+     classe precisa da sua própria declaração, dentro E fora de @media (um
+     ".a, .b {}" vira uma ÚNICA chave literal errada no dicionário de regras,
+     nunca casando com nenhuma classe real; ver diagnóstico que achou isso). */
+  .nav_row_on  { padding: 11 0; spacing: 0; }
+  .nav_row_off { padding: 11 0; spacing: 0; }
+  .nav_label_on  { hidden: true; }
+  .nav_label_off { hidden: true; }
   /* Com o rótulo escondido, o ícone é o único filho da linha — centraliza-se
      preenchendo a largura e usando text-align (não dá pra centralizar ao
      longo do eixo principal de uma row só com align-y/align-x). */
-  .nav_icon_on, .nav_icon_off { width: fill; text-align: center; }
+  .nav_icon_on  { width: fill; text-align: center; }
+  .nav_icon_off { width: fill; text-align: center; }
 }
 </style>
 

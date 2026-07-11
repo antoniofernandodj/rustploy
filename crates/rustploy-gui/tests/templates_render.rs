@@ -174,3 +174,44 @@ fn all_screens_and_service_tabs_render() {
         assert!(m.render("app").is_ok(), "render tab {tab}");
     }
 }
+
+/// Regressão: abaixo de 900px de largura a sidebar vira um trilho de ícones —
+/// o rótulo de cada NavItem (ex.: "Deploy Engine", "Projects (N)") precisa
+/// sumir (`hidden`), senão não cabe e quebra o layout (era exatamente esse o
+/// bug reportado: rótulos longos, sem espaço pra quebrar, bagunçando a
+/// sidebar). Descoberto assim: nav_item.xml usava seletor agrupado por vírgula
+/// dentro de `@media` (".nav_label_on, .nav_label_off { hidden: true; }") —
+/// o GSS não suporta agrupamento por vírgula (nem fora de `@media`); a string
+/// inteira virava uma ÚNICA chave, que nunca casava com nenhuma classe real,
+/// então a regra nunca era aplicada. Cada seletor precisa da própria
+/// declaração (ver nav_item.xml).
+#[test]
+fn sidebar_nav_label_hidden_below_900px() {
+    use glacier_ui::widget::EngineMessage;
+    let mut m = boot();
+    m.define_data("screen", "shell");
+    m.define_data("view", "deployments");
+    m.reevaluate_all().expect("eval shell");
+    // Mesma largura que reproduziu o bug (persistida em
+    // rustploy-gui-window.json de uma sessão real).
+    let _ = m.dispatch(&EngineMessage::Viewport { width: 731.0, height: 680.0 });
+
+    fn find_texts<'a>(node: &'a glacier_ui::parser::UiNode, out: &mut Vec<&'a glacier_ui::parser::UiNode>) {
+        if let glacier_ui::parser::NodeType::Text { content, .. } = &node.kind {
+            if content == "Deploy Engine" || content.starts_with("Projects (") {
+                out.push(node);
+            }
+        }
+        for child in &node.children {
+            find_texts(child, out);
+        }
+    }
+
+    let ast = m.evaluated_templates.get("app").expect("app evaluated");
+    let mut found = Vec::new();
+    find_texts(ast, &mut found);
+    assert_eq!(found.len(), 2, "esperava achar os rótulos \"Deploy Engine\" e \"Projects (N)\"");
+    for n in &found {
+        assert_eq!(n.hidden, Some(true), "rótulo {:?} deveria estar hidden abaixo de 900px", n.kind);
+    }
+}
