@@ -910,8 +910,13 @@
       <column if="{tab}" equals="logs" class="log_panel">
         <row class="env_head">
           <text class="muted_fill">
-            {svc_logs_count} linhas — selecione para copiar (Ctrl+C)
+            {svc_logs_count} linhas (tail) — para acompanhar ao vivo, abra em janela
           </text>
+          <button
+            class="tab"
+            on_click="open_logs_window"
+            text="Abrir em janela"
+          />
           <button
             class="tab"
             on_click="clipboard:svc_logs_text"
@@ -982,7 +987,7 @@
       </column>
 
       <column class="aside_panel_fill">
-        <text class="label_cap">LIVE OUTPUT</text>
+        <text class="label_cap">SAÍDA RECENTE (TAIL)</text>
         <scrollable direction="vertical" class="scroll_fill">
           <column class="log_body">
             <row class="log_line" for-each="svc_logs" var="l">

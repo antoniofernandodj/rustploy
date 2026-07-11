@@ -747,4 +747,40 @@ function gitea_repo_pick(full_name: string): ()
     end
 end
 
+-- Abre os logs ao vivo do serviço numa JANELA à parte (motor Glacier isolado e
+-- leve — ver log_window.xml/.luau). Semeia a conexão, o serviço-alvo e um tail
+-- FRESCO via open_window({data}); a janela abre sua própria SSE (endpoint
+-- dedicado) e rola os logs sem o custo de reavaliar a árvore inteira do app
+-- principal. Sendo uma ação despachada, o `fetch` do LogsGet aqui funciona (ao
+-- contrário do init de uma janela) — pegamos o tail na hora para não haver vão
+-- entre o que a principal tinha e o que a stream ao vivo passa a entregar.
+function open_logs_window(): ()
+    local sid = ctx.selected_service or ""
+    if sid == "" then
+        return
+    end
+    local seed = "[]"
+    local api = State.api
+    if api then
+        local ok, res = api:rpc({ LogsGet = { service_id = sid, tail = 500 } })
+        if ok and res.Logs then
+            seed = json.encode(res.Logs)
+        end
+    end
+    open_window({
+        file = "crates/rustploy-gui/views/log_window.xml",
+        title = "Logs — " .. (ctx.svc_name or sid),
+        width = 900,
+        height = 560,
+        resizable = true,
+        data = {
+            api_url = ctx.api_url or "",
+            api_token = ctx.api_token or "",
+            lw_service_id = sid,
+            lw_service_name = ctx.svc_name or sid,
+            lw_seed = seed,
+        },
+    })
+end
+
 return M

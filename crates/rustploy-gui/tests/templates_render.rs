@@ -51,6 +51,28 @@ fn new_project_form_window_renders() {
     assert!(m.render("new_project_form").is_ok(), "render new_project_form");
 }
 
+/// A janela de logs ao vivo (`log_window.xml` + `log_window.luau`) é um motor à
+/// parte, aberto por `open_logs_window`; validamos que registra e renderiza por
+/// conta própria — semeando a conexão + o serviço + o tail como `open_window`.
+#[test]
+fn log_window_renders() {
+    cd_ws_root();
+    let mut m = GlacierUI::new();
+    m.define_data("api_url", "http://localhost");
+    m.define_data("api_token", "t");
+    m.define_data("lw_service_id", "svc1");
+    m.define_data("lw_service_name", "api");
+    m.define_data(
+        "lw_seed",
+        r#"[{"stream":"Stdout","line":"hello","timestamp":"2026-07-10T23:00:00Z"}]"#,
+    );
+    m.register_component("log_window", "crates/rustploy-gui/views/log_window.xml")
+        .expect("log_window.xml must register");
+    m.set_initial_screen("log_window");
+    m.reevaluate_all().expect("eval log_window");
+    assert!(m.render("log_window").is_ok(), "render log_window");
+}
+
 /// O wizard "Novo serviço" (`new_service_window.xml`, que importa `new_service.xml`
 /// + `new_service_window.luau`) também é uma janela à parte, aberta por
 /// `open_new_service_window`. Validamos que registra e renderiza cada passo do

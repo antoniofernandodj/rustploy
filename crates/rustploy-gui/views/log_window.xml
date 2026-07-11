@@ -1,0 +1,107 @@
+<!-- Janela de LOGS AO VIVO de um serviço: motor Glacier próprio e ISOLADO do app
+  principal (aberto via open_window por handlers/services.luau::open_logs_window).
+  Recebe a conexão (api_url/api_token), o serviço-alvo (lw_service_id/lw_service_name)
+  e o tail inicial (lw_seed, JSON do ring atual) semeados por open_window({data}).
+
+  MOTIVO desta janela: o glacier reavalia TODOS os templates registrados a cada
+  reavaliação; na janela principal (shell+home+service+wizard, com dezenas de
+  for-each) isso é caro, e sob um stream de logs verborrágico satura a UI mesmo
+  coalescido a 30fps. Aqui o motor só tem ESTE template minúsculo, então cada
+  reavaliação é trivial — o log rola liso independentemente da taxa de chegada.
+
+  O script (scripts/log_window.luau) abre sua PRÓPRIA SSE (sse() no init é
+  ligado pelo motor — só fetch no init é descartado; ver install_component no
+  glacier) e filtra LogLine pelo lw_service_id. Borderless (decorations=false):
+  titlebar + alças de resize custom, window:* tratados no runtime (app/mod.rs).
+  Relinka tema + app.gss (cada janela é um motor isolado; classes globais como
+  .log_line/.scroll_fill não vêm "de graça"). -->
+<link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />
+<link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />
+
+<style>
+/* Alças de resize (moldura de 6px), iguais ao app.xml (janela borderless). */
+.rz_top    { width: fill; height: 6; }
+.rz_bottom { width: fill; height: 6; }
+.rz_mid    { width: fill; height: fill; }
+.rz_body   { width: fill; height: fill; }
+.rz_corner { width: 6; height: fill; }
+.rz_h      { width: fill; height: fill; cursor: resize-v; }
+.rz_v      { width: 6; height: fill; cursor: resize-h; }
+.rz_nw     { cursor: resize-nw; }
+.rz_ne     { cursor: resize-ne; }
+.rz_sw     { cursor: resize-sw; }
+.rz_se     { cursor: resize-se; }
+/* Titlebar custom (mesma linguagem visual do app.xml). */
+.titlebar       { width: fill; height: 32; background: var(--surface); align-y: center; }
+.titlebar_drag  { width: fill; height: fill; align-y: center; padding: 0 0 0 16; spacing: 9; }
+.titlebar_dot   { size: 10; color: var(--blue); }
+.titlebar_title { size: 12; bold: true; color: var(--muted); }
+.win_btn        { width: 48; padding: 5 0; color: var(--border); text-align: center; }
+.win_close      { width: 48; padding: 5 0; color: var(--danger); text-align: center; }
+
+.lw_body   { width: fill; height: fill; background: var(--bg); padding: 14; spacing: 10; }
+.lw_head   { width: fill; align-y: center; spacing: 12; }
+.lw_title  { size: 13; bold: true; color: var(--text); }
+.lw_count  { width: fill; size: 11; color: var(--muted); }
+.lw_scroll { width: fill; height: fill; background: var(--surface); border-radius: 8; padding: 10; }
+</style>
+
+<column class="screen">
+
+  <!-- Borda superior + cantos (n / nw / ne) -->
+  <row class="rz_top">
+    <column class="rz_corner rz_nw" on_press="window:resize:nw" />
+    <column class="rz_h" on_press="window:resize:n" />
+    <column class="rz_corner rz_ne" on_press="window:resize:ne" />
+  </row>
+
+  <!-- Banda central: borda esquerda | corpo | borda direita (w / e) -->
+  <row class="rz_mid">
+    <column class="rz_v" on_press="window:resize:w" />
+    <column class="rz_body">
+
+      <!-- Titlebar custom (borderless) -->
+      <row class="titlebar">
+        <row
+          class="titlebar_drag"
+          on_press="window:drag"
+          on_double_click="window:maximize"
+        >
+          <text class="titlebar_dot">●</text>
+          <text class="titlebar_title">Logs — {lw_service_name}</text>
+        </row>
+        <button class="win_btn"   on_click="window:minimize" text="—" />
+        <button class="win_btn"   on_click="window:maximize" text="▢" />
+        <button class="win_close" on_click="window:close"    text="✕" />
+      </row>
+
+      <column class="lw_body">
+        <row class="lw_head">
+          <text class="lw_title">{lw_service_name}</text>
+          <text class="lw_count">{lw_count} linhas · ao vivo</text>
+          <button class="tab" on_click="clipboard:lw_logs_text" text="Copiar tudo" />
+        </row>
+
+        <scrollable direction="vertical" class="lw_scroll">
+          <column class="log_body">
+            <row class="log_line" for-each="lw_logs" var="l">
+              <text class="log_time">{l.time}</text>
+              <text class="log_text" color="{l.color}">{l.line}</text>
+            </row>
+          </column>
+        </scrollable>
+      </column>
+
+    </column>
+    <column class="rz_v" on_press="window:resize:e" />
+  </row>
+
+  <!-- Borda inferior + cantos (s / sw / se) -->
+  <row class="rz_bottom">
+    <column class="rz_corner rz_sw" on_press="window:resize:sw" />
+    <column class="rz_h" on_press="window:resize:s" />
+    <column class="rz_corner rz_se" on_press="window:resize:se" />
+  </row>
+
+  <script src="scripts/log_window.luau"></script>
+</column>

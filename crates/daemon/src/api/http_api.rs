@@ -176,6 +176,20 @@ async fn handle(
         (&Method::POST, "/api/rpc") => rpc(req, state).await,
         (&Method::GET, "/api/events") => events(state),
         (&Method::GET, "/api/health") => text(StatusCode::OK, "ok"),
+        // SSE dedicado de logs de um serviço: `/api/services/<id>/logs`.
+        (&Method::GET, p) if p.starts_with("/api/services/") && p.ends_with("/logs") => {
+            // strip_prefix + strip_suffix (não aritmética de índices) para o caso
+            // sem id (`/api/services/logs`) cair fora em vez de fatiar inválido.
+            let id = p
+                .strip_prefix("/api/services/")
+                .and_then(|s| s.strip_suffix("/logs"))
+                .unwrap_or("");
+            if id.is_empty() {
+                text(StatusCode::NOT_FOUND, "not found")
+            } else {
+                service_logs(state, id.to_string())
+            }
+        }
         _ => text(StatusCode::NOT_FOUND, "not found"),
     })
 }
@@ -212,7 +226,7 @@ async fn rpc(
 /// periodic snapshot and every live bus event; the response body streams those
 /// frames out until the client disconnects (which closes the channel).
 fn events(state: AppState) -> Response<ApiBody> {
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<Bytes>(64);
+    let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(64);
 
     tokio::spawn(async move {
         use tokio::sync::broadcast::error::RecvError;
@@ -227,14 +241,16 @@ fn events(state: AppState) -> Response<ApiBody> {
             return;
         }
 
-        // Coalescência de eventos de log (LogLine/BuildLog): um container
-        // verborrágico (ex.: logando por request) emite centenas de linhas/s, e
-        // uma frame SSE por linha vira uma chamada de handler + reavaliação por
-        // linha no cliente. Acumulamos as linhas e as despachamos em lote a cada
-        // LOG_BATCH_INTERVAL (ou quando o lote fica grande), como uma frame
-        // `bus_batch` com um array de eventos. Eventos não-log (métricas, deploy)
-        // seguem imediatos; antes de cada um escoamos o lote pendente p/ preservar
-        // a ordem relativa. Ver `apply_snapshot`/`on_state` no cliente (Luau).
+        // Firehose do dashboard: NÃO carrega `LogLine` de container. Logs de
+        // container de um serviço verborrágico (logando por request) chegam a
+        // centenas de linhas/s; entregá-los aqui forçaria a janela PRINCIPAL a
+        // reavaliar sua árvore inteira por linha (todas as janelas do iced::daemon
+        // dividem uma thread de UI), congelando tudo. Eles vão pelo endpoint
+        // dedicado `/api/services/{id}/logs` (ver `service_logs`), consumido só
+        // pela janela de logs (motor leve). `BuildLog` (saída de `docker build`,
+        // limitada à duração de um deploy) segue aqui, ainda coalescido em lotes
+        // `bus_batch`; eventos não-log (métricas, deploy) seguem imediatos, com o
+        // lote escoado antes p/ preservar a ordem. Ver `on_state` no cliente.
         const LOG_BATCH_MAX: usize = 400;
         let mut log_batch: Vec<Event> = Vec::new();
         let mut batch_flush = tokio::time::interval(
@@ -266,7 +282,13 @@ fn events(state: AppState) -> Response<ApiBody> {
                 }
                 r = bus_rx.recv() => match r {
                     Ok(ev) => {
-                        if matches!(ev, Event::LogLine { .. } | Event::BuildLog { .. }) {
+                        // LogLine de container não vai pelo firehose (ver acima) —
+                        // descartado aqui; a janela de logs o recebe pelo endpoint
+                        // dedicado. BuildLog é coalescido em lote.
+                        if matches!(ev, Event::LogLine { .. }) {
+                            continue;
+                        }
+                        if matches!(ev, Event::BuildLog { .. }) {
                             log_batch.push(ev);
                             // Teto de lote: limita latência/memória sob rajada extrema.
                             if log_batch.len() >= LOG_BATCH_MAX
@@ -302,6 +324,66 @@ fn events(state: AppState) -> Response<ApiBody> {
         }
     });
 
+    sse_response(rx)
+}
+
+/// `GET /api/services/{id}/logs`: SSE dedicado aos logs de container de UM
+/// serviço. Existe para tirar o firehose de logs da janela principal (ver
+/// `events`): um produtor filtra `Event::LogLine` do serviço no bus e os
+/// entrega coalescidos em lotes `bus_batch` (mesma framing de `send_log_batch`),
+/// consumidos pela janela de logs (motor Glacier leve). Não manda snapshot nem o
+/// tail — a janela semeia o histórico inicial via `open_window({data})`.
+fn service_logs(state: AppState, service_id: String) -> Response<ApiBody> {
+    let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(64);
+
+    tokio::spawn(async move {
+        use tokio::sync::broadcast::error::RecvError;
+        let mut bus_rx = state.bus.subscribe();
+        const LOG_BATCH_MAX: usize = 400;
+        let mut batch: Vec<Event> = Vec::new();
+        let mut batch_flush = tokio::time::interval(
+            std::time::Duration::from_millis(80)
+        );
+        batch_flush.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+        loop {
+            tokio::select! {
+                _ = batch_flush.tick() => {
+                    if !batch.is_empty()
+                        && send_log_batch(&tx, std::mem::take(&mut batch)).await.is_err()
+                    {
+                        break;
+                    }
+                }
+                r = bus_rx.recv() => match r {
+                    Ok(ev) => {
+                        let keep = matches!(
+                            &ev,
+                            Event::LogLine { service_id: sid, .. } if *sid == service_id
+                        );
+                        if keep {
+                            batch.push(ev);
+                            if batch.len() >= LOG_BATCH_MAX
+                                && send_log_batch(&tx, std::mem::take(&mut batch)).await.is_err()
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    Err(RecvError::Lagged(_)) => continue,
+                    Err(RecvError::Closed) => break,
+                }
+            }
+        }
+    });
+
+    sse_response(rx)
+}
+
+/// Response body comum dos endpoints SSE (`events`/`service_logs`): drena o
+/// `rx` para o corpo `text/event-stream`, com buffering de proxy desligado p/ os
+/// eventos saírem na hora através do ingress.
+fn sse_response(mut rx: tokio::sync::mpsc::Receiver<Bytes>) -> Response<ApiBody> {
     let stream = futures::stream::poll_fn(move |cx| {
         rx.poll_recv(cx)
             .map(|opt| opt.map(|b| Ok::<_, Infallible>(Frame::data(b))))
