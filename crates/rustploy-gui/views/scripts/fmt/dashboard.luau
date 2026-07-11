@@ -211,7 +211,11 @@ function M.docker_images(list: {any}?, term: string?): string
         local tagstr = table.concat(img.tags or {}, " ")
         if Util.matches(term, { tagstr, img.project or "", img.service or "" }) then
             local in_use = (img.containers or 0) > 0
-            local tags = (#(img.tags or {}) == 0) and "<none>" or table.concat(img.tags, ", ")
+            -- Trunca por caractere (não por palavra): uma tag sem espaços mais
+            -- longa que a coluna estoura e sobrepõe as vizinhas (o Row não clipa
+            -- filhos) — mesmo caso do sha256 em docker_containers.
+            local tags = (#(img.tags or {}) == 0) and "<none>"
+                or Util.ellipsis(table.concat(img.tags, ", "), 34)
             local id = img.id or ""
             id = string.gsub(id, "^sha256:", "")
             table.insert(rows, {
@@ -292,11 +296,18 @@ function M.docker_containers(list: {any}?, term: string?): string
             else
                 owner = "—"
             end
+            -- A referência da imagem vira `sha256:<digest>` quando a tag original
+            -- some (imagem removida/reconstruída) — sem espaços, não quebra linha
+            -- e, sem truncar, estoura a coluna e sobrepõe as vizinhas (o Row não
+            -- clipa filhos). Tira o prefixo redundante (igual a docker_images) e
+            -- trunca por caractere (Util.ellipsis, não por palavra).
+            local image = c.image or "—"
+            image = string.gsub(image, "^sha256:", "")
             table.insert(rows, {
                 id_full = c.id or "",
                 id = string.sub(c.id or "", 1, 12),
                 name = c.name or "—",
-                image = c.image or "—",
+                image = Util.ellipsis(image, 44),
                 owner = owner,
                 state_label = label,
                 state_kind = kind,

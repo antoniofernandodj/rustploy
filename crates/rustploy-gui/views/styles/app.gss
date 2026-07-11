@@ -74,6 +74,11 @@
 .col_state  { width: 170; }
 .col_dur    { width: 150; }
 .col_start  { width: fill; }
+/* Coluna IMAGEM da sub-aba Containers (Docker): mais larga que col_proj porque
+   uma referência de imagem (registry/repo:tag ou sha256:<digest>) é tipicamente
+   mais longa que "projeto/serviço" — e, sem espaços, não quebra linha (ver
+   fmt.docker_containers, que trunca com Util.ellipsis para nunca estourar). */
+.col_img    { width: 340; }
 .panel_fill { width: fill; height: fill; background: var(--surface); border-radius: 14; border-width: 1; border-color: var(--border); padding: 4; }
 .form_panel { width: fill; max-width: 640; background: var(--surface); border-radius: 14; border-width: 1; border-color: var(--border); padding: 24; spacing: 10; }
 /* Ponto colorido do StateCell/rp-badge — compartilhado; o rótulo e a paleta
@@ -143,6 +148,7 @@
   .col_proj   { width: 120; }
   .col_state  { width: 130; }
   .col_dur    { width: 90; }
+  .col_img    { width: 220; }
   .form_panel { padding: 16; }
   .grid       { spacing: 10; }
   .card_row   { spacing: 10; }
@@ -156,6 +162,7 @@
   .col_proj   { width: 82; }
   .col_state  { width: 110; }
   .col_dur    { width: 64; }
+  .col_img    { width: 140; }
   .form_panel { padding: 12; }
   /* Em telas estreitas não há largura pra os cards de stat ao lado do título
      (empilhavam sobre o texto) nem pra a coluna INÍCIO — some com ambos

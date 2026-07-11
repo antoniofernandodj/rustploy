@@ -270,7 +270,7 @@
       <text if="{docker_msg}" not_equals="" class="muted">{docker_msg}</text>
       <row class="thead">
         <text class="th col_svc">NOME</text>
-        <text class="th col_proj">IMAGEM</text>
+        <text class="th col_img">IMAGEM</text>
         <text class="th col_state">DONO</text>
         <text class="th col_dur">ESTADO</text>
         <text class="th col_act">AÇÃO</text>
@@ -288,7 +288,7 @@
           <column class="row_wrap" for-each="docker_containers" var="c">
             <row class="trow">
               <text class="td_key col_svc">{c.name}</text>
-              <text class="td col_proj">{c.image}</text>
+              <text class="td col_img">{c.image}</text>
               <text class="muted col_state">{c.owner}</text>
               <StateCell kind="{c.state_kind}" label="{c.state_label}" />
               <row class="col_act">
