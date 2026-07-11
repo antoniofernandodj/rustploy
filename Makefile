@@ -202,7 +202,7 @@ install-daemon: deb-daemon ## Compila, empacota e instala apenas o daemon
 	@echo ""
 	@echo "$(BOLD)Status do helper de firewall:$(RESET)"
 	@sudo systemctl status rustployd-fw.socket --no-pager -l || true
-	@test -S /run/rustploy/fw.sock \
+	@sudo test -S /run/rustploy/fw.sock \
 		&& echo "$(GREEN)/run/rustploy/fw.sock ok$(RESET)" \
 		|| echo "$(RED)AVISO: /run/rustploy/fw.sock não existe — liberação automática de porta externa vai falhar$(RESET)"
 
