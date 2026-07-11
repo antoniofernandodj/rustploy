@@ -79,6 +79,7 @@
         <row class="lw_head">
           <text class="lw_title">{lw_title}</text>
           <text class="lw_count">{lw_count} linhas · ao vivo</text>
+          <button class="tab" on_click="textarea_top:lw_logs_text" text="Ao topo" />
           <button class="tab" on_click="textarea_end:lw_logs_text" text="Ir ao fim" />
           <button class="tab" on_click="clipboard:lw_logs_text" text="Copiar tudo" />
         </row>
