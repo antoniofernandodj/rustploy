@@ -30,7 +30,7 @@ use hyper::body::{Frame, Incoming};
 use hyper::service::service_fn;
 use hyper::{Method, Request, Response, StatusCode};
 use hyper_util::rt::TokioIo;
-use shared::{ApiConfig, Command, Response as RpResponse};
+use shared::{ApiConfig, Command, Event, Response as RpResponse};
 use tracing::{error, info, warn};
 
 use super::routes::dispatch;
@@ -227,26 +227,70 @@ fn events(state: AppState) -> Response<ApiBody> {
             return;
         }
 
+        // Coalescência de eventos de log (LogLine/BuildLog): um container
+        // verborrágico (ex.: logando por request) emite centenas de linhas/s, e
+        // uma frame SSE por linha vira uma chamada de handler + reavaliação por
+        // linha no cliente. Acumulamos as linhas e as despachamos em lote a cada
+        // LOG_BATCH_INTERVAL (ou quando o lote fica grande), como uma frame
+        // `bus_batch` com um array de eventos. Eventos não-log (métricas, deploy)
+        // seguem imediatos; antes de cada um escoamos o lote pendente p/ preservar
+        // a ordem relativa. Ver `apply_snapshot`/`on_state` no cliente (Luau).
+        const LOG_BATCH_MAX: usize = 400;
+        let mut log_batch: Vec<Event> = Vec::new();
+        let mut batch_flush = tokio::time::interval(
+            std::time::Duration::from_millis(80)
+        );
+        batch_flush.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
+                    // Escoa logs pendentes antes do snapshot (ordem).
+                    if !log_batch.is_empty()
+                        && send_log_batch(&tx, std::mem::take(&mut log_batch)).await.is_err()
+                    {
+                        break;
+                    }
                     if tx.send(
                         sse_frame("snapshot", &snapshot(&state).await)
                     ).await.is_err() {
                         break;
                     }
                 }
+                _ = batch_flush.tick() => {
+                    if !log_batch.is_empty()
+                        && send_log_batch(&tx, std::mem::take(&mut log_batch)).await.is_err()
+                    {
+                        break;
+                    }
+                }
                 r = bus_rx.recv() => match r {
                     Ok(ev) => {
-                        // Self-describing: the SSE client only sees `data:` (the
-                        // `event:` line is dropped), so tag the payload with
-                        // `kind:"bus"` and nest the event under `event`.
-                        let wrapped = serde_json::json!(
-                            { "kind": "bus", "event": ev }
-                        );
-                        if let Ok(js) = serde_json::to_string(&wrapped) {
-                            if tx.send(sse_frame("bus", &js)).await.is_err() {
+                        if matches!(ev, Event::LogLine { .. } | Event::BuildLog { .. }) {
+                            log_batch.push(ev);
+                            // Teto de lote: limita latência/memória sob rajada extrema.
+                            if log_batch.len() >= LOG_BATCH_MAX
+                                && send_log_batch(&tx, std::mem::take(&mut log_batch)).await.is_err()
+                            {
                                 break;
+                            }
+                        } else {
+                            // Não-log: escoa o lote pendente antes, p/ manter a ordem.
+                            if !log_batch.is_empty()
+                                && send_log_batch(&tx, std::mem::take(&mut log_batch)).await.is_err()
+                            {
+                                break;
+                            }
+                            // Self-describing: the SSE client only sees `data:` (the
+                            // `event:` line is dropped), so tag the payload with
+                            // `kind:"bus"` and nest the event under `event`.
+                            let wrapped = serde_json::json!(
+                                { "kind": "bus", "event": ev }
+                            );
+                            if let Ok(js) = serde_json::to_string(&wrapped) {
+                                if tx.send(sse_frame("bus", &js)).await.is_err() {
+                                    break;
+                                }
                             }
                         }
                     }
@@ -387,6 +431,23 @@ pub(crate) async fn snapshot(state: &AppState) -> String {
 /// never emits raw newlines), so a single `data:` line is safe.
 fn sse_frame(event: &str, data: &str) -> Bytes {
     Bytes::from(format!("event: {event}\ndata: {data}\n\n"))
+}
+
+/// Envia um lote coalescido de eventos de log como uma única frame SSE
+/// `bus_batch` (ver o produtor em [`events`]): `{ "kind":"bus_batch",
+/// "events":[<Event>,…] }`. O cliente (Luau `on_state`) itera `events` chamando
+/// `apply_bus` para cada um. `Err(())` só quando o canal fechou (cliente saiu),
+/// sinalizando o produtor a encerrar; um lote que falha ao serializar é
+/// descartado sem derrubar o stream.
+async fn send_log_batch(
+    tx: &tokio::sync::mpsc::Sender<Bytes>,
+    batch: Vec<Event>,
+) -> Result<(), ()> {
+    let wrapped = serde_json::json!({ "kind": "bus_batch", "events": batch });
+    match serde_json::to_string(&wrapped) {
+        Ok(js) => tx.send(sse_frame("bus", &js)).await.map_err(|_| ()),
+        Err(_) => Ok(()),
+    }
 }
 
 /// Checks the `Authorization: Bearer <token>` header against `expected`.

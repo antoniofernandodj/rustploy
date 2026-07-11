@@ -27,6 +27,10 @@ function open_service(id: string): ()
     ctx.svc_action_color = "#8B949E"
     State.blog_buf = {}
     State.svc_logs_buf = {}
+    -- Ao reabrir um serviço o seed abaixo (linhas ctx.svc_logs*) reflete o ring
+    -- na hora; zera o debounce p/ não deixar resíduo pendente da sessão anterior.
+    State.svc_logs_dirty = false
+    State.blog_dirty = false
     if State.deploy_track.service_id ~= id then
         ctx.svc_deploy_running = "false"
         ctx.svc_deploy_elapsed = ""

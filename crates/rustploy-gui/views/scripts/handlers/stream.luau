@@ -146,6 +146,15 @@ local function apply_snapshot(msg: any): ()
     rebuild_lists()
     update_open_project()
     ctx.data_loading = "false"
+
+    -- Escoa o resíduo do debounce de logs quando o stream fica ocioso (o último
+    -- lote pode não ter batido o intervalo). M.* já está atribuído em runtime.
+    if State.svc_logs_dirty then
+        M.flush_svc_logs()
+    end
+    if State.blog_dirty then
+        M.flush_build_logs()
+    end
 end
 
 -- Refresh imediato após uma mutação: pega o snapshot completo num único RPC (o
@@ -165,6 +174,27 @@ local function refresh_now(): ()
     end
 end
 M.refresh_now = refresh_now
+
+-- Reflete o ring de logs do serviço no ctx (JSON p/ a lista + textão p/ o
+-- <textarea>). Caro: o motor reparseia o <textarea> inteiro a cada mudança de
+-- svc_logs_text, então é chamado com debounce (ver apply_bus) e não por linha.
+local function flush_svc_logs(): ()
+    ctx.svc_logs = fmt.logs_json(State.svc_logs_buf)
+    ctx.svc_logs_count = tostring(#State.svc_logs_buf)
+    ctx.svc_logs_text = fmt.join_log_lines(State.svc_logs_buf)
+    State.svc_logs_dirty = false
+    State.svc_logs_flush_at = os.clock() + State.LOG_FLUSH_SECS
+end
+M.flush_svc_logs = flush_svc_logs
+
+local function flush_build_logs(): ()
+    ctx.dep_build_logs = fmt.build_logs_json(State.blog_buf)
+    ctx.dep_build_count = tostring(#State.blog_buf)
+    ctx.dep_build_text = fmt.join_log_lines(State.blog_buf)
+    State.blog_dirty = false
+    State.blog_flush_at = os.clock() + State.LOG_FLUSH_SECS
+end
+M.flush_build_logs = flush_build_logs
 
 -- Eventos vivos do bus: métricas, logs de container/build e transições de deploy.
 local function apply_bus(ev: any): ()
@@ -201,9 +231,12 @@ local function apply_bus(ev: any): ()
             while #State.svc_logs_buf > State.LOG_RING do
                 table.remove(State.svc_logs_buf, 1)
             end
-            ctx.svc_logs = fmt.logs_json(State.svc_logs_buf)
-            ctx.svc_logs_count = tostring(#State.svc_logs_buf)
-            ctx.svc_logs_text = fmt.join_log_lines(State.svc_logs_buf)
+            -- Debounce: numa rajada só reflete no ctx a cada LOG_FLUSH_SECS; o
+            -- resíduo pendente é escoado no snapshot (~2s). Ver flush_svc_logs.
+            State.svc_logs_dirty = true
+            if os.clock() >= State.svc_logs_flush_at then
+                flush_svc_logs()
+            end
         end
     elseif ev.BuildLog then
         local e = ev.BuildLog
@@ -215,9 +248,12 @@ local function apply_bus(ev: any): ()
             while #State.blog_buf > State.BUILD_RING do
                 table.remove(State.blog_buf, 1)
             end
-            ctx.dep_build_logs = fmt.build_logs_json(State.blog_buf)
-            ctx.dep_build_count = tostring(#State.blog_buf)
-            ctx.dep_build_text = fmt.join_log_lines(State.blog_buf)
+            -- Mesmo debounce dos logs de serviço (build logs chegam em rajada
+            -- durante `docker build`). Resíduo escoado no snapshot.
+            State.blog_dirty = true
+            if os.clock() >= State.blog_flush_at then
+                flush_build_logs()
+            end
         end
     elseif ev.DeployStateChanged then
         local d = ev.DeployStateChanged
@@ -253,6 +289,20 @@ function on_state(data: string): ()
         apply_snapshot(msg)
     elseif msg.kind == "bus" then
         apply_bus(msg.event)
+    elseif msg.kind == "bus_batch" then
+        -- Lote coalescido de eventos de log (ver send_log_batch no daemon):
+        -- aplica cada um e, ao final, escoa o resíduo do debounce uma vez —
+        -- assim o lote inteiro reflete no ctx num único rebuild, sem depender do
+        -- intervalo do debounce dentro do laço (mesmo os.clock em toda a iteração).
+        for _, e in ipairs(msg.events or {}) do
+            apply_bus(e)
+        end
+        if State.svc_logs_dirty then
+            flush_svc_logs()
+        end
+        if State.blog_dirty then
+            flush_build_logs()
+        end
     end
 end
 

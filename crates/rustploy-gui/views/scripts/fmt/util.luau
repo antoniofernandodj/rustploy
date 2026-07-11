@@ -38,6 +38,23 @@ function M.ellipsis(s: string?, max: number): string
     return str
 end
 
+-- Remove sequências de escape ANSI (cor/cursor/erase) das linhas de log. O
+-- daemon repassa o stdout/stderr cru dos containers, cheio de CSI (`ESC[..m`
+-- etc.); sem limpar, além de aparecerem como lixo (`[2m[32m…`) na UI, cada
+-- linha vira uma string longa com bytes de controle que o text-shaping do iced
+-- processa a um custo patológico — reconstruído a CADA re-render (por evento de
+-- log), o que congela a janela. Também tira CR e NUL soltos.
+function M.strip_ansi(s: string?): string
+    local str = s or ""
+    -- CSI: ESC [ params byte-final(letra) — cobre SGR (cor), erase (K/J), cursor.
+    str = string.gsub(str, "\27%[[%d;?]*%a", "")
+    -- OSC: ESC ] … BEL. E qualquer ESC + 1 byte remanescente (ESC c, ESC =, …).
+    str = string.gsub(str, "\27%][^\7]*\7", "")
+    str = string.gsub(str, "\27.", "")
+    str = string.gsub(str, "[\r\0]", "")
+    return str
+end
+
 -- ── Codificação de arrays ────────────────────────────────────────────────
 -- CUIDADO: uma tabela Luau vazia vira `{}` (objeto) no json.encode, não `[]`.
 -- Os templates iteram arrays, então forçamos "[]" quando vazio.

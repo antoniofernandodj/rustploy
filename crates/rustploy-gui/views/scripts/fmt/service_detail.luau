@@ -122,12 +122,28 @@ function M.env_dotenv_with_comments(vars: {EnvVar}?, comments: {EnvComment}?): s
     return table.concat(lines, "\n")
 end
 
--- Linhas de log (LogEntry/BuildLogLine: {stream, line, timestamp}) coloridas.
+-- Nº máx. de linhas materializadas no `for-each` de log. O `<for-each>` do
+-- glacier não é virtualizado: cada linha vira widgets reconstruídos a CADA
+-- re-render (por evento de log). Um build log histórico com milhares de linhas
+-- reconstruído por evento congela a UI, então o for-each mostra só a cauda; o
+-- texto completo continua em join_log_lines (aba Logs "Copiar tudo" / textão).
+local RENDER_ROWS = 500
+-- Teto de comprimento por linha (defensivo contra linhas absurdas que sozinhas
+-- estouram o text-shaping). O texto de "Copiar tudo" preserva a linha inteira.
+local LINE_MAX = 2000
+
+-- Linhas de log (LogEntry/BuildLogLine: {stream, line, timestamp}) coloridas,
+-- limpas de ANSI e limitadas à cauda (RENDER_ROWS) p/ o custo de render ficar
+-- limitado independentemente do tamanho do histórico.
 local function log_rows(list: {any}?): string
+    local src = list or {}
+    local start = math.max(1, #src - RENDER_ROWS + 1)
     local rows = {}
-    for _, e in ipairs(list or {}) do
+    for i = start, #src do
+        local e = src[i]
         local color = (e.stream == "Stderr") and "#F85149" or "#9DA7B3"
-        table.insert(rows, { time = Time.time_hms(e.timestamp), line = e.line, color = color })
+        local line = Util.ellipsis(Util.strip_ansi(e.line), LINE_MAX)
+        table.insert(rows, { time = Time.time_hms(e.timestamp), line = line, color = color })
     end
     return Util.enc_array(rows)
 end
@@ -135,10 +151,11 @@ M.logs_json = log_rows
 M.build_logs_json = log_rows
 
 -- Junta linhas de log num blob de texto ("HH:MM:SS line") p/ o TextArea/copiar.
+-- Sem ANSI (mas sem cap de linhas: é o conteúdo completo p/ copiar).
 function M.join_log_lines(list: {any}?): string
     local out: {string} = {}
     for _, e in ipairs(list or {}) do
-        table.insert(out, Time.time_hms(e.timestamp) .. " " .. e.line)
+        table.insert(out, Time.time_hms(e.timestamp) .. " " .. Util.strip_ansi(e.line))
     end
     return table.concat(out, "\n")
 end
