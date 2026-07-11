@@ -72,6 +72,7 @@
       </column>
       <row class="stats_row">
         <StatCard label="ROUTES" value="{ingress_count}" />
+        <StatCard label="PORTAS DE HOST" value="{host_ports_count}" />
       </row>
     </row>
     <column class="panel_fill">
@@ -104,6 +105,34 @@
           </foreach>
         </column>
       </scrollable>
+
+      <!-- Portas TCP de host: exposição direta de porta (fora do proxy HTTP
+           por domínio acima) — um serviço pode ter as duas, só uma, ou nenhuma. -->
+      <text class="label_cap">
+        PORTAS TCP DE HOST ({host_ports_count})
+      </text>
+      <row class="thead">
+        <text class="th col_svc">SERVIÇO</text>
+        <text class="th col_proj">PROJETO</text>
+        <text class="th col_dur">PORTA HOST</text>
+        <text class="th col_start">PORTA CONTAINER</text>
+      </row>
+      <text if="{host_ports_count}" equals="0" class="muted">
+        Nenhum serviço com porta de host configurada.
+      </text>
+      <column class="table_body">
+        <foreach items="host_ports" var="hp">
+          <column class="row_wrap">
+            <row class="trow">
+              <text class="td_key col_svc">{hp.service}</text>
+              <text class="td col_proj">{hp.project}</text>
+              <text class="td col_dur">{hp.host_port}</text>
+              <text class="muted col_start">{hp.container_port}</text>
+            </row>
+            <rule />
+          </column>
+        </foreach>
+      </column>
     </column>
   </if>
 
@@ -589,11 +618,17 @@
         target="git"
         action="settings_tab:git"
       />
+      <TabButton
+        label="Infra as Code"
+        current="{settings_tab}"
+        target="iac"
+        action="settings_tab:iac"
+      />
     </row>
     <rule />
 
     <!-- Web Server (default) -->
-    <if cond="{settings_tab}" not_equals="git">
+    <if cond="{settings_tab}" equals="web">
       <form name="settings" on_submit="settings_save" width="fill">
         <column class="form_panel">
           <text class="label_cap">DOMÍNIO / URL BASE</text>
@@ -789,6 +824,101 @@
               />
             </row>
           </form>
+        </column>
+      </scrollable>
+    </if>
+
+    <!-- Infra as Code: exporta todos os projetos/serviços como YAML (env vars
+         sempre redigidas para ${VAR}) + o .env complementar com os valores
+         reais; importa colando os dois de volta (cruza e valida faltantes). -->
+    <if cond="{settings_tab}" equals="iac">
+      <scrollable direction="vertical" class="scroll_fill">
+        <column class="form_panel">
+          <text class="label_cap">EXPORTAR</text>
+          <text class="muted">
+            Gera um YAML com todos os projetos e serviços — valores de env var
+            nunca aparecem no YAML, só o nome entre cifrão-chaves. Os valores
+            reais das vars (exceto secrets, que nunca saem do daemon) vão no
+            .env ao lado.
+          </text>
+          <row class="env_add">
+            <button class="btn_primary" on_click="iac_export" text="Exportar tudo" />
+            <text class="muted">{iac_export_msg}</text>
+          </row>
+
+          <if cond="{iac_has_export}" equals="true">
+            <row class="env_head">
+              <text class="label_cap">rustploy.yml</text>
+              <button class="copy_btn" on_click="clipboard:iac_yaml" text="Copiar" />
+            </row>
+            <textarea class="env_editor" font="mono" value="iac_yaml" readonly="true" />
+
+            <row class="env_head">
+              <text class="label_cap">.env</text>
+              <button class="copy_btn" on_click="clipboard:iac_dotenv" text="Copiar" />
+            </row>
+            <textarea class="env_editor" font="mono" value="iac_dotenv" readonly="true" />
+          </if>
+
+          <rule />
+
+          <text class="label_cap">IMPORTAR</text>
+          <text class="muted">
+            Cole o YAML e o .env correspondente. Falta o valor de alguma
+            variável usada no YAML? O import é cancelado antes de aplicar
+            qualquer coisa.
+          </text>
+
+          <text class="label_cap">rustploy.yml</text>
+          <textarea
+            class="env_editor"
+            font="mono"
+            value="iac_import_yaml"
+            placeholder="Cole aqui o YAML exportado (ou escrito à mão)"
+          />
+
+          <text class="label_cap">.env</text>
+          <textarea
+            class="env_editor"
+            font="mono"
+            value="iac_import_dotenv"
+            placeholder="Cole aqui o .env com os valores (DB_PASS=s3cr3t)"
+          />
+
+          <row class="env_add">
+            <checkbox
+              checked="iac_prune"
+              on_toggle="field:iac_prune"
+              label="Remover serviços ausentes do manifesto (prune)"
+            />
+          </row>
+          <row class="env_add">
+            <checkbox
+              checked="iac_deploy"
+              on_toggle="field:iac_deploy"
+              label="Disparar deploy dos serviços criados/alterados"
+            />
+          </row>
+
+          <row class="env_add">
+            <button class="btn_primary" on_click="iac_import" text="Importar" />
+            <text class="muted">{iac_import_msg}</text>
+          </row>
+
+          <if cond="{iac_has_missing}" equals="true">
+            <text class="err">
+              Variáveis sem valor no .env: {iac_missing_vars}
+            </text>
+          </if>
+
+          <if cond="{iac_has_report}" equals="true">
+            <text class="label_cap">RESULTADO</text>
+            <column class="kv_list">
+              <row class="kv_row" for-each="iac_report_lines" var="l">
+                <text class="muted">{l}</text>
+              </row>
+            </column>
+          </if>
         </column>
       </scrollable>
     </if>

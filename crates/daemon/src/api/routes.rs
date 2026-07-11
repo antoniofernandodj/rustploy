@@ -38,6 +38,8 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::SecretList { .. } => "SecretList",
         Command::ManifestApply { .. } => "ManifestApply",
         Command::ManifestExport { .. } => "ManifestExport",
+        Command::ManifestExportAll => "ManifestExportAll",
+        Command::ManifestImport { .. } => "ManifestImport",
         Command::PruneContainers => "PruneContainers",
         Command::PruneVolumes { .. } => "PruneVolumes",
         Command::PruneImages { .. } => "PruneImages",
@@ -172,6 +174,13 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::ManifestExport { project_id } => {
             handlers::manifest_export::handle(state, project_id).await
         }
+        Command::ManifestExportAll => handlers::manifest_export_all::handle(state).await,
+        Command::ManifestImport {
+            yaml,
+            dotenv,
+            prune,
+            deploy,
+        } => handlers::manifest_import::handle(state, yaml, dotenv, prune, deploy).await,
         Command::GitProviderList => handlers::git_provider_list::handle(state).await,
         Command::GitProviderCreate {
             kind,

@@ -6,6 +6,7 @@
 local State = require("../state")
 local Helpers = require("../helpers")
 local fmt = require("../fmt")
+local Stream = require("stream")
 
 -- ── Settings (Web Server) ────────────────────────────────────────────────
 
@@ -146,4 +147,88 @@ function gp_delete(id: string): ()
         Helpers.notify_err(res)
     end
     gp_refresh_list()
+end
+
+-- ── Settings → Infra as Code (export/import declarativo) ─────────────────
+
+function iac_export(): ()
+    local api = State.api
+    if not api then
+        return
+    end
+    ctx.iac_export_msg = "exportando…"
+    local ok, res = api:rpc_checked("ManifestExportAll")
+    if not ok or type(res) ~= "table" or not res.ManifestBundle then
+        ctx.iac_export_msg = "erro: " .. tostring(res)
+        Helpers.notify_err(tostring(res))
+        return
+    end
+    ctx.iac_yaml = res.ManifestBundle.yaml
+    ctx.iac_dotenv = res.ManifestBundle.dotenv
+    ctx.iac_has_export = "true"
+    ctx.iac_export_msg = "exportado ✓"
+end
+
+function iac_import(): ()
+    local api = State.api
+    if not api then
+        return
+    end
+    ctx.iac_has_missing = "false"
+    ctx.iac_has_report = "false"
+    ctx.iac_missing_vars = ""
+    ctx.iac_report_lines = {}
+
+    local yaml = ctx.iac_import_yaml or ""
+    if Helpers.trim(yaml) == "" then
+        ctx.iac_import_msg = "cole o YAML do manifesto"
+        return
+    end
+
+    ctx.iac_import_msg = "importando…"
+    local ok, res = api:rpc({
+        ManifestImport = {
+            yaml = yaml,
+            dotenv = ctx.iac_import_dotenv or "",
+            prune = ctx.iac_prune == "true",
+            deploy = ctx.iac_deploy == "true",
+        },
+    })
+    if not ok then
+        ctx.iac_import_msg = "erro: " .. tostring(res)
+        Helpers.notify_err(tostring(res))
+        return
+    end
+
+    if type(res) == "table" and res.MissingEnvVars ~= nil then
+        ctx.iac_has_missing = "true"
+        ctx.iac_missing_vars = table.concat(res.MissingEnvVars, ", ")
+        ctx.iac_import_msg = "faltam variáveis — nada foi aplicado"
+        Helpers.notify_err("Faltam variáveis no .env: " .. ctx.iac_missing_vars)
+        return
+    end
+
+    if type(res) == "table" and res.Err ~= nil then
+        ctx.iac_import_msg = "erro: " .. tostring(res.Err.code) .. ": " .. tostring(res.Err.message)
+        Helpers.notify_err(tostring(res.Err.message))
+        return
+    end
+
+    if type(res) ~= "table" or not res.ManifestReport then
+        ctx.iac_import_msg = "resposta inesperada do daemon"
+        return
+    end
+
+    local lines = {}
+    for _, a in ipairs(res.ManifestReport.actions or {}) do
+        table.insert(lines, "[" .. tostring(a.action) .. "] " .. tostring(a.kind) .. " " .. tostring(a.name))
+    end
+    if #(res.ManifestReport.deployed or {}) > 0 then
+        table.insert(lines, "deploy disparado: " .. table.concat(res.ManifestReport.deployed, ", "))
+    end
+    ctx.iac_report_lines = lines
+    ctx.iac_has_report = "true"
+    ctx.iac_import_msg = "import concluído ✓"
+    Helpers.notify_ok("Infra as Code importado")
+    Stream.refresh_now()
 end

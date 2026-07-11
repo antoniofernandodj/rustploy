@@ -41,6 +41,7 @@ M.docker_images = Dashboard.docker_images
 M.docker_volumes = Dashboard.docker_volumes
 M.docker_networks = Dashboard.docker_networks
 M.ingress = Dashboard.ingress
+M.host_ports = Dashboard.host_ports
 M.monitoring = Dashboard.monitoring
 M.eng_active = Dashboard.eng_active
 M.eng_recent = Dashboard.eng_recent

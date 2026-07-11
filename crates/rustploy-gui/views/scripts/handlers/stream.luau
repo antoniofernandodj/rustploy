@@ -146,6 +146,9 @@ local function apply_snapshot(msg: any): ()
     local ingress, icount = fmt.ingress(State.last_pairs)
     ctx.ingress = ingress
     ctx.ingress_count = tostring(icount)
+    local host_ports, hpcount = fmt.host_ports(State.last_pairs)
+    ctx.host_ports = host_ports
+    ctx.host_ports_count = tostring(hpcount)
     ctx.monitoring = fmt.monitoring(State.last_pairs, State.metrics_by_id)
 
     rebuild_lists()

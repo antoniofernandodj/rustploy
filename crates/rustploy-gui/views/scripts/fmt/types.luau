@@ -27,6 +27,7 @@ export type DomainRoute = {
 export type ServiceSpec = {
     name: string,
     port: number,
+    host_port: number?,
     source: any,
     domain: string?,
     tls_enabled: boolean?,

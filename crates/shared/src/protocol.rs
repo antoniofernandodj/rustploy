@@ -149,6 +149,25 @@ pub enum Command {
     ManifestExport {
         project_id: String,
     },
+    /// Exporta TODOS os projetos+serviços num único manifesto raiz
+    /// (`ServerManifest`). Todo valor de env var `Plain` é redigido para
+    /// `${KEY}` (nunca o valor real no YAML); `Secret` continua como
+    /// `secret:NOME`. Resposta: `ManifestBundle` (YAML + `.env` complementar
+    /// com os valores reais das vars `Plain`).
+    ManifestExportAll,
+    /// Importa um manifesto raiz (`projects:`) ou de projeto único
+    /// (`project:`) junto com o texto `.env` que resolve os `${VAR}` nele
+    /// usados. A interpolação roda no daemon (reaproveita
+    /// `ProjectManifest::interpolate`); se sobrar alguma `${VAR}` sem valor em
+    /// qualquer projeto, nada é aplicado e a resposta é `MissingEnvVars`. Sem
+    /// faltantes, reconcilia exatamente como `ManifestApply` (aditivo por
+    /// padrão; `prune`/`deploy` com a mesma semântica).
+    ManifestImport {
+        yaml: String,
+        dotenv: String,
+        prune: bool,
+        deploy: bool,
+    },
 
     // Docker cleanup
     PruneContainers,
@@ -350,6 +369,11 @@ pub enum Response {
     ManifestReport(ApplyReport),
     /// Manifesto YAML serializado (resposta de `ManifestExport`).
     Manifest(String),
+    /// YAML + `.env` complementar (resposta de `ManifestExportAll`).
+    ManifestBundle { yaml: String, dotenv: String },
+    /// `${VAR}` sem valor correspondente no `.env` (resposta de
+    /// `ManifestImport` quando faltam variáveis) — nada foi aplicado.
+    MissingEnvVars(Vec<String>),
 
     // Git providers
     GitProviders(Vec<GitProvider>),

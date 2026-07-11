@@ -189,22 +189,12 @@ fn load_manifests(path: &Path) -> Result<Vec<ProjectManifest>> {
     }
 }
 
-/// Parser simples de `.env`: linhas `KEY=VALUE`, ignora vazias e `#` comentários.
+/// Lê um `.env` (`KEY=VALUE`, ignora vazias e `#` comentários) — parser
+/// compartilhado com o daemon (`shared::parse_dotenv`).
 fn load_env_file(path: &Path) -> Result<HashMap<String, String>> {
     let text = std::fs::read_to_string(path)
         .with_context(|| format!("ao ler env-file {}", path.display()))?;
-    let mut map = HashMap::new();
-    for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        if let Some((k, v)) = line.split_once('=') {
-            let v = v.trim().trim_matches('"').trim_matches('\'');
-            map.insert(k.trim().to_string(), v.to_string());
-        }
-    }
-    Ok(map)
+    Ok(shared::parse_dotenv(&text).into_iter().collect())
 }
 
 // --------------------------------------------------------------------------

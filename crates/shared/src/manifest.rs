@@ -17,6 +17,39 @@ pub struct ServerManifest {
     pub projects: Vec<ProjectEntry>,
 }
 
+impl ServerManifest {
+    /// Constrói um manifesto raiz redigido a partir de TODOS os projetos do
+    /// banco (para `Command::ManifestExportAll`): cada `(Project, Vec<Service>)`
+    /// vira uma entrada inline via [`ProjectManifest::from_existing_redacted`].
+    /// Devolve o manifesto e o `.env` complementar (chave -> valor real, só das
+    /// vars `Plain`; ver essa função para o porquê `Secret` fica de fora).
+    ///
+    /// Nota: o `.env` é um único mapa achatado (mesmo esquema de
+    /// `ProjectManifest::interpolate`) — se duas vars de projetos/serviços
+    /// diferentes usarem a mesma chave com valores diferentes, a última
+    /// sobrescreve as anteriores.
+    pub fn from_existing_redacted(items: &[(Project, Vec<Service>)]) -> (Self, BTreeMap<String, String>) {
+        let mut dotenv = BTreeMap::new();
+        let projects = items
+            .iter()
+            .map(|(project, services)| {
+                ProjectEntry::Inline(ProjectManifest::from_existing_redacted(
+                    project,
+                    services,
+                    &mut dotenv,
+                ))
+            })
+            .collect();
+        (
+            ServerManifest {
+                api_version: Some(API_VERSION.to_string()),
+                projects,
+            },
+            dotenv,
+        )
+    }
+}
+
 /// Uma entrada do manifesto raiz: projeto inline OU referência a um arquivo.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -242,6 +275,25 @@ impl ProjectManifest {
             services: services.iter().map(ServiceManifest::from_spec).collect(),
         }
     }
+
+    /// Como [`from_existing`](Self::from_existing), mas redige todo valor de env
+    /// var `Plain` para `${KEY}` — o YAML nunca carrega um valor real. Os
+    /// valores reais das vars `Plain` são acumulados em `dotenv_out` (para o
+    /// `.env` complementar); `Secret` segue como `secret:NOME`, nunca decifrada
+    /// (não entra no `.env`). Usado pelo par YAML+.env do fluxo "Infra as Code"
+    /// da GUI (`Command::ManifestExportAll`).
+    pub fn from_existing_redacted(
+        project: &Project,
+        services: &[Service],
+        dotenv_out: &mut BTreeMap<String, String>,
+    ) -> Self {
+        let mut m = Self::from_existing(project, services);
+        redact_env_map(&mut m.project.env, dotenv_out);
+        for s in &mut m.services {
+            redact_env_map(&mut s.env, dotenv_out);
+        }
+        m
+    }
 }
 
 impl ServiceManifest {
@@ -455,6 +507,53 @@ fn env_vars_to_map(vars: &[EnvVar]) -> BTreeMap<String, String> {
         .collect()
 }
 
+/// Redige, in-place, todo valor `Plain` (isto é, que não começa com
+/// `secret:`) de `map` para `${KEY}`, guardando o valor real em `dotenv_out`.
+/// Valores já em formato `secret:NOME` são deixados intactos e não entram no
+/// `.env` (a secret nunca é decifrada para o cliente).
+fn redact_env_map(map: &mut BTreeMap<String, String>, dotenv_out: &mut BTreeMap<String, String>) {
+    for (k, v) in map.iter_mut() {
+        if v.starts_with(SECRET_PREFIX) {
+            continue;
+        }
+        dotenv_out.insert(k.clone(), v.clone());
+        *v = format!("${{{k}}}");
+    }
+}
+
+/// Serializa um mapa `KEY -> VALUE` como texto `.env` (uma linha por var,
+/// ordenado por chave). Valores com espaço ou `#` são colocados entre aspas
+/// duplas (sem escaping — casa com o parser simples de [`parse_dotenv`]).
+pub fn format_dotenv(map: &BTreeMap<String, String>) -> String {
+    let mut out = String::new();
+    for (k, v) in map {
+        if v.is_empty() || v.chars().any(|c| c.is_whitespace() || c == '#') {
+            out.push_str(&format!("{k}=\"{v}\"\n"));
+        } else {
+            out.push_str(&format!("{k}={v}\n"));
+        }
+    }
+    out
+}
+
+/// Parser simples de texto `.env`: linhas `KEY=VALUE`, ignora vazias e `#
+/// comentário`. Aspas simples/duplas ao redor do valor são removidas (sem
+/// escaping interno). Mesma semântica usada pelo `--env-file` do CLI.
+pub fn parse_dotenv(text: &str) -> BTreeMap<String, String> {
+    let mut map = BTreeMap::new();
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if let Some((k, v)) = line.split_once('=') {
+            let v = v.trim().trim_matches('"').trim_matches('\'');
+            map.insert(k.trim().to_string(), v.to_string());
+        }
+    }
+    map
+}
+
 fn interpolate_map<F>(map: &mut BTreeMap<String, String>, lookup: &F, missing: &mut Vec<String>)
 where
     F: Fn(&str) -> Option<String>,
@@ -653,5 +752,65 @@ services:
         assert_eq!(parse_mem("1024"), Some(1024));
         assert_eq!(humanize_mem(256 * 1024 * 1024), "256m");
         assert_eq!(humanize_mem(2 * 1024 * 1024 * 1024), "2g");
+    }
+
+    #[test]
+    fn dotenv_format_and_parse_round_trip() {
+        let mut map = BTreeMap::new();
+        map.insert("SIMPLE".to_string(), "value".to_string());
+        map.insert("WITH_SPACE".to_string(), "hello world".to_string());
+        let text = format_dotenv(&map);
+        assert_eq!(parse_dotenv(&text), map);
+    }
+
+    fn sample_project() -> Project {
+        Project {
+            id: "proj-1".into(),
+            name: "acme".into(),
+            description: None,
+            env_vars: vec![
+                EnvVar {
+                    key: "LOG_LEVEL".into(),
+                    value: EnvVarValue::Plain("info".into()),
+                },
+                EnvVar {
+                    key: "DB_PASS".into(),
+                    value: EnvVarValue::Secret("db-pass".into()),
+                },
+            ],
+            env_comments: vec![],
+            created_at: chrono::Utc::now(),
+        }
+    }
+
+    #[test]
+    fn redacted_export_never_leaks_plain_values() {
+        let project = sample_project();
+        let mut dotenv = BTreeMap::new();
+        let manifest = ProjectManifest::from_existing_redacted(&project, &[], &mut dotenv);
+
+        // Plain vira placeholder no YAML; valor real só aparece no .env.
+        assert_eq!(manifest.project.env.get("LOG_LEVEL"), Some(&"${LOG_LEVEL}".to_string()));
+        assert_eq!(dotenv.get("LOG_LEVEL"), Some(&"info".to_string()));
+
+        // Secret nunca é decifrada: permanece como referência e não entra no .env.
+        assert_eq!(manifest.project.env.get("DB_PASS"), Some(&"secret:db-pass".to_string()));
+        assert!(!dotenv.contains_key("DB_PASS"));
+
+        let yaml = serde_yaml::to_string(&manifest).unwrap();
+        assert!(!yaml.contains("info"), "valor real de Plain vazou pro YAML: {yaml}");
+    }
+
+    #[test]
+    fn server_manifest_redacted_aggregates_all_projects() {
+        let p1 = sample_project();
+        let mut p2 = sample_project();
+        p2.id = "proj-2".into();
+        p2.name = "beta".into();
+
+        let (server, dotenv) = ServerManifest::from_existing_redacted(&[(p1, vec![]), (p2, vec![])]);
+        assert_eq!(server.projects.len(), 2);
+        assert_eq!(dotenv.get("LOG_LEVEL"), Some(&"info".to_string()));
+        assert!(!dotenv.contains_key("DB_PASS"));
     }
 }

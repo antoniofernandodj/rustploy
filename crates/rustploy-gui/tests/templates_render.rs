@@ -131,6 +131,16 @@ fn all_screens_and_service_tabs_render() {
         assert!(m.render("app").is_ok(), "render view {view}");
     }
 
+    // Ingress → tabela de portas TCP de host (separada das rotas de domínio).
+    m.define_data("view", "ingress");
+    m.define_data("host_ports_count", "1");
+    m.define_data(
+        "host_ports",
+        r#"[{"service":"web","project":"acme","host_port":"8081","container_port":"80"}]"#,
+    );
+    m.reevaluate_all().unwrap_or_else(|e| panic!("eval ingress/host_ports: {e}"));
+    assert!(m.render("app").is_ok(), "render ingress/host_ports");
+
     // Projeto aberto (project_services): grid de serviços e a aba de
     // variáveis de ambiente de nível de projeto.
     for proj_tab in ["services", "env"] {
@@ -150,6 +160,27 @@ fn all_screens_and_service_tabs_render() {
         m.reevaluate_all().unwrap_or_else(|e| panic!("eval settings/git {mode}: {e}"));
         assert!(m.render("app").is_ok(), "render settings/git {mode}");
     }
+
+    // Settings → Web Server (default tab).
+    m.define_data("settings_tab", "web");
+    m.reevaluate_all().unwrap_or_else(|e| panic!("eval settings/web: {e}"));
+    assert!(m.render("app").is_ok(), "render settings/web");
+
+    // Settings → Infra as Code: export panel (yaml+dotenv textareas), the
+    // missing-vars error branch, and the applied-report branch.
+    m.define_data("settings_tab", "iac");
+    m.define_data("iac_has_export", "true");
+    m.define_data("iac_yaml", "apiVersion: rustploy/v1\nprojects: []\n");
+    m.define_data("iac_dotenv", "LOG_LEVEL=info\n");
+    m.define_data("iac_has_missing", "true");
+    m.define_data("iac_missing_vars", "DB_PASS, API_TOKEN");
+    m.define_data("iac_has_report", "true");
+    m.define_data(
+        "iac_report_lines",
+        r#"["[created] project acme","[updated] service acme/web"]"#,
+    );
+    m.reevaluate_all().unwrap_or_else(|e| panic!("eval settings/iac: {e}"));
+    assert!(m.render("app").is_ok(), "render settings/iac");
 
     // Service detail tabs (the editable forms + log views).
     for tab in [

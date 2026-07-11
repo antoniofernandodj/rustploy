@@ -41,6 +41,7 @@ end
 
 function nav_settings(): ()
     goto_view("settings")
+    ctx.settings_tab = "web"
 end
 
 function nav_support(): ()

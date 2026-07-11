@@ -358,6 +358,28 @@ function M.ingress(pairs_: {ServicePair}): (string, number)
     return Util.enc_array(rows), #rows
 end
 
+-- Portas TCP de host: uma linha por serviço com `host_port` configurado —
+-- exposição direta de porta TCP no host, independente das rotas HTTP de
+-- domínio acima (um serviço pode ter as duas, só uma, ou nenhuma). Não
+-- filtrado pela busca (mesma convenção de `M.ingress`).
+function M.host_ports(pairs_: {ServicePair}): (string, number)
+    local rows = {}
+    for _, p in ipairs(pairs_) do
+        local spec = p.svc.spec
+        if spec.host_port ~= nil then
+            table.insert(rows, {
+                service = spec.name,
+                project = p.proj,
+                host_port = tostring(spec.host_port),
+                host_port_n = spec.host_port,
+                container_port = tostring(spec.port),
+            })
+        end
+    end
+    table.sort(rows, function(a: any, b: any) return a.host_port_n < b.host_port_n end)
+    return Util.enc_array(rows), #rows
+end
+
 -- Monitoring: uma linha por serviço COM métricas vivas.
 function M.monitoring(pairs_: {ServicePair}, metrics: MetricsMap?): string
     local rows = {}
