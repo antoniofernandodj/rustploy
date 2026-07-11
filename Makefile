@@ -7,6 +7,7 @@ BOLD  := \033[1m
 RESET := \033[0m
 GREEN := \033[32m
 CYAN  := \033[36m
+RED   := \033[31m
 
 export CARGO_TERM_COLOR := never
 
@@ -191,9 +192,19 @@ deb-daemon: ## Compila e gera apenas o .deb do daemon
 .PHONY: install-daemon
 install-daemon: deb-daemon ## Compila, empacota e instala apenas o daemon
 	sudo dpkg -i $$(ls target/debian/rustployd_*.deb | tail -1)
+	sudo systemctl daemon-reload
+	# Explícito (não só via postinst, que silencia falhas com `|| true`):
+	# helper de firewall — allow/deny de porta externa via /run/rustploy/fw.sock.
+	sudo systemctl enable --now rustployd-fw.socket
 	sudo systemctl restart rustployd
 	sudo journalctl --rotate
 	sudo journalctl --vacuum-time=1s --unit=rustployd
+	@echo ""
+	@echo "$(BOLD)Status do helper de firewall:$(RESET)"
+	@sudo systemctl status rustployd-fw.socket --no-pager -l || true
+	@test -S /run/rustploy/fw.sock \
+		&& echo "$(GREEN)/run/rustploy/fw.sock ok$(RESET)" \
+		|| echo "$(RED)AVISO: /run/rustploy/fw.sock não existe — liberação automática de porta externa vai falhar$(RESET)"
 
 .PHONY: install
 install: deb ## Instala os pacotes .deb via dpkg
