@@ -36,7 +36,11 @@
 .screen     { width: fill; height: fill; background: var(--bg); }
 
 /* ── Sidebar / top bar ────────────────────────────────────────────────── */
-.nav_item       { width: fill; color: var(--surface); padding: 11 14; }
+/* .nav_item (era o botão-texto puro do item de sidebar, sem ícone) ficou sem
+   uso quando nav_item.xml passou a montar ícone+rótulo numa <row> própria
+   (.nav_row_on/.nav_row_off, ali definidas) — Settings/Support também viraram
+   NavItem. Mantido comentado, não removido (é reutilizável). */
+/* .nav_item       { width: fill; color: var(--surface); padding: 11 14; } */
 .tab        { color: var(--surface); padding: 9 16; border-radius: 10 }
 
 /* ── Buttons ──────────────────────────────────────────────────────────── */

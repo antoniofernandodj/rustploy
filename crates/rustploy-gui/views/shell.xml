@@ -34,15 +34,26 @@
 /* Grid de cards (projetos / serviços) */
 .grid           { width: fill; spacing: 16; }
 .card_row       { width: fill; spacing: 16; }
-/* Responsivo: encolhe sidebar/topbar em janelas estreitas (glacier-ui 0.9.0+). */
+/* Responsivo: encolhe sidebar/topbar em janelas estreitas (glacier-ui 0.9.0+).
+   Abaixo de 900px vira um trilho só de ícones (ver nav_item.xml, que esconde
+   o rótulo no mesmo breakpoint) — rótulos como "Deploy Engine"/"Projects (2)"
+   não cabiam mais na sidebar encolhida e, sem espaço pra quebrar (ou sendo
+   uma palavra só), estouravam a coluna e bagunçavam o layout inteiro. */
 @media (max-width: 900) {
-  .sidebar { width: 184; padding: 18 12; }
-  .topbar  { padding: 12 16; spacing: 10; }
-  .brand   { size: 18; }
+  .sidebar     { width: 76; padding: 18 8; align-x: center; }
+  .topbar      { padding: 12 16; spacing: 10; }
+  .brand       { size: 16; }
+  /* "PRODUCTION CLUSTER" — não cabe nem quebrando; some, o ícone+cor já
+     comunica estado o bastante num trilho estreito. */
+  .brand_sub   { hidden: true; }
+  /* "DEPLOYMENT OPS"/"MANAGEMENT" idem — sem espaço, e redundante quando os
+     itens já são só ícones. */
+  .nav_section { hidden: true; }
 }
 
 @media (max-width: 560) {
-  .sidebar { width: 150; padding: 14 8; spacing: 4; }
+  .sidebar { width: 64; padding: 14 6; spacing: 4; }
+  .brand   { size: 12; }
   .topbar  { padding: 10 10; spacing: 8; }
   /* Sem largura pra tudo na topbar: some com a busca e o status do daemon
      (baixa prioridade) pra Stop All / Disconnect não serem cortados
@@ -61,52 +72,61 @@
     </column>
     <text class="nav_section">DEPLOYMENT OPS</text>
     <NavItem
-      label="  Deployments"
+      label="Deployments"
+      icon="▶"
       target="deployments"
       action="nav_deployments"
     />
     <NavItem
-      label="  Deploy Engine"
+      label="Deploy Engine"
+      icon="⚡"
       target="deploy_engine"
       action="nav_deploy_engine"
     />
     <NavItem
-      label="  Monitoring"
+      label="Monitoring"
+      icon="◔"
       target="monitoring"
       action="nav_monitoring"
     />
     <NavItem
-      label="  Schedules"
+      label="Schedules"
+      icon="◫"
       target="schedules"
       action="nav_schedules"
     />
     <NavItem
-      label="  Ingress"
+      label="Ingress"
+      icon="↦"
       target="ingress"
       action="nav_ingress"
     />
     <NavItem
-      label="  Docker"
+      label="Docker"
+      icon="◉"
       target="docker"
       action="nav_docker"
     />
     <text class="nav_section">MANAGEMENT</text>
     <NavItem
-      label="  Projects ({projects_count})"
+      label="Projects ({projects_count})"
+      icon="◧"
       target="projects"
       action="nav_projects"
     />
     <column class="nav_spacer" />
     <rule />
-    <button
-      class="nav_item"
-      on_click="nav_settings"
-      text="Settings"
+    <NavItem
+      label="Settings"
+      icon="⌥"
+      target="settings"
+      action="nav_settings"
     />
-    <button
-      class="nav_item"
-      on_click="nav_support"
-      text="Support"
+    <NavItem
+      label="Support"
+      icon="◊"
+      target="support"
+      action="nav_support"
     />
   </column>
   <!-- ── Main column ──────────────────────────────────────────────────── -->

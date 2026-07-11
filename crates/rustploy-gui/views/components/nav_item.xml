@@ -1,28 +1,44 @@
 <!--
-  Props: label, target, action
+  Props: label, icon, target, action
 
-  Item de navegação da sidebar. Fica em estado "ligado" (`nav_item_on`) quando
-  a view atual ({view}) é igual ao `target` deste item; caso contrário, neutro
-  (`nav_item`). `equals` é interpolado, então compara {view} com {target}.
+  Item de navegação da sidebar: ícone (sempre visível) + rótulo (some abaixo de
+  900px de largura — ver @media abaixo, espelhando o breakpoint em que a
+  sidebar encolhe no shell.xml). Fica "ligado" (pílula azul) quando a view
+  atual ({view}) é igual a `target`; `equals` compara a interpolação de {view}
+  com {target}.
+
+  Era um botão-texto puro (Button, com o rótulo em `text`), mas o widget de
+  botão não suporta filhos — não dá pra por ícone+texto lado a lado dentro
+  dele. Virou uma linha (row) com on_press, o mesmo mecanismo de clique dos
+  handles de resize/drag do titlebar (qualquer nó com on_press/cursor vira um
+  mouse_area). Em janelas estreitas, o rótulo ("Deploy Engine", "Projects (2)")
+  não cabia na sidebar encolhida e, sem espaço para quebrar (ou sendo uma
+  palavra só), estourava e quebrava o layout — abaixo do breakpoint, só o
+  ícone fica visível.
 -->
 <style>
-.nav_item_on {
-  width: fill;
-  color: var(--blue);
-  padding: 11 14;
+.nav_row_on  { width: fill; padding: 11 14; spacing: 10; align-y: center; background: var(--blue); cursor: pointer; }
+.nav_row_off { width: fill; padding: 11 14; spacing: 10; align-y: center; cursor: pointer; }
+.nav_icon_on   { size: 14; color: var(--text); }
+.nav_icon_off  { size: 14; color: var(--faint); }
+.nav_label_on  { color: var(--text); }
+.nav_label_off { color: var(--muted); }
+
+@media (max-width: 900) {
+  .nav_row_on, .nav_row_off { padding: 11 0; spacing: 0; }
+  .nav_label_on, .nav_label_off { hidden: true; }
+  /* Com o rótulo escondido, o ícone é o único filho da linha — centraliza-se
+     preenchendo a largura e usando text-align (não dá pra centralizar ao
+     longo do eixo principal de uma row só com align-y/align-x). */
+  .nav_icon_on, .nav_icon_off { width: fill; text-align: center; }
 }
 </style>
 
-<button
-  class="nav_item_on"
-  if="{view}"
-  equals="{target}"
-  on_click="{action}"
-  text="{label}"
-/>
-<button
-  class="nav_item"
-  else
-  on_click="{action}"
-  text="{label}"
-/>
+<row class="nav_row_on" if="{view}" equals="{target}" on_press="{action}">
+  <text class="nav_icon_on">{icon}</text>
+  <text class="nav_label_on">{label}</text>
+</row>
+<row class="nav_row_off" else on_press="{action}">
+  <text class="nav_icon_off">{icon}</text>
+  <text class="nav_label_off">{label}</text>
+</row>

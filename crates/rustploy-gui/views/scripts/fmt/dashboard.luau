@@ -307,7 +307,7 @@ function M.docker_containers(list: {any}?, term: string?): string
                 id_full = c.id or "",
                 id = string.sub(c.id or "", 1, 12),
                 name = c.name or "—",
-                image = Util.ellipsis(image, 44),
+                image = Util.ellipsis(image, 35),
                 owner = owner,
                 state_label = label,
                 state_kind = kind,
