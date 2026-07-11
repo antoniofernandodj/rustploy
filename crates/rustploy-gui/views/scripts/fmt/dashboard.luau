@@ -13,7 +13,20 @@ local Util = require("util")
 
 local M = {}
 
-local GRID_COLS = 3
+-- Nº de colunas da grade de cards (services/projects) conforme a largura da
+-- janela — glacier não reestrutura Row↔Column via @media, então o número de
+-- colunas tem que ser decidido aqui (recalculado a cada snapshot, ~2s) para
+-- não espremer os cards a ponto de sobrepor texto/botões (ver comentário em
+-- service_card.xml). Breakpoints espelham os do app.gss (900/560).
+local function grid_cols(): number
+    local w = viewport().width
+    if w < 560 then
+        return 1
+    elseif w < 900 then
+        return 2
+    end
+    return 3
+end
 
 local FILLER: GridCard = {
     filler = "1",
@@ -99,7 +112,8 @@ function M.services(pairs_: {ServicePair}, metrics: MetricsMap?, term: string?):
     return Util.enc_array(rows)
 end
 
--- Cards de serviço em linhas de GRID_COLS, com filler (glacier não tem grid).
+-- Cards de serviço em linhas de N colunas (grid_cols), com filler (glacier
+-- não tem grid).
 function M.service_rows(pairs_: {ServicePair}, metrics: MetricsMap?, term: string?): string
     local filtered: {GridCard} = {}
     for _, p in ipairs(pairs_) do
@@ -107,16 +121,17 @@ function M.service_rows(pairs_: {ServicePair}, metrics: MetricsMap?, term: strin
             table.insert(filtered, service_card(p.svc, p.proj, metrics))
         end
     end
+    local cols = grid_cols()
     local rows = {}
     local i = 1
     while i <= #filtered do
         local cards = {}
-        for j = i, math.min(i + GRID_COLS - 1, #filtered) do
+        for j = i, math.min(i + cols - 1, #filtered) do
             table.insert(cards, filtered[j])
         end
-        while #cards < GRID_COLS do table.insert(cards, FILLER) end
+        while #cards < cols do table.insert(cards, FILLER) end
         table.insert(rows, { cards = cards })
-        i = i + GRID_COLS
+        i = i + cols
     end
     return Util.enc_array(rows)
 end
@@ -158,16 +173,17 @@ function M.project_rows(list: {any}?, pairs_: {ServicePair}, term: string?): str
             table.insert(filtered, project_card(p, pairs_))
         end
     end
+    local cols = grid_cols()
     local rows = {}
     local i = 1
     while i <= #filtered do
         local cards = {}
-        for j = i, math.min(i + GRID_COLS - 1, #filtered) do
+        for j = i, math.min(i + cols - 1, #filtered) do
             table.insert(cards, filtered[j])
         end
-        while #cards < GRID_COLS do table.insert(cards, FILLER) end
+        while #cards < cols do table.insert(cards, FILLER) end
         table.insert(rows, { cards = cards })
-        i = i + GRID_COLS
+        i = i + cols
     end
     return Util.enc_array(rows)
 end

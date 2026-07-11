@@ -23,6 +23,13 @@ declare ctx: { [string]: string }
 -- Valor do on_change/on_toggle/ação-com-sufixo (nil quando a ação não traz valor).
 declare value: string?
 
+-- Tamanho atual da janela em px lógicos (o que também alimenta @media no GSS).
+export type Viewport = {
+    width: number,
+    height: number,
+}
+declare function viewport(): Viewport
+
 declare function fetch(url: string, opts: any?): FetchResult
 declare function sse(url: string, opts: any?): StreamHandle
 declare function websocket(url: string, opts: any?): StreamHandle

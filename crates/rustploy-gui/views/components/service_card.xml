@@ -29,6 +29,7 @@
   spacing: 6;
 }
 
+/*
 .card_ctr_id {
   color: var(--text-3);
 }
@@ -36,6 +37,7 @@
 .card_ctr_extra {
   color: var(--text-3);
 }
+*/
 
 .card_actions  {
   width: fill;
@@ -50,19 +52,41 @@
   border-radius: 10
 }
 
+.c_name {
+  size: 16;
+  bold: true;
+  color: var(--text);
+}
+
+.c_port {
+  size: 12; color: var(--muted);
+}
+
+.fill {
+  width: fill;
+}
+
+.align-y-center {
+  alignY: end;
+}
+
 </style>
 
 <column if="{filler}" equals="1" class="card_filler" />
 <column else class="card">
   <row class="card_head">
-    <text class="card_name">{name}</text>
+    <row class="fill align-y-center">
+      <text class="c_name">{name}</text>
+      <text class="c_port">:{port}</text>
+    </row>
     <rp-badge color="{status_color}" label="{status_label}" />
   </row>
-  <text class="muted">:{port}</text>
   <row class="card_ctr">
-    <text class="muted">{container_name}</text>
-    <text class="card_ctr_id">{container_id}</text>
-    <text class="card_ctr_extra">{container_extra}</text>
+    <text class="muted">name: {container_name}</text>
+  </row>
+  <row>
+    <text class="muted">id: {container_id}</text>
+    <text class="muted" if="{container_extra}" not_equals="">extra: {container_extra}</text>
   </row>
   <rule />
   <row class="card_stats">
