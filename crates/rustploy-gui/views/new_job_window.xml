@@ -1,0 +1,188 @@
+<!-- Janela "Novo job": motor Glacier próprio, aberto por open_window a partir
+  do app principal (handlers/jobs.luau → open_new_job_window), que semeia a
+  conexão + os catálogos de projetos/serviços já buscados pela janela
+  principal (open_window({ data = ... }) — nada é buscado aqui dentro: um
+  `fetch` rodado no `init()` é descartado pelo motor, só ações despachadas
+  chegam ao executor; mesma razão de `new_service_window.luau`). Passos:
+  escolher projeto → escolher serviço gatilho (rede + env vars de base) →
+  formulário (nome, compose, main_service, recorrência). Ao concluir, emite
+  broadcast("job_created") e fecha. -->
+<link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />
+<link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />
+<link rel="import"      href="crates/rustploy-gui/views/components/picker_row.xml" as="PickerRow" />
+<link rel="import"      href="crates/rustploy-gui/views/components/tab_button.xml" as="TabButton" />
+
+<style>
+/* Titlebar custom (mesma linguagem visual do app.xml) */
+.titlebar       { width: fill; height: 32; background: var(--surface); align-y: center; }
+.titlebar_drag  { width: fill; height: fill; align-y: center; padding: 0 0 0 16; spacing: 9; }
+.titlebar_dot   { size: 10; color: var(--blue); }
+.titlebar_title { size: 12; bold: true; color: var(--muted); }
+.win_btn        { width: 48; padding: 5 0; color: var(--border); text-align: center; }
+.win_close      { width: 48; padding: 5 0; color: var(--danger); text-align: center; }
+
+.njob_screen { width: fill; height: fill; background: var(--bg); }
+.njob_body   { width: fill; height: fill; }
+
+.np_label   { size: 11; bold: true; color: var(--muted); }
+.np_input   { width: fill; }
+.np_group   { width: fill; spacing: 6; }
+.np_actions { width: fill; spacing: 10; align-y: center; }
+.np_spacer  { width: fill; }
+</style>
+
+<column class="njob_screen">
+
+  <row class="titlebar">
+    <row class="titlebar_drag" on_press="window:drag">
+      <text class="titlebar_dot">●</text>
+      <text class="titlebar_title">Novo job — Rustploy</text>
+    </row>
+    <button class="win_btn"   on_click="window:minimize" text="—" />
+    <button class="win_close" on_click="window:close"    text="✕" />
+  </row>
+
+  <scrollable class="njob_body" direction="vertical">
+    <column class="form_panel">
+
+      <!-- Passo 1: escolher o projeto -->
+      <if cond="{njob_step}" equals="pick_project">
+        <text class="label_cap">ESCOLHA O PROJETO</text>
+        <text class="muted">
+          O job sobe um stack docker-compose próprio; o projeto define a rede.
+        </text>
+        <column class="kv_list">
+          <PickerRow
+            for-each="njob_projects"
+            var="p"
+            title="{p.name}"
+            subtitle=""
+            button_label="Selecionar ›"
+            action="njob_pick_project:{p.id}"
+          />
+        </column>
+        <row class="np_actions">
+          <column class="np_spacer" />
+          <button class="btn_ghost" on_click="cancel" text="Cancelar" />
+        </row>
+      </if>
+
+      <!-- Passo 2: escolher o serviço gatilho (rede + env vars de base) -->
+      <if cond="{njob_step}" equals="pick_service">
+        <text class="label_cap">
+          SERVIÇO GATILHO — {njob_project_name}
+        </text>
+        <text class="muted">
+          Empresta a rede Docker e as env vars de base ao job (o job não roda
+          dentro do container dele — sobe um stack novo, próprio).
+        </text>
+        <text if="{njob_services_filtered}" equals="[]" class="muted">
+          Este projeto ainda não tem serviços.
+        </text>
+        <column class="kv_list">
+          <PickerRow
+            for-each="njob_services_filtered"
+            var="s"
+            title="{s.name}"
+            subtitle=""
+            button_label="Selecionar ›"
+            action="njob_pick_service:{s.id}"
+          />
+        </column>
+        <row class="np_actions">
+          <column class="np_spacer" />
+          <button class="btn_ghost" on_click="njob_back" text="‹ Voltar" />
+        </row>
+      </if>
+
+      <!-- Passo 3: formulário do job -->
+      <if cond="{njob_step}" equals="form">
+        <text class="label_cap">
+          NOVO JOB — {njob_project_name} / {njob_service_name}
+        </text>
+
+        <form name="njob_form" on_submit="njob_create" width="fill" spacing="10">
+
+          <text class="np_label">NOME</text>
+          <input class="np_input" form_control="njob_name" value="njob_name"
+            on_change="field:njob_name" placeholder="ex.: backup-db" />
+
+          <text class="np_label">DOCKER-COMPOSE.YML</text>
+          <textarea class="env_editor" font="mono" value="njob_compose"
+            placeholder="services:&#10;  job:&#10;    image: busybox&#10;    command: [&quot;sh&quot;, &quot;-c&quot;, &quot;echo ok&quot;]" />
+
+          <text class="np_label">MAIN SERVICE (nome dentro do compose acima)</text>
+          <input class="np_input" form_control="njob_main_service" value="njob_main_service"
+            on_change="field:njob_main_service" placeholder="ex.: job" />
+
+          <text class="label_cap">RECORRÊNCIA</text>
+          <row class="tabs">
+            <TabButton label="Manual" current="{njob_kind}" target="manual" action="njob_kind:manual" />
+            <TabButton label="Intervalo" current="{njob_kind}" target="interval" action="njob_kind:interval" />
+            <TabButton label="Diária" current="{njob_kind}" target="daily" action="njob_kind:daily" />
+            <TabButton label="Semanal" current="{njob_kind}" target="weekly" action="njob_kind:weekly" />
+          </row>
+
+          <if cond="{njob_kind}" equals="interval">
+            <text class="np_label">A CADA QUANTAS HORAS</text>
+            <input class="np_input" form_control="njob_hours" value="njob_hours"
+              on_change="field:njob_hours" placeholder="6" />
+          </if>
+
+          <if cond="{njob_kind}" equals="daily">
+            <row class="env_add">
+              <column class="np_group">
+                <text class="np_label">HORA (0-23)</text>
+                <input class="np_input" form_control="njob_hour" value="njob_hour"
+                  on_change="field:njob_hour" placeholder="3" />
+              </column>
+              <column class="np_group">
+                <text class="np_label">MINUTO (0-59)</text>
+                <input class="np_input" form_control="njob_minute" value="njob_minute"
+                  on_change="field:njob_minute" placeholder="0" />
+              </column>
+            </row>
+          </if>
+
+          <if cond="{njob_kind}" equals="weekly">
+            <text class="np_label">DIA DA SEMANA</text>
+            <row class="tabs">
+              <TabButton label="Seg" current="{njob_weekday}" target="0" action="njob_weekday:0" />
+              <TabButton label="Ter" current="{njob_weekday}" target="1" action="njob_weekday:1" />
+              <TabButton label="Qua" current="{njob_weekday}" target="2" action="njob_weekday:2" />
+              <TabButton label="Qui" current="{njob_weekday}" target="3" action="njob_weekday:3" />
+              <TabButton label="Sex" current="{njob_weekday}" target="4" action="njob_weekday:4" />
+              <TabButton label="Sáb" current="{njob_weekday}" target="5" action="njob_weekday:5" />
+              <TabButton label="Dom" current="{njob_weekday}" target="6" action="njob_weekday:6" />
+            </row>
+            <row class="env_add">
+              <column class="np_group">
+                <text class="np_label">HORA (0-23)</text>
+                <input class="np_input" form_control="njob_hour" value="njob_hour"
+                  on_change="field:njob_hour" placeholder="3" />
+              </column>
+              <column class="np_group">
+                <text class="np_label">MINUTO (0-59)</text>
+                <input class="np_input" form_control="njob_minute" value="njob_minute"
+                  on_change="field:njob_minute" placeholder="0" />
+              </column>
+            </row>
+          </if>
+
+          <text if="{njob_err}" not_equals="" class="err">{njob_err}</text>
+          <text if="{njob_msg}" not_equals="" class="muted">{njob_msg}</text>
+
+          <row class="np_actions">
+            <column class="np_spacer" />
+            <button class="btn_ghost" on_click="njob_back" text="‹ Voltar" />
+            <button class="btn_primary" on_click="njob_create" text="Criar job" />
+          </row>
+
+        </form>
+      </if>
+
+    </column>
+  </scrollable>
+
+  <script src="scripts/new_job_window.luau"></script>
+</column>

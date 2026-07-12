@@ -62,13 +62,14 @@ local function push_batch(events: { any }): ()
     end
 end
 
--- Um evento do bus: os endpoints já filtram por id; pegamos o LogLine (runtime)
--- ou BuildLog (build), o que vier. BuildLog não traz `stream` (cor padrão).
+-- Um evento do bus: os endpoints já filtram por id; pegamos o LogLine (runtime),
+-- BuildLog (build) ou JobLogLine (job one-shot), o que vier. BuildLog não traz
+-- `stream` (cor padrão).
 local function to_row(ev: any): any?
     if type(ev) ~= "table" then
         return nil
     end
-    return ev.LogLine or ev.BuildLog
+    return ev.LogLine or ev.BuildLog or ev.JobLogLine
 end
 
 -- Callback do sse(): cada `data:` é um JSON auto-descritivo (kind). O endpoint

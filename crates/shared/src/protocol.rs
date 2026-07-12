@@ -169,6 +169,44 @@ pub enum Command {
         deploy: bool,
     },
 
+    // Jobs (tarefas one-shot via docker-compose, agendadas ou manuais)
+    JobCreate {
+        project_id: String,
+        trigger_service_id: String,
+        name: String,
+        compose: String,
+        main_service: String,
+        recurrence: Option<Recurrence>,
+    },
+    JobUpdate {
+        id: String,
+        name: String,
+        compose: String,
+        main_service: String,
+        enabled: bool,
+        recurrence: Option<Recurrence>,
+    },
+    JobDelete {
+        id: String,
+    },
+    /// Jobs de um único projeto (aba "Jobs" do projeto).
+    JobList {
+        project_id: String,
+    },
+    /// Todos os jobs, de todos os projetos (tela global da sidebar "Schedules").
+    JobListAll,
+    /// Dispara o job imediatamente, fora do agendamento.
+    JobRunNow {
+        id: String,
+    },
+    JobRunHistory {
+        job_id: String,
+        limit: usize,
+    },
+    GetJobLogs {
+        job_run_id: String,
+    },
+
     // Docker cleanup
     PruneContainers,
     /// `all=true` remove volumes mesmo que não sejam anônimos (equivalente ao
@@ -302,6 +340,22 @@ pub enum Event {
         code: String,
         message: String,
     },
+    /// Uma linha de stdout/stderr do `docker compose` de um `JobRun` (mesma
+    /// forma de `Event::BuildLog`).
+    JobLogLine {
+        job_run_id: String,
+        job_id: String,
+        line: String,
+        timestamp: chrono::DateTime<chrono::Utc>,
+        stream: LogStream,
+    },
+    /// Início/fim de uma execução de job.
+    JobRunStateChanged {
+        job_id: String,
+        job_run_id: String,
+        running: bool,
+        success: Option<bool>,
+    },
 }
 
 impl Event {
@@ -323,7 +377,11 @@ impl Event {
             Event::ServiceStatusChanged {
                 service_id: sid, ..
             } => sid == service_id,
-            Event::DaemonReady { .. } | Event::Error { .. } | Event::SystemMetrics(_) => true,
+            Event::DaemonReady { .. }
+            | Event::Error { .. }
+            | Event::SystemMetrics(_)
+            | Event::JobLogLine { .. }
+            | Event::JobRunStateChanged { .. } => true,
         }
     }
 }
@@ -401,6 +459,16 @@ pub enum Response {
 
     /// Snapshot do dashboard como JSON (resposta de `Snapshot`).
     Snapshot(String),
+
+    // Jobs
+    Job(Job),
+    Jobs(Vec<Job>),
+    JobSummaries(Vec<JobSummary>),
+    JobRun(JobRun),
+    JobRuns(Vec<JobRun>),
+    /// Log de uma execução (resposta de `GetJobLogs`) — reaproveita
+    /// `BuildLogLine`, mesma forma de linha (stream + texto + timestamp).
+    JobLogs(Vec<BuildLogLine>),
 
     Err { code: String, message: String },
 }

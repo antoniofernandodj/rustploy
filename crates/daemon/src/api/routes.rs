@@ -40,6 +40,14 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::ManifestExport { .. } => "ManifestExport",
         Command::ManifestExportAll => "ManifestExportAll",
         Command::ManifestImport { .. } => "ManifestImport",
+        Command::JobCreate { .. } => "JobCreate",
+        Command::JobUpdate { .. } => "JobUpdate",
+        Command::JobDelete { .. } => "JobDelete",
+        Command::JobList { .. } => "JobList",
+        Command::JobListAll => "JobListAll",
+        Command::JobRunNow { .. } => "JobRunNow",
+        Command::JobRunHistory { .. } => "JobRunHistory",
+        Command::GetJobLogs { .. } => "GetJobLogs",
         Command::PruneContainers => "PruneContainers",
         Command::PruneVolumes { .. } => "PruneVolumes",
         Command::PruneImages { .. } => "PruneImages",
@@ -181,6 +189,44 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
             prune,
             deploy,
         } => handlers::manifest_import::handle(state, yaml, dotenv, prune, deploy).await,
+        Command::JobCreate {
+            project_id,
+            trigger_service_id,
+            name,
+            compose,
+            main_service,
+            recurrence,
+        } => {
+            handlers::job_create::handle(
+                state,
+                project_id,
+                trigger_service_id,
+                name,
+                compose,
+                main_service,
+                recurrence,
+            )
+            .await
+        }
+        Command::JobUpdate {
+            id,
+            name,
+            compose,
+            main_service,
+            enabled,
+            recurrence,
+        } => {
+            handlers::job_update::handle(state, id, name, compose, main_service, enabled, recurrence)
+                .await
+        }
+        Command::JobDelete { id } => handlers::job_delete::handle(state, id).await,
+        Command::JobList { project_id } => handlers::job_list::handle(state, project_id).await,
+        Command::JobListAll => handlers::job_list_all::handle(state).await,
+        Command::JobRunNow { id } => handlers::job_run_now::handle(state, id).await,
+        Command::JobRunHistory { job_id, limit } => {
+            handlers::job_run_history::handle(state, job_id, limit).await
+        }
+        Command::GetJobLogs { job_run_id } => handlers::get_job_logs::handle(state, job_run_id).await,
         Command::GitProviderList => handlers::git_provider_list::handle(state).await,
         Command::GitProviderCreate {
             kind,

@@ -9,6 +9,7 @@ local Util = require("fmt/util")
 local Dashboard = require("fmt/dashboard")
 local ServiceDetail = require("fmt/service_detail")
 local Git = require("fmt/git")
+local Jobs = require("fmt/jobs")
 
 local M = {}
 
@@ -66,5 +67,10 @@ M.containers = ServiceDetail.containers
 M.git_providers = Git.git_providers
 M.git_repos = Git.git_repos
 M.git_branches = Git.git_branches
+
+-- Jobs one-shot (fmt/jobs.luau)
+M.job_recurrence_label = Jobs.recurrence_label
+M.job_summaries = Jobs.summaries
+M.job_runs = Jobs.runs
 
 return M

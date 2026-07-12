@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -627,6 +627,162 @@ pub struct DockerNetworkInfo {
     /// `docker/networks.rs::project_network_name`). `None` for non-rustploy
     /// networks (the built-in `bridge`/`host`/`none`, or manually created ones).
     pub project: Option<String>,
+}
+
+// ── Jobs (tarefas one-shot via docker-compose, agendadas ou manuais) ──────────
+
+/// Uma tarefa one-shot: sobe um stack docker-compose próprio (efêmero — roda
+/// até terminar e é removido, nunca fica de pé como um `Service`), anexado à
+/// rede do projeto do `trigger_service_id` (que também empresta as env vars de
+/// base). Disparado por agendamento (`recurrence`) e/ou manualmente
+/// (`Command::JobRunNow`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Job {
+    pub id: String,
+    pub project_id: String,
+    /// Serviço do projeto que empresta rede Docker + env vars de base ao job
+    /// (o job não roda dentro do container dele — sobe um stack novo).
+    pub trigger_service_id: String,
+    pub name: String,
+    /// Conteúdo de um `docker-compose.yml` — mesma UX/formato de
+    /// `ComposeSource.content`.
+    pub compose: String,
+    /// Nome do serviço, dentro de `compose`, cujo exit code decide
+    /// sucesso/falha do job (`docker compose up --exit-code-from`).
+    pub main_service: String,
+    pub enabled: bool,
+    /// `None` = sem agendamento automático, só `Command::JobRunNow`.
+    pub recurrence: Option<Recurrence>,
+    pub last_run_at: Option<DateTime<Utc>>,
+    /// `None` quando `recurrence` é `None` (nada a agendar).
+    pub next_run_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Recorrência estruturada (sem expressão cron — ver decisão em
+/// docs/planejamento; `chrono` já é dependência, sem precisar de crate nova).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub enum Recurrence {
+    IntervalHours(u32),
+    Daily { hour: u8, minute: u8 },
+    /// `weekday`: 0=segunda .. 6=domingo (`chrono::Weekday::num_days_from_monday`).
+    Weekly { weekday: u8, hour: u8, minute: u8 },
+}
+
+impl Recurrence {
+    /// Próximo disparo estritamente depois de `from`.
+    pub fn next_after(&self, from: DateTime<Utc>) -> DateTime<Utc> {
+        match self {
+            Recurrence::IntervalHours(hours) => from + chrono::Duration::hours((*hours).max(1) as i64),
+            Recurrence::Daily { hour, minute } => {
+                let mut candidate = Self::at_time(from, *hour, *minute);
+                if candidate <= from {
+                    candidate += chrono::Duration::days(1);
+                }
+                candidate
+            }
+            Recurrence::Weekly { weekday, hour, minute } => {
+                let mut candidate = Self::at_time(from, *hour, *minute);
+                let target = (*weekday % 7) as i64;
+                let current = from.weekday().num_days_from_monday() as i64;
+                let mut delta_days = target - current;
+                if delta_days < 0 {
+                    delta_days += 7;
+                }
+                candidate += chrono::Duration::days(delta_days);
+                if candidate <= from {
+                    candidate += chrono::Duration::days(7);
+                }
+                candidate
+            }
+        }
+    }
+
+    /// `from`'s calendar date at the given UTC hour:minute (seconds zeroed).
+    fn at_time(from: DateTime<Utc>, hour: u8, minute: u8) -> DateTime<Utc> {
+        from.date_naive()
+            .and_hms_opt(hour.min(23) as u32, minute.min(59) as u32, 0)
+            .unwrap_or_else(|| from.date_naive().and_hms_opt(0, 0, 0).unwrap())
+            .and_utc()
+    }
+}
+
+/// Uma execução de um `Job`. `success: None` enquanto ainda está rodando.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct JobRun {
+    pub id: String,
+    pub job_id: String,
+    pub started_at: DateTime<Utc>,
+    pub finished_at: Option<DateTime<Utc>>,
+    pub exit_code: Option<i32>,
+    pub success: Option<bool>,
+}
+
+/// `Job` + nomes resolvidos, pra listagem cross-project (sidebar Schedules) —
+/// mesmo espírito de `DeploymentSummary`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobSummary {
+    pub job: Job,
+    pub project_name: String,
+    pub trigger_service_name: String,
+    pub last_run: Option<JobRun>,
+}
+
+#[cfg(test)]
+mod job_tests {
+    use super::*;
+
+    #[test]
+    fn interval_advances_by_hours() {
+        let from = "2026-01-01T10:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        let next = Recurrence::IntervalHours(6).next_after(from);
+        assert_eq!(next, from + chrono::Duration::hours(6));
+    }
+
+    #[test]
+    fn daily_before_time_today_fires_today() {
+        let from = "2026-01-01T02:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        let next = Recurrence::Daily { hour: 3, minute: 0 }.next_after(from);
+        assert_eq!(next, "2026-01-01T03:00:00Z".parse::<DateTime<Utc>>().unwrap());
+    }
+
+    #[test]
+    fn daily_after_time_today_fires_tomorrow() {
+        let from = "2026-01-01T04:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        let next = Recurrence::Daily { hour: 3, minute: 0 }.next_after(from);
+        assert_eq!(next, "2026-01-02T03:00:00Z".parse::<DateTime<Utc>>().unwrap());
+    }
+
+    #[test]
+    fn weekly_picks_next_matching_weekday() {
+        // 2026-01-01 é uma quinta-feira (weekday 3, 0=segunda).
+        let from = "2026-01-01T10:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        assert_eq!(from.weekday().num_days_from_monday(), 3);
+        // Próxima segunda (weekday 0) às 03:00 -> 2026-01-05.
+        let next = Recurrence::Weekly { weekday: 0, hour: 3, minute: 0 }.next_after(from);
+        assert_eq!(next, "2026-01-05T03:00:00Z".parse::<DateTime<Utc>>().unwrap());
+    }
+
+    #[test]
+    fn weekly_same_weekday_but_time_passed_rolls_to_next_week() {
+        // 2026-01-01 é quinta (weekday 3); pede quinta às 03:00, mas já são 10:00 -> semana que vem.
+        let from = "2026-01-01T10:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        let next = Recurrence::Weekly { weekday: 3, hour: 3, minute: 0 }.next_after(from);
+        assert_eq!(next, "2026-01-08T03:00:00Z".parse::<DateTime<Utc>>().unwrap());
+    }
+
+    #[test]
+    fn recurrence_json_round_trip() {
+        for r in [
+            Recurrence::IntervalHours(6),
+            Recurrence::Daily { hour: 3, minute: 30 },
+            Recurrence::Weekly { weekday: 6, hour: 0, minute: 0 },
+        ] {
+            let json = serde_json::to_string(&r).unwrap();
+            let back: Recurrence = serde_json::from_str(&json).unwrap();
+            assert_eq!(r, back);
+        }
+    }
 }
 
 #[cfg(test)]

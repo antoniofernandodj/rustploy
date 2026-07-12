@@ -235,6 +235,156 @@ pub async fn up(
     Ok(())
 }
 
+/// Sobe um stack docker-compose UMA VEZ (job one-shot, não um serviço de vida
+/// longa): usa `--abort-on-container-exit --exit-code-from <main_service>` —
+/// a própria flag do `docker compose` feita pra isso — em vez de `-d`, então
+/// o processo espera `main_service` terminar e propaga o exit code dele.
+/// Sempre roda `down(...)` depois (sucesso ou falha), pra não deixar
+/// containers/redes zumbis do job. Retorna o exit code de `main_service`.
+pub async fn run_once(
+    content: &str,
+    project_name: &str,
+    network_name: &str,
+    main_service: &str,
+    job_id: &str,
+    job_run_id: &str,
+    bus: &Arc<EventBus>,
+    db: &Arc<Db>,
+    env_vars: &[(String, String)],
+    build_dir: &Path,
+) -> Result<i32> {
+    info!(project = %project_name, job_id = %job_id, "compose_run_once: iniciando job one-shot");
+
+    let content = inject_project_network(content, network_name)?;
+
+    tokio::fs::create_dir_all(build_dir).await?;
+    let env_file_path = build_dir.join(".env");
+    let compose_file_path = build_dir.join("docker-compose.yml");
+
+    {
+        let mut env_file = File::create(&env_file_path).await?;
+        for (k, v) in env_vars {
+            env_file.write_all(format!("{}={}\n", k, v).as_bytes()).await?;
+        }
+        env_file.flush().await?;
+    }
+
+    let mut compose_file = File::create(&compose_file_path).await?;
+    compose_file.write_all(content.as_bytes()).await?;
+    compose_file.flush().await?;
+    drop(compose_file);
+
+    let up_result = run_once_up(
+        project_name,
+        main_service,
+        job_id,
+        job_run_id,
+        bus,
+        db,
+        build_dir,
+    )
+    .await;
+
+    // Sempre desmonta o stack, mesmo se o up falhou — nunca deixa
+    // containers/redes zumbis do job pra trás.
+    if let Err(e) = down(&content, project_name, network_name, env_vars).await {
+        tracing::warn!(project = %project_name, job_id = %job_id, error = %e, "compose_run_once: down falhou (limpeza best-effort)");
+    }
+    let _ = remove_file(&env_file_path).await;
+    let _ = remove_file(&compose_file_path).await;
+
+    up_result
+}
+
+async fn run_once_up(
+    project_name: &str,
+    main_service: &str,
+    job_id: &str,
+    job_run_id: &str,
+    bus: &Arc<EventBus>,
+    db: &Arc<Db>,
+    build_dir: &Path,
+) -> Result<i32> {
+    let mut child = Command::new("docker")
+        .args([
+            "compose",
+            "-p",
+            project_name,
+            "-f",
+            "docker-compose.yml",
+            "--env-file",
+            ".env",
+            "up",
+            "--build",
+            "--abort-on-container-exit",
+            "--exit-code-from",
+            main_service,
+            "--remove-orphans",
+        ])
+        .current_dir(build_dir)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| anyhow!("falha ao iniciar docker compose: {e}"))?;
+
+    let stdout = BufReader::new(child.stdout.take().unwrap());
+    let stderr = BufReader::new(child.stderr.take().unwrap());
+
+    let bus_s = bus.clone();
+    let db_s = db.clone();
+    let jid = job_id.to_string();
+    let rid = job_run_id.to_string();
+    let read_stdout = async move {
+        let mut lines = stdout.lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            if line.trim().is_empty() {
+                continue;
+            }
+            let ts = Utc::now();
+            bus_s.publish(Event::JobLogLine {
+                job_run_id: rid.clone(),
+                job_id: jid.clone(),
+                line: line.clone(),
+                timestamp: ts,
+                stream: shared::protocol::LogStream::Stdout,
+            });
+            let _ = crate::db::job_log::append(&db_s, &rid, &shared::protocol::LogStream::Stdout, &line, ts).await;
+        }
+    };
+    let bus_e = bus.clone();
+    let db_e = db.clone();
+    let jid_e = job_id.to_string();
+    let rid_e = job_run_id.to_string();
+    let read_stderr = async move {
+        let mut lines = stderr.lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            if line.trim().is_empty() {
+                continue;
+            }
+            let ts = Utc::now();
+            bus_e.publish(Event::JobLogLine {
+                job_run_id: rid_e.clone(),
+                job_id: jid_e.clone(),
+                line: line.clone(),
+                timestamp: ts,
+                stream: shared::protocol::LogStream::Stderr,
+            });
+            let _ = crate::db::job_log::append(&db_e, &rid_e, &shared::protocol::LogStream::Stderr, &line, ts).await;
+        }
+    };
+
+    tokio::join!(read_stdout, read_stderr);
+    let status = child
+        .wait()
+        .await
+        .map_err(|e| anyhow!("falha ao aguardar: {e}"))?;
+
+    // `--exit-code-from` propaga o exit code de `main_service` como o do
+    // processo `docker compose` — sem código (ex.: morto por sinal) conta
+    // como falha (-1), não sucesso silencioso.
+    Ok(status.code().unwrap_or(-1))
+}
+
 pub async fn down(
     content: &str,
     project_name: &str,

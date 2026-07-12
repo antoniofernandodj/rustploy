@@ -34,6 +34,7 @@ export type State = {
     -- (open_logs_window / dep_logs) e o daemon (endpoints /api/.../logs).
     deploy_track: DeployTrack,
     ns_templates_all: { any },         -- catálogo completo de templates (filtrar busca)
+    jobs_by_id: { [string]: any },     -- job_id → Job cru (do snapshot) — job_toggle precisa do compose/name/main_service completos pra reenviar o JobUpdate.
 }
 
 local S: State = {
@@ -45,6 +46,7 @@ local S: State = {
     search_term = "",
     deploy_track = { service_id = "", deployment_id = "", running = false },
     ns_templates_all = {},
+    jobs_by_id = {},
 }
 
 return S

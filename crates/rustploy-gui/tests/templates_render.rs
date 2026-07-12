@@ -51,6 +51,45 @@ fn new_project_form_window_renders() {
     assert!(m.render("new_project_form").is_ok(), "render new_project_form");
 }
 
+/// A janela "Novo job" (`new_job_window.xml` + `new_job_window.luau`) é um
+/// motor à parte, aberto por `open_new_job_window` (handlers/jobs.luau).
+/// Semeia projetos/serviços já buscados (como `open_window({ data = ... })`
+/// faria) e valida os três passos (escolher projeto → escolher serviço →
+/// formulário, com cada tipo de recorrência).
+#[test]
+fn new_job_window_renders() {
+    cd_ws_root();
+    let mut m = GlacierUI::new();
+    m.define_data("api_url", "http://localhost");
+    m.define_data("api_token", "t");
+    m.define_data("njob_projects", r#"[{"id":"prj_1","name":"acme"}]"#);
+    m.define_data(
+        "njob_services",
+        r#"[{"id":"svc_1","name":"web","project_id":"prj_1"}]"#,
+    );
+    m.register_component("new_job_window", "crates/rustploy-gui/views/new_job_window.xml")
+        .expect("new_job_window.xml must register");
+    m.set_initial_screen("new_job_window");
+
+    m.define_data("njob_step", "pick_project");
+    m.reevaluate_all().expect("eval new_job_window/pick_project");
+    assert!(m.render("new_job_window").is_ok(), "render new_job_window/pick_project");
+
+    m.define_data("njob_step", "pick_service");
+    m.define_data("njob_project_name", "acme");
+    m.define_data("njob_services_filtered", r#"[{"id":"svc_1","name":"web","project_id":"prj_1"}]"#);
+    m.reevaluate_all().expect("eval new_job_window/pick_service");
+    assert!(m.render("new_job_window").is_ok(), "render new_job_window/pick_service");
+
+    m.define_data("njob_step", "form");
+    m.define_data("njob_service_name", "web");
+    for kind in ["manual", "interval", "daily", "weekly"] {
+        m.define_data("njob_kind", kind);
+        m.reevaluate_all().unwrap_or_else(|e| panic!("eval new_job_window/form {kind}: {e}"));
+        assert!(m.render("new_job_window").is_ok(), "render new_job_window/form {kind}");
+    }
+}
+
 /// A janela de logs ao vivo (`log_window.xml` + `log_window.luau`) é um motor à
 /// parte, aberto por `open_logs_window`; validamos que registra e renderiza por
 /// conta própria — semeando a conexão + o serviço + o tail como `open_window`.
@@ -141,6 +180,16 @@ fn all_screens_and_service_tabs_render() {
     m.reevaluate_all().unwrap_or_else(|e| panic!("eval ingress/host_ports: {e}"));
     assert!(m.render("app").is_ok(), "render ingress/host_ports");
 
+    // Schedules → tabela global de jobs one-shot (todos os projetos).
+    m.define_data("view", "schedules");
+    m.define_data("jobs_count", "1");
+    m.define_data(
+        "jobs_summary",
+        r#"[{"id":"job_1","name":"backup-db","owner":"acme / postgres","recurrence":"a cada 6h","enabled":true,"enabled_label":"Pausar","last_run_label":"ok","last_run_kind":"ok","last_run_id":"jrun_1","next_run_at":"12/07 03:00"}]"#,
+    );
+    m.reevaluate_all().unwrap_or_else(|e| panic!("eval schedules: {e}"));
+    assert!(m.render("app").is_ok(), "render schedules com dados");
+
     // Projeto aberto (project_services): grid de serviços e a aba de
     // variáveis de ambiente de nível de projeto.
     // Nome de env var absurdamente longo: exercita o truncamento de
@@ -150,7 +199,12 @@ fn all_screens_and_service_tabs_render() {
         "proj_env",
         r##"[{"key":"__c0","value":"# comentário","kind":"comment"},{"key":"A_VERY_LONG_ENVIRONMENT_VARIABLE_NAME_THAT_SHOULD_BE_TRUNCATED","key_display":"A_VERY_LONG_ENVIRONMENT_VARIABLE_NAME_TH…","value":"x","kind":"plain"}]"##,
     );
-    for proj_tab in ["services", "env"] {
+    m.define_data("proj_jobs_count", "1");
+    m.define_data(
+        "proj_jobs",
+        r#"[{"id":"job_1","name":"backup-db","recurrence":"a cada 6h","enabled":true,"enabled_label":"Pausar","last_run_label":"ok","last_run_kind":"ok","last_run_id":"jrun_1","next_run_at":"12/07 03:00"}]"#,
+    );
+    for proj_tab in ["services", "env", "jobs"] {
         m.define_data("view", "project_services");
         m.define_data("proj_tab", proj_tab);
         m.define_data("proj_loading", "false");

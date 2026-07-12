@@ -8,6 +8,7 @@ mod firewall;
 mod git_providers;
 mod health;
 mod ingress;
+mod jobs;
 mod logs;
 mod metrics;
 mod ports;
@@ -197,6 +198,14 @@ async fn main() -> Result<()> {
                 )
                 .await;
             }
+        });
+    }
+
+    // Scheduler de jobs one-shot: verifica a cada 30s se algum job agendado venceu
+    {
+        let state2 = state.clone();
+        tokio::spawn(async move {
+            jobs::scheduler::scheduler_loop(state2).await;
         });
     }
 

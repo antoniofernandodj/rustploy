@@ -56,6 +56,9 @@ function on_broadcast(event: string, payload: any): ()
     elseif event == "service_created" then
         Helpers.notify_ok("Serviço \"" .. (name ~= "" and name or "serviço") .. "\" criado")
         Stream.refresh_now()
+    elseif event == "job_created" then
+        Helpers.notify_ok("Job \"" .. (name ~= "" and name or "job") .. "\" criado")
+        Stream.refresh_now()
     end
 end
 

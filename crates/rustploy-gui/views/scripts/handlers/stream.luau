@@ -84,6 +84,18 @@ local function update_open_project(): ()
         ctx.proj_env_text = pdotenv
         ctx.proj_env_text_orig = pdotenv
     end
+
+    -- Aba "Jobs (N)": jobs deste projeto (filtrados do `msg.jobs` global —
+    -- já busca tudo a cada snapshot, sem RPC extra).
+    local proj_jobs = {}
+    for _, s in ipairs(snap.jobs or {}) do
+        if s.job.project_id == pid then
+            table.insert(proj_jobs, s)
+        end
+    end
+    local jobs_json, jobs_count = fmt.job_summaries(proj_jobs)
+    ctx.proj_jobs = jobs_json
+    ctx.proj_jobs_count = tostring(jobs_count)
 end
 
 M.update_open_project = update_open_project
@@ -150,6 +162,18 @@ local function apply_snapshot(msg: any): ()
     ctx.host_ports = host_ports
     ctx.host_ports_count = tostring(hpcount)
     ctx.monitoring = fmt.monitoring(State.last_pairs, State.metrics_by_id)
+
+    -- Jobs one-shot (tela global "Schedules"): guarda o Job cru por id
+    -- (job_toggle precisa do compose/name/main_service completos pra
+    -- reenviar o JobUpdate) e formata as linhas de exibição.
+    local jobs_by_id = {}
+    for _, s in ipairs(msg.jobs or {}) do
+        jobs_by_id[s.job.id] = s.job
+    end
+    State.jobs_by_id = jobs_by_id
+    local jobs_summary, jobs_count = fmt.job_summaries(msg.jobs)
+    ctx.jobs_summary = jobs_summary
+    ctx.jobs_count = tostring(jobs_count)
 
     rebuild_lists()
     update_open_project()

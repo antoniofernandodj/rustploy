@@ -11,7 +11,7 @@ use bollard::models::HealthStatusEnum;
 use chrono::Utc;
 use shared::{
     compose_project_name,
-    DeployState, Deployment, EnvVarValue, Event, HealthcheckKind, Service, ServiceSource,
+    DeployState, Deployment, Event, HealthcheckKind, Service, ServiceSource,
     ServiceStatus,
 };
 use std::{path::PathBuf, sync::Arc, time::Duration};
@@ -1057,72 +1057,11 @@ impl DeployExecutor {
         networks::ensure_project_network(&self.docker.inner, project_id).await
     }
 
+    /// Wrapper fino: a lógica de verdade mora em `deploy::env_resolve::resolve`
+    /// (reaproveitada pelo `JobRunner`, que precisa das mesmas env vars de
+    /// base sem instanciar um `DeployExecutor` inteiro).
     async fn resolve_env(&self, svc: &Service) -> Result<Vec<(String, String)>> {
-        // Env vars do projeto herdadas por todos os serviços (base)
-        let project_env = match crate::db::projects::get(&self.db, &svc.spec.project_id).await {
-            Ok(Some(project)) => project.env_vars,
-            Ok(None) => {
-                warn!(
-                    service_id = %svc.id,
-                    project_id = %svc.spec.project_id,
-                    "resolve_env: projeto não encontrado no banco — env vars de projeto não serão injetadas"
-                );
-                vec![]
-            }
-            Err(e) => {
-                error!(
-                    service_id = %svc.id,
-                    project_id = %svc.spec.project_id,
-                    error = %e,
-                    "resolve_env: falha ao carregar projeto (possível erro de desserialização do JSON env_vars) — env vars de projeto não serão injetadas"
-                );
-                vec![]
-            }
-        };
-
-        // Mapa com precedência: projeto primeiro, service sobrescreve
-        use std::collections::HashMap;
-        let mut env_map: HashMap<String, String> = HashMap::new();
-
-        for ev in &project_env {
-            let value = match &ev.value {
-                EnvVarValue::Plain(v) => v.clone(),
-                EnvVarValue::Secret(name) => {
-                    debug!(service_id = %svc.id, secret = %name, "resolve_env: desencriptando secret do projeto");
-                    self.secrets.get_raw(&svc.spec.project_id, name).await.unwrap_or_default()
-                }
-            };
-            env_map.insert(ev.key.clone(), value);
-        }
-
-        for ev in &svc.spec.env_vars {
-            let value = match &ev.value {
-                EnvVarValue::Plain(v) => v.clone(),
-                EnvVarValue::Secret(name) => {
-                    debug!(service_id = %svc.id, secret = %name, "resolve_env: desencriptando secret do serviço");
-                    self.secrets.get_raw(&svc.spec.project_id, name).await.unwrap_or_default()
-                }
-            };
-            // Service override tem precedência sobre o projeto
-            env_map.insert(ev.key.clone(), value);
-        }
-
-        let keys: Vec<&str> = env_map.keys().map(|k| k.as_str()).collect();
-        info!(
-            service_id = %svc.id,
-            project_vars = project_env.len(),
-            service_vars = svc.spec.env_vars.len(),
-            total = env_map.len(),
-            keys = ?keys,
-            "resolve_env: vars resolvidas (projeto + serviço)"
-        );
-
-        // DEBUG: Imprimir todas as variáveis resolvidas
-        for (k, v) in &env_map {
-            debug!(service_id = %svc.id, key = %k, value = %v, "resolve_env: debug var");
-        }
-
-        Ok(env_map.into_iter().collect())
+        super::env_resolve::resolve(&self.db, &self.secrets, svc).await
     }
 
     async fn load_deployment(&self, id: &str) -> Result<Deployment> {

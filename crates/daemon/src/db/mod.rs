@@ -3,6 +3,9 @@ pub mod daemon_settings;
 pub mod event_log;
 pub mod git_providers;
 pub mod deployments;
+pub mod job;
+pub mod job_log;
+pub mod job_run;
 pub mod projects;
 pub mod services;
 pub mod webhook_tokens;
@@ -126,6 +129,44 @@ async fn migrate(pool: &SqlitePool) -> Result<()> {
 
         CREATE INDEX IF NOT EXISTS ix_event_log_svc ON event_log(service_id, id DESC);
         CREATE INDEX IF NOT EXISTS ix_event_log_id  ON event_log(id DESC);
+
+        CREATE TABLE IF NOT EXISTS job (
+            id                 TEXT PRIMARY KEY,
+            project_id         TEXT NOT NULL,
+            trigger_service_id TEXT NOT NULL,
+            name               TEXT NOT NULL,
+            compose            TEXT NOT NULL,
+            main_service       TEXT NOT NULL,
+            enabled            INTEGER NOT NULL DEFAULT 1,
+            recurrence         TEXT,
+            last_run_at        TEXT,
+            next_run_at        TEXT,
+            created_at         TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_job_project  ON job(project_id);
+        CREATE INDEX IF NOT EXISTS idx_job_next_run ON job(next_run_at);
+
+        CREATE TABLE IF NOT EXISTS job_run (
+            id          TEXT PRIMARY KEY,
+            job_id      TEXT NOT NULL,
+            started_at  TEXT NOT NULL,
+            finished_at TEXT,
+            exit_code   INTEGER,
+            success     INTEGER
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_job_run_job ON job_run(job_id);
+
+        CREATE TABLE IF NOT EXISTS job_log (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_run_id TEXT NOT NULL,
+            stream     TEXT NOT NULL DEFAULT 'Stdout',
+            line       TEXT NOT NULL,
+            ts         TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_job_log_run ON job_log(job_run_id);
         ",
     )
     .execute(pool)

@@ -924,11 +924,58 @@
     </if>
   </if>
 
-  <!-- ── Schedules / Support (placeholders) ───────────────────────────── -->
-  <column class="content_center" if="{view}" equals="schedules">
-    <text class="title">Schedules</text>
-    <text class="subtitle">Agendamentos de auto-deploy — em breve.</text>
-  </column>
+  <!-- ── Schedules: jobs one-shot via docker-compose, de todos os projetos ── -->
+  <if cond="{view}" equals="schedules">
+    <row class="header_row">
+      <column class="header_titles">
+        <text class="title">Schedules</text>
+        <text class="subtitle">
+          Tarefas one-shot (docker-compose) agendadas ou manuais, de todos os projetos.
+        </text>
+      </column>
+      <row class="stats_row">
+        <StatCard label="JOBS" value="{jobs_count}" />
+      </row>
+      <button class="btn_primary" on_click="open_new_job_window" text="+ Novo job" />
+    </row>
+    <column class="panel_fill">
+      <row class="thead">
+        <text class="th col_svc">NOME</text>
+        <text class="th col_proj">PROJETO / GATILHO</text>
+        <text class="th col_state">ÚLTIMA EXECUÇÃO</text>
+        <text class="th col_dur">RECORRÊNCIA</text>
+        <text class="th col_dur">PRÓXIMA EXECUÇÃO</text>
+        <text class="th col_start">AÇÕES</text>
+      </row>
+      <text if="{jobs_count}" equals="0" class="muted">
+        Nenhum job cadastrado ainda.
+      </text>
+      <scrollable direction="vertical" class="scroll_fill">
+        <column class="table_body">
+          <foreach items="jobs_summary" var="j">
+            <column class="row_wrap">
+              <row class="trow">
+                <text class="td_key col_svc">{j.name}</text>
+                <text class="td col_proj">{j.owner}</text>
+                <StateCell kind="{j.last_run_kind}" label="{j.last_run_label}" />
+                <text class="muted col_dur">{j.recurrence}</text>
+                <text class="muted col_dur">{j.next_run_at}</text>
+                <row class="col_start">
+                  <button class="copy_btn" on_click="job_run_now:{j.id}" text="Rodar agora" />
+                  <button class="copy_btn" if="{j.last_run_id}" not_equals=""
+                    on_click="open_job_logs_window:{j.last_run_id}" text="Ver logs" />
+                  <button class="copy_btn" on_click="job_toggle:{j.id}" text="{j.enabled_label}" />
+                  <button class="env_del" on_click="job_del:{j.id}" text="✕" />
+                </row>
+              </row>
+              <rule />
+            </column>
+          </foreach>
+        </column>
+      </scrollable>
+    </column>
+  </if>
+
   <column class="content_center" if="{view}" equals="support">
     <text class="title">Support</text>
     <text class="subtitle">github.com/antoniofernandodj/rustploy</text>

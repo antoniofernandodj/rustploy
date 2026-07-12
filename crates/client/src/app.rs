@@ -533,6 +533,9 @@ impl App {
             Event::DaemonReady { version } => {
                 self.set_notification(format!("daemon {version} ready"), false);
             }
+
+            // Jobs one-shot: só implementado na GUI (rustploy-gui) por ora.
+            Event::JobLogLine { .. } | Event::JobRunStateChanged { .. } => {}
         }
     }
 

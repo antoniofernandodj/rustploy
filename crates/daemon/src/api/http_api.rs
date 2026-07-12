@@ -204,6 +204,20 @@ async fn handle(
                 deployment_build_logs(state, id.to_string())
             }
         }
+        // SSE dedicado de logs de UMA execução de job: `/api/jobs/runs/<id>/logs`.
+        (&Method::GET, p)
+            if p.starts_with("/api/jobs/runs/") && p.ends_with("/logs") =>
+        {
+            let id = p
+                .strip_prefix("/api/jobs/runs/")
+                .and_then(|s| s.strip_suffix("/logs"))
+                .unwrap_or("");
+            if id.is_empty() {
+                text(StatusCode::NOT_FOUND, "not found")
+            } else {
+                job_run_logs(state, id.to_string())
+            }
+        }
         _ => text(StatusCode::NOT_FOUND, "not found"),
     })
 }
@@ -276,8 +290,11 @@ fn events(state: AppState) -> Response<ApiBody> {
                 }
                 r = bus_rx.recv() => match r {
                     Ok(ev) => {
-                        // Logs (runtime/build) só pelos endpoints dedicados.
-                        if matches!(ev, Event::LogLine { .. } | Event::BuildLog { .. }) {
+                        // Logs (runtime/build/job) só pelos endpoints dedicados.
+                        if matches!(
+                            ev,
+                            Event::LogLine { .. } | Event::BuildLog { .. } | Event::JobLogLine { .. }
+                        ) {
                             continue;
                         }
                         // Self-describing: the SSE client only sees `data:` (the
@@ -386,6 +403,57 @@ fn deployment_build_logs(state: AppState, deployment_id: String) -> Response<Api
                         let keep = matches!(
                             &ev,
                             Event::BuildLog { deployment_id: did, .. } if *did == deployment_id
+                        );
+                        if keep {
+                            batch.push(ev);
+                            if batch.len() >= LOG_BATCH_MAX
+                                && send_log_batch(&tx, std::mem::take(&mut batch)).await.is_err()
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    Err(RecvError::Lagged(_)) => continue,
+                    Err(RecvError::Closed) => break,
+                }
+            }
+        }
+    });
+
+    sse_response(rx)
+}
+
+/// `GET /api/jobs/runs/{id}/logs`: SSE dedicado à saída de UMA execução de job
+/// one-shot. Gêmeo de `deployment_build_logs`, mas filtrando `Event::JobLogLine`
+/// por `job_run_id`; não manda o histórico — a janela o semeia via
+/// `GetJobLogs` em `open_window({data})`.
+fn job_run_logs(state: AppState, job_run_id: String) -> Response<ApiBody> {
+    let (tx, rx) = tokio::sync::mpsc::channel::<Bytes>(64);
+
+    tokio::spawn(async move {
+        use tokio::sync::broadcast::error::RecvError;
+        let mut bus_rx = state.bus.subscribe();
+        const LOG_BATCH_MAX: usize = 400;
+        let mut batch: Vec<Event> = Vec::new();
+        let mut batch_flush = tokio::time::interval(
+            std::time::Duration::from_millis(80)
+        );
+        batch_flush.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+        loop {
+            tokio::select! {
+                _ = batch_flush.tick() => {
+                    if !batch.is_empty()
+                        && send_log_batch(&tx, std::mem::take(&mut batch)).await.is_err()
+                    {
+                        break;
+                    }
+                }
+                r = bus_rx.recv() => match r {
+                    Ok(ev) => {
+                        let keep = matches!(
+                            &ev,
+                            Event::JobLogLine { job_run_id: rid, .. } if *rid == job_run_id
                         );
                         if keep {
                             batch.push(ev);
@@ -529,6 +597,12 @@ pub(crate) async fn snapshot(state: &AppState) -> String {
     if let RpResponse::DockerContainers(list) =
         dispatch(state.clone(), Command::DockerContainers).await {
             obj.insert("docker_containers".into(),
+            serde_json::to_value(list).unwrap_or(Value::Null)
+        );
+    }
+    if let RpResponse::JobSummaries(list) =
+        dispatch(state.clone(), Command::JobListAll).await {
+            obj.insert("jobs".into(),
             serde_json::to_value(list).unwrap_or(Value::Null)
         );
     }
