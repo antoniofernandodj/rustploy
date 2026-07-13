@@ -1,7 +1,6 @@
 VERSION := $(shell grep '^version' crates/daemon/Cargo.toml | head -1 | cut -d'"' -f2)
 
 DAEMON_BIN := target/release/rustployd
-CLIENT_BIN := target/release/rustploy
 
 BOLD  := \033[1m
 RESET := \033[0m
@@ -16,7 +15,7 @@ export CARGO_TERM_COLOR := never
 # ── Build ──────────────────────────────────────────────────────────────────────
 
 .PHONY: build
-build: ## Compila daemon, tui e gui em modo release
+build: ## Compila daemon e gui em modo release
 	cargo build --release --workspace
 
 .PHONY: check
@@ -26,10 +25,6 @@ check: ## Verifica o workspace sem linkar (mais rápido)
 .PHONY: dev-daemon
 dev-daemon: ## Roda o daemon em modo debug (para desenvolvimento)
 	cargo run -p daemon
-
-.PHONY: dev-tui
-dev-tui: ## Roda o TUI tui em modo debug
-	cargo run -p client
 
 # ── Qualidade ─────────────────────────────────────────────────────────────────
 
@@ -209,13 +204,8 @@ install-daemon: deb-daemon ## Compila, empacota e instala apenas o daemon
 .PHONY: install
 install: deb ## Instala os pacotes .deb via dpkg
 	sudo dpkg -i $$(ls target/debian/rustployd_*.deb       | tail -1)
-	sudo dpkg -i $$(ls target/debian/rustploy_*.deb        | tail -1)
 	sudo dpkg -i $$(ls target/debian/rustploy-remote_*.deb | tail -1)
 	@command -v update-desktop-database >/dev/null 2>&1 && sudo update-desktop-database /usr/share/applications || true
-
-.PHONY: install-tui
-install-tui: ## Instala apenas o tui (requer make deb antes)
-	sudo dpkg -i $$(ls target/debian/rustploy_*.deb | tail -1)
 
 .PHONY: install-gui
 install-gui: deb-gui ## Compila, empacota e instala o rustploy-gui

@@ -109,9 +109,14 @@ pub struct AppState {
     pub active_deploys: ActiveDeploys,
     /// TTL cache for the slow host-wide Docker inventory (see [`DockerCache`]).
     pub docker_cache: Arc<DockerCache>,
+    /// Storage do registry OCI embutido — o MESMO (mesma `commit_lock`) que o
+    /// listener HTTP do registry usa, para o handler `RegistryGc`. `None`
+    /// quando `[registry]` está desabilitado na config.
+    pub registry_storage: Option<Arc<crate::registry::storage::RegistryStorage>>,
 }
 
 impl AppState {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         db: Arc<Db>,
         docker: Arc<DockerClient>,
@@ -123,6 +128,7 @@ impl AppState {
         backup_dir: PathBuf,
         drain_secs: u64,
         webhook_port: u16,
+        registry_storage: Option<Arc<crate::registry::storage::RegistryStorage>>,
     ) -> Self {
         Self {
             db,
@@ -139,6 +145,7 @@ impl AppState {
             oauth_states: Arc::new(Mutex::new(HashMap::new())),
             active_deploys: Arc::new(Mutex::new(HashMap::new())),
             docker_cache: Arc::new(DockerCache::new()),
+            registry_storage,
         }
     }
 }

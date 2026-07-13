@@ -26,10 +26,12 @@ function settings_save(): ()
     end
     local domain = Helpers.trim(ctx.ss_domain)
     local email = Helpers.trim(ctx.ss_email)
+    local registry_domain = Helpers.trim(ctx.ss_registry_domain)
     ctx.settings_msg = "salvando…"
     local ok, res = api:rpc_checked({ SetDaemonSettings = {
         webhook_base_url = (domain ~= "" and domain or nil),
         acme_email = (email ~= "" and email or nil),
+        registry_domain = (registry_domain ~= "" and registry_domain or nil),
     } })
     ctx.settings_msg = ok and "configurações salvas" or ("erro: " .. res)
     if ok then

@@ -1,11 +1,12 @@
 use crate::{api::AppState, db::daemon_settings};
-use shared::Response as RpResponse;
+use shared::{Response as RpResponse, RustployConfig};
 use tracing::{error, info, warn};
 
 pub async fn handle(
     state: AppState,
     webhook_base_url: Option<String>,
     acme_email: Option<String>,
+    registry_domain: Option<String>,
 ) -> RpResponse {
     if let Err(e) = save_optional(
         &state,
@@ -30,10 +31,59 @@ pub async fn handle(
     match email_trimmed {
         Some(email) => {
             state.tls.enable_acme(email);
-            provision_existing_domains(state);
+            provision_existing_domains(state.clone());
         }
         None => {
             state.tls.disable_acme();
+        }
+    }
+
+    let registry_trimmed = registry_domain
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+
+    if registry_trimmed.is_some() && !RustployConfig::global().registry.enabled {
+        return RpResponse::err(
+            "RegistryDisabled",
+            "habilite [registry] enabled = true antes de configurar um domínio",
+        );
+    }
+
+    let old_registry_domain = daemon_settings::get(&state.db, daemon_settings::KEY_REGISTRY_DOMAIN)
+        .await
+        .ok()
+        .flatten();
+
+    if let Err(e) = save_optional(
+        &state,
+        daemon_settings::KEY_REGISTRY_DOMAIN,
+        registry_trimmed.clone(),
+    )
+    .await
+    {
+        return e;
+    }
+
+    if old_registry_domain != registry_trimmed {
+        if let Some(old) = old_registry_domain.filter(|d| Some(d.clone()) != registry_trimmed) {
+            state.ingress.remove_route(&old);
+        }
+        if let Some(new_domain) = registry_trimmed {
+            let port = RustployConfig::global().registry.port;
+            state
+                .ingress
+                .upsert_route(&new_domain, vec![format!("127.0.0.1:{port}")], "rp-registry");
+            let tls = state.tls.clone();
+            let d = new_domain.clone();
+            tokio::spawn(async move {
+                if let Err(e) = tls.ensure_cert(&d).await {
+                    warn!(domain = %d, error = %e, "registry: falha ao provisionar certificado");
+                } else {
+                    info!(domain = %d, "registry: certificado provisionado");
+                }
+            });
         }
     }
 

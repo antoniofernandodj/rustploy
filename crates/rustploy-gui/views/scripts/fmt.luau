@@ -77,5 +77,6 @@ M.job_runs = Jobs.runs
 -- Registry OCI embutido (fmt/registry.luau)
 M.registry_repos = Registry.repos
 M.registry_tags = Registry.tags
+M.registry_tokens = Registry.tokens
 
 return M

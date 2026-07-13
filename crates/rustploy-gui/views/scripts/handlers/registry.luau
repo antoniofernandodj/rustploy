@@ -1,13 +1,15 @@
 --!strict
 --!nolint FunctionUnused
 -- handlers/registry.luau — sub-aba Docker > Registry: navega repo→tags (fetch
--- sob demanda, tags não vêm no snapshot periódico) e remove tag/repositório.
--- Registry só existe pela Fase 1 do backend (push/pull via docker CLI); esta
--- tela é somente leitura + delete — sem criar/editar nada.
+-- sob demanda, tags não vêm no snapshot periódico), remove tag/repositório e
+-- executa o GC. Registry só existe pela Fase 1 do backend (push/pull via
+-- docker CLI); esta tela não cria/edita nada.
 
 local State = require("../state")
 local fmt = require("../fmt")
 local Stream = require("stream")
+
+local M = {}
 
 -- Abre a visão de tags de um repositório: fetch on-demand (tags não vêm no
 -- snapshot periódico, só a lista de repos).
@@ -45,7 +47,7 @@ end
 function registry_rm_tag(tag: string): ()
     confirm({
         title = "Remover tag?",
-        message = "A tag será removida. Se outra tag apontar pro mesmo manifest (mesma imagem), ela também é removida — o delete é por digest, não por tag. Blobs no disco só são liberados num GC futuro (ainda não implementado). Ação irreversível.",
+        message = "A tag será removida. Se outra tag apontar pro mesmo manifest (mesma imagem), ela também é removida — o delete é por digest, não por tag. O disco é liberado pelo botão \"Executar GC\". Ação irreversível.",
         confirm_label = "Remover",
         confirm_action = "do_registry_rm_tag:" .. tostring(tag),
         destructive = true,
@@ -72,11 +74,43 @@ end
 function registry_rm_repo(name: string): ()
     confirm({
         title = "Remover repositório?",
-        message = "Todas as tags e manifests do repositório serão removidos. Blobs no disco só são liberados num GC futuro (ainda não implementado). Ação irreversível.",
+        message = "Todas as tags e manifests do repositório serão removidos. O disco é liberado pelo botão \"Executar GC\". Ação irreversível.",
         confirm_label = "Remover",
         confirm_action = "do_registry_rm_repo:" .. tostring(name),
         destructive = true,
     })
+end
+
+-- ── GC ───────────────────────────────────────────────────────────────────
+-- Libera do disco o que nenhuma tag alcança: manifests pendurados (tag
+-- republicada), blobs órfãos de remoções anteriores e uploads abandonados.
+-- Imagens taggeadas nunca são afetadas. Também roda sozinho 1x/dia no daemon.
+
+function registry_gc(): ()
+    confirm({
+        title = "Executar GC?",
+        message = "Remove do disco blobs e manifests que nenhuma tag referencia (sobras de remoções e de tags republicadas) e uploads abandonados há mais de 24h. Imagens com tag não são afetadas.",
+        confirm_label = "Executar",
+        confirm_action = "do_registry_gc",
+        destructive = true,
+    })
+end
+
+function do_registry_gc(): ()
+    local api = State.api
+    if not api then
+        return
+    end
+    ctx.registry_msg = "executando GC…"
+    local ok, res = api:rpc_checked("RegistryGc")
+    if ok and res.RegistryGcResult then
+        ctx.registry_msg = string.format("GC: %d arquivo(s) removido(s) · %s liberados",
+            res.RegistryGcResult.blobs_removed or 0,
+            fmt.fmt_bytes(res.RegistryGcResult.bytes_freed or 0))
+        Stream.refresh_now()
+    else
+        ctx.registry_msg = "erro: " .. tostring(res)
+    end
 end
 
 function do_registry_rm_repo(name: string): ()
@@ -96,3 +130,65 @@ function do_registry_rm_repo(name: string): ()
         ctx.registry_msg = "erro: " .. tostring(res)
     end
 end
+
+-- ── Tokens de acesso (Basic auth) ────────────────────────────────────────
+-- Lista não vem no snapshot (tela de baixo tráfego) — buscada ao entrar na
+-- sub-aba (ver handlers/nav.luau::docker_tab) e reatualizada após criar/
+-- revogar um token.
+
+function registry_refresh_tokens(): ()
+    local api = State.api
+    if not api then
+        return
+    end
+    local ok, res = api:rpc("RegistryTokenList")
+    if ok and res.RegistryTokens then
+        ctx.registry_tokens = fmt.registry_tokens(res.RegistryTokens)
+        ctx.registry_tokens_count = tostring(#res.RegistryTokens)
+    end
+end
+M.refresh_tokens = registry_refresh_tokens
+
+-- Abre a janela separada de criação (segredo só aparece lá, uma vez — ver
+-- new_registry_token_window.xml/.luau).
+function registry_open_token_window(): ()
+    open_window({
+        file = "crates/rustploy-gui/views/new_registry_token_window.xml",
+        title = "Novo token — Rustploy",
+        width = 480,
+        height = 420,
+        resizable = false,
+        data = {
+            api_url = ctx.api_url or "",
+            api_token = ctx.api_token or "",
+            registry_host = ctx.registry_host or "127.0.0.1:5100",
+        },
+    })
+end
+
+function registry_rm_token(name: string): ()
+    confirm({
+        title = "Revogar token?",
+        message = "Qualquer `docker login`/push/pull usando esse token deixa de funcionar imediatamente. Ação irreversível.",
+        confirm_label = "Revogar",
+        confirm_action = "do_registry_rm_token:" .. tostring(name),
+        destructive = true,
+    })
+end
+
+function do_registry_rm_token(name: string): ()
+    local api = State.api
+    if not api then
+        return
+    end
+    ctx.registry_msg = "revogando token…"
+    local ok, res = api:rpc_checked({ RegistryTokenRevoke = { name = name } })
+    if ok then
+        ctx.registry_msg = "token revogado"
+        registry_refresh_tokens()
+    else
+        ctx.registry_msg = "erro: " .. tostring(res)
+    end
+end
+
+return M

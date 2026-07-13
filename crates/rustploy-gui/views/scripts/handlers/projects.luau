@@ -8,6 +8,7 @@ local State = require("../state")
 local Helpers = require("../helpers")
 local fmt = require("../fmt")
 local Stream = require("stream")
+local Registry = require("registry")
 
 -- Abrir a lista de serviços de um projeto (grade read-only via snapshot).
 function open_project(id: string): ()
@@ -59,6 +60,9 @@ function on_broadcast(event: string, payload: any): ()
     elseif event == "job_created" then
         Helpers.notify_ok("Job \"" .. (name ~= "" and name or "job") .. "\" criado")
         Stream.refresh_now()
+    elseif event == "registry_token_created" then
+        Helpers.notify_ok("Token \"" .. (name ~= "" and name or "token") .. "\" criado")
+        Registry.refresh_tokens()
     end
 end
 

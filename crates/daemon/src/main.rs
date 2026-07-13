@@ -145,6 +145,54 @@ async fn main() -> Result<()> {
         version: env!("CARGO_PKG_VERSION").to_string(),
     });
 
+    // Storage do registry OCI embutido, criado ANTES do AppState: o listener
+    // HTTP do registry, o handler RegistryGc e o job diário de GC precisam
+    // compartilhar a MESMA instância (mesma trava de commit).
+    let registry_storage = if config.registry.enabled {
+        let storage_dir = config
+            .registry
+            .storage_dir
+            .as_deref()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| db_path.join("registry"));
+        match registry::storage::RegistryStorage::new(storage_dir) {
+            Ok(s) => Some(Arc::new(s)),
+            Err(e) => {
+                tracing::error!(error = %e, "registry: falha ao preparar storage_dir, registry desabilitado");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    // Domínio público do registry — banco tem precedência sobre o config
+    // (mesmo padrão do e-mail ACME acima). Só registra rota/cert se o storage
+    // subiu de verdade (não adianta expor um listener que nunca vai existir).
+    if registry_storage.is_some() {
+        let mut registry_domain = config.registry.domain.clone();
+        if let Ok(Some(d)) =
+            db::daemon_settings::get(&db, db::daemon_settings::KEY_REGISTRY_DOMAIN).await
+        {
+            if !d.trim().is_empty() {
+                registry_domain = Some(d);
+            }
+        }
+        if let Some(domain) = registry_domain {
+            let port = config.registry.port;
+            ingress.upsert_route(&domain, vec![format!("127.0.0.1:{port}")], "rp-registry");
+            let tls2 = tls.clone();
+            let d = domain.clone();
+            tokio::spawn(async move {
+                if let Err(e) = tls2.ensure_cert(&d).await {
+                    warn!(domain = %d, error = %e, "registry: falha ao provisionar certificado");
+                } else {
+                    info!(domain = %d, "registry: certificado provisionado");
+                }
+            });
+        }
+    }
+
     let state = AppState::new(
         db,
         docker,
@@ -156,11 +204,13 @@ async fn main() -> Result<()> {
         backup_dir,
         config.deploy.drain_secs,
         config.daemon.webhook_port,
+        registry_storage.clone(),
     );
 
-    // Limpeza periódica do event_log (retém 30 dias)
+    // Limpeza periódica do event_log (retém 30 dias) + GC diário do registry
     {
         let db2 = state.db.clone();
+        let gc_storage = registry_storage.clone();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(24 * 3600));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -170,6 +220,17 @@ async fn main() -> Result<()> {
                     Ok(n) if n > 0 => tracing::info!(rows = n, "event_log: entradas antigas removidas"),
                     Err(e) => tracing::warn!(error = %e, "event_log: falha no trim"),
                     _ => {}
+                }
+                if let Some(storage) = &gc_storage {
+                    match registry::gc::run(&db2, storage).await {
+                        Ok(r) if r.blobs_removed > 0 => tracing::info!(
+                            blobs = r.blobs_removed,
+                            bytes = r.bytes_freed,
+                            "registry: GC diário liberou espaço"
+                        ),
+                        Err(e) => tracing::warn!(error = %e, "registry: falha no GC diário"),
+                        _ => {}
+                    }
                 }
             }
         });
@@ -268,17 +329,11 @@ async fn main() -> Result<()> {
     // Registry OCI embutido — Fase 1: loopback only, sem auth, sem ingress
     // (ver docs/plano-registry-embutido.md). Bind falho apenas loga e desabilita
     // o listener, como os demais listeners opcionais acima.
-    if config.registry.enabled {
+    if let Some(storage) = registry_storage.clone() {
         let db2 = state.db.clone();
-        let storage_dir = config
-            .registry
-            .storage_dir
-            .as_deref()
-            .map(PathBuf::from)
-            .unwrap_or_else(|| state.db_path.join("registry"));
         let port = config.registry.port;
         tokio::spawn(async move {
-            registry::http::run(db2, storage_dir, port).await;
+            registry::http::run(db2, storage, port).await;
         });
     }
 

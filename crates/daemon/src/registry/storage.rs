@@ -6,7 +6,7 @@
 //! <root>/uploads/<ulid da sessão>
 //! ```
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use sha2::{Digest, Sha256};
@@ -57,6 +57,13 @@ struct UploadSession {
 pub struct RegistryStorage {
     root: PathBuf,
     uploads: RwLock<HashMap<String, Mutex<UploadSession>>>,
+    /// Trava de commit compartilhada entre os pontos que COMMITAM conteúdo
+    /// (finalize de upload de blob, PUT de manifest — operações curtas, só o
+    /// rename/insert, nunca o streaming) e o GC (`crate::registry::gc`), que a
+    /// segura do snapshot de digests vivos até o fim do sweep — sem ela, um
+    /// blob finalizado no meio do sweep não estaria no snapshot e seria
+    /// apagado como órfão.
+    commit_lock: Mutex<()>,
 }
 
 impl RegistryStorage {
@@ -66,7 +73,15 @@ impl RegistryStorage {
         Ok(Self {
             root,
             uploads: RwLock::new(HashMap::new()),
+            commit_lock: Mutex::new(()),
         })
+    }
+
+    /// Ver `commit_lock`. Adquirir ANTES de qualquer validação/escrita da
+    /// operação de commit e soltar (drop do guard) só depois do insert nos
+    /// metadados.
+    pub async fn lock_commit(&self) -> tokio::sync::MutexGuard<'_, ()> {
+        self.commit_lock.lock().await
     }
 
     pub fn digest_path(&self, digest_hex: &str) -> PathBuf {
@@ -213,6 +228,66 @@ impl RegistryStorage {
         let mut buf = Vec::new();
         file.read_to_end(&mut buf).await?;
         Ok(buf)
+    }
+
+    /// Sweep do GC: remove do CAS todo arquivo cujo nome (digest) não está em
+    /// `live` — cobre blobs órfãos e também os `.tmp` de `write_blob_direct`
+    /// interrompidos. Retorna `(arquivos removidos, bytes liberados)`. Chamar
+    /// SÓ com a `commit_lock` adquirida (ver `lock_commit`).
+    pub async fn sweep_orphan_files(&self, live: &HashSet<String>) -> std::io::Result<(u64, u64)> {
+        let base = self.root.join("blobs").join("sha256");
+        let (mut removed, mut bytes) = (0u64, 0u64);
+        let mut prefixes = tokio::fs::read_dir(&base).await?;
+        while let Some(prefix) = prefixes.next_entry().await? {
+            if !prefix.file_type().await?.is_dir() {
+                continue;
+            }
+            let mut files = tokio::fs::read_dir(prefix.path()).await?;
+            while let Some(f) = files.next_entry().await? {
+                let name = f.file_name().to_string_lossy().into_owned();
+                if live.contains(&name) {
+                    continue;
+                }
+                let size = f.metadata().await.map(|m| m.len()).unwrap_or(0);
+                if tokio::fs::remove_file(f.path()).await.is_ok() {
+                    removed += 1;
+                    bytes += size;
+                }
+            }
+        }
+        Ok((removed, bytes))
+    }
+
+    /// Remove de `uploads/` arquivos órfãos: sem sessão ativa no mapa (sobra
+    /// de restart do daemon — as sessões vivem só em memória) e mais velhos
+    /// que `max_age`. Retorna `(arquivos removidos, bytes liberados)`.
+    pub async fn clean_stale_uploads(
+        &self,
+        max_age: std::time::Duration,
+    ) -> std::io::Result<(u64, u64)> {
+        let active: HashSet<String> = self.uploads.read().await.keys().cloned().collect();
+        let now = std::time::SystemTime::now();
+        let (mut removed, mut bytes) = (0u64, 0u64);
+        let mut files = tokio::fs::read_dir(self.root.join("uploads")).await?;
+        while let Some(f) = files.next_entry().await? {
+            let name = f.file_name().to_string_lossy().into_owned();
+            if active.contains(&name) {
+                continue;
+            }
+            let Ok(meta) = f.metadata().await else {
+                continue;
+            };
+            let old_enough = meta
+                .modified()
+                .ok()
+                .and_then(|m| now.duration_since(m).ok())
+                .is_some_and(|age| age > max_age);
+            if old_enough && tokio::fs::remove_file(f.path()).await.is_ok() {
+                removed += 1;
+                bytes += meta.len();
+            }
+        }
+        Ok((removed, bytes))
     }
 }
 

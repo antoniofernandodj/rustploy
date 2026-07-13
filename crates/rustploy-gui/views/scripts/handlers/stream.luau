@@ -161,9 +161,8 @@ local function apply_snapshot(msg: any): ()
     local rst = msg.registry_status
     if rst then
         ctx.registry_status_enabled = tostring(rst.enabled)
-        ctx.registry_status_label = rst.enabled
-            and ("ativo em 127.0.0.1:" .. tostring(rst.port))
-            or "desabilitado"
+        ctx.registry_host = (rst.domain and rst.domain ~= "") and rst.domain or ("127.0.0.1:" .. tostring(rst.port))
+        ctx.registry_status_label = rst.enabled and ("ativo em " .. ctx.registry_host) or "desabilitado"
         ctx.registry_storage_human = fmt.fmt_bytes(rst.storage_bytes or 0)
     end
     ctx.registry_repos_count = tostring(#(msg.registry_repos or {}))

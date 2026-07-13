@@ -114,6 +114,7 @@ pub enum Command {
     SetDaemonSettings {
         webhook_base_url: Option<String>,
         acme_email: Option<String>,
+        registry_domain: Option<String>,
     },
 
     // Secrets
@@ -305,6 +306,16 @@ pub enum Command {
     /// digest, não por tag).
     RegistryTagDelete { repo: String, tag: String },
     RegistryRepoDelete { repo: String },
+    /// Garbage collection do registry: remove manifests pendurados (sem tag e
+    /// não referenciados por nenhum index), blobs órfãos (metadados + arquivos
+    /// do CAS) e uploads abandonados há mais de 24 h. Resposta:
+    /// `RegistryGcResult`.
+    RegistryGc,
+    /// Cria um token de acesso (Basic auth) — `scope` é `"pull"` ou `"push"`.
+    /// Resposta traz o segredo em texto plano UMA ÚNICA VEZ.
+    RegistryTokenCreate { name: String, scope: String },
+    RegistryTokenList,
+    RegistryTokenRevoke { name: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -433,7 +444,11 @@ pub enum Response {
     DeployEngineStatus(DeployEngineSummary),
     Pong { uptime_secs: u64 },
     WebhookUrl(Option<String>),
-    DaemonSettings { webhook_base_url: Option<String>, acme_email: Option<String> },
+    DaemonSettings {
+        webhook_base_url: Option<String>,
+        acme_email: Option<String>,
+        registry_domain: Option<String>,
+    },
     SecretNames(Vec<String>),
     ManifestReport(ApplyReport),
     /// Manifesto YAML serializado (resposta de `ManifestExport`).
@@ -485,6 +500,12 @@ pub enum Response {
     RegistryStatus(RegistryStatusInfo),
     RegistryRepos(Vec<RegistryRepoInfo>),
     RegistryTags(Vec<RegistryTagInfo>),
+    /// Resultado do `RegistryGc`: arquivos removidos do CAS/uploads e bytes
+    /// liberados no disco.
+    RegistryGcResult { blobs_removed: u64, bytes_freed: u64 },
+    /// Resposta de `RegistryTokenCreate` — `secret` só aparece aqui, uma vez.
+    RegistryTokenCreated { name: String, secret: String },
+    RegistryTokens(Vec<RegistryTokenInfo>),
 
     Err { code: String, message: String },
 }

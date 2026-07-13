@@ -664,6 +664,16 @@ pub struct RegistryStatusInfo {
     pub storage_bytes: i64,
 }
 
+/// Um token de acesso do registry (Basic auth) — o segredo em texto plano só
+/// aparece uma vez, em `RegistryTokenCreated`; aqui é só metadado.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryTokenInfo {
+    pub name: String,
+    pub scope: String,
+    pub created_at: DateTime<Utc>,
+    pub last_used_at: Option<DateTime<Utc>>,
+}
+
 // ── Jobs (tarefas one-shot via docker-compose, agendadas ou manuais) ──────────
 
 /// Uma tarefa one-shot: sobe um stack docker-compose próprio (efêmero — roda

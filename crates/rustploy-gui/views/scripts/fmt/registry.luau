@@ -40,4 +40,19 @@ function M.tags(list: {any}?): string
     return Util.enc_array(rows)
 end
 
+-- Tokens de acesso (Basic auth) — sem filtro de busca (lista tipicamente
+-- pequena, buscada uma vez ao abrir a sub-aba, não vem no snapshot).
+function M.tokens(list: {any}?): string
+    local rows = {}
+    for _, t in ipairs(list or {}) do
+        table.insert(rows, {
+            name = t.name,
+            scope = t.scope,
+            created = Time.date_dm_hm(t.created_at),
+            last_used = t.last_used_at and Time.date_dm_hm(t.last_used_at) or "nunca",
+        })
+    end
+    return Util.enc_array(rows)
+end
+
 return M

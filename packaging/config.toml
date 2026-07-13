@@ -10,7 +10,7 @@ db_path      = "/var/lib/rustploy/db"
 log_level    = "info"
 # webhook_port (callback OAuth + webhooks CI/CD) e as demais seções abaixo VÊM
 # deste arquivo normalmente — não são sobrescritos pelo unit.
-# 8788 fica ao lado do RWP (8787); evita 9000/9001, comuns em MinIO/rustfs (S3).
+# 8788 evita 9000/9001, comuns em MinIO/rustfs (S3).
 webhook_port = 8788
 
 [ingress]
@@ -44,3 +44,11 @@ master_key_path = "/etc/rustploy/master.key"
 [external_ports]
 range_start = 20000
 range_end   = 20999
+
+# Registry Docker OCI (Distribution API v2) embutido no daemon — Fase 1:
+# escuta apenas em loopback (127.0.0.1), sem autenticação. Habilite e use
+# docker push 127.0.0.1:5100/<repo>:<tag>.
+[registry]
+enabled = false
+port    = 5100
+# storage_dir = "/var/lib/rustploy/db/registry"   # default: <db_path>/registry/

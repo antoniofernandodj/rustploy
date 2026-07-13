@@ -8,6 +8,7 @@ pub mod job_log;
 pub mod job_run;
 pub mod projects;
 pub mod registry;
+pub mod registry_tokens;
 pub mod services;
 pub mod webhook_tokens;
 
@@ -211,6 +212,15 @@ async fn migrate(pool: &SqlitePool) -> Result<()> {
             manifest_digest TEXT NOT NULL,
             blob_digest     TEXT NOT NULL,
             PRIMARY KEY (manifest_digest, blob_digest)
+        );
+
+        CREATE TABLE IF NOT EXISTS registry_tokens (
+            id           TEXT PRIMARY KEY,
+            name         TEXT NOT NULL UNIQUE,
+            token_sha256 TEXT NOT NULL,
+            scope        TEXT NOT NULL,
+            created_at   TEXT NOT NULL,
+            last_used_at TEXT
         );
         ",
     )

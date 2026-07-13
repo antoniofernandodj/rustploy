@@ -89,6 +89,7 @@ local function load_settings(): ()
         local domain = res.DaemonSettings.webhook_base_url or ""
         ctx.ss_domain = domain
         ctx.ss_email = res.DaemonSettings.acme_email or ""
+        ctx.ss_registry_domain = res.DaemonSettings.registry_domain or ""
         ctx.gp_redirect = Helpers.oauth_redirect_uri(domain)
     end
     local ok2, res2 = api:rpc("GitProviderList")

@@ -12,5 +12,14 @@ pub async fn handle(state: AppState) -> RpResponse {
         .ok()
         .flatten();
 
-    RpResponse::DaemonSettings { webhook_base_url, acme_email }
+    let registry_domain = daemon_settings::get(&state.db, daemon_settings::KEY_REGISTRY_DOMAIN)
+        .await
+        .ok()
+        .flatten();
+
+    RpResponse::DaemonSettings {
+        webhook_base_url,
+        acme_email,
+        registry_domain,
+    }
 }

@@ -14,9 +14,6 @@ cargo build --release
 # Run the daemon (requires Docker socket and write access to /run/rustploy/)
 cargo run -p daemon
 
-# Run the TUI client
-cargo run -p client
-
 # Run a specific test
 cargo test -p daemon test_name
 cargo test -p shared
@@ -25,7 +22,7 @@ cargo test -p shared
 cargo check --workspace
 ```
 
-The daemon binary is `rustployd`; the client binary is `rustploy`.
+The daemon binary is `rustployd`.
 
 ## glacier-ui (dependência da crate rustploy-gui)
 
@@ -56,19 +53,16 @@ Default master key: `/etc/rustploy/master.key`
 
 | Crate | Binary | Role |
 |-------|--------|------|
-| `shared` | — | Models, protocol types, config structs shared by both sides |
+| `shared` | — | Models, protocol types, config structs used by the daemon and the GUI |
 | `daemon` | `rustployd` | Long-running server: API, DB, Docker, ingress, deploy engine |
-| `client` | `rustploy` | Ratatui TUI that talks to the daemon |
-| `rustploy-gui` | `rustploy-gui` | glacier-ui (XML→iced) desktop client. Toda a rede/lógica de negócio vive em Luau (`views/scripts/`, pacotes `fmt/`/`handlers/`/`net/` — ver `docs/luau-modularizacao-pacotes.md`), falando com o daemon pela **API HTTP/JSON + SSE** (`crates/daemon/src/api/http_api.rs`), não pelo UDS local. |
+| `rustploy-gui` | `rustploy-gui` | glacier-ui (XML→iced) desktop client — the only client, since the TUI (`crates/client`) was removed. Toda a rede/lógica de negócio vive em Luau (`views/scripts/`, pacotes `fmt/`/`handlers/`/`net/` — ver `docs/luau-modularizacao-pacotes.md`), falando com o daemon pela **API HTTP/JSON + SSE** (`crates/daemon/src/api/http_api.rs`), não pelo UDS local. |
 | `fw-helper` | `rustployd-fw` | Helper privilegiado de firewall (roda como root via socket activation em `/run/rustploy/fw.sock`). O daemon pede allow/deny de portas externas (`daemon/src/firewall.rs`); o helper só aceita portas dentro da faixa `[external_ports]` da config e só fala com o ufw. Sem dependência da crate `shared`, de propósito. Ver `docs/relatorio-porta-externa-automatica.md`. |
 
 ### IPC protocol
 
-Raw **postcard-encoded** frames over the Unix Domain Socket — no HTTP involved. Every frame is `[u32 LE length][postcard bytes]`. The client opens a connection and sends a `ClientFrame`: `Rpc(Command)` gets a single `Response` frame back; `Subscribe { service_id }` turns the connection into a stream of `Event` frames (logs, metrics, deploy progress).  
-All message types — `ClientFrame`, `Command`, `Response`, `Event` — are defined in `crates/shared/src/protocol.rs`.  
-Postcard uses varint encoding: small integers and short strings produce fewer bytes than bincode, with no schema overhead.
+`rustploy-gui` is the only client, and speaks plain **HTTP/JSON + SSE** (`crates/daemon/src/api/http_api.rs`: `POST /api/rpc`, `GET /api/events`, `GET /api/health`) — its logic runs in Luau (`fetch`/`sse`), which has no UDS access. `Command`/`Response`/`Event` are defined in `crates/shared/src/protocol.rs` and dispatched via `dispatch()` regardless of transport.
 
-This UDS/postcard scheme is what the **TUI client** (`crates/client/`) speaks. `rustploy-gui` speaks a separate, parallel channel instead — plain **HTTP/JSON + SSE** (`crates/daemon/src/api/http_api.rs`: `POST /api/rpc`, `GET /api/events`, `GET /api/health`) — because its logic runs in Luau (`fetch`/`sse`), which has no UDS access. Both channels reuse the same `dispatch()`/`Command`/`Response` types; only the wire framing differs.
+The daemon still exposes a raw **postcard-encoded** Unix Domain Socket listener (`api/server.rs`) — every frame is `[u32 LE length][postcard bytes]`, a `ClientFrame::Rpc(Command)` gets one `Response` frame back, `Subscribe { service_id }` turns the connection into a stream of `Event` frames. This existed for a TUI client (`crates/client`, Ratatui) that was **removed** — nothing in this repo currently connects to the UDS socket. It's left in place (harmless, no upkeep cost) rather than ripped out; touch it only if asked to actually remove UDS support, not as part of routine daemon work.
 
 ### Daemon internals (`crates/daemon/src/`)
 
@@ -84,14 +78,6 @@ This UDS/postcard scheme is what the **TUI client** (`crates/client/`) speaks. `
 - **`event_bus.rs`** — in-process broadcast channel; daemon modules publish `Event` values; `/stream` handler fans them out to connected clients.
 - **`secrets.rs`** — `age`-based encryption; secrets stored by name, referenced in `ServiceSpec.env_vars` as `EnvVarValue::Secret(name)`.
 - **`metrics.rs`** — background loop that polls Docker stats and publishes `ContainerMetrics` events.
-
-### Client internals (`crates/client/src/`)
-
-- **`app.rs`** — `App` struct (all UI state), `View`/`SidebarItem` enums, `Command`/`CmdContext` pairing. `App::apply_event()` handles incoming daemon events; `App::handle_response()` handles RPC responses.
-- **`events.rs`** — input event loop; maps key presses to mutations on `App`.
-- **`transport.rs`** — sync UDS client (`std::os::unix::net::UnixStream`, no tokio); exposes `send(Command) → Response` and a blocking stream subscription (run on a dedicated thread).
-- **`ui/mod.rs`** — top-level render dispatcher; delegates to sub-modules by current `View`.
-- **`ui/sidebar.rs`**, **`ui/projects.rs`**, **`ui/service_detail.rs`**, **`ui/deploy_log.rs`**, **`ui/metrics.rs`**, **`ui/settings.rs`** — individual screen renderers.
 
 ### rustploy-gui internals (`crates/rustploy-gui/src/`)
 

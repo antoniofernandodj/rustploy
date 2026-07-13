@@ -1,5 +1,16 @@
 # Infra-as-Code — Manifestos YAML declarativos
 
+> **Status:** o CLI de arquivo descrito abaixo (`rustploy apply -f`/`rustploy export`,
+> `crates/client/src/cli.rs`) vivia no mesmo binário do TUI Ratatui e foi removido junto
+> com ele — não há hoje um substituto de linha de comando. `Command::ManifestApply` e
+> `Command::ManifestExport` (variante de projeto único) continuam definidos no protocolo,
+> mas sem nenhum chamador no repo. O que **continua funcionando** é a tela de Settings do
+> `rustploy-gui`, que cobre export/import de **todos** os projetos de uma vez via
+> `Command::ManifestExportAll`/`ManifestImport` (YAML + `.env` colados na UI, mesma
+> reconciliação aditiva por nome). O restante deste documento descreve o fluxo antigo
+> por CLI, mantido como referência histórica do formato do manifesto (que a tela da GUI
+> também usa).
+
 Permite descrever projetos e serviços em arquivos `rustploy.yml` versionáveis (GitOps-friendly) e aplicá-los de forma **declarativa e idempotente**, em vez de criar tudo manualmente pela TUI.
 
 O manifesto mapeia quase 1:1 para os modelos internos `Project` e `ServiceSpec`, mas com uma sintaxe ergonômica para edição humana.

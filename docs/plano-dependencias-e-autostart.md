@@ -1,6 +1,13 @@
 # Dependências entre serviços + auto-restart no boot do daemon
 
 > Plano de implementação (ainda não executado). Investigação feita em 2026-07-11 sobre o estado atual do boot do daemon e do modelo de dados; retomar a partir daqui quando for implementar.
+>
+> **Atualização (2026-07-13):** o TUI (`crates/client`) foi removido do projeto depois desta
+> investigação. Os passos abaixo que tocam `crates/client/src/models.rs`/`events.rs` (a aba
+> Advanced do TUI) estão obsoletos — `rustploy-gui` é o único cliente hoje; a exposição de
+> `DependsOn` na UI, quando for implementada, vai para os equivalentes em Luau
+> (`views/scripts/handlers/services.luau` + `new_service.xml`/`service.xml`), não nos
+> arquivos Rust do TUI listados abaixo.
 
 ## Contexto
 

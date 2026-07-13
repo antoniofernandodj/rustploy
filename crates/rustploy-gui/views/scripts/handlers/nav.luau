@@ -4,6 +4,7 @@
 
 local State = require("../state")
 local Stream = require("stream")
+local Registry = require("registry")
 
 local function goto_view(v: string): ()
     ctx.view = v
@@ -64,6 +65,9 @@ end
 
 function docker_tab(t: string): ()
     ctx.docker_tab = t
+    if t == "registry" then
+        Registry.refresh_tokens()
+    end
 end
 
 function deploy_tab(t: string): ()

@@ -131,11 +131,11 @@ impl ApiConfig {
     }
 }
 
-/// Registry Docker OCI (Distribution API v2) embutido no daemon. Fase 1: só
-/// `enabled`/`port`/`storage_dir` são consumidos no boot — o listener sempre
-/// escuta em loopback, sem autenticação. `domain` já existe na struct (evita
-/// migração de config na Fase 2, que expõe o registry via ingress/ACME), mas
-/// não é lido em lugar nenhum ainda.
+/// Registry Docker OCI (Distribution API v2) embutido no daemon. O listener
+/// sempre escuta em loopback (Basic auth obrigatória, ver `registry::auth`);
+/// quando `domain` está definido (aqui ou em `daemon_settings`, que tem
+/// precedência — mesmo padrão do e-mail ACME), o daemon registra uma rota no
+/// ingress + certificado ACME pra expor publicamente.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RegistryConfig {
     #[serde(default)]
@@ -321,8 +321,7 @@ impl RustployConfig {
         if let Ok(v) = std::env::var("RUSTPLOY_API_DOMAIN") {
             cfg.api.domain = Some(v).filter(|s| !s.is_empty());
         }
-        // Registry OCI embutido. Sem `RUSTPLOY_REGISTRY_DOMAIN`: `domain` não é
-        // lido em lugar nenhum do boot nesta fase (ver `RegistryConfig`).
+        // Registry OCI embutido.
         if let Ok(v) = std::env::var("RUSTPLOY_REGISTRY_ENABLED") {
             cfg.registry.enabled = matches!(v.as_str(), "1" | "true" | "yes" | "on");
         }
@@ -330,6 +329,9 @@ impl RustployConfig {
             if let Ok(p) = v.parse() {
                 cfg.registry.port = p;
             }
+        }
+        if let Ok(v) = std::env::var("RUSTPLOY_REGISTRY_DOMAIN") {
+            cfg.registry.domain = Some(v).filter(|s| !s.is_empty());
         }
         if let Ok(v) = std::env::var("RUSTPLOY_REGISTRY_STORAGE_DIR") {
             cfg.registry.storage_dir = Some(v).filter(|s| !s.is_empty());

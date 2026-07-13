@@ -84,9 +84,10 @@ fn main() {
 }
 ```
 
-Em outro terminal: `grep -E 'VmSize|VmRSS' /proc/<pid>/status`. O script
-`measure_ram.sh` na raiz do repo faz a versão "produção" disso para o
-`rustployd`/`rustploy` reais.
+Em outro terminal: `grep -E 'VmSize|VmRSS' /proc/<pid>/status`. Havia um script
+`measure_ram.sh` na raiz do repo que fazia a versão "produção" disso comparando
+`rustployd` com o cliente TUI (`rustploy`) — removido junto com o TUI; a
+metodologia abaixo continua válida para medir só o daemon.
 
 ## 3. O que o tokio realmente cria
 
@@ -106,7 +107,8 @@ menor ou igual à de um runtime tokio com N workers — a vantagem do async não
 RAM em baixa escala, é **escala de concorrência** (uma task `async` custa
 centenas de bytes a poucos KiB no heap, contra dezenas de KiB residentes + 8 MiB
 virtuais de uma thread; com 10.000 conexões simultâneas a conta inverte
-completamente). Para uma TUI com 2 conexões UDS, threads ganham ou empatam.
+completamente). Para um cliente com poucas conexões (ex.: 2 UDS), threads
+ganham ou empatam.
 
 ## 4. Como medir, em ordem de fidelidade
 
@@ -115,7 +117,8 @@ completamente). Para uma TUI com 2 conexões UDS, threads ganham ou empatam.
 2. `cat /proc/<pid>/smaps_rollup` — RSS/PSS consolidados; `smaps` (sem rollup)
    mostra região por região, dá para ver cada stack de thread individualmente.
 3. `ps -o pid,vsz,rss,nlwp,comm -p <pid>` — inclui contagem de threads (`nlwp`).
-4. `./measure_ram.sh` — monitora daemon + client deste projeto ao longo do tempo.
+4. `ps -o pid,vsz,rss,nlwp,comm -p $(pgrep rustployd)` num loop (`watch`) —
+   monitora o daemon deste projeto ao longo do tempo.
 
 ---
 

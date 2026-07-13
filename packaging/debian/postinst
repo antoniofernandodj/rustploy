@@ -18,29 +18,7 @@ fi
 chown -R rustploy:rustploy /etc/rustploy 2>/dev/null || true
 chmod 750 /etc/rustploy 2>/dev/null || true
 
-# Generate the RWP remote-admin block once, with a random token but disabled
-# by default. Appended only on first install (when no [rwp] section exists),
-# so it survives upgrades and never overwrites an admin's edits.
 CONFIG=/etc/rustploy/config.toml
-if [ -f "$CONFIG" ] && ! grep -q '^\[rwp\]' "$CONFIG"; then
-    TOKEN=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16)
-    cat >> "$CONFIG" <<EOF
-
-# Rustploy Wire Protocol — remote administrative channel (TCP).
-# Disabled by default. To allow remote clients: set enabled = true, and to
-# expose beyond loopback set bind_address = "0.0.0.0" (a token is required
-# for any non-loopback bind). Token below was generated at install time.
-[rwp]
-enabled = false
-bind_address = "127.0.0.1"
-port = 8787
-token = "$TOKEN"
-max_connections = 8        # opcional (default 8)
-max_frame_size = 1048576   # opcional (default 1 MiB)
-read_timeout_secs = 15     # opcional
-idle_timeout_secs = 120    # opcional
-EOF
-fi
 
 # Append [env_backup] block on first install (when section is absent).
 # Snapshots are written to <db_path>/env_backups/ every 60 s by default.
@@ -57,7 +35,7 @@ interval_secs = 60
 EOF
 fi
 
-# config.toml now holds the RWP token — keep it readable only by rustploy.
+# config.toml may hold the API token — keep it readable only by rustploy.
 chown rustploy:rustploy "$CONFIG" 2>/dev/null || true
 chmod 640 "$CONFIG" 2>/dev/null || true
 

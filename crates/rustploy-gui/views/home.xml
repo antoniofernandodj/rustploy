@@ -605,14 +605,23 @@
     </column>
 
     <!-- Registry — repositórios/tags do registry OCI embutido (Fase 1: só
-         push/pull via docker CLI; sem auth ainda). Somente leitura + delete
-         (metadados; o CAS em disco só é limpo num GC futuro). Tags de um
+         push/pull via docker CLI; sem auth ainda). Leitura + delete
+         (metadados) + GC (libera do disco blobs/manifests órfãos). Tags de um
          repositório são buscadas sob demanda ao clicar "Ver tags" — não
          vêm no snapshot periódico, diferente das outras sub-abas Docker. -->
     <column class="panel_fill" if="{docker_tab}" equals="registry">
-      <text class="muted_fill">
-        Registry {registry_status_label} · {registry_repos_count} repositório(s) · {registry_storage_human}
-      </text>
+      <row class="env_head">
+        <text class="muted_fill">
+          Registry {registry_status_label} · {registry_repos_count} repositório(s) · {registry_storage_human}
+        </text>
+        <button
+          class="btn_danger"
+          if="{registry_status_enabled}"
+          equals="true"
+          on_click="registry_gc"
+          text="Executar GC"
+        />
+      </row>
       <text if="{registry_msg}" not_equals="" class="muted">{registry_msg}</text>
 
       <column class="panel_fill" if="{registry_selected_repo}" equals="">
@@ -651,6 +660,38 @@
             </column>
           </column>
         </scrollable>
+
+        <text class="label_cap">
+          TOKENS DE ACESSO ({registry_tokens_count})
+        </text>
+        <row class="env_head">
+          <text class="muted_fill">
+            Basic auth (docker login) — o segredo só aparece uma vez, na criação.
+          </text>
+          <button class="btn_primary" on_click="registry_open_token_window" text="+ Novo token" />
+        </row>
+        <text if="{registry_tokens_count}" equals="0" class="muted">
+          Nenhum token ainda. Sem token nenhum push/pull é autenticado — crie um antes de usar o registry.
+        </text>
+        <row class="thead" if="{registry_tokens_count}" not_equals="0">
+          <text class="th col_svc">NOME</text>
+          <text class="th col_proj">ESCOPO</text>
+          <text class="th col_dur">CRIADO</text>
+          <text class="th col_dur">ÚLTIMO USO</text>
+          <text class="th col_act">AÇÃO</text>
+        </row>
+        <column class="table_body" for-each="registry_tokens" var="tk">
+          <row class="trow">
+            <text class="td_key col_svc">{tk.name}</text>
+            <text class="td col_proj">{tk.scope}</text>
+            <text class="muted col_dur">{tk.created}</text>
+            <text class="muted col_dur">{tk.last_used}</text>
+            <row class="col_act">
+              <button class="dk_rm" on_click="registry_rm_token:{tk.name}" text="Revogar" />
+            </row>
+          </row>
+          <rule />
+        </column>
       </column>
 
       <column class="panel_fill" if="{registry_selected_repo}" not_equals="">
@@ -752,6 +793,19 @@
           <text class="muted">
             Certificados TLS emitidos automaticamente.
             Requer restart do daemon.
+          </text>
+
+          <text class="label_cap">
+            DOMÍNIO DO REGISTRY (EXPOSIÇÃO PÚBLICA)
+          </text>
+          <TextInput
+            placeholder="registry.meusite.com"
+            class="field_input"
+            formControl="ss_registry_domain"
+          />
+          <text class="muted">
+            Expõe o registry Docker embutido via ingress + certificado automático.
+            Requer [registry] enabled = true na config. Vazio = só acessível em 127.0.0.1.
           </text>
 
           <row class="env_add">

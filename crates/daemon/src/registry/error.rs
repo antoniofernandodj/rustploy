@@ -24,6 +24,10 @@ pub enum RegistryError {
     ManifestUnknown(String),
     ManifestInvalid(String),
     ManifestBlobUnknown(String),
+    /// Sem credencial, credencial malformada, token inválido ou escopo
+    /// insuficiente — sempre 401 + `WWW-Authenticate: Basic`, nunca um bypass
+    /// (ver `registry::auth`).
+    Unauthorized(String),
     Internal(anyhow::Error),
 }
 
@@ -39,6 +43,7 @@ impl RegistryError {
             RegistryError::ManifestUnknown(_) => "MANIFEST_UNKNOWN",
             RegistryError::ManifestInvalid(_) => "MANIFEST_INVALID",
             RegistryError::ManifestBlobUnknown(_) => "MANIFEST_BLOB_UNKNOWN",
+            RegistryError::Unauthorized(_) => "UNAUTHORIZED",
             RegistryError::Internal(_) => "UNKNOWN",
         }
     }
@@ -49,6 +54,7 @@ impl RegistryError {
             | RegistryError::BlobUnknown(_)
             | RegistryError::BlobUploadUnknown(_)
             | RegistryError::ManifestUnknown(_) => StatusCode::NOT_FOUND,
+            RegistryError::Unauthorized(_) => StatusCode::UNAUTHORIZED,
             RegistryError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
             _ => StatusCode::BAD_REQUEST,
         }
@@ -65,6 +71,7 @@ impl RegistryError {
             RegistryError::ManifestUnknown(s) => format!("manifest unknown: {s}"),
             RegistryError::ManifestInvalid(s) => format!("manifest invalid: {s}"),
             RegistryError::ManifestBlobUnknown(s) => format!("manifest blob unknown: {s}"),
+            RegistryError::Unauthorized(s) => format!("authentication required: {s}"),
             RegistryError::Internal(e) => format!("internal error: {e}"),
         }
     }
@@ -76,10 +83,14 @@ impl RegistryError {
         let body = serde_json::json!({
             "errors": [{ "code": self.code(), "message": self.message(), "detail": null }]
         });
-        Response::builder()
+        let mut builder = Response::builder()
             .status(self.status())
             .header("Content-Type", "application/json")
-            .header("Docker-Distribution-API-Version", "registry/2.0")
+            .header("Docker-Distribution-API-Version", "registry/2.0");
+        if matches!(self, RegistryError::Unauthorized(_)) {
+            builder = builder.header("WWW-Authenticate", r#"Basic realm="rustploy-registry""#);
+        }
+        builder
             .body(Full::new(Bytes::from(body.to_string())).boxed())
             .expect("static registry error response")
     }

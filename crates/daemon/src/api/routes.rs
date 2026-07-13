@@ -78,6 +78,10 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::RegistryTagList { .. } => "RegistryTagList",
         Command::RegistryTagDelete { .. } => "RegistryTagDelete",
         Command::RegistryRepoDelete { .. } => "RegistryRepoDelete",
+        Command::RegistryGc => "RegistryGc",
+        Command::RegistryTokenCreate { .. } => "RegistryTokenCreate",
+        Command::RegistryTokenList => "RegistryTokenList",
+        Command::RegistryTokenRevoke { .. } => "RegistryTokenRevoke",
         _ => "Unknown",
     };
     info!(
@@ -165,8 +169,8 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
             handlers::regenerate_webhook_token::handle(state, service_id).await
         }
         Command::GetDaemonSettings => handlers::get_daemon_settings::handle(state).await,
-        Command::SetDaemonSettings { webhook_base_url, acme_email } => {
-            handlers::set_daemon_settings::handle(state, webhook_base_url, acme_email).await
+        Command::SetDaemonSettings { webhook_base_url, acme_email, registry_domain } => {
+            handlers::set_daemon_settings::handle(state, webhook_base_url, acme_email, registry_domain).await
         }
         Command::SecretSet {
             project_id,
@@ -279,6 +283,12 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
             handlers::registry::tag_delete(state, repo, tag).await
         }
         Command::RegistryRepoDelete { repo } => handlers::registry::repo_delete(state, repo).await,
+        Command::RegistryGc => handlers::registry::gc(state).await,
+        Command::RegistryTokenCreate { name, scope } => {
+            handlers::registry::token_create(state, name, scope).await
+        }
+        Command::RegistryTokenList => handlers::registry::token_list(state).await,
+        Command::RegistryTokenRevoke { name } => handlers::registry::token_revoke(state, name).await,
         _ => RpResponse::err("NotImplemented", "command not yet implemented"),
     };
 

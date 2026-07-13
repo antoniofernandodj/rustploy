@@ -47,13 +47,13 @@ Rustploy é um daemon único que:
 | Banco              | PostgreSQL separado    | SurrealDB embarcado    |
 | RAM em idle        | 200–600 MB             | < 50 MB (alvo)         |
 | TLS                | Let's Encrypt via API  | rustls + ACME embutido |
-| Interface          | Web UI                 | TUI (Ratatui)          |
+| Interface          | Web UI                 | TUI (Ratatui) — removido; ver §17 |
 
 ### 1.4 Não-Objetivos (explícitos)
 
 - **Não é um substituto do Kubernetes** para workloads com centenas de containers
 - **Não gerencia clusters multi-host** — foco em single-node
-- **Não tem Web UI** no escopo inicial — o TUI é a interface primária
+- **Não tem Web UI** — a interface primária era o TUI, hoje removido (ver §17); `rustploy-gui` é o cliente atual
 - **Não suporta build de imagens arbitrárias** — apenas repositórios Git com Dockerfile
 - **Não implementa service mesh** — isolamento de rede via bridge Docker é suficiente
 
@@ -81,7 +81,7 @@ Rustploy é um daemon único que:
 │  └────────────────────────────┼────────────────────────────────┘    │
 │                               │                                     │
 │  ┌────────────────────────────▼──────────────────────────────────┐  │
-│  │  rustploy (TUI client)                                        │  │
+│  │  rustploy (TUI client) — removido, ver §17                    │  │
 │  │  - Sidebar com Home / Projects / Settings / Account           │  │
 │  │  - CRUD de projetos e serviços                                │  │
 │  │  - Detalhe de serviço com abas (General, Env, Logs, ...)      │  │
@@ -141,20 +141,7 @@ rustploy/
 │   │       │   └── proxy.rs    # ProxyHttp impl
 │   │       └── metrics.rs      # coleta CPU/RAM dos containers
 │   │
-│   └── client/                 # rustploy — TUI
-│       └── src/
-│           ├── main.rs
-│           ├── transport.rs    # cliente UDS + Bincode
-│           ├── app.rs          # estado global da TUI
-│           ├── events.rs       # loop de eventos (crossterm + UDS stream)
-│           └── ui/
-│               ├── mod.rs      # layout principal (sidebar + conteúdo)
-│               ├── sidebar.rs  # renderização da sidebar
-│               ├── projects.rs # lista de projetos e detalhe com serviços
-│               ├── service_detail.rs  # detalhe do serviço com abas
-│               ├── deploy_log.rs      # progresso de deploy e logs
-│               ├── metrics.rs  # gráficos de CPU/RAM
-│               └── settings.rs # telas de configuração
+│   └── (havia client/ — TUI Ratatui, removido; ver §17)
 ```
 
 ---
@@ -347,12 +334,12 @@ Wrapper sobre a biblioteca de acesso à API do Docker Engine que encapsula todas
 O gerenciador de imagens expõe operações para os dois caminhos de deploy:
 
 **Caminho Registry:**
-- **pull** — faz o download da imagem em streaming, emitindo um evento de progresso por camada recebida via EventBus; permite ao TUI mostrar progresso real de download
+- **pull** — faz o download da imagem em streaming, emitindo um evento de progresso por camada recebida via EventBus; permite ao cliente mostrar progresso real de download
 - **exists** — verifica se a imagem já está disponível localmente antes de tentar o pull
 
 **Caminho Git:**
 - **clone_repo** — clona o repositório Git no diretório temporário de trabalho do daemon; suporta HTTPS (com token) e SSH (com chave privada referenciada via secret); emite eventos de progresso via EventBus; respeita `root_path`, `submodules` e `watch_paths` do `GitSource`
-- **build_image** — invoca a API de build do Docker Engine apontando para o diretório clonado, usando o `dockerfile_path`, `build_context` e `build_stage` configurados; a saída do build (stdout do `docker build`) é capturada linha a linha e emitida como eventos `LogLine` para o TUI em tempo real; ao terminar, a imagem é tagueada com `rp_{service_name}:{deployment_id_short}`
+- **build_image** — invoca a API de build do Docker Engine apontando para o diretório clonado, usando o `dockerfile_path`, `build_context` e `build_stage` configurados; a saída do build (stdout do `docker build`) é capturada linha a linha e emitida como eventos `LogLine` para o cliente em tempo real; ao terminar, a imagem é tagueada com `rp_{service_name}:{deployment_id_short}`
 
 **Compartilhadas:**
 - **prune_unused** — remove imagens que não são referenciadas por nenhum container gerenciado pelo Rustploy, respeitando a configuração de `image_cache` (número de versões antigas a manter)
@@ -413,7 +400,7 @@ Para repositórios **públicos**, nenhuma credencial é necessária. Para reposi
 
 1. **Clone** — o daemon cria um diretório temporário em `{db_path}/builds/{deployment_id}`, executa o clone do `url` no `branch` configurado e, em seguida, faz checkout do commit exato para garantir reprodutibilidade. Se `submodules` for true, executa `git submodule update --init --recursive`. Progresso (contagem de objetos, compressão, recebimento) é emitido como `DeployProgress`.
 
-2. **Build** — o daemon chama a API de build do Docker Engine apontando para `{clone_dir}/{build_context}` como contexto e `{clone_dir}/{dockerfile_path}` como Dockerfile. Se `build_stage` estiver configurado, passa como `--target`. Cada linha de saída do build é emitida como evento `LogLine` para o TUI exibir em tempo real.
+2. **Build** — o daemon chama a API de build do Docker Engine apontando para `{clone_dir}/{build_context}` como contexto e `{clone_dir}/{dockerfile_path}` como Dockerfile. Se `build_stage` estiver configurado, passa como `--target`. Cada linha de saída do build é emitida como evento `LogLine` para o cliente exibir em tempo real.
 
 3. **Tag** — ao concluir o build, a imagem recebe a tag `rp_{service_name}:{deployment_id_short}` para rastreamento. O caminho segue então para `Staging` identicamente ao fluxo de registry.
 
@@ -421,7 +408,7 @@ Para repositórios **públicos**, nenhuma credencial é necessária. Para reposi
 
 #### 5.2.3 Auto-deploy por Webhook (v2)
 
-Na v2, o daemon poderá expor endpoints de webhook por serviço para os paths em `watch_paths` configurados no `GitSource`. Ao receber um evento de push no branch configurado, o daemon dispara automaticamente um novo deploy. A verificação de assinatura HMAC do payload garante que apenas o provedor legítimo pode acionar o webhook. Na v1, re-deploy é sempre iniciado manualmente via TUI.
+Na v2, o daemon poderá expor endpoints de webhook por serviço para os paths em `watch_paths` configurados no `GitSource`. Ao receber um evento de push no branch configurado, o daemon dispara automaticamente um novo deploy. A verificação de assinatura HMAC do payload garante que apenas o provedor legítimo pode acionar o webhook. Na v1, re-deploy é sempre iniciado manualmente pelo cliente.
 
 ### 5.3 Subsistema de Ingress — hyper (`crates/daemon/src/ingress/`)
 
@@ -451,7 +438,7 @@ O proxy usa `rustls` para TLS (integração pendente). O gerenciamento de certif
 
 ### 5.4 EventBus — Canal de Eventos Internos
 
-O `EventBus` é o mecanismo de desacoplamento interno do daemon. Qualquer subsistema publica eventos sem saber quem os consumirá. Internamente usa um canal de broadcast: múltiplos subscribers (um por conexão de client TUI) recebem todos os eventos e filtram pelo `service_id` relevante antes de encaminhar.
+O `EventBus` é o mecanismo de desacoplamento interno do daemon. Qualquer subsistema publica eventos sem saber quem os consumirá. Internamente usa um canal de broadcast: múltiplos subscribers (um por conexão de cliente) recebem todos os eventos e filtram pelo `service_id` relevante antes de encaminhar.
 
 As operações são: `publish` (envia um evento para todos os subscribers; se o canal estiver cheio, o evento é descartado silenciosamente — jamais bloqueia o produtor) e `subscribe` (retorna um receiver independente para um novo client).
 
@@ -526,209 +513,6 @@ GET    /health                → { "ok": true, "version": "..." }
 Na v1, a autenticação é baseada em **socket permissions**: apenas processos rodando como o mesmo usuário (ou root) podem conectar ao UDS. O daemon verifica o peer UID via `SO_PEERCRED` ao aceitar cada conexão.
 
 Para deploys remotos futuros (v2), o plano é expor uma API HTTPS com autenticação via API token armazenado no SurrealDB (hash bcrypt).
-
----
-
-## 8. Crate `client` — TUI
-
-### 8.1 Layout Global
-
-O TUI é dividido em três áreas permanentes:
-
-```
-┌─ Rustploy v0.1.0 ──────────────────────────────────────── [q]uit ─┐
-│ Sidebar (24)       │  Conteúdo principal                           │
-│                    │                                               │
-│ HOME               │                                               │
-│   Deployments      │                                               │
-│   Monitoring       │                                               │
-│   Schedules        │                                               │
-│   Ingress Routes   │                                               │
-│   Docker           │                                               │
-│   Deploy Engine    │                                               │
-│   Requests         │                                               │
-│                    │                                               │
-│ PROJECTS           │                                               │
-│   + New Project    │                                               │
-│ ► my-app           │                                               │
-│   blog             │                                               │
-│                    │                                               │
-│ SETTINGS           │                                               │
-│   Web Server       │                                               │
-│   Profile          │                                               │
-│   Users            │                                               │
-│   Audit Logs       │                                               │
-│   SSH Keys         │                                               │
-│   Tags             │                                               │
-│   Git              │                                               │
-│   Registry         │                                               │
-│   S3 Destinations  │                                               │
-│   Certificates     │                                               │
-│   SSO              │                                               │
-│                    │                                               │
-│ ACCOUNT            │                                               │
-├────────────────────┴───────────────────────────────────────────────┤
-│ [Tab] sidebar  [↑↓] nav  [Enter] select  [Esc] back  [q] quit      │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-### 8.2 Tela de Detalhe do Projeto (Project Detail)
-
-Exibida ao selecionar um projeto na sidebar. Mostra a lista de serviços com filtro e ações:
-
-```
-┌─ my-app-project ───────────────────────────────────────────────────┐
-│ SERVIÇOS  [/] filtrar  [n] novo  [Enter] abrir  [D] deletar        │
-│                                                                    │
-│ Filtro: ▌api                                                       │
-│                                                                    │
-│ ► api-service         [RUNNING]   ↑512M  12%                       │
-│   worker-service      [RUNNING]   ↑128M   3%                       │
-│   api-gateway         [STOPPED]                                    │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-### 8.3 Tela de Detalhe do Serviço (Service Detail)
-
-Exibida ao pressionar Enter em um serviço. Contém abas horizontais:
-
-```
-┌─ api-service ──────────────────────────────────────────────────────┐
-│ [General] [Environment] [Domains] [Deployments] [Logs] [Patches]   │
-├────────────────────────────────────────────────────────────────────┤
-│                    (conteúdo da aba ativa)                         │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-Navegação de abas: `←` `→` ou teclas `1`–`6`.
-
-#### Aba General
-
-```
-┌─ General ──────────────────────────────────────────────────────────┐
-│                                                                    │
-│  [ Deploy ]  [ Reload ]  [ Rebuild ]  [ Stop ]                     │
-│                                                                    │
-│ ── Provider ────────────────────────────────────────────────────── │
-│  Git                                                               │
-│  Repository URL  https://github.com/user/repo                      │
-│  Branch          main                                              │
-│  Build Path      .                                                 │
-│  Watch Paths     src/,app/                                         │
-│  Submodules      [ No ]                                            │
-│                              [ Add SSH Keys ]           [ Save ]   │
-│                                                                    │
-│ ── Build Type ──────────────────────────────────────────────────── │
-│  Dockerfile                                                        │
-│  Docker File         Dockerfile                                    │
-│  Docker Context Path .                                             │
-│  Docker Build Stage  (empty)                                       │
-│                                                       [ Save ]     │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-#### Aba Environment
-
-```
-┌─ Environment ──────────────────────────────────────── [n] add ─────┐
-│  DATABASE_URL  = postgresql://...   [e] edit  [D] delete           │
-│  API_KEY       = <secret:api-key>                                  │
-│  NODE_ENV      = production                                        │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-#### Aba Domains
-
-```
-┌─ Domains ──────────────────────────────────────────────────────────┐
-│  api.myapp.com    TLS: ✓ Let's Encrypt  Expires: 2025-08-14        │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-#### Aba Deployments
-
-```
-┌─ Deployments ─────────────────────────── [r] rollback  [a] abort ─┐
-│ ► 01HZ...  Live      47s  2025-05-14 22:13:08  (current)          │
-│   01HY...  Live      32s  2025-05-13 18:40:11                     │
-│   01HX...  Failed    12s  2025-05-12 09:22:44                     │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-#### Aba Logs
-
-```
-┌─ Logs ────────────────────────────── [f]filter  [↑↓] scroll ──────┐
-│ 22:14:53.121 [INFO]  Server listening on 0.0.0.0:8080             │
-│ 22:14:55.340 [INFO]  Database connection established              │
-│ 22:15:01.002 [INFO]  GET /health 200 2ms                          │
-│ ▄ (streaming...)                                                  │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-#### Aba Patches
-
-```
-┌─ Patches ──────────────────────────────────────────────────────────┐
-│ Em breve — histórico de patches de configuração aplicados.         │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-### 8.4 Formulário de Novo Serviço (Service Form)
-
-```
-┌─ Novo Serviço ─────────────────────────────────────────────────────┐
-│                                                                    │
-│  Nome          ► api-service                                       │
-│  Porta         ► 8080                                              │
-│  Domínio       ► api.myapp.com                                     │
-│                                                                    │
-│ ── Provider: Git ───────────────────────────────────────────────── │
-│  Repository URL  ► https://github.com/user/repo                    │
-│  Branch          ► main                                            │
-│  Build Path      ► .                                               │
-│  Watch Paths     ►                                                 │
-│  Submodules      ► [ No ]                                          │
-│                              [ Add SSH Keys ]                      │
-│                                                                    │
-│ ── Build Type: Dockerfile ──────────────────────────────────────── │
-│  Docker File         ► Dockerfile                                  │
-│  Docker Context Path ► .                                           │
-│  Docker Build Stage  ►                                             │
-│                                                                    │
-│                       [ Create Service ]  [ Cancel ]              │
-└────────────────────────────────────────────────────────────────────┘
-```
-
-### 8.5 Estado Global do TUI
-
-O estado da aplicação TUI mantém em memória:
-
-- `focus` — qual painel está com foco (Sidebar ou Content)
-- `sidebar_cursor` — índice do item selecionado na sidebar (em items selecionáveis)
-- `view` — a view atualmente ativa na área de conteúdo
-- `projects` e `services` — dados carregados do daemon
-- `active_project_id` / `active_service_id` — projeto/serviço atualmente selecionado
-- `service_tab` — aba ativa na tela de detalhe do serviço
-- `service_cursor` — índice do serviço selecionado na lista
-- `service_filter` — texto de filtro para a lista de serviços
-- `general_tab` — estado editável da aba General (campos de provider e build type)
-- `env_tab` — estado da aba Environment (cursor, modo de edição)
-- `deploy_progress` — mapa de deployment_id para dados de progresso em curso
-- `logs` — mapa de service_id para buffer circular de linhas (máximo 2000 por serviço)
-- `metrics` — mapa de service_id para fila circular de pontos de métricas (últimos 60 pontos)
-- `pending_commands` — fila de comandos para enviar ao daemon de forma assíncrona
-- `notification` — mensagem de notificação temporária com tipo e timestamp de expiração
-
-### 8.6 Loop de Eventos
-
-O client multiplexa três fontes de eventos de forma assíncrona:
-
-1. **Input do teclado** — eventos do terminal processados para navegação e ações
-2. **Stream do daemon** — eventos recebidos e aplicados ao estado local (progresso, logs, métricas)
-3. **Tick de animação** — dispara a cada 100ms para redesenhar a interface e processar timers internos (expiração de notificações, animações de loading)
-
-Após cada evento de teclado, os `pending_commands` são drenados e executados de forma assíncrona, com as respostas aplicadas ao estado da aplicação via `App::handle_response`.
 
 ---
 
@@ -848,7 +632,7 @@ Isso permite filtrar e agregar logs com qualquer ferramenta de análise (jq, Lok
 
 ### 12.2 Métricas (v2: Prometheus)
 
-Na v1, métricas vão apenas ao TUI via event stream. Na v2, endpoint `/metrics` em formato Prometheus:
+Na v1, métricas vão apenas ao cliente via event stream. Na v2, endpoint `/metrics` em formato Prometheus:
 
 ```
 rustploy_service_cpu_percent{service="api",project="my-app"} 12.3
@@ -870,8 +654,8 @@ rustploy_deploy_duration_seconds{service="api"} 47.2
 | `surrealdb`          | 2      | Banco de dados embarcado (feature `kv-rocksdb`)            |
 | `bollard`            | 0.17   | Cliente da API do Docker Engine                            |
 | `hyper` + `arc-swap` | 1 / 1  | Proxy reverso HTTP/1.1 embutido com route table lock-free  |
-| `ratatui`            | 0.28   | Framework de TUI                                           |
-| `crossterm`          | 0.28   | Backend de terminal e stream de eventos de teclado         |
+| `ratatui`            | 0.28   | Framework de TUI (crate `client`, removida — ver §17)       |
+| `crossterm`          | 0.28   | Backend de terminal e stream de eventos de teclado (idem)  |
 | `instant-acme`       | 0.7    | Protocolo ACME para obtenção de certificados TLS           |
 | `rustls`             | 0.23   | TLS puro em Rust (sem OpenSSL)                             |
 | `age`                | 0.10   | Criptografia de secrets em repouso                         |
@@ -921,9 +705,9 @@ O RocksDB em modo embarcado pode apresentar write amplification elevada sob escr
 ## 15. Roteiro de Implementação
 
 ### Fase 0 — Infraestrutura (concluída)
-- [x] Workspace Cargo com crates `daemon`, `client`, `shared`
+- [x] Workspace Cargo com crates `daemon`, `client` (removida depois — ver §17), `shared`
 - [x] UDS + Axum + Bincode funcionando (echo server)
-- [x] TUI Ratatui com input e display de respostas
+- [x] TUI Ratatui com input e display de respostas (crate removida depois)
 
 ### Fase 1 — Core do Daemon (concluída)
 - [x] Definir todos os tipos em `shared`: Command, Event, Response, modelos de domínio
@@ -944,7 +728,7 @@ O RocksDB em modo embarcado pode apresentar write amplification elevada sob escr
 - [x] Roteamento por Host header com lookup de domínio
 - [x] Carregamento das rotas existentes do banco ao iniciar o daemon
 
-### Fase 4 — TUI Completo (em andamento)
+### Fase 4 — TUI Completo (concluída, depois removida — ver §17)
 - [x] Dashboard com lista de projetos/serviços e métricas inline
 - [x] Tela de progresso de deploy com barra por camada de imagem
 - [x] Streaming de logs em tempo real com buffer circular
@@ -969,190 +753,20 @@ O RocksDB em modo embarcado pode apresentar write amplification elevada sob escr
 
 ---
 
-## 16. Use Cases do Aplicativo TUI
-
-### 16.1 Navegação Global
-
-| Use Case | Tecla | Descrição |
-|---|---|---|
-| Alternar foco sidebar/conteúdo | `Tab` | Move o foco entre o painel lateral e a área de conteúdo |
-| Navegar items da sidebar | `↑` `↓` | Move o cursor dentro da sidebar (pula cabeçalhos de seção) |
-| Selecionar item da sidebar | `Enter` | Abre a view correspondente na área de conteúdo e transfere o foco |
-| Voltar à sidebar | `Esc` | Retorna o foco à sidebar sem alterar a view |
-| Sair | `q` (com foco na sidebar) | Encerra o TUI |
-
-### 16.2 Seção HOME (sidebar)
-
-| Item | Use Case | Descrição |
-|---|---|---|
-| Deployments | Ver todos os deploys ativos | Lista todos os deployments em andamento em todos os projetos |
-| Monitoring | Monitorar métricas globais | Exibe gráficos de CPU/RAM de todos os serviços em execução |
-| Schedules | Gerenciar agendamentos | Lista e configura auto-deploys agendados (v2) |
-| Ingress Routes | Visualizar sistema de rotas | Mostra a tabela de rotas ativa no proxy hyper |
-| Docker | Inspecionar Docker Engine | Exibe containers, redes e imagens gerenciadas |
-| Deploy Engine | Monitorar o executor | Exibe estado interno do motor de deploy |
-| Requests | Ver requisições recentes | Log de requisições recebidas pelo proxy hyper |
-
-### 16.3 Seção PROJECTS
-
-#### 16.3.1 Listagem e CRUD de Projetos
-
-| Use Case | Tecla | Entrada | Resultado |
-|---|---|---|---|
-| Listar projetos | — | — | Projetos exibidos na sidebar abaixo de "PROJECTS" |
-| Criar projeto | `n` (com "PROJECTS" ou "New Project" selecionado) | Nome, descrição opcional | Novo projeto criado e listado na sidebar |
-| Selecionar projeto | `Enter` (com projeto selecionado na sidebar) | — | Abre Project Detail na área de conteúdo |
-| Editar projeto | `e` (com foco no projeto na sidebar) | Nome, descrição | Atualiza o projeto |
-| Remover projeto | `D` (com foco no projeto na sidebar) | Confirmação `[y/n]` | Remove o projeto e todos os serviços associados |
-
-#### 16.3.2 Project Detail — Lista de Serviços
-
-| Use Case | Tecla | Entrada | Resultado |
-|---|---|---|---|
-| Listar serviços do projeto | — | — | Serviços exibidos com status e métricas inline |
-| Filtrar serviços | `/` | Texto de filtro (substring no nome) | Lista filtrada dinamicamente |
-| Limpar filtro | `Esc` (quando filtro ativo) | — | Restaura lista completa |
-| Navegar serviços | `↑` `↓` | — | Move o cursor pela lista de serviços |
-| Abrir serviço | `Enter` | — | Abre Service Detail com aba General |
-| Criar serviço | `n` | Formulário de serviço | Novo serviço criado no projeto |
-| Remover serviço | `D` | Confirmação `[y/n]` | Para e remove o container e o registro do serviço |
-
-### 16.4 Service Detail — Abas
-
-#### Navegação entre abas
-
-| Tecla | Ação |
-|---|---|
-| `←` `→` | Move para a aba anterior/próxima |
-| `1` | Aba General |
-| `2` | Aba Environment |
-| `3` | Aba Domains |
-| `4` | Aba Deployments |
-| `5` | Aba Logs |
-| `6` | Aba Patches |
-
-#### 16.4.1 Aba General
-
-**Botões de Ação:**
-
-| Use Case | Tecla | Resultado |
-|---|---|---|
-| Deploy | `Enter` em `[Deploy]` | Inicia um novo deploy do serviço |
-| Reload | `Enter` em `[Reload]` | Recarrega config do container sem rebuild |
-| Rebuild | `Enter` em `[Rebuild]` | Rebuild completo da imagem + re-deploy |
-| Stop | `Enter` em `[Stop]` | Para o container ativo |
-
-**Provider — Git (campos editáveis):**
-
-| Campo | Tipo | Mapeamento no modelo | Descrição |
-|---|---|---|---|
-| Repository URL | texto | `GitSource.url` | URL HTTPS ou SSH do repositório |
-| Branch | texto | `GitSource.branch` | Branch ou commit SHA |
-| Build Path | texto | `GitSource.root_path` | Caminho raiz dentro do repositório |
-| Watch Paths | texto | `GitSource.watch_paths` | Caminhos monitorados para auto-deploy (separados por vírgula) |
-| Enable Submodules | bool | `GitSource.submodules` | Inicializar submódulos Git (`Space` para toggle) |
-| [Add SSH Keys] | botão | — | Associa uma SSH Key ao serviço |
-| [Save] | botão | — | Salva as alterações de provider via `Command::ServiceUpdate` |
-
-**Build Type — Dockerfile (campos editáveis):**
-
-| Campo | Tipo | Mapeamento no modelo | Descrição |
-|---|---|---|---|
-| Docker File | texto | `GitSource.dockerfile_path` | Caminho do Dockerfile no repositório |
-| Docker Context Path | texto | `GitSource.build_context` | Caminho do contexto de build no repositório |
-| Docker Build Stage | texto | `GitSource.build_stage` | Stage alvo para build multi-stage (`--target`) |
-| [Save] | botão | — | Salva as alterações de build type via `Command::ServiceUpdate` |
-
-**Navegação no formulário da aba General:**
-- `↑` `↓` — move entre campos e botões
-- Teclas de caractere — editam o campo de texto focado
-- `Backspace` — apaga o último caractere
-- `Space` — ativa botão ou toggle booleano
-
-#### 16.4.2 Aba Environment
-
-| Use Case | Tecla | Entrada | Resultado |
-|---|---|---|---|
-| Listar env vars | — | — | Lista todas as variáveis com valores (secrets mascarados) |
-| Navegar env vars | `↑` `↓` | — | Move cursor pela lista |
-| Adicionar env var | `n` | Chave + Valor | Nova variável adicionada ao serviço |
-| Editar env var | `e` | Chave + Valor | Variável atualizada |
-| Remover env var | `D` | Confirmação | Variável removida |
-
-#### 16.4.3 Aba Domains
-
-| Use Case | Tecla | Resultado |
-|---|---|---|
-| Ver domínio e status TLS | — | Exibe domínio configurado e status do certificado TLS |
-
-#### 16.4.4 Aba Deployments
-
-| Use Case | Tecla | Resultado |
-|---|---|---|
-| Listar deployments | — | Histórico de deployments com estado, duração e timestamp |
-| Navegar deployments | `↑` `↓` | Move cursor pelo histórico |
-| Rollback | `r` (com deploy anterior selecionado) | Inicia rollback para a versão selecionada |
-| Abortar deploy em curso | `a` (com deploy `Deploying` selecionado) | Aborta o deploy e faz rollback |
-
-#### 16.4.5 Aba Logs
-
-| Use Case | Tecla | Resultado |
-|---|---|---|
-| Ver logs em tempo real | — | Stream de stdout/stderr do container ativo |
-| Scroll manual | `↑` `↓` | Navega pelo buffer circular de logs |
-| Ir ao final (auto-scroll) | `f` | Retoma o auto-scroll para o log mais recente |
-
-#### 16.4.6 Aba Patches
-
-Placeholder para histórico de patches de configuração (v2).
-
-### 16.5 Formulário de Novo Serviço
-
-| Use Case | Tecla | Resultado |
-|---|---|---|
-| Navegar campos | `↑` `↓` | Move cursor entre campos do formulário |
-| Editar campo de texto | Teclas de caractere | Appenda ao campo focado |
-| Apagar caractere | `Backspace` | Remove último caractere do campo focado |
-| Toggle booleano | `Space` | Alterna Enable Submodules |
-| Criar serviço | `Enter` em `[Create Service]` | Envia `Command::ServiceCreate` e volta à lista de serviços |
-| Cancelar | `Esc` ou `Enter` em `[Cancel]` | Descarta o formulário e volta à lista |
-
-### 16.6 Seção SETTINGS (sidebar)
-
-| Item | Use Case | Descrição |
-|---|---|---|
-| Web Server | Configurar proxy hyper | Portas HTTP/HTTPS, bind address, cabeçalhos globais |
-| Profile | Perfil do daemon | Informações da instalação, versão, uso de recursos |
-| Users | Gerenciar usuários | Controle de acesso ao UDS (v2) |
-| Audit Logs | Ver logs de auditoria | Histórico de ações administrativas |
-| SSH Keys | Gerenciar chaves SSH | Chaves SSH disponíveis para autenticação em repositórios privados |
-| Tags | Gerenciar tags | Tags para organização de projetos e serviços |
-| Git | Configurações de Git | Configurações globais de clone e build |
-| Registry | Configurar registries | Credenciais para Docker registries privados |
-| S3 Destinations | Configurar S3 | Destinos S3 para backups de volumes e logs (v2) |
-| Certificates | Gerenciar certificados TLS | Certificados manuais e status ACME por domínio |
-| SSO | Configurar SSO | Single Sign-On para acesso ao TUI (v2) |
-
-### 16.7 ACCOUNT (sidebar)
-
-| Use Case | Descrição |
-|---|---|
-| Ver informações da conta | Exibe o usuário atual, uptime do daemon e versão |
-
----
-
 ## 17. `rustploy-gui` — cliente GUI (glacier-ui) e funcionalidades recentes
 
-> **Nota de desatualização:** este documento (§1–16) descreve a especificação original,
-> anterior à implementação real — por exemplo, o banco embarcado hoje é **SQLite via
-> `sqlx`**, não SurrealDB (ver `CLAUDE.md`), e o cliente GUI `rustploy-gui` (crate
-> `crates/rustploy-gui`, binário `rustploy-gui`) nem existia quando §1–16 foram
-> escritas. Esta seção documenta apenas o que foi implementado de fato nele.
+> **Nota de desatualização:** este documento (§1–15) descreve a especificação original,
+> anterior à implementação real — o banco embarcado hoje é **SQLite via `sqlx`**, não
+> SurrealDB; o TUI (`crates/client`, antigas §8 e §16) foi implementado e depois
+> **removido** do projeto; `rustploy-gui` fala **HTTP/JSON + SSE** com o daemon (não o
+> protocolo RWP/UDS mencionado abaixo, que era do TUI); a camada de UI do `rustploy-gui`
+> migrou de KDL para **XML + Luau**. `CLAUDE.md` é a referência atualmente mantida —
+> consulte-o para a arquitetura real. Esta seção (§17) documenta apenas o que foi
+> implementado de fato no `rustploy-gui`.
 
-`rustploy-gui` é um cliente desktop separado do TUI (`client`), construído com o framework
-próprio **glacier-ui** (UI declarativa em KDL → iced). Conecta ao daemon via **RWP**
-(protocolo administrativo remoto sobre TCP, `rwp://`/`rwps://` — distinto do UDS local
-usado pelo TUI), não precisa rodar na mesma máquina do daemon.
+`rustploy-gui` é o único cliente do daemon, construído com o framework próprio
+**glacier-ui** (UI declarativa em XML → iced, lógica em Luau). Conecta ao daemon via
+**HTTP/JSON + SSE**, não precisa rodar na mesma máquina do daemon.
 
 ### 17.1 Timer de deploy ao vivo
 

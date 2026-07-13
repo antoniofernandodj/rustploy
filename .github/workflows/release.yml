@@ -41,17 +41,13 @@ jobs:
       - name: Build daemon
         run: cross build --release --target ${{ matrix.target }} -p daemon
 
-      - name: Build client
-        run: cross build --release --target ${{ matrix.target }} -p client
-
       - name: Package
         run: |
           mkdir dist
           cp target/${{ matrix.target }}/release/rustployd dist/
-          cp target/${{ matrix.target }}/release/rustploy dist/
           cp packaging/rustployd.service dist/
           tar -czf rustploy-${{ github.ref_name }}-${{ matrix.artifact }}.tar.gz \
-            -C dist rustployd rustploy rustployd.service
+            -C dist rustployd rustployd.service
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

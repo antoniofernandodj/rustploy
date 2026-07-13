@@ -155,8 +155,8 @@ pub async fn summary(db: &Db) -> Result<RegistrySummary> {
 }
 
 /// Remove o repositório inteiro (todos os manifests/tags/refs) — só
-/// metadados, não mexe no CAS em disco (GC de blob órfão é fase 4, fora de
-/// escopo aqui). Só limpa `registry_manifest_refs` dos digests que não
+/// metadados, não mexe no CAS em disco (blobs órfãos são liberados pelo GC,
+/// `crate::registry::gc`). Só limpa `registry_manifest_refs` dos digests que não
 /// pertencem a NENHUM outro repo (calculado antes de apagar as linhas deste
 /// repo — o mesmo digest pode ser compartilhado via PK composta).
 pub async fn delete_repo(db: &Db, repo_id: &str) -> Result<bool> {
@@ -317,7 +317,7 @@ pub async fn list_tags(db: &Db, repo_id: &str) -> Result<Vec<String>> {
 }
 
 /// Remove o manifest deste repo e as tags dele que apontavam para ele — só
-/// metadados (GC de blob órfão é fase 4, fora de escopo aqui).
+/// metadados (blobs órfãos são liberados pelo GC, `crate::registry::gc`).
 /// `registry_manifest_refs` só é limpo quando NENHUM repo mais tem uma linha
 /// pra esse digest (o mesmo digest pode pertencer a outro repo — PK composta).
 pub async fn delete_manifest(db: &Db, repo_id: &str, digest: &str) -> Result<bool> {
@@ -351,6 +351,63 @@ pub async fn delete_manifest(db: &Db, repo_id: &str, digest: &str) -> Result<boo
     }
     tx.commit().await?;
     Ok(true)
+}
+
+/// Fase de metadados do GC (`crate::registry::gc`), numa transação só:
+///
+/// 1. apaga manifests **pendurados** — sem nenhuma tag no próprio repo e não
+///    referenciados como filho por nenhum index (`registry_manifest_refs`
+///    global, consistente com `ref_blob_or_manifest_exists`) — p.ex. o
+///    manifest antigo de uma tag republicada;
+/// 2. apaga as refs cujo manifest sumiu de TODOS os repos;
+/// 3. repete 1–2 até o fixpoint (apagar um index solta os manifests filhos);
+/// 4. apaga blobs sem nenhuma ref restante.
+///
+/// Só metadados — os arquivos do CAS são varridos depois pelo chamador (com a
+/// `commit_lock` do storage segurada durante a transação E o sweep).
+pub async fn gc_metadata(db: &Db) -> Result<()> {
+    let mut tx = db.begin().await?;
+    loop {
+        let dangling = sqlx::query(
+            "DELETE FROM registry_manifests AS m
+             WHERE NOT EXISTS (SELECT 1 FROM registry_tags t
+                               WHERE t.repo_id = m.repo_id AND t.manifest_digest = m.digest)
+               AND NOT EXISTS (SELECT 1 FROM registry_manifest_refs r
+                               WHERE r.blob_digest = m.digest)",
+        )
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+        let refs = sqlx::query(
+            "DELETE FROM registry_manifest_refs
+             WHERE manifest_digest NOT IN (SELECT digest FROM registry_manifests)",
+        )
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+        if dangling == 0 && refs == 0 {
+            break;
+        }
+    }
+    sqlx::query(
+        "DELETE FROM registry_blobs
+         WHERE digest NOT IN (SELECT blob_digest FROM registry_manifest_refs)",
+    )
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(())
+}
+
+/// Todos os digests que DEVEM existir no CAS (blobs + manifests) — o conjunto
+/// "vivo" que o sweep do GC preserva no disco.
+pub async fn all_cas_digests(db: &Db) -> Result<Vec<String>> {
+    let rows: Vec<(String,)> = sqlx::query_as(
+        "SELECT digest FROM registry_blobs UNION SELECT digest FROM registry_manifests",
+    )
+    .fetch_all(db)
+    .await?;
+    Ok(rows.into_iter().map(|(d,)| d).collect())
 }
 
 #[cfg(test)]
@@ -563,6 +620,67 @@ mod tests {
         assert!(list_repo_names(&db).await.unwrap().is_empty());
         // Segunda vez: nada pra apagar, não erro.
         assert!(!delete_repo(&db, &repo.id).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn gc_metadata_preserva_taggeados_e_apaga_orfaos() {
+        let db = mem_db().await;
+        let repo = get_or_create_repo(&db, "app").await.unwrap();
+        insert_blob(&db, "blob_vivo", 10).await.unwrap();
+        insert_blob(&db, "blob_orfao", 20).await.unwrap();
+        insert_manifest(&db, "m_vivo", &repo.id, "application/json", 5, &["blob_vivo".into()])
+            .await
+            .unwrap();
+        upsert_tag(&db, &repo.id, "latest", "m_vivo").await.unwrap();
+        // Manifest pendurado (sem tag — p.ex. tag republicada) segurando outro blob.
+        insert_blob(&db, "blob_do_pendurado", 30).await.unwrap();
+        insert_manifest(&db, "m_pendurado", &repo.id, "application/json", 6, &["blob_do_pendurado".into()])
+            .await
+            .unwrap();
+
+        gc_metadata(&db).await.unwrap();
+
+        assert!(get_manifest(&db, &repo.id, "m_vivo").await.unwrap().is_some());
+        assert!(blob_exists(&db, "blob_vivo").await.unwrap());
+        assert!(get_manifest(&db, &repo.id, "m_pendurado").await.unwrap().is_none());
+        assert!(!blob_exists(&db, "blob_do_pendurado").await.unwrap());
+        assert!(!blob_exists(&db, "blob_orfao").await.unwrap());
+        let live = all_cas_digests(&db).await.unwrap();
+        assert_eq!(live.len(), 2); // blob_vivo + m_vivo
+    }
+
+    /// Index multi-arch pendurado: apagar o index solta os manifests filhos,
+    /// que soltam seus blobs — o loop até fixpoint precisa varrer a cadeia
+    /// inteira, e um filho compartilhado com um index VIVO não pode sumir.
+    #[tokio::test]
+    async fn gc_metadata_varre_cadeia_de_index_pendurado() {
+        let db = mem_db().await;
+        let repo = get_or_create_repo(&db, "app").await.unwrap();
+        insert_blob(&db, "layer", 100).await.unwrap();
+        insert_manifest(&db, "m_filho", &repo.id, "application/json", 5, &["layer".into()])
+            .await
+            .unwrap();
+        insert_manifest(&db, "m_index", &repo.id, "application/json", 3, &["m_filho".into()])
+            .await
+            .unwrap();
+        // Index vivo (taggeado) compartilhando o MESMO filho.
+        insert_manifest(&db, "m_index_vivo", &repo.id, "application/json", 3, &["m_filho".into()])
+            .await
+            .unwrap();
+        upsert_tag(&db, &repo.id, "latest", "m_index_vivo").await.unwrap();
+
+        gc_metadata(&db).await.unwrap();
+        assert!(get_manifest(&db, &repo.id, "m_index").await.unwrap().is_none());
+        assert!(get_manifest(&db, &repo.id, "m_filho").await.unwrap().is_some());
+        assert!(blob_exists(&db, "layer").await.unwrap());
+
+        // Remove a tag do index vivo: agora a cadeia inteira é órfã.
+        sqlx::query("DELETE FROM registry_tags").execute(&db).await.unwrap();
+        gc_metadata(&db).await.unwrap();
+        assert!(get_manifest(&db, &repo.id, "m_index_vivo").await.unwrap().is_none());
+        assert!(get_manifest(&db, &repo.id, "m_filho").await.unwrap().is_none());
+        assert!(!blob_exists(&db, "layer").await.unwrap());
+        assert!(all_cas_digests(&db).await.unwrap().is_empty());
     }
 
     #[tokio::test]

@@ -1,0 +1,115 @@
+<!-- Janela "Novo token do registry": motor Glacier próprio, aberto por
+  open_window a partir do app principal (handlers/registry.luau →
+  registry_open_token_window), que semeia a conexão + o host do registry já
+  conhecidos pela janela principal — nada é buscado aqui dentro: um `fetch`
+  rodado no `init()` é descartado pelo motor (só ações despachadas chegam ao
+  executor), mesma razão de `new_job_window.luau`.
+
+  Fluxo: formulário (nome + escopo pull/push) → RegistryTokenCreate → o
+  segredo aparece em texto UMA VEZ, com botão copiar — a janela NÃO fecha
+  sozinha (diferente da de job), porque o usuário precisa copiar antes de
+  perder o valor. O broadcast("registry_token_created") já dispara na hora da
+  criação (não só ao fechar), pra lista da janela principal atualizar mesmo
+  se o usuário nunca clicar em "Fechar". -->
+<link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />
+<link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />
+<link rel="import"      href="crates/rustploy-gui/views/components/tab_button.xml" as="TabButton" />
+
+<style>
+/* Titlebar custom (mesma linguagem visual do app.xml) */
+.titlebar       { width: fill; height: 32; background: var(--surface); align-y: center; }
+.titlebar_drag  { width: fill; height: fill; align-y: center; padding: 0 0 0 16; spacing: 9; }
+.titlebar_dot   { size: 10; color: var(--blue); }
+.titlebar_title { size: 12; bold: true; color: var(--muted); }
+.win_btn        { width: 48; padding: 5 0; color: var(--border); text-align: center; }
+.win_close      { width: 48; padding: 5 0; color: var(--danger); text-align: center; }
+
+.ntok_screen { width: fill; height: fill; background: var(--bg); }
+.ntok_body   { width: fill; height: fill; }
+
+.np_label   { size: 11; bold: true; color: var(--muted); }
+.np_input   { width: fill; }
+.np_actions { width: fill; spacing: 10; align-y: center; }
+.np_spacer  { width: fill; }
+
+.ntok_secret_box {
+  width: fill;
+  background: var(--raised);
+  border-radius: 8;
+  border-width: 1;
+  border-color: var(--accent);
+  padding: 12;
+  spacing: 8;
+}
+</style>
+
+<column class="ntok_screen">
+
+  <row class="titlebar">
+    <row class="titlebar_drag" on_press="window:drag">
+      <text class="titlebar_dot">●</text>
+      <text class="titlebar_title">Novo token — Rustploy</text>
+    </row>
+    <button class="win_btn"   on_click="window:minimize" text="—" />
+    <button class="win_close" on_click="window:close"    text="✕" />
+  </row>
+
+  <scrollable class="ntok_body" direction="vertical">
+    <column class="form_panel">
+
+      <!-- Passo 1: formulário -->
+      <if cond="{ntok_step}" equals="form">
+        <text class="label_cap">NOVO TOKEN DE ACESSO (BASIC AUTH)</text>
+        <text class="muted">
+          Usado em `docker login`/push/pull contra o registry embutido.
+        </text>
+
+        <form name="ntok_form" on_submit="ntok_create" width="fill" spacing="10">
+          <text class="np_label">NOME</text>
+          <input class="np_input" form_control="ntok_name" value="ntok_name"
+            on_change="field:ntok_name" placeholder="ex.: ci-deploy" />
+
+          <text class="label_cap">ESCOPO</text>
+          <row class="tabs">
+            <TabButton label="Somente leitura (pull)" current="{ntok_scope}" target="pull" action="ntok_scope:pull" />
+            <TabButton label="Leitura e escrita (push)" current="{ntok_scope}" target="push" action="ntok_scope:push" />
+          </row>
+
+          <text if="{ntok_err}" not_equals="" class="err">{ntok_err}</text>
+          <text if="{ntok_msg}" not_equals="" class="muted">{ntok_msg}</text>
+
+          <row class="np_actions">
+            <column class="np_spacer" />
+            <button class="btn_ghost" on_click="window:close" text="Cancelar" />
+            <button class="btn_primary" on_click="ntok_create" text="Criar token" />
+          </row>
+        </form>
+      </if>
+
+      <!-- Passo 2: segredo exibido uma única vez -->
+      <if cond="{ntok_step}" equals="reveal">
+        <text class="label_cap">TOKEN CRIADO — COPIE AGORA</text>
+        <text class="err">
+          O segredo não pode ser recuperado depois de fechar esta janela.
+        </text>
+
+        <column class="ntok_secret_box">
+          <text class="np_label">COMANDO DOCKER LOGIN</text>
+          <text class="kv_val_fill">{ntok_login_cmd}</text>
+          <row class="np_actions">
+            <column class="np_spacer" />
+            <button class="copy_btn" on_click="clipboard:ntok_login_cmd" text="Copiar" />
+          </row>
+        </column>
+
+        <row class="np_actions">
+          <column class="np_spacer" />
+          <button class="btn_primary" on_click="window:close" text="Fechar" />
+        </row>
+      </if>
+
+    </column>
+  </scrollable>
+
+  <script src="scripts/new_registry_token_window.luau"></script>
+</column>

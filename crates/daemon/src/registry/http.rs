@@ -1,9 +1,10 @@
 //! Rotas HTTP da OCI Distribution API v2 — dispatch manual (hyper cru não tem
 //! router): `match`/`rsplit_once` sobre método + segmentos de path conhecidos.
-//! Loopback only, sem autenticação — Fase 1 (`docs/plano-registry-embutido.md`).
+//! Loopback por padrão, com Basic auth obrigatória em toda rota (ver
+//! `registry::auth`) — opcionalmente exposto via ingress/ACME quando um
+//! domínio é configurado (`docs/plano-registry-embutido.md`).
 
 use std::convert::Infallible;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use bytes::Bytes;
@@ -21,10 +22,12 @@ use super::storage::{RegistryStorage, StorageError};
 use crate::db::registry as registry_db;
 use crate::db::Db;
 
-/// Bind (loopback only) + prepara o storage; retorna em caso de falha (log +
-/// listener desabilitado, daemon continua) — mesmo padrão de
-/// `api::webhook_server::run`/`api::http_api::run`.
-pub async fn run(db: Arc<Db>, storage_dir: PathBuf, port: u16) {
+/// Bind (loopback only); retorna em caso de falha (log + listener
+/// desabilitado, daemon continua) — mesmo padrão de
+/// `api::webhook_server::run`/`api::http_api::run`. O `storage` vem pronto do
+/// `main.rs`, que o compartilha com o handler `RegistryGc` e o job diário de
+/// GC (mesma `commit_lock`).
+pub async fn run(db: Arc<Db>, storage: Arc<RegistryStorage>, port: u16) {
     let addr: std::net::SocketAddr = ([127, 0, 0, 1], port).into();
     let listener = match tokio::net::TcpListener::bind(addr).await {
         Ok(l) => l,
@@ -33,14 +36,7 @@ pub async fn run(db: Arc<Db>, storage_dir: PathBuf, port: u16) {
             return;
         }
     };
-    let storage = match RegistryStorage::new(storage_dir) {
-        Ok(s) => Arc::new(s),
-        Err(e) => {
-            error!(error = %e, "registry: falha ao preparar storage_dir");
-            return;
-        }
-    };
-    info!(port, "registry: escutando (loopback, sem auth — Fase 1)");
+    info!(port, "registry: escutando (loopback, Basic auth obrigatória)");
     serve(listener, db, storage).await;
 }
 
@@ -76,6 +72,19 @@ async fn route(req: Request<Incoming>, db: Arc<Db>, storage: Arc<RegistryStorage
     let method = req.method().clone();
     let path = req.uri().path().to_string();
     let query = req.uri().query().unwrap_or("").to_string();
+
+    // Basic auth obrigatória em TODA rota, inclusive `GET /v2/` — sem bypass
+    // por origem (loopback é alcançável por qualquer processo do host).
+    // GET/HEAD só precisam de escopo `pull`; o resto (upload/manifest/delete)
+    // exige `push`.
+    let required_scope = if matches!(method, Method::GET | Method::HEAD) {
+        super::auth::Scope::Pull
+    } else {
+        super::auth::Scope::Push
+    };
+    if let Err(e) = super::auth::check(&req, &db, required_scope).await {
+        return e.into_response();
+    }
 
     let result = dispatch(&path, &query, method, req, &db, &storage).await;
 
@@ -251,6 +260,8 @@ async fn start_or_monolithic_upload(
     if let (Some(digest_full), false) = (&digest_param, body.is_empty()) {
         let expected_hex = name::parse_digest(digest_full)
             .ok_or_else(|| RegistryError::DigestInvalid(digest_full.clone()))?;
+        // Commit (escrita no CAS + insert): sob a trava compartilhada com o GC.
+        let _commit = storage.lock_commit().await;
         let info = storage.write_blob_direct(&body).await.map_err(storage_err)?;
         if info.digest != expected_hex {
             return Err(RegistryError::DigestInvalid(digest_full.clone()));
@@ -331,6 +342,9 @@ async fn put_upload(
         }
     }
 
+    // Commit (rename pro CAS + insert): sob a trava compartilhada com o GC —
+    // só o finalize, nunca o streaming dos chunks acima.
+    let _commit = storage.lock_commit().await;
     let info = storage
         .finalize_upload(uuid, &digest_hex)
         .await
@@ -482,6 +496,10 @@ async fn put_manifest(
         serde_json::from_slice(&body).map_err(|e| RegistryError::ManifestInvalid(format!("JSON inválido: {e}")))?;
     let refs = extract_refs(&value)?;
 
+    // Da validação das refs até o insert do manifest, sob a trava
+    // compartilhada com o GC — senão o GC poderia apagar um blob entre a
+    // checagem de existência e o commit do manifest que o referencia.
+    let _commit = storage.lock_commit().await;
     let mut ref_hexes = Vec::with_capacity(refs.len());
     for r in &refs {
         let digest_hex = name::parse_digest(r).ok_or_else(|| RegistryError::DigestInvalid(r.clone()))?;
@@ -632,17 +650,36 @@ mod tests {
     use sha2::{Digest, Sha256};
     use ulid::Ulid;
 
+    fn basic_auth_header(user: &str, pass: &str) -> String {
+        use base64::Engine;
+        format!(
+            "Basic {}",
+            base64::engine::general_purpose::STANDARD.encode(format!("{user}:{pass}"))
+        )
+    }
+
     /// Bind em porta efêmera + DB/storage temporários, servindo em background.
     /// Sem `reqwest` — cliente hyper cru, mesmo padrão de
-    /// `ingress/proxy.rs::forward` (ver `docs/plano-registry-embutido.md`).
-    async fn spawn_test_registry() -> std::net::SocketAddr {
+    /// `ingress/proxy.rs::forward` (ver `docs/plano-registry-embutido.md`). Já
+    /// cadastra um token de escopo `push` (satisfaz `pull` também) e devolve o
+    /// header `Authorization` pronto pros testes que exercitam o fluxo normal;
+    /// testes de auth em si criam seus próprios tokens/headers.
+    async fn spawn_test_registry() -> (std::net::SocketAddr, String, Arc<Db>) {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         let dir = std::env::temp_dir().join(format!("rp_registry_http_test_{}", Ulid::new()));
         let db = Arc::new(crate::db::connect(&dir).await.unwrap());
         let storage = Arc::new(RegistryStorage::new(dir.join("registry")).unwrap());
-        tokio::spawn(serve(listener, db, storage));
-        addr
+
+        let secret = "s3cret-push";
+        let hash = hex::encode(Sha256::digest(secret.as_bytes()));
+        crate::db::registry_tokens::create(&db, "test-push", &hash, "push")
+            .await
+            .unwrap();
+        let auth = basic_auth_header("test-push", secret);
+
+        tokio::spawn(serve(listener, db.clone(), storage));
+        (addr, auth, db)
     }
 
     fn build_req(
@@ -651,11 +688,13 @@ mod tests {
         path: &str,
         content_type: Option<&str>,
         body: Vec<u8>,
+        auth: &str,
     ) -> Request<Full<Bytes>> {
         let mut builder = Request::builder()
             .method(method)
             .uri(path)
-            .header("Host", addr.to_string());
+            .header("Host", addr.to_string())
+            .header("Authorization", auth);
         if let Some(ct) = content_type {
             builder = builder.header("Content-Type", ct);
         }
@@ -681,17 +720,17 @@ mod tests {
 
     #[tokio::test]
     async fn push_pull_fluxo_completo() {
-        let addr = spawn_test_registry().await;
+        let (addr, auth, _db) = spawn_test_registry().await;
 
-        // 1. GET /v2/ — sem auth nesta fase.
-        let (status, headers, _) = send(addr, build_req(Method::GET, addr, "/v2/", None, vec![])).await;
+        // 1. GET /v2/ autenticado — 200, sem desafio (credencial já válida).
+        let (status, headers, _) = send(addr, build_req(Method::GET, addr, "/v2/", None, vec![], &auth)).await;
         assert_eq!(status, StatusCode::OK);
         assert!(headers.get("WWW-Authenticate").is_none());
 
         // 2. POST blobs/uploads/ — inicia sessão.
         let (status, headers, _) = send(
             addr,
-            build_req(Method::POST, addr, "/v2/hello/blobs/uploads/", None, vec![]),
+            build_req(Method::POST, addr, "/v2/hello/blobs/uploads/", None, vec![], &auth),
         )
         .await;
         assert_eq!(status, StatusCode::ACCEPTED);
@@ -699,7 +738,8 @@ mod tests {
 
         // 3. PATCH — envia o chunk (blob inteiro, num chunk só).
         let chunk = b"hello world blob content".to_vec();
-        let (status, headers, _) = send(addr, build_req(Method::PATCH, addr, &location, None, chunk.clone())).await;
+        let (status, headers, _) =
+            send(addr, build_req(Method::PATCH, addr, &location, None, chunk.clone(), &auth)).await;
         assert_eq!(status, StatusCode::ACCEPTED);
         let range = headers.get("Range").unwrap().to_str().unwrap().to_string();
         assert_eq!(range, format!("0-{}", chunk.len() - 1));
@@ -707,7 +747,7 @@ mod tests {
         // 4. PUT ?digest= — finaliza.
         let blob_digest = hex::encode(Sha256::digest(&chunk));
         let put_path = format!("{location}?digest=sha256:{blob_digest}");
-        let (status, headers, _) = send(addr, build_req(Method::PUT, addr, &put_path, None, vec![])).await;
+        let (status, headers, _) = send(addr, build_req(Method::PUT, addr, &put_path, None, vec![], &auth)).await;
         assert_eq!(status, StatusCode::CREATED);
         assert_eq!(
             headers.get("Docker-Content-Digest").unwrap().to_str().unwrap(),
@@ -741,6 +781,7 @@ mod tests {
                 "/v2/hello/manifests/v1",
                 Some("application/vnd.docker.distribution.manifest.v2+json"),
                 manifest_bytes.clone(),
+                &auth,
             ),
         )
         .await;
@@ -752,7 +793,7 @@ mod tests {
 
         // 7. GET manifests/v1 (por tag) — corpo idêntico byte-a-byte.
         let (status, headers, body) =
-            send(addr, build_req(Method::GET, addr, "/v2/hello/manifests/v1", None, vec![])).await;
+            send(addr, build_req(Method::GET, addr, "/v2/hello/manifests/v1", None, vec![], &auth)).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(
             headers.get("Content-Type").unwrap().to_str().unwrap(),
@@ -762,14 +803,14 @@ mod tests {
 
         // 8. GET manifests/sha256:... (por digest) — mesmo corpo.
         let by_digest = format!("/v2/hello/manifests/sha256:{manifest_digest}");
-        let (status, _, body) = send(addr, build_req(Method::GET, addr, &by_digest, None, vec![])).await;
+        let (status, _, body) = send(addr, build_req(Method::GET, addr, &by_digest, None, vec![], &auth)).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body.as_ref(), manifest_bytes.as_slice());
 
         // 9. tags/list
         let (status, _, body) = send(
             addr,
-            build_req(Method::GET, addr, "/v2/hello/tags/list", None, vec![]),
+            build_req(Method::GET, addr, "/v2/hello/tags/list", None, vec![], &auth),
         )
         .await;
         assert_eq!(status, StatusCode::OK);
@@ -778,7 +819,7 @@ mod tests {
         assert_eq!(v["tags"], serde_json::json!(["v1"]));
 
         // 10. _catalog
-        let (status, _, body) = send(addr, build_req(Method::GET, addr, "/v2/_catalog", None, vec![])).await;
+        let (status, _, body) = send(addr, build_req(Method::GET, addr, "/v2/_catalog", None, vec![], &auth)).await;
         assert_eq!(status, StatusCode::OK);
         let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(v["repositories"], serde_json::json!(["hello"]));
@@ -786,10 +827,10 @@ mod tests {
 
     #[tokio::test]
     async fn manifest_de_repo_inexistente_e_404() {
-        let addr = spawn_test_registry().await;
+        let (addr, auth, _db) = spawn_test_registry().await;
         let (status, _, body) = send(
             addr,
-            build_req(Method::GET, addr, "/v2/nope/manifests/v1", None, vec![]),
+            build_req(Method::GET, addr, "/v2/nope/manifests/v1", None, vec![], &auth),
         )
         .await;
         assert_eq!(status, StatusCode::NOT_FOUND);
@@ -799,10 +840,10 @@ mod tests {
 
     #[tokio::test]
     async fn uuid_de_upload_invalido_e_404() {
-        let addr = spawn_test_registry().await;
+        let (addr, auth, _db) = spawn_test_registry().await;
         let fake_digest = "0".repeat(64);
         let path = format!("/v2/hello/blobs/uploads/does-not-exist?digest=sha256:{fake_digest}");
-        let (status, _, body) = send(addr, build_req(Method::PUT, addr, &path, None, vec![])).await;
+        let (status, _, body) = send(addr, build_req(Method::PUT, addr, &path, None, vec![], &auth)).await;
         assert_eq!(status, StatusCode::NOT_FOUND);
         let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(v["errors"][0]["code"], "BLOB_UPLOAD_UNKNOWN");
@@ -810,7 +851,7 @@ mod tests {
 
     #[tokio::test]
     async fn manifest_referenciando_blob_inexistente_e_400() {
-        let addr = spawn_test_registry().await;
+        let (addr, auth, _db) = spawn_test_registry().await;
         let fake_digest = "1".repeat(64);
         let manifest = serde_json::json!({
             "schemaVersion": 2,
@@ -831,11 +872,79 @@ mod tests {
                 "/v2/hello/manifests/v1",
                 Some("application/vnd.docker.distribution.manifest.v2+json"),
                 body_bytes,
+                &auth,
             ),
         )
         .await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
         let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(v["errors"][0]["code"], "MANIFEST_BLOB_UNKNOWN");
+    }
+
+    // ── Auth ─────────────────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn sem_credencial_e_401_com_desafio() {
+        let (addr, _auth, _db) = spawn_test_registry().await;
+        let req = Request::builder()
+            .method(Method::GET)
+            .uri("/v2/")
+            .header("Host", addr.to_string())
+            .body(Full::new(Bytes::new()))
+            .unwrap();
+        let (status, headers, body) = send(addr, req).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        assert_eq!(
+            headers.get("WWW-Authenticate").unwrap().to_str().unwrap(),
+            r#"Basic realm="rustploy-registry""#
+        );
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["errors"][0]["code"], "UNAUTHORIZED");
+    }
+
+    #[tokio::test]
+    async fn credencial_malformada_e_401() {
+        let (addr, _auth, _db) = spawn_test_registry().await;
+        for bad in ["Bearer sometoken", "Basic not-valid-base64!!", "Basic bm9jb2xvbg=="] {
+            // "nocolon" em base64, sem ':' — falha o split_once(':').
+            let (status, _, _) = send(addr, build_req(Method::GET, addr, "/v2/", None, vec![], bad)).await;
+            assert_eq!(status, StatusCode::UNAUTHORIZED, "deveria rejeitar: {bad}");
+        }
+    }
+
+    #[tokio::test]
+    async fn token_errado_e_401() {
+        let (addr, _auth, _db) = spawn_test_registry().await;
+        let wrong = basic_auth_header("test-push", "segredo-errado");
+        let (status, _, _) = send(addr, build_req(Method::GET, addr, "/v2/", None, vec![], &wrong)).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn escopo_pull_nao_satisfaz_push_mas_push_satisfaz_pull() {
+        let (addr, push_auth, db) = spawn_test_registry().await;
+
+        let pull_secret = "s3cret-pull";
+        let pull_hash = hex::encode(Sha256::digest(pull_secret.as_bytes()));
+        crate::db::registry_tokens::create(&db, "test-pull", &pull_hash, "pull")
+            .await
+            .unwrap();
+        let pull_auth = basic_auth_header("test-pull", pull_secret);
+
+        // Token push satisfaz GET (pull).
+        let (status, _, _) = send(addr, build_req(Method::GET, addr, "/v2/", None, vec![], &push_auth)).await;
+        assert_eq!(status, StatusCode::OK);
+
+        // Token pull satisfaz GET...
+        let (status, _, _) = send(addr, build_req(Method::GET, addr, "/v2/", None, vec![], &pull_auth)).await;
+        assert_eq!(status, StatusCode::OK);
+
+        // ...mas NÃO satisfaz uma rota que exige push (POST de upload).
+        let (status, _, _) = send(
+            addr,
+            build_req(Method::POST, addr, "/v2/hello/blobs/uploads/", None, vec![], &pull_auth),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
     }
 }
