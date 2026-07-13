@@ -73,6 +73,11 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::WizardCatalog { .. } => "WizardCatalog",
         Command::WizardCreate(_) => "WizardCreate",
         Command::Snapshot => "Snapshot",
+        Command::RegistryStatus => "RegistryStatus",
+        Command::RegistryRepoList => "RegistryRepoList",
+        Command::RegistryTagList { .. } => "RegistryTagList",
+        Command::RegistryTagDelete { .. } => "RegistryTagDelete",
+        Command::RegistryRepoDelete { .. } => "RegistryRepoDelete",
         _ => "Unknown",
     };
     info!(
@@ -267,6 +272,13 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::Snapshot => {
             RpResponse::Snapshot(Box::pin(super::http_api::snapshot(&state)).await)
         }
+        Command::RegistryStatus => handlers::registry::status(state).await,
+        Command::RegistryRepoList => handlers::registry::repo_list(state).await,
+        Command::RegistryTagList { repo } => handlers::registry::tag_list(state, repo).await,
+        Command::RegistryTagDelete { repo, tag } => {
+            handlers::registry::tag_delete(state, repo, tag).await
+        }
+        Command::RegistryRepoDelete { repo } => handlers::registry::repo_delete(state, repo).await,
         _ => RpResponse::err("NotImplemented", "command not yet implemented"),
     };
 

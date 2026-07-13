@@ -156,7 +156,7 @@
               Real-time status of services in the cluster.
             </text>
           </column>
-          <row class="stats_row">
+          <row class="stats_row stats_hide_lg">
             <StatCard label="STATUS" value="{services_label}" accent="1" />
             <StatCard label="UPTIME" value="{daemon_uptime}" />
           </row>

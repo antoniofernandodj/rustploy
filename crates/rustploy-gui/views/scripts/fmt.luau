@@ -10,6 +10,7 @@ local Dashboard = require("fmt/dashboard")
 local ServiceDetail = require("fmt/service_detail")
 local Git = require("fmt/git")
 local Jobs = require("fmt/jobs")
+local Registry = require("fmt/registry")
 
 local M = {}
 
@@ -72,5 +73,9 @@ M.git_branches = Git.git_branches
 M.job_recurrence_label = Jobs.recurrence_label
 M.job_summaries = Jobs.summaries
 M.job_runs = Jobs.runs
+
+-- Registry OCI embutido (fmt/registry.luau)
+M.registry_repos = Registry.repos
+M.registry_tags = Registry.tags
 
 return M

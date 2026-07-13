@@ -611,6 +611,16 @@ pub(crate) async fn snapshot(state: &AppState) -> String {
     {
         obj.insert("engine".into(), serde_json::to_value(eng).unwrap_or(Value::Null));
     }
+    if let RpResponse::RegistryStatus(info) =
+        dispatch(state.clone(), Command::RegistryStatus).await
+    {
+        obj.insert("registry_status".into(), serde_json::to_value(info).unwrap_or(Value::Null));
+    }
+    if let RpResponse::RegistryRepos(list) =
+        dispatch(state.clone(), Command::RegistryRepoList).await
+    {
+        obj.insert("registry_repos".into(), serde_json::to_value(list).unwrap_or(Value::Null));
+    }
 
     Value::Object(obj).to_string()
 }

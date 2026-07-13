@@ -32,6 +32,7 @@ local function rebuild_lists(): ()
     ctx.docker_images = fmt.docker_images(snap.docker_images, term)
     ctx.docker_volumes = fmt.docker_volumes(snap.docker_volumes, term)
     ctx.docker_networks = fmt.docker_networks(snap.docker_networks, term)
+    ctx.registry_repos = fmt.registry_repos(snap.registry_repos, term)
 end
 M.rebuild_lists = rebuild_lists
 
@@ -153,6 +154,19 @@ local function apply_snapshot(msg: any): ()
     ctx.docker_volumes_count = tostring(#(msg.docker_volumes or {}))
     ctx.docker_networks_count = tostring(#(msg.docker_networks or {}))
     ctx.docker_containers_count = tostring(#(msg.docker_containers or {}))
+
+    -- Registry OCI embutido: status/config vem sempre; tags de um repo
+    -- específico são buscadas sob demanda (ver handlers/registry.luau), não
+    -- fazem parte do snapshot.
+    local rst = msg.registry_status
+    if rst then
+        ctx.registry_status_enabled = tostring(rst.enabled)
+        ctx.registry_status_label = rst.enabled
+            and ("ativo em 127.0.0.1:" .. tostring(rst.port))
+            or "desabilitado"
+        ctx.registry_storage_human = fmt.fmt_bytes(rst.storage_bytes or 0)
+    end
+    ctx.registry_repos_count = tostring(#(msg.registry_repos or {}))
 
     -- Ingress + Monitoring (não filtrados pela busca).
     local ingress, icount = fmt.ingress(State.last_pairs)

@@ -32,6 +32,8 @@ pub struct RustployConfig {
     pub env_backup: EnvBackupConfig,
     #[serde(default)]
     pub external_ports: ExternalPortsConfig,
+    #[serde(default)]
+    pub registry: RegistryConfig,
 }
 
 /// Faixa de portas de host que o rustploy pode alocar automaticamente para
@@ -129,6 +131,39 @@ impl ApiConfig {
     }
 }
 
+/// Registry Docker OCI (Distribution API v2) embutido no daemon. Fase 1: só
+/// `enabled`/`port`/`storage_dir` são consumidos no boot — o listener sempre
+/// escuta em loopback, sem autenticação. `domain` já existe na struct (evita
+/// migração de config na Fase 2, que expõe o registry via ingress/ACME), mas
+/// não é lido em lugar nenhum ainda.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_registry_port")]
+    pub port: u16,
+    #[serde(default)]
+    pub domain: Option<String>,
+    /// Diretório do CAS. Padrão: `<db_path>/registry/`.
+    #[serde(default)]
+    pub storage_dir: Option<String>,
+}
+
+fn default_registry_port() -> u16 {
+    5100
+}
+
+impl Default for RegistryConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            port: default_registry_port(),
+            domain: None,
+            storage_dir: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DaemonConfig {
     pub socket_path: String,
@@ -212,6 +247,7 @@ impl Default for RustployConfig {
             api: ApiConfig::default(),
             env_backup: EnvBackupConfig::default(),
             external_ports: ExternalPortsConfig::default(),
+            registry: RegistryConfig::default(),
         }
     }
 }
@@ -285,6 +321,19 @@ impl RustployConfig {
         if let Ok(v) = std::env::var("RUSTPLOY_API_DOMAIN") {
             cfg.api.domain = Some(v).filter(|s| !s.is_empty());
         }
+        // Registry OCI embutido. Sem `RUSTPLOY_REGISTRY_DOMAIN`: `domain` não é
+        // lido em lugar nenhum do boot nesta fase (ver `RegistryConfig`).
+        if let Ok(v) = std::env::var("RUSTPLOY_REGISTRY_ENABLED") {
+            cfg.registry.enabled = matches!(v.as_str(), "1" | "true" | "yes" | "on");
+        }
+        if let Ok(v) = std::env::var("RUSTPLOY_REGISTRY_PORT") {
+            if let Ok(p) = v.parse() {
+                cfg.registry.port = p;
+            }
+        }
+        if let Ok(v) = std::env::var("RUSTPLOY_REGISTRY_STORAGE_DIR") {
+            cfg.registry.storage_dir = Some(v).filter(|s| !s.is_empty());
+        }
         cfg
     }
 
@@ -348,5 +397,27 @@ token = "abc123"
     #[derive(Deserialize)]
     struct WrapApi {
         api: ApiConfig,
+    }
+
+    /// Idem para `[registry]`: `enabled = true` sozinho deve bastar, com
+    /// `port`/`domain`/`storage_dir` caindo nos defaults.
+    #[test]
+    fn partial_registry_block_uses_field_defaults() {
+        let toml_str = r#"
+[registry]
+enabled = true
+"#;
+        let cfg: RegistryConfig = toml::from_str(toml_str)
+            .map(|w: WrapRegistry| w.registry)
+            .expect("partial [registry] must parse");
+        assert!(cfg.enabled);
+        assert_eq!(cfg.port, 5100);
+        assert_eq!(cfg.domain, None);
+        assert_eq!(cfg.storage_dir, None);
+    }
+
+    #[derive(Deserialize)]
+    struct WrapRegistry {
+        registry: RegistryConfig,
     }
 }

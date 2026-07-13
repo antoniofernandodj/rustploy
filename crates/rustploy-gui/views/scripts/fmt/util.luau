@@ -38,6 +38,24 @@ function M.ellipsis(s: string?, max: number): string
     return str
 end
 
+-- Orçamento de caracteres por coluna de tabela conforme a largura da janela,
+-- espelhando as larguras de .col_svc/.col_proj/.col_state/.col_img no app.gss
+-- (breakpoints 900/560; fonte mono size 13 ≈ 7,8 px/char, com 1 char de folga
+-- pro "…" do ellipsis). O Row do glacier não clipa filhos: um valor sem
+-- espaços mais largo que a coluna sobrepõe as vizinhas — então todo texto de
+-- dado (nome de serviço/volume, tag, domínio…) passa por M.ellipsis com estes
+-- limites. Recalculado a cada snapshot (~2s), como grid_cols em dashboard.luau.
+export type ColBudgets = { svc: number, proj: number, state: number, img: number }
+function M.col_budgets(): ColBudgets
+    local w = viewport().width
+    if w < 560 then
+        return { svc = 12, proj = 9, state = 12, img = 15 }
+    elseif w < 900 then
+        return { svc = 17, proj = 13, state = 14, img = 26 }
+    end
+    return { svc = 28, proj = 21, state = 19, img = 41 }
+end
+
 -- Remove sequências de escape ANSI (cor/cursor/erase) das linhas de log. O
 -- daemon repassa o stdout/stderr cru dos containers, cheio de CSI (`ESC[..m`
 -- etc.); sem limpar, além de aparecerem como lixo (`[2m[32m…`) na UI, cada

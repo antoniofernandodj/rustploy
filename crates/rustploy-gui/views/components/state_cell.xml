@@ -10,8 +10,10 @@
   paleta fica centralizada no estilo, não espalhada em hex vindos do Rust.
 -->
 <style>
+/* Largura vem de .col_state (app.gss), junto com a coluna ESTADO do thead —
+   inclusive os ajustes de @media (170/130/110); antes era 170 fixo aqui e a
+   célula desalinhava do cabeçalho em janela estreita. */
 .state_cell {
-  width: 170;
   spacing: 7;
   align-y: center;
 }
@@ -42,7 +44,7 @@
 }
 </style>
 
-<row class="state_cell">
+<row class="state_cell col_state">
   <text class="state_dot state_{kind}">●</text>
   <text class="state_lbl state_{kind}">{label}</text>
 </row>

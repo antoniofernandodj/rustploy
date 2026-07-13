@@ -142,6 +142,26 @@
    "mobile" aqui = modo compacto: menos padding, colunas/fontes menores conforme a
    largura da janela encolhe. A sidebar/topbar têm os deles no <style> do shell. */
 
+/* StatCards ao lado do título (header_row): o Row não quebra linha nem clipa,
+   então com muitos cards eles invadem o título bem antes dos 560 que escondem
+   .stats_row abaixo. Cada view marca a sua stats_row com a classe do ponto em
+   que ela deixa de caber, medido pela densidade: xl = 5 cards com valor largo
+   (Deploy Engine, ~1240px de janela com sidebar cheia), lg = 2 cards largos
+   (Deployments: STATUS + UPTIME "1d 11h 49m", ~950px), md = 4 cards compactos
+   (Docker/Monitoring/Schedules, ~700px com sidebar colapsada). Ingress (2
+   cards curtos) cabe até os 560 gerais e fica só com .stats_row. */
+@media (max-width: 1280) {
+  .stats_hide_xl { hidden: true; }
+}
+
+@media (max-width: 1000) {
+  .stats_hide_lg { hidden: true; }
+}
+
+@media (max-width: 760) {
+  .stats_hide_md { hidden: true; }
+}
+
 @media (max-width: 900) {
   .content    { padding: 16 18; spacing: 16; }
   .title      { size: 24; }

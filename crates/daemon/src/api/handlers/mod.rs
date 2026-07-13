@@ -18,6 +18,7 @@ pub mod daemon_status;
 pub mod docker_inventory;
 pub mod docker_prune;
 pub mod docker_remove;
+pub mod registry;
 pub mod secret_delete;
 pub mod secret_list;
 pub mod secret_set;

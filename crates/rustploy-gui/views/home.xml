@@ -20,7 +20,7 @@
         </text>
       </column>
     </row>
-    <row class="stats_row">
+    <row class="stats_row stats_hide_md">
       <StatCard label="CPU" value="{sys_cpu}" />
       <StatCard label="MEMORY" value="{sys_mem}" accent="1" />
       <StatCard label="DISK" value="{sys_disk}" />
@@ -147,7 +147,9 @@
           Pipeline de deploy: em andamento e histórico recente.
         </text>
       </column>
-      <row class="stats_row">
+      <!-- 5 cards + valor largo (UPTIME) ao lado do título: deixa de caber
+           bem antes dos breakpoints gerais — some mais cedo (xl). -->
+      <row class="stats_row stats_hide_xl">
         <StatCard label="ATIVOS" value="{eng_active_count}" accent="1" />
         <StatCard label="SUCESSO 24H" value="{eng_success_24h}" />
         <StatCard label="FALHAS 24H" value="{eng_failed_24h}" />
@@ -247,7 +249,7 @@
         <text class="title">Docker</text>
         <text class="subtitle">Containers, imagens, volumes e networks do host.</text>
       </column>
-      <row class="stats_row">
+      <row class="stats_row stats_hide_md">
         <StatCard label="CONTAINERS" value="{docker_containers_count}" />
         <StatCard label="IMAGENS" value="{docker_images_count}" />
         <StatCard label="VOLUMES" value="{docker_volumes_count}" />
@@ -279,6 +281,12 @@
         current="{docker_tab}"
         target="networks"
         action="docker_tab:networks"
+      />
+      <TabButton
+        label="Registry"
+        current="{docker_tab}"
+        target="registry"
+        action="docker_tab:registry"
       />
     </row>
     <rule />
@@ -392,7 +400,7 @@
             >
               <row class="trow">
                 <text class="td_key col_svc">{i.tags}</text>
-                <text class="td col_proj">{i.project} / {i.service}</text>
+                <text class="td col_proj">{i.owner}</text>
                 <text class="muted col_dur">{i.size}</text>
                 <text class="muted col_dur">{i.created}</text>
                 <StateCell kind="{i.in_use_kind}" label="{i.in_use_label}" />
@@ -412,7 +420,7 @@
             <column class="row_wrap" for-each="docker_images" var="i">
               <row class="trow">
                 <text class="td_key col_svc">{i.tags}</text>
-                <text class="td col_proj">{i.project} / {i.service}</text>
+                <text class="td col_proj">{i.owner}</text>
                 <text class="muted col_dur">{i.size}</text>
                 <text class="muted col_dur">{i.created}</text>
                 <StateCell kind="{i.in_use_kind}" label="{i.in_use_label}" />
@@ -497,7 +505,7 @@
                     if="{v.in_use_label}"
                     equals="SEM USO"
                     class="dk_rm"
-                    on_click="docker_rm_volume:{v.name}"
+                    on_click="docker_rm_volume:{v.name_full}"
                     text="Remover"
                   />
                 </row>
@@ -594,6 +602,94 @@
           </else>
         </column>
       </scrollable>
+    </column>
+
+    <!-- Registry — repositórios/tags do registry OCI embutido (Fase 1: só
+         push/pull via docker CLI; sem auth ainda). Somente leitura + delete
+         (metadados; o CAS em disco só é limpo num GC futuro). Tags de um
+         repositório são buscadas sob demanda ao clicar "Ver tags" — não
+         vêm no snapshot periódico, diferente das outras sub-abas Docker. -->
+    <column class="panel_fill" if="{docker_tab}" equals="registry">
+      <text class="muted_fill">
+        Registry {registry_status_label} · {registry_repos_count} repositório(s) · {registry_storage_human}
+      </text>
+      <text if="{registry_msg}" not_equals="" class="muted">{registry_msg}</text>
+
+      <column class="panel_fill" if="{registry_selected_repo}" equals="">
+        <row class="thead">
+          <text class="th col_svc">REPOSITÓRIO</text>
+          <text class="th col_proj">TAGS</text>
+          <text class="th col_dur">TAMANHO</text>
+          <text class="th col_dur">CRIADO</text>
+          <text class="th col_act">AÇÃO</text>
+        </row>
+        <if cond="{data_loading}" equals="true">
+          <LoadingRow />
+        </if>
+        <text if="{registry_repos_count}" equals="0" class="muted">
+          Nenhum repositório ainda. Faça `docker push` para o registry embutido.
+        </text>
+        <scrollable
+          if="{data_loading}"
+          not_equals="true"
+          direction="vertical"
+          class="scroll_fill"
+        >
+          <column class="table_body">
+            <column class="row_wrap" for-each="registry_repos" var="r">
+              <row class="trow">
+                <text class="td_key col_svc">{r.name}</text>
+                <text class="td col_proj">{r.tag_count}</text>
+                <text class="muted col_dur">{r.size}</text>
+                <text class="muted col_dur">{r.created}</text>
+                <row class="col_act">
+                  <button class="copy_btn" on_click="registry_open_repo:{r.name}" text="Ver tags" />
+                  <button class="dk_rm" on_click="registry_rm_repo:{r.name}" text="Remover" />
+                </row>
+              </row>
+              <rule />
+            </column>
+          </column>
+        </scrollable>
+      </column>
+
+      <column class="panel_fill" if="{registry_selected_repo}" not_equals="">
+        <row class="env_head">
+          <text class="muted_fill">{registry_selected_repo} — {registry_tags_count} tag(s)</text>
+          <button class="btn_ghost" on_click="registry_close_repo" text="← Voltar" />
+        </row>
+        <row class="thead">
+          <text class="th col_svc">TAG</text>
+          <text class="th col_proj">DIGEST</text>
+          <text class="th col_dur">TAMANHO</text>
+          <text class="th col_dur">ATUALIZADA</text>
+          <text class="th col_act">AÇÃO</text>
+        </row>
+        <if cond="{registry_tags_loading}" equals="true">
+          <LoadingRow />
+        </if>
+        <scrollable
+          if="{registry_tags_loading}"
+          not_equals="true"
+          direction="vertical"
+          class="scroll_fill"
+        >
+          <column class="table_body">
+            <column class="row_wrap" for-each="registry_tags" var="t">
+              <row class="trow">
+                <text class="td_key col_svc">{t.tag}</text>
+                <text class="muted col_proj">{t.digest}</text>
+                <text class="muted col_dur">{t.size}</text>
+                <text class="muted col_dur">{t.updated}</text>
+                <row class="col_act">
+                  <button class="dk_rm" on_click="registry_rm_tag:{t.tag}" text="Remover" />
+                </row>
+              </row>
+              <rule />
+            </column>
+          </column>
+        </scrollable>
+      </column>
     </column>
   </if>
 
@@ -933,7 +1029,7 @@
           Tarefas one-shot (docker-compose) agendadas ou manuais, de todos os projetos.
         </text>
       </column>
-      <row class="stats_row">
+      <row class="stats_row stats_hide_md">
         <StatCard label="JOBS" value="{jobs_count}" />
       </row>
       <button class="btn_primary" on_click="open_new_job_window" text="+ Novo job" />

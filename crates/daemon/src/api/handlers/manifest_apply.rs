@@ -165,9 +165,11 @@ async fn apply_one(
                 if effective_spec.env_vars.is_empty() && !s.spec.env_vars.is_empty() {
                     effective_spec.env_vars = s.spec.env_vars.clone();
                 }
-                crate::db::services::update_spec(&state.db, &s.id, effective_spec)
+                crate::db::services::update_spec(&state.db, &s.id, effective_spec.clone())
                     .await
                     .map_err(db_err)?;
+                super::service_update::sync_firewall(state, &s.id, s.spec.host_port, effective_spec.host_port)
+                    .await;
                 (ActionVerb::Updated, Some(s.id.clone()))
             }
             None => {

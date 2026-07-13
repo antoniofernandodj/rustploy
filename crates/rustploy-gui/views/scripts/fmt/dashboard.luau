@@ -41,15 +41,18 @@ local FILLER: GridCard = {
 }
 
 -- Deployments (aba Deployments). `list` = Vec<DeploymentSummary>.
+-- Nomes truncados por Util.col_budgets (o filtro `matches` roda antes, sobre o
+-- valor completo — a busca continua casando com o que foi cortado).
 function M.deployments(list: {any}?, term: string?): string
+    local B = Util.col_budgets()
     local rows = {}
     for _, s in ipairs(list or {}) do
         if Util.matches(term, { s.service_name, s.project_name }) then
             local d = s.deployment
             local label, _ = Util.state_label_color(d.state)
             table.insert(rows, {
-                service = s.service_name,
-                project = s.project_name,
+                service = Util.ellipsis(s.service_name, B.svc),
+                project = Util.ellipsis(s.project_name, B.proj),
                 state_label = label,
                 state_kind = Util.state_kind(d.state),
                 duration = Time.fmt_duration(d),
@@ -217,6 +220,7 @@ function M.docker_rows(pairs_: {ServicePair}, term: string?): string
 end
 
 function M.docker_images(list: {any}?, term: string?): string
+    local B = Util.col_budgets()
     local sorted = {}
     for _, img in ipairs(list or {}) do table.insert(sorted, img) end
     table.sort(sorted, function(a: any, b: any)
@@ -231,7 +235,7 @@ function M.docker_images(list: {any}?, term: string?): string
             -- longa que a coluna estoura e sobrepõe as vizinhas (o Row não clipa
             -- filhos) — mesmo caso do sha256 em docker_containers.
             local tags = (#(img.tags or {}) == 0) and "<none>"
-                or Util.ellipsis(table.concat(img.tags, ", "), 34)
+                or Util.ellipsis(table.concat(img.tags, ", "), B.svc)
             local id = img.id or ""
             id = string.gsub(id, "^sha256:", "")
             table.insert(rows, {
@@ -242,6 +246,9 @@ function M.docker_images(list: {any}?, term: string?): string
                 created = Time.date_dm_hm(img.created),
                 project = img.project or "—",
                 service = img.service or "—",
+                -- "PROJETO / SERVIÇO" já combinado e truncado pra col_proj (o
+                -- template exibe {i.owner}; project/service ficam pra ações).
+                owner = Util.ellipsis((img.project or "—") .. " / " .. (img.service or "—"), B.proj),
                 in_use_label = in_use and "EM USO" or "SEM USO",
                 in_use_kind = Util.in_use_kind(in_use),
             })
@@ -251,6 +258,7 @@ function M.docker_images(list: {any}?, term: string?): string
 end
 
 function M.docker_volumes(list: {any}?, term: string?): string
+    local B = Util.col_budgets()
     local sorted = {}
     for _, v in ipairs(list or {}) do table.insert(sorted, v) end
     table.sort(sorted, function(a: any, b: any) return a.name < b.name end)
@@ -258,7 +266,10 @@ function M.docker_volumes(list: {any}?, term: string?): string
     for _, v in ipairs(sorted) do
         if Util.matches(term, { v.name, v.driver }) then
             table.insert(rows, {
-                name = v.name,
+                -- Nome truncado só pra exibição; a ação de remover usa v.name
+                -- completo via `name_full`.
+                name = Util.ellipsis(v.name, B.svc),
+                name_full = v.name,
                 driver = v.driver,
                 mountpoint = v.mountpoint,
                 size = (v.size_bytes and v.size_bytes >= 0) and Time.fmt_bytes(v.size_bytes) or "—",
@@ -271,6 +282,7 @@ function M.docker_volumes(list: {any}?, term: string?): string
 end
 
 function M.docker_networks(list: {any}?, term: string?): string
+    local B = Util.col_budgets()
     local sorted = {}
     for _, n in ipairs(list or {}) do table.insert(sorted, n) end
     table.sort(sorted, function(a: any, b: any) return a.name < b.name end)
@@ -278,11 +290,11 @@ function M.docker_networks(list: {any}?, term: string?): string
     for _, n in ipairs(sorted) do
         if Util.matches(term, { n.name, n.project or "" }) then
             table.insert(rows, {
-                name = n.name,
+                name = Util.ellipsis(n.name, B.svc),
                 id_full = n.id or "",
                 driver = n.driver,
                 scope = n.scope,
-                project = n.project or "—",
+                project = Util.ellipsis(n.project or "—", B.proj),
                 containers = tostring(n.container_count or 0),
                 in_use_label = n.in_use and "EM USO" or "SEM USO",
                 in_use_kind = Util.in_use_kind(n.in_use),
@@ -297,6 +309,7 @@ end
 -- mostra projeto/serviço quando atribuído (label rustploy.service_id), senão
 -- "rustploy" (managed) ou "—".
 function M.docker_containers(list: {any}?, term: string?): string
+    local B = Util.col_budgets()
     local sorted = {}
     for _, c in ipairs(list or {}) do table.insert(sorted, c) end
     table.sort(sorted, function(a: any, b: any) return (a.name or "") < (b.name or "") end)
@@ -322,9 +335,9 @@ function M.docker_containers(list: {any}?, term: string?): string
             table.insert(rows, {
                 id_full = c.id or "",
                 id = string.sub(c.id or "", 1, 12),
-                name = c.name or "—",
-                image = Util.ellipsis(image, 35),
-                owner = owner,
+                name = Util.ellipsis(c.name or "—", B.svc),
+                image = Util.ellipsis(image, B.img),
+                owner = Util.ellipsis(owner, B.state),
                 state_label = label,
                 state_kind = kind,
                 can_remove = Util.container_stopped(c.state) and "1" or "0",
@@ -336,6 +349,7 @@ end
 
 -- Ingress: uma linha por rota de domínio (não filtrado pela busca). Retorna (json, count).
 function M.ingress(pairs_: {ServicePair}): (string, number)
+    local B = Util.col_budgets()
     local rows = {}
     for _, p in ipairs(pairs_) do
         local spec = p.svc.spec
@@ -345,9 +359,9 @@ function M.ingress(pairs_: {ServicePair}): (string, number)
                 local scheme = r.tls and "https" or "http"
                 local cport = r.port or port
                 table.insert(rows, {
-                    domain = r.domain,
+                    domain = Util.ellipsis(r.domain, B.svc),
                     url = scheme .. "://" .. r.domain,
-                    service = spec.name,
+                    service = Util.ellipsis(spec.name, B.proj),
                     project = p.proj,
                     upstream = ":" .. tostring(cport),
                     tls = r.tls and "TLS" or "—",
@@ -363,13 +377,14 @@ end
 -- domínio acima (um serviço pode ter as duas, só uma, ou nenhuma). Não
 -- filtrado pela busca (mesma convenção de `M.ingress`).
 function M.host_ports(pairs_: {ServicePair}): (string, number)
+    local B = Util.col_budgets()
     local rows = {}
     for _, p in ipairs(pairs_) do
         local spec = p.svc.spec
         if spec.host_port ~= nil then
             table.insert(rows, {
-                service = spec.name,
-                project = p.proj,
+                service = Util.ellipsis(spec.name, B.svc),
+                project = Util.ellipsis(p.proj, B.proj),
                 host_port = tostring(spec.host_port),
                 host_port_n = spec.host_port,
                 container_port = tostring(spec.port),
@@ -382,13 +397,14 @@ end
 
 -- Monitoring: uma linha por serviço COM métricas vivas.
 function M.monitoring(pairs_: {ServicePair}, metrics: MetricsMap?): string
+    local B = Util.col_budgets()
     local rows = {}
     for _, p in ipairs(pairs_) do
         local m = metrics and metrics[p.svc.id]
         if m then
             table.insert(rows, {
-                name = p.svc.spec.name,
-                project = p.proj,
+                name = Util.ellipsis(p.svc.spec.name, B.svc),
+                project = Util.ellipsis(p.proj, B.proj),
                 cpu = string.format("%.1f%%", m.cpu_percent or 0),
                 mem = Time.fmt_bytes(m.mem_used_bytes),
                 rx = Time.fmt_bytes(m.net_rx_bytes),
@@ -401,12 +417,13 @@ end
 
 -- Deploy Engine: "Executando agora".
 function M.eng_active(active: {any}?): string
+    local B = Util.col_budgets()
     local rows = {}
     for _, info in ipairs(active or {}) do
         local label, _ = Util.state_label_color(info.state)
         table.insert(rows, {
-            service = info.service_name,
-            project = info.project_name,
+            service = Util.ellipsis(info.service_name, B.svc),
+            project = Util.ellipsis(info.project_name, B.proj),
             state_label = label,
             state_kind = Util.state_kind(info.state),
             percent = tostring(info.percent) .. "%",
@@ -421,6 +438,7 @@ end
 
 -- Deploy Engine: "Histórico 24h".
 function M.eng_recent(recent: {any}?): string
+    local B = Util.col_budgets()
     local rows = {}
     for _, info in ipairs(recent or {}) do
         local label, _ = Util.state_label_color(info.state)
@@ -429,8 +447,8 @@ function M.eng_recent(recent: {any}?): string
         elseif info.state == "Failed" then icon = "✕" end
         table.insert(rows, {
             icon = icon,
-            service = info.service_name,
-            project = info.project_name,
+            service = Util.ellipsis(info.service_name, B.svc),
+            project = Util.ellipsis(info.project_name, B.proj),
             state_label = label,
             state_kind = Util.state_kind(info.state),
             duration = Time.fmt_secs(info.elapsed_secs),

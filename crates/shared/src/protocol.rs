@@ -294,6 +294,17 @@ pub enum Command {
     /// empurra a cada 2s). O cliente usa após uma mutação para refletir a
     /// mudança na hora, sem esperar o próximo tick. Resposta: `Snapshot(String)`.
     Snapshot,
+
+    // Registry OCI embutido — sub-aba Docker > Registry (somente leitura +
+    // delete; criar conteúdo só acontece via `docker push` externo).
+    RegistryStatus,
+    RegistryRepoList,
+    RegistryTagList { repo: String },
+    /// Remove a tag; se outra tag apontar pro mesmo digest (mesmo manifest),
+    /// ela também é removida — mesma semântica do DELETE da OCI spec (por
+    /// digest, não por tag).
+    RegistryTagDelete { repo: String, tag: String },
+    RegistryRepoDelete { repo: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -469,6 +480,11 @@ pub enum Response {
     /// Log de uma execução (resposta de `GetJobLogs`) — reaproveita
     /// `BuildLogLine`, mesma forma de linha (stream + texto + timestamp).
     JobLogs(Vec<BuildLogLine>),
+
+    // Registry OCI embutido
+    RegistryStatus(RegistryStatusInfo),
+    RegistryRepos(Vec<RegistryRepoInfo>),
+    RegistryTags(Vec<RegistryTagInfo>),
 
     Err { code: String, message: String },
 }

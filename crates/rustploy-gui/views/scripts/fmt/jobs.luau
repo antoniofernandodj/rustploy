@@ -48,16 +48,17 @@ end
 
 -- Tela global "Schedules": uma linha por job, de todos os projetos.
 function M.summaries(list: { any }?): (string, number)
+    local B = Util.col_budgets()
     local rows = {}
     for _, s in ipairs(list or {}) do
         local job = s.job
         local status_label, status_kind = M.run_status(s.last_run)
         table.insert(rows, {
             id = job.id,
-            name = job.name,
+            name = Util.ellipsis(job.name, B.svc),
             project = s.project_name,
             trigger_service = s.trigger_service_name,
-            owner = tostring(s.project_name) .. " / " .. tostring(s.trigger_service_name),
+            owner = Util.ellipsis(tostring(s.project_name) .. " / " .. tostring(s.trigger_service_name), B.proj),
             recurrence = M.recurrence_label(job.recurrence),
             enabled = job.enabled,
             enabled_label = job.enabled and "Pausar" or "Ativar",

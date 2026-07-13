@@ -12,6 +12,7 @@ mod jobs;
 mod logs;
 mod metrics;
 mod ports;
+mod registry;
 mod secrets;
 mod watchdog;
 
@@ -261,6 +262,23 @@ async fn main() -> Result<()> {
         let tls2 = tls.clone();
         tokio::spawn(async move {
             api::http_api::run(state2, api_cfg, Some(tls2)).await;
+        });
+    }
+
+    // Registry OCI embutido — Fase 1: loopback only, sem auth, sem ingress
+    // (ver docs/plano-registry-embutido.md). Bind falho apenas loga e desabilita
+    // o listener, como os demais listeners opcionais acima.
+    if config.registry.enabled {
+        let db2 = state.db.clone();
+        let storage_dir = config
+            .registry
+            .storage_dir
+            .as_deref()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| state.db_path.join("registry"));
+        let port = config.registry.port;
+        tokio::spawn(async move {
+            registry::http::run(db2, storage_dir, port).await;
         });
     }
 

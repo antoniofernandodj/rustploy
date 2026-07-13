@@ -629,6 +629,41 @@ pub struct DockerNetworkInfo {
     pub project: Option<String>,
 }
 
+// ── Registry OCI embutido (Docker > Registry) ─────────────────────────────────
+
+/// Um repositório do registry embutido, para a lista da sub-aba Registry.
+/// `size_bytes` é a soma dos manifests do repo (aproximação — blobs podem ser
+/// compartilhados entre repos via dedupe, ver `docs/plano-registry-embutido.md`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryRepoInfo {
+    pub name: String,
+    pub tag_count: i64,
+    pub size_bytes: i64,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Uma tag de um repositório, com o manifest que ela aponta.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryTagInfo {
+    pub tag: String,
+    pub digest: String,
+    pub media_type: String,
+    pub size_bytes: i64,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Status do registry embutido: config + agregados, para o cabeçalho da
+/// sub-aba Registry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryStatusInfo {
+    pub enabled: bool,
+    pub port: u16,
+    pub domain: Option<String>,
+    pub repo_count: i64,
+    pub blob_count: i64,
+    pub storage_bytes: i64,
+}
+
 // ── Jobs (tarefas one-shot via docker-compose, agendadas ou manuais) ──────────
 
 /// Uma tarefa one-shot: sobe um stack docker-compose próprio (efêmero — roda

@@ -33,8 +33,9 @@ pub async fn handle(state: AppState, id: String, mut spec: ServiceSpec) -> RpRes
 }
 
 /// Porta mudou/removida → fecha a antiga (se mais ninguém a usa) e o listener
-/// do ingress; porta nova/mantida → garante a liberação.
-async fn sync_firewall(state: &AppState, id: &str, old: Option<u16>, new: Option<u16>) {
+/// do ingress; porta nova/mantida → garante a liberação. Reusado por
+/// `manifest_apply` (IaC import), que também atualiza specs fora deste handler.
+pub(crate) async fn sync_firewall(state: &AppState, id: &str, old: Option<u16>, new: Option<u16>) {
     if let Some(old_port) = old.filter(|o| Some(*o) != new) {
         state.ingress.remove_port_route(old_port);
         if !crate::ports::port_in_use_by_other(&state.db, old_port, Some(id)).await {

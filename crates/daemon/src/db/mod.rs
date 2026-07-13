@@ -7,6 +7,7 @@ pub mod job;
 pub mod job_log;
 pub mod job_run;
 pub mod projects;
+pub mod registry;
 pub mod services;
 pub mod webhook_tokens;
 
@@ -167,6 +168,50 @@ async fn migrate(pool: &SqlitePool) -> Result<()> {
         );
 
         CREATE INDEX IF NOT EXISTS idx_job_log_run ON job_log(job_run_id);
+
+        CREATE TABLE IF NOT EXISTS registry_repos (
+            id         TEXT PRIMARY KEY,
+            name       TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS registry_blobs (
+            digest     TEXT PRIMARY KEY,
+            size       INTEGER NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
+        -- PK composta (repo_id, digest): o MESMO conteúdo (mesmo digest) pode
+        -- legitimamente pertencer a repos diferentes (duas tags/repos apontando
+        -- pra imagem idêntica produzem manifests byte-a-byte iguais). Com
+        -- `digest` como PK sozinho, o segundo repo a fazer push do mesmo
+        -- conteúdo 'roubava' a posse do primeiro (ON CONFLICT sobrescrevia
+        -- repo_id), quebrando list_repos (tamanho zerado), delete_manifest
+        -- (404) e até o `docker pull` real do repo que perdia a posse.
+        CREATE TABLE IF NOT EXISTS registry_manifests (
+            repo_id    TEXT NOT NULL,
+            digest     TEXT NOT NULL,
+            media_type TEXT NOT NULL,
+            size       INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (repo_id, digest)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_registry_manifests_digest ON registry_manifests(digest);
+
+        CREATE TABLE IF NOT EXISTS registry_tags (
+            repo_id         TEXT NOT NULL,
+            tag             TEXT NOT NULL,
+            manifest_digest TEXT NOT NULL,
+            updated_at      TEXT NOT NULL,
+            PRIMARY KEY (repo_id, tag)
+        );
+
+        CREATE TABLE IF NOT EXISTS registry_manifest_refs (
+            manifest_digest TEXT NOT NULL,
+            blob_digest     TEXT NOT NULL,
+            PRIMARY KEY (manifest_digest, blob_digest)
+        );
         ",
     )
     .execute(pool)
