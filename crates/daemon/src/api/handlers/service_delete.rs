@@ -19,6 +19,18 @@ pub async fn handle(state: AppState, id: String) -> RpResponse {
                     crate::firewall::ensure_denied_bg(port);
                 }
             }
+            // Jobs gatilhados por este serviço vão junto (senão ficariam
+            // órfãos, falhando em loop a cada recorrência) — a GUI avisa no
+            // diálogo de confirmação antes de chegar aqui.
+            match crate::db::job::delete_by_trigger_service(&state.db, &id).await {
+                Ok(n) if n > 0 => {
+                    tracing::info!(service_id = %id, jobs = n, "service_delete: jobs gatilhados removidos em cascata");
+                }
+                Err(e) => {
+                    tracing::warn!(service_id = %id, error = %e, "service_delete: falha ao remover jobs gatilhados (ficarão órfãos)");
+                }
+                _ => {}
+            }
             RpResponse::Ok
         }
         Ok(false) => RpResponse::err("NotFound", "service not found"),

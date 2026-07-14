@@ -413,9 +413,26 @@ function do_svc_stop_id(id: string): ()
 end
 
 function stop_delete_service(id: string): ()
+    -- Jobs de Schedules gatilhados por este serviço são removidos em cascata
+    -- pelo daemon — avisa quais no confirm (jobs_by_id vem do snapshot).
+    local dep_names = {}
+    for _, job in State.jobs_by_id do
+        if job.trigger_service_id == id then
+            table.insert(dep_names, tostring(job.name))
+        end
+    end
+    local message = "O serviço será parado e removido."
+    if #dep_names > 0 then
+        table.sort(dep_names)
+        message = message
+            .. " Os jobs de Schedules que dependem dele também serão removidos, com histórico: "
+            .. table.concat(dep_names, ", ")
+            .. "."
+    end
+    message = message .. " Essa ação não pode ser desfeita."
     confirm({
         title = "Parar e remover serviço?",
-        message = "O serviço será parado e removido. Essa ação não pode ser desfeita.",
+        message = message,
         confirm_label = "Remover",
         confirm_action = "do_stop_delete_service:" .. tostring(id),
         destructive = true,

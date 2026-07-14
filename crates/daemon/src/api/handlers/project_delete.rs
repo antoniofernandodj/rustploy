@@ -12,6 +12,16 @@ pub async fn handle(state: AppState, id: String) -> RpResponse {
         Err(e) => return RpResponse::err("DatabaseError", e.to_string()),
         _ => {}
     }
+    match crate::db::job::count_by_project(&state.db, &id).await {
+        Ok(count) if count > 0 => {
+            return RpResponse::err(
+                "HasJobs",
+                "Remova todos os jobs (Schedules) antes de deletar o projeto",
+            );
+        }
+        Err(e) => return RpResponse::err("DatabaseError", e.to_string()),
+        _ => {}
+    }
     match crate::db::projects::delete(&state.db, &id).await {
         Ok(true) => RpResponse::Ok,
         Ok(false) => RpResponse::err("NotFound", "project not found"),

@@ -195,13 +195,53 @@ pub async fn mark_fired(
     Ok(())
 }
 
+/// Apaga o job e o histórico junto (`job_run` + `job_log`) — não há FK com
+/// cascade no schema, então a limpeza é feita aqui, numa transação.
 pub async fn delete(db: &Db, id: &str) -> Result<bool> {
+    let mut tx = db.begin().await?;
+    sqlx::query(
+        "DELETE FROM job_log WHERE job_run_id IN (SELECT id FROM job_run WHERE job_id = ?)",
+    )
+    .bind(id)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query("DELETE FROM job_run WHERE job_id = ?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
     let rows_affected = sqlx::query("DELETE FROM job WHERE id = ?")
         .bind(id)
-        .execute(db)
+        .execute(&mut *tx)
         .await?
         .rows_affected();
+    tx.commit().await?;
     Ok(rows_affected > 0)
+}
+
+pub async fn count_by_project(db: &Db, project_id: &str) -> Result<i64> {
+    let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM job WHERE project_id = ?")
+        .bind(project_id)
+        .fetch_one(db)
+        .await?;
+    Ok(count)
+}
+
+/// Remove todos os jobs que usam o serviço como gatilho (cascade do
+/// `service_delete` — a GUI avisa no confirm antes). Cada job leva o próprio
+/// histórico junto via `delete`. Retorna quantos jobs foram removidos.
+pub async fn delete_by_trigger_service(db: &Db, service_id: &str) -> Result<u64> {
+    let ids: Vec<(String,)> =
+        sqlx::query_as("SELECT id FROM job WHERE trigger_service_id = ?")
+            .bind(service_id)
+            .fetch_all(db)
+            .await?;
+    let mut removed = 0u64;
+    for (id,) in ids {
+        if delete(db, &id).await? {
+            removed += 1;
+        }
+    }
+    Ok(removed)
 }
 
 #[cfg(test)]
@@ -244,6 +284,41 @@ mod tests {
 
         assert!(delete(&db, &job.id).await.unwrap());
         assert!(get(&db, &job.id).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn delete_cascateia_runs_e_logs() {
+        let db = mem_db().await;
+        let job = create(&db, "prj_1", None, "backup", "c", "m", None)
+            .await
+            .unwrap();
+        let run = super::super::job_run::create(&db, &job.id).await.unwrap();
+        super::super::job_log::append(&db, &run.id, &shared::protocol::LogStream::Stdout, "oi", Utc::now())
+            .await
+            .unwrap();
+
+        assert!(delete(&db, &job.id).await.unwrap());
+        assert!(super::super::job_run::get(&db, &run.id).await.unwrap().is_none());
+        assert!(super::super::job_log::get_for_run(&db, &run.id)
+            .await
+            .unwrap()
+            .is_empty());
+    }
+
+    #[tokio::test]
+    async fn contagem_por_projeto_e_cascade_por_gatilho() {
+        let db = mem_db().await;
+        let gatilhado = create(&db, "prj_1", Some("svc_1"), "a", "c", "m", None).await.unwrap();
+        let autonomo = create(&db, "prj_1", None, "b", "c", "m", None).await.unwrap();
+
+        assert_eq!(count_by_project(&db, "prj_1").await.unwrap(), 2);
+        assert_eq!(count_by_project(&db, "prj_2").await.unwrap(), 0);
+
+        // Só o job gatilhado por svc_1 cai; o autônomo (sentinel "") fica.
+        assert_eq!(delete_by_trigger_service(&db, "svc_2").await.unwrap(), 0);
+        assert_eq!(delete_by_trigger_service(&db, "svc_1").await.unwrap(), 1);
+        assert!(get(&db, &gatilhado.id).await.unwrap().is_none());
+        assert!(get(&db, &autonomo.id).await.unwrap().is_some());
     }
 
     #[tokio::test]
