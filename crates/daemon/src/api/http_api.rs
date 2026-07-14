@@ -171,9 +171,9 @@ async fn handle(
     // CSRF, no callback OAuth). São chamadas por terceiros (GitHub/Gitea/Docker
     // Hub, o navegador no fim do fluxo OAuth) que não têm o token da API.
     match (req.method(), req.uri().path()) {
-        (&Method::POST, p) if p.starts_with("/webhook/") => {
-            let path = p.to_owned();
-            return Ok(boxed(public_routes::webhook(&path, state).await));
+        (m, p) if p.starts_with("/webhook/") => {
+            let (method, path) = (m.clone(), p.to_owned());
+            return Ok(boxed(public_routes::webhook(&method, &path, state).await));
         }
         (&Method::GET, "/oauth/gitea/callback") => {
             return Ok(boxed(public_routes::oauth_callback(req, state).await));

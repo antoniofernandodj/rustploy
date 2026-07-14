@@ -42,8 +42,8 @@
 .lw_head   { width: fill; align-y: center; spacing: 12; }
 .lw_title  { size: 13; bold: true; color: var(--text); }
 .lw_count  { width: fill; size: 11; color: var(--muted); }
-.lw_scroll { width: fill; height: fill; background: var(--surface); border-radius: 8; padding: 10; }
-.lw_editor { width: fill; height: fill; background: var(--surface); border-radius: 8; padding: 10 12; font: mono; }
+.lw_scroll { width: fill; height: fill; background: var(--surface); border-radius: 4; padding: 10; }
+.lw_editor { width: fill; height: fill; background: var(--surface); border-radius: 4; padding: 10 12; font: mono; }
 </style>
 
 <column class="screen">

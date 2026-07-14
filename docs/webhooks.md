@@ -2,6 +2,10 @@
 
 O Rustploy expõe um endpoint HTTP que permite que plataformas externas (GitHub, GitLab, Gitea, Docker Hub, etc.) disparem um novo deploy automaticamente ao detectar um push ou publicação de imagem.
 
+> Requisições e respostas concretas (o que enviar, o que volta, o que cada erro
+> significa) estão em [**webhooks-exemplos.md**](webhooks-exemplos.md) — todas
+> capturadas de um daemon real.
+
 ## Como funciona
 
 Cada serviço do tipo **Application** (Registry ou Git) recebe um token aleatório de 48 caracteres hexadecimais na primeira vez que é deployado. Esse token é combinado com o ID do serviço para formar a URL de webhook:
@@ -161,7 +165,7 @@ O Docker Hub envia uma notificação quando uma nova tag de imagem é publicada:
 ## Testando com curl
 
 ```bash
-curl -X POST https://rustploy.meusite.com/webhook/01JXABC.../a3f8e2c1...
+curl -X POST https://rustploy.meusite.com:9797/webhook/01JXABC.../a3f8e2c1...
 ```
 
 Resposta em caso de sucesso (`200 OK`):
@@ -172,11 +176,16 @@ deploy triggered
 
 Respostas de erro:
 
-| Status | Motivo |
-|--------|--------|
-| `401 Unauthorized` | Token inválido ou serviço não encontrado |
-| `404 Not Found` | Path incorreto |
-| `405 Method Not Allowed` | Método diferente de POST |
+| Status | Corpo | Motivo |
+|--------|-------|--------|
+| `401 Unauthorized` | `invalid token` | Token inválido, serviço inexistente, ou serviço ainda sem token (nunca deployado) |
+| `404 Not Found` | `not found` | Path incompleto (falta o service_id ou o token) |
+| `405 Method Not Allowed` | `method not allowed` | Método diferente de POST — inclusive o `GET` de um navegador |
+
+⚠️ **`200` quer dizer "aceito", não "deployou".** Se já houver um deploy em
+andamento para o serviço, o disparo é descartado pelo daemon **depois** do `200`.
+Confirme na aba Deployments, não pelo status HTTP — detalhes e captura real em
+[webhooks-exemplos.md](webhooks-exemplos.md#5-o-detalhe-que-engana-200-significa-recebido-não-deployou).
 
 ## Integrando com GitHub
 

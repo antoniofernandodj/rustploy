@@ -10,7 +10,7 @@
 .tab_on {
   color: var(--blue);
   padding: 9 16;
-  border-radius: 10
+  border-radius: 5
 }
 </style>
 

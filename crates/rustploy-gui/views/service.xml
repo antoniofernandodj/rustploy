@@ -3,7 +3,10 @@
 .svc_head      { width: fill; align-y: start; }
 .svc_title_row { width: fill; spacing: 14; align-y: center; }
 .svc_actions   { spacing: 10; align-y: center; }
-.btn_blue      { color: var(--blue); padding: 11 22; border-radius: 10 }
+/* .svc_actions_full / .svc_actions_compact e o swap por @media vivem em app.gss
+   (junto das outras regras responsivas — cruzar arquivo com o inline daqui
+   deixaria a precedência ambígua). */
+.btn_blue      { color: var(--blue); padding: 11 22; border-radius: 5 }
 /* Corpo: conteúdo da aba + painel lateral */
 .svc_body      { width: fill; height: fill; spacing: 20; }
 .svc_main      { width: fill; height: fill; spacing: 16; }
@@ -14,26 +17,29 @@
 .kv_val        { size: 16; bold: true; color: var(--text); }
 /* Environment / General (editores) — .btn_export/.btn_export_on/.env_editor
    agora vivem em app.gss (compartilhados com shell.xml). */
-.select        { width: fill; padding: 12 14; background: var(--raised); border-radius: 8; border-width: 1; border-color: #30363D; color: var(--text-2); }
+.select        { width: fill; padding: 12 14; background: var(--raised); border-radius: 4; border-width: 1; border-color: #30363D; color: var(--text-2); }
 /* Deployments (lista + build log) */
 .col_dep_id    { width: 130; }
 .col_dep_start { width: fill; }
 .dep_image     { size: 11; color: var(--faint); padding: 2 0 0 0; }
 .dep_wrap      { width: fill; height: fill; spacing: 8; }
 .dep_list_scroll { width: fill; height: 240; }
-.dep_actions   { spacing: 8; }
-.dep_logs_btn  { color: var(--border); padding: 7 15; border-radius: 6 }
-.dep_del_btn   { color: var(--danger); padding: 7 15; border-radius: 6 }
+/* Ações da linha de deployment: 2 botões-ícone (ver build log / remover), com o
+   rótulo no tooltip. O padding era 7 15 — dimensionado para "Build log ↗" e
+   "Remover" escritos por extenso, que estouravam a coluna em janela estreita. */
+.dep_actions   { spacing: 8; align-y: center; }
+.dep_logs_btn  { color: var(--border); padding: 5 12; border-radius: 3 }
+.dep_del_btn   { color: var(--danger); padding: 5 12; border-radius: 3 }
 .label_cap_fill { width: fill; size: 11; bold: true; color: var(--faint); }
 /* Logs (aba Logs = launcher da janela isolada; painel usado só p/ layout) */
-.log_panel     { width: fill; height: fill; background: var(--surface); border-radius: 12; border-width: 1; border-color: var(--border); padding: 14 16; spacing: 8; }
+.log_panel     { width: fill; height: fill; background: var(--surface); border-radius: 6; border-width: 1; border-color: var(--border); padding: 14 16; spacing: 8; }
 .log_body      { width: fill; spacing: 2; }
 .log_line      { width: fill; spacing: 12; }
 .log_time      { width: 76; size: 11; color: var(--faint); }
 .log_text      { width: fill; size: 12; color: #9DA7B3; }
 /* Painel lateral */
-.aside_panel   { width: fill; background: var(--surface); border-radius: 12; border-width: 1; border-color: var(--border); padding: 18; spacing: 8; }
-.aside_panel_fill { width: fill; height: fill; background: var(--surface); border-radius: 12; border-width: 1; border-color: var(--border); padding: 14 16; spacing: 8; }
+.aside_panel   { width: fill; background: var(--surface); border-radius: 6; border-width: 1; border-color: var(--border); padding: 18; spacing: 8; }
+.aside_panel_fill { width: fill; height: fill; background: var(--surface); border-radius: 6; border-width: 1; border-color: var(--border); padding: 14 16; spacing: 8; }
 /* Responsivo: estreita o painel lateral e aperta o corpo (glacier-ui 0.9.0+). */
 @media (max-width: 900) {
   .svc_aside { width: 240; }
@@ -71,11 +77,22 @@
         {svc_action_msg}
       </text>
     </column>
-    <row class="svc_actions">
+    <!-- Duas fileiras de ações que se alternam por largura (mesmo mecanismo da
+         sidebar: @media + hidden). A de texto é clara quando há espaço; abaixo
+         de 1080px ela some e entra a compacta (ícone + tooltip), senão os 4
+         rótulos por extenso não cabem e o título de 30px transborda por baixo
+         deles — era esse o "Deploy por cima do nome". -->
+    <row class="svc_actions svc_actions_full">
       <button class="btn_primary" on_click="svc_deploy" text="Deploy" />
       <button class="btn_blue" on_click="svc_reload" text="Reload" />
       <button class="btn_blue" on_click="svc_rebuild" text="Rebuild" />
       <button class="btn_danger" on_click="svc_stop" text="Stop" />
+    </row>
+    <row class="svc_actions svc_actions_compact">
+      <button class="btn_primary" on_click="svc_deploy" text="▶" tooltip="Deploy" />
+      <button class="btn_blue" on_click="svc_reload" text="⟳" tooltip="Reload" />
+      <button class="btn_blue" on_click="svc_rebuild" text="⚙" tooltip="Rebuild" />
+      <button class="btn_danger" on_click="svc_stop" text="■" tooltip="Stop" />
     </row>
   </row>
 
@@ -727,19 +744,27 @@
              derivada de [api] domain/port). Compose não tem webhook. -->
         <column if="{svc_webhook_supported}" equals="true" class="form_panel">
           <text class="label_cap">WEBHOOK DE DEPLOY</text>
-          <row if="{svc_webhook_url}" not_equals="" class="kv_row">
-            <text class="kv_val_fill">{svc_webhook_url}</text>
-            <button
-              class="copy_btn"
-              on_click="clipboard:svc_webhook_url"
-              text="Copiar"
-            />
-            <button
-              class="dep_del_btn"
-              on_click="regen_webhook"
-              text="Regenerar"
-            />
-          </row>
+          <!-- URL e botões em LINHAS separadas: a URL é longa (~100 chars) e,
+               com width fill, empurraria os botões para fora do painel. Exibida
+               TRUNCADA (svc_webhook_url_short) — inteira, ela estoura o card em
+               janelas estreitas; o valor completo vai no tooltip e no clipboard. -->
+          <column if="{svc_webhook_url}" not_equals="" class="wh_block">
+            <text class="wh_url" tooltip="{svc_webhook_url}">
+              {svc_webhook_url_short}
+            </text>
+            <row class="wh_actions">
+              <button
+                class="copy_btn"
+                on_click="clipboard:svc_webhook_url"
+                text="Copiar"
+              />
+              <button
+                class="dep_del_btn"
+                on_click="regen_webhook"
+                text="Regenerar"
+              />
+            </row>
+          </column>
           <text if="{svc_webhook_url}" equals="" class="muted">
             O token nasce no primeiro deploy deste serviço — rode um deploy
             para a URL aparecer.
@@ -761,18 +786,24 @@
                 <StateCell kind="{d.state_kind}" label="{d.state_label}" />
                 <text class="td col_dur">{d.duration}</text>
                 <text class="muted col_dep_start">{d.start}</text>
+                <!-- Ícone + tooltip (eram "Build log ↗" e "Remover" por
+                     extenso): os rótulos quebravam em duas linhas e estouravam a
+                     coluna quando a janela estreitava. Mesmo padrão das linhas de
+                     job e de repo do Registry (home.xml). -->
                 <row class="dep_actions">
                   <button
                     class="dep_logs_btn"
                     on_click="dep_logs:{d.id_full}"
-                    text="Build log ↗"
+                    text="≡"
+                    tooltip="Ver build log"
                   />
                   <button
                     if="{d.can_delete}"
                     equals="1"
                     class="dep_del_btn"
                     on_click="delete_deployment:{d.id_full}"
-                    text="Remover"
+                    text="✕"
+                    tooltip="Remover deployment"
                   />
                 </row>
               </row>

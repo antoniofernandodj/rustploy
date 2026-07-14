@@ -195,10 +195,11 @@ function M.fetch_service_detail(sid: string): ()
     -- daemon devolve WebhookUrl=null e a UI mostra o aviso em vez da URL.
     ctx.svc_webhook_supported = spec.source.Compose and "false" or "true"
     ctx.svc_webhook_url = ""
+    ctx.svc_webhook_url_short = ""
     if not spec.source.Compose then
         local okw, resw = api:rpc({ GetWebhookUrl = { service_id = sid } })
         if okw and type(resw) == "table" and resw.WebhookUrl then
-            ctx.svc_webhook_url = resw.WebhookUrl
+            M.set_webhook_url(resw.WebhookUrl)
         end
     end
     -- Campos editáveis.
@@ -645,6 +646,15 @@ end
 
 -- ── Webhook de deploy ───────────────────────────────────────────────────────
 
+-- A URL do webhook é longa (base + service_id + token de 48 hex). Exibida
+-- inteira, ela estoura o card em janelas estreitas e passa por cima do painel ao
+-- lado. A tela mostra a versão truncada; o valor completo fica em
+-- `svc_webhook_url` para o clipboard (e no tooltip).
+function M.set_webhook_url(url: string): ()
+    ctx.svc_webhook_url = url
+    ctx.svc_webhook_url_short = fmt.ellipsis(url, 46)
+end
+
 -- Regenerar invalida o token antigo NA HORA: qualquer webhook já cadastrado no
 -- GitHub/Gitea/Docker Hub com a URL anterior passa a receber 401. Por isso passa
 -- pelo confirm.
@@ -666,7 +676,7 @@ function do_regen_webhook(): ()
     end
     local ok, res = api:rpc_checked({ RegenerateWebhookToken = { service_id = sid } })
     if ok and type(res) == "table" and res.WebhookUrl then
-        ctx.svc_webhook_url = res.WebhookUrl
+        M.set_webhook_url(res.WebhookUrl)
         ctx.svc_action_msg = "token do webhook regenerado"
         Helpers.notify_ok("Token do webhook regenerado")
     else

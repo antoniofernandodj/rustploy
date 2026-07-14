@@ -25,6 +25,23 @@ pub async fn fix_stale_live(state: &AppState, deployments: Vec<Deployment>) -> V
             continue;
         }
 
+        // Deploy em andamento? Não toca em NADA desse serviço. O executor é a
+        // fonte da verdade enquanto roda: ele mesmo promove o novo Live, poda o
+        // antigo e escreve o status final (Running/Error).
+        //
+        // Sem esse guard o reconcile corrompia o estado durante todo deploy: ele
+        // roda a cada snapshot (2s, via recent_deployments) e também no
+        // deploy_history da aba Deployments, via o `is_container_running` abaixo
+        // — que retorna false enquanto o container Live antigo está parado ou o
+        // serviço ainda não subiu. Resultado: o Live anterior virava Stopped e o
+        // status do serviço era reescrito para Stopped POR CIMA do Deploying que
+        // o deploy_start tinha acabado de gravar. Na GUI: card "Stopped" com um
+        // deployment "Building" logo abaixo.
+        if service_is_deploying(state, &dep.service_id).await {
+            out.push(dep);
+            continue;
+        }
+
         if seen_live.contains(&dep.service_id) {
             // A newer Live deployment was already accepted for this service.
             // This one is stale → Pruning.
@@ -77,6 +94,16 @@ pub async fn fix_stale_live(state: &AppState, deployments: Vec<Deployment>) -> V
     }
 
     out
+}
+
+/// True enquanto um deploy do serviço está em curso (`ServiceStatus::Deploying`,
+/// escrito por `deploy_start` antes de spawnar o executor e limpo por ele no
+/// desfecho).
+async fn service_is_deploying(state: &AppState, service_id: &str) -> bool {
+    matches!(
+        crate::db::services::get(&state.db, service_id).await,
+        Ok(Some(svc)) if svc.status == ServiceStatus::Deploying
+    )
 }
 
 async fn transition_deployment(state: &AppState, dep: &mut Deployment, to: DeployState, msg: &str) {

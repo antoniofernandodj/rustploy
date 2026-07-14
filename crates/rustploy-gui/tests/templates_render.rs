@@ -270,6 +270,10 @@ fn all_screens_and_service_tabs_render() {
             "svc_webhook_url",
             "https://rustploy.meusite.com/webhook/svc_01ABC/f4b53d4d9d574a55",
         );
+        m.define_data(
+            "svc_webhook_url_short",
+            "https://rustploy.meusite.com/webhook/svc_01ABC…",
+        );
         // Show the Gitea sub-tab and render its picker body.
         m.define_data("gitea_count", "1");
         m.define_data("prov_tab", "gitea");
@@ -328,6 +332,51 @@ fn sidebar_nav_label_hidden_below_900px() {
     for n in &found {
         assert_eq!(n.hidden, Some(true), "rótulo {:?} deveria estar hidden abaixo de 900px", n.kind);
     }
+}
+
+/// Regressão: as ações da tela de serviço (Deploy/Reload/Rebuild/Stop) têm duas
+/// fileiras que se alternam por largura. Acima de 1080px vale a de texto; abaixo,
+/// a compacta (ícone + tooltip) — senão os 4 rótulos por extenso não cabem e o
+/// título de 30px transborda por baixo deles ("Deploy por cima do nome"). Ambas
+/// existem sempre no AST; o que muda é qual está `hidden`.
+#[test]
+fn service_actions_collapse_to_icons_when_narrow() {
+    use glacier_ui::widget::EngineMessage;
+
+    // O rótulo de um botão é `Button { text }`, não um nó Text filho. Conta os
+    // botões de ação visíveis por fileira: (n_full, n_compact). Só as 4 ações
+    // (svc_deploy/reload/rebuild/stop) usam esses textos, então não há colisão
+    // com ícones da sidebar (que são nós <text>, não botões).
+    fn count_visible(node: &glacier_ui::parser::UiNode, full: &mut u32, compact: &mut u32, ancestor_hidden: bool) {
+        let hidden = ancestor_hidden || node.hidden == Some(true);
+        if let glacier_ui::parser::NodeType::Button { text, .. } = &node.kind {
+            if !hidden {
+                if matches!(text.as_str(), "Deploy" | "Reload" | "Rebuild" | "Stop") { *full += 1; }
+                if matches!(text.as_str(), "▶" | "⟳" | "⚙" | "■") { *compact += 1; }
+            }
+        }
+        for child in &node.children {
+            count_visible(child, full, compact, hidden);
+        }
+    }
+
+    let mut m = boot();
+    m.define_data("screen", "shell");
+    m.define_data("view", "service");
+    m.define_data("tab", "general");
+    m.reevaluate_all().expect("eval service");
+
+    // Largo: fileira de texto visível, compacta oculta.
+    let _ = m.dispatch(&EngineMessage::Viewport { width: 1400.0, height: 820.0 });
+    let (mut full, mut compact) = (0, 0);
+    count_visible(m.evaluated("app").expect("app"), &mut full, &mut compact, false);
+    assert_eq!((full, compact), (4, 0), "em 1400px espera 4 botões de texto e 0 ícones");
+
+    // Estreito: inverte.
+    let _ = m.dispatch(&EngineMessage::Viewport { width: 980.0, height: 820.0 });
+    let (mut full, mut compact) = (0, 0);
+    count_visible(m.evaluated("app").expect("app"), &mut full, &mut compact, false);
+    assert_eq!((full, compact), (0, 4), "em 980px espera 0 botões de texto e 4 ícones");
 }
 
 /// A avaliação do glacier é **escopada** (0.38+): só a tela ativa é construída,

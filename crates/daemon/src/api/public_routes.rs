@@ -8,7 +8,7 @@
 
 use bytes::Bytes;
 use http_body_util::Full;
-use hyper::{Request, Response, StatusCode, body::Incoming};
+use hyper::{Method, Request, Response, StatusCode, body::Incoming};
 use tracing::{error, info, warn};
 
 use super::AppState;
@@ -16,8 +16,17 @@ use crate::db::webhook_tokens;
 
 /// `POST /webhook/{service_id}/{token}` — valida o token e dispara um deploy.
 /// O corpo da requisição é ignorado (ver `docs/webhooks.md`); a autenticação é
-/// inteiramente o token na URL. O `path` chega já roteado pelo `http_api`.
-pub async fn webhook(path: &str, state: AppState) -> Response<Full<Bytes>> {
+/// inteiramente o token na URL. Método e path chegam já roteados pelo `http_api`.
+///
+/// Todo método é roteado para cá (não só POST) para que um GET — a URL colada no
+/// navegador, o "ping" de um provedor — receba o `405` honesto do webhook, e não
+/// o `401 unauthorized` do gate de Bearer da API, que faria parecer que a URL
+/// está errada.
+pub async fn webhook(method: &Method, path: &str, state: AppState) -> Response<Full<Bytes>> {
+    if method != Method::POST {
+        return resp(StatusCode::METHOD_NOT_ALLOWED, "method not allowed");
+    }
+
     let parts: Vec<&str> = path.trim_start_matches('/').splitn(3, '/').collect();
     if parts.len() != 3 || parts[0] != "webhook" {
         return resp(StatusCode::NOT_FOUND, "not found");

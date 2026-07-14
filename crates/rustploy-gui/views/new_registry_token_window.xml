@@ -35,7 +35,7 @@
 .ntok_secret_box {
   width: fill;
   background: var(--raised);
-  border-radius: 8;
+  border-radius: 4;
   border-width: 1;
   border-color: var(--accent);
   padding: 12;

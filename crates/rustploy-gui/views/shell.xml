@@ -25,9 +25,9 @@
 .topbar     { width: fill; padding: 18 28; spacing: 18; align-y: center; }
 .search     { width: fill; padding: 11 14; }
 /* Ações do cabeçalho do projeto (variantes compactas, à direita) */
-.btn_sm_primary { color: var(--green); padding: 7 13; border-radius: 8; size: 12 }
-.btn_sm_ghost   { color: var(--border); padding: 7 12; border-radius: 8; size: 12 }
-.btn_sm_danger  { color: var(--danger); padding: 7 13; border-radius: 8; size: 12 }
+.btn_sm_primary { color: var(--green); padding: 7 13; border-radius: 4; size: 12 }
+.btn_sm_ghost   { color: var(--border); padding: 7 12; border-radius: 4; size: 12 }
+.btn_sm_danger  { color: var(--danger); padding: 7 13; border-radius: 4; size: 12 }
 .proj_topbar    { width: fill; align-y: center; }
 .proj_actions   { spacing: 8; align-y: center; }
 .hspacer        { width: fill; }

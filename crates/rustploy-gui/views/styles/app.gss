@@ -41,17 +41,17 @@
    (.nav_row_on/.nav_row_off, ali definidas) — Settings/Support também viraram
    NavItem. Mantido comentado, não removido (é reutilizável). */
 /* .nav_item       { width: fill; color: var(--surface); padding: 11 14; } */
-.tab        { color: var(--surface); padding: 9 16; border-radius: 10 }
+.tab        { color: var(--surface); padding: 9 16; border-radius: 5 }
 
 /* ── Buttons ──────────────────────────────────────────────────────────── */
-.btn_primary      { color: var(--green); padding: 11 20; border-radius: 10 }
-.btn_danger       { color: var(--danger); padding: 11 20; border-radius: 10 }
-.btn_ghost        { color: var(--border); padding: 11 18; border-radius: 10 }
+.btn_primary      { color: var(--green); padding: 11 20; border-radius: 5 }
+.btn_danger       { color: var(--danger); padding: 11 20; border-radius: 5 }
+.btn_ghost        { color: var(--border); padding: 11 18; border-radius: 5 }
 
 /* ── Panels & cards ───────────────────────────────────────────────────── */
 .content    { width: fill; height: fill; padding: 28 32; spacing: 22; background: var(--bg); }
-.panel      { background: var(--surface); border-radius: 14; border-width: 1; border-color: var(--border); padding: 4; }
-.card       { width: fill; background: var(--raised); border-radius: 12; border-width: 1; border-color: var(--border); padding: 18; spacing: 10; }
+.panel      { background: var(--surface); border-radius: 7; border-width: 1; border-color: var(--border); padding: 4; }
+.card       { width: fill; background: var(--raised); border-radius: 6; border-width: 1; border-color: var(--border); padding: 18; spacing: 10; }
 
 /* ── Typography ───────────────────────────────────────────────────────── */
 .title      { size: 30; bold: true; color: var(--text); }
@@ -68,7 +68,7 @@
 .row_wrap     { width: fill; }
 
 /* ── Table ────────────────────────────────────────────────────────────── */
-.thead      { width: fill; padding: 14 18; background: var(--raised); border-radius: 10; spacing: 0; }
+.thead      { width: fill; padding: 14 18; background: var(--raised); border-radius: 5; spacing: 0; }
 .th         { size: 11; bold: true; color: var(--faint); }
 .trow       { width: fill; padding: 13 18; spacing: 0; align-y: center; }
 .td         { size: 13; color: var(--text-2); }
@@ -83,8 +83,8 @@
    mais longa que "projeto/serviço" — e, sem espaços, não quebra linha (ver
    fmt.docker_containers, que trunca com Util.ellipsis para nunca estourar). */
 .col_img    { width: 340; }
-.panel_fill { width: fill; height: fill; background: var(--surface); border-radius: 14; border-width: 1; border-color: var(--border); padding: 4; }
-.form_panel { width: fill; max-width: 640; background: var(--surface); border-radius: 14; border-width: 1; border-color: var(--border); padding: 24; spacing: 10; }
+.panel_fill { width: fill; height: fill; background: var(--surface); border-radius: 7; border-width: 1; border-color: var(--border); padding: 4; }
+.form_panel { width: fill; max-width: 640; background: var(--surface); border-radius: 7; border-width: 1; border-color: var(--border); padding: 24; spacing: 10; }
 /* Ponto colorido do StateCell/rp-badge — compartilhado; o rótulo e a paleta
    (state_<kind>) moram no <style> do state_cell.xml. */
 .state_dot  { size: 11; }
@@ -95,19 +95,19 @@
 .card_name     { width: fill; size: 16; bold: true; color: var(--text); }
 .badge         { spacing: 7; align-y: center; }
 .badge_lbl     { size: 12; bold: true; }
-.card_open     { width: fill; color: var(--border); padding: 9 14; text-align: center; border-radius: 10 }
-.card_edit     { width: fill; color: var(--border); padding: 9 10; text-align: center; border-radius: 10 }
-.card_remove   { width: fill; color: var(--danger); padding: 9 10; text-align: center; border-radius: 10 }
+.card_open     { width: fill; color: var(--border); padding: 9 14; text-align: center; border-radius: 5 }
+.card_edit     { width: fill; color: var(--border); padding: 9 10; text-align: center; border-radius: 5 }
+.card_remove   { width: fill; color: var(--danger); padding: 9 10; text-align: center; border-radius: 5 }
 
 /* ── Service detail (compartilhado) ───────────────────────────────────── */
 .tabs          { width: fill; spacing: 4; }
 .svc_panels    { width: fill; spacing: 14; }
-.panel_pad     { width: fill; background: var(--surface); border-radius: 12; border-width: 1; border-color: var(--border); padding: 18; spacing: 8; }
-.kv_list       { width: fill; background: var(--surface); border-radius: 12; border-width: 1; border-color: var(--border); padding: 8 18; spacing: 0; }
+.panel_pad     { width: fill; background: var(--surface); border-radius: 6; border-width: 1; border-color: var(--border); padding: 18; spacing: 8; }
+.kv_list       { width: fill; background: var(--surface); border-radius: 6; border-width: 1; border-color: var(--border); padding: 8 18; spacing: 0; }
 .kv_row        { width: fill; padding: 12 0; align-y: center; }
 /* Linha agarrada durante o drag-and-drop (flag {var}.__dragging do
    glacier-ui): fundo elevado + borda de destaque enquanto o resto reflui. */
-.kv_row_drag   { width: fill; padding: 12 10; align-y: center; background: var(--raised); border-radius: 8; border-width: 1; border-color: var(--accent); }
+.kv_row_drag   { width: fill; padding: 12 10; align-y: center; background: var(--raised); border-radius: 4; border-width: 1; border-color: var(--accent); }
 .kv_val_fill   { size: 13; bold: true; color: var(--text-2); }
 .env_wrap      { width: fill; height: fill; spacing: 10; }
 .env_head      { width: fill; align-y: center; }
@@ -125,9 +125,14 @@
 .env_list_scroll { width: fill; height: fill; }
 /* Editor .env (textarea + toggle), compartilhado por service.xml e shell.xml. */
 .env_editor    { width: fill; height: 200; padding: 10 12; font: mono; }
-.btn_export    { color: var(--border); padding: 11 22; border-radius: 10; }
-.btn_export_on { color: var(--blue); padding: 11 22; border-radius: 10; }
-.copy_btn      { color: var(--border); padding: 5 12; border-radius: 8 }
+.btn_export    { color: var(--border); padding: 11 22; border-radius: 5; }
+.btn_export_on { color: var(--blue); padding: 11 22; border-radius: 5; }
+.copy_btn      { color: var(--border); padding: 5 12; border-radius: 4 }
+/* Webhook (aba Deployments): a URL ocupa a linha inteira — é longa demais para
+   dividir espaço com os botões, que ficam na linha de baixo. */
+.wh_block      { width: fill; spacing: 10; }
+.wh_url        { width: fill; size: 13; bold: true; color: var(--text-2); font: mono; }
+.wh_actions    { spacing: 8; align-y: center; }
 .hc_grid       { width: fill; spacing: 14; }
 .hc_field      { width: fill; spacing: 6; }
 
@@ -152,6 +157,17 @@
    cards curtos) cabe até os 560 gerais e fica só com .stats_row. */
 @media (max-width: 1280) {
   .stats_hide_xl { hidden: true; }
+}
+
+/* Ações da tela de serviço (Deploy/Reload/Rebuild/Stop): a fileira com rótulo
+   some abaixo de 1080px e entra a compacta (ícone + tooltip). Base: full visível,
+   compacta oculta — o @media inverte as duas quando aperta. Sem isso, os 4
+   rótulos por extenso não cabem e o título de 30px transborda por baixo deles. */
+.svc_actions_full    { hidden: false; }
+.svc_actions_compact { hidden: true; }
+@media (max-width: 1080) {
+  .svc_actions_full    { hidden: true; }
+  .svc_actions_compact { hidden: false; }
 }
 
 @media (max-width: 1000) {

@@ -2,7 +2,7 @@
 .col_icon       { width: 28; }
 .content_center { width: fill; height: fill; align-x: center; align-y: center; }
 /* Botão "Remover" compacto por-linha nas sub-abas Docker. */
-.dk_rm    { color: var(--danger); padding: 5 12; border-radius: 6; }
+.dk_rm    { color: var(--danger); padding: 5 12; border-radius: 3; }
 /* align-x só afeta como um container de linha/coluna posiciona seus FILHOS —
    não alinha o texto de um elemento de texto dentro da própria caixa (isso é
    text-align). Como a classe é reaproveitada tanto no texto do cabeçalho
