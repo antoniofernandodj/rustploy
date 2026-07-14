@@ -106,7 +106,12 @@ Arquivo TOML carregado de `$RUSTPLOY_CONFIG`, depois `/etc/rustploy/config.toml`
 socket_path  = "/run/rustploy/rustploy.sock"
 db_path      = "/var/lib/rustploy/db"
 log_level    = "info"
-webhook_port = 8788   # porta do servidor de webhook de CI/CD + callback OAuth
+
+[api]                 # HTTP/JSON + SSE (canal do GUI). Serve TAMBÉM, sem token,
+port         = 9797   # os webhooks de CI/CD (/webhook/…) e o callback OAuth
+bind_address = "127.0.0.1"   # não-loopback exige token
+# token      = "…"
+# domain     = "rustploy.meusite.com"   # HTTPS automático (ACME) nesta porta
 
 [ingress]
 http_port    = 80

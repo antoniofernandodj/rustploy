@@ -6,7 +6,7 @@ use std::sync::OnceLock;
 /// access and shared everywhere via [`RustployConfig::global`].
 static CONFIG: OnceLock<RustployConfig> = OnceLock::new();
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnvBackupConfig {
     /// Directório onde os snapshots são gravados.
     /// Padrão: <db_path>/env_backups/
@@ -14,6 +14,19 @@ pub struct EnvBackupConfig {
     /// Intervalo entre backups em segundos. Padrão: 60.
     #[serde(default = "default_env_backup_interval")]
     pub interval_secs: u64,
+}
+
+/// `Default` à mão, não derivado: o `#[serde(default)]` da seção inteira em
+/// `RustployConfig` cai AQUI quando o `config.toml` não tem `[env_backup]` (o
+/// caso do packaging), e um `u64` derivado seria 0 — o que fazia
+/// `tokio::time::interval(0)` panicar no boot e matar o loop de backup.
+impl Default for EnvBackupConfig {
+    fn default() -> Self {
+        Self {
+            dir: None,
+            interval_secs: default_env_backup_interval(),
+        }
+    }
 }
 
 fn default_env_backup_interval() -> u64 { 60 }
@@ -129,6 +142,23 @@ impl ApiConfig {
             Err(_) => self.bind_address != "localhost",
         }
     }
+
+    /// URL pública desta API, sem barra final — a base das URLs de webhook
+    /// (`{base}/webhook/{service_id}/{token}`) e do callback OAuth
+    /// (`{base}/oauth/gitea/callback`), que são servidos pelo **mesmo** listener
+    /// da API desde a unificação (ver `docs/plano-unificacao-webhook-api.md`).
+    ///
+    /// Com `domain` definido o listener termina TLS na própria porta, então o
+    /// esquema é `https` e a porta só aparece quando não é a 443. Sem domínio,
+    /// usa `fallback_host` (o chamador passa o IP de saída da máquina) sobre
+    /// HTTP puro.
+    pub fn public_base_url(&self, fallback_host: &str) -> String {
+        match self.domain.as_deref().map(str::trim).filter(|d| !d.is_empty()) {
+            Some(domain) if self.port == 443 => format!("https://{domain}"),
+            Some(domain) => format!("https://{domain}:{}", self.port),
+            None => format!("http://{fallback_host}:{}", self.port),
+        }
+    }
 }
 
 /// Registry Docker OCI (Distribution API v2) embutido no daemon. O listener
@@ -169,7 +199,6 @@ pub struct DaemonConfig {
     pub socket_path: String,
     pub db_path: String,
     pub log_level: String,
-    pub webhook_port: u16,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -216,9 +245,6 @@ impl Default for RustployConfig {
                 socket_path: "/run/rustploy/rustploy.sock".into(),
                 db_path: "/var/lib/rustploy/db".into(),
                 log_level: "info".into(),
-                // Porta dedicada de webhook. Evita 9000/9001, comuns em
-                // MinIO/rustfs e outros serviços S3.
-                webhook_port: 8788,
             },
             ingress: IngressConfig {
                 http_port: 8080,
@@ -296,11 +322,6 @@ impl RustployConfig {
         if let Ok(v) = std::env::var("RUSTPLOY_HTTP_PORT") {
             if let Ok(p) = v.parse() {
                 cfg.ingress.http_port = p;
-            }
-        }
-        if let Ok(v) = std::env::var("RUSTPLOY_WEBHOOK_PORT") {
-            if let Ok(p) = v.parse() {
-                cfg.daemon.webhook_port = p;
             }
         }
         // HTTP/JSON + SSE control API.

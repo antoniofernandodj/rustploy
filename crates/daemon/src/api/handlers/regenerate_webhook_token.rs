@@ -10,6 +10,6 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
         return RpResponse::err("DatabaseError", e.to_string());
     }
 
-    let url = super::get_webhook_url::build_url(&state, &service_id, &token).await;
+    let url = super::get_webhook_url::build_url(&state, &service_id, &token);
     RpResponse::WebhookUrl(Some(url))
 }

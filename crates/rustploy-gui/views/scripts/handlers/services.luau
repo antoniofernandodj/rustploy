@@ -190,6 +190,17 @@ function M.fetch_service_detail(sid: string): ()
     ctx.svc_env_text_orig = dotenv
     ctx.svc_deployments = fmt.deployments_detail(deployments)
     ctx.svc_deployments_count = tostring(#deployments)
+    -- Webhook de deploy (aba Deployments). Só serviços Application (Git ou
+    -- Registry) têm token, e ele nasce no PRIMEIRO deploy — antes disso o
+    -- daemon devolve WebhookUrl=null e a UI mostra o aviso em vez da URL.
+    ctx.svc_webhook_supported = spec.source.Compose and "false" or "true"
+    ctx.svc_webhook_url = ""
+    if not spec.source.Compose then
+        local okw, resw = api:rpc({ GetWebhookUrl = { service_id = sid } })
+        if okw and type(resw) == "table" and resw.WebhookUrl then
+            ctx.svc_webhook_url = resw.WebhookUrl
+        end
+    end
     -- Campos editáveis.
     ctx.f_domain = ""
     ctx.f_port = ""
@@ -630,6 +641,39 @@ function do_delete_deployment(id: string): ()
         Helpers.notify_err(res)
     end
     M.fetch_service_detail(ctx.selected_service)
+end
+
+-- ── Webhook de deploy ───────────────────────────────────────────────────────
+
+-- Regenerar invalida o token antigo NA HORA: qualquer webhook já cadastrado no
+-- GitHub/Gitea/Docker Hub com a URL anterior passa a receber 401. Por isso passa
+-- pelo confirm.
+function regen_webhook(): ()
+    confirm({
+        title = "Regenerar token do webhook?",
+        message = "A URL atual para de funcionar imediatamente. Você precisará recadastrá-la no provedor (GitHub, Gitea, Docker Hub…).",
+        confirm_label = "Regenerar",
+        confirm_action = "do_regen_webhook",
+        destructive = true,
+    })
+end
+
+function do_regen_webhook(): ()
+    local api = State.api
+    local sid = ctx.selected_service
+    if not api or sid == "" then
+        return
+    end
+    local ok, res = api:rpc_checked({ RegenerateWebhookToken = { service_id = sid } })
+    if ok and type(res) == "table" and res.WebhookUrl then
+        ctx.svc_webhook_url = res.WebhookUrl
+        ctx.svc_action_msg = "token do webhook regenerado"
+        Helpers.notify_ok("Token do webhook regenerado")
+    else
+        local msg = type(res) == "string" and res or "falha ao regenerar o token"
+        ctx.svc_action_msg = "erro: " .. msg
+        Helpers.notify_err(msg)
+    end
 end
 
 -- ── Ciclo de vida do serviço ─────────────────────────────────────────────────

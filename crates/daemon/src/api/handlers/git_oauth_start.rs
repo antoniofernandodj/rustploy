@@ -17,18 +17,18 @@ pub async fn handle(state: AppState, provider_id: String) -> Response {
         return Response::err("InvalidInput", "Provider sem Client ID (OAuth)");
     }
 
-    let redirect_uri = match crate::api::webhook_server::callback_redirect_uri(&state).await {
+    let redirect_uri = match crate::api::public_routes::callback_redirect_uri(&state) {
         Some(u) => u,
         None => {
             return Response::err(
                 "ServerDomainMissing",
-                "Configure o domínio do servidor (Web Server) antes de conectar via OAuth",
+                "Não foi possível determinar a URL pública do daemon (configure [api] domain)",
             );
         }
     };
 
     // Se já há um access token armazenado, tenta garantir que a redirect URI
-    // atual está registrada no Gitea — auto-cura após mudança de webhook_base_url.
+    // atual está registrada no Gitea — auto-cura após mudança de domínio/porta.
     if let Some(enc) = &provider.access_token_enc {
         if let Ok(token) = state.secrets.decrypt(enc) {
             if let Err(e) = crate::git_providers::gitea::ensure_redirect_uri(

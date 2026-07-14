@@ -2,11 +2,6 @@ use crate::{api::AppState, db::daemon_settings};
 use shared::Response as RpResponse;
 
 pub async fn handle(state: AppState) -> RpResponse {
-    let webhook_base_url = daemon_settings::get(&state.db, daemon_settings::KEY_WEBHOOK_BASE_URL)
-        .await
-        .ok()
-        .flatten();
-
     let acme_email = daemon_settings::get(&state.db, daemon_settings::KEY_ACME_EMAIL)
         .await
         .ok()
@@ -18,7 +13,10 @@ pub async fn handle(state: AppState) -> RpResponse {
         .flatten();
 
     RpResponse::DaemonSettings {
-        webhook_base_url,
+        // Derivada de `[api]`, não persistida: a GUI a exibe (é a base das URLs
+        // de webhook e do redirect OAuth), mas não tem como editá-la — muda-se
+        // configurando `api.domain`/`api.port` no daemon.
+        public_base_url: state.public_base_url(),
         acme_email,
         registry_domain,
     }

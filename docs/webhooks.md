@@ -12,40 +12,48 @@ POST {base_url}/webhook/{service_id}/{token}
 
 O servidor valida o token e, se correto, inicia um deploy do serviço imediatamente. O corpo da requisição é **ignorado** — a autenticação é feita inteiramente pelo token na URL.
 
+## Uma porta só: a da API
+
+O webhook é servido pelo **mesmo listener HTTP da API** (`[api] port`, default
+`9797`) — não há mais porta dedicada. O path `/webhook/...` é liberado **antes**
+da checagem do Bearer token da API, porque a autenticação dele é o token na
+própria URL.
+
+Consequência prática: **para o GitHub (ou Gitea, ou Docker Hub) alcançar o
+webhook, a porta da API precisa estar acessível para eles.** Como o default é
+bind em `127.0.0.1`, isso significa configurar `[api] bind_address` (com
+`token`, obrigatório fora do loopback) ou publicar a API via proxy.
+
 ## Configuração do domínio
 
-Por padrão a URL usa o IP de saída detectado automaticamente:
+A base da URL é **derivada** da config `[api]`, não configurada à parte:
 
-```
-http://192.168.1.42:8788/webhook/01JXABC.../a3f8e2c1...
-```
+- Com `[api] domain` definido, o próprio listener termina TLS (cert automático
+  via ACME) e a base é `https://<domain>` — mais `:<port>`, quando a porta não é
+  a 443:
 
-Para usar um domínio próprio, acesse **Settings › Web Server** no TUI e configure o campo **Domínio / URL base**:
+  ```
+  https://rustploy.meusite.com:9797/webhook/01JXABC.../a3f8e2c1...
+  ```
 
-```
-https://rustploy.meusite.com
-```
+- Sem domínio, a base usa o IP de saída detectado automaticamente:
 
-A URL do webhook passa a ser:
+  ```
+  http://192.168.1.42:9797/webhook/01JXABC.../a3f8e2c1...
+  ```
 
-```
-https://rustploy.meusite.com/webhook/01JXABC.../a3f8e2c1...
-```
+A URL efetiva aparece pronta na GUI (**Settings › Web Server** mostra a base
+derivada; a aba Deployments do serviço mostra a URL completa).
 
-> O servidor de webhook escuta na porta `8788` por padrão (configurável em `[daemon] webhook_port`). Se você usar um domínio com HTTPS, configure seu proxy reverso para encaminhar o tráfego HTTPS para `localhost:8788`.
+## Encontrando a URL na GUI
 
-## Encontrando a URL no TUI
-
-1. Abra um serviço Application
+1. Abra um serviço **Application** (Git ou Registry — Compose não tem webhook)
 2. Vá para a aba **Deployments**
-3. A URL aparece logo abaixo dos detalhes do último deploy:
+3. A URL aparece no topo, com **Copiar** e **Regenerar**
 
-```
-  Webhook:  https://rustploy.meusite.com/webhook/01JXABC.../a3f8e2c1...
-  [c] copiar  [w] regenerar token
-```
-
-Pressione **`c`** para copiar a URL para a área de transferência ou **`w`** para gerar um novo token (o anterior é invalidado imediatamente).
+O token só existe a partir do **primeiro deploy** do serviço; antes disso a aba
+avisa que é preciso rodar um deploy. **Regenerar** invalida a URL anterior
+imediatamente — recadastre-a no provedor.
 
 ## Formato da requisição
 
@@ -225,33 +233,29 @@ O Docker Hub envia um POST quando uma nova imagem é publicada em um repositóri
 
 Útil para serviços do tipo **Registry**: quando você publica uma nova versão da imagem, o Rustploy faz pull automaticamente e reinicia o container.
 
-## Dependência para copiar a URL no TUI
-
-O atalho `[c]` na aba Deployments usa ferramentas externas para acessar o clipboard do sistema. Instale uma delas conforme seu ambiente:
-
-| Ambiente | Pacote | Comando |
-|----------|--------|---------|
-| Wayland (recomendado) | `wl-clipboard` | `sudo apt install wl-clipboard` |
-| X11 | `xclip` | `sudo apt install xclip` |
-| X11 (alternativo) | `xsel` | `sudo apt install xsel` |
-
-Se nenhuma ferramenta estiver presente, o TUI exibirá uma notificação informando o que instalar. A URL ainda pode ser copiada manualmente da tela.
-
 ## Segurança
 
 - O token tem 48 caracteres hexadecimais (192 bits de entropia), gerado via `/dev/urandom`
 - Cada serviço tem um token único e independente
-- Regenerar o token (`[w]` no TUI) invalida imediatamente o token anterior
+- A comparação do token é feita em tempo constante
+- Regenerar o token (botão **Regenerar**, na aba Deployments) invalida imediatamente o token anterior
 - O endpoint não revela se um `service_id` existe — tokens inválidos sempre retornam `401`
-- Recomenda-se usar HTTPS em produção para que o token não trafegue em claro
+- O `/webhook/...` ser público **não** abre a API: todo o resto (`/api/*`) continua exigindo o Bearer token
+- Recomenda-se usar HTTPS em produção (`[api] domain`) para que o token não trafegue em claro
 
-## Configuração avançada
+## Configuração
 
 ```toml
 # config.toml
 
-[daemon]
-webhook_port = 8788  # porta do servidor de webhook (default: 8788)
+[api]
+port         = 9797                    # o webhook é servido nesta MESMA porta
+bind_address = "0.0.0.0"               # precisa ser alcançável pelo provedor
+token        = "<token forte>"          # obrigatório fora do loopback
+domain       = "rustploy.meusite.com"  # opcional: HTTPS automático (ACME) aqui
 ```
 
-O servidor de webhook é independente do proxy reverso de aplicações — ele escuta em uma porta dedicada para não interferir com o roteamento de domínios das aplicações deployadas.
+Não existe mais `[daemon] webhook_port` — a porta dedicada (8788) foi eliminada
+na unificação (ver `docs/plano-unificacao-webhook-api.md`). Um `config.toml`
+antigo que ainda declare o campo continua carregando: a chave é simplesmente
+ignorada.

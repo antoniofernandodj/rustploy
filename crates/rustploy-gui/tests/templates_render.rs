@@ -222,8 +222,11 @@ fn all_screens_and_service_tabs_render() {
         assert!(m.render("app").is_ok(), "render settings/git {mode}");
     }
 
-    // Settings → Web Server (default tab).
+    // Settings → Web Server (default tab). A URL pública é derivada pelo daemon
+    // (`DaemonSettings.public_base_url`) e exibida só-leitura — não há mais campo
+    // de domínio editável aqui.
     m.define_data("settings_tab", "web");
+    m.define_data("ss_public_base", "https://rustploy.meusite.com");
     m.reevaluate_all().unwrap_or_else(|e| panic!("eval settings/web: {e}"));
     assert!(m.render("app").is_ok(), "render settings/web");
 
@@ -260,12 +263,30 @@ fn all_screens_and_service_tabs_render() {
             r##"[{"key":"__c0","value":"# comentário","kind":"comment"},{"key":"OLA","key_display":"OLA","value":"mundo","kind":"plain"},{"key":"A_VERY_LONG_ENVIRONMENT_VARIABLE_NAME_THAT_SHOULD_BE_TRUNCATED","key_display":"A_VERY_LONG_ENVIRONMENT_VARIABLE_NAME_TH…","value":"x","kind":"plain"}]"##,
         );
         m.define_data("dep_selected", "abc123");
+        // Aba Deployments: bloco de webhook com a URL já emitida (o serviço tem
+        // token, ou seja, já foi deployado ao menos uma vez).
+        m.define_data("svc_webhook_supported", "true");
+        m.define_data(
+            "svc_webhook_url",
+            "https://rustploy.meusite.com/webhook/svc_01ABC/f4b53d4d9d574a55",
+        );
         // Show the Gitea sub-tab and render its picker body.
         m.define_data("gitea_count", "1");
         m.define_data("prov_tab", "gitea");
         m.reevaluate_all().unwrap_or_else(|e| panic!("eval tab {tab}: {e}"));
         assert!(m.render("app").is_ok(), "render tab {tab}");
     }
+
+    // Webhook, os outros dois estados: serviço ainda sem token (nunca deployado,
+    // mostra o aviso em vez da URL) e serviço Compose (sem webhook nenhum).
+    m.define_data("tab", "deployments");
+    m.define_data("svc_webhook_url", "");
+    m.reevaluate_all().expect("eval deployments/webhook sem token");
+    assert!(m.render("app").is_ok(), "render deployments/webhook sem token");
+
+    m.define_data("svc_webhook_supported", "false");
+    m.reevaluate_all().expect("eval deployments/webhook compose");
+    assert!(m.render("app").is_ok(), "render deployments/webhook compose");
 }
 
 /// Regressão: abaixo de 900px de largura a sidebar vira um trilho de ícones —

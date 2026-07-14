@@ -220,7 +220,7 @@ async fn main() -> Result<()> {
         db_path,
         backup_dir,
         config.deploy.drain_secs,
-        config.daemon.webhook_port,
+        config.api.clone(),
         registry_storage.clone(),
         registry_internal_token.clone(),
     );
@@ -322,19 +322,15 @@ async fn main() -> Result<()> {
         });
     }
 
-    // Servidor HTTP para receber webhooks de CI/CD
-    {
-        let state2 = state.clone();
-        let webhook_port = config.daemon.webhook_port;
-        tokio::spawn(async move {
-            api::webhook_server::run(state2, webhook_port).await;
-        });
-    }
-
     // API HTTP/JSON + SSE — canal administrativo remoto; é o que o GUI
     // (glacier-ui/Luau) e clientes externos consomem. Bind loopback + HTTP puro
     // por padrão (atrás do ingress); se `api.domain` estiver setado, o próprio
     // listener termina TLS na sua porta com cert automático via ACME.
+    //
+    // Serve TAMBÉM as rotas públicas sem Bearer (`api::public_routes`): o
+    // webhook de CI/CD e o callback OAuth do Gitea, que antes tinham um listener
+    // dedicado na porta 8788 (ver docs/plano-unificacao-webhook-api.md). Ou
+    // seja: com a API desabilitada (`[api] enabled = false`), não há webhook.
     if config.api.enabled {
         let state2 = state.clone();
         let api_cfg = config.api.clone();

@@ -19,10 +19,12 @@ function M.notify_ok(msg: any): ()
 end
 
 -- URI de callback OAuth do Gitea que o usuário registra no app do Gitea.
-function M.oauth_redirect_uri(domain: string?): string
-    local d = M.trim(domain):gsub("/+$", "");
+-- `base` é a URL pública do daemon (`DaemonSettings.public_base_url`), derivada
+-- de [api] domain/port — o callback OAuth é servido pelo mesmo listener da API.
+function M.oauth_redirect_uri(base: string?): string
+    local d = M.trim(base):gsub("/+$", "");
     if d == "" then
-        return "<configure o domínio em Web Server>/oauth/gitea/callback";
+        return "<URL pública do daemon indisponível>/oauth/gitea/callback";
     end
     return d .. "/oauth/gitea/callback";
 end

@@ -52,14 +52,14 @@ pub async fn port_in_use_by_other(db: &Db, port: u16, exclude_id: Option<&str>) 
 }
 
 /// Portas de host indisponíveis: `host_port` de todos os serviços (exceto
-/// `exclude_id`) + portas do próprio daemon (ingress, API, webhook).
+/// `exclude_id`) + portas do próprio daemon (ingress e API).
 async fn used_ports(db: &Db, exclude_id: Option<&str>) -> Result<Vec<u16>, String> {
     let cfg = RustployConfig::global();
     let mut used = vec![
         cfg.ingress.http_port,
         cfg.ingress.https_port,
+        // A API também serve o webhook e o callback OAuth — uma porta só.
         cfg.api.port,
-        cfg.daemon.webhook_port,
     ];
     let services = crate::db::services::list_all(db)
         .await

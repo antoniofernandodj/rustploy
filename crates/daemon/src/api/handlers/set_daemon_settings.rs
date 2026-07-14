@@ -4,20 +4,9 @@ use tracing::{error, info, warn};
 
 pub async fn handle(
     state: AppState,
-    webhook_base_url: Option<String>,
     acme_email: Option<String>,
     registry_domain: Option<String>,
 ) -> RpResponse {
-    if let Err(e) = save_optional(
-        &state,
-        daemon_settings::KEY_WEBHOOK_BASE_URL,
-        webhook_base_url,
-    )
-    .await
-    {
-        return e;
-    }
-
     let email_trimmed = acme_email
         .as_deref()
         .map(str::trim)

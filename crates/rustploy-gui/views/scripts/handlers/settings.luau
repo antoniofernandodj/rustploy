@@ -10,11 +10,6 @@ local Stream = require("stream")
 
 -- ── Settings (Web Server) ────────────────────────────────────────────────
 
-function ss_domain(v: string): ()
-    ctx.ss_domain = v or ""
-    ctx.gp_redirect = Helpers.oauth_redirect_uri(v or "")
-end
-
 function settings_tab(t: string): ()
     ctx.settings_tab = t
 end
@@ -24,12 +19,10 @@ function settings_save(): ()
     if not api then
         return
     end
-    local domain = Helpers.trim(ctx.ss_domain)
     local email = Helpers.trim(ctx.ss_email)
     local registry_domain = Helpers.trim(ctx.ss_registry_domain)
     ctx.settings_msg = "salvando…"
     local ok, res = api:rpc_checked({ SetDaemonSettings = {
-        webhook_base_url = (domain ~= "" and domain or nil),
         acme_email = (email ~= "" and email or nil),
         registry_domain = (registry_domain ~= "" and registry_domain or nil),
     } })

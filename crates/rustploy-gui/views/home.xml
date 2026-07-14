@@ -783,16 +783,21 @@
     <if cond="{settings_tab}" equals="web">
       <form name="settings" on_submit="settings_save" width="fill">
         <column class="form_panel">
-          <text class="label_cap">DOMÍNIO / URL BASE</text>
-          <TextInput
-            placeholder="https://rustploy.meusite.com"
-            class="field_input"
-            formControl="ss_domain"
-          />
-
+          <text class="label_cap">URL PÚBLICA DA API</text>
+          <row class="kv_row">
+            <text class="kv_val_fill">{ss_public_base}</text>
+            <button
+              class="copy_btn"
+              on_click="clipboard:ss_public_base"
+              text="Copiar"
+            />
+          </row>
           <text class="muted">
-            Base das URLs de webhook dos serviços e do callback OAuth.
+            Derivada de [api] domain/port no daemon — é a base das URLs de
+            webhook dos serviços e do callback OAuth (mesma porta da API).
+            Para mudá-la, configure api.domain e reinicie o daemon.
           </text>
+
           <text class="label_cap">
             E-MAIL LET'S ENCRYPT (HTTPS AUTOMÁTICO)
           </text>

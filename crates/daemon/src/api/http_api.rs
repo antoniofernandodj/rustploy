@@ -33,6 +33,7 @@ use hyper_util::rt::TokioIo;
 use shared::{ApiConfig, Command, Event, Response as RpResponse};
 use tracing::{error, info, warn};
 
+use super::public_routes;
 use super::routes::dispatch;
 use super::AppState;
 use crate::ingress::TlsManager;
@@ -165,6 +166,21 @@ async fn handle(
     state: AppState,
     token: Arc<Option<String>>,
 ) -> Result<Response<ApiBody>, Infallible> {
+    // Rotas públicas — servidas ANTES do gate de Bearer porque cada uma tem a
+    // sua própria autenticação (token de 192 bits na URL, no webhook; `state`
+    // CSRF, no callback OAuth). São chamadas por terceiros (GitHub/Gitea/Docker
+    // Hub, o navegador no fim do fluxo OAuth) que não têm o token da API.
+    match (req.method(), req.uri().path()) {
+        (&Method::POST, p) if p.starts_with("/webhook/") => {
+            let path = p.to_owned();
+            return Ok(boxed(public_routes::webhook(&path, state).await));
+        }
+        (&Method::GET, "/oauth/gitea/callback") => {
+            return Ok(boxed(public_routes::oauth_callback(req, state).await));
+        }
+        _ => {}
+    }
+
     // Bearer-token auth (constant-time), only when a token is configured.
     if let Some(expected) = token.as_ref() {
         if !authorized(&req, expected) {
@@ -657,6 +673,12 @@ fn authorized(req: &Request<Incoming>, expected: &str) -> bool {
         .unwrap_or("");
     let got = got.strip_prefix("Bearer ").unwrap_or(got);
     constant_time_eq(got.as_bytes(), expected.as_bytes())
+}
+
+/// As rotas públicas (`public_routes`) devolvem `Full<Bytes>`; o listener
+/// unificado fala `ApiBody`. `Full` é infalível, então o rebox é direto.
+fn boxed(resp: Response<Full<Bytes>>) -> Response<ApiBody> {
+    resp.map(|body| body.boxed())
 }
 
 fn text(status: StatusCode, body: impl Into<Bytes>) -> Response<ApiBody> {

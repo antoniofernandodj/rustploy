@@ -86,11 +86,14 @@ local function load_settings(): ()
     if not api then return end
     local ok, res = api:rpc("GetDaemonSettings")
     if ok and res.DaemonSettings then
-        local domain = res.DaemonSettings.webhook_base_url or ""
-        ctx.ss_domain = domain
+        -- Base pública derivada pelo daemon a partir de [api] domain/port — é
+        -- só-leitura (não há setter no protocolo), serve para exibir a base do
+        -- webhook e montar a redirect URI do OAuth.
+        local base = res.DaemonSettings.public_base_url or ""
+        ctx.ss_public_base = base
         ctx.ss_email = res.DaemonSettings.acme_email or ""
         ctx.ss_registry_domain = res.DaemonSettings.registry_domain or ""
-        ctx.gp_redirect = Helpers.oauth_redirect_uri(domain)
+        ctx.gp_redirect = Helpers.oauth_redirect_uri(base)
     end
     local ok2, res2 = api:rpc("GitProviderList")
     if ok2 and res2.GitProviders then

@@ -8,10 +8,19 @@
 socket_path  = "/run/rustploy/rustploy.sock"
 db_path      = "/var/lib/rustploy/db"
 log_level    = "info"
-# webhook_port (callback OAuth + webhooks CI/CD) e as demais seções abaixo VÊM
-# deste arquivo normalmente — não são sobrescritos pelo unit.
-# 8788 evita 9000/9001, comuns em MinIO/rustfs (S3).
-webhook_port = 8788
+# As demais seções abaixo VÊM deste arquivo normalmente — não são sobrescritas
+# pelo unit.
+
+# API HTTP/JSON + SSE — o canal do GUI. Serve TAMBÉM as rotas públicas sem token:
+# os webhooks de CI/CD (POST /webhook/<service_id>/<token>) e o callback OAuth do
+# Gitea (/oauth/gitea/callback), que antes tinham porta própria (8788). Ou seja:
+# para o GitHub/Gitea alcançarem o webhook, esta porta precisa estar acessível.
+# Defaults: bind 127.0.0.1, port 9797, sem token. Bind não-loopback EXIGE token.
+# [api]
+# bind_address = "0.0.0.0"
+# port         = 9797
+# token        = "<token forte>"
+# domain       = "rustploy.meusite.com"   # TLS automático (ACME) na própria porta
 
 [ingress]
 http_port    = 80

@@ -169,8 +169,8 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
             handlers::regenerate_webhook_token::handle(state, service_id).await
         }
         Command::GetDaemonSettings => handlers::get_daemon_settings::handle(state).await,
-        Command::SetDaemonSettings { webhook_base_url, acme_email, registry_domain } => {
-            handlers::set_daemon_settings::handle(state, webhook_base_url, acme_email, registry_domain).await
+        Command::SetDaemonSettings { acme_email, registry_domain } => {
+            handlers::set_daemon_settings::handle(state, acme_email, registry_domain).await
         }
         Command::SecretSet {
             project_id,

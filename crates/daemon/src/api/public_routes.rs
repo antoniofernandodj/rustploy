@@ -1,81 +1,43 @@
-use std::convert::Infallible;
+//! Rotas HTTP **públicas** (sem Bearer): o webhook de deploy e o callback OAuth
+//! do Gitea. Não há listener próprio aqui — desde a unificação das portas
+//! (`docs/plano-unificacao-webhook-api.md`) as duas rotas são servidas pelo
+//! listener da API (`http_api.rs`), que as roteia para cá **antes** do gate de
+//! token, porque cada uma tem autenticação própria: o webhook valida o token de
+//! 192 bits que vem na URL; o callback valida o `state` CSRF emitido no início
+//! do fluxo OAuth.
 
 use bytes::Bytes;
 use http_body_util::Full;
-use hyper::service::service_fn;
-use hyper::{Method, Request, Response, StatusCode, body::Incoming};
-use hyper_util::rt::TokioIo;
+use hyper::{Request, Response, StatusCode, body::Incoming};
 use tracing::{error, info, warn};
 
 use super::AppState;
 use crate::db::webhook_tokens;
 
-pub async fn run(state: AppState, port: u16) {
-    let addr: std::net::SocketAddr = ([0, 0, 0, 0], port).into();
-    let listener = match tokio::net::TcpListener::bind(addr).await {
-        Ok(l) => l,
-        Err(e) => {
-            error!(port, error = %e, "webhook server: falha ao bind");
-            return;
-        }
-    };
-    info!(port, "webhook server: escutando");
-
-    loop {
-        let (stream, peer) = match listener.accept().await {
-            Ok(c) => c,
-            Err(e) => {
-                warn!(error = %e, "webhook server: accept error");
-                continue;
-            }
-        };
-        let state = state.clone();
-        tokio::spawn(async move {
-            let io = TokioIo::new(stream);
-            if let Err(e) = hyper::server::conn::http1::Builder::new()
-                .serve_connection(io, service_fn(move |req| handle(req, state.clone())))
-                .await
-            {
-                warn!(peer = %peer, error = %e, "webhook server: connection error");
-            }
-        });
-    }
-}
-
-async fn handle(
-    req: Request<Incoming>,
-    state: AppState,
-) -> Result<Response<Full<Bytes>>, Infallible> {
-    // OAuth callback do Gitea (GET) — fora do esquema POST /webhook/...
-    if req.method() == Method::GET && req.uri().path() == "/oauth/gitea/callback" {
-        return Ok(oauth_callback(req, state).await);
-    }
-
-    // Aceita apenas POST /webhook/{service_id}/{token}
-    if req.method() != Method::POST {
-        return Ok(resp(StatusCode::METHOD_NOT_ALLOWED, "method not allowed"));
-    }
-
-    let path = req.uri().path().to_owned();
+/// `POST /webhook/{service_id}/{token}` — valida o token e dispara um deploy.
+/// O corpo da requisição é ignorado (ver `docs/webhooks.md`); a autenticação é
+/// inteiramente o token na URL. O `path` chega já roteado pelo `http_api`.
+pub async fn webhook(path: &str, state: AppState) -> Response<Full<Bytes>> {
     let parts: Vec<&str> = path.trim_start_matches('/').splitn(3, '/').collect();
     if parts.len() != 3 || parts[0] != "webhook" {
-        return Ok(resp(StatusCode::NOT_FOUND, "not found"));
+        return resp(StatusCode::NOT_FOUND, "not found");
     }
 
     let service_id = parts[1].to_string();
-    let provided_token = parts[2].to_string();
+    let provided_token = parts[2];
 
     let stored = match webhook_tokens::get(&state.db, &service_id).await {
         Ok(Some(t)) => t,
-        Ok(None) => return Ok(resp(StatusCode::UNAUTHORIZED, "invalid token")),
+        Ok(None) => return resp(StatusCode::UNAUTHORIZED, "invalid token"),
         Err(e) => {
             error!(service_id = %service_id, error = %e, "webhook: db error");
-            return Ok(resp(StatusCode::INTERNAL_SERVER_ERROR, "internal error"));
+            return resp(StatusCode::INTERNAL_SERVER_ERROR, "internal error");
         }
     };
 
-    if stored != provided_token {
-        return Ok(resp(StatusCode::UNAUTHORIZED, "invalid token"));
+    // Comparação em tempo constante: o token é o único segredo do endpoint.
+    if !constant_time_eq(stored.as_bytes(), provided_token.as_bytes()) {
+        return resp(StatusCode::UNAUTHORIZED, "invalid token");
     }
 
     info!(service_id = %service_id, "webhook: disparando deploy");
@@ -83,7 +45,14 @@ async fn handle(
         crate::api::handlers::deploy_start::handle(state, service_id).await;
     });
 
-    Ok(resp(StatusCode::OK, "deploy triggered"))
+    resp(StatusCode::OK, "deploy triggered")
+}
+
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
 fn resp(status: StatusCode, body: &'static str) -> Response<Full<Bytes>> {
@@ -109,9 +78,10 @@ fn html(status: StatusCode, title: &str, body: &str) -> Response<Full<Bytes>> {
         .unwrap()
 }
 
-/// Completes the Gitea OAuth2 authorization-code flow: validates the CSRF
-/// `state`, exchanges the `code` for tokens, records the connected account.
-async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response<Full<Bytes>> {
+/// `GET /oauth/gitea/callback` — completes the Gitea OAuth2 authorization-code
+/// flow: validates the CSRF `state`, exchanges the `code` for tokens, records
+/// the connected account.
+pub async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response<Full<Bytes>> {
     use crate::db::git_providers;
 
     let query = req.uri().query().unwrap_or("");
@@ -151,13 +121,13 @@ async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response<Ful
         None => return html(StatusCode::BAD_REQUEST, "Erro", "Provider sem client secret."),
     };
 
-    let redirect_uri = match callback_redirect_uri(&state).await {
+    let redirect_uri = match callback_redirect_uri(&state) {
         Some(u) => u,
         None => {
             return html(
                 StatusCode::BAD_REQUEST,
                 "Erro",
-                "Configure o domínio do servidor (Web Server) antes de conectar.",
+                "Não foi possível determinar a URL pública do daemon (configure [api] domain).",
             );
         }
     };
@@ -179,7 +149,7 @@ async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response<Ful
     };
 
     // Auto-registra a redirect URI atual no app OAuth2 do Gitea para que
-    // futuras trocas funcionem mesmo após mudança do webhook_base_url.
+    // futuras trocas funcionem mesmo após mudança do domínio/porta da API.
     {
         let base_url = provider.base_url.clone();
         let token = tokens.access_token.clone();
@@ -232,18 +202,12 @@ async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response<Ful
     )
 }
 
-/// Builds `{webhook_base_url}/oauth/gitea/callback` from daemon settings.
-pub async fn callback_redirect_uri(state: &AppState) -> Option<String> {
-    use crate::db::daemon_settings;
-    let base = daemon_settings::get(&state.db, daemon_settings::KEY_WEBHOOK_BASE_URL)
-        .await
-        .ok()
-        .flatten()?;
-    let base = base.trim_end_matches('/');
-    if base.is_empty() {
-        return None;
-    }
-    Some(format!("{base}/oauth/gitea/callback"))
+/// Builds `{public_base_url}/oauth/gitea/callback` — a base sai de `[api]`
+/// (domínio/porta do listener que atende este callback), não mais de uma setting
+/// no banco. `Option` mantido porque o chamador ainda trata o caso "sem base
+/// utilizável"; hoje ela é sempre derivável.
+pub fn callback_redirect_uri(state: &AppState) -> Option<String> {
+    Some(format!("{}/oauth/gitea/callback", state.public_base_url()))
 }
 
 /// Tiny `application/x-www-form-urlencoded` query parser (percent-decoding).

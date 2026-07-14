@@ -2,7 +2,7 @@ pub mod handlers;
 pub mod http_api;
 pub mod routes;
 pub mod server;
-pub mod webhook_server;
+pub mod public_routes;
 
 use crate::{
     db::Db, docker::DockerClient, event_bus::EventBus, ingress::{IngressController, TlsManager},
@@ -103,7 +103,11 @@ pub struct AppState {
     pub db_path: PathBuf,
     pub backup_dir: PathBuf,
     pub drain_secs: u64,
-    pub webhook_port: u16,
+    /// Config do listener HTTP da API. Guardada porque é dela que sai a URL
+    /// pública do daemon (ver [`AppState::public_base_url`]) — desde a
+    /// unificação, webhook e callback OAuth são servidos por esse mesmo
+    /// listener, então a base deles é a base da API.
+    pub api: shared::ApiConfig,
     pub started_at: std::time::Instant,
     pub oauth_states: OAuthStates,
     pub active_deploys: ActiveDeploys,
@@ -131,7 +135,7 @@ impl AppState {
         db_path: PathBuf,
         backup_dir: PathBuf,
         drain_secs: u64,
-        webhook_port: u16,
+        api: shared::ApiConfig,
         registry_storage: Option<Arc<crate::registry::storage::RegistryStorage>>,
         registry_internal_token: Option<Arc<str>>,
     ) -> Self {
@@ -145,7 +149,7 @@ impl AppState {
             db_path,
             backup_dir,
             drain_secs,
-            webhook_port,
+            api,
             started_at: std::time::Instant::now(),
             oauth_states: Arc::new(Mutex::new(HashMap::new())),
             active_deploys: Arc::new(Mutex::new(HashMap::new())),
@@ -154,4 +158,26 @@ impl AppState {
             registry_internal_token,
         }
     }
+
+    /// URL pública do daemon, sem barra final: base do webhook
+    /// (`{base}/webhook/{service_id}/{token}`) e do callback OAuth
+    /// (`{base}/oauth/gitea/callback`). Derivada de `[api]` — não há setting no
+    /// banco para sobrescrevê-la; para mudá-la, configure `api.domain`.
+    pub fn public_base_url(&self) -> String {
+        self.api.public_base_url(&outbound_ip())
+    }
+}
+
+/// Detecta o IP de saída da máquina conectando um socket UDP em 8.8.8.8:80
+/// (sem enviar dados) e lendo o endereço local escolhido pelo kernel. Usado só
+/// como host de fallback quando `api.domain` não está configurado.
+fn outbound_ip() -> String {
+    use std::net::UdpSocket;
+    UdpSocket::bind("0.0.0.0:0")
+        .and_then(|s| {
+            s.connect("8.8.8.8:80")?;
+            s.local_addr()
+        })
+        .map(|addr| addr.ip().to_string())
+        .unwrap_or_else(|_| "localhost".to_string())
 }

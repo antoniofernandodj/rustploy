@@ -723,6 +723,33 @@
 
       <!-- Deployments -->
       <column if="{tab}" equals="deployments" class="dep_wrap">
+        <!-- Webhook de deploy: servido pelo MESMO listener da API (base
+             derivada de [api] domain/port). Compose não tem webhook. -->
+        <column if="{svc_webhook_supported}" equals="true" class="form_panel">
+          <text class="label_cap">WEBHOOK DE DEPLOY</text>
+          <row if="{svc_webhook_url}" not_equals="" class="kv_row">
+            <text class="kv_val_fill">{svc_webhook_url}</text>
+            <button
+              class="copy_btn"
+              on_click="clipboard:svc_webhook_url"
+              text="Copiar"
+            />
+            <button
+              class="dep_del_btn"
+              on_click="regen_webhook"
+              text="Regenerar"
+            />
+          </row>
+          <text if="{svc_webhook_url}" equals="" class="muted">
+            O token nasce no primeiro deploy deste serviço — rode um deploy
+            para a URL aparecer.
+          </text>
+          <text class="muted">
+            Um POST nesta URL dispara um deploy. O corpo é ignorado: o token na
+            própria URL é a autenticação. Regenerar invalida a URL anterior.
+          </text>
+        </column>
+
         <text class="muted">
           {svc_deployments_count} deployments
         </text>

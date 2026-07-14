@@ -112,7 +112,6 @@ pub enum Command {
     },
     GetDaemonSettings,
     SetDaemonSettings {
-        webhook_base_url: Option<String>,
         acme_email: Option<String>,
         registry_domain: Option<String>,
     },
@@ -445,7 +444,10 @@ pub enum Response {
     Pong { uptime_secs: u64 },
     WebhookUrl(Option<String>),
     DaemonSettings {
-        webhook_base_url: Option<String>,
+        /// URL pública da API, **derivada** de `[api] domain`/`port` — base das
+        /// URLs de webhook e do callback OAuth. Só-leitura: não existe setter,
+        /// muda-se editando a config do daemon.
+        public_base_url: String,
         acme_email: Option<String>,
         registry_domain: Option<String>,
     },

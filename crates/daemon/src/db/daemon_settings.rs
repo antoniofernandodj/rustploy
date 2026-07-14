@@ -30,6 +30,10 @@ pub async fn delete(db: &Db, key: &str) -> Result<()> {
     Ok(())
 }
 
+/// DEPRECADA: a base pública passou a ser derivada de `[api] domain`/`port`
+/// (ver `AppState::public_base_url`), então esta chave não é mais lida nem
+/// escrita. Linhas remanescentes em bancos de instalações antigas são inertes.
+#[allow(dead_code)]
 pub const KEY_WEBHOOK_BASE_URL: &str = "webhook_base_url";
 pub const KEY_ACME_EMAIL: &str = "acme_email";
 pub const KEY_REGISTRY_DOMAIN: &str = "registry_domain";
