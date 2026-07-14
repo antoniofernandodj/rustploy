@@ -21,7 +21,14 @@ mod store;
 use std::time::Duration;
 
 use glacier_ui::{
-    window, EngineMessage, Font, GlacierDaemon, GlacierUI, Point, Size, WindowGeometry,
+    window,
+    EngineMessage,
+    Font,
+    GlacierDaemon,
+    GlacierUI,
+    Point,
+    Size,
+    WindowGeometry,
 };
 
 /// Fontes embutidas (JetBrains Mono): registradas no builder do daemon e usadas
@@ -46,11 +53,15 @@ pub(crate) fn run() -> iced::Result {
             settings.platform_specific = platform_specific();
         })
         .main(|motor| {
-            if let Err(e) = motor.register_component("app", "crates/rustploy-gui/views/app.xml") {
+            if let Err(e) = motor
+                .register_component(
+                    "app",
+                    "crates/rustploy-gui/views/app.xml"
+                ) {
                 // O Display do GlacierError já traz arquivo:linha:coluna, o
                 // trecho e a dica — não vale reembrulhar.
-                eprintln!("{e}");
-            }
+                    eprintln!("{e}");
+                }
             seed_prefs(motor);
             motor.set_initial_screen("app");
         })
@@ -62,7 +73,9 @@ pub(crate) fn run() -> iced::Result {
                 persist_prefs(motor);
             }
         })
-        .on_close(|_motor, geometry| save_geometry(geometry))
+        .on_close(
+            |_motor, geometry| save_geometry(geometry)
+        )
         .toast_period(Duration::from_millis(250))
         .run()
 }
@@ -70,7 +83,10 @@ pub(crate) fn run() -> iced::Result {
 /// Grava [`store::Prefs`] a partir do contexto: só guarda url/token quando o
 /// respectivo "lembrar" está ligado (senão limpa o campo).
 fn persist_prefs(motor: &GlacierUI) {
-    let g = |k: &str| motor.get_data(k).cloned().unwrap_or_default();
+    let g = |k: &str| motor
+        .get_data(k)
+        .cloned()
+        .unwrap_or_default();
     let remember_url = g("remember_url") == "true";
     let remember_token = g("remember_token") == "true";
     store::Prefs {
@@ -102,8 +118,14 @@ fn should_persist(msg: &EngineMessage) -> bool {
 /// `login.xml` (`url`/`token`/`remember_url`/`remember_token`).
 fn seed_prefs(motor: &mut GlacierUI) {
     let prefs = store::Prefs::load();
-    motor.define_data("remember_url", if prefs.remember_url { "true" } else { "false" });
-    motor.define_data("remember_token", if prefs.remember_token { "true" } else { "false" });
+    motor.define_data(
+        "remember_url",
+        if prefs.remember_url { "true" } else { "false" }
+    );
+    motor.define_data(
+        "remember_token",
+        if prefs.remember_token { "true" } else { "false" }
+    );
     if let Some(url) = prefs.url.filter(|_| prefs.remember_url) {
         motor.define_data("url", &url);
     }
@@ -150,7 +172,11 @@ fn main_window_settings() -> window::Settings {
         // Embedded so it works regardless of CWD; on Wayland the dock icon
         // instead comes from the `.desktop` file matched by app id, see the
         // Debian package assets in `Cargo.toml`.
-        icon: window::icon::from_file_data(include_bytes!("../../assets/rustploy.png"), None).ok(),
+        icon: window::icon::from_file_data(
+            include_bytes!(
+                "../../assets/rustploy.png"),
+            None
+        ).ok(),
         decorations: false,
         exit_on_close_request: false,
         platform_specific: platform_specific(),
