@@ -2082,9 +2082,9 @@ dependencies = [
 
 [[package]]
 name = "glacier-ui"
-version = "0.40.1"
+version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "448ff0f3f2fcb7f4bfe61840801686c357044120ba001e77d029e5fefbecd39d"
+checksum = "eae4f439639a3d47041f963e0139e4eb503e4b585d15fa67f31a8b6f04a8e5dc"
 dependencies = [
  "futures",
  "http-body-util",
