@@ -10,9 +10,9 @@
    colado à esquerda enquanto os botões (align-x: end) ficavam colados à
    direita — desalinhados entre si mesmo depois de não sobreporem mais. */
 .col_act  { width: 120; align-x: end; text-align: end; }
-/* col_act largo o bastante pra dois botões lado a lado (linha de repo do
-   Registry: "Ver tags" + "Remover"), sem sobrepor. */
-.col_act_2 { width: 190; align-x: end; text-align: end; spacing: 8; }
+/* Linha de repo do Registry: 2 ícones (ver tags/remover) + tooltip — largura
+   bem menor que antes, quando ambos eram texto por extenso. */
+.col_act_2 { width: 90; align-x: end; text-align: end; spacing: 8; }
 /* Linha de job em Schedules: 4 controles (rodar/logs/pausar-ativar/remover).
    Viraram ícone + tooltip (eram texto: "Rodar agora"/"Ver logs"/"Pausar") —
    uma linha de 360px pensada pra rótulos por extenso empurrava o botão de
@@ -667,8 +667,8 @@
                 <text class="muted col_dur">{r.size}</text>
                 <text class="muted col_dur">{r.created}</text>
                 <row class="col_act_2">
-                  <button class="copy_btn" on_click="registry_open_repo:{r.name}" text="Ver tags" />
-                  <button class="env_del" on_click="registry_rm_repo:{r.name}" text="✕" />
+                  <button class="copy_btn" on_click="registry_open_repo:{r.name}" text="≡" tooltip="Ver tags" />
+                  <button class="env_del" on_click="registry_rm_repo:{r.name}" text="✕" tooltip="Remover" />
                 </row>
               </row>
               <rule />
@@ -702,7 +702,7 @@
             <text class="muted col_dur">{tk.created}</text>
             <text class="muted col_dur">{tk.last_used}</text>
             <row class="col_act">
-              <button class="dk_rm" on_click="registry_rm_token:{tk.name}" text="Revogar" />
+              <button class="env_del" on_click="registry_rm_token:{tk.name}" text="✕" tooltip="Revogar" />
             </row>
           </row>
           <rule />
