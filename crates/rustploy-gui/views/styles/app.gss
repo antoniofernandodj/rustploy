@@ -37,7 +37,7 @@
 
 /* ── Sidebar / top bar ────────────────────────────────────────────────── */
 /* .nav_item (era o botão-texto puro do item de sidebar, sem ícone) ficou sem
-   uso quando nav_item.xml passou a montar ícone+rótulo numa <row> própria
+   uso quando nav_item.gv passou a montar ícone+rótulo numa <row> própria
    (.nav_row_on/.nav_row_off, ali definidas) — Settings/Support também viraram
    NavItem. Mantido comentado, não removido (é reutilizável). */
 /* .nav_item       { width: fill; color: var(--surface); padding: 11 14; } */
@@ -86,7 +86,7 @@
 .panel_fill { width: fill; height: fill; background: var(--surface); border-radius: 7; border-width: 1; border-color: var(--border); padding: 4; }
 .form_panel { width: fill; max-width: 640; background: var(--surface); border-radius: 7; border-width: 1; border-color: var(--border); padding: 24; spacing: 10; }
 /* Ponto colorido do StateCell/rp-badge — compartilhado; o rótulo e a paleta
-   (state_<kind>) moram no <style> do state_cell.xml. */
+   (state_<kind>) moram no <style> do state_cell.gv. */
 .state_dot  { size: 11; }
 
 /* ── Projects / service grid ──────────────────────────────────────────── */
@@ -123,7 +123,7 @@
 .env_sep       { width: 10; }
 .env_key       { size: 13; bold: true; color: var(--accent); width: 400; }
 .env_list_scroll { width: fill; height: fill; }
-/* Editor .env (textarea + toggle), compartilhado por service.xml e shell.xml. */
+/* Editor .env (textarea + toggle), compartilhado por service.gv e shell.gv. */
 .env_editor    { width: fill; height: 200; padding: 10 12; font: mono; }
 .btn_export    { color: var(--border); padding: 11 22; border-radius: 5; }
 .btn_export_on { color: var(--blue); padding: 11 22; border-radius: 5; }

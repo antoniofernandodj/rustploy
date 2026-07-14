@@ -17,7 +17,7 @@ local M = {}
 -- janela — glacier não reestrutura Row↔Column via @media, então o número de
 -- colunas tem que ser decidido aqui (recalculado a cada snapshot, ~2s) para
 -- não espremer os cards a ponto de sobrepor texto/botões (ver comentário em
--- service_card.xml). Breakpoints espelham os do app.gss (900/560).
+-- service_card.gv). Breakpoints espelham os do app.gss (900/560).
 local function grid_cols(): number
     local w = viewport().width
     if w < 560 then

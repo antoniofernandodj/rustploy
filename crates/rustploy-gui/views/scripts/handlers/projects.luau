@@ -28,10 +28,10 @@ end
 -- conexão atual (api_url/api_token) via `data` para que a janela chame
 -- ProjectCreate por conta própria; ao concluir, ela emite broadcast(
 -- "project_created"), recebido por `on_broadcast` abaixo. Ver
--- views/new_project_form.xml + scripts/new_project_window.luau.
+-- views/new_project_form.gv + scripts/new_project_window.luau.
 function open_new_project_window(): ()
     open_window({
-        file = "crates/rustploy-gui/views/new_project_form.xml",
+        file = "crates/rustploy-gui/views/new_project_form.gv",
         title = "Novo projeto — Rustploy",
         width = 460,
         height = 340,

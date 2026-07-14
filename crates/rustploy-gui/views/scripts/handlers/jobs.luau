@@ -57,7 +57,7 @@ end
 -- conexão atual + os catálogos de projetos/serviços JÁ BUSCADOS pelo snapshot
 -- (a janela filha não pode buscar no init — só ações despachadas rodam o
 -- fetch). Ao concluir, ela emite broadcast("job_created"), recebido por
--- on_broadcast em handlers/projects.luau. Ver views/new_job_window.xml.
+-- on_broadcast em handlers/projects.luau. Ver views/new_job_window.gv.
 function open_new_job_window(): ()
     local snap = State.snap
     local projects = {}
@@ -72,7 +72,7 @@ function open_new_job_window(): ()
         end
     end
     open_window({
-        file = "crates/rustploy-gui/views/new_job_window.xml",
+        file = "crates/rustploy-gui/views/new_job_window.gv",
         title = "Novo job — Rustploy",
         width = 560,
         height = 700,
@@ -87,7 +87,7 @@ function open_new_job_window(): ()
 end
 
 -- Logs da última execução de um job — mesma janela genérica de logs
--- (log_window.xml/.luau) usada por runtime/build, agora apontando pro SSE
+-- (log_window.gv/.luau) usada por runtime/build, agora apontando pro SSE
 -- dedicado `/api/jobs/runs/<id>/logs` (ver Event::JobLogLine).
 function open_job_logs_window(job_run_id: string): ()
     if not job_run_id or job_run_id == "" then
@@ -102,7 +102,7 @@ function open_job_logs_window(job_run_id: string): ()
         end
     end
     open_window({
-        file = "crates/rustploy-gui/views/log_window.xml",
+        file = "crates/rustploy-gui/views/log_window.gv",
         title = "Job — " .. string.sub(job_run_id, 1, 12),
         width = 900,
         height = 560,

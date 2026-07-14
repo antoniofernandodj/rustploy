@@ -15,11 +15,11 @@ fn boot() -> GlacierUI {
     std::env::set_current_dir(ws_root).expect("cd workspace root");
 
     let mut m = GlacierUI::new();
-    // app.xml itself links app.gss (<link rel="stylesheet">, global since
+    // app.gv itself links app.gss (<link rel="stylesheet">, global since
     // glacier-ui 0.23), so register_component picks it up — no separate
     // load_stylesheet call needed here.
-    m.register_component("app", "crates/rustploy-gui/views/app.xml")
-        .expect("app.xml + imports must register (includes app.gss parsing — an unknown property drops the whole sheet)");
+    m.register_component("app", "crates/rustploy-gui/views/app.gv")
+        .expect("app.gv + imports must register (includes app.gss parsing — an unknown property drops the whole sheet)");
     m.set_initial_screen("app");
     m
 }
@@ -34,8 +34,8 @@ fn cd_ws_root() {
     std::env::set_current_dir(ws_root).expect("cd workspace root");
 }
 
-/// A janela "Novo projeto" (`new_project_form.xml` + `new_project_window.luau`) é
-/// um motor à parte, aberto por `open_window`; não passa pelo `app.xml` acima,
+/// A janela "Novo projeto" (`new_project_form.gv` + `new_project_window.luau`) é
+/// um motor à parte, aberto por `open_window`; não passa pelo `app.gv` acima,
 /// então validamos que registra e renderiza por conta própria — semeando a
 /// conexão como `open_window({ data = ... })` faria.
 #[test]
@@ -44,14 +44,14 @@ fn new_project_form_window_renders() {
     let mut m = GlacierUI::new();
     m.define_data("api_url", "http://localhost");
     m.define_data("api_token", "t");
-    m.register_component("new_project_form", "crates/rustploy-gui/views/new_project_form.xml")
-        .expect("new_project_form.xml must register");
+    m.register_component("new_project_form", "crates/rustploy-gui/views/new_project_form.gv")
+        .expect("new_project_form.gv must register");
     m.set_initial_screen("new_project_form");
     m.reevaluate_all().expect("eval new_project_form");
     assert!(m.render("new_project_form").is_ok(), "render new_project_form");
 }
 
-/// A janela "Novo job" (`new_job_window.xml` + `new_job_window.luau`) é um
+/// A janela "Novo job" (`new_job_window.gv` + `new_job_window.luau`) é um
 /// motor à parte, aberto por `open_new_job_window` (handlers/jobs.luau).
 /// Semeia projetos/serviços já buscados (como `open_window({ data = ... })`
 /// faria) e valida os três passos (escolher projeto → escolher serviço →
@@ -67,8 +67,8 @@ fn new_job_window_renders() {
         "njob_services",
         r#"[{"id":"svc_1","name":"web","project_id":"prj_1"}]"#,
     );
-    m.register_component("new_job_window", "crates/rustploy-gui/views/new_job_window.xml")
-        .expect("new_job_window.xml must register");
+    m.register_component("new_job_window", "crates/rustploy-gui/views/new_job_window.gv")
+        .expect("new_job_window.gv must register");
     m.set_initial_screen("new_job_window");
 
     m.define_data("njob_step", "pick_project");
@@ -90,7 +90,7 @@ fn new_job_window_renders() {
     }
 }
 
-/// A janela de logs ao vivo (`log_window.xml` + `log_window.luau`) é um motor à
+/// A janela de logs ao vivo (`log_window.gv` + `log_window.luau`) é um motor à
 /// parte, aberto por `open_logs_window`; validamos que registra e renderiza por
 /// conta própria — semeando a conexão + o serviço + o tail como `open_window`.
 #[test]
@@ -105,14 +105,14 @@ fn log_window_renders() {
         "lw_seed",
         r#"[{"stream":"Stdout","line":"hello","timestamp":"2026-07-10T23:00:00Z"}]"#,
     );
-    m.register_component("log_window", "crates/rustploy-gui/views/log_window.xml")
-        .expect("log_window.xml must register");
+    m.register_component("log_window", "crates/rustploy-gui/views/log_window.gv")
+        .expect("log_window.gv must register");
     m.set_initial_screen("log_window");
     m.reevaluate_all().expect("eval log_window");
     assert!(m.render("log_window").is_ok(), "render log_window");
 }
 
-/// O wizard "Novo serviço" (`new_service_window.xml`, que importa `new_service.xml`
+/// O wizard "Novo serviço" (`new_service_window.gv`, que importa `new_service.gv`
 /// + `new_service_window.luau`) também é uma janela à parte, aberta por
 /// `open_new_service_window`. Validamos que registra e renderiza cada passo do
 /// wizard como motor isolado — semeando a conexão/projeto como `open_window`.
@@ -124,8 +124,8 @@ fn new_service_wizard_window_renders() {
     m.define_data("api_token", "t");
     m.define_data("selected_project_id", "p1");
     m.define_data("proj_name", "demo");
-    m.register_component("new_service_window", "crates/rustploy-gui/views/new_service_window.xml")
-        .expect("new_service_window.xml must register");
+    m.register_component("new_service_window", "crates/rustploy-gui/views/new_service_window.gv")
+        .expect("new_service_window.gv must register");
     m.set_initial_screen("new_service_window");
 
     // Dados que os passos de banco/template esperam (o init do script tenta o
@@ -297,12 +297,12 @@ fn all_screens_and_service_tabs_render() {
 /// o rótulo de cada NavItem (ex.: "Deploy Engine", "Projects (N)") precisa
 /// sumir (`hidden`), senão não cabe e quebra o layout (era exatamente esse o
 /// bug reportado: rótulos longos, sem espaço pra quebrar, bagunçando a
-/// sidebar). Descoberto assim: nav_item.xml usava seletor agrupado por vírgula
+/// sidebar). Descoberto assim: nav_item.gv usava seletor agrupado por vírgula
 /// dentro de `@media` (".nav_label_on, .nav_label_off { hidden: true; }") —
 /// o GSS não suporta agrupamento por vírgula (nem fora de `@media`); a string
 /// inteira virava uma ÚNICA chave, que nunca casava com nenhuma classe real,
 /// então a regra nunca era aplicada. Cada seletor precisa da própria
-/// declaração (ver nav_item.xml).
+/// declaração (ver nav_item.gv).
 #[test]
 fn sidebar_nav_label_hidden_below_900px() {
     use glacier_ui::widget::EngineMessage;
@@ -381,13 +381,13 @@ fn service_actions_collapse_to_icons_when_narrow() {
 
 /// A avaliação do glacier é **escopada** (0.38+): só a tela ativa é construída,
 /// não todo template registrado. Isso importa aqui mais do que na média dos
-/// apps: `app.xml` importa a árvore inteira de views (login, shell, home,
+/// apps: `app.gv` importa a árvore inteira de views (login, shell, home,
 /// service, componentes), e avaliar um template inlina recursivamente tudo que
 /// ele usa — então a versão antiga reconstruía a UI completa uma vez **por
 /// template importado**, a cada tecla digitada e a cada linha de log que chega
 /// pelo SSE.
 ///
-/// Este teste trava o ganho: registrar `app.xml` (que puxa a dúzia de views) e
+/// Este teste trava o ganho: registrar `app.gv` (que puxa a dúzia de views) e
 /// ativá-la deve deixar exatamente UMA árvore avaliada.
 #[test]
 fn so_a_tela_ativa_e_avaliada() {
@@ -397,7 +397,7 @@ fn so_a_tela_ativa_e_avaliada() {
     for importado in ["Login", "Shell"] {
         assert!(
             m.is_registered(importado),
-            "{importado} deveria ter sido importado por app.xml"
+            "{importado} deveria ter sido importado por app.gv"
         );
     }
     // ...mas só a tela ativa está avaliada (as demais são inlinadas dentro dela).

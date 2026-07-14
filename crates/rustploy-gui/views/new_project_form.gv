@@ -10,7 +10,7 @@
 <link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />
 
 <style>
-/* Titlebar custom (mesma linguagem visual do app.xml) */
+/* Titlebar custom (mesma linguagem visual do app.gv) */
 .titlebar       { width: fill; height: 32; background: var(--surface); align-y: center; }
 .titlebar_drag  { width: fill; height: fill; align-y: center; padding: 0 0 0 16; spacing: 9; }
 .titlebar_dot   { size: 10; color: var(--blue); }

@@ -56,7 +56,7 @@ pub(crate) fn run() -> iced::Result {
             if let Err(e) = motor
                 .register_component(
                     "app",
-                    "crates/rustploy-gui/views/app.xml"
+                    "crates/rustploy-gui/views/app.gv"
                 ) {
                 // O Display do GlacierError já traz arquivo:linha:coluna, o
                 // trecho e a dica — não vale reembrulhar.
@@ -99,7 +99,7 @@ fn persist_prefs(motor: &GlacierUI) {
 }
 
 /// Decide se a ação deve disparar a persistência das Prefs de login. O
-/// `login.xml` é IMPORTADO em `app.xml` (`<link rel=import as=Login>`), então as
+/// `login.gv` é IMPORTADO em `app.gv` (`<link rel=import as=Login>`), então as
 /// ações chegam com namespace do owner (`Login::connect`,
 /// `Login::toggle_remember_url`); comparamos só o sufixo (após `::`).
 fn should_persist(msg: &EngineMessage) -> bool {
@@ -115,7 +115,7 @@ fn should_persist(msg: &EngineMessage) -> bool {
 
 /// Semeia o contexto do glacier com as Prefs de login salvas, para o formulário
 /// nascer preenchido. Os nomes de chave batem com os `formControl`/`checked` do
-/// `login.xml` (`url`/`token`/`remember_url`/`remember_token`).
+/// `login.gv` (`url`/`token`/`remember_url`/`remember_token`).
 fn seed_prefs(motor: &mut GlacierUI) {
     let prefs = store::Prefs::load();
     motor.define_data(
@@ -153,7 +153,7 @@ fn save_geometry(geometry: WindowGeometry) {
 /// the default at the platform-default placement on first launch, or when no
 /// position was ever saved (e.g. Wayland, which never reports one to restore).
 /// Borderless (`decorations: false`) — the OS titlebar is replaced by a custom
-/// one in `views/app.xml`, whose `window:*` actions the daemon drives against
+/// one in `views/app.gv`, whose `window:*` actions the daemon drives against
 /// this window's own id. `exit_on_close_request: false` routes the WM's own close
 /// through the daemon's `on_close` hook, so the geometry is saved before the
 /// window actually closes.

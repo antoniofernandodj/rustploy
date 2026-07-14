@@ -1,21 +1,21 @@
 <!-- Janela do wizard "Novo serviço": motor Glacier próprio, aberto por
   open_window (handlers/wizard.luau → open_new_service_window), que semeia a
   conexão + o projeto-alvo via open_window({ data = ... }). Reaproveita o corpo
-  do wizard (new_service.xml, importado como <NewServiceWizard/>); a lógica vem
+  do wizard (new_service.gv, importado como <NewServiceWizard/>); a lógica vem
   de handlers/wizard.luau, carregada pelo script de entrada abaixo. Ao criar, o
   wizard emite broadcast("service_created") e chama close_window(). Borderless
   (aberta com decorations=false, como as demais): titlebar custom abaixo. Relinka
   theme + app.gss (motor isolado — não herda o stylesheet do app principal). -->
 <link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />
 <link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />
-<link rel="import"      href="crates/rustploy-gui/views/new_service.xml" as="NewServiceWizard" />
-<!-- Componentes que o corpo do wizard usa (o shell.xml os importava; num motor
+<link rel="import"      href="crates/rustploy-gui/views/new_service.gv" as="NewServiceWizard" />
+<!-- Componentes que o corpo do wizard usa (o shell.gv os importava; num motor
   isolado precisamos reimportá-los). -->
-<link rel="import"      href="crates/rustploy-gui/views/components/picker_row.xml" as="PickerRow" />
-<link rel="import"      href="crates/rustploy-gui/views/components/template_row.xml" as="TemplateRow" />
+<link rel="import"      href="crates/rustploy-gui/views/components/picker_row.gv" as="PickerRow" />
+<link rel="import"      href="crates/rustploy-gui/views/components/template_row.gv" as="TemplateRow" />
 
 <style>
-/* Titlebar custom (mesma linguagem visual do app.xml) */
+/* Titlebar custom (mesma linguagem visual do app.gv) */
 .titlebar       { width: fill; height: 32; background: var(--surface); align-y: center; }
 .titlebar_drag  { width: fill; height: fill; align-y: center; padding: 0 0 0 16; spacing: 9; }
 .titlebar_dot   { size: 10; color: var(--blue); }

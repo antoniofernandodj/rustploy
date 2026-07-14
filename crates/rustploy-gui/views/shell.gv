@@ -1,17 +1,17 @@
 
 <!-- ── Imports ──────────────────────────────────────────────────────── -->
-<link rel="import" href="crates/rustploy-gui/views/service.xml" as="ServiceDetail" />
-<link rel="import" href="crates/rustploy-gui/views/home.xml" as="HomeViews" />
-<link rel="import" href="crates/rustploy-gui/views/components/project_card.xml" as="ProjectCard" />
-<link rel="import" href="crates/rustploy-gui/views/components/service_card.xml" as="ServiceCard" />
-<link rel="import" href="crates/rustploy-gui/views/components/stat_card.xml" as="StatCard" />
-<link rel="import" href="crates/rustploy-gui/views/components/state_cell.xml" as="StateCell" />
-<link rel="import" href="crates/rustploy-gui/views/components/badge.xml" as="rp-badge" />
-<link rel="import" href="crates/rustploy-gui/views/components/nav_item.xml" as="NavItem" />
-<link rel="import" href="crates/rustploy-gui/views/components/tab_button.xml" as="TabButton" />
-<link rel="import" href="crates/rustploy-gui/views/components/loading_row.xml" as="LoadingRow" />
-<link rel="import" href="crates/rustploy-gui/views/components/picker_row.xml" as="PickerRow" />
-<link rel="import" href="crates/rustploy-gui/views/components/template_row.xml" as="TemplateRow" />
+<link rel="import" href="crates/rustploy-gui/views/service.gv" as="ServiceDetail" />
+<link rel="import" href="crates/rustploy-gui/views/home.gv" as="HomeViews" />
+<link rel="import" href="crates/rustploy-gui/views/components/project_card.gv" as="ProjectCard" />
+<link rel="import" href="crates/rustploy-gui/views/components/service_card.gv" as="ServiceCard" />
+<link rel="import" href="crates/rustploy-gui/views/components/stat_card.gv" as="StatCard" />
+<link rel="import" href="crates/rustploy-gui/views/components/state_cell.gv" as="StateCell" />
+<link rel="import" href="crates/rustploy-gui/views/components/badge.gv" as="rp-badge" />
+<link rel="import" href="crates/rustploy-gui/views/components/nav_item.gv" as="NavItem" />
+<link rel="import" href="crates/rustploy-gui/views/components/tab_button.gv" as="TabButton" />
+<link rel="import" href="crates/rustploy-gui/views/components/loading_row.gv" as="LoadingRow" />
+<link rel="import" href="crates/rustploy-gui/views/components/picker_row.gv" as="PickerRow" />
+<link rel="import" href="crates/rustploy-gui/views/components/template_row.gv" as="TemplateRow" />
 
 <style>
 .sidebar { width: 264; height: fill; background: var(--surface); padding: 28 20; spacing: 6; }
@@ -35,7 +35,7 @@
 .grid           { width: fill; spacing: 16; }
 .card_row       { width: fill; spacing: 16; }
 /* Responsivo: encolhe sidebar/topbar em janelas estreitas (glacier-ui 0.9.0+).
-   Abaixo de 900px vira um trilho só de ícones (ver nav_item.xml, que esconde
+   Abaixo de 900px vira um trilho só de ícones (ver nav_item.gv, que esconde
    o rótulo no mesmo breakpoint) — rótulos como "Deploy Engine"/"Projects (2)"
    não cabiam mais na sidebar encolhida e, sem espaço pra quebrar (ou sendo
    uma palavra só), estouravam a coluna e bagunçavam o layout inteiro. */
@@ -219,7 +219,7 @@
               <StatCard label="PROJECTS" value="{projects_count}" accent="1" />
             </row>
           </row>
-          <!-- Criar projeto agora abre uma JANELA à parte (new_project_form.xml,
+          <!-- Criar projeto agora abre uma JANELA à parte (new_project_form.gv,
             motor Glacier próprio); ao concluir, ela envia um broadcast
             "project_created" que `on_broadcast` (handlers/projects.luau) recebe
             para atualizar a grade. Ver open_new_project_window. -->
@@ -556,7 +556,7 @@
         <else>
           <!-- ── Service detail / demais views ────────────────────────────
             O wizard "Novo serviço" saiu daqui (view=new_service): agora abre
-            numa JANELA à parte (new_service_window.xml), disparada por
+            numa JANELA à parte (new_service_window.gv), disparada por
             open_new_service_window. -->
           <if cond="{view}" equals="service">
             <ServiceDetail />

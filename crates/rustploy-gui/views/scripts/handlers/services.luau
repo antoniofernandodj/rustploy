@@ -1,6 +1,6 @@
 --!strict
 --!nolint FunctionUnused
--- handlers/services.luau — detalhe do serviço (service.xml): fetch completo,
+-- handlers/services.luau — detalhe do serviço (service.gv): fetch completo,
 -- mutações de spec/env, ciclo de vida (deploy/reload/stop), build logs de
 -- deployments, picker Gitea. Exporta `fetch_service_detail` para
 -- handlers/stream.luau reusar no desfecho de um deploy (evento bus
@@ -606,7 +606,7 @@ function dep_logs(id: string): ()
         end
     end
     open_window({
-        file = "crates/rustploy-gui/views/log_window.xml",
+        file = "crates/rustploy-gui/views/log_window.gv",
         title = "Build — " .. string.sub(id, 1, 12),
         width = 900,
         height = 560,
@@ -819,7 +819,7 @@ function gitea_repo_pick(full_name: string): ()
 end
 
 -- Abre os logs ao vivo do serviço numa JANELA à parte (motor Glacier isolado e
--- leve — ver log_window.xml/.luau). Semeia a conexão, o serviço-alvo e um tail
+-- leve — ver log_window.gv/.luau). Semeia a conexão, o serviço-alvo e um tail
 -- FRESCO via open_window({data}); a janela abre sua própria SSE (endpoint
 -- dedicado) e rola os logs sem o custo de reavaliar a árvore inteira do app
 -- principal. Sendo uma ação despachada, o `fetch` do LogsGet aqui funciona (ao
@@ -839,7 +839,7 @@ function open_logs_window(): ()
         end
     end
     open_window({
-        file = "crates/rustploy-gui/views/log_window.xml",
+        file = "crates/rustploy-gui/views/log_window.gv",
         title = "Logs — " .. (ctx.svc_name or sid),
         width = 900,
         height = 560,

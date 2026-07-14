@@ -150,10 +150,10 @@ end
 M.refresh_tokens = registry_refresh_tokens
 
 -- Abre a janela separada de criação (segredo só aparece lá, uma vez — ver
--- new_registry_token_window.xml/.luau).
+-- new_registry_token_window.gv/.luau).
 function registry_open_token_window(): ()
     open_window({
-        file = "crates/rustploy-gui/views/new_registry_token_window.xml",
+        file = "crates/rustploy-gui/views/new_registry_token_window.gv",
         title = "Novo token — Rustploy",
         width = 480,
         height = 420,

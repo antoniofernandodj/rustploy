@@ -1,7 +1,7 @@
 <link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />
 <link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />
-<link rel="import"      href="crates/rustploy-gui/views/login.xml" as="Login" />
-<link rel="import"      href="crates/rustploy-gui/views/shell.xml" as="Shell" />
+<link rel="import"      href="crates/rustploy-gui/views/login.gv" as="Login" />
+<link rel="import"      href="crates/rustploy-gui/views/shell.gv" as="Shell" />
 
 <!-- Borderless window (decorations=false): a 6px frame of resize handles wraps
   the content. Each handle sets its hover cursor and starts an interactive

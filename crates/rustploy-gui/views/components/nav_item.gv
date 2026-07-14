@@ -3,7 +3,7 @@
 
   Item de navegação da sidebar: ícone (sempre visível) + rótulo (some abaixo de
   900px de largura — ver @media abaixo, espelhando o breakpoint em que a
-  sidebar encolhe no shell.xml). Fica "ligado" (pílula azul) quando a view
+  sidebar encolhe no shell.gv). Fica "ligado" (pílula azul) quando a view
   atual ({view}) é igual a `target`; `equals` compara a interpolação de {view}
   com {target}.
 

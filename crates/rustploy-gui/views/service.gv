@@ -16,7 +16,7 @@
 .kv_key        { width: fill; size: 13; color: var(--muted); }
 .kv_val        { size: 16; bold: true; color: var(--text); }
 /* Environment / General (editores) — .btn_export/.btn_export_on/.env_editor
-   agora vivem em app.gss (compartilhados com shell.xml). */
+   agora vivem em app.gss (compartilhados com shell.gv). */
 .select        { width: fill; padding: 12 14; background: var(--raised); border-radius: 4; border-width: 1; border-color: #30363D; color: var(--text-2); }
 /* Deployments (lista + build log) */
 .col_dep_id    { width: 130; }
@@ -789,7 +789,7 @@
                 <!-- Ícone + tooltip (eram "Build log ↗" e "Remover" por
                      extenso): os rótulos quebravam em duas linhas e estouravam a
                      coluna quando a janela estreitava. Mesmo padrão das linhas de
-                     job e de repo do Registry (home.xml). -->
+                     job e de repo do Registry (home.gv). -->
                 <row class="dep_actions">
                   <button
                     class="dep_logs_btn"

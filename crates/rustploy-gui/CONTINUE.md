@@ -86,7 +86,7 @@ conferir:
   - **Janela sem borda** (`decorations:false` no `main.rs`): a **titlebar
     customizada** (região de arraste `on_press="window:drag"` + botões `—`/`▢`/`✕`)
     e uma **moldura de 6px de alças de resize** (bordas/cantos com `cursor` +
-    `on_press="window:resize:<dir>"`) ficam em `views/app.xml`. Os controles
+    `on_press="window:resize:<dir>"`) ficam em `views/app.gv`. Os controles
     `window:*` são tratados no `main.rs` **contra o `window::Id` cacheado** (no
     boot via `window::latest`): no Wayland, adiar via `latest()` perde o serial
     do grab e o drag/resize não pegam. iced 0.14: `iced::application(boot, …)
@@ -117,7 +117,7 @@ conferir:
   `ServiceGet` + `ProjectList` (p/ nome) + `LogsGet` (tail 200) → keys `svc_*`.
   Abas General/Connection/Environment/Healthcheck/Logs + painel lateral
   STATUS/UPTIME/SERVICES + LIVE OUTPUT. Template extraído em
-  `views/service.xml` (importado no `shell.xml`).
+  `views/service.gv` (importado no `shell.gv`).
 - **Abas do detail** (9 no remote-client; faltam só Patches): General/Connection/
   Environment/Domains/Deployments/Healthcheck/Logs/Advanced. Switch via `<if>`
   independentes (sem else-chain). Deployments usa `DeployHistory`; clicar
@@ -208,7 +208,7 @@ conferir:
   (`GRID_COLS`) no `service_rows_json` (`[{"cards":[…]}]`) e renderizo com
   `<foreach>` aninhado (`items="r.cards"`); fillers invisíveis (`filler="1"`)
   mantêm as colunas alinhadas. Classes `.card`/`.grid`/`.card_*` no `.gss`.
-- **Home screens** (`views/home.xml`, importado no `shell.xml`; ifs
+- **Home screens** (`views/home.gv`, importado no `shell.gv`; ifs
   independentes por `{view}`): **Monitoring** (stat cards de host CPU/MEM/DISK/
   LOAD via `Event::SystemMetrics` + tabela por container via `ContainerMetrics`),
   **Ingress** (rotas derivadas dos serviços com domínio), **Docker** (containers
@@ -220,8 +220,8 @@ conferir:
 - Arquitetura: `Root` (Component único) detém estado + subscription de rede;
   `net.rs` faz polling (DaemonStatus/RecentDeployments/ProjectList+ServiceList) →
   `ContextPatch`; settings buscado 1x no connect (não no poll, p/ não sobrescrever
-  edição). `rwp.rs` = transporte. Telas: `app.xml` (switch `{screen}`), `login.xml`,
-  `shell.xml` (switch `{view}`), `service.xml`, `home.xml`. Estilo: `app.gss` +
+  edição). `rwp.rs` = transporte. Telas: `app.gv` (switch `{screen}`), `login.gv`,
+  `shell.gv` (switch `{view}`), `service.gv`, `home.gv`. Estilo: `app.gss` +
   `theme.json`. TODO layout fica nas classes `.gss` (não inline no KDL).
 
 ## Próximos passos (em ordem)
@@ -244,7 +244,7 @@ conferir:
 - **`<else>` só liga ao `<if>` imediatamente anterior** (irmão). Não dá pra
   encadear `if A / if B / else` esperando um switch — o `else` casaria com `B`
   e renderizaria junto com `A`. Para 3+ ramos, **aninhe**: `if A / else (if B /
-  else …)`. (É como o switch `{view}` no `shell.xml` cresce.)
+  else …)`. (É como o switch `{view}` no `shell.gv` cresce.)
 - **`ForEach` aninhado** funciona: um item-objeto cujo valor é array vira string
   JSON na chave `var.campo` (ex.: `r.cards`), e o `ForEach` interno aceita
   `items="r.cards"`. Útil p/ simular grid (sem widget de wrap no glacier).

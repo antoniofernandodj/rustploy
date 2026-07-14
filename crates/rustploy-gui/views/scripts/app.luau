@@ -1,5 +1,5 @@
 --!strict
--- app.luau — ponto de entrada do `<script>` de app.xml. Não define nenhuma
+-- app.luau — ponto de entrada do `<script>` de app.gv. Não define nenhuma
 -- lógica própria: apenas carrega (via `require`) cada pacote de
 -- `handlers/`, para que suas funções globais (referenciadas por
 -- on_click/on_change/on_submit nos templates, e pelos callbacks nomeados do

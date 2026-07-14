@@ -31,7 +31,7 @@ end
 -- é uma ação despachada, então o `fetch` do WizardCatalog resolve normalmente e
 -- a janela abre depois, já com o catálogo. Ao criar, a janela envia
 -- broadcast("service_created") e se fecha (ver ns_create). Substitui o antigo
--- fluxo inline (view=new_service), removido do shell.xml.
+-- fluxo inline (view=new_service), removido do shell.gv.
 function open_new_service_window(): ()
     local pid = ctx.selected_project_id or ""
     local api = State.api
@@ -46,7 +46,7 @@ function open_new_service_window(): ()
         templates = res.WizardCatalog.templates or "[]"
     end
     open_window({
-        file = "crates/rustploy-gui/views/new_service_window.xml",
+        file = "crates/rustploy-gui/views/new_service_window.gv",
         title = "Novo serviço — Rustploy",
         width = 560,
         height = 700,

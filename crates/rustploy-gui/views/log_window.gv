@@ -18,7 +18,7 @@
 <link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />
 
 <style>
-/* Alças de resize (moldura de 6px), iguais ao app.xml (janela borderless). */
+/* Alças de resize (moldura de 6px), iguais ao app.gv (janela borderless). */
 .rz_top    { width: fill; height: 6; }
 .rz_bottom { width: fill; height: 6; }
 .rz_mid    { width: fill; height: fill; }
@@ -30,7 +30,7 @@
 .rz_ne     { cursor: resize-ne; }
 .rz_sw     { cursor: resize-sw; }
 .rz_se     { cursor: resize-se; }
-/* Titlebar custom (mesma linguagem visual do app.xml). */
+/* Titlebar custom (mesma linguagem visual do app.gv). */
 .titlebar       { width: fill; height: 32; background: var(--surface); align-y: center; }
 .titlebar_drag  { width: fill; height: fill; align-y: center; padding: 0 0 0 16; spacing: 9; }
 .titlebar_dot   { size: 10; color: var(--blue); }
