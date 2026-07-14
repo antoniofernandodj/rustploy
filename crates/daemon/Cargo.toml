@@ -3,6 +3,8 @@ name = "daemon"
 version = "0.1.0"
 edition = "2024"
 default-run = "rustployd"
+description = "Rustploy PaaS daemon — lightweight self-hosted deployment platform"
+license = "MIT"
 
 [[bin]]
 name = "rustployd"
