@@ -67,15 +67,25 @@
         </row>
       </if>
 
-      <!-- Passo 2: escolher o serviço gatilho (rede + env vars de base) -->
+      <!-- Passo 2: escolher o serviço gatilho (opcional — só env vars de
+           base; a rede Docker já vem do projeto escolhido no passo 1). -->
       <if cond="{njob_step}" equals="pick_service">
         <text class="label_cap">
-          SERVIÇO GATILHO — {njob_project_name}
+          SERVIÇO GATILHO (OPCIONAL) — {njob_project_name}
         </text>
         <text class="muted">
-          Empresta a rede Docker e as env vars de base ao job (o job não roda
-          dentro do container dele — sobe um stack novo, próprio).
+          Empresta env vars/secrets de base ao job (a rede Docker já vem do
+          projeto). O job não roda dentro do container dele — sobe um stack
+          novo, próprio. Sem serviço gatilho, o job é 100% autônomo e só
+          recebe as env vars do projeto.
         </text>
+        <row class="env_add">
+          <button
+            class="btn_ghost"
+            on_click="njob_pick_no_service"
+            text="Nenhum — job autônomo ›"
+          />
+        </row>
         <text if="{njob_services_filtered}" equals="[]" class="muted">
           Este projeto ainda não tem serviços.
         </text>

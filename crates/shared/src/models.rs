@@ -685,9 +685,11 @@ pub struct RegistryTokenInfo {
 pub struct Job {
     pub id: String,
     pub project_id: String,
-    /// Serviço do projeto que empresta rede Docker + env vars de base ao job
-    /// (o job não roda dentro do container dele — sobe um stack novo).
-    pub trigger_service_id: String,
+    /// Serviço do projeto que empresta env vars de base ao job (o job não
+    /// roda dentro do container dele — sobe um stack novo; a rede Docker já
+    /// vem só do `project_id` acima). `None` = job autônomo: só as env vars
+    /// do projeto são injetadas, sem nenhuma específica de serviço.
+    pub trigger_service_id: Option<String>,
     pub name: String,
     /// Conteúdo de um `docker-compose.yml` — mesma UX/formato de
     /// `ComposeSource.content`.
@@ -769,7 +771,8 @@ pub struct JobRun {
 pub struct JobSummary {
     pub job: Job,
     pub project_name: String,
-    pub trigger_service_name: String,
+    /// `None` quando `job.trigger_service_id` é `None` (job autônomo).
+    pub trigger_service_name: Option<String>,
     pub last_run: Option<JobRun>,
 }
 

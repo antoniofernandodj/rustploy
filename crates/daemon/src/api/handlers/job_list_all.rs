@@ -25,15 +25,18 @@ pub async fn handle(state: AppState) -> RpResponse {
             name
         };
 
-        let trigger_service_name = if let Some(n) = svc_cache.get(&job.trigger_service_id) {
-            n.clone()
-        } else {
-            let name = match crate::db::services::get(&state.db, &job.trigger_service_id).await {
-                Ok(Some(s)) => s.spec.name,
-                _ => job.trigger_service_id.clone(),
-            };
-            svc_cache.insert(job.trigger_service_id.clone(), name.clone());
-            name
+        let trigger_service_name = match &job.trigger_service_id {
+            None => None,
+            Some(sid) => Some(if let Some(n) = svc_cache.get(sid) {
+                n.clone()
+            } else {
+                let name = match crate::db::services::get(&state.db, sid).await {
+                    Ok(Some(s)) => s.spec.name,
+                    _ => sid.clone(),
+                };
+                svc_cache.insert(sid.clone(), name.clone());
+                name
+            }),
         };
 
         let last_run = match crate::db::job_run::latest_for_job(&state.db, &job.id).await {

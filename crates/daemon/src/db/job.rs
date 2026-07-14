@@ -39,6 +39,13 @@ fn row_to_job(row: JobRow) -> Result<Job> {
         .as_deref()
         .map(serde_json::from_str)
         .transpose()?;
+    // Coluna é NOT NULL (sem migração de schema): string vazia é o sentinel
+    // de "sem serviço gatilho" (job autônomo), não NULL.
+    let trigger_service_id = if trigger_service_id.is_empty() {
+        None
+    } else {
+        Some(trigger_service_id)
+    };
     Ok(Job {
         id,
         project_id,
@@ -58,7 +65,7 @@ fn row_to_job(row: JobRow) -> Result<Job> {
 pub async fn create(
     db: &Db,
     project_id: &str,
-    trigger_service_id: &str,
+    trigger_service_id: Option<&str>,
     name: &str,
     compose: &str,
     main_service: &str,
@@ -75,7 +82,7 @@ pub async fn create(
     )
     .bind(&id)
     .bind(project_id)
-    .bind(trigger_service_id)
+    .bind(trigger_service_id.unwrap_or(""))
     .bind(name)
     .bind(compose)
     .bind(main_service)
@@ -87,7 +94,7 @@ pub async fn create(
     Ok(Job {
         id,
         project_id: project_id.to_string(),
-        trigger_service_id: trigger_service_id.to_string(),
+        trigger_service_id: trigger_service_id.map(String::from),
         name: name.to_string(),
         compose: compose.to_string(),
         main_service: main_service.to_string(),
@@ -212,7 +219,7 @@ mod tests {
         let job = create(
             &db,
             "prj_1",
-            "svc_1",
+            Some("svc_1"),
             "backup",
             "version: '3'\nservices:\n  backup:\n    image: busybox\n",
             "backup",
@@ -221,6 +228,7 @@ mod tests {
         .await
         .unwrap();
         assert!(job.next_run_at.is_some());
+        assert_eq!(job.trigger_service_id, Some("svc_1".to_string()));
 
         let got = get(&db, &job.id).await.unwrap().unwrap();
         assert_eq!(got.recurrence, Some(Recurrence::IntervalHours(6)));
@@ -239,9 +247,21 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn job_sem_servico_gatilho_ida_e_volta_none() {
+        let db = mem_db().await;
+        let job = create(&db, "prj_1", None, "autonomo", "c", "m", None)
+            .await
+            .unwrap();
+        assert_eq!(job.trigger_service_id, None);
+
+        let got = get(&db, &job.id).await.unwrap().unwrap();
+        assert_eq!(got.trigger_service_id, None);
+    }
+
+    #[tokio::test]
     async fn list_due_only_returns_enabled_scheduled_and_overdue() {
         let db = mem_db().await;
-        let past = create(&db, "p", "s", "past", "c", "m", Some(Recurrence::IntervalHours(1)))
+        let past = create(&db, "p", Some("s"), "past", "c", "m", Some(Recurrence::IntervalHours(1)))
             .await
             .unwrap();
         // força next_run_at pro passado, direto no banco (create já teria calculado no futuro).
@@ -252,10 +272,10 @@ mod tests {
             .await
             .unwrap();
 
-        let _future = create(&db, "p", "s", "future", "c", "m", Some(Recurrence::IntervalHours(6)))
+        let _future = create(&db, "p", Some("s"), "future", "c", "m", Some(Recurrence::IntervalHours(6)))
             .await
             .unwrap();
-        let _manual = create(&db, "p", "s", "manual", "c", "m", None).await.unwrap();
+        let _manual = create(&db, "p", Some("s"), "manual", "c", "m", None).await.unwrap();
 
         let due = list_due(&db, Utc::now()).await.unwrap();
         assert_eq!(due.len(), 1);

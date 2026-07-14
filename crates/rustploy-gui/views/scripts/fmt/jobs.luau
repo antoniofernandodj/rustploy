@@ -58,7 +58,11 @@ function M.summaries(list: { any }?): (string, number)
             name = Util.ellipsis(job.name, B.svc),
             project = s.project_name,
             trigger_service = s.trigger_service_name,
-            owner = Util.ellipsis(tostring(s.project_name) .. " / " .. tostring(s.trigger_service_name), B.proj),
+            -- trigger_service_name é nil quando o job é autônomo (sem
+            -- serviço gatilho) — mostra só o projeto nesse caso.
+            owner = s.trigger_service_name
+                and Util.ellipsis(tostring(s.project_name) .. " / " .. tostring(s.trigger_service_name), B.proj)
+                or Util.ellipsis(tostring(s.project_name), B.proj),
             recurrence = M.recurrence_label(job.recurrence),
             enabled = job.enabled,
             enabled_label = job.enabled and "Pausar" or "Ativar",

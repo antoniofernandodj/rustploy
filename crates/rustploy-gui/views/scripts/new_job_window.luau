@@ -91,6 +91,13 @@ function njob_pick_service(id: string): ()
     ctx.njob_step = "form"
 end
 
+-- Job 100% autônomo: sem serviço gatilho, só as env vars do projeto.
+function njob_pick_no_service(): ()
+    ctx.njob_service_id = ""
+    ctx.njob_service_name = "nenhum (autônomo)"
+    ctx.njob_step = "form"
+end
+
 function njob_back(): ()
     if ctx.njob_step == "form" then
         ctx.njob_step = "pick_service"

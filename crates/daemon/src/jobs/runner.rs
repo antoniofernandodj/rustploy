@@ -77,12 +77,22 @@ impl JobRunner {
     }
 
     async fn run_inner(&self, job: &Job, run_id: &str) -> Result<i32> {
-        let svc = db::services::get(&self.db, &job.trigger_service_id)
-            .await?
-            .ok_or_else(|| anyhow!("serviço gatilho não encontrado: {}", job.trigger_service_id))?;
-
         let network_name = networks::ensure_project_network(&self.docker.inner, &job.project_id).await?;
-        let env_vars = crate::deploy::env_resolve::resolve(&self.db, &self.secrets, &svc).await?;
+
+        // Job autônomo (sem serviço gatilho): só env vars do projeto. Com
+        // serviço gatilho: projeto + serviço (mesma precedência do deploy).
+        let env_vars = match &job.trigger_service_id {
+            Some(sid) => {
+                let svc = db::services::get(&self.db, sid)
+                    .await?
+                    .ok_or_else(|| anyhow!("serviço gatilho não encontrado: {sid}"))?;
+                crate::deploy::env_resolve::resolve(&self.db, &self.secrets, &svc).await?
+            }
+            None => {
+                crate::deploy::env_resolve::resolve_project_only(&self.db, &self.secrets, &job.project_id)
+                    .await?
+            }
+        };
 
         // Nome de projeto do compose: só minúsculas/dígitos/`_`/`-` (regra do
         // próprio `docker compose`) — o run_id (ULID) tem letras maiúsculas.
