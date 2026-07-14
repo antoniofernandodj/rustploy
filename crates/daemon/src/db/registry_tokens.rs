@@ -8,6 +8,12 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use ulid::Ulid;
 
+/// Nome reservado do token interno usado pelo próprio deploy executor pra
+/// puxar imagens do registry embutido (ver `crate::registry::internal_token`).
+/// Nunca visto por humano, não aparece em `list()`, não pode ser criado via
+/// `RegistryTokenCreate`.
+pub const RP_INTERNAL: &str = "rp-internal";
+
 pub struct TokenInfo {
     pub name: String,
     pub scope: String,
@@ -30,9 +36,30 @@ pub async fn create(db: &Db, name: &str, token_sha256: &str, scope: &str) -> Res
     Ok(())
 }
 
+/// Cria ou atualiza o token interno `rp-internal`, regenerado a cada boot do
+/// daemon (ver `crate::registry::internal_token::ensure`). Idempotente: o
+/// hash mais recente sempre vence.
+pub async fn upsert_internal(db: &Db, token_sha256: &str) -> Result<()> {
+    let id = format!("rtok_{}", Ulid::new());
+    sqlx::query(
+        "INSERT INTO registry_tokens (id, name, token_sha256, scope, created_at)
+         VALUES (?, ?, ?, 'pull', ?)
+         ON CONFLICT(name) DO UPDATE SET
+            token_sha256 = excluded.token_sha256,
+            created_at   = excluded.created_at",
+    )
+    .bind(id)
+    .bind(RP_INTERNAL)
+    .bind(token_sha256)
+    .bind(Utc::now())
+    .execute(db)
+    .await?;
+    Ok(())
+}
+
 pub async fn list(db: &Db) -> Result<Vec<TokenInfo>> {
     let rows: Vec<(String, String, DateTime<Utc>, Option<DateTime<Utc>>)> = sqlx::query_as(
-        "SELECT name, scope, created_at, last_used_at FROM registry_tokens ORDER BY name ASC",
+        "SELECT name, scope, created_at, last_used_at FROM registry_tokens WHERE name != 'rp-internal' ORDER BY name ASC",
     )
     .fetch_all(db)
     .await?;
@@ -136,5 +163,28 @@ mod tests {
         create(&db, "ci", "hash1", "push").await.unwrap();
         let err = create(&db, "ci", "hash2", "pull").await.unwrap_err();
         assert!(err.to_string().contains("UNIQUE constraint failed"));
+    }
+
+    #[tokio::test]
+    async fn upsert_internal_e_idempotente() {
+        let db = mem_db().await;
+        upsert_internal(&db, "hash1").await.unwrap();
+        upsert_internal(&db, "hash2").await.unwrap();
+        assert_eq!(
+            verify_scope(&db, "hash2").await.unwrap(),
+            Some("pull".to_string())
+        );
+        assert_eq!(verify_scope(&db, "hash1").await.unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn list_nao_retorna_rp_internal() {
+        let db = mem_db().await;
+        upsert_internal(&db, "hash1").await.unwrap();
+        create(&db, "ci", "hash2", "push").await.unwrap();
+
+        let tokens = list(&db).await.unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].name, "ci");
     }
 }

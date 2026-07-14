@@ -123,6 +123,7 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
         tls: state.tls.clone(),
         db_path: state.db_path.clone(),
         drain_secs: state.drain_secs,
+        registry_internal_token: state.registry_internal_token.clone(),
     });
     let dep_id = dep.id.clone();
     let active_deploys = state.active_deploys.clone();

@@ -19,6 +19,7 @@ pub async fn recover(
     tls: Arc<TlsManager>,
     db_path: PathBuf,
     drain_secs: u64,
+    registry_internal_token: Option<Arc<str>>,
 ) {
     let pending = match crate::db::deployments::get_non_terminal(&db).await {
         Ok(v) => v,
@@ -112,6 +113,7 @@ pub async fn recover(
                     tls: tls.clone(),
                     db_path: db_path.clone(),
                     drain_secs,
+                    registry_internal_token: registry_internal_token.clone(),
                 });
                 let dep_id = dep.id.clone();
                 tokio::spawn(async move { executor.run(dep_id).await });
@@ -129,6 +131,7 @@ pub async fn recover(
                     tls: tls.clone(),
                     db_path: db_path.clone(),
                     drain_secs,
+                    registry_internal_token: registry_internal_token.clone(),
                 });
                 let dep_id = dep.id.clone();
                 tokio::spawn(async move { executor.run(dep_id).await });
@@ -146,6 +149,7 @@ pub async fn recover(
                     tls: tls.clone(),
                     db_path: db_path.clone(),
                     drain_secs,
+                    registry_internal_token: registry_internal_token.clone(),
                 });
                 let dep_id = dep.id.clone();
                 tokio::spawn(async move { executor.run(dep_id).await });

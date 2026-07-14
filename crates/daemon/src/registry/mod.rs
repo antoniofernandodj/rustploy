@@ -5,5 +5,6 @@ pub mod auth;
 pub mod error;
 pub mod gc;
 pub mod http;
+pub mod internal_token;
 pub mod name;
 pub mod storage;

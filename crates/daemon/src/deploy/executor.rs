@@ -11,7 +11,7 @@ use bollard::models::HealthStatusEnum;
 use chrono::Utc;
 use shared::{
     compose_project_name,
-    DeployState, Deployment, Event, HealthcheckKind, Service, ServiceSource,
+    DeployState, Deployment, Event, HealthcheckKind, RustployConfig, Service, ServiceSource,
     ServiceStatus,
 };
 use std::{path::PathBuf, sync::Arc, time::Duration};
@@ -27,6 +27,27 @@ pub struct DeployExecutor {
     pub tls: Arc<TlsManager>,
     pub db_path: PathBuf,
     pub drain_secs: u64,
+    pub registry_internal_token: Option<Arc<str>>,
+}
+
+/// Reconhece se `image` aponta para o registry Docker embutido do próprio
+/// rustployd, seja por loopback (`127.0.0.1:<port>`/`localhost:<port>`, caso
+/// do deploy executor puxando no mesmo host) ou pelo domínio público
+/// configurado (sem porta — o acesso externo passa pelo ingress, não fala
+/// direto com a porta 5100).
+fn is_embedded_registry_image(image: &str, port: u16, domain: Option<&str>) -> bool {
+    if image.starts_with(&format!("127.0.0.1:{port}/")) {
+        return true;
+    }
+    if image.starts_with(&format!("localhost:{port}/")) {
+        return true;
+    }
+    if let Some(d) = domain {
+        if image.starts_with(&format!("{d}/")) {
+            return true;
+        }
+    }
+    false
 }
 
 impl DeployExecutor {
@@ -173,7 +194,8 @@ impl DeployExecutor {
                     image = %image,
                     "step[PullingImage]: iniciando pull"
                 );
-                images::pull(&self.docker.inner, &image, &svc.id, &dep.id, &self.bus, &self.db).await?;
+                let creds = self.registry_credentials_for(&image).await;
+                images::pull(&self.docker.inner, &image, &svc.id, &dep.id, &self.bus, &self.db, creds).await?;
                 self.log_step(&dep.id, &svc.id, &format!("--> Pull concluído: {image}")).await;
                 info!(
                     deployment_id = %dep.id,
@@ -1041,6 +1063,36 @@ impl DeployExecutor {
         });
     }
 
+    /// Se `image` aponta pro registry embutido do próprio rustployd,
+    /// devolve as credenciais do token interno `rp-internal` (ver
+    /// `crate::registry::internal_token`) pra que o Docker Engine do host
+    /// consiga se autenticar no pull — necessário desde que a Fase 2 do
+    /// registry passou a exigir Basic auth em toda rota, inclusive loopback.
+    async fn registry_credentials_for(&self, image: &str) -> Option<bollard::auth::DockerCredentials> {
+        let token = self.registry_internal_token.as_ref()?;
+        let port = RustployConfig::global().registry.port;
+
+        let mut domain = RustployConfig::global().registry.domain.clone();
+        if let Ok(Some(d)) = crate::db::daemon_settings::get(
+            &self.db,
+            crate::db::daemon_settings::KEY_REGISTRY_DOMAIN,
+        ).await {
+            if !d.trim().is_empty() {
+                domain = Some(d);
+            }
+        }
+
+        if is_embedded_registry_image(image, port, domain.as_deref()) {
+            Some(bollard::auth::DockerCredentials {
+                username: Some("rp-internal".to_string()),
+                password: Some(token.to_string()),
+                ..Default::default()
+            })
+        } else {
+            None
+        }
+    }
+
     fn image_for(&self, dep: &Deployment, svc: &Service) -> String {
         match &svc.spec.source {
             ServiceSource::Registry { image } => image.clone(),
@@ -1110,5 +1162,47 @@ impl DeployExecutor {
             "executor: evento DeployStateChanged publicado"
         );
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_embedded_registry_image;
+
+    #[test]
+    fn reconhece_loopback_com_porta_certa() {
+        assert!(is_embedded_registry_image("127.0.0.1:5100/app:v1", 5100, None));
+    }
+
+    #[test]
+    fn nao_reconhece_porta_errada() {
+        assert!(!is_embedded_registry_image("127.0.0.1:9999/app:v1", 5100, None));
+    }
+
+    #[test]
+    fn reconhece_localhost() {
+        assert!(is_embedded_registry_image("localhost:5100/app:v1", 5100, None));
+    }
+
+    #[test]
+    fn reconhece_dominio_configurado_sem_porta() {
+        assert!(is_embedded_registry_image(
+            "registry.exemplo.com/app:v1", 5100, Some("registry.exemplo.com")
+        ));
+    }
+
+    #[test]
+    fn nao_reconhece_dominio_com_porta_5100_anexada() {
+        // domínio:porta NUNCA é a forma certa (porta só existe em loopback) —
+        // garantir que esse caso não bate por acidente com o prefixo do domínio.
+        assert!(!is_embedded_registry_image(
+            "registry.exemplo.com:5100/app:v1", 5100, Some("registry.exemplo.com")
+        ));
+    }
+
+    #[test]
+    fn imagem_externa_nao_bate() {
+        assert!(!is_embedded_registry_image("nginx:latest", 5100, None));
+        assert!(!is_embedded_registry_image("ghcr.io/user/app:v1", 5100, Some("registry.exemplo.com")));
     }
 }

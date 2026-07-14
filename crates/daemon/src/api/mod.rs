@@ -113,6 +113,10 @@ pub struct AppState {
     /// listener HTTP do registry usa, para o handler `RegistryGc`. `None`
     /// quando `[registry]` está desabilitado na config.
     pub registry_storage: Option<Arc<crate::registry::storage::RegistryStorage>>,
+    /// Token interno `rp-internal`, regenerado a cada boot (ver
+    /// `crate::registry::internal_token`), usado pelo `DeployExecutor` pra se
+    /// autenticar sozinho ao puxar imagens do registry embutido.
+    pub registry_internal_token: Option<Arc<str>>,
 }
 
 impl AppState {
@@ -129,6 +133,7 @@ impl AppState {
         drain_secs: u64,
         webhook_port: u16,
         registry_storage: Option<Arc<crate::registry::storage::RegistryStorage>>,
+        registry_internal_token: Option<Arc<str>>,
     ) -> Self {
         Self {
             db,
@@ -146,6 +151,7 @@ impl AppState {
             active_deploys: Arc::new(Mutex::new(HashMap::new())),
             docker_cache: Arc::new(DockerCache::new()),
             registry_storage,
+            registry_internal_token,
         }
     }
 }

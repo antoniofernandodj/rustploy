@@ -97,6 +97,22 @@ async fn main() -> Result<()> {
             .expect("failed to initialize TLS manager"),
     );
 
+    // Token interno usado pelo deploy executor pra puxar imagens do próprio
+    // registry embutido, sem ação manual do usuário (Fase 3 do plano do
+    // registry). Regenerado a cada boot (ver db/registry_tokens.rs) — não
+    // pode ser fatal: um erro aqui não deve derrubar o boot do daemon inteiro.
+    let registry_internal_token = if config.registry.enabled {
+        match registry::internal_token::ensure(&db).await {
+            Ok(t) => Some(t),
+            Err(e) => {
+                tracing::warn!(error = %e, "registry: falha ao gerar token interno, pull de imagens do registry embutido vai falhar até o próximo restart");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     // Recovery
     deploy::recovery::recover(
         db.clone(),
@@ -107,6 +123,7 @@ async fn main() -> Result<()> {
         tls.clone(),
         db_path.clone(),
         config.deploy.drain_secs,
+        registry_internal_token.clone(),
     )
     .await;
 
@@ -205,6 +222,7 @@ async fn main() -> Result<()> {
         config.deploy.drain_secs,
         config.daemon.webhook_port,
         registry_storage.clone(),
+        registry_internal_token.clone(),
     );
 
     // Limpeza periódica do event_log (retém 30 dias) + GC diário do registry

@@ -16,6 +16,7 @@ pub async fn pull(
     deployment_id: &str,
     bus: &EventBus,
     db: &Arc<Db>,
+    credentials: Option<bollard::auth::DockerCredentials>,
 ) -> Result<()> {
 
     info!(
@@ -28,7 +29,7 @@ pub async fn pull(
         ..Default::default()
     });
 
-    let mut stream = docker.create_image(options, None, None);
+    let mut stream = docker.create_image(options, None, credentials);
     let mut layer_count = 0u32;
     let mut layers_done = 0u32;
 

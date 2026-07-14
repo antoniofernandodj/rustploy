@@ -124,6 +124,9 @@ fn generate_secret() -> String {
 }
 
 pub async fn token_create(state: AppState, name: String, scope: String) -> RpResponse {
+    if name == db_tokens::RP_INTERNAL {
+        return RpResponse::err("ReservedName", "\"rp-internal\" é um nome reservado do sistema");
+    }
     if scope != "pull" && scope != "push" {
         return RpResponse::err("InvalidScope", "scope deve ser \"pull\" ou \"push\"");
     }

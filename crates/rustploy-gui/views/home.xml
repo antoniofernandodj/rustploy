@@ -4,6 +4,9 @@
 /* Botão "Remover" compacto por-linha nas sub-abas Docker. */
 .dk_rm    { color: var(--danger); padding: 5 12; border-radius: 6; }
 .col_act  { width: 120; align-x: end; }
+/* col_act largo o bastante pra dois botões lado a lado (linha de repo do
+   Registry: "Ver tags" + "Remover"), sem sobrepor. */
+.col_act_2 { width: 190; align-x: end; spacing: 8; }
 </style>
 
 <column class="content">
@@ -630,7 +633,7 @@
           <text class="th col_proj">TAGS</text>
           <text class="th col_dur">TAMANHO</text>
           <text class="th col_dur">CRIADO</text>
-          <text class="th col_act">AÇÃO</text>
+          <text class="th col_act_2">AÇÃO</text>
         </row>
         <if cond="{data_loading}" equals="true">
           <LoadingRow />
@@ -651,7 +654,7 @@
                 <text class="td col_proj">{r.tag_count}</text>
                 <text class="muted col_dur">{r.size}</text>
                 <text class="muted col_dur">{r.created}</text>
-                <row class="col_act">
+                <row class="col_act_2">
                   <button class="copy_btn" on_click="registry_open_repo:{r.name}" text="Ver tags" />
                   <button class="dk_rm" on_click="registry_rm_repo:{r.name}" text="Remover" />
                 </row>
