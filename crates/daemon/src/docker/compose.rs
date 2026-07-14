@@ -1,7 +1,7 @@
 use crate::{db::Db, event_bus::EventBus};
 use anyhow::{Result, anyhow};
 use chrono::Utc;
-use shared::Event;
+use shared::{Event, RustployConfig};
 use std::sync::Arc;
 use tokio::fs::{File, remove_file};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -10,6 +10,57 @@ use tracing::info;
 use std::path::Path;
 
 const PROJECT_NET_ALIAS: &str = "rp_project_net";
+
+/// Loga no registry embutido com o token interno `rp-internal` antes de um
+/// `docker compose up` (que pode dar pull de imagens de lá). Diferente do
+/// pull via bollard em `docker/images.rs` (credenciais passadas por chamada),
+/// o `docker compose` é um subprocesso CLI que só entende credenciais via
+/// `~/.docker/config.json` — por isso precisa de login/logout explícitos.
+/// Best-effort: falha aqui não impede a tentativa de `up` (só vai falhar o
+/// pull depois, com erro visível nos logs, se a imagem realmente for da lá).
+async fn registry_login(token: &str) -> Result<()> {
+    let port = RustployConfig::global().registry.port;
+    let mut child = Command::new("docker")
+        .args(["login", &format!("127.0.0.1:{port}"), "-u", "rp-internal", "--password-stdin"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| anyhow!("falha ao iniciar docker login: {e}"))?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(token.as_bytes()).await.ok();
+        stdin.shutdown().await.ok();
+    }
+
+    let output = child
+        .wait_with_output()
+        .await
+        .map_err(|e| anyhow!("falha ao aguardar docker login: {e}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("docker login falhou: {stderr}"));
+    }
+    Ok(())
+}
+
+/// Desloga do registry embutido (limpeza best-effort, chamada sempre que
+/// `registry_login` foi tentado, mesmo se o `up` falhou).
+async fn registry_logout() -> Result<()> {
+    let port = RustployConfig::global().registry.port;
+    let status = Command::new("docker")
+        .args(["logout", &format!("127.0.0.1:{port}")])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .await
+        .map_err(|e| anyhow!("falha ao iniciar docker logout: {e}"))?;
+    if !status.success() {
+        return Err(anyhow!("docker logout falhou"));
+    }
+    Ok(())
+}
 
 pub fn inject_project_network(
     content: &str,
@@ -123,6 +174,7 @@ pub async fn up(
     db: &Arc<Db>,
     env_vars: &[(String, String)],
     build_dir: &Path,
+    registry_internal_token: Option<Arc<str>>,
 ) -> Result<()> {
     info!(project = %project_name, "compose_up: iniciando docker compose up");
 
@@ -147,6 +199,13 @@ pub async fn up(
     compose_file.write_all(content.as_bytes()).await?;
     compose_file.flush().await?;
     drop(compose_file);
+
+    if let Some(token) = &registry_internal_token {
+        if let Err(e) = registry_login(token).await {
+            tracing::warn!(error = %e, project = %project_name, "compose_up: falha ao autenticar no registry embutido, pull vai falhar se a imagem for de lá");
+        }
+    }
+
     let mut child = Command::new("docker")
         .args([
             "compose",
@@ -224,7 +283,13 @@ pub async fn up(
         .map_err(
             |e| anyhow!("falha ao aguardar: {e}")
         )?;
-    
+
+    if registry_internal_token.is_some() {
+        if let Err(e) = registry_logout().await {
+            tracing::warn!(error = %e, project = %project_name, "compose_up: falha ao deslogar do registry embutido (best-effort)");
+        }
+    }
+
     // Limpeza
     let _ = remove_file(&env_file_path).await;
     let _ = remove_file(&compose_file_path).await;
@@ -252,6 +317,7 @@ pub async fn run_once(
     db: &Arc<Db>,
     env_vars: &[(String, String)],
     build_dir: &Path,
+    registry_internal_token: Option<Arc<str>>,
 ) -> Result<i32> {
     info!(project = %project_name, job_id = %job_id, "compose_run_once: iniciando job one-shot");
 
@@ -274,6 +340,12 @@ pub async fn run_once(
     compose_file.flush().await?;
     drop(compose_file);
 
+    if let Some(token) = &registry_internal_token {
+        if let Err(e) = registry_login(token).await {
+            tracing::warn!(error = %e, project = %project_name, job_id = %job_id, "compose_run_once: falha ao autenticar no registry embutido, pull vai falhar se a imagem for de lá");
+        }
+    }
+
     let up_result = run_once_up(
         project_name,
         main_service,
@@ -284,6 +356,12 @@ pub async fn run_once(
         build_dir,
     )
     .await;
+
+    if registry_internal_token.is_some() {
+        if let Err(e) = registry_logout().await {
+            tracing::warn!(error = %e, project = %project_name, job_id = %job_id, "compose_run_once: falha ao deslogar do registry embutido (best-effort)");
+        }
+    }
 
     // Sempre desmonta o stack, mesmo se o up falhou — nunca deixa
     // containers/redes zumbis do job pra trás.

@@ -832,6 +832,7 @@ impl DeployExecutor {
                     &self.db,
                     &env_vars,
                     &self.clone_dir(&dep.id),
+                    self.registry_internal_token.clone(),
                 )
                 .await?;
 

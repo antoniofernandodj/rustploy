@@ -56,7 +56,7 @@ function M.deployments(list: {any}?, term: string?): string
                 state_label = label,
                 state_kind = Util.state_kind(d.state),
                 duration = Time.fmt_duration(d),
-                start = Time.time_hms(d.started_at),
+                start = Time.date_dm_hms(d.started_at),
             })
         end
     end

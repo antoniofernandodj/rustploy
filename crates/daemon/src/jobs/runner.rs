@@ -21,6 +21,7 @@ pub struct JobRunner {
     pub bus: Arc<EventBus>,
     pub secrets: Arc<SecretsManager>,
     pub db_path: PathBuf,
+    pub registry_internal_token: Option<Arc<str>>,
 }
 
 /// Cria o `job_run` e dispara a execução em background (`tokio::spawn`) —
@@ -36,6 +37,7 @@ pub async fn spawn(state: &AppState, job: Job) -> Result<JobRun> {
         bus: state.bus.clone(),
         secrets: state.secrets.clone(),
         db_path: state.db_path.clone(),
+        registry_internal_token: state.registry_internal_token.clone(),
     });
     let run_id = run.id.clone();
     tokio::spawn(async move {
@@ -98,6 +100,7 @@ impl JobRunner {
             &self.db,
             &env_vars,
             &build_dir,
+            self.registry_internal_token.clone(),
         )
         .await?;
 

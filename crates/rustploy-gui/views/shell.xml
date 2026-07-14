@@ -160,7 +160,13 @@
             <StatCard label="STATUS" value="{services_label}" accent="1" />
             <StatCard label="UPTIME" value="{daemon_uptime}" />
           </row>
+          <button
+            class="btn_danger"
+            on_click="deployments_clear_finished"
+            text="Limpar parados/falhos"
+          />
         </row>
+        <text if="{deployments_msg}" not_equals="" class="muted">{deployments_msg}</text>
         <column class="panel_fill">
           <row class="thead">
             <text class="th col_svc">SERVIÇO</text>
@@ -169,7 +175,7 @@
             <text class="th col_dur">DURAÇÃO</text>
             <text class="th col_start">INÍCIO</text>
           </row>
-          
+
           <if cond="{data_loading}" equals="true">
             <LoadingRow />
           </if>
