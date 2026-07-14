@@ -666,7 +666,7 @@
                 <text class="muted col_dur">{r.created}</text>
                 <row class="col_act_2">
                   <button class="copy_btn" on_click="registry_open_repo:{r.name}" text="Ver tags" />
-                  <button class="dk_rm" on_click="registry_rm_repo:{r.name}" text="Remover" />
+                  <button class="env_del" on_click="registry_rm_repo:{r.name}" text="✕" />
                 </row>
               </row>
               <rule />
