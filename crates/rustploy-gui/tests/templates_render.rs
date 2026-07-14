@@ -300,11 +300,40 @@ fn sidebar_nav_label_hidden_below_900px() {
         }
     }
 
-    let ast = m.evaluated_templates.get("app").expect("app evaluated");
+    let ast = m.evaluated("app").expect("app evaluated");
     let mut found = Vec::new();
     find_texts(ast, &mut found);
     assert_eq!(found.len(), 2, "esperava achar os rótulos \"Deploy Engine\" e \"Projects (N)\"");
     for n in &found {
         assert_eq!(n.hidden, Some(true), "rótulo {:?} deveria estar hidden abaixo de 900px", n.kind);
     }
+}
+
+/// A avaliação do glacier é **escopada** (0.38+): só a tela ativa é construída,
+/// não todo template registrado. Isso importa aqui mais do que na média dos
+/// apps: `app.xml` importa a árvore inteira de views (login, shell, home,
+/// service, componentes), e avaliar um template inlina recursivamente tudo que
+/// ele usa — então a versão antiga reconstruía a UI completa uma vez **por
+/// template importado**, a cada tecla digitada e a cada linha de log que chega
+/// pelo SSE.
+///
+/// Este teste trava o ganho: registrar `app.xml` (que puxa a dúzia de views) e
+/// ativá-la deve deixar exatamente UMA árvore avaliada.
+#[test]
+fn so_a_tela_ativa_e_avaliada() {
+    let m = boot();
+
+    // As views importadas estão todas registradas...
+    for importado in ["Login", "Shell"] {
+        assert!(
+            m.is_registered(importado),
+            "{importado} deveria ter sido importado por app.xml"
+        );
+    }
+    // ...mas só a tela ativa está avaliada (as demais são inlinadas dentro dela).
+    assert!(m.render("app").is_ok(), "a tela ativa renderiza");
+    assert!(
+        matches!(m.render("Login"), Err(glacier_ui::GlacierError::NotEvaluated(_))),
+        "uma view importada não deve ficar avaliada como raiz por conta própria"
+    );
 }
