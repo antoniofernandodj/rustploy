@@ -3,14 +3,20 @@
 .content_center { width: fill; height: fill; align-x: center; align-y: center; }
 /* Botão "Remover" compacto por-linha nas sub-abas Docker. */
 .dk_rm    { color: var(--danger); padding: 5 12; border-radius: 6; }
-.col_act  { width: 120; align-x: end; }
+/* align-x só afeta como um container de linha/coluna posiciona seus FILHOS —
+   não alinha o texto de um elemento de texto dentro da própria caixa (isso é
+   text-align). Como a classe é reaproveitada tanto no texto do cabeçalho
+   quanto no container dos botões, sem text-align o rótulo "AÇÃO" ficava
+   colado à esquerda enquanto os botões (align-x: end) ficavam colados à
+   direita — desalinhados entre si mesmo depois de não sobreporem mais. */
+.col_act  { width: 120; align-x: end; text-align: end; }
 /* col_act largo o bastante pra dois botões lado a lado (linha de repo do
    Registry: "Ver tags" + "Remover"), sem sobrepor. */
-.col_act_2 { width: 190; align-x: end; spacing: 8; }
+.col_act_2 { width: 190; align-x: end; text-align: end; spacing: 8; }
 /* Linha de job em Schedules: 4 controles (Rodar agora/Ver logs/Pausar/✕) —
    col_start (width: fill, compartilhada com colunas de valor único tipo
    TX/TLS de outras tabelas) é estreita demais e sobrepõe os botões. */
-.col_act_4 { width: 360; align-x: end; spacing: 8; }
+.col_act_4 { width: 360; align-x: end; text-align: end; spacing: 8; }
 </style>
 
 <column class="content">
