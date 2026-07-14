@@ -1,6 +1,7 @@
 use anyhow::{Result, anyhow};
 use bollard::{
     Docker,
+    errors::Error as BollardError,
     container::{
         Config,
         CreateContainerOptions,
@@ -256,6 +257,16 @@ pub async fn start(
     Ok(())
 }
 
+/// Retorna `true` se o erro do bollard for um 404 (container inexistente).
+///
+/// Um `container_id`/nome desatualizado no DB (ex.: após uma promoção que
+/// removeu o container antigo mas não persistiu o novo id a tempo) não deve
+/// ser tratado como falha ao parar/remover — o estado desejado já é
+/// satisfeito.
+fn is_not_found(e: &BollardError) -> bool {
+    matches!(e, BollardError::DockerResponseServerError { status_code: 404, .. })
+}
+
 pub async fn stop_graceful(
     docker: &Docker,
     container_id: &str,
@@ -271,10 +282,19 @@ pub async fn stop_graceful(
     );
 
     let opts = StopContainerOptions { t: timeout };
-    docker.stop_container(
-        container_id,
-        Some(opts)
-    ).await?;
+    if let Err(e) = docker.stop_container(container_id, Some(opts)).await {
+        if is_not_found(&e) {
+            warn!(
+                container_id = %format!(
+                    "...{}",
+                    &container_id[..container_id.len().min(10)]
+                ),
+                "container já não existe, ignorando"
+            );
+            return Ok(());
+        }
+        return Err(e.into());
+    }
 
     info!(
         container_id = %format!(
@@ -332,7 +352,19 @@ pub async fn remove(
         v: true,
         ..Default::default()
     };
-    docker.remove_container(container_id, Some(opts)).await?;
+    if let Err(e) = docker.remove_container(container_id, Some(opts)).await {
+        if is_not_found(&e) {
+            warn!(
+                container_id = %format!(
+                    "...{}",
+                    &container_id[..container_id.len().min(10)]
+                ),
+                "container já não existe, ignorando"
+            );
+            return Ok(());
+        }
+        return Err(e.into());
+    }
     info!(
         container_id = %format!(
             "...{}",
