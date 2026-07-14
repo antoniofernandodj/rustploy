@@ -13,10 +13,12 @@
 /* col_act largo o bastante pra dois botões lado a lado (linha de repo do
    Registry: "Ver tags" + "Remover"), sem sobrepor. */
 .col_act_2 { width: 190; align-x: end; text-align: end; spacing: 8; }
-/* Linha de job em Schedules: 4 controles (Rodar agora/Ver logs/Pausar/✕) —
-   col_start (width: fill, compartilhada com colunas de valor único tipo
-   TX/TLS de outras tabelas) é estreita demais e sobrepõe os botões. */
-.col_act_4 { width: 360; align-x: end; text-align: end; spacing: 8; }
+/* Linha de job em Schedules: 4 controles (rodar/logs/pausar-ativar/remover).
+   Viraram ícone + tooltip (eram texto: "Rodar agora"/"Ver logs"/"Pausar") —
+   uma linha de 360px pensada pra rótulos por extenso empurrava o botão de
+   remover pra fora da largura visível da janela (sem scroll horizontal);
+   4 ícones cabem em bem menos espaço. */
+.col_act_4 { width: 170; align-x: end; text-align: end; spacing: 8; }
 </style>
 
 <column class="content">
@@ -1124,11 +1126,14 @@
                 <text class="muted col_dur">{j.recurrence}</text>
                 <text class="muted col_dur">{j.next_run_at}</text>
                 <row class="col_act_4">
-                  <button class="copy_btn" on_click="job_run_now:{j.id}" text="Rodar agora" />
+                  <button class="copy_btn" on_click="job_run_now:{j.id}" text="▶" tooltip="Rodar agora" />
                   <button class="copy_btn" if="{j.last_run_id}" not_equals=""
-                    on_click="open_job_logs_window:{j.last_run_id}" text="Ver logs" />
-                  <button class="copy_btn" on_click="job_toggle:{j.id}" text="{j.enabled_label}" />
-                  <button class="env_del" on_click="job_del:{j.id}" text="✕" />
+                    on_click="open_job_logs_window:{j.last_run_id}" text="≡" tooltip="Ver logs" />
+                  <button class="copy_btn" if="{j.enabled}" equals="true"
+                    on_click="job_toggle:{j.id}" text="‖" tooltip="Pausar" />
+                  <button class="copy_btn" if="{j.enabled}" not_equals="true"
+                    on_click="job_toggle:{j.id}" text="▶" tooltip="Ativar" />
+                  <button class="env_del" on_click="job_del:{j.id}" text="✕" tooltip="Remover" />
                 </row>
               </row>
               <rule />
