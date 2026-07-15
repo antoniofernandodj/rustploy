@@ -55,3 +55,15 @@ declare json: {
     encode: (v: any) -> string,
     array: <T>(t: { T }) -> { T },
 }
+
+-- Persistência local em JSON, análoga ao `localStorage` do browser: sobrevive a
+-- um restart do processo (ao contrário do `ctx`, que é só memória). `set` grava
+-- qualquer valor JSON-serializável (string, número, booleano, tabela); `get`
+-- devolve o valor guardado ou nil; `remove` apaga a chave. No rustploy grava em
+-- `~/.local/share/rustploy/.glacier-storage/app.json` (raiz definida no Rust via
+-- `GlacierDaemon::storage_dir`, glacier-ui 0.45+).
+declare storage: {
+    get: (key: string) -> any,
+    set: (key: string, value: any) -> (),
+    remove: (key: string) -> (),
+}

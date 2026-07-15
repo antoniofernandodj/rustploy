@@ -8,6 +8,24 @@ local Helpers = require("../helpers")
 local Api = require("../net/api")
 local Stream = require("stream")
 
+-- ── persistência do login lembrado (via o global `storage` do glacier) ──────
+-- Antes o Rust gravava isto (store::Prefs + hook on_message); agora a própria
+-- camada Luau é dona da escrita. `storage` grava num arquivo local que sobrevive
+-- a restart (fora do `ctx`, que é só memória), em
+-- `~/.local/share/rustploy/.glacier-storage/app.json` (raiz definida por
+-- `.storage_dir(...)` no Rust). Só guarda url/token quando o respectivo
+-- "lembrar" está ligado; senão os campos ficam de fora.
+local function persist_prefs(): ()
+    local remember_url = ctx.remember_url == "true"
+    local remember_token = ctx.remember_token == "true"
+    storage.set("prefs", {
+        remember_url = remember_url,
+        remember_token = remember_token,
+        url = remember_url and ctx.url or nil,
+        token = remember_token and ctx.token or nil,
+    })
+end
+
 -- ── init: semeia o contexto para a UI pintar antes de qualquer dado ─────────
 function init(): ()
     if not ctx.screen or ctx.screen == "" then
@@ -68,15 +86,32 @@ function init(): ()
             ctx[k] = "0"
         end
     end
-    ctx.remember_url = ctx.remember_url or "false"
-    ctx.remember_token = ctx.remember_token or "false"
+    -- Semeia o formulário de login com o que foi lembrado (persistido via
+    -- `storage`), para nascer preenchido. url/token só voltam quando o respectivo
+    -- "lembrar" estava ligado.
+    local prefs = storage.get("prefs")
+    if type(prefs) == "table" then
+        ctx.remember_url = prefs.remember_url and "true" or "false"
+        ctx.remember_token = prefs.remember_token and "true" or "false"
+        if prefs.remember_url and prefs.url then
+            ctx.url = prefs.url
+        end
+        if prefs.remember_token and prefs.token then
+            ctx.token = prefs.token
+        end
+    else
+        ctx.remember_url = ctx.remember_url or "false"
+        ctx.remember_token = ctx.remember_token or "false"
+    end
 end
 
 function toggle_remember_url(v: string): ()
     ctx.remember_url = v
+    persist_prefs()
 end
 function toggle_remember_token(v: string): ()
     ctx.remember_token = v
+    persist_prefs()
 end
 
 -- Configurações do daemon + provedores Git, buscados uma vez na conexão (não
@@ -106,13 +141,16 @@ end
 function connect(): ()
     local base = Helpers.normalize_url(ctx.url)
     if not base then
-        ctx.erro_url = "URL inválida (ex.: https://rustploy.chiquitos.tech)"
+        ctx.erro_url = "URL inválida (ex.: https://rustploy.domain.tech)"
         return
     end
     ctx.erro_url = ""
     local token = ctx.token or ""
     ctx.api_url = base
     ctx.api_token = token
+    -- Lembra url/token (conforme os flags) já na tentativa de conectar, para não
+    -- se perder mesmo se a conexão falhar — o antigo hook Rust persistia aqui.
+    persist_prefs()
     ctx.status_line = "conectando…"
     ctx.error = ""
 

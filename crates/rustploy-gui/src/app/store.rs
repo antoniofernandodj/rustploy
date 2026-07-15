@@ -1,46 +1,51 @@
-//! Local persistence, stored as JSON under the user data dir: connection
-//! preferences ([`Prefs`], remembered server URL/token for the login screen)
-//! and window geometry ([`WindowState`], remembered size/position).
+//! Local persistence, stored as JSON under the user data dir: window geometry
+//! ([`WindowState`], remembered size/position).
+//!
+//! As preferências de conexão (URL/token lembrados do login) **saíram daqui**:
+//! agora quem persiste é a camada Luau, via o global `storage` do glacier
+//! (`connection.luau`), gravando em `~/.local/share/rustploy/.glacier-storage/
+//! app.json`. O antigo `Prefs` (que gravava `rustploy-gui.json` deste lado) ficou
+//! redundante e está comentado abaixo por referência, não apagado.
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct Prefs {
-    #[serde(default)]
-    pub remember_url: bool,
-    #[serde(default)]
-    pub remember_token: bool,
-    #[serde(default)]
-    pub url: Option<String>,
-    #[serde(default)]
-    pub token: Option<String>,
-}
-
-fn prefs_path() -> PathBuf {
-    shared::fallback_data_dir().join("rustploy-gui.json")
-}
-
-impl Prefs {
-    /// Reads saved preferences, falling back to defaults when missing/unreadable.
-    pub fn load() -> Self {
-        std::fs::read_to_string(prefs_path())
-            .ok()
-            .and_then(|c| serde_json::from_str(&c).ok())
-            .unwrap_or_default()
-    }
-
-    /// Writes the preferences to disk (best-effort; errors ignored).
-    pub fn save(&self) {
-        let path = prefs_path();
-        if let Some(parent) = path.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        if let Ok(json) = serde_json::to_string_pretty(self) {
-            let _ = std::fs::write(&path, json);
-        }
-    }
-}
+// #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+// pub struct Prefs {
+//     #[serde(default)]
+//     pub remember_url: bool,
+//     #[serde(default)]
+//     pub remember_token: bool,
+//     #[serde(default)]
+//     pub url: Option<String>,
+//     #[serde(default)]
+//     pub token: Option<String>,
+// }
+//
+// fn prefs_path() -> PathBuf {
+//     shared::fallback_data_dir().join("rustploy-gui.json")
+// }
+//
+// impl Prefs {
+//     /// Reads saved preferences, falling back to defaults when missing/unreadable.
+//     pub fn load() -> Self {
+//         std::fs::read_to_string(prefs_path())
+//             .ok()
+//             .and_then(|c| serde_json::from_str(&c).ok())
+//             .unwrap_or_default()
+//     }
+//
+//     /// Writes the preferences to disk (best-effort; errors ignored).
+//     pub fn save(&self) {
+//         let path = prefs_path();
+//         if let Some(parent) = path.parent() {
+//             let _ = std::fs::create_dir_all(parent);
+//         }
+//         if let Ok(json) = serde_json::to_string_pretty(self) {
+//             let _ = std::fs::write(&path, json);
+//         }
+//     }
+// }
 
 /// Last known window geometry, remembered across launches so the app reopens
 /// at the same size and position instead of always resetting to the default

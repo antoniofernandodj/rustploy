@@ -157,7 +157,7 @@ mod tests {
     #[tokio::test]
     async fn env_vars_e_comentarios_persistem() {
         let db = mem_db().await;
-        let proj = create(&db, "chiquitos".into(), None).await.unwrap();
+        let proj = create(&db, "domain".into(), None).await.unwrap();
 
         let env_vars = vec![EnvVar {
             key: "JWT_SECRET".into(),

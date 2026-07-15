@@ -22,10 +22,10 @@ use std::time::Duration;
 
 use glacier_ui::{
     window,
-    EngineMessage,
+    // EngineMessage e GlacierUI eram usados só pela persistência do login movida
+    // para o Luau (funções comentadas abaixo); reintroduzir se ela voltar.
     Font,
     GlacierDaemon,
-    GlacierUI,
     Point,
     Size,
     WindowGeometry,
@@ -44,6 +44,12 @@ pub(crate) fn run() -> iced::Result {
         .font(FONT_REGULAR)
         .font(FONT_BOLD)
         .default_font(Font::with_name("JetBrains Mono"))
+        // Raiz gravável do global `storage` do Luau (persistência do login
+        // lembrado, ver `connection.luau`). Sem isto o `storage` gravaria
+        // relativo aos assets — read-only no pacote `.deb` (`/usr/share`). Aponta
+        // para o mesmo data dir do usuário que o resto da persistência local usa,
+        // então o arquivo cai em `~/.local/share/rustploy/.glacier-storage/`.
+        .storage_dir(shared::fallback_data_dir())
         .main_window(main_window_settings())
         // Janelas-filhas (ex.: "Novo projeto") também são borderless: o template
         // delas traz a própria titlebar, e sem isto o SO desenharia a nativa por
@@ -62,17 +68,9 @@ pub(crate) fn run() -> iced::Result {
                 // trecho e a dica — não vale reembrulhar.
                     eprintln!("{e}");
                 }
-            seed_prefs(motor);
             motor.set_initial_screen("app");
         })
-        // Persistência do login lembrado: o formulário vive na janela principal e
-        // a camada Luau não tem I/O de arquivo, então o script grava url/token no
-        // contexto e nós lemos o contexto e escrevemos no disco.
-        .on_message(|msg, motor| {
-            if should_persist(msg) {
-                persist_prefs(motor);
-            }
-        })
+
         .on_close(
             |_motor, geometry| save_geometry(geometry)
         )
@@ -80,59 +78,6 @@ pub(crate) fn run() -> iced::Result {
         .run()
 }
 
-/// Grava [`store::Prefs`] a partir do contexto: só guarda url/token quando o
-/// respectivo "lembrar" está ligado (senão limpa o campo).
-fn persist_prefs(motor: &GlacierUI) {
-    let g = |k: &str| motor
-        .get_data(k)
-        .cloned()
-        .unwrap_or_default();
-    let remember_url = g("remember_url") == "true";
-    let remember_token = g("remember_token") == "true";
-    store::Prefs {
-        remember_url,
-        remember_token,
-        url: if remember_url { Some(g("url")) } else { None },
-        token: if remember_token { Some(g("token")) } else { None },
-    }
-    .save();
-}
-
-/// Decide se a ação deve disparar a persistência das Prefs de login. O
-/// `login.gv` é IMPORTADO em `app.gv` (`<link rel=import as=Login>`), então as
-/// ações chegam com namespace do owner (`Login::connect`,
-/// `Login::toggle_remember_url`); comparamos só o sufixo (após `::`).
-fn should_persist(msg: &EngineMessage) -> bool {
-    let action = match msg {
-        EngineMessage::UiClick(a) => a.as_str(),
-        EngineMessage::UiSubmit { action, .. } => action.as_str(),
-        EngineMessage::UiInputChanged { action, .. } => action.as_str(),
-        _ => return false,
-    };
-    let bare = action.rsplit("::").next().unwrap_or(action);
-    bare == "connect" || bare.starts_with("toggle_remember")
-}
-
-/// Semeia o contexto do glacier com as Prefs de login salvas, para o formulário
-/// nascer preenchido. Os nomes de chave batem com os `formControl`/`checked` do
-/// `login.gv` (`url`/`token`/`remember_url`/`remember_token`).
-fn seed_prefs(motor: &mut GlacierUI) {
-    let prefs = store::Prefs::load();
-    motor.define_data(
-        "remember_url",
-        if prefs.remember_url { "true" } else { "false" }
-    );
-    motor.define_data(
-        "remember_token",
-        if prefs.remember_token { "true" } else { "false" }
-    );
-    if let Some(url) = prefs.url.filter(|_| prefs.remember_url) {
-        motor.define_data("url", &url);
-    }
-    if let Some(token) = prefs.token.filter(|_| prefs.remember_token) {
-        motor.define_data("token", &token);
-    }
-}
 
 /// Persiste a geometria da janela principal ao fechar, para o app reabrir onde
 /// parou. `position` é sempre `None` no Wayland (o protocolo não expõe a posição

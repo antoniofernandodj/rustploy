@@ -47,7 +47,7 @@
         </row>
 
         <input
-          placeholder="https://rustploy.chiquitos.tech"
+          placeholder="https://rustploy.domain.com"
           class="field_input"
           form_control="url"
         />

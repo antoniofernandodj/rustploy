@@ -12,7 +12,7 @@
 
   <assemblyIdentity
       type="win32"
-      name="tech.chiquitos.rustploy-gui"
+      name="tech.rustploy-gui"
       version="1.0.0.0"
       processorArchitecture="amd64"/>
 

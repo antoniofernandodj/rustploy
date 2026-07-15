@@ -85,7 +85,7 @@ impl ExternalPortsConfig {
 
 /// Configuration for the HTTP/JSON + SSE control API — o canal administrativo remoto.
 /// Binds to loopback by default and is meant to sit behind the ingress proxy,
-/// which terminates TLS for `rustploy.chiquitos.tech` and forwards to it.
+/// which terminates TLS for `rustploy.domain.com` and forwards to it.
 /// Binding to a non-loopback address requires a token.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiConfig {
