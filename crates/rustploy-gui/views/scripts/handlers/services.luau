@@ -38,7 +38,7 @@ end
 function M.fetch_service_detail(sid: string): ()
     local api = State.api
     if not api or sid == "" then return end
-    local ok, res = api:rpc({ ServiceGet = { id = sid } })
+    local ok, res = api:rpc{ ServiceGet = { id = sid } }
     if not ok or not res.Service then
         ctx.svc_loading = "false"
         ctx.svc_error = ok and "serviço não encontrado" or res
@@ -67,7 +67,7 @@ function M.fetch_service_detail(sid: string): ()
     -- (open_logs_window, que busca o próprio tail). A janela principal não os
     -- renderiza nem os transmite, para não pagar reavaliação por linha.
     local deployments = {}
-    local okd, resd = api:rpc({ DeployHistory = { service_id = sid, limit = 30 } })
+    local okd, resd = api:rpc{ DeployHistory = { service_id = sid, limit = 30 } }
     if okd and resd.Deployments then deployments = resd.Deployments end
 
     local status_label, status_color = fmt.status_label_color(svc.status)
@@ -197,7 +197,7 @@ function M.fetch_service_detail(sid: string): ()
     ctx.svc_webhook_url = ""
     ctx.svc_webhook_url_short = ""
     if not spec.source.Compose then
-        local okw, resw = api:rpc({ GetWebhookUrl = { service_id = sid } })
+        local okw, resw = api:rpc{ GetWebhookUrl = { service_id = sid } }
         if okw and type(resw) == "table" and resw.WebhookUrl then
             M.set_webhook_url(resw.WebhookUrl)
         end
@@ -237,7 +237,7 @@ function M.fetch_service_detail(sid: string): ()
         ctx.gitea_count = tostring(#resp.GitProviders)
         -- Serviço já ligado a um provedor: pré-carrega repos/branches.
         if gen_provider_id ~= "" then
-            local okr, resr = api:rpc({ GitRepoList = { provider_id = gen_provider_id } })
+            local okr, resr = api:rpc{ GitRepoList = { provider_id = gen_provider_id } }
             if okr and resr.GitRepos then
                 ctx.gitea_repos = fmt.git_repos(resr.GitRepos)
                 ctx.gitea_msg = tostring(#resr.GitRepos) .. " repositório(s)"
@@ -250,12 +250,12 @@ function M.fetch_service_detail(sid: string): ()
                 end
                 if full then
                     ctx.gitea_repo = full
-                    local okb, resb = api:rpc({
+                    local okb, resb = api:rpc{
                         GitBranchList = {
                             provider_id = gen_provider_id,
                             repo_full_name = full
                         }
-                    })
+                    }
                     if okb and resb.GitBranches then
                         ctx.gitea_branches = fmt.git_branches(resb.GitBranches)
                     end
@@ -276,28 +276,28 @@ local function with_spec(mutate: (spec: any) -> ()): ()
     if not api or sid == "" then
         return
     end
-    local ok, res = api:rpc({ ServiceGet = { id = sid } })
+    local ok, res = api:rpc{ ServiceGet = { id = sid } }
     if not ok or not res.Service then
         ctx.svc_action_msg = "erro ao carregar spec"
-        toast({ message = tostring("erro ao carregar o serviço"), kind = "error" })
+        toast{ message = tostring("erro ao carregar o serviço"), kind = "error" }
         return
     end
     local spec = res.Service.spec
     mutate(spec)
-    local ok2, res2 = api:rpc_checked({ ServiceUpdate = { id = sid, spec = spec } })
+    local ok2, res2 = api:rpc_checked{ ServiceUpdate = { id = sid, spec = spec } }
     if ok2 then
         ctx.svc_action_msg = "salvo"
         M.fetch_service_detail(sid)
     else
         ctx.svc_action_msg = "erro: " .. res2
-        toast({ message = tostring(res2), kind = "error" })
+        toast{ message = tostring(res2), kind = "error" }
     end
 end
 
 -- Move o domínio legado (domain/tls_enabled) para a lista `domains`.
 local function materialize_domains(spec: any): ()
     if not spec.domains or #spec.domains == 0 then
-        local routes = json.array({})
+        local routes = json.array{}
         if spec.domain and spec.domain ~= "" then
             table.insert(routes, { domain = spec.domain, tls = spec.tls_enabled == true })
         end
@@ -325,7 +325,7 @@ end
 function dom_del(domain: string): ()
     with_spec(function(spec: any): ()
         materialize_domains(spec)
-        local kept = json.array({})
+        local kept = json.array{}
         for _, r in ipairs(spec.domains) do
             if r.domain ~= domain then table.insert(kept, r) end
         end
@@ -413,7 +413,7 @@ function gen_save(): ()
             if t == "" then return nil else return t end
         end
         local repo = Helpers.trim(ctx.f_repo_url)
-        local watch = json.array({})
+        local watch = json.array{}
         for part in string.gmatch(ctx.f_watch_paths or "", "[^,]+") do
             local t = Helpers.trim(part); if t ~= "" then table.insert(watch, t) end
         end
@@ -440,8 +440,8 @@ end
 -- seguinte (before_key), ou nil no fim. `<secret:NAME>` volta a ser referência
 -- de secret.
 local function parse_dotenv(text: string?): ({any}, {any})
-    local vars = json.array({})
-    local comments = json.array({})
+    local vars = json.array{}
+    local comments = json.array{}
     local pending = {}
     for line in string.gmatch((text or "") .. "\n", "([^\n]*)\n") do
         local l = Helpers.trim(line)
@@ -479,8 +479,8 @@ local function reorder_env(vars: {any}, comments: {any}, keys: {any}): ({any}, {
     local by_key = {}
     for _, v in ipairs(vars) do var_keys[v.key] = true; by_key[v.key] = v end
     local seen = {}
-    local new_vars = json.array({})
-    local new_comments = json.array({})
+    local new_vars = json.array{}
+    local new_comments = json.array{}
     for pos, k in ipairs(keys) do
         local ci = k:match("^__c(%d+)$")
         if ci then
@@ -518,7 +518,7 @@ function env_add(): ()
     ctx.erro_env_new_key = ""
     local val = ctx.env_new_val or ""
     with_spec(function(spec: any): ()
-        local kept = json.array({})
+        local kept = json.array{}
         for _, v in ipairs(spec.env_vars or {}) do
             if v.key ~= key then table.insert(kept, v) end
         end
@@ -531,14 +531,14 @@ end
 
 function env_del(key: string): ()
     with_spec(function(spec: any): ()
-        local kept = json.array({})
+        local kept = json.array{}
         for _, v in ipairs(spec.env_vars or {}) do
             if v.key ~= key then
                 table.insert(kept, v)
             end
         end
         spec.env_vars = kept
-        local kc = json.array({})
+        local kc = json.array{}
         for _, c in ipairs(spec.env_comments or {}) do
             if c.before_key ~= key then
                 table.insert(kc, c)
@@ -600,12 +600,12 @@ function dep_logs(id: string): ()
     local seed = "[]"
     local api = State.api
     if api then
-        local ok, res = api:rpc({ GetBuildLogs = { deployment_id = id } })
+        local ok, res = api:rpc{ GetBuildLogs = { deployment_id = id } }
         if ok and res.BuildLogs then
             seed = json.encode(res.BuildLogs)
         end
     end
-    open_window({
+    open_window{
         file = "crates/rustploy-gui/views/log_window.gv",
         title = "Build — " .. string.sub(id, 1, 12),
         width = 900,
@@ -618,7 +618,7 @@ function dep_logs(id: string): ()
             lw_stream_url = "/api/deployments/" .. id .. "/build-logs",
             lw_seed = seed,
         },
-    })
+    }
 end
 
 function delete_deployment(id: string): ()
@@ -637,10 +637,10 @@ function delete_deployment(id: string): ()
     if not api then
         return
     end
-    local ok, res = api:rpc_checked({ DeployDelete = { deployment_id = id } })
+    local ok, res = api:rpc_checked{ DeployDelete = { deployment_id = id } }
     ctx.svc_action_msg = ok and "deployment removido" or ("erro: " .. res)
     if not ok then
-        toast({ message = tostring(res), kind = "error" })
+        toast{ message = tostring(res), kind = "error" }
     end
     M.fetch_service_detail(ctx.selected_service)
 end
@@ -677,15 +677,15 @@ function regen_webhook(): ()
     if not api or sid == "" then
         return
     end
-    local ok, res = api:rpc_checked({ RegenerateWebhookToken = { service_id = sid } })
+    local ok, res = api:rpc_checked{ RegenerateWebhookToken = { service_id = sid } }
     if ok and type(res) == "table" and res.WebhookUrl then
         M.set_webhook_url(res.WebhookUrl)
         ctx.svc_action_msg = "token do webhook regenerado"
-        toast({ message = tostring("Token do webhook regenerado"), kind = "success" })
+        toast{ message = tostring("Token do webhook regenerado"), kind = "success" }
     else
         local msg = type(res) == "string" and res or "falha ao regenerar o token"
         ctx.svc_action_msg = "erro: " .. msg
-        toast({ message = tostring(msg), kind = "error" })
+        toast{ message = tostring(msg), kind = "error" }
     end
 end
 
@@ -726,17 +726,17 @@ local function start_deploy(id: string?): ()
             break
         end
     end
-    local ok, res = api:rpc_checked({ DeployStart = { service_id = sid } })
+    local ok, res = api:rpc_checked{ DeployStart = { service_id = sid } }
     if ok and res.Deployment then
         State.deploy_track = { service_id = sid, deployment_id = res.Deployment.id, running = true, name = sname }
         ctx.svc_deploy_running = "true"
         ctx.svc_deploy_elapsed = "0s"
         ctx.svc_action_msg = "deploy iniciado · " .. tostring(res.Deployment.state)
-        toast({ message = tostring("Deploy iniciado"), kind = "success" })
+        toast{ message = tostring("Deploy iniciado"), kind = "success" }
     else
         ctx.svc_action_msg = ok and "resposta inesperada" or ("erro: " .. res)
         ctx.svc_action_color = "#F85149"
-        toast({ message = tostring(ok and "resposta inesperada do daemon" or res), kind = "error" })
+        toast{ message = tostring(ok and "resposta inesperada do daemon" or res), kind = "error" }
     end
     if ctx.selected_service == sid then
         M.fetch_service_detail(sid)
@@ -792,7 +792,7 @@ function gitea_provider_pick(id: string): ()
         return
     end
     ctx.gitea_msg = "carregando repositórios…"
-    local ok, res = api:rpc({ GitRepoList = { provider_id = id } })
+    local ok, res = api:rpc{ GitRepoList = { provider_id = id } }
     if ok and res.GitRepos then
         ctx.gitea_repos = fmt.git_repos(res.GitRepos)
         ctx.gitea_msg = tostring(#res.GitRepos) .. " repositório(s)"
@@ -828,7 +828,7 @@ function gitea_repo_pick(full_name: string): ()
         return
     end
     ctx.gitea_msg = "carregando branches…"
-    local okb, resb = api:rpc({ GitBranchList = { provider_id = pid, repo_full_name = full_name } })
+    local okb, resb = api:rpc{ GitBranchList = { provider_id = pid, repo_full_name = full_name } }
     if okb and resb.GitBranches then
         ctx.gitea_branches = fmt.git_branches(resb.GitBranches)
     end
@@ -849,12 +849,12 @@ function open_logs_window(): ()
     local seed = "[]"
     local api = State.api
     if api then
-        local ok, res = api:rpc({ LogsGet = { service_id = sid, tail = 500 } })
+        local ok, res = api:rpc{ LogsGet = { service_id = sid, tail = 500 } }
         if ok and res.Logs then
             seed = json.encode(res.Logs)
         end
     end
-    open_window({
+    open_window{
         file = "crates/rustploy-gui/views/log_window.gv",
         title = "Logs — " .. (ctx.svc_name or sid),
         width = 900,
@@ -867,7 +867,7 @@ function open_logs_window(): ()
             lw_stream_url = "/api/services/" .. sid .. "/logs",
             lw_seed = seed,
         },
-    })
+    }
 end
 
 return M

@@ -39,13 +39,13 @@ function open_new_service_window(): ()
         return
     end
     local dbs, brokers, templates = "[]", "[]", "[]"
-    local ok, res = api:rpc({ WizardCatalog = { search = "" } })
+    local ok, res = api:rpc{ WizardCatalog = { search = "" } }
     if ok and res.WizardCatalog then
         dbs = res.WizardCatalog.dbs or "[]"
         brokers = res.WizardCatalog.brokers or "[]"
         templates = res.WizardCatalog.templates or "[]"
     end
-    open_window({
+    open_window{
         file = "crates/rustploy-gui/views/new_service_window.gv",
         title = "Novo serviço — Rustploy",
         width = 560,
@@ -60,7 +60,7 @@ function open_new_service_window(): ()
             ns_brokers = brokers,
             ns_templates = templates,
         },
-    })
+    }
 end
 
 -- "Cancelar": fecha a janela do wizard.
@@ -223,7 +223,7 @@ function ns_create(): ()
     ctx.erro_ns_name = ""
 
     -- Valores das variáveis do template, na ordem declarada.
-    local tvals = json.array({})
+    local tvals = json.array{}
     if step == "template_form" then
         local okv, vars = pcall(json.decode, ctx.ns_template_vars or "[]")
         if okv and type(vars) == "table" then
@@ -251,7 +251,7 @@ function ns_create(): ()
         expose_external = (ctx.ns_expose_external == "true"),
     }
     ctx.ns_msg = "criando…"
-    local ok, res = api:rpc_checked({ WizardCreate = req })
+    local ok, res = api:rpc_checked{ WizardCreate = req }
     if ok and res.Service then
         -- Sucesso: avisa a janela principal (que atualiza a grade de serviços do
         -- projeto aberto) e fecha esta janela do wizard.
@@ -263,6 +263,6 @@ function ns_create(): ()
         close_window()
     else
         ctx.ns_msg = ok and "resposta inesperada" or ("erro: " .. res)
-        toast({ message = tostring(ok and "resposta inesperada do daemon" or res), kind = "error" })
+        toast{ message = tostring(ok and "resposta inesperada do daemon" or res), kind = "error" }
     end
 end

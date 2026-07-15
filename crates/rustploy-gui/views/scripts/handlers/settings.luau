@@ -22,15 +22,15 @@ function settings_save(): ()
     local email = Helpers.trim(ctx.ss_email)
     local registry_domain = Helpers.trim(ctx.ss_registry_domain)
     ctx.settings_msg = "salvando…"
-    local ok, res = api:rpc_checked({ SetDaemonSettings = {
+    local ok, res = api:rpc_checked{ SetDaemonSettings = {
         acme_email = (email ~= "" and email or nil),
         registry_domain = (registry_domain ~= "" and registry_domain or nil),
-    } })
+    } }
     ctx.settings_msg = ok and "configurações salvas" or ("erro: " .. res)
     if ok then
-        toast({ message = tostring("Configurações salvas"), kind = "success" })
+        toast{ message = tostring("Configurações salvas"), kind = "success" }
     else
-        toast({ message = tostring(res), kind = "error" })
+        toast{ message = tostring(res), kind = "error" }
     end
 end
 
@@ -113,7 +113,7 @@ function gp_connect(): ()
         -- OAuth precisa de round-trip no navegador. O Luau não abre o browser;
         -- surface a URL para o usuário abrir (built-in open:<chave> no template)
         -- e depois clicar em "Atualizar lista".
-        local oko, reso = api:rpc({ GitOAuthStart = { provider_id = pid } })
+        local oko, reso = api:rpc{ GitOAuthStart = { provider_id = pid } }
         if oko and reso.OAuthUrl then
             ctx.gp_oauth_url = reso.OAuthUrl
             ctx.gp_msg = "abra para autorizar: " .. reso.OAuthUrl
@@ -136,10 +136,10 @@ function gp_delete(id: string): ()
     if not api then
         return
     end
-    local ok, res = api:rpc_checked({ GitProviderDelete = { id = id } })
+    local ok, res = api:rpc_checked{ GitProviderDelete = { id = id } }
     ctx.gp_msg = ok and "provider removido" or ("erro: " .. res)
     if not ok then
-        toast({ message = tostring(res), kind = "error" })
+        toast{ message = tostring(res), kind = "error" }
     end
     gp_refresh_list()
 end
@@ -155,7 +155,7 @@ function iac_export(): ()
     local ok, res = api:rpc_checked("ManifestExportAll")
     if not ok or type(res) ~= "table" or not res.ManifestBundle then
         ctx.iac_export_msg = "erro: " .. tostring(res)
-        toast({ message = tostring(tostring(res)), kind = "error" })
+        toast{ message = tostring(tostring(res)), kind = "error" }
         return
     end
     ctx.iac_yaml = res.ManifestBundle.yaml
@@ -181,17 +181,17 @@ function iac_import(): ()
     end
 
     ctx.iac_import_msg = "importando…"
-    local ok, res = api:rpc({
+    local ok, res = api:rpc{
         ManifestImport = {
             yaml = yaml,
             dotenv = ctx.iac_import_dotenv or "",
             prune = ctx.iac_prune == "true",
             deploy = ctx.iac_deploy == "true",
         },
-    })
+    }
     if not ok then
         ctx.iac_import_msg = "erro: " .. tostring(res)
-        toast({ message = tostring(tostring(res)), kind = "error" })
+        toast{ message = tostring(tostring(res)), kind = "error" }
         return
     end
 
@@ -199,13 +199,13 @@ function iac_import(): ()
         ctx.iac_has_missing = "true"
         ctx.iac_missing_vars = table.concat(res.MissingEnvVars, ", ")
         ctx.iac_import_msg = "faltam variáveis — nada foi aplicado"
-        toast({ message = tostring("Faltam variáveis no .env: " .. ctx.iac_missing_vars), kind = "error" })
+        toast{ message = tostring("Faltam variáveis no .env: " .. ctx.iac_missing_vars), kind = "error" }
         return
     end
 
     if type(res) == "table" and res.Err ~= nil then
         ctx.iac_import_msg = "erro: " .. tostring(res.Err.code) .. ": " .. tostring(res.Err.message)
-        toast({ message = tostring(tostring(res.Err.message)), kind = "error" })
+        toast{ message = tostring(tostring(res.Err.message)), kind = "error" }
         return
     end
 
@@ -224,6 +224,6 @@ function iac_import(): ()
     ctx.iac_report_lines = lines
     ctx.iac_has_report = "true"
     ctx.iac_import_msg = "import concluído ✓"
-    toast({ message = tostring("Infra as Code importado"), kind = "success" })
+    toast{ message = tostring("Infra as Code importado"), kind = "success" }
     Stream.refresh_now()
 end

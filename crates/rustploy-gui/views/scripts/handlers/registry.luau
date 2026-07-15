@@ -20,7 +20,7 @@ function registry_open_repo(name: string): ()
     end
     ctx.registry_selected_repo = name
     ctx.registry_tags_loading = "true"
-    local ok, res = api:rpc_checked({ RegistryTagList = { repo = name } })
+    local ok, res = api:rpc_checked{ RegistryTagList = { repo = name } }
     if ok and res.RegistryTags then
         ctx.registry_tags = fmt.registry_tags(res.RegistryTags)
         ctx.registry_tags_count = tostring(#res.RegistryTags)
@@ -63,9 +63,9 @@ function registry_rm_tag(tag: string): ()
         return
     end
     ctx.registry_msg = "removendo tag…"
-    local ok, res = api:rpc_checked({
+    local ok, res = api:rpc_checked{
         RegistryTagDelete = { repo = repo, tag = tag }
-    })
+    }
     if ok then
         ctx.registry_msg = "removida"
         registry_open_repo(repo)
@@ -94,7 +94,7 @@ function registry_rm_repo(name: string): ()
         return
     end
     ctx.registry_msg = "removendo repositório…"
-    local ok, res = api:rpc_checked({ RegistryRepoDelete = { repo = name } })
+    local ok, res = api:rpc_checked{ RegistryRepoDelete = { repo = name } }
     if ok then
         ctx.registry_msg = "removido"
         if ctx.registry_selected_repo == name then
@@ -160,7 +160,7 @@ M.refresh_tokens = registry_refresh_tokens
 -- Abre a janela separada de criação (segredo só aparece lá, uma vez — ver
 -- new_registry_token_window.gv/.luau).
 function registry_open_token_window(): ()
-    open_window({
+    open_window{
         file = "crates/rustploy-gui/views/new_registry_token_window.gv",
         title = "Novo token — Rustploy",
         width = 480,
@@ -171,7 +171,7 @@ function registry_open_token_window(): ()
             api_token = ctx.api_token or "",
             registry_host = ctx.registry_host or "127.0.0.1:5100",
         },
-    })
+    }
 end
 
 function registry_rm_token(name: string): ()
@@ -191,7 +191,7 @@ function registry_rm_token(name: string): ()
         return
     end
     ctx.registry_msg = "revogando token…"
-    local ok, res = api:rpc_checked({ RegistryTokenRevoke = { name = name } })
+    local ok, res = api:rpc_checked{ RegistryTokenRevoke = { name = name } }
     if ok then
         ctx.registry_msg = "token revogado"
         registry_refresh_tokens()

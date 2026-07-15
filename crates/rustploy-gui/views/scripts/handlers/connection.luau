@@ -40,7 +40,7 @@ function init(): ()
     ctx.search = ctx.search or ""
     ctx.data_loading = "true"
     -- Listas vazias como "[]" (não nil) para os ForEach não verem literal.
-    for _, k in ipairs({
+    for _, k in ipairs{
         "deployments",
         "projects",
         "project_rows",
@@ -58,12 +58,12 @@ function init(): ()
         "eng_active",
         "eng_recent",
         "project_services",
-    }) do
+    } do
         if not ctx[k] or ctx[k] == "" then
             ctx[k] = "[]"
         end
     end
-    for _, k in ipairs({
+    for _, k in ipairs{
         "deployments_count",
         "projects_count",
         "services_count",
@@ -81,7 +81,7 @@ function init(): ()
         "eng_total_24h",
         "services_running",
         "services_total",
-    }) do
+    } do
         if not ctx[k] or ctx[k] == "" then
             ctx[k] = "0"
         end

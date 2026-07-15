@@ -49,12 +49,12 @@ function submit_project(): ()
     local desc = Helpers.trim(ctx.np_desc)
     ctx.np_msg = "criando…"
 
-    local ok, res = api:rpc_checked({
+    local ok, res = api:rpc_checked{
         ProjectCreate = {
             name = name,
             description = (desc ~= "" and desc or nil),
         },
-    })
+    }
     if not ok then
         ctx.np_msg = ""
         ctx.np_err = "erro: " .. tostring(res)

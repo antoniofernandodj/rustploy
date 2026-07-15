@@ -82,7 +82,7 @@ function lw_on_state(data: string): ()
     if msg.kind == "bus" then
         local row = to_row(msg.event)
         if row then
-            push_batch({ row })
+            push_batch{ row }
         end
     elseif msg.kind == "bus_batch" then
         local rows = {}

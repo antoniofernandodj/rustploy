@@ -56,9 +56,9 @@ function ntok_create(): ()
     ctx.ntok_err = ""
     ctx.ntok_msg = "criando…"
 
-    local ok, res = api:rpc_checked({
+    local ok, res = api:rpc_checked{
         RegistryTokenCreate = { name = name, scope = ctx.ntok_scope },
-    })
+    }
     if not ok then
         ctx.ntok_msg = ""
         ctx.ntok_err = "erro: " .. tostring(res)

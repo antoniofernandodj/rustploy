@@ -248,7 +248,7 @@ function deployments_clear_finished(): ()
     local removed = 0
     local failed = 0
     for _, id in ipairs(ids) do
-        local ok = api:rpc_checked({ DeployDelete = { deployment_id = id } })
+        local ok = api:rpc_checked{ DeployDelete = { deployment_id = id } }
         if ok then
             removed = removed + 1
         else
@@ -259,7 +259,7 @@ function deployments_clear_finished(): ()
         ctx.deployments_msg = string.format("%d removido(s)", removed)
     else
         ctx.deployments_msg = string.format("%d removido(s), %d falharam", removed, failed)
-        toast({ message = tostring(string.format("%d deployment(s) não puderam ser removidos", failed)), kind = "error" })
+        toast{ message = tostring(string.format("%d deployment(s) não puderam ser removidos", failed)), kind = "error" }
     end
     refresh_now()
 end
@@ -314,19 +314,19 @@ local function apply_bus(ev: any): ()
                     svc_name = "serviço"
                 end
                 if live then
-                    notify({
+                    notify{
                         title = "Deploy concluído",
                         body = svc_name .. " está no ar e recebendo tráfego.",
                         app_name = "Rustploy",
                         icon = "rustploy-gui",
-                    })
+                    }
                 else
-                    notify({
+                    notify{
                         title = "Deploy falhou",
                         body = svc_name .. ": " .. tostring(d.state) .. ".",
                         app_name = "Rustploy",
                         icon = "rustploy-gui",
-                    })
+                    }
                 end
                 if d.service_id == ctx.selected_service then
                     ctx.svc_deploy_running = "false"

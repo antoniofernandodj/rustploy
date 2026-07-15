@@ -158,7 +158,7 @@ function njob_create(): ()
     end
 
     ctx.njob_msg = "criando…"
-    local ok, res = api:rpc_checked({
+    local ok, res = api:rpc_checked{
         JobCreate = {
             project_id = ctx.njob_project_id,
             trigger_service_id = ctx.njob_service_id,
@@ -167,7 +167,7 @@ function njob_create(): ()
             main_service = main_service,
             recurrence = recurrence,
         },
-    })
+    }
     if not ok then
         ctx.njob_msg = ""
         ctx.njob_err = "erro: " .. tostring(res)

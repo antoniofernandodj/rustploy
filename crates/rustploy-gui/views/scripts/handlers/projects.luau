@@ -30,7 +30,7 @@ end
 -- "project_created"), recebido por `on_broadcast` abaixo. Ver
 -- views/new_project_form.gv + scripts/new_project_window.luau.
 function open_new_project_window(): ()
-    open_window({
+    open_window{
         file = "crates/rustploy-gui/views/new_project_form.gv",
         title = "Novo projeto — Rustploy",
         width = 460,
@@ -40,7 +40,7 @@ function open_new_project_window(): ()
             api_url = ctx.api_url or "",
             api_token = ctx.api_token or "",
         },
-    })
+    }
 end
 
 -- Recebe mensagens de OUTRAS janelas (glacier broadcast). Em ambos os casos
@@ -52,16 +52,16 @@ end
 function on_broadcast(event: string, payload: any): ()
     local name = (type(payload) == "table" and payload.name) or ""
     if event == "project_created" then
-        toast({ message = tostring("Projeto \"" .. (name ~= "" and name or "projeto") .. "\" criado"), kind = "success" })
+        toast{ message = tostring("Projeto \"" .. (name ~= "" and name or "projeto") .. "\" criado"), kind = "success" }
         Stream.refresh_now()
     elseif event == "service_created" then
-        toast({ message = tostring("Serviço \"" .. (name ~= "" and name or "serviço") .. "\" criado"), kind = "success" })
+        toast{ message = tostring("Serviço \"" .. (name ~= "" and name or "serviço") .. "\" criado"), kind = "success" }
         Stream.refresh_now()
     elseif event == "job_created" then
-        toast({ message = tostring("Job \"" .. (name ~= "" and name or "job") .. "\" criado"), kind = "success" })
+        toast{ message = tostring("Job \"" .. (name ~= "" and name or "job") .. "\" criado"), kind = "success" }
         Stream.refresh_now()
     elseif event == "registry_token_created" then
-        toast({ message = tostring("Token \"" .. (name ~= "" and name or "token") .. "\" criado"), kind = "success" })
+        toast{ message = tostring("Token \"" .. (name ~= "" and name or "token") .. "\" criado"), kind = "success" }
         Registry.refresh_tokens()
     end
 end
@@ -95,11 +95,11 @@ function create_project(): ()
         ctx.new_proj_name = ""
         ctx.new_proj_desc = ""
         ctx.new_proj_msg = "projeto criado"
-        toast({ message = tostring("Projeto \"" .. name .. "\" criado"), kind = "success" })
+        toast{ message = tostring("Projeto \"" .. name .. "\" criado"), kind = "success" }
         Stream.refresh_now()
     else
         ctx.new_proj_msg = "erro: " .. res
-        toast({ message = tostring(res), kind = "error" })
+        toast{ message = tostring(res), kind = "error" }
     end
 end
 
@@ -123,15 +123,15 @@ function delete_project(id: string): ()
         return
     end
     ctx.proj_action_msg = "removendo…"
-    local ok, res = api:rpc_checked({ ProjectDelete = { id = id } })
+    local ok, res = api:rpc_checked{ ProjectDelete = { id = id } }
     if ok then
         ctx.selected_project_id = ""
         ctx.view = "projects"
-        toast({ message = tostring("Projeto removido"), kind = "success" })
+        toast{ message = tostring("Projeto removido"), kind = "success" }
         Stream.refresh_now()
     else
         ctx.proj_action_msg = "erro: " .. res
-        toast({ message = tostring(res), kind = "error" })
+        toast{ message = tostring(res), kind = "error" }
     end
 end
 
@@ -163,13 +163,13 @@ function save_project_edit(): ()
     end
     ctx.erro_edit_proj_name = ""
     local desc = Helpers.trim(ctx.edit_proj_desc)
-    local ok, res = api:rpc_checked({
+    local ok, res = api:rpc_checked{
         ProjectUpdate = {
             id = pid,
             name = name,
             description = (desc ~= "" and desc or nil)
         }
-    })
+    }
     if ok then
         ctx.editing_project = "false"
         ctx.proj_action_msg = "projeto atualizado"
@@ -206,17 +206,17 @@ local function with_project_env(mutate: (pe: any) -> ()): ()
         return
     end
     local pe = {
-        env_vars = proj.env_vars or json.array({}),
-        env_comments = proj.env_comments or json.array({}),
+        env_vars = proj.env_vars or json.array{},
+        env_comments = proj.env_comments or json.array{},
     }
     mutate(pe)
-    local ok2, res2 = api:rpc_checked({
+    local ok2, res2 = api:rpc_checked{
         ProjectEnvSet = {
             project_id = pid,
             env_vars = pe.env_vars,
             env_comments = pe.env_comments,
         }
-    })
+    }
     if ok2 then
         ctx.proj_env = fmt.env_json_with_comments(pe.env_vars, pe.env_comments)
         ctx.proj_env_count = tostring(#pe.env_vars)
@@ -227,7 +227,7 @@ local function with_project_env(mutate: (pe: any) -> ()): ()
             ctx.proj_env_text_orig = dotenv
         end
     else
-        toast({ message = tostring(res2), kind = "error" })
+        toast{ message = tostring(res2), kind = "error" }
     end
 end
 
@@ -235,8 +235,8 @@ end
 -- Comentários pendentes ancoram na próxima var real (before_key); os do fim
 -- ficam sem âncora (before_key = nil).
 local function parse_project_dotenv(text: string?): ({any}, {any})
-    local vars = json.array({})
-    local comments = json.array({})
+    local vars = json.array{}
+    local comments = json.array{}
     local pending = {}
     for line in string.gmatch((text or "") .. "\n", "([^\n]*)\n") do
         local l = Helpers.trim(line)
@@ -274,8 +274,8 @@ local function reorder_project_env(vars: {any}, comments: {any}, keys: {any}): (
     local by_key = {}
     for _, v in ipairs(vars) do var_keys[v.key] = true; by_key[v.key] = v end
     local seen = {}
-    local new_vars = json.array({})
-    local new_comments = json.array({})
+    local new_vars = json.array{}
+    local new_comments = json.array{}
     for pos, k in ipairs(keys) do
         local ci = k:match("^__c(%d+)$")
         if ci then
@@ -316,7 +316,7 @@ function penv_add(): ()
     ctx.erro_penv_new_key = ""
     local val = ctx.penv_new_val or ""
     with_project_env(function(pe: any): ()
-        local kept = json.array({})
+        local kept = json.array{}
         for _, v in ipairs(pe.env_vars) do
             if v.key ~= key then
                 table.insert(kept, v)
@@ -331,14 +331,14 @@ end
 
 function penv_del(key: string): ()
     with_project_env(function(pe: any): ()
-        local kept = json.array({})
+        local kept = json.array{}
         for _, v in ipairs(pe.env_vars) do
             if v.key ~= key then
                 table.insert(kept, v)
             end
         end
         pe.env_vars = kept
-        local kc = json.array({})
+        local kc = json.array{}
         for _, c in ipairs(pe.env_comments) do
             if c.before_key ~= key then
                 table.insert(kc, c)
@@ -408,10 +408,10 @@ function svc_stop_id(id: string): ()
         return
     end
     ctx.proj_action_msg = "enviando…"
-    local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
+    local ok, res = api:rpc_checked{ ServiceStop = { service_id = id } }
     ctx.proj_action_msg = ok and "serviço parado" or ("erro: " .. res)
     if not ok then
-        toast({ message = tostring(res), kind = "error" })
+        toast{ message = tostring(res), kind = "error" }
     end
     Stream.refresh_now()
 end
@@ -452,17 +452,17 @@ function stop_delete_service(id: string): ()
         return
     end
     ctx.proj_action_msg = "removendo…"
-    local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
+    local ok, res = api:rpc_checked{ ServiceStop = { service_id = id } }
     if not ok then
         ctx.proj_action_msg = "erro ao parar: " .. res;
-        toast({ message = tostring(res), kind = "error" }); return
+        toast{ message = tostring(res), kind = "error" }; return
     end
-    local ok2, res2 = api:rpc_checked({ ServiceDelete = { id = id } })
+    local ok2, res2 = api:rpc_checked{ ServiceDelete = { id = id } }
     ctx.proj_action_msg = ok2 and "serviço parado e removido" or ("erro ao remover: " .. res2)
     if ok2 then
-        toast({ message = tostring("Serviço removido"), kind = "success" })
+        toast{ message = tostring("Serviço removido"), kind = "success" }
     else
-        toast({ message = tostring(res2), kind = "error" })
+        toast{ message = tostring(res2), kind = "error" }
     end
     Stream.refresh_now()
 end

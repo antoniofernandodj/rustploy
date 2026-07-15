@@ -12,11 +12,11 @@ function job_run_now(id: string): ()
     if not api then
         return
     end
-    local ok, res = api:rpc_checked({ JobRunNow = { id = id } })
+    local ok, res = api:rpc_checked{ JobRunNow = { id = id } }
     if ok then
-        toast({ message = tostring("Job disparado"), kind = "success" })
+        toast{ message = tostring("Job disparado"), kind = "success" }
     else
-        toast({ message = tostring(res), kind = "error" })
+        toast{ message = tostring(res), kind = "error" }
     end
     Stream.refresh_now()
 end
@@ -31,10 +31,10 @@ function job_toggle(id: string): ()
     end
     local job = State.jobs_by_id[id]
     if not job then
-        toast({ message = tostring("job não encontrado (tela desatualizada — tenta de novo)"), kind = "error" })
+        toast{ message = tostring("job não encontrado (tela desatualizada — tenta de novo)"), kind = "error" }
         return
     end
-    local ok, res = api:rpc_checked({
+    local ok, res = api:rpc_checked{
         JobUpdate = {
             id = id,
             name = job.name,
@@ -43,11 +43,11 @@ function job_toggle(id: string): ()
             enabled = not job.enabled,
             recurrence = job.recurrence,
         },
-    })
+    }
     if ok then
-        toast({ message = tostring(job.enabled and "Job pausado" or "Job ativado"), kind = "success" })
+        toast{ message = tostring(job.enabled and "Job pausado" or "Job ativado"), kind = "success" }
     else
-        toast({ message = tostring(res), kind = "error" })
+        toast{ message = tostring(res), kind = "error" }
     end
     Stream.refresh_now()
 end
@@ -70,7 +70,7 @@ function open_new_job_window(): ()
             table.insert(services, { id = svc.id, name = svc.spec.name, project_id = svc.spec.project_id })
         end
     end
-    open_window({
+    open_window{
         file = "crates/rustploy-gui/views/new_job_window.gv",
         title = "Novo job — Rustploy",
         width = 560,
@@ -82,7 +82,7 @@ function open_new_job_window(): ()
             njob_projects = json.encode(projects),
             njob_services = json.encode(services),
         },
-    })
+    }
 end
 
 -- Logs da última execução de um job — mesma janela genérica de logs
@@ -95,12 +95,12 @@ function open_job_logs_window(job_run_id: string): ()
     local seed = "[]"
     local api = State.api
     if api then
-        local ok, res = api:rpc({ GetJobLogs = { job_run_id = job_run_id } })
+        local ok, res = api:rpc{ GetJobLogs = { job_run_id = job_run_id } }
         if ok and res.JobLogs then
             seed = json.encode(res.JobLogs)
         end
     end
-    open_window({
+    open_window{
         file = "crates/rustploy-gui/views/log_window.gv",
         title = "Job — " .. string.sub(job_run_id, 1, 12),
         width = 900,
@@ -113,7 +113,7 @@ function open_job_logs_window(job_run_id: string): ()
             lw_stream_url = "/api/jobs/runs/" .. job_run_id .. "/logs",
             lw_seed = seed,
         },
-    })
+    }
 end
 
 function job_del(id: string): ()
@@ -121,11 +121,11 @@ function job_del(id: string): ()
     if not api then
         return
     end
-    local ok, res = api:rpc_checked({ JobDelete = { id = id } })
+    local ok, res = api:rpc_checked{ JobDelete = { id = id } }
     if ok then
-        toast({ message = tostring("Job removido"), kind = "success" })
+        toast{ message = tostring("Job removido"), kind = "success" }
     else
-        toast({ message = tostring(res), kind = "error" })
+        toast{ message = tostring(res), kind = "error" }
     end
     Stream.refresh_now()
 end

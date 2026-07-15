@@ -23,10 +23,10 @@ local function iso_to_epoch(iso: string?): number?
     if type(iso) ~= "string" then return nil end
     local y, mo, d, h, mi, s = string.match(iso, "(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)")
     if not y then return nil end
-    local utc = os.time({
+    local utc = os.time{
         year = tonumber(y) :: number, month = tonumber(mo) :: number, day = tonumber(d) :: number,
         hour = tonumber(h) :: number, min = tonumber(mi) :: number, sec = tonumber(s) :: number,
-    })
+    }
     if not utc then return nil end
     return utc + TZ_OFFSET
 end
