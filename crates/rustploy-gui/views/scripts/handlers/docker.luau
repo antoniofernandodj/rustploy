@@ -32,9 +32,11 @@ function docker_prune_containers(): ()
         destructive = true,
     })
 
-    if ok then
-        prune("PruneContainers", "removendo containers parados…")
+    if not ok then
+        return
     end
+
+    prune("PruneContainers", "removendo containers parados…")
 end
 
 
@@ -46,11 +48,13 @@ function docker_prune_images(): ()
         destructive = true,
     })
 
-    if ok then
-        local all = ctx.docker_prune_all_images == "true"
-        prune({ PruneImages = { all = all } },
-            all and "removendo TODAS as imagens sem uso…" or "removendo imagens dangling…")
+    if not ok then
+        return
     end
+
+    local all = ctx.docker_prune_all_images == "true"
+    prune({ PruneImages = { all = all } },
+        all and "removendo TODAS as imagens sem uso…" or "removendo imagens dangling…")
 end
 
 
@@ -63,10 +67,12 @@ function docker_prune_volumes(): ()
         destructive = true,
     })
 
-    if ok then
-        local all = ctx.docker_prune_all_volumes == "true"
-        prune({ PruneVolumes = { all = all } }, "removendo volumes sem uso…")
+    if not ok then
+        return
     end
+
+    local all = ctx.docker_prune_all_volumes == "true"
+    prune({ PruneVolumes = { all = all } }, "removendo volumes sem uso…")
 end
 
 
@@ -79,9 +85,11 @@ function docker_prune_networks(): ()
         destructive = true,
     })
 
-    if ok then
-        prune("PruneNetworks", "removendo redes sem uso…")
+    if not ok then
+        return
     end
+
+    prune("PruneNetworks", "removendo redes sem uso…")
 end
 
 -- ── Remoção INDIVIDUAL (por item) ───────────────────────────────────────────
@@ -115,9 +123,11 @@ function docker_rm_container(id: string): ()
         destructive = true,
     })
 
-    if ok then
-        remove_one({ RemoveContainer = { id = id } }, "removendo container…")
+    if not ok then
+        return
     end
+
+    remove_one({ RemoveContainer = { id = id } }, "removendo container…")
 end
 
 function docker_rm_image(id: string): ()
@@ -128,9 +138,11 @@ function docker_rm_image(id: string): ()
         destructive = true,
     })
 
-    if ok then
-        remove_one({ RemoveImage = { id = id } }, "removendo imagem…")
+    if not ok then
+        return
     end
+
+    remove_one({ RemoveImage = { id = id } }, "removendo imagem…")
 end
 
 function docker_rm_volume(name: string): ()
@@ -141,9 +153,11 @@ function docker_rm_volume(name: string): ()
         destructive = true,
     })
 
-    if ok then
-        remove_one({ RemoveVolume = { name = name } }, "removendo volume…")
+    if not ok then
+        return
     end
+
+    remove_one({ RemoveVolume = { name = name } }, "removendo volume…")
 end
 
 function docker_rm_network(id: string): ()
@@ -154,7 +168,9 @@ function docker_rm_network(id: string): ()
         destructive = true,
     })
 
-    if ok then
-        remove_one({ RemoveNetwork = { id = id } }, "removendo rede…")
+    if not ok then
+        return
     end
+
+    remove_one({ RemoveNetwork = { id = id } }, "removendo rede…")
 end

@@ -114,22 +114,24 @@ function delete_project(id: string): ()
         destructive = true,
     })
 
-    if ok_confirm then
-        local api = State.api
-        if not api or id == "" then
-            return
-        end
-        ctx.proj_action_msg = "removendo…"
-        local ok, res = api:rpc_checked({ ProjectDelete = { id = id } })
-        if ok then
-            ctx.selected_project_id = ""
-            ctx.view = "projects"
-            toast({ message = tostring("Projeto removido"), kind = "success" })
-            Stream.refresh_now()
-        else
-            ctx.proj_action_msg = "erro: " .. res
-            toast({ message = tostring(res), kind = "error" })
-        end
+    if not ok_confirm then
+        return
+    end
+
+    local api = State.api
+    if not api or id == "" then
+        return
+    end
+    ctx.proj_action_msg = "removendo…"
+    local ok, res = api:rpc_checked({ ProjectDelete = { id = id } })
+    if ok then
+        ctx.selected_project_id = ""
+        ctx.view = "projects"
+        toast({ message = tostring("Projeto removido"), kind = "success" })
+        Stream.refresh_now()
+    else
+        ctx.proj_action_msg = "erro: " .. res
+        toast({ message = tostring(res), kind = "error" })
     end
 end
 
@@ -397,19 +399,21 @@ function svc_stop_id(id: string): ()
         destructive = true,
     })
 
-    if ok_confirm then
-        local api = State.api
-        if not api then
-            return
-        end
-        ctx.proj_action_msg = "enviando…"
-        local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
-        ctx.proj_action_msg = ok and "serviço parado" or ("erro: " .. res)
-        if not ok then
-            toast({ message = tostring(res), kind = "error" })
-        end
-        Stream.refresh_now()
+    if not ok_confirm then
+        return
     end
+
+    local api = State.api
+    if not api then
+        return
+    end
+    ctx.proj_action_msg = "enviando…"
+    local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
+    ctx.proj_action_msg = ok and "serviço parado" or ("erro: " .. res)
+    if not ok then
+        toast({ message = tostring(res), kind = "error" })
+    end
+    Stream.refresh_now()
 end
 
 
@@ -438,26 +442,29 @@ function stop_delete_service(id: string): ()
         destructive = true,
     })
 
-    if ok_confirm then
-        local api = State.api
-        if not api then
-            return
-        end
-        ctx.proj_action_msg = "removendo…"
-        local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
-        if not ok then
-            ctx.proj_action_msg = "erro ao parar: " .. res;
-            toast({ message = tostring(res), kind = "error" }); return
-        end
-        local ok2, res2 = api:rpc_checked({ ServiceDelete = { id = id } })
-        ctx.proj_action_msg = ok2 and "serviço parado e removido" or ("erro ao remover: " .. res2)
-        if ok2 then
-            toast({ message = tostring("Serviço removido"), kind = "success" })
-        else
-            toast({ message = tostring(res2), kind = "error" })
-        end
-        Stream.refresh_now()
+    if not ok_confirm then
+        return
     end
+
+
+    local api = State.api
+    if not api then
+        return
+    end
+    ctx.proj_action_msg = "removendo…"
+    local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
+    if not ok then
+        ctx.proj_action_msg = "erro ao parar: " .. res;
+        toast({ message = tostring(res), kind = "error" }); return
+    end
+    local ok2, res2 = api:rpc_checked({ ServiceDelete = { id = id } })
+    ctx.proj_action_msg = ok2 and "serviço parado e removido" or ("erro ao remover: " .. res2)
+    if ok2 then
+        toast({ message = tostring("Serviço removido"), kind = "success" })
+    else
+        toast({ message = tostring(res2), kind = "error" })
+    end
+    Stream.refresh_now()
 end
 
 -- ── Stop All (topbar) ────────────────────────────────────────────────────
@@ -470,18 +477,20 @@ function stop_all(): ()
         destructive = true,
     })
 
-    if ok_confirm then
-        local api = State.api
-        if not api then
-            return
-        end
-        ctx.status_line = "parando todos…"
-        local ok, res = api:rpc_checked("StopAllManaged")
-        if ok then
-            local n = res.StopAllResult and res.StopAllResult.count or 0
-            ctx.status_line = "parados: " .. tostring(n)
-        else
-            ctx.status_line = "erro: " .. res
-        end
+    if not ok_confirm then
+        return
+    end
+
+    local api = State.api
+    if not api then
+        return
+    end
+    ctx.status_line = "parando todos…"
+    local ok, res = api:rpc_checked("StopAllManaged")
+    if ok then
+        local n = res.StopAllResult and res.StopAllResult.count or 0
+        ctx.status_line = "parados: " .. tostring(n)
+    else
+        ctx.status_line = "erro: " .. res
     end
 end

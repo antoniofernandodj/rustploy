@@ -53,21 +53,25 @@ function registry_rm_tag(tag: string): ()
         destructive = true,
     })
 
-    if ok_confirm then
-        local api = State.api
-        local repo = ctx.registry_selected_repo
-        if not api or not repo or repo == "" then
-            return
-        end
-        ctx.registry_msg = "removendo tag…"
-        local ok, res = api:rpc_checked({ RegistryTagDelete = { repo = repo, tag = tag } })
-        if ok then
-            ctx.registry_msg = "removida"
-            registry_open_repo(repo)
-            Stream.refresh_now()
-        else
-            ctx.registry_msg = "erro: " .. tostring(res)
-        end
+    if not ok_confirm then
+        return
+    end
+
+    local api = State.api
+    local repo = ctx.registry_selected_repo
+    if not api or not repo or repo == "" then
+        return
+    end
+    ctx.registry_msg = "removendo tag…"
+    local ok, res = api:rpc_checked({
+        RegistryTagDelete = { repo = repo, tag = tag }
+    })
+    if ok then
+        ctx.registry_msg = "removida"
+        registry_open_repo(repo)
+        Stream.refresh_now()
+    else
+        ctx.registry_msg = "erro: " .. tostring(res)
     end
 end
 
@@ -81,22 +85,24 @@ function registry_rm_repo(name: string): ()
         destructive = true,
     })
 
-    if ok_confirm then
-        local api = State.api
-        if not api then
-            return
+    if not ok_confirm then
+        return
+    end
+
+    local api = State.api
+    if not api then
+        return
+    end
+    ctx.registry_msg = "removendo repositório…"
+    local ok, res = api:rpc_checked({ RegistryRepoDelete = { repo = name } })
+    if ok then
+        ctx.registry_msg = "removido"
+        if ctx.registry_selected_repo == name then
+            registry_close_repo()
         end
-        ctx.registry_msg = "removendo repositório…"
-        local ok, res = api:rpc_checked({ RegistryRepoDelete = { repo = name } })
-        if ok then
-            ctx.registry_msg = "removido"
-            if ctx.registry_selected_repo == name then
-                registry_close_repo()
-            end
-            Stream.refresh_now()
-        else
-            ctx.registry_msg = "erro: " .. tostring(res)
-        end
+        Stream.refresh_now()
+    else
+        ctx.registry_msg = "erro: " .. tostring(res)
     end
 end
 
@@ -113,21 +119,23 @@ function registry_gc(): ()
         destructive = true,
     })
 
-    if ok_confirm then
-        local api = State.api
-        if not api then
-            return
-        end
-        ctx.registry_msg = "executando GC…"
-        local ok, res = api:rpc_checked("RegistryGc")
-        if ok and res.RegistryGcResult then
-            ctx.registry_msg = string.format("GC: %d arquivo(s) removido(s) · %s liberados",
-                res.RegistryGcResult.blobs_removed or 0,
-                fmt.fmt_bytes(res.RegistryGcResult.bytes_freed or 0))
-            Stream.refresh_now()
-        else
-            ctx.registry_msg = "erro: " .. tostring(res)
-        end
+    if not ok_confirm then
+        return
+    end
+
+    local api = State.api
+    if not api then
+        return
+    end
+    ctx.registry_msg = "executando GC…"
+    local ok, res = api:rpc_checked("RegistryGc")
+    if ok and res.RegistryGcResult then
+        ctx.registry_msg = string.format("GC: %d arquivo(s) removido(s) · %s liberados",
+            res.RegistryGcResult.blobs_removed or 0,
+            fmt.fmt_bytes(res.RegistryGcResult.bytes_freed or 0))
+        Stream.refresh_now()
+    else
+        ctx.registry_msg = "erro: " .. tostring(res)
     end
 end
 
@@ -174,19 +182,21 @@ function registry_rm_token(name: string): ()
         destructive = true,
     })
 
-    if ok_confirm then
-        local api = State.api
-        if not api then
-            return
-        end
-        ctx.registry_msg = "revogando token…"
-        local ok, res = api:rpc_checked({ RegistryTokenRevoke = { name = name } })
-        if ok then
-            ctx.registry_msg = "token revogado"
-            registry_refresh_tokens()
-        else
-            ctx.registry_msg = "erro: " .. tostring(res)
-        end
+    if not ok_confirm then
+        return
+    end
+
+    local api = State.api
+    if not api then
+        return
+    end
+    ctx.registry_msg = "revogando token…"
+    local ok, res = api:rpc_checked({ RegistryTokenRevoke = { name = name } })
+    if ok then
+        ctx.registry_msg = "token revogado"
+        registry_refresh_tokens()
+    else
+        ctx.registry_msg = "erro: " .. tostring(res)
     end
 end
 

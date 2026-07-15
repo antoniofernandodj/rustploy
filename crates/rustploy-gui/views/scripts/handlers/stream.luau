@@ -224,46 +224,44 @@ function deployments_clear_finished(): ()
         destructive = true,
     })
 
-    if ok_confirm then
-        local api = State.api
-        local snap = State.snap
-        if not api or not snap then
-            return
-        end
-
-        local ids = {}
-        for _, s in ipairs(snap.deployments or {}) do
-            local d = s.deployment
-            if d and (d.state == "Stopped" or d.state == "Failed") then
-                table.insert(ids, d.id)
-            end
-        end
-
-        if #ids == 0 then
-            ctx.deployments_msg = "nada para limpar"
-            return
-        end
-
-        ctx.deployments_msg = string.format("removendo %d deployment(s)…", #ids)
-        local removed = 0
-        local failed = 0
-        for _, id in ipairs(ids) do
-            local ok = api:rpc_checked({ DeployDelete = { deployment_id = id } })
-            if ok then
-                removed = removed + 1
-            else
-                failed = failed + 1
-            end
-        end
-
-        if failed == 0 then
-            ctx.deployments_msg = string.format("%d removido(s)", removed)
-        else
-            ctx.deployments_msg = string.format("%d removido(s), %d falharam", removed, failed)
-            toast({ message = tostring(string.format("%d deployment(s) não puderam ser removidos", failed)), kind = "error" })
-        end
-        refresh_now()
+    if not ok_confirm then
+        return
     end
+
+    local api = State.api
+    local snap = State.snap
+    if not api or not snap then
+        return
+    end
+    local ids = {}
+    for _, s in ipairs(snap.deployments or {}) do
+        local d = s.deployment
+        if d and (d.state == "Stopped" or d.state == "Failed") then
+            table.insert(ids, d.id)
+        end
+    end
+    if #ids == 0 then
+        ctx.deployments_msg = "nada para limpar"
+        return
+    end
+    ctx.deployments_msg = string.format("removendo %d deployment(s)…", #ids)
+    local removed = 0
+    local failed = 0
+    for _, id in ipairs(ids) do
+        local ok = api:rpc_checked({ DeployDelete = { deployment_id = id } })
+        if ok then
+            removed = removed + 1
+        else
+            failed = failed + 1
+        end
+    end
+    if failed == 0 then
+        ctx.deployments_msg = string.format("%d removido(s)", removed)
+    else
+        ctx.deployments_msg = string.format("%d removido(s), %d falharam", removed, failed)
+        toast({ message = tostring(string.format("%d deployment(s) não puderam ser removidos", failed)), kind = "error" })
+    end
+    refresh_now()
 end
 
 

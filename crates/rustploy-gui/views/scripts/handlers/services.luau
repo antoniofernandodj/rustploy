@@ -629,18 +629,20 @@ function delete_deployment(id: string): ()
         destructive = true,
     })
 
-    if ok_confirm then
-        local api = State.api
-        if not api then
-            return
-        end
-        local ok, res = api:rpc_checked({ DeployDelete = { deployment_id = id } })
-        ctx.svc_action_msg = ok and "deployment removido" or ("erro: " .. res)
-        if not ok then
-            toast({ message = tostring(res), kind = "error" })
-        end
-        M.fetch_service_detail(ctx.selected_service)
+    if not ok_confirm then
+        return
     end
+
+    local api = State.api
+    if not api then
+        return
+    end
+    local ok, res = api:rpc_checked({ DeployDelete = { deployment_id = id } })
+    ctx.svc_action_msg = ok and "deployment removido" or ("erro: " .. res)
+    if not ok then
+        toast({ message = tostring(res), kind = "error" })
+    end
+    M.fetch_service_detail(ctx.selected_service)
 end
 
 
@@ -666,22 +668,24 @@ function regen_webhook(): ()
         destructive = true,
     })
 
-    if ok_confirm then
-        local api = State.api
-        local sid = ctx.selected_service
-        if not api or sid == "" then
-            return
-        end
-        local ok, res = api:rpc_checked({ RegenerateWebhookToken = { service_id = sid } })
-        if ok and type(res) == "table" and res.WebhookUrl then
-            M.set_webhook_url(res.WebhookUrl)
-            ctx.svc_action_msg = "token do webhook regenerado"
-            toast({ message = tostring("Token do webhook regenerado"), kind = "success" })
-        else
-            local msg = type(res) == "string" and res or "falha ao regenerar o token"
-            ctx.svc_action_msg = "erro: " .. msg
-            toast({ message = tostring(msg), kind = "error" })
-        end
+    if not ok_confirm then
+        return
+    end
+
+    local api = State.api
+    local sid = ctx.selected_service
+    if not api or sid == "" then
+        return
+    end
+    local ok, res = api:rpc_checked({ RegenerateWebhookToken = { service_id = sid } })
+    if ok and type(res) == "table" and res.WebhookUrl then
+        M.set_webhook_url(res.WebhookUrl)
+        ctx.svc_action_msg = "token do webhook regenerado"
+        toast({ message = tostring("Token do webhook regenerado"), kind = "success" })
+    else
+        local msg = type(res) == "string" and res or "falha ao regenerar o token"
+        ctx.svc_action_msg = "erro: " .. msg
+        toast({ message = tostring(msg), kind = "error" })
     end
 end
 
@@ -763,13 +767,15 @@ function svc_stop(): ()
         destructive = true,
     })
 
-    if ok then
-        svc_lifecycle({
-            ServiceStop = {
-                service_id = ctx.selected_service
-            }
-        }, "parando…")
+    if not ok then
+        return
     end
+
+    svc_lifecycle({
+        ServiceStop = {
+            service_id = ctx.selected_service
+        }
+    }, "parando…")
 end
 
 
