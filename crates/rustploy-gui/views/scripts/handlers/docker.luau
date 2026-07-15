@@ -25,62 +25,63 @@ local function prune(cmd: any, label: string): ()
 end
 
 function docker_prune_containers(): ()
-    confirm({
+    local ok = confirm({
         title = "Limpar containers parados?",
         message = "Todos os containers parados serão removidos (docker container prune). Ação irreversível.",
         confirm_label = "Limpar",
-        confirm_action = "do_docker_prune_containers",
         destructive = true,
     })
+
+    if ok then
+        prune("PruneContainers", "removendo containers parados…")
+    end
 end
 
-function do_docker_prune_containers(): ()
-    prune("PruneContainers", "removendo containers parados…")
-end
 
 function docker_prune_images(): ()
-    confirm({
+    local ok = confirm({
         title = "Limpar imagens sem uso?",
         message = "As imagens Docker sem uso serão removidas agora. Essa limpeza não pode ser desfeita.",
         confirm_label = "Limpar",
-        confirm_action = "do_docker_prune_images",
         destructive = true,
     })
+
+    if ok then
+        local all = ctx.docker_prune_all_images == "true"
+        prune({ PruneImages = { all = all } },
+            all and "removendo TODAS as imagens sem uso…" or "removendo imagens dangling…")
+    end
 end
 
-function do_docker_prune_images(): ()
-    local all = ctx.docker_prune_all_images == "true"
-    prune({ PruneImages = { all = all } },
-        all and "removendo TODAS as imagens sem uso…" or "removendo imagens dangling…")
-end
+
 
 function docker_prune_volumes(): ()
-    confirm({
+    local ok = confirm({
         title = "Limpar volumes sem uso?",
         message = "Os volumes Docker sem uso serão removidos agora. Essa limpeza não pode ser desfeita.",
         confirm_label = "Limpar",
-        confirm_action = "do_docker_prune_volumes",
         destructive = true,
     })
+
+    if ok then
+        local all = ctx.docker_prune_all_volumes == "true"
+        prune({ PruneVolumes = { all = all } }, "removendo volumes sem uso…")
+    end
 end
 
-function do_docker_prune_volumes(): ()
-    local all = ctx.docker_prune_all_volumes == "true"
-    prune({ PruneVolumes = { all = all } }, "removendo volumes sem uso…")
-end
+
 
 function docker_prune_networks(): ()
-    confirm({
+    local ok = confirm({
         title = "Limpar redes sem uso?",
         message = "As redes Docker sem uso serão removidas agora. Essa limpeza não pode ser desfeita.",
         confirm_label = "Limpar",
-        confirm_action = "do_docker_prune_networks",
         destructive = true,
     })
-end
 
-function do_docker_prune_networks(): ()
-    prune("PruneNetworks", "removendo redes sem uso…")
+    if ok then
+        prune("PruneNetworks", "removendo redes sem uso…")
+    end
 end
 
 -- ── Remoção INDIVIDUAL (por item) ───────────────────────────────────────────
@@ -103,56 +104,57 @@ local function remove_one(cmd: any, doing: string): ()
     end
 end
 
--- Cada par confirm→do_* espelha o padrão de delete_deployment: o id/name vem no
--- sufixo da ação (nome:sufixo), repassado ao handler como argumento.
+-- Cada par confirm→do_* espelha o padrão de delete_deployment: o `confirm`
+-- suspende e, se o usuário confirmar, chama o handler `do_*` na hora com o
+-- id/name capturado no escopo.
 function docker_rm_container(id: string): ()
-    confirm({
+    local ok = confirm({
         title = "Remover container?",
         message = "O container parado será removido (docker rm). Ação irreversível.",
         confirm_label = "Remover",
-        confirm_action = "do_docker_rm_container:" .. tostring(id),
         destructive = true,
     })
-end
-function do_docker_rm_container(id: string): ()
-    remove_one({ RemoveContainer = { id = id } }, "removendo container…")
+
+    if ok then
+        remove_one({ RemoveContainer = { id = id } }, "removendo container…")
+    end
 end
 
 function docker_rm_image(id: string): ()
-    confirm({
+    local ok = confirm({
         title = "Remover imagem?",
         message = "A imagem será removida (docker rmi). Falha se algum container a referencia.",
         confirm_label = "Remover",
-        confirm_action = "do_docker_rm_image:" .. tostring(id),
         destructive = true,
     })
-end
-function do_docker_rm_image(id: string): ()
-    remove_one({ RemoveImage = { id = id } }, "removendo imagem…")
+
+    if ok then
+        remove_one({ RemoveImage = { id = id } }, "removendo imagem…")
+    end
 end
 
 function docker_rm_volume(name: string): ()
-    confirm({
+    local ok = confirm({
         title = "Remover volume?",
         message = "O volume será removido (docker volume rm). Falha se estiver em uso. Ação irreversível.",
         confirm_label = "Remover",
-        confirm_action = "do_docker_rm_volume:" .. tostring(name),
         destructive = true,
     })
-end
-function do_docker_rm_volume(name: string): ()
-    remove_one({ RemoveVolume = { name = name } }, "removendo volume…")
+
+    if ok then
+        remove_one({ RemoveVolume = { name = name } }, "removendo volume…")
+    end
 end
 
 function docker_rm_network(id: string): ()
-    confirm({
+    local ok = confirm({
         title = "Remover rede?",
         message = "A rede será removida (docker network rm). Falha se houver container anexado.",
         confirm_label = "Remover",
-        confirm_action = "do_docker_rm_network:" .. tostring(id),
         destructive = true,
     })
-end
-function do_docker_rm_network(id: string): ()
-    remove_one({ RemoveNetwork = { id = id } }, "removendo rede…")
+
+    if ok then
+        remove_one({ RemoveNetwork = { id = id } }, "removendo rede…")
+    end
 end

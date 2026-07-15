@@ -217,55 +217,55 @@ M.refresh_now = refresh_now
 -- handler do daemon recusa apagar um deployment não-terminal como segunda
 -- trava.
 function deployments_clear_finished(): ()
-    confirm({
+    local ok_confirm = confirm({
         title = "Limpar deployments parados/falhos?",
         message = "Remove do histórico todo deployment em estado Stopped ou Failed, e seus build logs. Deployments em andamento não são afetados. Ação irreversível.",
         confirm_label = "Limpar",
-        confirm_action = "do_deployments_clear_finished",
         destructive = true,
     })
-end
 
-function do_deployments_clear_finished(): ()
-    local api = State.api
-    local snap = State.snap
-    if not api or not snap then
-        return
-    end
-
-    local ids = {}
-    for _, s in ipairs(snap.deployments or {}) do
-        local d = s.deployment
-        if d and (d.state == "Stopped" or d.state == "Failed") then
-            table.insert(ids, d.id)
+    if ok_confirm then
+        local api = State.api
+        local snap = State.snap
+        if not api or not snap then
+            return
         end
-    end
 
-    if #ids == 0 then
-        ctx.deployments_msg = "nada para limpar"
-        return
-    end
+        local ids = {}
+        for _, s in ipairs(snap.deployments or {}) do
+            local d = s.deployment
+            if d and (d.state == "Stopped" or d.state == "Failed") then
+                table.insert(ids, d.id)
+            end
+        end
 
-    ctx.deployments_msg = string.format("removendo %d deployment(s)…", #ids)
-    local removed = 0
-    local failed = 0
-    for _, id in ipairs(ids) do
-        local ok = api:rpc_checked({ DeployDelete = { deployment_id = id } })
-        if ok then
-            removed = removed + 1
+        if #ids == 0 then
+            ctx.deployments_msg = "nada para limpar"
+            return
+        end
+
+        ctx.deployments_msg = string.format("removendo %d deployment(s)…", #ids)
+        local removed = 0
+        local failed = 0
+        for _, id in ipairs(ids) do
+            local ok = api:rpc_checked({ DeployDelete = { deployment_id = id } })
+            if ok then
+                removed = removed + 1
+            else
+                failed = failed + 1
+            end
+        end
+
+        if failed == 0 then
+            ctx.deployments_msg = string.format("%d removido(s)", removed)
         else
-            failed = failed + 1
+            ctx.deployments_msg = string.format("%d removido(s), %d falharam", removed, failed)
+            toast({ message = tostring(string.format("%d deployment(s) não puderam ser removidos", failed)), kind = "error" })
         end
+        refresh_now()
     end
-
-    if failed == 0 then
-        ctx.deployments_msg = string.format("%d removido(s)", removed)
-    else
-        ctx.deployments_msg = string.format("%d removido(s), %d falharam", removed, failed)
-        toast({ message = tostring(string.format("%d deployment(s) não puderam ser removidos", failed)), kind = "error" })
-    end
-    refresh_now()
 end
+
 
 -- Eventos vivos do bus: métricas e transições de deploy. Logs (runtime/build)
 -- NÃO passam mais aqui — o daemon os tirou do firehose `/api/events` e os serve

@@ -107,32 +107,33 @@ function delete_project(id: string): ()
     if id == "" then
         return
     end
-    confirm({
+    local ok_confirm = confirm({
         title = "Remover projeto?",
         message = "O projeto será removido. Só é possível remover projetos sem serviços.",
         confirm_label = "Remover projeto",
-        confirm_action = "do_delete_project:" .. tostring(id),
         destructive = true,
     })
+
+    if ok_confirm then
+        local api = State.api
+        if not api or id == "" then
+            return
+        end
+        ctx.proj_action_msg = "removendo…"
+        local ok, res = api:rpc_checked({ ProjectDelete = { id = id } })
+        if ok then
+            ctx.selected_project_id = ""
+            ctx.view = "projects"
+            toast({ message = tostring("Projeto removido"), kind = "success" })
+            Stream.refresh_now()
+        else
+            ctx.proj_action_msg = "erro: " .. res
+            toast({ message = tostring(res), kind = "error" })
+        end
+    end
 end
 
-function do_delete_project(id: string): ()
-    local api = State.api
-    if not api or id == "" then
-        return
-    end
-    ctx.proj_action_msg = "removendo…"
-    local ok, res = api:rpc_checked({ ProjectDelete = { id = id } })
-    if ok then
-        ctx.selected_project_id = ""
-        ctx.view = "projects"
-        toast({ message = tostring("Projeto removido"), kind = "success" })
-        Stream.refresh_now()
-    else
-        ctx.proj_action_msg = "erro: " .. res
-        toast({ message = tostring(res), kind = "error" })
-    end
-end
+
 
 -- ── Editar projeto (cabeçalho de project_services) ──────────────────────
 
@@ -389,28 +390,28 @@ end
 -- O grid se atualiza no próximo snapshot; refresh_now traz isso pra hora.
 
 function svc_stop_id(id: string): ()
-    confirm({
+    local ok_confirm = confirm({
         title = "Parar serviço?",
         message = "O tráfego para este serviço será interrompido até um novo deploy.",
         confirm_label = "Parar",
-        confirm_action = "do_svc_stop_id:" .. tostring(id),
         destructive = true,
     })
+
+    if ok_confirm then
+        local api = State.api
+        if not api then
+            return
+        end
+        ctx.proj_action_msg = "enviando…"
+        local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
+        ctx.proj_action_msg = ok and "serviço parado" or ("erro: " .. res)
+        if not ok then
+            toast({ message = tostring(res), kind = "error" })
+        end
+        Stream.refresh_now()
+    end
 end
 
-function do_svc_stop_id(id: string): ()
-    local api = State.api
-    if not api then
-        return
-    end
-    ctx.proj_action_msg = "enviando…"
-    local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
-    ctx.proj_action_msg = ok and "serviço parado" or ("erro: " .. res)
-    if not ok then
-        toast({ message = tostring(res), kind = "error" })
-    end
-    Stream.refresh_now()
-end
 
 function stop_delete_service(id: string): ()
     -- Jobs de Schedules gatilhados por este serviço são removidos em cascata
@@ -430,59 +431,57 @@ function stop_delete_service(id: string): ()
             .. "."
     end
     message = message .. " Essa ação não pode ser desfeita."
-    confirm({
+    local ok_confirm = confirm({
         title = "Parar e remover serviço?",
         message = message,
         confirm_label = "Remover",
-        confirm_action = "do_stop_delete_service:" .. tostring(id),
         destructive = true,
     })
-end
 
-function do_stop_delete_service(id: string): ()
-    local api = State.api
-    if not api then
-        return
+    if ok_confirm then
+        local api = State.api
+        if not api then
+            return
+        end
+        ctx.proj_action_msg = "removendo…"
+        local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
+        if not ok then
+            ctx.proj_action_msg = "erro ao parar: " .. res;
+            toast({ message = tostring(res), kind = "error" }); return
+        end
+        local ok2, res2 = api:rpc_checked({ ServiceDelete = { id = id } })
+        ctx.proj_action_msg = ok2 and "serviço parado e removido" or ("erro ao remover: " .. res2)
+        if ok2 then
+            toast({ message = tostring("Serviço removido"), kind = "success" })
+        else
+            toast({ message = tostring(res2), kind = "error" })
+        end
+        Stream.refresh_now()
     end
-    ctx.proj_action_msg = "removendo…"
-    local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
-    if not ok then
-        ctx.proj_action_msg = "erro ao parar: " .. res;
-        toast({ message = tostring(res), kind = "error" }); return
-    end
-    local ok2, res2 = api:rpc_checked({ ServiceDelete = { id = id } })
-    ctx.proj_action_msg = ok2 and "serviço parado e removido" or ("erro ao remover: " .. res2)
-    if ok2 then
-        toast({ message = tostring("Serviço removido"), kind = "success" })
-    else
-        toast({ message = tostring(res2), kind = "error" })
-    end
-    Stream.refresh_now()
 end
 
 -- ── Stop All (topbar) ────────────────────────────────────────────────────
 
 function stop_all(): ()
-    confirm({
+    local ok_confirm = confirm({
         title = "Parar todos os serviços?",
         message = "Todos os serviços em execução serão parados agora. Você pode reiniciá-los depois com um novo deploy.",
         confirm_label = "Parar todos",
-        confirm_action = "do_stop_all",
         destructive = true,
     })
-end
 
-function do_stop_all(): ()
-    local api = State.api
-    if not api then
-        return
-    end
-    ctx.status_line = "parando todos…"
-    local ok, res = api:rpc_checked("StopAllManaged")
-    if ok then
-        local n = res.StopAllResult and res.StopAllResult.count or 0
-        ctx.status_line = "parados: " .. tostring(n)
-    else
-        ctx.status_line = "erro: " .. res
+    if ok_confirm then
+        local api = State.api
+        if not api then
+            return
+        end
+        ctx.status_line = "parando todos…"
+        local ok, res = api:rpc_checked("StopAllManaged")
+        if ok then
+            local n = res.StopAllResult and res.StopAllResult.count or 0
+            ctx.status_line = "parados: " .. tostring(n)
+        else
+            ctx.status_line = "erro: " .. res
+        end
     end
 end

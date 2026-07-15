@@ -37,7 +37,7 @@ declare function toast(opts: any): ()
 -- Notificação nativa do SO (glacier-ui 0.42+): `notify({ title?, body? })` ou
 -- `notify("mensagem")`. Diferente de `toast` (efêmero, dentro da janela).
 declare function notify(opts: any): ()
-declare function confirm(opts: any): ()
+declare function confirm(opts: any): boolean
 
 -- Multi-janela (glacier-ui 0.36+/0.37+): abrir janela, mensagear entre janelas e
 -- fechar a própria. `on_broadcast(event, payload)` é definido pelo usuário (a

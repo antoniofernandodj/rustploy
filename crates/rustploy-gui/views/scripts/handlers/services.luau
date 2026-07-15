@@ -622,27 +622,27 @@ function dep_logs(id: string): ()
 end
 
 function delete_deployment(id: string): ()
-    confirm({
+    local ok_confirm = confirm({
         title = "Remover deployment?",
         message = "O registro do deployment e seus build logs serão removidos. Essa ação não pode ser desfeita.",
         confirm_label = "Remover",
-        confirm_action = "do_delete_deployment:" .. tostring(id),
         destructive = true,
     })
+
+    if ok_confirm then
+        local api = State.api
+        if not api then
+            return
+        end
+        local ok, res = api:rpc_checked({ DeployDelete = { deployment_id = id } })
+        ctx.svc_action_msg = ok and "deployment removido" or ("erro: " .. res)
+        if not ok then
+            toast({ message = tostring(res), kind = "error" })
+        end
+        M.fetch_service_detail(ctx.selected_service)
+    end
 end
 
-function do_delete_deployment(id: string): ()
-    local api = State.api
-    if not api then
-        return
-    end
-    local ok, res = api:rpc_checked({ DeployDelete = { deployment_id = id } })
-    ctx.svc_action_msg = ok and "deployment removido" or ("erro: " .. res)
-    if not ok then
-        toast({ message = tostring(res), kind = "error" })
-    end
-    M.fetch_service_detail(ctx.selected_service)
-end
 
 -- ── Webhook de deploy ───────────────────────────────────────────────────────
 
@@ -659,32 +659,32 @@ end
 -- GitHub/Gitea/Docker Hub com a URL anterior passa a receber 401. Por isso passa
 -- pelo confirm.
 function regen_webhook(): ()
-    confirm({
+    local ok_confirm = confirm({
         title = "Regenerar token do webhook?",
         message = "A URL atual para de funcionar imediatamente. Você precisará recadastrá-la no provedor (GitHub, Gitea, Docker Hub…).",
         confirm_label = "Regenerar",
-        confirm_action = "do_regen_webhook",
         destructive = true,
     })
+
+    if ok_confirm then
+        local api = State.api
+        local sid = ctx.selected_service
+        if not api or sid == "" then
+            return
+        end
+        local ok, res = api:rpc_checked({ RegenerateWebhookToken = { service_id = sid } })
+        if ok and type(res) == "table" and res.WebhookUrl then
+            M.set_webhook_url(res.WebhookUrl)
+            ctx.svc_action_msg = "token do webhook regenerado"
+            toast({ message = tostring("Token do webhook regenerado"), kind = "success" })
+        else
+            local msg = type(res) == "string" and res or "falha ao regenerar o token"
+            ctx.svc_action_msg = "erro: " .. msg
+            toast({ message = tostring(msg), kind = "error" })
+        end
+    end
 end
 
-function do_regen_webhook(): ()
-    local api = State.api
-    local sid = ctx.selected_service
-    if not api or sid == "" then
-        return
-    end
-    local ok, res = api:rpc_checked({ RegenerateWebhookToken = { service_id = sid } })
-    if ok and type(res) == "table" and res.WebhookUrl then
-        M.set_webhook_url(res.WebhookUrl)
-        ctx.svc_action_msg = "token do webhook regenerado"
-        toast({ message = tostring("Token do webhook regenerado"), kind = "success" })
-    else
-        local msg = type(res) == "string" and res or "falha ao regenerar o token"
-        ctx.svc_action_msg = "erro: " .. msg
-        toast({ message = tostring(msg), kind = "error" })
-    end
-end
 
 -- ── Ciclo de vida do serviço ─────────────────────────────────────────────────
 
@@ -756,22 +756,23 @@ function svc_reload(): ()
 end
 
 function svc_stop(): ()
-    confirm({
+    local ok = confirm({
         title = "Parar serviço?",
         message = "O tráfego para este serviço será interrompido até um novo deploy.",
         confirm_label = "Parar",
-        confirm_action = "do_svc_stop",
         destructive = true,
     })
+
+    if ok then
+        svc_lifecycle({
+            ServiceStop = {
+                service_id = ctx.selected_service
+            }
+        }, "parando…")
+    end
 end
 
-function do_svc_stop(): ()
-    svc_lifecycle({
-        ServiceStop = {
-            service_id = ctx.selected_service
-        }
-    }, "parando…")
-end
+
 
 -- ── Picker Gitea (conta → repos → branches) ─────────────────────────────────
 

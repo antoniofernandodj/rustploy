@@ -40,45 +40,64 @@ function registry_close_repo(): ()
 end
 
 -- ── Remoção ──────────────────────────────────────────────────────────────
--- Mesmo padrão confirm→do_* de handlers/docker.luau. `tag` vem no sufixo da
--- ação; o repositório é lido de ctx.registry_selected_repo (a tag só é
--- visível dentro de um repo já aberto).
+-- Mesmo padrão confirm→do_* de handlers/docker.luau: o `confirm` suspende e, se
+-- confirmado, chama o `do_*` na hora com o argumento capturado no escopo. O
+-- repositório é lido de ctx.registry_selected_repo (a tag só é visível dentro de
+-- um repo já aberto).
 
 function registry_rm_tag(tag: string): ()
-    confirm({
+    local ok_confirm = confirm({
         title = "Remover tag?",
         message = "A tag será removida. Se outra tag apontar pro mesmo manifest (mesma imagem), ela também é removida — o delete é por digest, não por tag. O disco é liberado pelo botão \"Executar GC\". Ação irreversível.",
         confirm_label = "Remover",
-        confirm_action = "do_registry_rm_tag:" .. tostring(tag),
         destructive = true,
     })
+
+    if ok_confirm then
+        local api = State.api
+        local repo = ctx.registry_selected_repo
+        if not api or not repo or repo == "" then
+            return
+        end
+        ctx.registry_msg = "removendo tag…"
+        local ok, res = api:rpc_checked({ RegistryTagDelete = { repo = repo, tag = tag } })
+        if ok then
+            ctx.registry_msg = "removida"
+            registry_open_repo(repo)
+            Stream.refresh_now()
+        else
+            ctx.registry_msg = "erro: " .. tostring(res)
+        end
+    end
 end
 
-function do_registry_rm_tag(tag: string): ()
-    local api = State.api
-    local repo = ctx.registry_selected_repo
-    if not api or not repo or repo == "" then
-        return
-    end
-    ctx.registry_msg = "removendo tag…"
-    local ok, res = api:rpc_checked({ RegistryTagDelete = { repo = repo, tag = tag } })
-    if ok then
-        ctx.registry_msg = "removida"
-        registry_open_repo(repo)
-        Stream.refresh_now()
-    else
-        ctx.registry_msg = "erro: " .. tostring(res)
-    end
-end
+
 
 function registry_rm_repo(name: string): ()
-    confirm({
+    local ok_confirm = confirm({
         title = "Remover repositório?",
         message = "Todas as tags e manifests do repositório serão removidos. O disco é liberado pelo botão \"Executar GC\". Ação irreversível.",
         confirm_label = "Remover",
-        confirm_action = "do_registry_rm_repo:" .. tostring(name),
         destructive = true,
     })
+
+    if ok_confirm then
+        local api = State.api
+        if not api then
+            return
+        end
+        ctx.registry_msg = "removendo repositório…"
+        local ok, res = api:rpc_checked({ RegistryRepoDelete = { repo = name } })
+        if ok then
+            ctx.registry_msg = "removido"
+            if ctx.registry_selected_repo == name then
+                registry_close_repo()
+            end
+            Stream.refresh_now()
+        else
+            ctx.registry_msg = "erro: " .. tostring(res)
+        end
+    end
 end
 
 -- ── GC ───────────────────────────────────────────────────────────────────
@@ -87,55 +106,36 @@ end
 -- Imagens taggeadas nunca são afetadas. Também roda sozinho 1x/dia no daemon.
 
 function registry_gc(): ()
-    confirm({
+    local ok_confirm = confirm({
         title = "Executar GC?",
         message = "Remove do disco blobs e manifests que nenhuma tag referencia (sobras de remoções e de tags republicadas) e uploads abandonados há mais de 24h. Imagens com tag não são afetadas.",
         confirm_label = "Executar",
-        confirm_action = "do_registry_gc",
         destructive = true,
     })
-end
 
-function do_registry_gc(): ()
-    local api = State.api
-    if not api then
-        return
-    end
-    ctx.registry_msg = "executando GC…"
-    local ok, res = api:rpc_checked("RegistryGc")
-    if ok and res.RegistryGcResult then
-        ctx.registry_msg = string.format("GC: %d arquivo(s) removido(s) · %s liberados",
-            res.RegistryGcResult.blobs_removed or 0,
-            fmt.fmt_bytes(res.RegistryGcResult.bytes_freed or 0))
-        Stream.refresh_now()
-    else
-        ctx.registry_msg = "erro: " .. tostring(res)
-    end
-end
-
-function do_registry_rm_repo(name: string): ()
-    local api = State.api
-    if not api then
-        return
-    end
-    ctx.registry_msg = "removendo repositório…"
-    local ok, res = api:rpc_checked({ RegistryRepoDelete = { repo = name } })
-    if ok then
-        ctx.registry_msg = "removido"
-        if ctx.registry_selected_repo == name then
-            registry_close_repo()
+    if ok_confirm then
+        local api = State.api
+        if not api then
+            return
         end
-        Stream.refresh_now()
-    else
-        ctx.registry_msg = "erro: " .. tostring(res)
+        ctx.registry_msg = "executando GC…"
+        local ok, res = api:rpc_checked("RegistryGc")
+        if ok and res.RegistryGcResult then
+            ctx.registry_msg = string.format("GC: %d arquivo(s) removido(s) · %s liberados",
+                res.RegistryGcResult.blobs_removed or 0,
+                fmt.fmt_bytes(res.RegistryGcResult.bytes_freed or 0))
+            Stream.refresh_now()
+        else
+            ctx.registry_msg = "erro: " .. tostring(res)
+        end
     end
 end
+
 
 -- ── Tokens de acesso (Basic auth) ────────────────────────────────────────
 -- Lista não vem no snapshot (tela de baixo tráfego) — buscada ao entrar na
 -- sub-aba (ver handlers/nav.luau::docker_tab) e reatualizada após criar/
 -- revogar um token.
-
 function registry_refresh_tokens(): ()
     local api = State.api
     if not api then
@@ -167,27 +167,26 @@ function registry_open_token_window(): ()
 end
 
 function registry_rm_token(name: string): ()
-    confirm({
+    local ok_confirm = confirm({
         title = "Revogar token?",
         message = "Qualquer `docker login`/push/pull usando esse token deixa de funcionar imediatamente. Ação irreversível.",
         confirm_label = "Revogar",
-        confirm_action = "do_registry_rm_token:" .. tostring(name),
         destructive = true,
     })
-end
 
-function do_registry_rm_token(name: string): ()
-    local api = State.api
-    if not api then
-        return
-    end
-    ctx.registry_msg = "revogando token…"
-    local ok, res = api:rpc_checked({ RegistryTokenRevoke = { name = name } })
-    if ok then
-        ctx.registry_msg = "token revogado"
-        registry_refresh_tokens()
-    else
-        ctx.registry_msg = "erro: " .. tostring(res)
+    if ok_confirm then
+        local api = State.api
+        if not api then
+            return
+        end
+        ctx.registry_msg = "revogando token…"
+        local ok, res = api:rpc_checked({ RegistryTokenRevoke = { name = name } })
+        if ok then
+            ctx.registry_msg = "token revogado"
+            registry_refresh_tokens()
+        else
+            ctx.registry_msg = "erro: " .. tostring(res)
+        end
     end
 end
 
