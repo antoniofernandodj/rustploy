@@ -2,6 +2,19 @@
 /* Cabeçalho + ações */
 .svc_head      { width: fill; align-y: start; }
 .svc_title_row { width: fill; spacing: 14; align-y: center; }
+/* O nome do serviço é o elemento FLEXÍVEL da linha do título (width: fill): ele
+   absorve a folga e quebra dentro da coluna quando aperta. Sem isso, o back-button,
+   o nome e o badge são todos `shrink` (largura natural) e, quando a soma passa da
+   largura da coluna, o iced NÃO encolhe — transborda para a direita e o nome/badge
+   invadem os botões de ação (o "Deploy/▶ por cima do nome"). Deixar o nome `fill`
+   garante que a linha nunca ultrapasse os próprios limites. */
+.svc_title     { width: fill; }
+/* Sub-linha de status (badge + timer) logo abaixo do nome. */
+.svc_substatus { spacing: 10; align-y: center; }
+/* Abas com scroll horizontal: a viewport ocupa a largura toda; a fileira interna
+   fica na largura natural (shrink) para poder transbordar e rolar. */
+.tabs_scroll   { width: fill; }
+.tabs_main     { width: shrink; spacing: 4; }
 .svc_actions   { spacing: 10; align-y: center; }
 /* .svc_actions_full / .svc_actions_compact e o swap por @media vivem em app.gss
    (junto das outras regras responsivas — cruzar arquivo com o inline daqui
@@ -61,7 +74,15 @@
           on_click="open_project:{svc_project_id}"
           text="‹ {svc_project}"
         />
-        <text class="title">{svc_name}</text>
+        <text class="title svc_title">{svc_name}</text>
+      </row>
+      <!-- Status + timer numa SUB-LINHA abaixo do nome — nunca na mesma linha do
+           título. Antes o badge ficava inline no título e, quando o nome quebrava
+           em duas linhas, o "Running" era desenhado por cima da 2ª linha: um
+           elemento de texto do iced não corta ao ultrapassar sua caixa `fill`, e o
+           badge (posicionado logo após a caixa estreita) caía sobre o texto vazado.
+           Descê-lo elimina qualquer disputa horizontal com o nome. -->
+      <row class="svc_substatus">
         <rp-badge color="{svc_status_color}" label="{svc_status_label}" />
         <!-- Live "1s, 2s, 3s…" deploy timer: shown only while a deploy started
              from this panel (Deploy/Rebuild) is in flight. Ticked once a second
@@ -76,28 +97,37 @@
       <text if="{svc_action_msg}" not_equals="" class="muted" color="{svc_action_color}">
         {svc_action_msg}
       </text>
+      <!-- Ações compactas EMPILHADAS abaixo do título (só ≤1240px). Ficam dentro
+           da coluna do título de propósito: quando aperta, a fileira de rótulos à
+           direita some (@media) e header_titles passa a ocupar a largura toda,
+           então os ícones descem para cá — título e ações nunca dividem a mesma
+           linha em janela estreita, e por isso nada sobrepõe o nome. -->
+      <row class="svc_actions svc_actions_compact">
+        <button class="btn_primary" on_click="svc_deploy" text="▶" tooltip="Deploy" />
+        <button class="btn_blue" on_click="svc_reload" text="⟳" tooltip="Reload" />
+        <button class="btn_blue" on_click="svc_rebuild" text="⚙" tooltip="Rebuild" />
+        <button class="btn_danger" on_click="svc_stop" text="■" tooltip="Stop" />
+      </row>
     </column>
-    <!-- Duas fileiras de ações que se alternam por largura (mesmo mecanismo da
-         sidebar: @media + hidden). A de texto é clara quando há espaço; abaixo
-         de 1080px ela some e entra a compacta (ícone + tooltip), senão os 4
-         rótulos por extenso não cabem e o título de 30px transborda por baixo
-         deles — era esse o "Deploy por cima do nome". -->
+    <!-- Fileira de rótulos por extenso à DIREITA do título — só >1240px, onde há
+         espaço de sobra. Abaixo disso ela some (@media em app.gss) e entram os
+         ícones empilhados acima. -->
     <row class="svc_actions svc_actions_full">
       <button class="btn_primary" on_click="svc_deploy" text="Deploy" />
       <button class="btn_blue" on_click="svc_reload" text="Reload" />
       <button class="btn_blue" on_click="svc_rebuild" text="Rebuild" />
       <button class="btn_danger" on_click="svc_stop" text="Stop" />
     </row>
-    <row class="svc_actions svc_actions_compact">
-      <button class="btn_primary" on_click="svc_deploy" text="▶" tooltip="Deploy" />
-      <button class="btn_blue" on_click="svc_reload" text="⟳" tooltip="Reload" />
-      <button class="btn_blue" on_click="svc_rebuild" text="⚙" tooltip="Rebuild" />
-      <button class="btn_danger" on_click="svc_stop" text="■" tooltip="Stop" />
-    </row>
   </row>
 
   <!-- ── Abas ─────────────────────────────────────────────────────────── -->
-  <row class="tabs">
+  <!-- Scroll horizontal: são 8 abas e, em janela estreita, as últimas
+       ("Healthcheck"/"Logs"/"Advanced") saíam da tela sem como alcançá-las.
+       A viewport (`.tabs_scroll`) é `width: fill`; a fileira interna
+       (`.tabs_main`) é `width: shrink` (largura natural), então quando as abas
+       não cabem ela transborda a viewport e a barra de rolagem aparece. -->
+  <scroll class="tabs_scroll" direction="horizontal">
+  <row class="tabs_main">
     <TabButton
       label="General"
       current="{tab}"
@@ -147,6 +177,7 @@
       action="tab:advanced"
     />
   </row>
+  </scroll>
 
   <rule />
 

@@ -159,13 +159,21 @@
   .stats_hide_xl { hidden: true; }
 }
 
-/* Ações da tela de serviço (Deploy/Reload/Rebuild/Stop): a fileira com rótulo
-   some abaixo de 1080px e entra a compacta (ícone + tooltip). Base: full visível,
-   compacta oculta — o @media inverte as duas quando aperta. Sem isso, os 4
-   rótulos por extenso não cabem e o título de 30px transborda por baixo deles. */
+/* Ações da tela de serviço (Deploy/Reload/Rebuild/Stop). Dois arranjos que se
+   alternam por largura:
+     • >1240px  → `svc_actions_full`: rótulos por extenso, À DIREITA do título
+                  (mesma linha — há espaço de sobra).
+     • ≤1240px  → `svc_actions_compact`: ícones + tooltip, EMPILHADOS abaixo do
+                  título/status (dentro da coluna header_titles, ver service.gv).
+   O empilhamento (em vez de encolher na mesma linha) é o que garante que os
+   botões nunca dividam linha com o nome quando aperta — antes eles transbordavam
+   por cima de "Landing page"/"Running". Base: full visível, compacta oculta; o
+   @media inverte as duas. O limiar é medido na largura da JANELA, mas o header
+   vive dentro do shell com a sidebar comendo espaço horizontal — 1240px dá a
+   folga para os rótulos por extenso só aparecerem quando realmente cabem. */
 .svc_actions_full    { hidden: false; }
 .svc_actions_compact { hidden: true; }
-@media (max-width: 1080) {
+@media (max-width: 1240) {
   .svc_actions_full    { hidden: true; }
   .svc_actions_compact { hidden: false; }
 }
