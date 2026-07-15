@@ -107,12 +107,12 @@ function delete_project(id: string): ()
     if id == "" then
         return
     end
-    local ok_confirm = confirm({
+    local ok_confirm = confirm{
         title = "Remover projeto?",
         message = "O projeto será removido. Só é possível remover projetos sem serviços.",
         confirm_label = "Remover projeto",
         destructive = true,
-    })
+    }
 
     if not ok_confirm then
         return
@@ -392,12 +392,12 @@ end
 -- O grid se atualiza no próximo snapshot; refresh_now traz isso pra hora.
 
 function svc_stop_id(id: string): ()
-    local ok_confirm = confirm({
+    local ok_confirm = confirm{
         title = "Parar serviço?",
         message = "O tráfego para este serviço será interrompido até um novo deploy.",
         confirm_label = "Parar",
         destructive = true,
-    })
+    }
 
     if not ok_confirm then
         return
@@ -435,12 +435,12 @@ function stop_delete_service(id: string): ()
             .. "."
     end
     message = message .. " Essa ação não pode ser desfeita."
-    local ok_confirm = confirm({
+    local ok_confirm = confirm{
         title = "Parar e remover serviço?",
         message = message,
         confirm_label = "Remover",
         destructive = true,
-    })
+    }
 
     if not ok_confirm then
         return
@@ -470,12 +470,12 @@ end
 -- ── Stop All (topbar) ────────────────────────────────────────────────────
 
 function stop_all(): ()
-    local ok_confirm = confirm({
+    local ok_confirm = confirm{
         title = "Parar todos os serviços?",
         message = "Todos os serviços em execução serão parados agora. Você pode reiniciá-los depois com um novo deploy.",
         confirm_label = "Parar todos",
         destructive = true,
-    })
+    }
 
     if not ok_confirm then
         return

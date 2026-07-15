@@ -46,12 +46,12 @@ end
 -- um repo já aberto).
 
 function registry_rm_tag(tag: string): ()
-    local ok_confirm = confirm({
+    local ok_confirm = confirm{
         title = "Remover tag?",
         message = "A tag será removida. Se outra tag apontar pro mesmo manifest (mesma imagem), ela também é removida — o delete é por digest, não por tag. O disco é liberado pelo botão \"Executar GC\". Ação irreversível.",
         confirm_label = "Remover",
         destructive = true,
-    })
+    }
 
     if not ok_confirm then
         return
@@ -78,12 +78,12 @@ end
 
 
 function registry_rm_repo(name: string): ()
-    local ok_confirm = confirm({
+    local ok_confirm = confirm{
         title = "Remover repositório?",
         message = "Todas as tags e manifests do repositório serão removidos. O disco é liberado pelo botão \"Executar GC\". Ação irreversível.",
         confirm_label = "Remover",
         destructive = true,
-    })
+    }
 
     if not ok_confirm then
         return
@@ -112,12 +112,12 @@ end
 -- Imagens taggeadas nunca são afetadas. Também roda sozinho 1x/dia no daemon.
 
 function registry_gc(): ()
-    local ok_confirm = confirm({
+    local ok_confirm = confirm{
         title = "Executar GC?",
         message = "Remove do disco blobs e manifests que nenhuma tag referencia (sobras de remoções e de tags republicadas) e uploads abandonados há mais de 24h. Imagens com tag não são afetadas.",
         confirm_label = "Executar",
         destructive = true,
-    })
+    }
 
     if not ok_confirm then
         return
@@ -175,12 +175,12 @@ function registry_open_token_window(): ()
 end
 
 function registry_rm_token(name: string): ()
-    local ok_confirm = confirm({
+    local ok_confirm = confirm{
         title = "Revogar token?",
         message = "Qualquer `docker login`/push/pull usando esse token deixa de funcionar imediatamente. Ação irreversível.",
         confirm_label = "Revogar",
         destructive = true,
-    })
+    }
 
     if not ok_confirm then
         return

@@ -622,12 +622,12 @@ function dep_logs(id: string): ()
 end
 
 function delete_deployment(id: string): ()
-    local ok_confirm = confirm({
+    local ok_confirm = confirm{
         title = "Remover deployment?",
         message = "O registro do deployment e seus build logs serão removidos. Essa ação não pode ser desfeita.",
         confirm_label = "Remover",
         destructive = true,
-    })
+    }
 
     if not ok_confirm then
         return
@@ -661,12 +661,12 @@ end
 -- GitHub/Gitea/Docker Hub com a URL anterior passa a receber 401. Por isso passa
 -- pelo confirm.
 function regen_webhook(): ()
-    local ok_confirm = confirm({
+    local ok_confirm = confirm{
         title = "Regenerar token do webhook?",
         message = "A URL atual para de funcionar imediatamente. Você precisará recadastrá-la no provedor (GitHub, Gitea, Docker Hub…).",
         confirm_label = "Regenerar",
         destructive = true,
-    })
+    }
 
     if not ok_confirm then
         return
@@ -760,12 +760,12 @@ function svc_reload(): ()
 end
 
 function svc_stop(): ()
-    local ok = confirm({
+    local ok = confirm{
         title = "Parar serviço?",
         message = "O tráfego para este serviço será interrompido até um novo deploy.",
         confirm_label = "Parar",
         destructive = true,
-    })
+    }
 
     if not ok then
         return

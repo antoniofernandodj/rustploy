@@ -25,12 +25,12 @@ local function prune(cmd: any, label: string): ()
 end
 
 function docker_prune_containers(): ()
-    local ok = confirm({
+    local ok = confirm{
         title = "Limpar containers parados?",
         message = "Todos os containers parados serão removidos (docker container prune). Ação irreversível.",
         confirm_label = "Limpar",
         destructive = true,
-    })
+    }
 
     if not ok then
         return
@@ -41,12 +41,12 @@ end
 
 
 function docker_prune_images(): ()
-    local ok = confirm({
+    local ok = confirm{
         title = "Limpar imagens sem uso?",
         message = "As imagens Docker sem uso serão removidas agora. Essa limpeza não pode ser desfeita.",
         confirm_label = "Limpar",
         destructive = true,
-    })
+    }
 
     if not ok then
         return
@@ -60,12 +60,12 @@ end
 
 
 function docker_prune_volumes(): ()
-    local ok = confirm({
+    local ok = confirm{
         title = "Limpar volumes sem uso?",
         message = "Os volumes Docker sem uso serão removidos agora. Essa limpeza não pode ser desfeita.",
         confirm_label = "Limpar",
         destructive = true,
-    })
+    }
 
     if not ok then
         return
@@ -78,12 +78,12 @@ end
 
 
 function docker_prune_networks(): ()
-    local ok = confirm({
+    local ok = confirm{
         title = "Limpar redes sem uso?",
         message = "As redes Docker sem uso serão removidas agora. Essa limpeza não pode ser desfeita.",
         confirm_label = "Limpar",
         destructive = true,
-    })
+    }
 
     if not ok then
         return
@@ -116,12 +116,12 @@ end
 -- suspende e, se o usuário confirmar, chama o handler `do_*` na hora com o
 -- id/name capturado no escopo.
 function docker_rm_container(id: string): ()
-    local ok = confirm({
+    local ok = confirm{
         title = "Remover container?",
         message = "O container parado será removido (docker rm). Ação irreversível.",
         confirm_label = "Remover",
         destructive = true,
-    })
+    }
 
     if not ok then
         return
@@ -131,12 +131,12 @@ function docker_rm_container(id: string): ()
 end
 
 function docker_rm_image(id: string): ()
-    local ok = confirm({
+    local ok = confirm{
         title = "Remover imagem?",
         message = "A imagem será removida (docker rmi). Falha se algum container a referencia.",
         confirm_label = "Remover",
         destructive = true,
-    })
+    }
 
     if not ok then
         return
@@ -146,12 +146,12 @@ function docker_rm_image(id: string): ()
 end
 
 function docker_rm_volume(name: string): ()
-    local ok = confirm({
+    local ok = confirm{
         title = "Remover volume?",
         message = "O volume será removido (docker volume rm). Falha se estiver em uso. Ação irreversível.",
         confirm_label = "Remover",
         destructive = true,
-    })
+    }
 
     if not ok then
         return
@@ -161,12 +161,12 @@ function docker_rm_volume(name: string): ()
 end
 
 function docker_rm_network(id: string): ()
-    local ok = confirm({
+    local ok = confirm{
         title = "Remover rede?",
         message = "A rede será removida (docker network rm). Falha se houver container anexado.",
         confirm_label = "Remover",
         destructive = true,
-    })
+    }
 
     if not ok then
         return

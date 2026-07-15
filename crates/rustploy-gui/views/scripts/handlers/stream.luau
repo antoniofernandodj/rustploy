@@ -217,12 +217,12 @@ M.refresh_now = refresh_now
 -- handler do daemon recusa apagar um deployment não-terminal como segunda
 -- trava.
 function deployments_clear_finished(): ()
-    local ok_confirm = confirm({
+    local ok_confirm = confirm{
         title = "Limpar deployments parados/falhos?",
         message = "Remove do histórico todo deployment em estado Stopped ou Failed, e seus build logs. Deployments em andamento não são afetados. Ação irreversível.",
         confirm_label = "Limpar",
         destructive = true,
-    })
+    }
 
     if not ok_confirm then
         return
