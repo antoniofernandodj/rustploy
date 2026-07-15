@@ -1,17 +1,17 @@
 <style>
-.login_wrap   { width: fill; height: fill; align-x: center; align-y: center; background: var(--bg); }
-.login_card   { width: fill; max-width: 460; align-x: start; background: var(--surface); border-radius: 4; border-width: 1; border-color: var(--border); padding: 32; spacing: 16; }
-.login_head   { width: fill; spacing: 14; align-y: center; }
-.login_brand  { width: fill; spacing: 6; align-x: start; }
-.field_group  { width: fill; spacing: 6; }
-.field_row    { width: fill; }
-.login_checks { width: fill; spacing: 8; padding: 4 0; }
-.status_row   { spacing: 14; align-y: center; }
-.login_title  { size: 30; bold: true; color: #A9C7FF; }
-.field_label  { size: 11; bold: true; color: var(--muted); }
-.field_label_fill { width: fill; size: 11; bold: true; color: var(--muted); }
-.connect_btn  { width: fill; color: var(--spin); padding: 14; text-align: center; border-radius: 3; }
-.ok           { color: var(--ok); }
+.login_wrap       { width: fill; height: fill; align-x: center; align-y: center; background: var(--bg); }
+.login_card       { width: fill; max-width: 460; align-x: start; background: var(--surface); border-radius: 4; border-width: 1; border-color: var(--border); padding: 32; spacing: 16; }
+.login_head       { width: fill; spacing: 14; align-y: center; }
+.login_brand      { width: fill; spacing: 6; align-x: start; }
+.field_group      { width: fill; spacing: 6; }
+.field_row        { width: fill; }
+.login_checks     { width: fill; spacing: 8; padding: 4 0; }
+.status_row       { spacing: 14; align-y: center; }
+.login_title      { size: 30; bold: true; color: #A9C7FF; }
+.field_label      { size: 11; bold: true; color: var(--muted); }
+.field_label_fill { size: 11; bold: true; color: var(--muted); width: fill; }
+.connect_btn      { width: fill; color: var(--spin); padding: 14; text-align: center; border-radius: 3; }
+.ok               { color: var(--ok); }
 </style>
 
 <container class="login_wrap">
