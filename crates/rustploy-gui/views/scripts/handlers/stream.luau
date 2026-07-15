@@ -259,7 +259,12 @@ function deployments_clear_finished(): ()
         ctx.deployments_msg = string.format("%d removido(s)", removed)
     else
         ctx.deployments_msg = string.format("%d removido(s), %d falharam", removed, failed)
-        toast{ message = tostring(string.format("%d deployment(s) não puderam ser removidos", failed)), kind = "error" }
+        toast{
+            message = tostring(
+                string.format("%d deployment(s) não puderam ser removidos", failed)
+            ),
+            kind = "error"
+        }
     end
     refresh_now()
 end
