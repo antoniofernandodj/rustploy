@@ -313,7 +313,10 @@ function dom_add(): ()
     ctx.erro_f_domain = ""
     with_spec(function(spec: any): ()
         materialize_domains(spec)
-        local route = { domain = domain, port = tonumber(Helpers.trim(ctx.f_port)), tls = ctx.f_tls == "true" }
+        local route = {
+            domain = domain,
+            port = tonumber(Helpers.trim(ctx.f_port)), tls = ctx.f_tls == "true"
+        }
         local found = false
         for i, r in ipairs(spec.domains) do
             if r.domain == domain then spec.domains[i] = route; found = true; break end
@@ -828,7 +831,9 @@ function gitea_repo_pick(full_name: string): ()
         return
     end
     ctx.gitea_msg = "carregando branches…"
-    local okb, resb = api:rpc{ GitBranchList = { provider_id = pid, repo_full_name = full_name } }
+    local okb, resb = api:rpc{
+        GitBranchList = { provider_id = pid, repo_full_name = full_name }
+    }
     if okb and resb.GitBranches then
         ctx.gitea_branches = fmt.git_branches(resb.GitBranches)
     end
