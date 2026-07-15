@@ -9,6 +9,7 @@
         "require",
         "json",
         "confirm",
-        "toast"
+        "toast",
+        "storage"
     ]
 }
