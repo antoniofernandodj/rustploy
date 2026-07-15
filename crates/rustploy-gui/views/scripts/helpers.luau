@@ -8,16 +8,6 @@ function M.trim(s: any): string
     return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", ""));
 end
 
--- Toasts (built-in do glacier 0.20+): notificação efêmera, complementa o
--- `*_msg` inline. Usados nos desfechos de mutação (erro/sucesso).
-function M.notify_err(msg: any): ()
-    toast({ message = tostring(msg), kind = "error" });
-end
-
-function M.notify_ok(msg: any): ()
-    toast({ message = tostring(msg), kind = "success" });
-end
-
 -- URI de callback OAuth do Gitea que o usuário registra no app do Gitea.
 -- `base` é a URL pública do daemon (`DaemonSettings.public_base_url`), derivada
 -- de [api] domain/port — o callback OAuth é servido pelo mesmo listener da API.

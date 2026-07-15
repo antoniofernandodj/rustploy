@@ -5,7 +5,6 @@
 -- "Novo job".
 
 local State = require("../state")
-local Helpers = require("../helpers")
 local Stream = require("stream")
 
 function job_run_now(id: string): ()
@@ -15,9 +14,9 @@ function job_run_now(id: string): ()
     end
     local ok, res = api:rpc_checked({ JobRunNow = { id = id } })
     if ok then
-        Helpers.notify_ok("Job disparado")
+        toast({ message = tostring("Job disparado"), kind = "success" })
     else
-        Helpers.notify_err(res)
+        toast({ message = tostring(res), kind = "error" })
     end
     Stream.refresh_now()
 end
@@ -32,7 +31,7 @@ function job_toggle(id: string): ()
     end
     local job = State.jobs_by_id[id]
     if not job then
-        Helpers.notify_err("job não encontrado (tela desatualizada — tenta de novo)")
+        toast({ message = tostring("job não encontrado (tela desatualizada — tenta de novo)"), kind = "error" })
         return
     end
     local ok, res = api:rpc_checked({
@@ -46,9 +45,9 @@ function job_toggle(id: string): ()
         },
     })
     if ok then
-        Helpers.notify_ok(job.enabled and "Job pausado" or "Job ativado")
+        toast({ message = tostring(job.enabled and "Job pausado" or "Job ativado"), kind = "success" })
     else
-        Helpers.notify_err(res)
+        toast({ message = tostring(res), kind = "error" })
     end
     Stream.refresh_now()
 end
@@ -124,9 +123,9 @@ function job_del(id: string): ()
     end
     local ok, res = api:rpc_checked({ JobDelete = { id = id } })
     if ok then
-        Helpers.notify_ok("Job removido")
+        toast({ message = tostring("Job removido"), kind = "success" })
     else
-        Helpers.notify_err(res)
+        toast({ message = tostring(res), kind = "error" })
     end
     Stream.refresh_now()
 end

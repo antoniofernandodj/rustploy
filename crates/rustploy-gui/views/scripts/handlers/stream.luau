@@ -8,7 +8,6 @@
 local State = require("../state")
 local fmt = require("../fmt")
 local Services = require("services")
-local Helpers = require("../helpers")
 
 local M = {}
 
@@ -263,7 +262,7 @@ function do_deployments_clear_finished(): ()
         ctx.deployments_msg = string.format("%d removido(s)", removed)
     else
         ctx.deployments_msg = string.format("%d removido(s), %d falharam", removed, failed)
-        Helpers.notify_err(string.format("%d deployment(s) não puderam ser removidos", failed))
+        toast({ message = tostring(string.format("%d deployment(s) não puderam ser removidos", failed)), kind = "error" })
     end
     refresh_now()
 end
@@ -304,6 +303,25 @@ local function apply_bus(ev: any): ()
             if terminal then
                 State.deploy_track.running = false
                 local live = d.state == "Live"
+                -- Notificação NATIVA DO SO no desfecho: o usuário disparou o deploy
+                -- e provavelmente foi fazer outra coisa — o toast (dentro da janela)
+                -- não seria visto. Emitida sempre, independente da tela/serviço
+                -- selecionado (por isso fora do gate de selected_service abaixo).
+                local svc_name = State.deploy_track.name
+                if svc_name == "" then
+                    svc_name = "serviço"
+                end
+                if live then
+                    notify({
+                        title = "Deploy concluído",
+                        body = svc_name .. " está no ar e recebendo tráfego.",
+                    })
+                else
+                    notify({
+                        title = "Deploy falhou",
+                        body = svc_name .. ": " .. tostring(d.state) .. ".",
+                    })
+                end
                 if d.service_id == ctx.selected_service then
                     ctx.svc_deploy_running = "false"
                     ctx.svc_action_msg = (

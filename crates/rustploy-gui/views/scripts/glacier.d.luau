@@ -34,6 +34,9 @@ declare function fetch(url: string, opts: any?): FetchResult
 declare function sse(url: string, opts: any?): StreamHandle
 declare function websocket(url: string, opts: any?): StreamHandle
 declare function toast(opts: any): ()
+-- Notificação nativa do SO (glacier-ui 0.42+): `notify({ title?, body? })` ou
+-- `notify("mensagem")`. Diferente de `toast` (efêmero, dentro da janela).
+declare function notify(opts: any): ()
 declare function confirm(opts: any): ()
 
 -- Multi-janela (glacier-ui 0.36+/0.37+): abrir janela, mensagear entre janelas e

@@ -279,7 +279,7 @@ local function with_spec(mutate: (spec: any) -> ()): ()
     local ok, res = api:rpc({ ServiceGet = { id = sid } })
     if not ok or not res.Service then
         ctx.svc_action_msg = "erro ao carregar spec"
-        Helpers.notify_err("erro ao carregar o serviço")
+        toast({ message = tostring("erro ao carregar o serviço"), kind = "error" })
         return
     end
     local spec = res.Service.spec
@@ -290,7 +290,7 @@ local function with_spec(mutate: (spec: any) -> ()): ()
         M.fetch_service_detail(sid)
     else
         ctx.svc_action_msg = "erro: " .. res2
-        Helpers.notify_err(res2)
+        toast({ message = tostring(res2), kind = "error" })
     end
 end
 
@@ -639,7 +639,7 @@ function do_delete_deployment(id: string): ()
     local ok, res = api:rpc_checked({ DeployDelete = { deployment_id = id } })
     ctx.svc_action_msg = ok and "deployment removido" or ("erro: " .. res)
     if not ok then
-        Helpers.notify_err(res)
+        toast({ message = tostring(res), kind = "error" })
     end
     M.fetch_service_detail(ctx.selected_service)
 end
@@ -678,11 +678,11 @@ function do_regen_webhook(): ()
     if ok and type(res) == "table" and res.WebhookUrl then
         M.set_webhook_url(res.WebhookUrl)
         ctx.svc_action_msg = "token do webhook regenerado"
-        Helpers.notify_ok("Token do webhook regenerado")
+        toast({ message = tostring("Token do webhook regenerado"), kind = "success" })
     else
         local msg = type(res) == "string" and res or "falha ao regenerar o token"
         ctx.svc_action_msg = "erro: " .. msg
-        Helpers.notify_err(msg)
+        toast({ message = tostring(msg), kind = "error" })
     end
 end
 
@@ -713,17 +713,26 @@ local function start_deploy(id: string?): ()
     end
     ctx.svc_action_msg = "iniciando deploy…"
     ctx.svc_action_color = "#58A6FF"
+    -- Nome do serviço (para a notificação do SO no desfecho, ver stream.luau):
+    -- resolvido agora, do snapshot corrente, pois o evento só traz o service_id.
+    local sname = ""
+    for _, e in ipairs(State.last_pairs) do
+        if e.svc.id == sid then
+            sname = e.svc.spec.name
+            break
+        end
+    end
     local ok, res = api:rpc_checked({ DeployStart = { service_id = sid } })
     if ok and res.Deployment then
-        State.deploy_track = { service_id = sid, deployment_id = res.Deployment.id, running = true }
+        State.deploy_track = { service_id = sid, deployment_id = res.Deployment.id, running = true, name = sname }
         ctx.svc_deploy_running = "true"
         ctx.svc_deploy_elapsed = "0s"
         ctx.svc_action_msg = "deploy iniciado · " .. tostring(res.Deployment.state)
-        Helpers.notify_ok("Deploy iniciado")
+        toast({ message = tostring("Deploy iniciado"), kind = "success" })
     else
         ctx.svc_action_msg = ok and "resposta inesperada" or ("erro: " .. res)
         ctx.svc_action_color = "#F85149"
-        Helpers.notify_err(ok and "resposta inesperada do daemon" or res)
+        toast({ message = tostring(ok and "resposta inesperada do daemon" or res), kind = "error" })
     end
     if ctx.selected_service == sid then
         M.fetch_service_detail(sid)

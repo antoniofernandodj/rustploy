@@ -52,16 +52,16 @@ end
 function on_broadcast(event: string, payload: any): ()
     local name = (type(payload) == "table" and payload.name) or ""
     if event == "project_created" then
-        Helpers.notify_ok("Projeto \"" .. (name ~= "" and name or "projeto") .. "\" criado")
+        toast({ message = tostring("Projeto \"" .. (name ~= "" and name or "projeto") .. "\" criado"), kind = "success" })
         Stream.refresh_now()
     elseif event == "service_created" then
-        Helpers.notify_ok("Serviço \"" .. (name ~= "" and name or "serviço") .. "\" criado")
+        toast({ message = tostring("Serviço \"" .. (name ~= "" and name or "serviço") .. "\" criado"), kind = "success" })
         Stream.refresh_now()
     elseif event == "job_created" then
-        Helpers.notify_ok("Job \"" .. (name ~= "" and name or "job") .. "\" criado")
+        toast({ message = tostring("Job \"" .. (name ~= "" and name or "job") .. "\" criado"), kind = "success" })
         Stream.refresh_now()
     elseif event == "registry_token_created" then
-        Helpers.notify_ok("Token \"" .. (name ~= "" and name or "token") .. "\" criado")
+        toast({ message = tostring("Token \"" .. (name ~= "" and name or "token") .. "\" criado"), kind = "success" })
         Registry.refresh_tokens()
     end
 end
@@ -95,11 +95,11 @@ function create_project(): ()
         ctx.new_proj_name = ""
         ctx.new_proj_desc = ""
         ctx.new_proj_msg = "projeto criado"
-        Helpers.notify_ok("Projeto \"" .. name .. "\" criado")
+        toast({ message = tostring("Projeto \"" .. name .. "\" criado"), kind = "success" })
         Stream.refresh_now()
     else
         ctx.new_proj_msg = "erro: " .. res
-        Helpers.notify_err(res)
+        toast({ message = tostring(res), kind = "error" })
     end
 end
 
@@ -126,11 +126,11 @@ function do_delete_project(id: string): ()
     if ok then
         ctx.selected_project_id = ""
         ctx.view = "projects"
-        Helpers.notify_ok("Projeto removido")
+        toast({ message = tostring("Projeto removido"), kind = "success" })
         Stream.refresh_now()
     else
         ctx.proj_action_msg = "erro: " .. res
-        Helpers.notify_err(res)
+        toast({ message = tostring(res), kind = "error" })
     end
 end
 
@@ -224,7 +224,7 @@ local function with_project_env(mutate: (pe: any) -> ()): ()
             ctx.proj_env_text_orig = dotenv
         end
     else
-        Helpers.notify_err(res2)
+        toast({ message = tostring(res2), kind = "error" })
     end
 end
 
@@ -407,7 +407,7 @@ function do_svc_stop_id(id: string): ()
     local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
     ctx.proj_action_msg = ok and "serviço parado" or ("erro: " .. res)
     if not ok then
-        Helpers.notify_err(res)
+        toast({ message = tostring(res), kind = "error" })
     end
     Stream.refresh_now()
 end
@@ -448,14 +448,14 @@ function do_stop_delete_service(id: string): ()
     local ok, res = api:rpc_checked({ ServiceStop = { service_id = id } })
     if not ok then
         ctx.proj_action_msg = "erro ao parar: " .. res;
-        Helpers.notify_err(res); return
+        toast({ message = tostring(res), kind = "error" }); return
     end
     local ok2, res2 = api:rpc_checked({ ServiceDelete = { id = id } })
     ctx.proj_action_msg = ok2 and "serviço parado e removido" or ("erro ao remover: " .. res2)
     if ok2 then
-        Helpers.notify_ok("Serviço removido")
+        toast({ message = tostring("Serviço removido"), kind = "success" })
     else
-        Helpers.notify_err(res2)
+        toast({ message = tostring(res2), kind = "error" })
     end
     Stream.refresh_now()
 end

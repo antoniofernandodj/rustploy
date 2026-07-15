@@ -28,9 +28,9 @@ function settings_save(): ()
     } })
     ctx.settings_msg = ok and "configurações salvas" or ("erro: " .. res)
     if ok then
-        Helpers.notify_ok("Configurações salvas")
+        toast({ message = tostring("Configurações salvas"), kind = "success" })
     else
-        Helpers.notify_err(res)
+        toast({ message = tostring(res), kind = "error" })
     end
 end
 
@@ -139,7 +139,7 @@ function gp_delete(id: string): ()
     local ok, res = api:rpc_checked({ GitProviderDelete = { id = id } })
     ctx.gp_msg = ok and "provider removido" or ("erro: " .. res)
     if not ok then
-        Helpers.notify_err(res)
+        toast({ message = tostring(res), kind = "error" })
     end
     gp_refresh_list()
 end
@@ -155,7 +155,7 @@ function iac_export(): ()
     local ok, res = api:rpc_checked("ManifestExportAll")
     if not ok or type(res) ~= "table" or not res.ManifestBundle then
         ctx.iac_export_msg = "erro: " .. tostring(res)
-        Helpers.notify_err(tostring(res))
+        toast({ message = tostring(tostring(res)), kind = "error" })
         return
     end
     ctx.iac_yaml = res.ManifestBundle.yaml
@@ -191,7 +191,7 @@ function iac_import(): ()
     })
     if not ok then
         ctx.iac_import_msg = "erro: " .. tostring(res)
-        Helpers.notify_err(tostring(res))
+        toast({ message = tostring(tostring(res)), kind = "error" })
         return
     end
 
@@ -199,13 +199,13 @@ function iac_import(): ()
         ctx.iac_has_missing = "true"
         ctx.iac_missing_vars = table.concat(res.MissingEnvVars, ", ")
         ctx.iac_import_msg = "faltam variáveis — nada foi aplicado"
-        Helpers.notify_err("Faltam variáveis no .env: " .. ctx.iac_missing_vars)
+        toast({ message = tostring("Faltam variáveis no .env: " .. ctx.iac_missing_vars), kind = "error" })
         return
     end
 
     if type(res) == "table" and res.Err ~= nil then
         ctx.iac_import_msg = "erro: " .. tostring(res.Err.code) .. ": " .. tostring(res.Err.message)
-        Helpers.notify_err(tostring(res.Err.message))
+        toast({ message = tostring(tostring(res.Err.message)), kind = "error" })
         return
     end
 
@@ -224,6 +224,6 @@ function iac_import(): ()
     ctx.iac_report_lines = lines
     ctx.iac_has_report = "true"
     ctx.iac_import_msg = "import concluído ✓"
-    Helpers.notify_ok("Infra as Code importado")
+    toast({ message = tostring("Infra as Code importado"), kind = "success" })
     Stream.refresh_now()
 end

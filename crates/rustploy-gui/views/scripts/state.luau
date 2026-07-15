@@ -19,7 +19,9 @@
 
 local Api = require("net/api")
 
-export type DeployTrack = { service_id: string, deployment_id: string, running: boolean }
+-- `name` é capturado ao armar o deploy (start_deploy) só para a notificação do
+-- SO no desfecho — o evento DeployStateChanged carrega só o service_id.
+export type DeployTrack = { service_id: string, deployment_id: string, running: boolean, name: string }
 
 export type State = {
     api: Api.Client?,                 -- cliente Api conectado
@@ -44,7 +46,7 @@ local S: State = {
     last_pairs = {},
     metrics_by_id = {},
     search_term = "",
-    deploy_track = { service_id = "", deployment_id = "", running = false },
+    deploy_track = { service_id = "", deployment_id = "", running = false, name = "" },
     ns_templates_all = {},
     jobs_by_id = {},
 }

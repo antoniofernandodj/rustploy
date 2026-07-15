@@ -263,6 +263,6 @@ function ns_create(): ()
         close_window()
     else
         ctx.ns_msg = ok and "resposta inesperada" or ("erro: " .. res)
-        Helpers.notify_err(ok and "resposta inesperada do daemon" or res)
+        toast({ message = tostring(ok and "resposta inesperada do daemon" or res), kind = "error" })
     end
 end
