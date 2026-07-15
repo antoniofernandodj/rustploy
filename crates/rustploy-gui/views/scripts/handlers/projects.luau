@@ -52,16 +52,36 @@ end
 function on_broadcast(event: string, payload: any): ()
     local name = (type(payload) == "table" and payload.name) or ""
     if event == "project_created" then
-        toast{ message = tostring("Projeto \"" .. (name ~= "" and name or "projeto") .. "\" criado"), kind = "success" }
+        toast{
+            message = tostring(
+                "Projeto \"" .. (name ~= "" and name or "projeto") .. "\" criado"
+            ),
+            kind = "success"
+        }
         Stream.refresh_now()
     elseif event == "service_created" then
-        toast{ message = tostring("Serviço \"" .. (name ~= "" and name or "serviço") .. "\" criado"), kind = "success" }
+        toast{
+            message = tostring(
+                "Serviço \"" .. (name ~= "" and name or "serviço") .. "\" criado"
+            ),
+            kind = "success"
+        }
         Stream.refresh_now()
     elseif event == "job_created" then
-        toast{ message = tostring("Job \"" .. (name ~= "" and name or "job") .. "\" criado"), kind = "success" }
+        toast{
+            message = tostring(
+                "Job \"" .. (name ~= "" and name or "job") .. "\" criado"
+            ),
+            kind = "success"
+        }
         Stream.refresh_now()
     elseif event == "registry_token_created" then
-        toast{ message = tostring("Token \"" .. (name ~= "" and name or "token") .. "\" criado"), kind = "success" }
+        toast{
+            message = tostring(
+                "Token \"" .. (name ~= "" and name or "token") .. "\" criado"
+            ),
+            kind = "success"
+        }
         Registry.refresh_tokens()
     end
 end
@@ -95,11 +115,17 @@ function create_project(): ()
         ctx.new_proj_name = ""
         ctx.new_proj_desc = ""
         ctx.new_proj_msg = "projeto criado"
-        toast{ message = tostring("Projeto \"" .. name .. "\" criado"), kind = "success" }
+        toast{
+            message = tostring("Projeto \"" .. name .. "\" criado"),
+            kind = "success"
+        }
         Stream.refresh_now()
     else
         ctx.new_proj_msg = "erro: " .. res
-        toast{ message = tostring(res), kind = "error" }
+        toast{
+            message = tostring(res),
+            kind = "error"
+        }
     end
 end
 
@@ -269,7 +295,10 @@ end
 
 -- Reordena vars/comments a partir de uma ordem de keys (vars + linhas
 -- `__c<idx>`): cada comentário reancora na primeira var real que o segue.
-local function reorder_project_env(vars: {any}, comments: {any}, keys: {any}): ({any}, {any})
+local function reorder_project_env(
+    vars: {any},
+    comments: {any}, keys: {any}
+): ({any}, {any})
     local var_keys = {}
     local by_key = {}
     for _, v in ipairs(vars) do var_keys[v.key] = true; by_key[v.key] = v end
