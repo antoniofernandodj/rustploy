@@ -307,6 +307,10 @@ local function apply_bus(ev: any): ()
                 -- e provavelmente foi fazer outra coisa — o toast (dentro da janela)
                 -- não seria visto. Emitida sempre, independente da tela/serviço
                 -- selecionado (por isso fora do gate de selected_service abaixo).
+                -- app_name = "Rustploy" (não o nome do binário "rustploy-gui"): há
+                -- desktops (ex.: certos GNOME/extensões) que descartam a notificação
+                -- quando o app_name casa com um .desktop instalado — o nome de
+                -- exibição evita isso. Ver glacier-ui 0.43 e docs/notificacao-so.md.
                 local svc_name = State.deploy_track.name
                 if svc_name == "" then
                     svc_name = "serviço"
@@ -315,11 +319,15 @@ local function apply_bus(ev: any): ()
                     notify({
                         title = "Deploy concluído",
                         body = svc_name .. " está no ar e recebendo tráfego.",
+                        app_name = "Rustploy",
+                        icon = "rustploy-gui",
                     })
                 else
                     notify({
                         title = "Deploy falhou",
                         body = svc_name .. ": " .. tostring(d.state) .. ".",
+                        app_name = "Rustploy",
+                        icon = "rustploy-gui",
                     })
                 end
                 if d.service_id == ctx.selected_service then
