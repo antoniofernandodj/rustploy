@@ -1,15 +1,8 @@
 //! Local persistence, stored as JSON under the user data dir: window geometry
 //! ([`WindowState`], remembered size/position).
-//!
-//! As preferências de conexão (URL/token lembrados do login) **saíram daqui**:
-//! agora quem persiste é a camada Luau, via o global `storage` do glacier
-//! (`connection.luau`), gravando em `~/.local/share/rustploy/.glacier-storage/
-//! app.json`. O antigo `Prefs` (que gravava `rustploy-gui.json` deste lado) ficou
-//! redundante e está comentado abaixo por referência, não apagado.
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-
 
 /// Last known window geometry, remembered across launches so the app reopens
 /// at the same size and position instead of always resetting to the default
