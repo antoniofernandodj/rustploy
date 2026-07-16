@@ -1,4 +1,4 @@
-use crate::{api::AppState, db::Db, deploy::executor::DeployExecutor, event_bus::EventBus};
+use crate::{api::AppState, db::Db, event_bus::EventBus};
 use bollard::Docker;
 use shared::{Event, Healthcheck, HealthcheckKind, ServiceSource, ServiceStatus};
 use std::{
@@ -264,26 +264,16 @@ async fn trigger_redeploy(state: &AppState, svc: &shared::Service) {
         }
     };
 
-    let _ = crate::db::services::update_status(&state.db, &svc.id, &ServiceStatus::Deploying, None)
+    // Redeploy também passa pela fila global (um por vez) em vez de spawnar o
+    // executor direto — o serviço fica Queued até o worker pegar.
+    let _ = crate::db::services::update_status(&state.db, &svc.id, &ServiceStatus::Queued, None)
         .await;
     state.bus.publish(Event::ServiceStatusChanged {
         service_id: svc.id.clone(),
-        status: ServiceStatus::Deploying,
+        status: ServiceStatus::Queued,
     });
-
-    let executor = Arc::new(DeployExecutor {
-        db: state.db.clone(),
-        docker: state.docker.clone(),
-        ingress: state.ingress.clone(),
-        bus: state.bus.clone(),
-        secrets: state.secrets.clone(),
-        tls: state.tls.clone(),
-        db_path: state.db_path.clone(),
-        drain_secs: state.drain_secs,
-        registry_internal_token: state.registry_internal_token.clone(),
-    });
-    let dep_id = dep.id.clone();
-    tokio::spawn(async move { executor.run(dep_id).await });
+    state.deploy_queue.enqueue(dep.id.clone());
+    state.bus.publish(Event::DeployQueueChanged);
 }
 
 async fn run_healthcheck(

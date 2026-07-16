@@ -170,6 +170,18 @@ fn all_screens_and_service_tabs_render() {
         assert!(m.render("app").is_ok(), "render view {view}");
     }
 
+    // Deploy Engine → painel "NA FILA" (fila global): itens enfileirados
+    // (arrastáveis) + estado pausado + botão de retomar.
+    m.define_data("view", "deploy_engine");
+    m.define_data("eng_queued_count", "2");
+    m.define_data("eng_paused", "true");
+    m.define_data(
+        "eng_queued",
+        r#"[{"deployment_id":"dep_1","pos":"1","service":"api","project":"acme"},{"deployment_id":"dep_2","pos":"2","service":"worker","project":"acme"}]"#,
+    );
+    m.reevaluate_all().unwrap_or_else(|e| panic!("eval deploy_engine: {e}"));
+    assert!(m.render("app").is_ok(), "render deploy_engine com fila");
+
     // Ingress → tabela de portas TCP de host (separada das rotas de domínio).
     m.define_data("view", "ingress");
     m.define_data("host_ports_count", "1");

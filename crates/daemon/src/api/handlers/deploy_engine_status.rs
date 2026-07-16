@@ -123,13 +123,36 @@ pub async fn handle(state: AppState) -> RpResponse {
         });
     }
 
+    // Separa os que estão só esperando na fila (Pending, presentes na
+    // DeployQueue) dos que realmente estão em execução. `queued` sai na ordem da
+    // fila (o primeiro é o próximo a rodar), não na ordem do banco.
+    let (_running, queued_ids, paused) = state.deploy_queue.snapshot();
+    let queued_set: std::collections::HashSet<&str> =
+        queued_ids.iter().map(|s| s.as_str()).collect();
+
+    let mut running_active = Vec::with_capacity(active.len());
+    let mut queued_by_id: HashMap<String, ActiveDeployInfo> = HashMap::new();
+    for info in active {
+        if queued_set.contains(info.deployment_id.as_str()) {
+            queued_by_id.insert(info.deployment_id.clone(), info);
+        } else {
+            running_active.push(info);
+        }
+    }
+    let queued: Vec<ActiveDeployInfo> = queued_ids
+        .iter()
+        .filter_map(|id| queued_by_id.remove(id))
+        .collect();
+
     RpResponse::DeployEngineStatus(DeployEngineSummary {
         version: env!("CARGO_PKG_VERSION").to_string(),
         uptime_secs: state.started_at.elapsed().as_secs(),
-        active,
+        active: running_active,
         recent,
         total_24h,
         successful_24h,
         failed_24h,
+        queued,
+        paused,
     })
 }

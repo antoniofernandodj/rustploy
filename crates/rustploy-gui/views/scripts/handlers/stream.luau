@@ -128,6 +128,10 @@ local function apply_snapshot(msg: any): ()
         ctx.eng_active = fmt.eng_active(eng.active)
         ctx.eng_recent = fmt.eng_recent(eng.recent)
         ctx.eng_recent_count = tostring(#(eng.recent or {}))
+        -- Fila global (um por vez): itens esperando + estado pausado.
+        ctx.eng_queued = fmt.eng_queued(eng.queued)
+        ctx.eng_queued_count = tostring(#(eng.queued or {}))
+        ctx.eng_paused = (eng.paused and "true" or "false")
 
         -- Timer decorrido do deploy em voo do serviço aberto (granularidade de
         -- 2s — sem timer no Luau, vem do próprio snapshot; ver o plano de
@@ -276,6 +280,14 @@ end
 -- log_window.luau; open_logs_window / dep_logs em handlers/services.luau). Assim
 -- a janela principal não reprocessa (reavalia) sua árvore inteira por linha.
 local function apply_bus(ev: any): ()
+    -- Eventos unit-variant chegam como string JSON (ex.: "DeployQueueChanged"),
+    -- não table — tratados antes do guard de table abaixo.
+    if ev == "DeployQueueChanged" then
+        -- A fila global mudou: busca um snapshot fresco na hora, sem esperar o
+        -- tick de 2s.
+        refresh_now()
+        return
+    end
     if type(ev) ~= "table" then
         return
     end

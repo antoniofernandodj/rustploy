@@ -111,6 +111,9 @@ pub struct AppState {
     pub started_at: std::time::Instant,
     pub oauth_states: OAuthStates,
     pub active_deploys: ActiveDeploys,
+    /// Fila global de deploys (um por vez). `deploy_start` enfileira aqui e o
+    /// worker (`crate::deploy::queue::run_worker`) puxa serialmente.
+    pub deploy_queue: Arc<crate::deploy::queue::DeployQueue>,
     /// TTL cache for the slow host-wide Docker inventory (see [`DockerCache`]).
     pub docker_cache: Arc<DockerCache>,
     /// Storage do registry OCI embutido — o MESMO (mesma `commit_lock`) que o
@@ -153,6 +156,7 @@ impl AppState {
             started_at: std::time::Instant::now(),
             oauth_states: Arc::new(Mutex::new(HashMap::new())),
             active_deploys: Arc::new(Mutex::new(HashMap::new())),
+            deploy_queue: crate::deploy::queue::DeployQueue::new(),
             docker_cache: Arc::new(DockerCache::new()),
             registry_storage,
             registry_internal_token,

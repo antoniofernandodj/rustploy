@@ -138,6 +138,15 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::DeployAbort { deployment_id } => {
             handlers::deploy_abort::handle(state, deployment_id).await
         }
+        Command::DeployQueuePromote { deployment_id } => {
+            handlers::deploy_queue_promote::handle(state, deployment_id).await
+        }
+        Command::DeployQueueReorder { order } => {
+            handlers::deploy_queue_reorder::handle(state, order).await
+        }
+        Command::DeployQueuePause { paused } => {
+            handlers::deploy_queue_pause::handle(state, paused).await
+        }
         Command::DeployDelete { deployment_id } => {
             handlers::deploy_delete::handle(state, deployment_id).await
         }

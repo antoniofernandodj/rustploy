@@ -96,13 +96,15 @@ pub async fn fix_stale_live(state: &AppState, deployments: Vec<Deployment>) -> V
     out
 }
 
-/// True enquanto um deploy do serviço está em curso (`ServiceStatus::Deploying`,
-/// escrito por `deploy_start` antes de spawnar o executor e limpo por ele no
-/// desfecho).
+/// True enquanto um deploy do serviço está em curso ou esperando na fila
+/// (`ServiceStatus::Deploying`/`Queued`). `Queued` é escrito por `deploy_start`
+/// ao enfileirar; `Deploying` pelo worker ao pegar o deploy — ambos limpos no
+/// desfecho. Reconciliar por cima disso zeraria o status (o container ainda não
+/// existe), então pulamos.
 async fn service_is_deploying(state: &AppState, service_id: &str) -> bool {
     matches!(
         crate::db::services::get(&state.db, service_id).await,
-        Ok(Some(svc)) if svc.status == ServiceStatus::Deploying
+        Ok(Some(svc)) if matches!(svc.status, ServiceStatus::Deploying | ServiceStatus::Queued)
     )
 }
 

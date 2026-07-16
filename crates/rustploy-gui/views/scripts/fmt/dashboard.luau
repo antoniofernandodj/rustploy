@@ -436,6 +436,22 @@ function M.eng_active(active: {any}?): string
     return Util.enc_array(rows)
 end
 
+-- Deploy Engine: "Na fila" (deploys esperando; o primeiro é o próximo a rodar).
+-- Inclui deployment_id (para cancelar/promover) e uma posição 1-based.
+function M.eng_queued(queued: {any}?): string
+    local B = Util.col_budgets()
+    local rows = {}
+    for i, info in ipairs(queued or {}) do
+        table.insert(rows, {
+            deployment_id = info.deployment_id,
+            pos = tostring(i),
+            service = Util.ellipsis(info.service_name, B.svc),
+            project = Util.ellipsis(info.project_name, B.proj),
+        })
+    end
+    return Util.enc_array(rows)
+end
+
 -- Deploy Engine: "Histórico 24h".
 function M.eng_recent(recent: {any}?): string
     local B = Util.col_budgets()

@@ -46,6 +46,7 @@ M.ingress = Dashboard.ingress
 M.host_ports = Dashboard.host_ports
 M.monitoring = Dashboard.monitoring
 M.eng_active = Dashboard.eng_active
+M.eng_queued = Dashboard.eng_queued
 M.eng_recent = Dashboard.eng_recent
 
 -- Service detail: source/healthcheck/env/logs/deployments/domains/connection

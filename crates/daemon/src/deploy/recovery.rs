@@ -20,12 +20,17 @@ pub async fn recover(
     db_path: PathBuf,
     drain_secs: u64,
     registry_internal_token: Option<Arc<str>>,
-) {
+) -> Vec<String> {
+    // deployment_ids em `Pending` (estavam na fila, nunca começaram) — devolvidos
+    // ao chamador para re-enfileirar na `DeployQueue` (que ainda não existe neste
+    // ponto do boot), preservando a fila entre restarts.
+    let mut to_requeue: Vec<String> = Vec::new();
+
     let pending = match crate::db::deployments::get_non_terminal(&db).await {
         Ok(v) => v,
         Err(e) => {
             warn!(error = %e, "failed to query non-terminal deployments");
-            return;
+            return to_requeue;
         }
     };
 
@@ -34,7 +39,7 @@ pub async fn recover(
 
     if pending.is_empty() {
         info!("no deployments to recover");
-        return;
+        return to_requeue;
     }
 
     info!(count = pending.len(), "recovering deployments");
@@ -60,9 +65,22 @@ pub async fn recover(
         };
 
         match &dep.state {
-            // Pre-swap states: safe to abort
-            DeployState::Pending
-            | DeployState::ResolvingDeps
+            // Estava na fila, nunca começou: re-enfileira em vez de falhar,
+            // preservando a fila entre restarts. Mantém o serviço em Queued.
+            DeployState::Pending => {
+                info!(deployment_id = dep.id, "re-enfileirando deploy pendente");
+                let _ = crate::db::services::update_status(
+                    &db,
+                    &svc.id,
+                    &ServiceStatus::Queued,
+                    None,
+                )
+                .await;
+                to_requeue.push(dep.id.clone());
+            }
+
+            // Pre-swap states (já começaram): safe to abort
+            DeployState::ResolvingDeps
             | DeployState::PullingImage
             | DeployState::CloningRepo
             | DeployState::BuildingImage
@@ -161,6 +179,8 @@ pub async fn recover(
             | DeployState::Pruning => {}
         }
     }
+
+    to_requeue
 }
 
 /// Reconciles every service's DB status against actual Docker container state.

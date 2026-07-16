@@ -37,6 +37,7 @@ fn parse_status(s: &str) -> ServiceStatus {
         "Stopped" => ServiceStatus::Stopped,
         "Stopping" => ServiceStatus::Stopping,
         "Deploying" => ServiceStatus::Deploying,
+        "Queued" => ServiceStatus::Queued,
         "Running" => ServiceStatus::Running,
         "Degraded" => ServiceStatus::Degraded,
         s if s.starts_with("Error:") => {

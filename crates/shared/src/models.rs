@@ -316,6 +316,10 @@ pub enum ServiceStatus {
     Running,
     Degraded,
     Error(String),
+    /// Deploy criado e esperando na fila global — ainda não começou a rodar.
+    /// Variante anexada no FIM do enum de propósito: o wire postcard é
+    /// posicional, então acrescentar aqui não desloca as variantes anteriores.
+    Queued,
 }
 
 impl std::fmt::Display for ServiceStatus {
@@ -327,6 +331,7 @@ impl std::fmt::Display for ServiceStatus {
             Self::Running => write!(f, "Running"),
             Self::Degraded => write!(f, "Degraded"),
             Self::Error(msg) => write!(f, "Error: {msg}"),
+            Self::Queued => write!(f, "Queued"),
         }
     }
 }
@@ -519,6 +524,12 @@ pub struct DeployEngineSummary {
     pub total_24h: u64,
     pub successful_24h: u64,
     pub failed_24h: u64,
+    /// Deploys esperando na fila global (em ordem de execução; o primeiro é o
+    /// próximo a rodar). Campos novos anexados no fim do struct de propósito
+    /// (wire postcard posicional; sem serde default — regra dos tipos de wire).
+    pub queued: Vec<ActiveDeployInfo>,
+    /// Fila pausada — o worker não puxa o próximo até retomar.
+    pub paused: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -886,5 +897,18 @@ mod git_provider_tests {
             Response::GitProviders(v) => assert_eq!(v[0].account.as_ref().unwrap().login, "alice"),
             _ => panic!("variante errada"),
         }
+    }
+
+    #[test]
+    fn service_status_queued_serde_and_display() {
+        // A GUI (Luau) casa o status pela string JSON — Queued é variante unit,
+        // então serializa como "Queued". O Display casa a gravação no banco.
+        assert_eq!(
+            serde_json::to_string(&ServiceStatus::Queued).unwrap(),
+            "\"Queued\""
+        );
+        let back: ServiceStatus = serde_json::from_str("\"Queued\"").unwrap();
+        assert_eq!(back, ServiceStatus::Queued);
+        assert_eq!(ServiceStatus::Queued.to_string(), "Queued");
     }
 }

@@ -173,6 +173,61 @@
       </row>
     </row>
 
+    <!-- Na fila: fila GLOBAL de deploys (um por vez). O primeiro é o próximo a
+         rodar. Arraste pela alça (⋮) para reordenar; ↑ fura fila; ✕ cancela.
+         Pausar/retomar interrompe o worker de puxar o próximo (o que já está
+         rodando segue). Tudo em handlers/deploy_queue.luau. -->
+    <column class="panel_fill">
+      <row class="env_head">
+        <text class="label_cap">NA FILA ({eng_queued_count})</text>
+        <button
+          if="{eng_paused}"
+          equals="true"
+          class="copy_btn"
+          on_click="queue_toggle_pause"
+          text="▶ Retomar fila"
+        />
+        <button
+          if="{eng_paused}"
+          not_equals="true"
+          class="copy_btn"
+          on_click="queue_toggle_pause"
+          text="⏸ Pausar fila"
+        />
+      </row>
+      <text if="{eng_paused}" equals="true" class="muted">
+        Fila pausada — deploys esperam até você retomar.
+      </text>
+      <text if="{eng_queued_count}" equals="0" class="muted">
+        Nenhum deploy na fila.
+      </text>
+      <column class="table_body">
+        <foreach
+          items="eng_queued"
+          var="q"
+          on_reorder="queue_reorder"
+          reorder_key="deployment_id"
+        >
+          <row class="trow">
+            <text class="env_drag_handle" dragHandle="true">⋮ </text>
+            <text class="td_key col_svc">{q.pos}. {q.service}</text>
+            <text class="td col_proj">{q.project}</text>
+            <button
+              class="copy_btn"
+              on_click="queue_promote:{q.deployment_id}"
+              text="↑ topo"
+            />
+            <button
+              class="env_del"
+              on_click="queue_cancel:{q.deployment_id}"
+              text="✕"
+            />
+          </row>
+          <rule />
+        </foreach>
+      </column>
+    </column>
+
     <!-- Executando agora -->
     <column class="panel_fill">
       <text class="label_cap">

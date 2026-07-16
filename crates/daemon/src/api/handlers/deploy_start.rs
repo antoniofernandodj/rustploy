@@ -1,6 +1,5 @@
-use crate::{api::AppState, db::services, deploy::executor::DeployExecutor};
+use crate::{api::AppState, db::services};
 use shared::{Event, Response as RpResponse, ServiceSource, ServiceStatus};
-use std::sync::Arc;
 use tracing::{error, info, warn};
 
 pub async fn handle(state: AppState, service_id: String) -> RpResponse {
@@ -31,9 +30,12 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
         "deploy_start: serviço encontrado"
     );
 
-    if matches!(svc.status, ServiceStatus::Deploying) {
-        warn!(service_id = %service_id, "deploy_start: deploy já em andamento, rejeitando");
-        return RpResponse::err("ServiceAlreadyDeploying", "deploy already in progress");
+    if matches!(svc.status, ServiceStatus::Deploying | ServiceStatus::Queued) {
+        warn!(service_id = %service_id, "deploy_start: deploy já em andamento/na fila, rejeitando");
+        return RpResponse::err(
+            "ServiceAlreadyDeploying",
+            "deploy already in progress or queued",
+        );
     }
 
     // Valida que a fonte tem conteúdo configurado
@@ -95,16 +97,16 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
         }
     };
 
-    info!(service_id = %service_id, "deploy_start: atualizando status para Deploying");
+    info!(service_id = %service_id, "deploy_start: atualizando status para Queued");
     let _ =
-        crate::db::services::update_status(&state.db, &service_id, &ServiceStatus::Deploying, None)
+        crate::db::services::update_status(&state.db, &service_id, &ServiceStatus::Queued, None)
             .await;
 
     state.bus.publish(Event::ServiceStatusChanged {
         service_id: service_id.clone(),
-        status: ServiceStatus::Deploying,
+        status: ServiceStatus::Queued,
     });
-    info!(service_id = %service_id, "deploy_start: evento ServiceStatusChanged(Deploying) publicado");
+    info!(service_id = %service_id, "deploy_start: evento ServiceStatusChanged(Queued) publicado");
 
     // Auto-cria webhook token na primeira vez para serviços Application (não Compose)
     if !matches!(svc.spec.source, ServiceSource::Compose(_)) {
@@ -114,29 +116,12 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
         }
     }
 
-    let executor = Arc::new(DeployExecutor {
-        db: state.db.clone(),
-        docker: state.docker.clone(),
-        ingress: state.ingress.clone(),
-        bus: state.bus.clone(),
-        secrets: state.secrets.clone(),
-        tls: state.tls.clone(),
-        db_path: state.db_path.clone(),
-        drain_secs: state.drain_secs,
-        registry_internal_token: state.registry_internal_token.clone(),
-    });
-    let dep_id = dep.id.clone();
-    let active_deploys = state.active_deploys.clone();
-    info!(deployment_id = %dep_id, "deploy_start: spawning DeployExecutor");
-    let handle = tokio::spawn(async move {
-        executor.run(dep_id.clone()).await;
-        if let Ok(mut map) = active_deploys.lock() {
-            map.remove(&dep_id);
-        }
-    });
-    if let Ok(mut map) = state.active_deploys.lock() {
-        map.insert(dep.id.clone(), handle.abort_handle());
-    }
+    // Enfileira na fila global (um por vez). O worker
+    // (`crate::deploy::queue::run_worker`) puxa serialmente, marca o serviço
+    // como `Deploying` e roda o `DeployExecutor`.
+    info!(deployment_id = %dep.id, "deploy_start: enfileirando deploy");
+    state.deploy_queue.enqueue(dep.id.clone());
+    state.bus.publish(Event::DeployQueueChanged);
 
     RpResponse::Deployment(dep)
 }

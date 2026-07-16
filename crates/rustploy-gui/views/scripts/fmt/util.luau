@@ -90,6 +90,7 @@ function M.status_label_color(status: any): (string, string)
     end
     if status == "Running" then return "Running", "#3FB950"
     elseif status == "Deploying" then return "Deploying", "#58A6FF"
+    elseif status == "Queued" then return "Na fila", "#8B949E"
     elseif status == "Degraded" then return "Degraded", "#D29922"
     elseif status == "Stopping" then return "Stopping", "#8B949E"
     elseif status == "Stopped" then return "Stopped", "#8B949E"
@@ -101,6 +102,7 @@ function M.status_kind(status: any): string
     if type(status) == "table" and status.Error ~= nil then return "bad" end
     if status == "Running" then return "ok"
     elseif status == "Deploying" then return "info"
+    elseif status == "Queued" then return "muted"
     elseif status == "Degraded" then return "warn"
     elseif status == "Stopping" or status == "Stopped" then return "muted"
     end

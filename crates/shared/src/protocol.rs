@@ -315,6 +315,20 @@ pub enum Command {
     RegistryTokenCreate { name: String, scope: String },
     RegistryTokenList,
     RegistryTokenRevoke { name: String },
+    /// Move um deploy enfileirado para o início da fila ("furar fila"). Sem
+    /// efeito se o id não estiver na fila (ex.: já rodando/terminado).
+    /// Resposta: `Ok`. Variantes anexadas no fim do enum de propósito (wire
+    /// postcard posicional).
+    DeployQueuePromote { deployment_id: String },
+    /// Reordena a fila para exatamente a ordem dada (ids de deployment). Ids
+    /// ausentes/desconhecidos são ignorados; enfileirados omitidos ficam ao fim
+    /// preservando a ordem relativa. Usado pelo drag-and-drop da GUI.
+    /// Resposta: `Ok`.
+    DeployQueueReorder { order: Vec<String> },
+    /// Pausa (`true`) ou retoma (`false`) a fila global. Pausada, o worker não
+    /// puxa o próximo deploy; o que já estiver rodando segue até o fim.
+    /// Resposta: `Ok`.
+    DeployQueuePause { paused: bool },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -377,6 +391,10 @@ pub enum Event {
         running: bool,
         success: Option<bool>,
     },
+    /// A fila global de deploys mudou (enfileirou, começou, terminou, reordenou,
+    /// cancelou ou pausou/retomou). Sinal leve: o cliente refaz o
+    /// `DeployEngineStatus` ao recebê-lo. Anexado no fim do enum de propósito.
+    DeployQueueChanged,
 }
 
 impl Event {
@@ -402,7 +420,8 @@ impl Event {
             | Event::Error { .. }
             | Event::SystemMetrics(_)
             | Event::JobLogLine { .. }
-            | Event::JobRunStateChanged { .. } => true,
+            | Event::JobRunStateChanged { .. }
+            | Event::DeployQueueChanged => true,
         }
     }
 }

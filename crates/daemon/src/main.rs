@@ -113,8 +113,9 @@ async fn main() -> Result<()> {
         None
     };
 
-    // Recovery
-    deploy::recovery::recover(
+    // Recovery — devolve os deploys que estavam na fila (Pending) para
+    // re-enfileirar depois que o AppState/DeployQueue existir.
+    let deploys_to_requeue = deploy::recovery::recover(
         db.clone(),
         docker.clone(),
         ingress.clone(),
@@ -224,6 +225,19 @@ async fn main() -> Result<()> {
         registry_storage.clone(),
         registry_internal_token.clone(),
     );
+
+    // Worker da fila global de deploys (um por vez). Spawnado depois do
+    // AppState; re-enfileira os deploys que estavam na fila antes do restart
+    // (na ordem de criação devolvida pelo recovery).
+    for dep_id in deploys_to_requeue {
+        state.deploy_queue.enqueue(dep_id);
+    }
+    {
+        let state2 = state.clone();
+        tokio::spawn(async move {
+            crate::deploy::queue::run_worker(state2).await;
+        });
+    }
 
     // Limpeza periódica do event_log (retém 30 dias) + GC diário do registry
     {
