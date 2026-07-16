@@ -25,8 +25,9 @@ pub fn compose_project_name(svc_id: &str, svc_name: &str) -> String {
     format!("rp_{id_part}_{safe}")
 }
 pub use manifest::{
-    format_dotenv, parse_dotenv, ActionVerb, ApplyReport, ProjectEntry, ProjectManifest,
-    ResourceAction, ResourceActionKind, ServerManifest, ServiceManifest,
+    format_dotenv, format_env_doc, parse_dotenv, parse_env_doc, ActionVerb, ApplyReport, EnvDoc,
+    ProjectEntry, ProjectEnvDoc, ProjectManifest, ResourceAction, ResourceActionKind,
+    ServerManifest, ServiceEnvDoc, ServiceManifest,
 };
 pub use models::*;
 pub use protocol::{ClientFrame, Command, Event, Response};

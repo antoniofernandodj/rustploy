@@ -999,7 +999,8 @@
     </if>
 
     <!-- Infra as Code: exporta todos os projetos/serviços como YAML (env vars
-         sempre redigidas para ${VAR}) + o .env complementar com os valores
+         sempre redigidas para ${VAR}) + o TOML de variáveis complementar
+         (aninhado por projeto → serviço, sem colisão de nomes) com os valores
          reais; importa colando os dois de volta (cruza e valida faltantes). -->
     <if cond="{settings_tab}" equals="iac">
       <scrollable direction="vertical" class="scroll_fill">
@@ -1009,7 +1010,8 @@
             Gera um YAML com todos os projetos e serviços — valores de env var
             nunca aparecem no YAML, só o nome entre cifrão-chaves. Os valores
             reais das vars (exceto secrets, que nunca saem do daemon) vão no
-            .env ao lado.
+            TOML ao lado, aninhado por projeto → serviço (vars homônimas de
+            escopos diferentes não colidem).
           </text>
           <row class="env_add">
             <button class="btn_primary" on_click="iac_export" text="Exportar tudo" />
@@ -1024,7 +1026,7 @@
             <textarea class="env_editor" font="mono" value="iac_yaml" readonly="true" />
 
             <row class="env_head">
-              <text class="label_cap">.env</text>
+              <text class="label_cap">variáveis.toml</text>
               <button class="copy_btn" on_click="clipboard:iac_dotenv" text="Copiar" />
             </row>
             <textarea class="env_editor" font="mono" value="iac_dotenv" readonly="true" />
@@ -1034,9 +1036,10 @@
 
           <text class="label_cap">IMPORTAR</text>
           <text class="muted">
-            Cole o YAML e o .env correspondente. Falta o valor de alguma
-            variável usada no YAML? O import é cancelado antes de aplicar
-            qualquer coisa.
+            Cole o YAML e o TOML de variáveis correspondente. Falta o valor de
+            alguma variável usada no YAML? O import é cancelado antes de aplicar
+            qualquer coisa (a faltante vem rotulada com o escopo, ex.
+            "Chiquitos/api: APP_PORT").
           </text>
 
           <text class="label_cap">rustploy.yml</text>
@@ -1047,12 +1050,12 @@
             placeholder="Cole aqui o YAML exportado (ou escrito à mão)"
           />
 
-          <text class="label_cap">.env</text>
+          <text class="label_cap">variáveis.toml</text>
           <textarea
             class="env_editor"
             font="mono"
             value="iac_import_dotenv"
-            placeholder="Cole aqui o .env com os valores (DB_PASS=s3cr3t)"
+            placeholder='Cole aqui o TOML de variáveis ([project.&quot;App&quot;.env] com DB_PASS = "s3cr3t")'
           />
 
           <row class="env_add">
@@ -1077,7 +1080,7 @@
 
           <if cond="{iac_has_missing}" equals="true">
             <text class="err">
-              Variáveis sem valor no .env: {iac_missing_vars}
+              Variáveis sem valor no TOML: {iac_missing_vars}
             </text>
           </if>
 

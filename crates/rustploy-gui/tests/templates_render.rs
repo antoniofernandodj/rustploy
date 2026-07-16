@@ -235,7 +235,7 @@ fn all_screens_and_service_tabs_render() {
     m.define_data("settings_tab", "iac");
     m.define_data("iac_has_export", "true");
     m.define_data("iac_yaml", "apiVersion: rustploy/v1\nprojects: []\n");
-    m.define_data("iac_dotenv", "LOG_LEVEL=info\n");
+    m.define_data("iac_dotenv", "[project.acme.env]\nLOG_LEVEL = \"info\"\n");
     m.define_data("iac_has_missing", "true");
     m.define_data("iac_missing_vars", "DB_PASS, API_TOKEN");
     m.define_data("iac_has_report", "true");

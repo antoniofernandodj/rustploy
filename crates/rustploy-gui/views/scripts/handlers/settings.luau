@@ -199,7 +199,7 @@ function iac_import(): ()
         ctx.iac_has_missing = "true"
         ctx.iac_missing_vars = table.concat(res.MissingEnvVars, ", ")
         ctx.iac_import_msg = "faltam variáveis — nada foi aplicado"
-        toast{ message = tostring("Faltam variáveis no .env: " .. ctx.iac_missing_vars), kind = "error" }
+        toast{ message = tostring("Faltam variáveis no TOML: " .. ctx.iac_missing_vars), kind = "error" }
         return
     end
 

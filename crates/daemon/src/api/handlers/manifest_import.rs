@@ -3,10 +3,12 @@ use shared::{ProjectEntry, ProjectManifest, Response as RpResponse, ServerManife
 use tracing::info;
 
 /// Importa um manifesto (raiz `projects:` ou de projeto único `project:`)
-/// junto com o `.env` texto que resolve os `${VAR}` usados nele. Interpola no
-/// daemon; se sobrar alguma `${VAR}` sem valor em qualquer projeto, aborta
-/// ANTES de aplicar qualquer mudança (`MissingEnvVars`). Sem faltantes,
-/// reconcilia exatamente como `Command::ManifestApply`.
+/// junto com o TOML de variáveis (`EnvDoc`, aninhado por projeto → serviço) que
+/// resolve os `${VAR}` usados nele. Interpola no daemon **com escopo** (cada
+/// serviço olha a sua tabela, com fallback para a do projeto); se sobrar alguma
+/// `${VAR}` sem valor em qualquer escopo, aborta ANTES de aplicar qualquer
+/// mudança (`MissingEnvVars`, cada faltante rotulada com o escopo). Sem
+/// faltantes, reconcilia exatamente como `Command::ManifestApply`.
 pub async fn handle(
     state: AppState,
     yaml: String,
@@ -22,12 +24,14 @@ pub async fn handle(
         return RpResponse::err("InvalidManifest", "nenhum projeto encontrado no manifesto");
     }
 
-    let env = shared::parse_dotenv(&dotenv);
-    let lookup = |k: &str| env.get(k).cloned();
+    let env = match shared::parse_env_doc(&dotenv) {
+        Ok(e) => e,
+        Err(msg) => return RpResponse::err("InvalidEnvVars", msg),
+    };
 
     let mut missing = Vec::new();
     for m in &mut projects {
-        for var in m.interpolate(&lookup) {
+        for var in m.interpolate(&env) {
             if !missing.contains(&var) {
                 missing.push(var);
             }

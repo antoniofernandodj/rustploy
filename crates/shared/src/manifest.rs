@@ -21,22 +21,23 @@ impl ServerManifest {
     /// Constrói um manifesto raiz redigido a partir de TODOS os projetos do
     /// banco (para `Command::ManifestExportAll`): cada `(Project, Vec<Service>)`
     /// vira uma entrada inline via [`ProjectManifest::from_existing_redacted`].
-    /// Devolve o manifesto e o `.env` complementar (chave -> valor real, só das
-    /// vars `Plain`; ver essa função para o porquê `Secret` fica de fora).
+    /// Devolve o manifesto e o [`EnvDoc`] complementar (valores reais das vars
+    /// `Plain`, aninhados por projeto → serviço; ver [`redact_env_map`] para o
+    /// porquê `Secret` fica de fora).
     ///
-    /// Nota: o `.env` é um único mapa achatado (mesmo esquema de
-    /// `ProjectManifest::interpolate`) — se duas vars de projetos/serviços
-    /// diferentes usarem a mesma chave com valores diferentes, a última
-    /// sobrescreve as anteriores.
-    pub fn from_existing_redacted(items: &[(Project, Vec<Service>)]) -> (Self, BTreeMap<String, String>) {
-        let mut dotenv = BTreeMap::new();
+    /// O aninhamento do [`EnvDoc`] dá **escopo real**: `DATABASE_URL` de
+    /// projetos/serviços diferentes ocupam entradas distintas (`[project."A".env]`
+    /// vs. `[project."B".env]`), sem a sobrescrita "última-vence" que o antigo
+    /// `.env` plano tinha.
+    pub fn from_existing_redacted(items: &[(Project, Vec<Service>)]) -> (Self, EnvDoc) {
+        let mut doc = EnvDoc::default();
         let projects = items
             .iter()
             .map(|(project, services)| {
                 ProjectEntry::Inline(ProjectManifest::from_existing_redacted(
                     project,
                     services,
-                    &mut dotenv,
+                    &mut doc,
                 ))
             })
             .collect();
@@ -45,9 +46,50 @@ impl ServerManifest {
                 api_version: Some(API_VERSION.to_string()),
                 projects,
             },
-            dotenv,
+            doc,
         )
     }
+}
+
+/// Documento TOML de variáveis que acompanha o manifesto no export/import de
+/// Infra-as-Code. Substitui o antigo `.env` plano: o aninhamento por
+/// **projeto → serviço** dá escopo real, então vars homônimas de escopos
+/// diferentes (ex.: `APP_PORT` no serviço `api` e no `worker`, ou `DATABASE_URL`
+/// em dois projetos) ficam em entradas distintas em vez de uma sobrescrever a
+/// outra.
+///
+/// O placeholder no YAML continua `${KEY}` **cru** — o escopo vem de ONDE o
+/// placeholder está (env do projeto vs. env de um serviço), não codificado no
+/// nome. Assim um nome de var com qualquer caractere (inclusive `__`) é só uma
+/// folha de tabela, sem parsing de separador para dar errado.
+///
+/// Serializa como:
+/// ```toml
+/// [project."Chiquitos".env]
+/// DATABASE_URL = "..."
+///
+/// [project."Chiquitos".service."api".env]
+/// APP_PORT = "3000"
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct EnvDoc {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub project: BTreeMap<String, ProjectEnvDoc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ProjectEnvDoc {
+    /// Vars de env do próprio projeto (herdadas por todos os serviços).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub env: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub service: BTreeMap<String, ServiceEnvDoc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ServiceEnvDoc {
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub env: BTreeMap<String, String>,
 }
 
 /// Uma entrada do manifesto raiz: projeto inline OU referência a um arquivo.
@@ -248,16 +290,32 @@ impl ProjectManifest {
             .collect()
     }
 
-    /// Substitui `${VAR}` em todos os valores de env (projeto + serviços) usando `lookup`.
-    /// Retorna a lista de variáveis não resolvidas (para o cliente avisar/abortar).
-    pub fn interpolate<F>(&mut self, lookup: &F) -> Vec<String>
-    where
-        F: Fn(&str) -> Option<String>,
-    {
+    /// Substitui `${VAR}` em todos os valores de env (projeto + serviços)
+    /// resolvendo contra o [`EnvDoc`] **com escopo**: o env do projeto olha só a
+    /// tabela do projeto; o env de cada serviço olha a tabela do serviço e, se a
+    /// var não estiver lá, cai para a do projeto (serviços herdam o env do
+    /// projeto no rustploy). Retorna a lista de variáveis não resolvidas, cada
+    /// uma rotulada com o escopo (`"projeto: VAR"` ou `"projeto/serviço: VAR"`)
+    /// para o cliente saber qual tabela preencher.
+    pub fn interpolate(&mut self, env: &EnvDoc) -> Vec<String> {
         let mut missing = Vec::new();
-        interpolate_map(&mut self.project.env, lookup, &mut missing);
+        let pname = self.project.name.clone();
+        let pdoc = env.project.get(&pname);
+
+        // Env do projeto: resolve só na tabela do projeto.
+        {
+            let lookup = |k: &str| pdoc.and_then(|p| p.env.get(k)).cloned();
+            interpolate_map_scoped(&mut self.project.env, &lookup, &pname, None, &mut missing);
+        }
+        // Env de cada serviço: tabela do serviço, com fallback para a do projeto.
         for s in &mut self.services {
-            interpolate_map(&mut s.env, lookup, &mut missing);
+            let sdoc = pdoc.and_then(|p| p.service.get(&s.name));
+            let lookup = |k: &str| {
+                sdoc.and_then(|sv| sv.env.get(k))
+                    .or_else(|| pdoc.and_then(|p| p.env.get(k)))
+                    .cloned()
+            };
+            interpolate_map_scoped(&mut s.env, &lookup, &pname, Some(&s.name), &mut missing);
         }
         missing
     }
@@ -278,19 +336,23 @@ impl ProjectManifest {
 
     /// Como [`from_existing`](Self::from_existing), mas redige todo valor de env
     /// var `Plain` para `${KEY}` — o YAML nunca carrega um valor real. Os
-    /// valores reais das vars `Plain` são acumulados em `dotenv_out` (para o
-    /// `.env` complementar); `Secret` segue como `secret:NOME`, nunca decifrada
-    /// (não entra no `.env`). Usado pelo par YAML+.env do fluxo "Infra as Code"
-    /// da GUI (`Command::ManifestExportAll`).
+    /// valores reais são acumulados no [`EnvDoc`] **na tabela do escopo certo**
+    /// (env do projeto → `project[name].env`; env de cada serviço →
+    /// `project[name].service[svc].env`), de forma que vars homônimas de escopos
+    /// diferentes não colidam. `Secret` segue como `secret:NOME`, nunca
+    /// decifrada (não entra no [`EnvDoc`]). Usado pelo par YAML+TOML do fluxo
+    /// "Infra as Code" da GUI (`Command::ManifestExportAll`).
     pub fn from_existing_redacted(
         project: &Project,
         services: &[Service],
-        dotenv_out: &mut BTreeMap<String, String>,
+        doc: &mut EnvDoc,
     ) -> Self {
         let mut m = Self::from_existing(project, services);
-        redact_env_map(&mut m.project.env, dotenv_out);
+        let pentry = doc.project.entry(project.name.clone()).or_default();
+        redact_env_map(&mut m.project.env, &mut pentry.env);
         for s in &mut m.services {
-            redact_env_map(&mut s.env, dotenv_out);
+            let sentry = pentry.service.entry(s.name.clone()).or_default();
+            redact_env_map(&mut s.env, &mut sentry.env);
         }
         m
     }
@@ -521,6 +583,19 @@ fn redact_env_map(map: &mut BTreeMap<String, String>, dotenv_out: &mut BTreeMap<
     }
 }
 
+/// Serializa um [`EnvDoc`] como texto TOML (o arquivo de variáveis que
+/// acompanha o manifesto no export de IaC). Ver [`EnvDoc`] para o layout.
+pub fn format_env_doc(doc: &EnvDoc) -> String {
+    toml::to_string(doc).unwrap_or_default()
+}
+
+/// Faz o parse do texto TOML do arquivo de variáveis num [`EnvDoc`]. Erro de
+/// sintaxe vira `Err(mensagem)` (o import aborta antes de aplicar qualquer
+/// coisa). Texto vazio é um [`EnvDoc`] vazio (todas as `${VAR}` viram faltantes).
+pub fn parse_env_doc(text: &str) -> Result<EnvDoc, String> {
+    toml::from_str(text).map_err(|e| e.to_string())
+}
+
 /// Serializa um mapa `KEY -> VALUE` como texto `.env` (uma linha por var,
 /// ordenado por chave). Valores com espaço ou `#` são colocados entre aspas
 /// duplas (sem escaping — casa com o parser simples de [`parse_dotenv`]).
@@ -554,12 +629,30 @@ pub fn parse_dotenv(text: &str) -> BTreeMap<String, String> {
     map
 }
 
-fn interpolate_map<F>(map: &mut BTreeMap<String, String>, lookup: &F, missing: &mut Vec<String>)
-where
+/// Interpola um mapa de env de um escopo (projeto ou serviço), rotulando as
+/// vars não resolvidas com o escopo (`"projeto: VAR"` / `"projeto/serviço: VAR"`)
+/// para que o cliente saiba exatamente qual tabela do TOML preencher.
+fn interpolate_map_scoped<F>(
+    map: &mut BTreeMap<String, String>,
+    lookup: &F,
+    project: &str,
+    service: Option<&str>,
+    missing: &mut Vec<String>,
+) where
     F: Fn(&str) -> Option<String>,
 {
+    let mut local = Vec::new();
     for value in map.values_mut() {
-        *value = interpolate_str(value, lookup, missing);
+        *value = interpolate_str(value, lookup, &mut local);
+    }
+    for name in local {
+        let label = match service {
+            Some(s) => format!("{project}/{s}: {name}"),
+            None => format!("{project}: {name}"),
+        };
+        if !missing.contains(&label) {
+            missing.push(label);
+        }
     }
 }
 
@@ -731,18 +824,108 @@ services:
         assert!(matches!(&token.value, EnvVarValue::Secret(n) if n == "api-token"));
     }
 
+    fn env_doc_with(project: &str, vars: &[(&str, &str)]) -> EnvDoc {
+        let env = vars
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+        EnvDoc {
+            project: BTreeMap::from([(
+                project.to_string(),
+                ProjectEnvDoc {
+                    env,
+                    service: BTreeMap::new(),
+                },
+            )]),
+        }
+    }
+
     #[test]
     fn interpolation_resolves_and_reports_missing() {
+        // SAMPLE é o projeto "minha-app" com DB_PASS no env do projeto.
         let mut m: ProjectManifest = serde_yaml::from_str(SAMPLE).unwrap();
-        let missing = m.interpolate(&|k| (k == "DB_PASS").then(|| "s3cr3t".to_string()));
+        let env = env_doc_with("minha-app", &[("DB_PASS", "s3cr3t")]);
+        let missing = m.interpolate(&env);
         assert!(missing.is_empty());
-        let env = m.project_fields().2;
-        let db = env.iter().find(|e| e.key == "DB_PASS").unwrap();
+        let vars = m.project_fields().2;
+        let db = vars.iter().find(|e| e.key == "DB_PASS").unwrap();
         assert!(matches!(&db.value, EnvVarValue::Plain(v) if v == "s3cr3t"));
 
+        // Sem valor: a faltante é rotulada com o escopo do projeto.
         let mut m2: ProjectManifest = serde_yaml::from_str(SAMPLE).unwrap();
-        let missing2 = m2.interpolate(&|_| None);
-        assert_eq!(missing2, vec!["DB_PASS".to_string()]);
+        let missing2 = m2.interpolate(&EnvDoc::default());
+        assert_eq!(missing2, vec!["minha-app: DB_PASS".to_string()]);
+    }
+
+    #[test]
+    fn interpolation_scopes_same_key_per_service() {
+        // Duas ocorrências de APP_PORT (serviços diferentes) com valores
+        // diferentes: cada uma resolve pela SUA tabela, sem colisão.
+        let yaml = r#"
+project:
+  name: chiquitos
+services:
+  - name: api
+    source:
+      registry: nginx
+    env:
+      APP_PORT: "${APP_PORT}"
+  - name: worker
+    source:
+      registry: nginx
+    env:
+      APP_PORT: "${APP_PORT}"
+"#;
+        let mut m: ProjectManifest = serde_yaml::from_str(yaml).unwrap();
+        let env = EnvDoc {
+            project: BTreeMap::from([(
+                "chiquitos".to_string(),
+                ProjectEnvDoc {
+                    env: BTreeMap::new(),
+                    service: BTreeMap::from([
+                        (
+                            "api".to_string(),
+                            ServiceEnvDoc {
+                                env: BTreeMap::from([("APP_PORT".into(), "3000".into())]),
+                            },
+                        ),
+                        (
+                            "worker".to_string(),
+                            ServiceEnvDoc {
+                                env: BTreeMap::from([("APP_PORT".into(), "8080".into())]),
+                            },
+                        ),
+                    ]),
+                },
+            )]),
+        };
+        assert!(m.interpolate(&env).is_empty());
+        let api = m.services.iter().find(|s| s.name == "api").unwrap();
+        let worker = m.services.iter().find(|s| s.name == "worker").unwrap();
+        assert_eq!(api.env.get("APP_PORT"), Some(&"3000".to_string()));
+        assert_eq!(worker.env.get("APP_PORT"), Some(&"8080".to_string()));
+    }
+
+    #[test]
+    fn service_falls_back_to_project_env() {
+        let yaml = r#"
+project:
+  name: p
+services:
+  - name: api
+    source:
+      registry: nginx
+    env:
+      DATABASE_URL: "${DATABASE_URL}"
+"#;
+        let mut m: ProjectManifest = serde_yaml::from_str(yaml).unwrap();
+        // DATABASE_URL só existe na tabela do PROJETO; o serviço herda via fallback.
+        let env = env_doc_with("p", &[("DATABASE_URL", "postgres://x")]);
+        assert!(m.interpolate(&env).is_empty());
+        assert_eq!(
+            m.services[0].env.get("DATABASE_URL"),
+            Some(&"postgres://x".to_string())
+        );
     }
 
     #[test]
@@ -786,31 +969,63 @@ services:
     #[test]
     fn redacted_export_never_leaks_plain_values() {
         let project = sample_project();
-        let mut dotenv = BTreeMap::new();
-        let manifest = ProjectManifest::from_existing_redacted(&project, &[], &mut dotenv);
+        let mut doc = EnvDoc::default();
+        let manifest = ProjectManifest::from_existing_redacted(&project, &[], &mut doc);
 
-        // Plain vira placeholder no YAML; valor real só aparece no .env.
+        // Plain vira placeholder no YAML; valor real só aparece no TOML, na
+        // tabela do projeto.
         assert_eq!(manifest.project.env.get("LOG_LEVEL"), Some(&"${LOG_LEVEL}".to_string()));
-        assert_eq!(dotenv.get("LOG_LEVEL"), Some(&"info".to_string()));
+        assert_eq!(doc.project["acme"].env.get("LOG_LEVEL"), Some(&"info".to_string()));
 
-        // Secret nunca é decifrada: permanece como referência e não entra no .env.
+        // Secret nunca é decifrada: permanece como referência e não entra no TOML.
         assert_eq!(manifest.project.env.get("DB_PASS"), Some(&"secret:db-pass".to_string()));
-        assert!(!dotenv.contains_key("DB_PASS"));
+        assert!(!doc.project["acme"].env.contains_key("DB_PASS"));
 
         let yaml = serde_yaml::to_string(&manifest).unwrap();
         assert!(!yaml.contains("info"), "valor real de Plain vazou pro YAML: {yaml}");
     }
 
     #[test]
-    fn server_manifest_redacted_aggregates_all_projects() {
+    fn server_manifest_redacted_scopes_per_project() {
         let p1 = sample_project();
         let mut p2 = sample_project();
         p2.id = "proj-2".into();
         p2.name = "beta".into();
+        // Mesma chave (LOG_LEVEL), valores diferentes por projeto: sem colisão.
+        p2.env_vars[0].value = EnvVarValue::Plain("debug".into());
 
-        let (server, dotenv) = ServerManifest::from_existing_redacted(&[(p1, vec![]), (p2, vec![])]);
+        let (server, doc) = ServerManifest::from_existing_redacted(&[(p1, vec![]), (p2, vec![])]);
         assert_eq!(server.projects.len(), 2);
-        assert_eq!(dotenv.get("LOG_LEVEL"), Some(&"info".to_string()));
-        assert!(!dotenv.contains_key("DB_PASS"));
+        assert_eq!(doc.project["acme"].env.get("LOG_LEVEL"), Some(&"info".to_string()));
+        assert_eq!(doc.project["beta"].env.get("LOG_LEVEL"), Some(&"debug".to_string()));
+        assert!(!doc.project["acme"].env.contains_key("DB_PASS"));
+    }
+
+    #[test]
+    fn env_doc_toml_round_trip_and_quotes_names_with_spaces() {
+        let doc = EnvDoc {
+            project: BTreeMap::from([(
+                "Chiquitos".to_string(),
+                ProjectEnvDoc {
+                    env: BTreeMap::from([("DATABASE_URL".into(), "postgres://x".into())]),
+                    service: BTreeMap::from([(
+                        "Landing page".to_string(),
+                        ServiceEnvDoc {
+                            env: BTreeMap::from([("MY__WEIRD__VAR".into(), "ok".into())]),
+                        },
+                    )]),
+                },
+            )]),
+        };
+        let text = format_env_doc(&doc);
+        // Nome com espaço fica entre aspas (nomes simples ficam crus); var com
+        // `__` é só uma folha, sem mangling.
+        assert!(text.contains(r#"[project.Chiquitos.service."Landing page".env]"#), "{text}");
+        assert!(text.contains("MY__WEIRD__VAR = \"ok\""), "{text}");
+        let back = parse_env_doc(&text).unwrap();
+        assert_eq!(
+            back.project["Chiquitos"].service["Landing page"].env.get("MY__WEIRD__VAR"),
+            Some(&"ok".to_string())
+        );
     }
 }
