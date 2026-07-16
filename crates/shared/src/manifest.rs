@@ -1187,4 +1187,39 @@ services:
         };
         assert_eq!(g.provider_id.as_deref(), Some(provider.id.as_str()));
     }
+
+    /// `manifest_import::handle` reserializa os `ProjectManifest` já
+    /// interpolados de volta pra YAML (`serde_yaml::to_string`) antes de
+    /// repassar pra `manifest_apply::handle`, que os reparseia
+    /// (`serde_yaml::from_str`). Confere que `source.git.provider` sobrevive a
+    /// esse segundo round-trip — não só ao primeiro (export -> texto colado).
+    #[test]
+    fn git_provider_survives_interpolate_then_reserialize_roundtrip() {
+        let yaml = r#"
+project:
+  name: p
+services:
+  - name: api
+    source:
+      git:
+        url: https://gitea.example.com/acme/api.git
+        branch: main
+        provider: Gitea
+    port: 3000
+"#;
+        let mut m: ProjectManifest = serde_yaml::from_str(yaml).unwrap();
+        assert!(m.interpolate(&EnvDoc::default()).is_empty());
+
+        // Mesmo passo de manifest_import::handle: reserializa pra YAML texto.
+        let reserialized = serde_yaml::to_string(&m).unwrap();
+        // Mesmo passo de manifest_apply::handle: reparseia esse texto.
+        let reparsed: ProjectManifest = serde_yaml::from_str(&reserialized).unwrap();
+
+        let git = reparsed.services[0].source.git.as_ref().unwrap();
+        assert_eq!(
+            git.provider.as_deref(),
+            Some("Gitea"),
+            "provider perdido no round-trip; YAML reserializado:\n{reserialized}"
+        );
+    }
 }

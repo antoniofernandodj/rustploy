@@ -225,6 +225,43 @@ mod git_provider_iac_tests {
         crate::db::connect(&dir).await.unwrap()
     }
 
+    /// `AppState` completo (Docker/ingress/TLS/secrets reais, mas sem
+    /// depender de nenhum daemon Docker/Let's Encrypt de verdade — nada aqui
+    /// chega a fazer uma chamada de rede) para exercitar os handlers reais
+    /// (`super::handle`, `manifest_apply::handle`) fim-a-fim, em vez de lógica
+    /// replicada manualmente no teste.
+    async fn test_state(db: crate::db::Db) -> AppState {
+        let tmp = std::env::temp_dir().join(format!("rustploy-test-state-{}", Ulid::new()));
+        let config = shared::RustployConfig::default();
+        let docker = std::sync::Arc::new(
+            crate::docker::DockerClient::connect(&config.docker.socket_path).unwrap(),
+        );
+        let db = std::sync::Arc::new(db);
+        let bus = std::sync::Arc::new(crate::event_bus::EventBus::new(db.clone()));
+        let ingress = std::sync::Arc::new(crate::ingress::IngressController::new());
+        let secrets = std::sync::Arc::new(
+            crate::secrets::SecretsManager::new(&tmp.join("master.key"), db.clone()).unwrap(),
+        );
+        let tls = std::sync::Arc::new(
+            crate::ingress::TlsManager::new(tmp.join("certs"), config.ingress.acme.clone())
+                .unwrap(),
+        );
+        AppState::new(
+            db,
+            docker,
+            ingress,
+            bus,
+            secrets,
+            tls,
+            tmp.join("db"),
+            tmp.join("backup"),
+            30,
+            config.api,
+            None,
+            None,
+        )
+    }
+
     #[tokio::test]
     async fn export_then_reimport_keeps_git_provider_link_same_daemon() {
         let db = temp_db().await;
@@ -476,5 +513,185 @@ services:
             }
             other => panic!("esperava Response::Err, veio {other:?}"),
         }
+    }
+
+    /// Fim-a-fim de verdade: chama `ManifestExportAll::handle` e depois
+    /// `ManifestImport::handle` (este módulo) no MESMO daemon — os dois
+    /// handlers reais, não lógica replicada — pra garantir que nada se perde
+    /// entre o limite export → texto → import.
+    #[tokio::test]
+    async fn end_to_end_export_then_import_preserves_provider_link() {
+        let db = temp_db().await;
+
+        let project = crate::db::projects::create(&db, "Chiquitos".into(), None)
+            .await
+            .unwrap();
+        let stored = StoredProvider {
+            id: "gp_E2E".into(),
+            kind: "gitea".into(),
+            name: "Gitea".into(),
+            base_url: "https://gitea.chiquitos.tech".into(),
+            auth_mode: "oauth".into(),
+            oauth_client_id: Some("cid".into()),
+            oauth_client_secret_enc: None,
+            access_token_enc: None,
+            refresh_token_enc: None,
+            account_login: None,
+            account_avatar: None,
+            created_at: Utc::now(),
+        };
+        git_providers::insert(&db, &stored).await.unwrap();
+
+        let spec = ServiceSpec {
+            name: "api".into(),
+            project_id: project.id.clone(),
+            source: ServiceSource::Git(GitSource {
+                url: "https://gitea.chiquitos.tech/Chiquitos/chiquitos.git".into(),
+                branch: "main-api".into(),
+                provider_id: Some("gp_E2E".into()),
+                ..GitSource::default()
+            }),
+            port: 3000,
+            host_port: None,
+            domain: None,
+            tls_enabled: false,
+            env_vars: vec![],
+            env_comments: vec![],
+            volumes: vec![],
+            healthcheck: Default::default(),
+            replicas: 1,
+            resources: Default::default(),
+            run_command: None,
+            run_args: vec![],
+            db_kind: None,
+            domains: vec![],
+        };
+        crate::db::services::create(&db, spec).await.unwrap();
+
+        let state = test_state(db).await;
+
+        let export = super::super::manifest_export_all::handle(state.clone()).await;
+        let RpResponse::ManifestBundle { yaml, dotenv } = export else {
+            panic!("esperava ManifestBundle, veio {export:?}");
+        };
+        assert!(yaml.contains("provider: Gitea"), "YAML sem a referência: {yaml}");
+        assert!(dotenv.contains("[git_provider.Gitea]"), "TOML sem a tabela: {dotenv}");
+
+        let import = handle(state.clone(), yaml, dotenv, false, false).await;
+        let RpResponse::ManifestReport(report) = import else {
+            panic!("esperava ManifestReport, veio {import:?}");
+        };
+        assert!(
+            report.actions.iter().any(|a| a.name.ends_with("/api")),
+            "serviço api não apareceu no report: {report:?}"
+        );
+
+        let services = crate::db::services::list(&state.db, &project.id).await.unwrap();
+        let api = services.iter().find(|s| s.spec.name == "api").unwrap();
+        let ServiceSource::Git(g) = &api.spec.source else {
+            panic!("esperava git")
+        };
+        assert_eq!(
+            g.provider_id.as_deref(),
+            Some("gp_E2E"),
+            "provider_id perdido no round-trip real dos handlers"
+        );
+    }
+
+    /// Mesmo fim-a-fim, mas export de um daemon e import em outro
+    /// completamente vazio — o cenário exato dos prints do usuário: o
+    /// provider "Gitea" não existe ainda no destino, então precisa nascer
+    /// pendente (sem token) a partir do TOML antes do serviço poder ser
+    /// vinculado a ele.
+    #[tokio::test]
+    async fn end_to_end_export_then_import_on_fresh_daemon_links_pending_provider() {
+        let src_db = temp_db().await;
+        let dst_db = temp_db().await;
+
+        let project = crate::db::projects::create(&src_db, "Chiquitos".into(), None)
+            .await
+            .unwrap();
+        let stored = StoredProvider {
+            id: "gp_SRC2".into(),
+            kind: "gitea".into(),
+            name: "Gitea".into(),
+            base_url: "https://gitea.chiquitos.tech".into(),
+            auth_mode: "oauth".into(),
+            oauth_client_id: Some("cid".into()),
+            oauth_client_secret_enc: None,
+            access_token_enc: None,
+            refresh_token_enc: None,
+            account_login: None,
+            account_avatar: None,
+            created_at: Utc::now(),
+        };
+        git_providers::insert(&src_db, &stored).await.unwrap();
+        let spec = ServiceSpec {
+            name: "api".into(),
+            project_id: project.id.clone(),
+            source: ServiceSource::Git(GitSource {
+                url: "https://gitea.chiquitos.tech/Chiquitos/chiquitos.git".into(),
+                branch: "main-api".into(),
+                provider_id: Some("gp_SRC2".into()),
+                ..GitSource::default()
+            }),
+            port: 3000,
+            host_port: None,
+            domain: None,
+            tls_enabled: false,
+            env_vars: vec![],
+            env_comments: vec![],
+            volumes: vec![],
+            healthcheck: Default::default(),
+            replicas: 1,
+            resources: Default::default(),
+            run_command: None,
+            run_args: vec![],
+            db_kind: None,
+            domains: vec![],
+        };
+        crate::db::services::create(&src_db, spec).await.unwrap();
+
+        let src_state = test_state(src_db).await;
+        let export = super::super::manifest_export_all::handle(src_state).await;
+        let RpResponse::ManifestBundle { yaml, dotenv } = export else {
+            panic!("esperava ManifestBundle, veio {export:?}");
+        };
+
+        let dst_state = test_state(dst_db).await;
+        assert!(git_providers::list(&dst_state.db).await.unwrap().is_empty());
+
+        let import = handle(dst_state.clone(), yaml, dotenv, false, false).await;
+        let RpResponse::ManifestReport(report) = import else {
+            panic!("esperava ManifestReport, veio {import:?}");
+        };
+        assert!(report.actions.iter().any(|a| a.name.ends_with("/api")));
+
+        let providers = git_providers::list(&dst_state.db).await.unwrap();
+        assert_eq!(providers.len(), 1);
+        assert_eq!(providers[0].name, "Gitea");
+        assert!(
+            providers[0].access_token_enc.is_none(),
+            "provider pendente não deveria ter token"
+        );
+
+        let dst_project = crate::db::projects::list(&dst_state.db)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|p| p.name == "Chiquitos")
+            .unwrap();
+        let services = crate::db::services::list(&dst_state.db, &dst_project.id)
+            .await
+            .unwrap();
+        let api = services.iter().find(|s| s.spec.name == "api").unwrap();
+        let ServiceSource::Git(g) = &api.spec.source else {
+            panic!("esperava git")
+        };
+        assert_eq!(
+            g.provider_id.as_deref(),
+            Some(providers[0].id.as_str()),
+            "serviço importado não ficou vinculado ao provider pendente recém-criado"
+        );
     }
 }
