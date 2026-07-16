@@ -1,10 +1,10 @@
 use crate::api::AppState;
 use shared::{
     ActionVerb, ApplyReport, ProjectManifest, ResourceAction, ResourceActionKind,
-    Response as RpResponse,
+    Response as RpResponse, ServiceSource,
 };
 use std::collections::BTreeMap;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 /// Reconcilia uma lista de manifestos YAML de projeto contra o banco.
 ///
@@ -33,6 +33,7 @@ pub async fn handle(
             return RpResponse::err("DatabaseError", e.to_string());
         }
     };
+    info!(?provider_ids, "manifest_apply: git providers disponíveis pra resolução (nome -> id)");
 
     for yaml in manifests {
         let manifest: ProjectManifest = match serde_yaml::from_str(&yaml) {
@@ -169,8 +170,32 @@ async fn apply_one(
     for spec in &specs {
         let svc_name = spec.name.clone();
         let label = format!("{name}/{svc_name}");
-        let (action, changed_id) = match existing_services.iter().find(|s| s.spec.name == svc_name) {
-            Some(s) if &s.spec == spec => (ActionVerb::Unchanged, None),
+        if let ServiceSource::Git(g) = &spec.source {
+            info!(
+                service = %label,
+                provider_id = ?g.provider_id,
+                url = %g.url,
+                "manifest_apply: fonte git resolvida a partir do manifesto"
+            );
+        }
+        let existing_match = existing_services.iter().find(|s| s.spec.name == svc_name);
+        if let Some(s) = existing_match {
+            if let (ServiceSource::Git(old_g), ServiceSource::Git(new_g)) = (&s.spec.source, &spec.source) {
+                if old_g.provider_id != new_g.provider_id {
+                    warn!(
+                        service = %label,
+                        old_provider_id = ?old_g.provider_id,
+                        new_provider_id = ?new_g.provider_id,
+                        "manifest_apply: provider_id do serviço git VAI MUDAR nesta atualização"
+                    );
+                }
+            }
+        }
+        let (action, changed_id) = match existing_match {
+            Some(s) if &s.spec == spec => {
+                debug!(service = %label, "manifest_apply: spec idêntico ao existente, Unchanged");
+                (ActionVerb::Unchanged, None)
+            }
             Some(s) => {
                 // Se o manifesto não declara env vars, preservar as existentes para não
                 // apagar vars que foram definidas manualmente após o export.
@@ -183,12 +208,14 @@ async fn apply_one(
                     .map_err(db_err)?;
                 super::service_update::sync_firewall(state, &s.id, s.spec.host_port, effective_spec.host_port)
                     .await;
+                debug!(service = %label, service_id = %s.id, "manifest_apply: serviço atualizado (Updated)");
                 (ActionVerb::Updated, Some(s.id.clone()))
             }
             None => {
                 let created = crate::db::services::create(&state.db, spec.clone())
                     .await
                     .map_err(db_err)?;
+                debug!(service = %label, service_id = %created.id, "manifest_apply: serviço criado (Created)");
                 (ActionVerb::Created, Some(created.id))
             }
         };

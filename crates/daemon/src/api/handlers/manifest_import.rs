@@ -6,7 +6,7 @@ use shared::{
     Response as RpResponse, ServerManifest,
 };
 use std::collections::BTreeMap;
-use tracing::info;
+use tracing::{debug, info, warn};
 use ulid::Ulid;
 
 /// Importa um manifesto (raiz `projects:` ou de projeto único `project:`)
@@ -28,18 +28,51 @@ pub async fn handle(
     prune: bool,
     deploy: bool,
 ) -> RpResponse {
+    info!(
+        yaml_len = yaml.len(),
+        dotenv_len = dotenv.len(),
+        prune,
+        deploy,
+        "manifest_import: recebido"
+    );
+
     let mut projects = match parse_projects(&yaml) {
         Ok(p) => p,
-        Err(msg) => return RpResponse::err("InvalidManifest", msg),
+        Err(msg) => {
+            warn!(%msg, "manifest_import: YAML inválido");
+            return RpResponse::err("InvalidManifest", msg);
+        }
     };
     if projects.is_empty() {
+        warn!("manifest_import: nenhum projeto encontrado no manifesto");
         return RpResponse::err("InvalidManifest", "nenhum projeto encontrado no manifesto");
+    }
+    for m in &projects {
+        let git_refs: Vec<(String, Option<String>)> = m
+            .services
+            .iter()
+            .filter_map(|s| s.source.git.as_ref().map(|g| (s.name.clone(), g.provider.clone())))
+            .collect();
+        info!(
+            project = %m.project.name,
+            service_count = m.services.len(),
+            ?git_refs,
+            "manifest_import: projeto parseado (referências git ANTES de interpolar)"
+        );
     }
 
     let env = match shared::parse_env_doc(&dotenv) {
         Ok(e) => e,
-        Err(msg) => return RpResponse::err("InvalidEnvVars", msg),
+        Err(msg) => {
+            warn!(%msg, "manifest_import: TOML inválido");
+            return RpResponse::err("InvalidEnvVars", msg);
+        }
     };
+    info!(
+        project_keys = ?env.project.keys().collect::<Vec<_>>(),
+        git_provider_keys = ?env.git_provider.keys().collect::<Vec<_>>(),
+        "manifest_import: TOML parseado"
+    );
 
     let mut missing = Vec::new();
     for m in &mut projects {
@@ -50,18 +83,21 @@ pub async fn handle(
         }
     }
     if !missing.is_empty() {
-        info!(
+        warn!(
             count = missing.len(),
+            ?missing,
             "manifest_import: variáveis não resolvidas, abortando sem aplicar"
         );
         return RpResponse::MissingEnvVars(missing);
     }
 
     if let Err(resp) = reconcile_git_providers(&state.db, &env.git_provider).await {
+        warn!(?resp, "manifest_import: reconcile_git_providers falhou, abortando sem aplicar");
         return resp;
     }
 
     if let Err(resp) = check_git_provider_refs(&state.db, &projects).await {
+        warn!(?resp, "manifest_import: check_git_provider_refs falhou, abortando sem aplicar");
         return resp;
     }
 
@@ -76,6 +112,19 @@ pub async fn handle(
         Ok(m) => m,
         Err(e) => return RpResponse::err("SerializeError", e.to_string()),
     };
+    for (m, yaml) in projects.iter().zip(manifests.iter()) {
+        let git_refs: Vec<(String, Option<String>)> = m
+            .services
+            .iter()
+            .filter_map(|s| s.source.git.as_ref().map(|g| (s.name.clone(), g.provider.clone())))
+            .collect();
+        info!(
+            project = %m.project.name,
+            ?git_refs,
+            yaml_len = yaml.len(),
+            "manifest_import: repassando pra manifest_apply (referências git DEPOIS de interpolar/reserializar)"
+        );
+    }
 
     super::manifest_apply::handle(state, manifests, prune, deploy).await
 }
@@ -92,6 +141,7 @@ async fn reconcile_git_providers(
     docs: &BTreeMap<String, GitProviderDoc>,
 ) -> Result<(), RpResponse> {
     if docs.is_empty() {
+        debug!("reconcile_git_providers: TOML sem tabela [git_provider], nada a fazer");
         return Ok(());
     }
     let existing = git_providers::list(db)
@@ -99,25 +149,34 @@ async fn reconcile_git_providers(
         .map_err(|e| RpResponse::err("DatabaseError", e.to_string()))?;
     let existing_names: std::collections::HashSet<&str> =
         existing.iter().map(|p| p.name.as_str()).collect();
+    info!(
+        toml_names = ?docs.keys().collect::<Vec<_>>(),
+        existing_names = ?existing_names,
+        "reconcile_git_providers: comparando TOML com providers já existentes no destino"
+    );
 
     for (name, doc) in docs {
         if existing_names.contains(name.as_str()) {
+            info!(%name, "reconcile_git_providers: provider já existe no destino com esse nome, mantido intocado");
             continue;
         }
         let Some(kind) = GitProviderKind::from_str(&doc.kind) else {
+            warn!(%name, kind = %doc.kind, "reconcile_git_providers: kind desconhecido no TOML, abortando");
             return Err(RpResponse::err(
                 "InvalidGitProvider",
                 format!("git provider '{name}': kind desconhecido '{}'", doc.kind),
             ));
         };
         let Some(auth_mode) = GitAuthMode::from_str(&doc.auth_mode) else {
+            warn!(%name, auth_mode = %doc.auth_mode, "reconcile_git_providers: auth_mode desconhecido no TOML, abortando");
             return Err(RpResponse::err(
                 "InvalidGitProvider",
                 format!("git provider '{name}': auth_mode desconhecido '{}'", doc.auth_mode),
             ));
         };
+        let new_id = format!("gp_{}", Ulid::new());
         let stored = StoredProvider {
-            id: format!("gp_{}", Ulid::new()),
+            id: new_id.clone(),
             kind: kind.as_str().to_string(),
             name: name.clone(),
             base_url: doc.base_url.clone(),
@@ -133,7 +192,13 @@ async fn reconcile_git_providers(
         git_providers::insert(db, &stored)
             .await
             .map_err(|e| RpResponse::err("DatabaseError", e.to_string()))?;
-        info!(%name, "manifest_import: git provider pendente criado a partir do TOML (requer reautenticação)");
+        info!(
+            %name,
+            id = %new_id,
+            base_url = %doc.base_url,
+            auth_mode = %doc.auth_mode,
+            "manifest_import: git provider pendente criado a partir do TOML (requer reautenticação)"
+        );
     }
     Ok(())
 }
@@ -161,6 +226,7 @@ async fn check_git_provider_refs(
         }
     }
     if referenced.is_empty() {
+        debug!("check_git_provider_refs: nenhum serviço git referencia provider por nome");
         return Ok(());
     }
 
@@ -169,6 +235,11 @@ async fn check_git_provider_refs(
         .map_err(|e| RpResponse::err("DatabaseError", e.to_string()))?;
     let existing_names: std::collections::HashSet<&str> =
         existing.iter().map(|p| p.name.as_str()).collect();
+    info!(
+        ?referenced,
+        existing_names = ?existing_names,
+        "check_git_provider_refs: validando referências do YAML contra providers do destino"
+    );
 
     let unresolved: Vec<String> = referenced
         .into_iter()
@@ -176,6 +247,11 @@ async fn check_git_provider_refs(
         .map(str::to_string)
         .collect();
     if !unresolved.is_empty() {
+        warn!(
+            ?unresolved,
+            existing_names = ?existing_names,
+            "check_git_provider_refs: referência(s) de provider sem correspondência — abortando import"
+        );
         return Err(RpResponse::err(
             "UnresolvedGitProvider",
             format!(
