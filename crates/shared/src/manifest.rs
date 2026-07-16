@@ -23,21 +23,27 @@ impl ServerManifest {
     /// vira uma entrada inline via [`ProjectManifest::from_existing_redacted`].
     /// Devolve o manifesto e o [`EnvDoc`] complementar (valores reais das vars
     /// `Plain`, aninhados por projeto → serviço; ver [`redact_env_map`] para o
-    /// porquê `Secret` fica de fora).
+    /// porquê `Secret` fica de fora — e os dados não-secretos de todo Git
+    /// provider referenciado por um serviço `git`, ver [`GitProviderDoc`]).
     ///
     /// O aninhamento do [`EnvDoc`] dá **escopo real**: `DATABASE_URL` de
     /// projetos/serviços diferentes ocupam entradas distintas (`[project."A".env]`
     /// vs. `[project."B".env]`), sem a sobrescrita "última-vence" que o antigo
     /// `.env` plano tinha.
-    pub fn from_existing_redacted(items: &[(Project, Vec<Service>)]) -> (Self, EnvDoc) {
+    ///
+    /// `providers` é o catálogo de Git providers conectados no daemon,
+    /// indexado pelo ID interno (`gp_...`) — usado para resolver
+    /// `GitSource.provider_id` para o **nome** que vai no YAML.
+    pub fn from_existing_redacted(
+        items: &[(Project, Vec<Service>)],
+        providers: &BTreeMap<String, GitProvider>,
+    ) -> (Self, EnvDoc) {
         let mut doc = EnvDoc::default();
         let projects = items
             .iter()
             .map(|(project, services)| {
                 ProjectEntry::Inline(ProjectManifest::from_existing_redacted(
-                    project,
-                    services,
-                    &mut doc,
+                    project, services, providers, &mut doc,
                 ))
             })
             .collect();
@@ -51,8 +57,9 @@ impl ServerManifest {
     }
 }
 
-/// Documento TOML de variáveis que acompanha o manifesto no export/import de
-/// Infra-as-Code. Substitui o antigo `.env` plano: o aninhamento por
+/// Documento TOML que acompanha o manifesto no export/import de
+/// Infra-as-Code: variáveis de ambiente **e** Git providers (Gitea)
+/// conectados. Substitui o antigo `.env` plano: o aninhamento por
 /// **projeto → serviço** dá escopo real, então vars homônimas de escopos
 /// diferentes (ex.: `APP_PORT` no serviço `api` e no `worker`, ou `DATABASE_URL`
 /// em dois projetos) ficam em entradas distintas em vez de uma sobrescrever a
@@ -70,11 +77,41 @@ impl ServerManifest {
 ///
 /// [project."Chiquitos".service."api".env]
 /// APP_PORT = "3000"
+///
+/// [git_provider."meu-gitea"]
+/// kind = "gitea"
+/// base_url = "https://git.example.com"
+/// auth_mode = "pat"
 /// ```
+///
+/// O `git_provider` segue o mesmo princípio: no YAML, `source.git.provider`
+/// carrega só o **nome** do provider (referência estável, portável entre
+/// exports/imports — o mesmo padrão usado para projetos/serviços); os dados
+/// não-secretos do provider ficam aqui. Segredos (client secret OAuth, PAT,
+/// access/refresh token) nunca são exportados — ficam só no banco do daemon de
+/// origem, exatamente como uma env var `Secret` nunca é decifrada para o
+/// cliente.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EnvDoc {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub project: BTreeMap<String, ProjectEnvDoc>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub git_provider: BTreeMap<String, GitProviderDoc>,
+}
+
+/// Dados não-secretos de um Git provider conectado (ver [`EnvDoc`]). No
+/// import, se o nome não existir ainda no daemon de destino, um provider
+/// **pendente** é criado a partir destes campos (sem token/secret) — o
+/// usuário completa a autenticação depois pela GUI (OAuth ou colar o PAT).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitProviderDoc {
+    /// `gitea` (único suportado hoje).
+    pub kind: String,
+    pub base_url: String,
+    /// `oauth` | `pat`.
+    pub auth_mode: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oauth_client_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -186,8 +223,11 @@ pub struct GitManifest {
     pub username: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub credentials: Option<String>,
+    /// Nome do Git provider conectado (Gitea) a usar para autenticar o clone —
+    /// referência por **nome**, não pelo ID interno do banco (ver [`EnvDoc`]
+    /// e [`GitProviderDoc`] para onde ficam os dados reais do provider).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub provider_id: Option<String>,
+    pub provider: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -282,11 +322,18 @@ impl ProjectManifest {
         )
     }
 
-    /// Converte cada serviço do manifesto numa [`ServiceSpec`] já vinculada ao projeto.
-    pub fn service_specs(&self, project_id: &str) -> Vec<ServiceSpec> {
+    /// Converte cada serviço do manifesto numa [`ServiceSpec`] já vinculada ao
+    /// projeto. `provider_ids` resolve o **nome** do Git provider (referência
+    /// usada em `source.git.provider` no YAML) para o ID interno do banco —
+    /// serviços cujo nome não está no mapa ficam sem provider vinculado.
+    pub fn service_specs(
+        &self,
+        project_id: &str,
+        provider_ids: &BTreeMap<String, String>,
+    ) -> Vec<ServiceSpec> {
         self.services
             .iter()
-            .map(|s| s.to_spec(project_id))
+            .map(|s| s.to_spec(project_id, provider_ids))
             .collect()
     }
 
@@ -322,7 +369,13 @@ impl ProjectManifest {
 
     /// Reconstrói um manifesto a partir do estado atual no banco (para `export`).
     /// Segredos são emitidos como `secret:NOME`, nunca o valor decifrado.
-    pub fn from_existing(project: &Project, services: &[Service]) -> Self {
+    /// `providers` resolve `GitSource.provider_id` para o nome do provider
+    /// (ver [`GitManifest::provider`]) — indexado pelo ID interno (`gp_...`).
+    pub fn from_existing(
+        project: &Project,
+        services: &[Service],
+        providers: &BTreeMap<String, GitProvider>,
+    ) -> Self {
         ProjectManifest {
             api_version: Some(API_VERSION.to_string()),
             project: ProjectMeta {
@@ -330,7 +383,10 @@ impl ProjectManifest {
                 description: project.description.clone(),
                 env: env_vars_to_map(&project.env_vars),
             },
-            services: services.iter().map(ServiceManifest::from_spec).collect(),
+            services: services
+                .iter()
+                .map(|s| ServiceManifest::from_spec(s, providers))
+                .collect(),
         }
     }
 
@@ -345,25 +401,37 @@ impl ProjectManifest {
     pub fn from_existing_redacted(
         project: &Project,
         services: &[Service],
+        providers: &BTreeMap<String, GitProvider>,
         doc: &mut EnvDoc,
     ) -> Self {
-        let mut m = Self::from_existing(project, services);
+        let mut m = Self::from_existing(project, services, providers);
         let pentry = doc.project.entry(project.name.clone()).or_default();
         redact_env_map(&mut m.project.env, &mut pentry.env);
         for s in &mut m.services {
             let sentry = pentry.service.entry(s.name.clone()).or_default();
             redact_env_map(&mut s.env, &mut sentry.env);
         }
+        for s in services {
+            let ServiceSource::Git(g) = &s.spec.source else {
+                continue;
+            };
+            let Some(provider) = g.provider_id.as_ref().and_then(|id| providers.get(id)) else {
+                continue;
+            };
+            doc.git_provider
+                .entry(provider.name.clone())
+                .or_insert_with(|| GitProviderDoc::from_provider(provider));
+        }
         m
     }
 }
 
 impl ServiceManifest {
-    pub fn to_spec(&self, project_id: &str) -> ServiceSpec {
+    pub fn to_spec(&self, project_id: &str, provider_ids: &BTreeMap<String, String>) -> ServiceSpec {
         ServiceSpec {
             name: self.name.clone(),
             project_id: project_id.to_string(),
-            source: self.source.to_source(),
+            source: self.source.to_source(provider_ids),
             port: self.port,
             host_port: self.host_port,
             domain: self.domain.clone(),
@@ -391,11 +459,11 @@ impl ServiceManifest {
         }
     }
 
-    pub fn from_spec(svc: &Service) -> Self {
+    pub fn from_spec(svc: &Service, providers: &BTreeMap<String, GitProvider>) -> Self {
         let spec = &svc.spec;
         ServiceManifest {
             name: spec.name.clone(),
-            source: SourceManifest::from_source(&spec.source),
+            source: SourceManifest::from_source(&spec.source, providers),
             port: spec.port,
             host_port: spec.host_port,
             domain: spec.domain.clone(),
@@ -413,7 +481,7 @@ impl ServiceManifest {
 }
 
 impl SourceManifest {
-    fn to_source(&self) -> ServiceSource {
+    fn to_source(&self, provider_ids: &BTreeMap<String, String>) -> ServiceSource {
         if let Some(image) = &self.registry {
             ServiceSource::Registry {
                 image: image.clone(),
@@ -431,7 +499,7 @@ impl SourceManifest {
                 build_stage: g.build_stage.clone(),
                 credentials: g.credentials.clone(),
                 username: g.username.clone(),
-                provider_id: g.provider_id.clone(),
+                provider_id: g.provider.as_ref().and_then(|name| provider_ids.get(name)).cloned(),
             })
         } else if let Some(content) = &self.compose {
             ServiceSource::Compose(ComposeSource {
@@ -445,7 +513,7 @@ impl SourceManifest {
         }
     }
 
-    fn from_source(src: &ServiceSource) -> Self {
+    fn from_source(src: &ServiceSource, providers: &BTreeMap<String, GitProvider>) -> Self {
         match src {
             ServiceSource::Registry { image } => SourceManifest {
                 registry: Some(image.clone()),
@@ -463,7 +531,11 @@ impl SourceManifest {
                     watch_paths: g.watch_paths.clone(),
                     username: g.username.clone(),
                     credentials: g.credentials.clone(),
-                    provider_id: g.provider_id.clone(),
+                    provider: g
+                        .provider_id
+                        .as_ref()
+                        .and_then(|id| providers.get(id))
+                        .map(|p| p.name.clone()),
                 }),
                 ..Default::default()
             },
@@ -534,6 +606,17 @@ impl ResourcesManifest {
             cpu_shares: limits.cpu_shares,
             mem: (limits.mem_limit_bytes > 0).then(|| humanize_mem(limits.mem_limit_bytes)),
         })
+    }
+}
+
+impl GitProviderDoc {
+    fn from_provider(p: &GitProvider) -> Self {
+        GitProviderDoc {
+            kind: p.kind.as_str().to_string(),
+            base_url: p.base_url.clone(),
+            auth_mode: p.auth_mode.as_str().to_string(),
+            oauth_client_id: p.oauth_client_id.clone(),
+        }
     }
 }
 
@@ -798,7 +881,7 @@ services:
         assert_eq!(desc.as_deref(), Some("API e front"));
         assert_eq!(env.len(), 2);
 
-        let specs = m.service_specs("proj-1");
+        let specs = m.service_specs("proj-1", &BTreeMap::new());
         assert_eq!(specs.len(), 1);
         let web = &specs[0];
         assert_eq!(web.project_id, "proj-1");
@@ -837,6 +920,7 @@ services:
                     service: BTreeMap::new(),
                 },
             )]),
+            git_provider: BTreeMap::new(),
         }
     }
 
@@ -898,6 +982,7 @@ services:
                     ]),
                 },
             )]),
+            git_provider: BTreeMap::new(),
         };
         assert!(m.interpolate(&env).is_empty());
         let api = m.services.iter().find(|s| s.name == "api").unwrap();
@@ -970,7 +1055,8 @@ services:
     fn redacted_export_never_leaks_plain_values() {
         let project = sample_project();
         let mut doc = EnvDoc::default();
-        let manifest = ProjectManifest::from_existing_redacted(&project, &[], &mut doc);
+        let manifest =
+            ProjectManifest::from_existing_redacted(&project, &[], &BTreeMap::new(), &mut doc);
 
         // Plain vira placeholder no YAML; valor real só aparece no TOML, na
         // tabela do projeto.
@@ -994,7 +1080,8 @@ services:
         // Mesma chave (LOG_LEVEL), valores diferentes por projeto: sem colisão.
         p2.env_vars[0].value = EnvVarValue::Plain("debug".into());
 
-        let (server, doc) = ServerManifest::from_existing_redacted(&[(p1, vec![]), (p2, vec![])]);
+        let (server, doc) =
+            ServerManifest::from_existing_redacted(&[(p1, vec![]), (p2, vec![])], &BTreeMap::new());
         assert_eq!(server.projects.len(), 2);
         assert_eq!(doc.project["acme"].env.get("LOG_LEVEL"), Some(&"info".to_string()));
         assert_eq!(doc.project["beta"].env.get("LOG_LEVEL"), Some(&"debug".to_string()));
@@ -1016,6 +1103,7 @@ services:
                     )]),
                 },
             )]),
+            git_provider: BTreeMap::new(),
         };
         let text = format_env_doc(&doc);
         // Nome com espaço fica entre aspas (nomes simples ficam crus); var com
@@ -1027,5 +1115,76 @@ services:
             back.project["Chiquitos"].service["Landing page"].env.get("MY__WEIRD__VAR"),
             Some(&"ok".to_string())
         );
+    }
+
+    #[test]
+    fn git_provider_export_references_by_name_and_redacts_secrets() {
+        let provider = GitProvider {
+            id: "gp_01ABC".into(),
+            kind: GitProviderKind::Gitea,
+            name: "meu-gitea".into(),
+            base_url: "https://git.example.com".into(),
+            auth_mode: GitAuthMode::Pat,
+            oauth_client_id: None,
+            account: Some(GitAccount { login: "alice".into(), avatar_url: None }),
+            created_at: chrono::Utc::now(),
+        };
+        let providers = BTreeMap::from([(provider.id.clone(), provider.clone())]);
+
+        let svc_spec = ServiceSpec {
+            name: "web".into(),
+            project_id: "proj-1".into(),
+            source: ServiceSource::Git(GitSource {
+                url: "https://git.example.com/acme/web".into(),
+                provider_id: Some(provider.id.clone()),
+                ..GitSource::default()
+            }),
+            port: 3000,
+            host_port: None,
+            domain: None,
+            tls_enabled: false,
+            env_vars: vec![],
+            env_comments: vec![],
+            volumes: vec![],
+            healthcheck: Healthcheck::default(),
+            replicas: 1,
+            resources: ResourceLimits::default(),
+            run_command: None,
+            run_args: vec![],
+            db_kind: None,
+            domains: vec![],
+        };
+        let svc = Service {
+            id: "svc-1".into(),
+            spec: svc_spec,
+            status: ServiceStatus::Stopped,
+            live_container_id: None,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        };
+
+        let project = sample_project();
+        let mut doc = EnvDoc::default();
+        let manifest = ProjectManifest::from_existing_redacted(&project, &[svc], &providers, &mut doc);
+
+        // YAML só carrega o NOME do provider, nunca o ID interno nem segredos.
+        let git = manifest.services[0].source.git.as_ref().unwrap();
+        assert_eq!(git.provider.as_deref(), Some("meu-gitea"));
+
+        // TOML carrega os dados não-secretos, indexados pelo mesmo nome.
+        let pdoc = doc.git_provider.get("meu-gitea").unwrap();
+        assert_eq!(pdoc.kind, "gitea");
+        assert_eq!(pdoc.base_url, "https://git.example.com");
+        assert_eq!(pdoc.auth_mode, "pat");
+        let toml_text = format_env_doc(&doc);
+        assert!(!toml_text.contains("alice"), "conta/segredo vazou pro TOML: {toml_text}");
+
+        // Import: nome -> ID resolve de volta ao mesmo provider.
+        let provider_ids = BTreeMap::from([("meu-gitea".to_string(), provider.id.clone())]);
+        let specs = manifest.service_specs("proj-1", &provider_ids);
+        let ServiceSource::Git(g) = &specs[0].source else {
+            panic!("esperava ServiceSource::Git");
+        };
+        assert_eq!(g.provider_id.as_deref(), Some(provider.id.as_str()));
     }
 }

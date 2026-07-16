@@ -1,6 +1,13 @@
 use crate::api::AppState;
-use shared::{ProjectEntry, ProjectManifest, Response as RpResponse, ServerManifest};
+use crate::db::git_providers::{self, StoredProvider};
+use chrono::Utc;
+use shared::{
+    GitAuthMode, GitProviderDoc, GitProviderKind, ProjectEntry, ProjectManifest,
+    Response as RpResponse, ServerManifest,
+};
+use std::collections::BTreeMap;
 use tracing::info;
+use ulid::Ulid;
 
 /// Importa um manifesto (raiz `projects:` ou de projeto único `project:`)
 /// junto com o TOML de variáveis (`EnvDoc`, aninhado por projeto → serviço) que
@@ -8,7 +15,9 @@ use tracing::info;
 /// serviço olha a sua tabela, com fallback para a do projeto); se sobrar alguma
 /// `${VAR}` sem valor em qualquer escopo, aborta ANTES de aplicar qualquer
 /// mudança (`MissingEnvVars`, cada faltante rotulada com o escopo). Sem
-/// faltantes, reconcilia exatamente como `Command::ManifestApply`.
+/// faltantes, cria (pendente, sem credenciais) todo Git provider referenciado
+/// no TOML que ainda não existe no destino — ver [`reconcile_git_providers`] —
+/// e reconcilia exatamente como `Command::ManifestApply`.
 pub async fn handle(
     state: AppState,
     yaml: String,
@@ -45,6 +54,10 @@ pub async fn handle(
         return RpResponse::MissingEnvVars(missing);
     }
 
+    if let Err(resp) = reconcile_git_providers(&state, &env.git_provider).await {
+        return resp;
+    }
+
     // Os manifestos já interpolados voltam a trafegar como YAML (mesmo motivo
     // do `ManifestApply`: postcard não suporta os defaults/skips dos structs
     // do manifesto) e reutilizam a reconciliação existente.
@@ -58,6 +71,64 @@ pub async fn handle(
     };
 
     super::manifest_apply::handle(state, manifests, prune, deploy).await
+}
+
+/// Garante que todo Git provider referenciado em `docs` (chave = nome, o mesmo
+/// usado em `source.git.provider` no YAML) exista no destino. Um provider já
+/// existente com o mesmo nome é deixado intocado (nunca sobrescreve
+/// credenciais/autenticação já configuradas); um nome ausente vira uma linha
+/// **pendente** — kind/base_url/auth_mode/oauth_client_id do TOML, sem
+/// token/secret — que o usuário completa depois pela GUI (OAuth ou colar o
+/// PAT). Segredos nunca trafegam pelo manifesto.
+async fn reconcile_git_providers(
+    state: &AppState,
+    docs: &BTreeMap<String, GitProviderDoc>,
+) -> Result<(), RpResponse> {
+    if docs.is_empty() {
+        return Ok(());
+    }
+    let existing = git_providers::list(&state.db)
+        .await
+        .map_err(|e| RpResponse::err("DatabaseError", e.to_string()))?;
+    let existing_names: std::collections::HashSet<&str> =
+        existing.iter().map(|p| p.name.as_str()).collect();
+
+    for (name, doc) in docs {
+        if existing_names.contains(name.as_str()) {
+            continue;
+        }
+        let Some(kind) = GitProviderKind::from_str(&doc.kind) else {
+            return Err(RpResponse::err(
+                "InvalidGitProvider",
+                format!("git provider '{name}': kind desconhecido '{}'", doc.kind),
+            ));
+        };
+        let Some(auth_mode) = GitAuthMode::from_str(&doc.auth_mode) else {
+            return Err(RpResponse::err(
+                "InvalidGitProvider",
+                format!("git provider '{name}': auth_mode desconhecido '{}'", doc.auth_mode),
+            ));
+        };
+        let stored = StoredProvider {
+            id: format!("gp_{}", Ulid::new()),
+            kind: kind.as_str().to_string(),
+            name: name.clone(),
+            base_url: doc.base_url.clone(),
+            auth_mode: auth_mode.as_str().to_string(),
+            oauth_client_id: doc.oauth_client_id.clone(),
+            oauth_client_secret_enc: None,
+            access_token_enc: None,
+            refresh_token_enc: None,
+            account_login: None,
+            account_avatar: None,
+            created_at: Utc::now(),
+        };
+        git_providers::insert(&state.db, &stored)
+            .await
+            .map_err(|e| RpResponse::err("DatabaseError", e.to_string()))?;
+        info!(%name, "manifest_import: git provider pendente criado a partir do TOML (requer reautenticação)");
+    }
+    Ok(())
 }
 
 /// Extrai a lista de `ProjectManifest` de um YAML colado (raiz ou projeto

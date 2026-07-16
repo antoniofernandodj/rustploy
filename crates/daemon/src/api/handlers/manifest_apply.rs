@@ -3,6 +3,7 @@ use shared::{
     ActionVerb, ApplyReport, ProjectManifest, ResourceAction, ResourceActionKind,
     Response as RpResponse,
 };
+use std::collections::BTreeMap;
 use tracing::{info, warn};
 
 /// Reconcilia uma lista de manifestos YAML de projeto contra o banco.
@@ -24,12 +25,23 @@ pub async fn handle(
     // (service_id, "projeto/serviço") dos serviços criados/alterados.
     let mut changed: Vec<(String, String)> = Vec::new();
 
+    // Nome -> ID interno, para resolver `source.git.provider` de cada manifesto.
+    let provider_ids: BTreeMap<String, String> = match crate::db::git_providers::list(&state.db).await {
+        Ok(list) => list.into_iter().map(|p| (p.name, p.id)).collect(),
+        Err(e) => {
+            tracing::error!(error = %e, "manifest_apply: erro ao listar git providers");
+            return RpResponse::err("DatabaseError", e.to_string());
+        }
+    };
+
     for yaml in manifests {
         let manifest: ProjectManifest = match serde_yaml::from_str(&yaml) {
             Ok(m) => m,
             Err(e) => return RpResponse::err("InvalidManifest", e.to_string()),
         };
-        if let Err(resp) = apply_one(&state, manifest, prune, &mut report, &mut changed).await {
+        if let Err(resp) =
+            apply_one(&state, manifest, prune, &provider_ids, &mut report, &mut changed).await
+        {
             return resp;
         }
     }
@@ -58,6 +70,7 @@ async fn apply_one(
     state: &AppState,
     manifest: ProjectManifest,
     prune: bool,
+    provider_ids: &BTreeMap<String, String>,
     report: &mut ApplyReport,
     changed: &mut Vec<(String, String)>,
 ) -> Result<(), RpResponse> {
@@ -128,7 +141,7 @@ async fn apply_one(
         .await
         .map_err(db_err)?;
 
-    let mut specs = manifest.service_specs(&project_id);
+    let mut specs = manifest.service_specs(&project_id, provider_ids);
     // Sentinela `host_port: 0` no manifesto: reusa a porta já alocada do
     // serviço homônimo (estabilidade entre applies) ou aloca uma nova — nunca
     // deixa o 0 cru chegar ao DB/executor.
