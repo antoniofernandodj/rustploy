@@ -1,14 +1,22 @@
 [package]
-name = "daemon"
+name = "rustploy"
 version = "0.1.0"
 edition = "2024"
 default-run = "rustployd"
 description = "Rustploy PaaS daemon — lightweight self-hosted deployment platform"
 license = "MIT"
+authors = ["Antonio Fernando <antoniofernando2723@gmail.com>"]
+repository = "https://github.com/antoniofernando2723/rustploy"
+keywords = ["paas", "deploy", "docker", "self-hosted"]
+categories = ["command-line-utilities"]
 
 [[bin]]
 name = "rustployd"
 path = "src/main.rs"
+
+[[bin]]
+name = "rustployd-fw"
+path = "src/bin/rustployd-fw.rs"
 
 [package.metadata.deb]
 name                 = "rustployd"
@@ -31,7 +39,7 @@ assets = [
 
 [dependencies]
 fs_extra = "1.3.0" # Nova dependência para copiar diretórios
-shared = { path = "../shared" }
+shared = { package = "rustploy-shared", version = "0.1.0", path = "../shared" }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }

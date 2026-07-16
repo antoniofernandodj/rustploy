@@ -5,6 +5,10 @@ edition = "2024"
 default-run = "rustploy-gui"
 description = "Rustploy — desktop client (glacier-ui) for the Rustploy PaaS daemon"
 license = "MIT"
+authors = ["Antonio Fernando <antoniofernando2723@gmail.com>"]
+repository = "https://github.com/antoniofernando2723/rustploy"
+keywords = ["paas", "deploy", "gui", "iced"]
+categories = ["gui"]
 
 [[bin]]
 name = "rustploy-gui"
@@ -16,7 +20,7 @@ path = "src/main.rs"
 # runtime `iced::daemon` próprio, um `GlacierUI` por janela — ver `app/mod.rs`.
 glacier-ui = "0.46.0"
 
-shared = { path = "../shared" }
+shared = { package = "rustploy-shared", version = "0.1.0", path = "../shared" }
 
 # GUI — features must stay compatible with glacier-ui's iced.
 iced = { version = "0.14", features = ["image", "svg", "tokio"] }

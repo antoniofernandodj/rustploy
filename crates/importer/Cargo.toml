@@ -1,15 +1,21 @@
 [package]
-name = "importer"
+name = "rustploy-import"
 version = "0.1.0"
 edition = "2024"
 default-run = "rustploy-import"
+description = "Migration importer tool for the Rustploy PaaS platform"
+license = "MIT"
+authors = ["Antonio Fernando <antoniofernando2723@gmail.com>"]
+repository = "https://github.com/antoniofernando2723/rustploy"
+keywords = ["paas", "deploy", "migration"]
+categories = ["command-line-utilities"]
 
 [[bin]]
 name = "rustploy-import"
 path = "src/main.rs"
 
 [dependencies]
-shared = { path = "../shared" }
+shared = { package = "rustploy-shared", version = "0.1.0", path = "../shared" }
 
 # CLI
 clap = { version = "4", features = ["derive"] }

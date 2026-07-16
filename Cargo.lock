@@ -1265,51 +1265,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "daemon"
-version = "0.1.0"
-dependencies = [
- "age",
- "anyhow",
- "arc-swap",
- "async-trait",
- "base64 0.22.1",
- "bollard",
- "bytes",
- "chrono",
- "flate2",
- "fs_extra",
- "futures",
- "hex",
- "http",
- "http-body-util",
- "hyper",
- "hyper-util",
- "instant-acme",
- "mimalloc",
- "postcard",
- "rcgen",
- "reqwest",
- "rustls",
- "rustls-pemfile",
- "serde",
- "serde_json",
- "serde_yaml",
- "sha2",
- "shared",
- "socket2 0.5.10",
- "sqlx",
- "sysinfo",
- "tar",
- "thiserror 2.0.18",
- "tokio",
- "tokio-rustls",
- "toml 0.8.23",
- "tracing",
- "tracing-subscriber",
- "ulid",
-]
-
-[[package]]
 name = "dashmap"
 version = "5.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1978,15 +1933,6 @@ dependencies = [
  "memchr",
  "pin-project-lite",
  "slab",
-]
-
-[[package]]
-name = "fw-helper"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "toml 0.8.23",
 ]
 
 [[package]]
@@ -2930,26 +2876,6 @@ name = "imgref"
 version = "1.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "89194689a993ab15268672e99e7b0e19da2da3268ac682e8f02d29d4d1434cd7"
-
-[[package]]
-name = "importer"
-version = "0.1.0"
-dependencies = [
- "age",
- "anyhow",
- "chrono",
- "clap",
- "hex",
- "serde",
- "serde_json",
- "serde_yaml",
- "shared",
- "sqlx",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "ulid",
-]
 
 [[package]]
 name = "indexmap"
@@ -5264,6 +5190,51 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustploy"
+version = "0.1.0"
+dependencies = [
+ "age",
+ "anyhow",
+ "arc-swap",
+ "async-trait",
+ "base64 0.22.1",
+ "bollard",
+ "bytes",
+ "chrono",
+ "flate2",
+ "fs_extra",
+ "futures",
+ "hex",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "instant-acme",
+ "mimalloc",
+ "postcard",
+ "rcgen",
+ "reqwest",
+ "rustls",
+ "rustls-pemfile",
+ "rustploy-shared",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2",
+ "socket2 0.5.10",
+ "sqlx",
+ "sysinfo",
+ "tar",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-rustls",
+ "toml 0.8.23",
+ "tracing",
+ "tracing-subscriber",
+ "ulid",
+]
+
+[[package]]
 name = "rustploy-gui"
 version = "0.1.0"
 dependencies = [
@@ -5274,11 +5245,45 @@ dependencies = [
  "iced",
  "postcard",
  "rustls",
+ "rustploy-shared",
  "serde",
  "serde_json",
- "shared",
  "tokio",
  "tokio-rustls",
+]
+
+[[package]]
+name = "rustploy-import"
+version = "0.1.0"
+dependencies = [
+ "age",
+ "anyhow",
+ "chrono",
+ "clap",
+ "hex",
+ "rustploy-shared",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sqlx",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "ulid",
+]
+
+[[package]]
+name = "rustploy-shared"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "postcard",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "thiserror 2.0.18",
+ "toml 0.8.23",
+ "ulid",
 ]
 
 [[package]]
@@ -5597,20 +5602,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f40ca3c46823713e0d4209592e8d6e826aa57e928f09752619fc696c499637f6"
 dependencies = [
  "lazy_static",
-]
-
-[[package]]
-name = "shared"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "postcard",
- "serde",
- "serde_json",
- "serde_yaml",
- "thiserror 2.0.18",
- "toml 0.8.23",
- "ulid",
 ]
 
 [[package]]
