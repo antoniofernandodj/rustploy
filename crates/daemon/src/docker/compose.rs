@@ -1,5 +1,6 @@
 use crate::{db::Db, event_bus::EventBus};
 use anyhow::{Result, anyhow};
+use bollard::{Docker, volume::CreateVolumeOptions};
 use chrono::Utc;
 use shared::{Event, RustployConfig};
 use std::sync::Arc;
@@ -164,7 +165,59 @@ pub fn inject_project_network(
         )
 }
 
+/// Garante que todo volume declarado `external: true` no compose já exista no
+/// Docker antes do `up` — o Compose se recusa a criar volumes externos, então
+/// se o volume tiver sido removido por fora (ex.: prune manual) o deploy
+/// falharia sempre com "external volume ... not found". Idempotente: só cria
+/// o que estiver faltando, nunca mexe em volume já existente. Mesmo idioma de
+/// `networks::ensure_project_network` (ensure-then-create), aplicado a volumes.
+pub async fn ensure_external_volumes(docker: &Docker, content: &str) -> Result<()> {
+    use serde_yaml::Value;
+
+    let doc: Value = serde_yaml::from_str(content)
+        .map_err(|e| anyhow!("compose YAML inválido: {e}"))?;
+
+    let Some(volumes) = doc.get("volumes").and_then(Value::as_mapping) else {
+        return Ok(());
+    };
+
+    for (key, def) in volumes {
+        let Some(map) = def.as_mapping() else { continue; };
+
+        let is_external = map
+            .get(Value::String("external".to_string()))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        if !is_external {
+            continue;
+        }
+
+        let name = map
+            .get(Value::String("name".to_string()))
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .or_else(|| key.as_str().map(str::to_string));
+        let Some(name) = name else { continue; };
+
+        if docker.inspect_volume(&name).await.is_ok() {
+            info!(volume = %name, "compose::ensure_external_volumes: volume já existe");
+            continue;
+        }
+
+        info!(volume = %name, "compose::ensure_external_volumes: criando volume externo ausente");
+        docker
+            .create_volume(CreateVolumeOptions {
+                name: name.clone(),
+                ..Default::default()
+            })
+            .await?;
+    }
+
+    Ok(())
+}
+
 pub async fn up(
+    docker: &Docker,
     content: &str,
     project_name: &str,
     service_id: &str,
@@ -179,7 +232,8 @@ pub async fn up(
     info!(project = %project_name, "compose_up: iniciando docker compose up");
 
     let content = inject_project_network(content, network_name)?;
-    
+    ensure_external_volumes(docker, &content).await?;
+
     // Garantir diretório
     tokio::fs::create_dir_all(build_dir).await?;
 

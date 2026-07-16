@@ -823,6 +823,7 @@ impl DeployExecutor {
                 let network_name = self.network_name(&svc.spec.project_id);
                 let env_vars = self.resolve_env(&svc).await.unwrap_or_default();
                 docker::compose::up(
+                    &self.docker.inner,
                     &compose.content,
                     &project_name,
                     &svc.id,
