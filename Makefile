@@ -187,7 +187,7 @@ deb-rustploy: ## Compila e gera apenas o .deb do rustploy
 .PHONY: install-rustploy
 install-rustploy: deb-rustploy ## Compila, empacota e instala apenas o rustploy
 	sudo dpkg -i $$(ls target/debian/rustployd_*.deb | tail -1)
-	sudo systemctl rustploy-reload
+	sudo systemctl daemon-reload
 	# Explícito (não só via postinst, que silencia falhas com `|| true`):
 	# helper de firewall — allow/deny de porta externa via /run/rustploy/fw.sock.
 	sudo systemctl enable --now rustployd-fw.socket
