@@ -196,7 +196,6 @@ impl Default for RegistryConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DaemonConfig {
-    pub socket_path: String,
     pub db_path: String,
     pub log_level: String,
 }
@@ -242,7 +241,6 @@ impl Default for RustployConfig {
     fn default() -> Self {
         Self {
             daemon: DaemonConfig {
-                socket_path: "/run/rustploy/rustploy.sock".into(),
                 db_path: "/var/lib/rustploy/db".into(),
                 log_level: "info".into(),
             },
@@ -308,11 +306,6 @@ impl RustployConfig {
     }
 
     fn apply_env_overrides(mut cfg: Self) -> Self {
-        // `RUSTPLOY_SOCKET` is the historical client-side alias for the socket
-        // path; accept both so there is a single source of truth.
-        if let Ok(v) = std::env::var("RUSTPLOY_SOCKET_PATH").or_else(|_| std::env::var("RUSTPLOY_SOCKET")) {
-            cfg.daemon.socket_path = v;
-        }
         if let Ok(v) = std::env::var("RUSTPLOY_DB_PATH") {
             cfg.daemon.db_path = v;
         }
@@ -358,18 +351,6 @@ impl RustployConfig {
             cfg.registry.storage_dir = Some(v).filter(|s| !s.is_empty());
         }
         cfg
-    }
-
-    /// Ordered list of Unix socket paths a local client should try, from the
-    /// most specific (configured/override) to the writable fallback. Centralizes
-    /// every `HOME`/`RUSTPLOY_SOCKET` read for socket resolution.
-    pub fn client_socket_candidates(&self) -> Vec<String> {
-        let mut out = vec![self.daemon.socket_path.clone()];
-        if let Some(home) = user_home() {
-            out.push(format!("{home}/.local/share/rustploy/rustploy.sock"));
-        }
-        out.dedup();
-        out
     }
 }
 

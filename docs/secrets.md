@@ -21,8 +21,8 @@ Há dois lugares onde um secret pode ser referenciado:
 
 | Onde | Campo | O que guardar | Para que serve |
 |------|-------|---------------|----------------|
-| Aba General do serviço | **Credentials** | nome do secret | autenticação Git no clone |
-| Aba Environment do serviço | **VALUE** com prefixo `secret:` | `secret:NOME` | variável de ambiente no container |
+| Aba General do serviço | **Credentials** | nome do secret, puro | autenticação Git no clone |
+| Variáveis do projeto / Environment do serviço | **valor** | `<secret:NOME>` | variável de ambiente no container |
 
 ---
 
@@ -32,10 +32,14 @@ Este é o fluxo correto para clonar repos privados via HTTPS.
 
 ### Passo 1 — Criar o secret
 
-Na tela do projeto, aba **Secrets** → tecla `n`:
+Na tela do projeto, aba **Secrets**:
 
-- **NAME**: `GITHUB_TOKEN` (ou qualquer nome)
-- **VALUE**: o Personal Access Token do GitHub (ex: `ghp_xxxxxxxxxxxxxxxx`)
+- **NOME**: `GITHUB_TOKEN` (ou qualquer nome)
+- **valor**: o Personal Access Token do GitHub (ex: `ghp_xxxxxxxxxxxxxxxx`)
+
+Salvar cifra o valor na hora. Ele não volta a ser exibido em lugar nenhum: a
+lista mostra só o nome. Para trocar o valor, salve outro com o **mesmo nome** —
+sobrescreve.
 
 O sistema monta a URL de clone no formato:
 ```
@@ -73,19 +77,24 @@ Para passar um secret como variável de ambiente para a aplicação em execuçã
 
 ### Passo 1 — Criar o secret
 
-Aba **Secrets** do projeto → `n`:
+Aba **Secrets** do projeto:
 
-- **NAME**: `API_KEY`
-- **VALUE**: o valor real da chave
+- **NOME**: `API_KEY`
+- **valor**: o valor real da chave
 
-### Passo 2 — Referenciar na env var do serviço
+### Passo 2 — Referenciar na env var
 
-Aba **Environment** do serviço → `n`:
+Há três caminhos, todos equivalentes (todos gravam `EnvVarValue::Secret`):
 
-- **KEY**: `API_KEY`
-- **VALUE**: `secret:API_KEY`
+- **Variáveis do projeto** — ligue o toggle **"usar secret"** no formulário de
+  adicionar variável e clique no nome do secret na lista que aparece. A variável
+  passa a valer para todos os serviços do projeto.
+- **Environment do serviço** — em **KEY** o nome da variável, em **valor**
+  `<secret:API_KEY>`.
+- **Editor `.env`** (projeto ou serviço) — a linha `API_KEY=<secret:API_KEY>`.
 
-O valor exibido após salvar será `<secret:API_KEY>`, indicando que é uma referência.
+Depois de salvar, a linha aparece como `secret:API_KEY`, indicando que é uma
+referência e não um valor.
 
 ### Como o deploy usa isso
 
@@ -97,16 +106,12 @@ O container recebe a variável `API_KEY` com o valor real, sem que ele apareça 
 
 ---
 
-## Referência rápida de teclas (aba Secrets)
+## Remover um secret
 
-| Tecla | Ação |
-|-------|------|
-| `n` | Novo secret |
-| `D` | Remover secret selecionado |
-| `↑` / `↓` | Navegar entre secrets |
-| `Tab` | Alternar campo NAME ↔ VALUE ao criar |
-| `Enter` | Salvar |
-| `Esc` | Cancelar |
+Botão `✕` na linha do secret (aba Secrets do projeto). Não há como recuperar o
+valor depois, e as variáveis que referenciam aquele nome passam a receber string
+vazia no próximo deploy — a resolução usa `unwrap_or_default()`, então o deploy
+não falha, o container só sobe sem o valor.
 
 ---
 

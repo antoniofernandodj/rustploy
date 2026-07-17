@@ -173,7 +173,7 @@ Para usar a porta `80`:
 
 ```bash
 # via env var
-RUSTPLOY_HTTP_PORT=80 cargo run -p daemon
+RUSTPLOY_HTTP_PORT=80 cargo run -p rustploy
 
 # ou via ~/.config/rustploy/config.toml
 [ingress]

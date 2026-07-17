@@ -280,7 +280,7 @@ local function parse_project_dotenv(text: string?): ({any}, {any})
                     end
                     pending = {}
                     v = Helpers.trim(v)
-                    local secret = v:match("^<secret:(.+)>$")
+                    local secret = Helpers.parse_secret_ref(v)
                     local value = secret and { Secret = secret } or { Plain = v }
                     table.insert(vars, { key = key, value = value })
                 end
@@ -344,6 +344,21 @@ function penv_add(): ()
     end
     ctx.erro_penv_new_key = ""
     local val = ctx.penv_new_val or ""
+    -- Duas formas de virar referência de secret (a que o daemon decifra no
+    -- deploy, deploy/env_resolve.rs):
+    --   • toggle "usar secret" ligado (ver handlers/secrets.luau) — o campo
+    --     valor carrega o NOME puro do secret, não o conteúdo;
+    --   • `<secret:NOME>`/`secret:NOME` digitado no valor, como no editor .env.
+    local secret_name: string? = Helpers.parse_secret_ref(val)
+    if ctx.penv_new_is_secret == "true" and secret_name == nil then
+        -- Modo secret: o valor JÁ é o nome (o chip preenche assim).
+        local name = Helpers.trim(val)
+        if name == "" then
+            ctx.erro_penv_new_key = "escolha um secret"
+            return
+        end
+        secret_name = name
+    end
     with_project_env(function(pe: any): ()
         local kept = json.array{}
         for _, v in ipairs(pe.env_vars) do
@@ -351,11 +366,13 @@ function penv_add(): ()
                 table.insert(kept, v)
             end
         end
-        table.insert(kept, { key = key, value = { Plain = val } })
+        local value = secret_name and { Secret = secret_name } or { Plain = val }
+        table.insert(kept, { key = key, value = value })
         pe.env_vars = kept
     end)
     ctx.penv_new_key = ""
     ctx.penv_new_val = ""
+    ctx.penv_new_is_secret = "false"
 end
 
 function penv_del(key: string): ()

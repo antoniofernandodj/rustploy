@@ -4,7 +4,7 @@
 >
 > **Fase 1 (núcleo push/pull) implementada em 2026-07-13** — `crates/daemon/src/registry/` (`name.rs`/`error.rs`/`storage.rs`/`http.rs`) + `crates/daemon/src/db/registry.rs` + bloco `[registry]` em `shared/src/config.rs`. Validada com `docker push`/`pull` reais (incluindo multi-arch via `buildx --push`, manifest index). Loopback only (`127.0.0.1:5100`), sem autenticação, sem ingress/TLS, sem integração com o deploy executor — isso continua Fase 2/3, não implementado. Retomar a partir daqui quando for atacar a próxima fase.
 >
-> **GC implementado em 2026-07-13** — `crates/daemon/src/registry/gc.rs` (2 fases: `db::registry::gc_metadata` apaga manifests pendurados/refs/blobs órfãos numa transação; sweep do CAS + `uploads/` órfãos > 24 h no storage), `Command::RegistryGc` → `Response::RegistryGcResult { blobs_removed, bytes_freed }`, botão "Executar GC" na sub-aba Registry e job diário em `main.rs` (junto do trim do event_log). A trava contra corrida do plano virou a `commit_lock` do `RegistryStorage`, compartilhada via `AppState.registry_storage` (o storage agora é criado no `main.rs`, não dentro de `registry::http::run`), segurada pelos 3 pontos de commit do `http.rs` (upload monolítico, finalize de PUT de blob, PUT de manifest desde a validação das refs) e pelo GC inteiro (snapshot→sweep). Além do plano original: o GC também remove manifests **pendurados** (sem tag e não referenciados por index) — sem isso, republicar uma tag nunca liberaria as camadas antigas. Janela aceita (single-admin): GC no meio de um push com blobs finalizados e manifest ainda não enviado apaga esses blobs e o push falha (BLOB_UNKNOWN) — basta repetir o push.
+> **GC implementado em 2026-07-13** — `crates/daemon/src/registry/gc.rs` (2 fases: `db::registry::gc_metadata` apaga manifests pendurados/refs/blobs órfãos numa transação; sweep do CAS + `uploads/` órfãos > 24 h no storage), `Command::RegistryGc` → `Response::RegistryGcResult { blobs_removed, bytes_freed }`, botão "Executar GC" na sub-aba Registry e job diário em `main.rs`. A trava contra corrida do plano virou a `commit_lock` do `RegistryStorage`, compartilhada via `AppState.registry_storage` (o storage agora é criado no `main.rs`, não dentro de `registry::http::run`), segurada pelos 3 pontos de commit do `http.rs` (upload monolítico, finalize de PUT de blob, PUT de manifest desde a validação das refs) e pelo GC inteiro (snapshot→sweep). Além do plano original: o GC também remove manifests **pendurados** (sem tag e não referenciados por index) — sem isso, republicar uma tag nunca liberaria as camadas antigas. Janela aceita (single-admin): GC no meio de um push com blobs finalizados e manifest ainda não enviado apaga esses blobs e o push falha (BLOB_UNKNOWN) — basta repetir o push.
 >
 > **Nota de implementação (achado real, não previsto no plano original)**: o header `Range` das respostas de upload de blob (`202 Accepted` do POST/PATCH) usa o formato próprio da OCI Distribution Spec — `Range: <start>-<end>` **sem** o prefixo de unidade `bytes=` do `Range` HTTP genérico (RFC 7233). Usar `bytes=0-N` faz o cliente `docker` CLI falhar com `"expected integer"` ao fazer parse ingênuo dos números — só foi pego pelo smoke test real, não pelos testes automatizados (que reproduziam o valor esperado, não a spec real). Confirmar esse detalhe se algum dia reimplementar do zero.
 >
@@ -62,7 +62,7 @@ Docker Engine local ── pull 127.0.0.1:5100/repo:tag ──┘   (deploy exec
 
 ## Config (`crates/shared/src/config.rs`)
 
-Novo bloco `[registry]` em `RustployConfig` (com `#[serde(default)]` no struct de config — a restrição "sem serde default" vale só para os tipos do protocolo postcard, não para TOML):
+Novo bloco `[registry]` em `RustployConfig` (com `#[serde(default)]` no struct de config):
 
 ```toml
 [registry]
@@ -142,13 +142,13 @@ registry_tokens    (id TEXT PK, name TEXT UNIQUE, token_sha256 TEXT, scope TEXT,
 
 A cada `PUT /v2/<name>/manifests/<tag>` bem-sucedido, o registry publica `Event::RegistryPush { repo, tag, digest }` no `event_bus` (GUI atualiza ao vivo) e um gancho procura serviços com `ServiceSource::Registry` cuja imagem case com `<host-qualquer-do-registry>/<repo>:<tag>` **e** que tenham opt-in de auto-deploy, disparando `handlers::deploy_start::handle` (mesmo mecanismo do webhook_server).
 
-Opt-in: novo campo `ServiceSpec.registry_auto_deploy: bool`. ⚠️ `ServiceSpec` viaja em postcard → campo **sem** `serde(default)`/`skip`, adicionado **no fim do struct**, com migração de dados no load do banco se a spec for persistida como JSON (conferir na implementação: specs no SQLite são JSON, então default no load do DB é ok; o que não pode é quebrar o wire `Command`/`Response`/`Event`).
+Opt-in: novo campo `ServiceSpec.registry_auto_deploy: bool`, com `#[serde(default)]` — as specs no SQLite são JSON, e o default é o que permite ler as já gravadas sem migração.
 
 Fluxo de CI resultante: `docker login registry.dominio.com` (token push) → `docker build` → `docker push` → rustploy redeploya sozinho. Sem webhook HTTP, sem Git no servidor.
 
-## Protocolo / Commands (UDS postcard + HTTP JSON automático)
+## Protocolo / Commands (HTTP/JSON)
 
-Novas variantes **sempre no fim** dos enums (postcard é posicional), sem `skip_serializing_if`/defaults:
+Novas variantes:
 
 - `Command::RegistryStatus` → `Response::RegistryStatus { enabled, port, domain, repo_count, blob_count, storage_bytes }`
 - `Command::RegistryRepoList` → `Response::RegistryRepos(Vec<RegistryRepo { name, tag_count, size_bytes }>)`
@@ -170,7 +170,7 @@ Handlers em `api/handlers/registry_*.rs`, roteados em `api/routes.rs::dispatch()
 ## Garbage collection
 
 - `DELETE` de tag/manifest só mexe em metadados (rápido, seguro).
-- `RegistryGc` (manual via UI, + job diário junto do trim do event_log): dentro de uma transação, apaga blobs com refcount 0 (sem entrada em `registry_manifest_refs` e sem manifest/tag), remove arquivos do CAS, limpa `uploads/` órfãos > 24 h. **Trava simples contra corrida**: GC adquire um `Mutex` que o finalizador de upload/manifest PUT também segura (operações curtas — só o commit de metadados, não o streaming).
+- `RegistryGc` (manual via UI, + job diário no `main.rs`): dentro de uma transação, apaga blobs com refcount 0 (sem entrada em `registry_manifest_refs` e sem manifest/tag), remove arquivos do CAS, limpa `uploads/` órfãos > 24 h. **Trava simples contra corrida**: GC adquire um `Mutex` que o finalizador de upload/manifest PUT também segura (operações curtas — só o commit de metadados, não o streaming).
 
 ## Fases de implementação
 

@@ -11,12 +11,16 @@ cargo build
 # Build release
 cargo build --release
 
-# Run the daemon (requires Docker socket and write access to /run/rustploy/)
-cargo run -p daemon
+# Run the daemon (requires Docker socket). `default-run = "rustployd"`, so the
+# `--bin` is only needed for the other binary (`rustployd-fw`).
+cargo run -p rustploy
 
-# Run a specific test
-cargo test -p daemon test_name
-cargo test -p shared
+# Run tests. NB: the crate directories are `crates/daemon` and `crates/shared`,
+# but the packages are named `rustploy` and `rustploy-shared` (renamed for
+# `cargo install rustploy`) — `-p daemon`/`-p shared` do not resolve.
+# The daemon has no lib target, so its tests live under --bins.
+cargo test -p rustploy --bins test_name
+cargo test -p rustploy-shared
 
 # Check all crates without linking
 cargo check --workspace
@@ -40,10 +44,9 @@ A crate `rustploy-gui` consome `glacier-ui` **do crates.io** (versão fixada no 
 
 Config is loaded from `$RUSTPLOY_CONFIG`, then `/etc/rustploy/config.toml`, then `~/.config/rustploy/config.toml`. If none exist, defaults are used.
 
-Key env-var overrides: `RUSTPLOY_SOCKET_PATH`, `RUSTPLOY_DB_PATH`, `RUSTPLOY_LOG_LEVEL`.  
+Key env-var overrides: `RUSTPLOY_DB_PATH`, `RUSTPLOY_LOG_LEVEL`.  
 Daemon logs structured JSON; control verbosity with `RUST_LOG=<level>` or `RUSTPLOY_LOG_LEVEL`.
 
-Default socket: `/run/rustploy/rustploy.sock`  
 Default DB path: `/var/lib/rustploy/db`  
 Default master key: `/etc/rustploy/master.key`
 
@@ -55,18 +58,15 @@ Default master key: `/etc/rustploy/master.key`
 |-------|--------|------|
 | `shared` | — | Models, protocol types, config structs used by the daemon and the GUI |
 | `daemon` | `rustployd` | Long-running server: API, DB, Docker, ingress, deploy engine |
-| `rustploy-gui` | `rustploy-gui` | glacier-ui (XML→iced) desktop client — the only client, since the TUI (`crates/client`) was removed. Toda a rede/lógica de negócio vive em Luau (`views/scripts/`, pacotes `fmt/`/`handlers/`/`net/` — ver `docs/luau-modularizacao-pacotes.md`), falando com o daemon pela **API HTTP/JSON + SSE** (`crates/daemon/src/api/http_api.rs`), não pelo UDS local. |
+| `rustploy-gui` | `rustploy-gui` | glacier-ui (XML→iced) desktop client — the only client, since the TUI (`crates/client`) was removed. Toda a rede/lógica de negócio vive em Luau (`views/scripts/`, pacotes `fmt/`/`handlers/`/`net/` — ver `docs/luau-modularizacao-pacotes.md`), falando com o daemon pela **API HTTP/JSON + SSE** (`crates/daemon/src/api/http_api.rs`). |
 | `fw-helper` | `rustployd-fw` | Helper privilegiado de firewall (roda como root via socket activation em `/run/rustploy/fw.sock`). O daemon pede allow/deny de portas externas (`daemon/src/firewall.rs`); o helper só aceita portas dentro da faixa `[external_ports]` da config e só fala com o ufw. Sem dependência da crate `shared`, de propósito. Ver `docs/relatorio-porta-externa-automatica.md`. |
 
-### IPC protocol
+### API protocol
 
-`rustploy-gui` is the only client, and speaks plain **HTTP/JSON + SSE** (`crates/daemon/src/api/http_api.rs`: `POST /api/rpc`, `GET /api/events`, `GET /api/health`) — its logic runs in Luau (`fetch`/`sse`), which has no UDS access. `Command`/`Response`/`Event` are defined in `crates/shared/src/protocol.rs` and dispatched via `dispatch()` regardless of transport.
-
-The daemon still exposes a raw **postcard-encoded** Unix Domain Socket listener (`api/server.rs`) — every frame is `[u32 LE length][postcard bytes]`, a `ClientFrame::Rpc(Command)` gets one `Response` frame back, `Subscribe { service_id }` turns the connection into a stream of `Event` frames. This existed for a TUI client (`crates/client`, Ratatui) that was **removed** — nothing in this repo currently connects to the UDS socket. It's left in place (harmless, no upkeep cost) rather than ripped out; touch it only if asked to actually remove UDS support, not as part of routine daemon work.
+`rustploy-gui` is the only client, and speaks plain **HTTP/JSON + SSE** (`crates/daemon/src/api/http_api.rs`: `POST /api/rpc`, `GET /api/events`, `GET /api/health`) — its logic runs in Luau (`fetch`/`sse`). `Command`/`Response`/`Event` are defined in `crates/shared/src/protocol.rs` and dispatched via `dispatch()`. This is the daemon's only client-facing protocol; JSON is self-describing, so a renamed field surfaces as a `nil` on the Luau side instead of silently decoding as garbage.
 
 ### Daemon internals (`crates/daemon/src/`)
 
-- **`api/server.rs`** — UDS listener; decodes each `ClientFrame` and routes `Rpc` to `dispatch()`, `Subscribe` to the event stream.
 - **`api/routes.rs`** — `dispatch()` matches every `Command` variant to a handler module.
 - **`api/handlers/`** — one file per command (e.g. `deploy_start.rs`, `project_create.rs`).
 - **`db/`** — SQLite (via `sqlx`) wrappers for projects, services, deployments.

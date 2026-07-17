@@ -26,9 +26,7 @@ use api::AppState;
 use event_bus::EventBus;
 use ingress::{IngressController, TlsManager};
 use shared::{Event, RustployConfig};
-use socket2::{Domain, Socket, Type};
-use std::{os::unix::net::UnixListener as StdUnixListener, path::PathBuf, sync::Arc};
-use tokio::net::UnixListener;
+use std::{path::PathBuf, sync::Arc};
 use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
 
@@ -44,11 +42,7 @@ async fn main() -> Result<()> {
         .install_default()
         .expect("failed to install rustls ring CryptoProvider");
 
-    info!(
-        version = env!("CARGO_PKG_VERSION"),
-        socket = config.daemon.socket_path,
-        "rustployd starting"
-    );
+    info!(version = env!("CARGO_PKG_VERSION"), "rustployd starting");
 
     // Database — resolve path with fallback
     let db_path = resolve_data_path(&config.daemon.db_path);
@@ -71,7 +65,7 @@ async fn main() -> Result<()> {
     }
     info!("docker engine connected");
 
-    let bus = Arc::new(EventBus::new(db.clone()));
+    let bus = Arc::new(EventBus::new());
     let ingress = Arc::new(IngressController::new());
 
     let master_key = resolve_master_key_path(&config.secrets.master_key_path);
@@ -239,7 +233,7 @@ async fn main() -> Result<()> {
         });
     }
 
-    // Limpeza periódica do event_log (retém 30 dias) + GC diário do registry
+    // GC diário do registry
     {
         let db2 = state.db.clone();
         let gc_storage = registry_storage.clone();
@@ -248,11 +242,6 @@ async fn main() -> Result<()> {
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
                 interval.tick().await;
-                match crate::db::event_log::trim(&db2, 30).await {
-                    Ok(n) if n > 0 => tracing::info!(rows = n, "event_log: entradas antigas removidas"),
-                    Err(e) => tracing::warn!(error = %e, "event_log: falha no trim"),
-                    _ => {}
-                }
                 if let Some(storage) = &gc_storage {
                     match registry::gc::run(&db2, storage).await {
                         Ok(r) if r.blobs_removed > 0 => tracing::info!(
@@ -365,37 +354,11 @@ async fn main() -> Result<()> {
         });
     }
 
-    // Bind UDS — try configured path, fall back to ~/.local/share/rustploy/
-    let socket_path = resolve_socket_path(&config.daemon.socket_path);
-    info!(socket = ?socket_path, "listening");
-
-    // Use socket2 to tune UDS buffers before binding. 256 KiB is large enough
-    // to absorb a burst of streaming events without blocking the sender, while
-    // staying well within L2 cache on typical server hardware.
-    let socket = Socket::new(Domain::UNIX, Type::STREAM, None)?;
-    socket.set_recv_buffer_size(256 * 1024)?;
-    socket.set_send_buffer_size(256 * 1024)?;
-    socket.bind(&socket2::SockAddr::unix(&socket_path)?)?;
-    socket.listen(128)?;
-    let std_listener: StdUnixListener = socket.into();
-    std_listener.set_nonblocking(true)?;
-    let listener = UnixListener::from_std(std_listener)?;
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&socket_path, std::fs::Permissions::from_mode(0o666))?;
-    }
-
-    loop {
-        let (stream, _) = listener.accept().await?;
-        let state = state.clone();
-        tokio::spawn(async move {
-            if let Err(e) = api::server::handle_connection(stream, state).await {
-                warn!(error = %e, "connection error");
-            }
-        });
-    }
+    // Todo listener do daemon roda em `tokio::spawn` acima, então sem isto a
+    // `main` retornaria e o processo morreria no boot: este pending existe só
+    // para segurar o processo. Encerramento é o sinal do systemd (SIGTERM).
+    std::future::pending::<()>().await;
+    Ok(())
 }
 
 fn init_logging(level: &str) {
@@ -409,50 +372,6 @@ fn init_logging(level: &str) {
 
 fn fallback_dir() -> PathBuf {
     shared::fallback_data_dir()
-}
-
-/// Tries to prepare `configured` for use as a Unix socket path.
-/// Falls back to `~/.local/share/rustploy/rustploy.sock` if the
-/// configured directory is not writable.
-fn resolve_socket_path(configured: &str) -> PathBuf {
-    let path = PathBuf::from(configured);
-    if can_prepare_socket(&path) {
-        return path;
-    }
-    let fallback = fallback_dir().join("rustploy.sock");
-    warn!(
-        primary = %path.display(),
-        fallback = %fallback.display(),
-        "socket path not writable, using fallback"
-    );
-    let _ = std::fs::create_dir_all(fallback.parent().unwrap());
-    if fallback.exists() {
-        let _ = std::fs::remove_file(&fallback);
-    }
-    fallback
-}
-
-fn can_prepare_socket(path: &PathBuf) -> bool {
-    let parent = match path.parent() {
-        Some(p) => p,
-        None => return false,
-    };
-    if std::fs::create_dir_all(parent).is_err() {
-        return false;
-    }
-    if path.exists() {
-        if std::fs::remove_file(path).is_err() {
-            return false;
-        }
-    } else {
-        // Probe write access by touching a temp file
-        let probe = parent.join(".rustploy_probe");
-        if std::fs::write(&probe, b"").is_err() {
-            return false;
-        }
-        let _ = std::fs::remove_file(probe);
-    }
-    true
 }
 
 /// Tries to use `configured` as the data directory.

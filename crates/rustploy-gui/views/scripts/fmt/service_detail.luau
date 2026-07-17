@@ -71,15 +71,31 @@ end
 local ENV_KEY_MAX = 30
 
 -- Uma linha de var de ambiente (secret exibido por referência).
+--
+-- O cadeado não é enfeite: sem ele, uma referência `Secret("t")` e um valor
+-- literal `Plain("secret:t")` renderizavam EXATAMENTE igual ("secret:t"), e não
+-- havia como saber, olhando a lista, se o container ia receber o segredo ou a
+-- string crua — que é o sintoma de quem errou a sintaxe da referência.
 local function env_var_row(v: EnvVar)
     local value: string
     local kind: string
     if v.value and v.value.Secret ~= nil then
-        value, kind = "secret:" .. (v.value.Secret :: string), "secret"
+        value, kind = "🔒 secret:" .. (v.value.Secret :: string), "secret"
     else
         value, kind = (v.value and v.value.Plain) or "", "plain"
     end
     return { key = v.key, key_display = Util.ellipsis(v.key, ENV_KEY_MAX), value = value, kind = kind }
+end
+
+-- Secrets do projeto como linhas JSON. Só nomes: o daemon nunca devolve o valor
+-- (o snapshot traz `projects[].secrets` como lista de strings), então a UI é
+-- write-only — cria/sobrescreve e apaga, sem nunca exibir o conteúdo.
+function M.secret_rows(names: {string}?): string
+    local rows = {}
+    for _, n in ipairs(names or {}) do
+        table.insert(rows, { name = n, name_display = Util.ellipsis(n, ENV_KEY_MAX) })
+    end
+    return Util.enc_array(rows)
 end
 
 -- Env vars como linhas JSON, re-interleaving os comentários `# ...` ancorados

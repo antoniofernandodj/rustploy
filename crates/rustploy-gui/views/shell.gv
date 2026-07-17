@@ -357,6 +357,12 @@
                 action="proj_tab:env"
               />
               <TabButton
+                label="Secrets ({proj_secrets_count})"
+                current="{proj_tab}"
+                target="secrets"
+                action="proj_tab:secrets"
+              />
+              <TabButton
                 label="Jobs ({proj_jobs_count})"
                 current="{proj_tab}"
                 target="jobs"
@@ -404,13 +410,51 @@
                       placeholder="KEY"
                     />
                   </row>
-                  <row class="env_add">
-                    <input
-                      class="env_in_val"
-                      form_control="penv_new_val"
-                      placeholder="value"
-                    />
-                  </row>
+                  <!-- Modo secret: o campo valor passa a receber o NOME de um
+                       secret do projeto (a referência, não o conteúdo), que o
+                       daemon decifra no deploy. Vários filhos condicionais →
+                       tag if, não atributo. -->
+                  <if cond="{penv_new_is_secret}" equals="true">
+                    <row class="env_add">
+                      <input
+                        class="env_in_val"
+                        form_control="penv_new_val"
+                        placeholder="nome do secret"
+                      />
+                      <button
+                        class="btn_export_on"
+                        on_click="penv_secret_toggle"
+                        text="usar secret"
+                      />
+                    </row>
+                    <text if="{proj_secrets_count}" equals="0" class="muted">
+                      Nenhum secret cadastrado — crie um na aba Secrets.
+                    </text>
+                    <row class="env_add" if="{proj_secrets_count}" not_equals="0">
+                      <text class="muted">Secrets do projeto:&nbsp;</text>
+                      <button
+                        class="copy_btn"
+                        for-each="proj_secrets"
+                        var="s"
+                        on_click="secret_use:{s.name}"
+                        text="{s.name_display}"
+                      />
+                    </row>
+                  </if>
+                  <else>
+                    <row class="env_add">
+                      <input
+                        class="env_in_val"
+                        form_control="penv_new_val"
+                        placeholder="value"
+                      />
+                      <button
+                        class="tab"
+                        on_click="penv_secret_toggle"
+                        text="usar secret"
+                      />
+                    </row>
+                  </else>
                   <row>
                     <button
                       class="btn_primary"
@@ -500,6 +544,76 @@
                     />
                   </row>
                 </if>
+              </column>
+            </if>
+            <if cond="{proj_tab}" equals="secrets">
+              <!-- ── Secrets do projeto ──────────────────────────────────────
+                   Write-only: o daemon só devolve os nomes (o valor é cifrado
+                   com a chave mestre do servidor), então não há coluna de valor
+                   nem edição — sobrescrever é salvar de novo com o mesmo nome.
+                   Ver handlers/secrets.luau e docs/secrets.md. -->
+              <column class="env_wrap" if="{proj_loading}" not_equals="true">
+                <column class="wh_block">
+                  <text class="muted_fill">
+                    Valores sensíveis (tokens, senhas, chaves de API) cifrados com
+                    a chave mestre do servidor. Depois de salvo, o valor nunca mais
+                    é exibido — para trocá-lo, salve um novo com o mesmo nome.
+                  </text>
+                  <text class="muted_fill">
+                    Para usar num serviço: na aba Variáveis, ligue "usar secret" e
+                    escolha o nome; ou escreva &lt;secret:NOME&gt; (ou secret:NOME)
+                    como valor, no editor .env do projeto ou do serviço. Para
+                    clonar um repositório Git privado, use o nome do secret puro,
+                    sem prefixo, no campo Credentials da aba General do serviço.
+                  </text>
+                  <text class="muted_fill">
+                    O valor real só é decifrado em memória, na hora do deploy.
+                  </text>
+                </column>
+                <form name="secret_add" on_submit="secret_add" width="fill" spacing="8">
+                  <row class="env_add">
+                    <input
+                      class="env_in_key"
+                      form_control="sec_new_name"
+                      placeholder="NOME"
+                    />
+                  </row>
+                  <row class="env_add">
+                    <input
+                      class="env_in_val"
+                      form_control="sec_new_val"
+                      placeholder="valor (cifrado ao salvar)"
+                    />
+                  </row>
+                  <row>
+                    <button
+                      class="btn_primary"
+                      on_click="secret_add"
+                      text="Salvar secret"
+                    />
+                  </row>
+                </form>
+                <if cond="{erro_sec_new_name}" not_equals="">
+                  <text class="err">{erro_sec_new_name}</text>
+                </if>
+                <rule />
+                <text if="{proj_secrets_count}" equals="0" class="muted">
+                  Nenhum secret neste projeto ainda.
+                </text>
+                <scrollable direction="vertical" class="env_list_scroll">
+                  <column class="kv_list">
+                    <row class="kv_row" for-each="proj_secrets" var="s">
+                      <button
+                        class="env_del"
+                        on_click="secret_del:{s.name}"
+                        text="✕"
+                      />
+                      <text class="env_sep"></text>
+                      <text class="env_key">{s.name_display}</text>
+                      <text class="kv_val_fill">cifrado</text>
+                    </row>
+                  </column>
+                </scrollable>
               </column>
             </if>
             <if cond="{proj_tab}" equals="jobs">

@@ -556,7 +556,28 @@ pub(crate) async fn snapshot(state: &AppState) -> String {
                 &state.docker.inner
             ).await;
         let mut services = Vec::new();
+        let mut projects_json = Vec::new();
         for p in &projects {
+            // Só os NOMES dos secrets do projeto (o blob cifrado nunca sai do
+            // daemon). Anexados ao objeto do projeto como `containers` é
+            // anexado ao do serviço logo abaixo — é dado só do snapshot, então
+            // não vira campo do model `Project` de `shared`.
+            let mut pv = serde_json::to_value(p).unwrap_or(Value::Null);
+            if let RpResponse::SecretNames(names) = dispatch(
+                state.clone(),
+                Command::SecretList { project_id: p.id.clone() },
+            )
+            .await
+            {
+                if let Value::Object(m) = &mut pv {
+                    m.insert(
+                        "secrets".into(),
+                        serde_json::to_value(names).unwrap_or(Value::Null),
+                    );
+                }
+            }
+            projects_json.push(pv);
+
             if let RpResponse::Services(svcs) =
                 dispatch(
                     state.clone(),
@@ -583,7 +604,7 @@ pub(crate) async fn snapshot(state: &AppState) -> String {
 
         obj.insert(
             "projects".into(),
-            serde_json::to_value(&projects).unwrap_or(Value::Null)
+            Value::Array(projects_json)
         );
 
         obj.insert(

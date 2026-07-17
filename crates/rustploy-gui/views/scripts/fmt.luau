@@ -54,6 +54,7 @@ M.eng_recent = Dashboard.eng_recent
 M.source_summary3 = ServiceDetail.source_summary3
 M.healthcheck_summary = ServiceDetail.healthcheck_summary
 M.env_json_with_comments = ServiceDetail.env_json_with_comments
+M.secret_rows = ServiceDetail.secret_rows
 M.env_dotenv_with_comments = ServiceDetail.env_dotenv_with_comments
 M.logs_json = ServiceDetail.logs_json
 M.build_logs_json = ServiceDetail.build_logs_json

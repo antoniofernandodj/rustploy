@@ -2,16 +2,6 @@ use crate::manifest::ApplyReport;
 use crate::models::*;
 use serde::{Deserialize, Serialize};
 
-/// First frame sent by the client on every new connection.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ClientFrame {
-    /// Single RPC call: daemon replies with one `Response` frame then closes.
-    Rpc(Command),
-    /// Event stream: client sends this once, daemon replies with `Event`
-    /// frames indefinitely until the connection is dropped.
-    Subscribe { service_id: Option<String> },
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Command {
     // Projects
@@ -135,9 +125,9 @@ pub enum Command {
     /// pelo cliente (um documento `ProjectManifest` por string). Aditivo:
     /// cria/atualiza, nunca deleta. Não dispara deploy.
     ///
-    /// Os manifestos trafegam como YAML (e não como structs) porque o postcard é
-    /// um formato não auto-descritivo e quebra com `skip_serializing_if`/defaults;
-    /// o daemon faz o parse com `serde_yaml`.
+    /// Os manifestos trafegam como YAML (e não como structs) para que o daemon
+    /// receba exatamente o texto do arquivo que o usuário edita; o parse fica
+    /// num lugar só, com `serde_yaml`. Ver `docs/infra-as-code.md`.
     ManifestApply {
         manifests: Vec<String>,
         /// Deleta serviços que existem no projeto mas não constam no manifesto.
@@ -317,8 +307,7 @@ pub enum Command {
     RegistryTokenRevoke { name: String },
     /// Move um deploy enfileirado para o início da fila ("furar fila"). Sem
     /// efeito se o id não estiver na fila (ex.: já rodando/terminado).
-    /// Resposta: `Ok`. Variantes anexadas no fim do enum de propósito (wire
-    /// postcard posicional).
+    /// Resposta: `Ok`.
     DeployQueuePromote { deployment_id: String },
     /// Reordena a fila para exatamente a ordem dada (ids de deployment). Ids
     /// ausentes/desconhecidos são ignorados; enfileirados omitidos ficam ao fim

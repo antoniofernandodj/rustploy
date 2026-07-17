@@ -1,11 +1,9 @@
 [daemon]
-# NOTA: em produção, socket_path e db_path são GERIDOS PELO systemd unit
-# (rustployd.service), que os fixa via Environment=RUSTPLOY_SOCKET_PATH e
-# RUSTPLOY_DB_PATH apontando para /run/rustploy e /var/lib/rustploy (diretórios
-# criados por RuntimeDirectory=/StateDirectory=). Como env vars têm prioridade
-# sobre este arquivo, editar os dois campos abaixo NÃO terá efeito sob systemd —
-# ajuste no unit ou em /etc/rustploy/environment (lido via EnvironmentFile=).
-socket_path  = "/run/rustploy/rustploy.sock"
+# NOTA: em produção, db_path é GERIDO PELO systemd unit (rustployd.service),
+# que o fixa via Environment=RUSTPLOY_DB_PATH apontando para /var/lib/rustploy
+# (diretório criado por StateDirectory=). Como env vars têm prioridade sobre
+# este arquivo, editar o campo abaixo NÃO terá efeito sob systemd — ajuste no
+# unit ou em /etc/rustploy/environment (lido via EnvironmentFile=).
 db_path      = "/var/lib/rustploy/db"
 log_level    = "info"
 # As demais seções abaixo VÊM deste arquivo normalmente — não são sobrescritas

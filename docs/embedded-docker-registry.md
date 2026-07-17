@@ -14,10 +14,12 @@ templates XML + lógica em Luau em `views/scripts/`), falando com o daemon via
 HTTP/JSON + SSE. Não existe mais TUI (removido em 2026-07-13). `shared` é a
 crate com os tipos de protocolo (`Command`/`Response`/`Event`) e modelos.
 
-Regra de wire importante: `Command`/`Response`/`Event` (em
-`crates/shared/src/protocol.rs`) usam **postcard**, um formato binário
-**posicional** — variantes/campos novos sempre vão **no fim**, nunca
-inseridos no meio, e nunca com `skip_serializing_if`/`serde(default)`.
+`Command`/`Response`/`Event` (em `crates/shared/src/protocol.rs`) trafegam
+como **JSON** (serde externally-tagged), que é auto-descritivo: variantes e
+campos novos podem entrar em qualquer posição, e `skip_serializing_if`/
+`serde(default)` são permitidos. A regra antiga de "só no fim, nunca com
+skip/default" valia para o wire postcard do listener UDS, removido junto com o
+TUI que o usava.
 
 ## 1. Onde estamos: registry Docker embutido
 
@@ -224,8 +226,7 @@ Mudanças:
 ### 4.2 Credenciais no pull
 
 - **`crates/daemon/src/docker/images.rs`**: assinatura de `pull()` ganha um
-  parâmetro novo **no fim** (é função Rust normal, não precisa da regra de
-  postcard, mas manter no fim reduz o diff nos call sites por posição):
+  parâmetro novo **no fim** (reduz o diff nos call sites por posição):
   ```rust
   pub async fn pull(
       docker: &Docker,
@@ -456,13 +457,13 @@ Mudanças:
 
 ## 6. Ordem de implementação sugerida
 
-1. `db/registry_tokens.rs` (const + upsert_internal + list filtrado + testes) → `cargo test -p daemon registry_tokens`.
-2. `registry/internal_token.rs` + `registry/mod.rs` → `cargo check -p daemon`.
-3. `api/handlers/registry.rs` (rejeitar nome reservado) → `cargo check -p daemon`.
+1. `db/registry_tokens.rs` (const + upsert_internal + list filtrado + testes) → `cargo test -p rustploy --bins registry_tokens`.
+2. `registry/internal_token.rs` + `registry/mod.rs` → `cargo check -p rustploy`.
+3. `api/handlers/registry.rs` (rejeitar nome reservado) → `cargo check -p rustploy`.
 4. `docker/images.rs` (assinatura de `pull`) — vai quebrar compilação no único
    call site até o passo 5 ser feito; ok, é esperado.
 5. `deploy/executor.rs` (campo, função pura + testes, helper async, uso em
-   `PullingImage`) → `cargo test -p daemon executor` (ou o nome do módulo de
+   `PullingImage`) → `cargo test -p rustploy --bins executor` (ou o nome do módulo de
    teste que acabou usando).
 6. `deploy/recovery.rs`, `api/mod.rs`, os 3 call sites de `DeployExecutor{}`,
    `main.rs` → `cargo check --workspace` (deve compilar limpo depois deste
@@ -473,7 +474,7 @@ Mudanças:
 
 ## 7. Verificação (não considerar pronto sem isso)
 
-1. `cargo test -p daemon` (cobre os testes novos de `upsert_internal`/`list`
+1. `cargo test -p rustploy --bins` (cobre os testes novos de `upsert_internal`/`list`
    e de `is_embedded_registry_image`) + `cargo check --workspace`.
 2. **Smoke manual, obrigatório** (regra do projeto: teste automatizado verde
    não é suficiente pra considerar uma feature pronta — sempre rodar de
@@ -511,7 +512,7 @@ vez que for preciso um daemon de teste local:
   (`primary=... fallback=...`) pra ver se ele bateu no arquivo certo.
 - Usar portas bem distantes das do sistema real (`ss -ltnp` pra conferir o
   que já está escutando antes de escolher).
-- Ou simplesmente confiar nos testes unitários (`cargo test -p daemon`) +
+- Ou simplesmente confiar nos testes unitários (`cargo test -p rustploy --bins`) +
   smoke test contra o daemon real já rodando (com cuidado, só operações
   read-only ou explicitamente aprovadas), em vez de tentar subir uma segunda
   instância isolada — não valeu o risco/esforço para uma mudança de CSS, por

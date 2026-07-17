@@ -86,6 +86,13 @@ local function update_open_project(): ()
         ctx.proj_env_text_orig = pdotenv
     end
 
+    -- Aba "Secrets (N)": só os nomes — `projects[].secrets` vem do snapshot
+    -- (ver http_api.rs::snapshot), nunca o valor. A mesma lista alimenta os
+    -- chips de "usar secret" da aba Variáveis.
+    local secrets = proj.secrets or {}
+    ctx.proj_secrets = fmt.secret_rows(secrets)
+    ctx.proj_secrets_count = tostring(#secrets)
+
     -- Aba "Jobs (N)": jobs deste projeto (filtrados do `msg.jobs` global —
     -- já busca tudo a cada snapshot, sem RPC extra).
     local proj_jobs = {}

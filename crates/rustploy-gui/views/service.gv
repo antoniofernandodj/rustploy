@@ -323,6 +323,11 @@
                     on_change="field:f_credentials"
                     placeholder="(opcional)"
                   />
+                  <text class="muted">
+                    Nome de um secret do projeto (aba Secrets), puro — sem
+                    &lt;secret:&gt;. Usado para clonar repositório Git privado
+                    via HTTPS; não tem efeito com URL SSH.
+                  </text>
                 </column>
               </row>
 
@@ -607,6 +612,12 @@
             <button class="btn_primary" on_click="env_add" text="Adicionar" />
           </row>
         </form>
+        <text class="muted_fill">
+          Para um valor sensível, use um secret do projeto: escreva
+          &lt;secret:NOME&gt; ou secret:NOME como valor aqui ou no editor .env —
+          as duas formas valem. O secret é criado na aba Secrets do projeto, só é
+          decifrado no deploy, e na lista aparece com 🔒.
+        </text>
         <text if="{erro_env_new_key}" not_equals="" class="err">
           {erro_env_new_key}
         </text>

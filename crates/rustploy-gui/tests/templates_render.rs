@@ -216,13 +216,33 @@ fn all_screens_and_service_tabs_render() {
         "proj_jobs",
         r#"[{"id":"job_1","name":"backup-db","recurrence":"a cada 6h","enabled":true,"enabled_label":"Pausar","last_run_label":"ok","last_run_kind":"ok","last_run_id":"jrun_1","next_run_at":"12/07 03:00"}]"#,
     );
-    for proj_tab in ["services", "env", "jobs"] {
+    m.define_data("proj_secrets_count", "1");
+    m.define_data(
+        "proj_secrets",
+        r#"[{"name":"GITHUB_TOKEN","name_display":"GITHUB_TOKEN"}]"#,
+    );
+    for proj_tab in ["services", "env", "secrets", "jobs"] {
         m.define_data("view", "project_services");
         m.define_data("proj_tab", proj_tab);
         m.define_data("proj_loading", "false");
         m.reevaluate_all().unwrap_or_else(|e| panic!("eval project_services/{proj_tab}: {e}"));
         assert!(m.render("app").is_ok(), "render project_services/{proj_tab}");
     }
+
+    // Aba Variáveis no modo "usar secret" (o form troca o campo valor pelo nome
+    // do secret e lista os chips) e a lista de secrets vazia (estado inicial).
+    m.define_data("proj_tab", "env");
+    m.define_data("penv_new_is_secret", "true");
+    m.reevaluate_all().unwrap_or_else(|e| panic!("eval project_services/env secret: {e}"));
+    assert!(m.render("app").is_ok(), "render project_services/env modo secret");
+    m.define_data("proj_secrets_count", "0");
+    m.define_data("proj_secrets", "[]");
+    for proj_tab in ["env", "secrets"] {
+        m.define_data("proj_tab", proj_tab);
+        m.reevaluate_all().unwrap_or_else(|e| panic!("eval {proj_tab} sem secrets: {e}"));
+        assert!(m.render("app").is_ok(), "render {proj_tab} sem secrets");
+    }
+    m.define_data("penv_new_is_secret", "false");
 
     // Settings → Git sub-tab (provider list + connect form, both methods).
     m.define_data("view", "settings");
@@ -417,5 +437,58 @@ fn so_a_tela_ativa_e_avaliada() {
     assert!(
         matches!(m.render("Login"), Err(glacier_ui::GlacierError::NotEvaluated(_))),
         "uma view importada não deve ficar avaliada como raiz por conta própria"
+    );
+}
+
+/// Logout tem que zerar a RAM da sessão: nada do daemon anterior pode continuar
+/// no contexto (nomes de projeto, linhas de log, o próprio api_token) — foi um
+/// bug real, porque o `disconnect` antigo limpava só quatro chaves à mão.
+/// Hoje ele apaga o `ctx` inteiro e deixa o `init()` semear os defaults, então
+/// este teste dispara a ação de verdade (`UiClick`, o mesmo caminho do botão
+/// Disconnect) e inspeciona o contexto do motor.
+#[test]
+fn disconnect_limpa_o_contexto_da_sessao() {
+    let mut m = boot();
+
+    // Estado de uma sessão conectada, do trivial ao sensível.
+    for (k, v) in [
+        ("connected", "true"),
+        ("screen", "shell"),
+        ("api_url", "https://rustploy.example"),
+        ("api_token", "token-secreto"),
+        ("projects_count", "7"),
+        ("proj_name", "acme"),
+        ("proj_secrets", r#"[{"name":"GITHUB_TOKEN","name_display":"GITHUB_TOKEN"}]"#),
+        ("svc_env", r#"[{"key":"API_KEY","value":"secret:API_KEY","kind":"secret"}]"#),
+        ("selected_project_id", "prj_1"),
+    ] {
+        m.define_data(k, v);
+    }
+    m.reevaluate_all().expect("eval sessão conectada");
+
+    let _ = m.dispatch(&glacier_ui::EngineMessage::UiClick("disconnect".into()));
+
+    let ctx = m.context();
+    for k in [
+        "api_url",
+        "api_token",
+        "proj_name",
+        "proj_secrets",
+        "svc_env",
+        "selected_project_id",
+    ] {
+        assert!(
+            ctx.get(k).is_none(),
+            "ctx.{k} sobreviveu ao logout: {:?}",
+            ctx.get(k)
+        );
+    }
+    // O que o init() repõe: volta ao estado de boot, não ao da sessão.
+    assert_eq!(ctx.get("connected").map(String::as_str), Some("false"));
+    assert_eq!(ctx.get("screen").map(String::as_str), Some("login"));
+    assert_eq!(
+        ctx.get("projects_count").map(String::as_str),
+        Some("…"),
+        "contador deve voltar a 'carregando', não a um 0 mentiroso"
     );
 }

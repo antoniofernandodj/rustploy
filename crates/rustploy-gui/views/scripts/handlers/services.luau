@@ -462,7 +462,7 @@ local function parse_dotenv(text: string?): ({any}, {any})
                     end
                     pending = {}
                     v = Helpers.trim(v)
-                    local secret = v:match("^<secret:(.+)>$")
+                    local secret = Helpers.parse_secret_ref(v)
                     local value = secret and { Secret = secret } or { Plain = v }
                     table.insert(vars, { key = key, value = value })
                 end
@@ -520,12 +520,18 @@ function env_add(): ()
     if key == "" then ctx.erro_env_new_key = "chave vazia"; return end
     ctx.erro_env_new_key = ""
     local val = ctx.env_new_val or ""
+    -- `<secret:NOME>`/`secret:NOME` digitado no campo valor vira referência de
+    -- secret, como no editor .env (parse_dotenv) — é o caminho para valores
+    -- sensíveis aqui, já que a aba do serviço não tem o toggle "usar secret" do
+    -- projeto. O daemon decifra no deploy (deploy/env_resolve.rs).
+    local secret = Helpers.parse_secret_ref(val)
     with_spec(function(spec: any): ()
         local kept = json.array{}
         for _, v in ipairs(spec.env_vars or {}) do
             if v.key ~= key then table.insert(kept, v) end
         end
-        table.insert(kept, { key = key, value = { Plain = val } })
+        local value = secret and { Secret = secret } or { Plain = val }
+        table.insert(kept, { key = key, value = value })
         spec.env_vars = kept
     end)
     ctx.env_new_key = ""

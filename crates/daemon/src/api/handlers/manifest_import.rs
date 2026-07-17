@@ -102,8 +102,7 @@ pub async fn handle(
     }
 
     // Os manifestos já interpolados voltam a trafegar como YAML (mesmo motivo
-    // do `ManifestApply`: postcard não suporta os defaults/skips dos structs
-    // do manifesto) e reutilizam a reconciliação existente.
+    // do `ManifestApply`) e reutilizam a reconciliação existente.
     let manifests = match projects
         .iter()
         .map(serde_yaml::to_string)
@@ -313,7 +312,7 @@ mod git_provider_iac_tests {
             crate::docker::DockerClient::connect(&config.docker.socket_path).unwrap(),
         );
         let db = std::sync::Arc::new(db);
-        let bus = std::sync::Arc::new(crate::event_bus::EventBus::new(db.clone()));
+        let bus = std::sync::Arc::new(crate::event_bus::EventBus::new());
         let ingress = std::sync::Arc::new(crate::ingress::IngressController::new());
         let secrets = std::sync::Arc::new(
             crate::secrets::SecretsManager::new(&tmp.join("master.key"), db.clone()).unwrap(),

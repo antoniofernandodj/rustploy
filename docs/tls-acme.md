@@ -1,8 +1,8 @@
 # TLS automático via ACME (Let's Encrypt)
 
 Este documento descreve a implementação de HTTPS automático no Rustploy.
-O painel em si é acessado via SSH/UDS — o que se resolve aqui são os certificados
-das **aplicações hospedadas** pelo daemon.
+O painel em si é acessado pela API HTTP do daemon — o que se resolve aqui são os
+certificados das **aplicações hospedadas** pelo daemon.
 
 ---
 

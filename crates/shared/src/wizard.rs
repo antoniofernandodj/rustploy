@@ -487,8 +487,7 @@ pub fn template_spec(t: &'static Template, name: String, project_id: String, val
 // ── Requisição de criação (o cliente coleta os campos, o daemon monta o spec) ─
 
 /// Campos coletados pelo wizard no cliente; o daemon (`WizardCreate`) resolve o
-/// `kind`/`id` e monta o `ServiceSpec`. Sem `skip_serializing_if`/defaults
-/// (regra do wire postcard): todos os campos sempre presentes.
+/// `kind`/`id` e monta o `ServiceSpec`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WizardCreateReq {
     /// "application" | "compose" | "database" | "broker" | "template".
@@ -508,7 +507,6 @@ pub struct WizardCreateReq {
     /// Quando true, o serviço nasce com `host_port = Some(0)` — a sentinela que
     /// faz o daemon alocar uma porta externa automaticamente (faixa
     /// `[external_ports]` da config) e liberá-la no firewall via `rustployd-fw`.
-    /// Sem `serde(default)`: tipos de `Command` trafegam em postcard posicional.
     pub expose_external: bool,
 }
 

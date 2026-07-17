@@ -40,8 +40,7 @@ construído com o framework próprio `glacier-ui` (UI declarativa em XML → ice
 daemon via **HTTP/JSON + SSE**, não precisa rodar na mesma máquina do daemon.
 `cargo run -p rustploy-gui` a partir da raiz do workspace.
 
-Houve um cliente TUI (Ratatui, `crates/client`) via Unix Domain Socket — removido; o daemon
-ainda expõe o listener UDS/postcard (ver `CLAUDE.md`), mas nada no repo se conecta a ele hoje.
+Houve um cliente TUI (Ratatui, `crates/client`) — removido.
 
 ## Não-objetivos
 
@@ -85,9 +84,9 @@ Os dois embarcam a árvore `views/` inteira (templates + a camada Luau em `views
 
 ## Execução
 
-**Produção (com root ou permissões no socket/dir system):**
+**Produção (com root ou permissões nos diretórios de sistema):**
 ```bash
-./rustployd    # socket em /run/rustploy/rustploy.sock, db em /var/lib/rustploy/db
+./rustployd    # db em /var/lib/rustploy/db
 ```
 
 **Desenvolvimento (sem root):**
@@ -95,7 +94,7 @@ Os dois embarcam a árvore `views/` inteira (templates + a camada Luau em `views
 ./rustployd    # fallback automático para ~/.local/share/rustploy/
 ```
 
-O daemon tenta o path configurado primeiro; se não tiver permissão de escrita, avisa no log (`WARN socket path not writable, using fallback`) e usa `~/.local/share/rustploy/rustploy.sock`. O banco segue o mesmo critério. Depois de subir o daemon, conecte com `rustploy-gui` (URL + token da API HTTP).
+O daemon tenta o path configurado do banco primeiro; se não tiver permissão de escrita, avisa no log (`WARN db path not writable, using fallback`) e usa `~/.local/share/rustploy/db`. Depois de subir o daemon, conecte com `rustploy-gui` (URL + token da API HTTP).
 
 ## Configuração
 
@@ -103,7 +102,6 @@ Arquivo TOML carregado de `$RUSTPLOY_CONFIG`, depois `/etc/rustploy/config.toml`
 
 ```toml
 [daemon]
-socket_path  = "/run/rustploy/rustploy.sock"
 db_path      = "/var/lib/rustploy/db"
 log_level    = "info"
 
@@ -167,19 +165,17 @@ Cada transição é persistida no SQLite. Ao reiniciar, deploys interrompidos s�
 ```tree
 crates/
 ├── shared/     # Command, Event, Response, modelos de domínio, RustployConfig
-├── daemon/     # rustployd — API UDS+HTTP, SQLite (sqlx), Docker, ingress, deploy engine
+├── daemon/     # rustployd — API HTTP, SQLite (sqlx), Docker, ingress, deploy engine
 └── rustploy-gui/  # rustploy-gui — único cliente (glacier-ui/XML→iced), fala HTTP
 ```
 
-`rustploy-gui` fala **HTTP/JSON + SSE** com o daemon (`crates/daemon/src/api/http_api.rs`), porque sua lógica roda em Luau (`fetch`/`sse`), sem acesso a UDS: `POST /api/rpc` (um `Command` por requisição), `GET /api/events` (snapshot completo a cada 2s + eventos do bus, como Server-Sent Events), `GET /api/health`.
-
-O daemon também expõe um listener UDS com payload **postcard** (framing `[u32 LE len][bytes]`, `Rpc(Command)`/`Subscribe`→`Event`) — reaproveita o mesmo `dispatch()`/`Command`/`Response`, só o framing muda. Existia para um cliente TUI (Ratatui) que foi removido; nada no repo se conecta a ele hoje.
+`rustploy-gui` fala **HTTP/JSON + SSE** com o daemon (`crates/daemon/src/api/http_api.rs`), porque sua lógica roda em Luau (`fetch`/`sse`): `POST /api/rpc` (um `Command` por requisição), `GET /api/events` (snapshot completo a cada 2s + eventos do bus, como Server-Sent Events), `GET /api/health`.
 
 ## Status
 
 | Fase | Descrição | Status |
 |------|-----------|--------|
-| 0 | Scaffold do workspace, UDS + Axum + Postcard, TUI base | Concluído |
+| 0 | Scaffold do workspace, API + protocolo, base do cliente | Concluído |
 | 1 | CRUD de projetos/serviços, SQLite, Docker, EventBus | Concluído |
 | 2 | Máquina de estados de deploy, healthcheck, recovery | Concluído |
 | 3 | IngressController com roteamento por domínio | Concluído |

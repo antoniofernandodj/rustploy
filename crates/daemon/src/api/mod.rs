@@ -1,7 +1,6 @@
 pub mod handlers;
 pub mod http_api;
 pub mod routes;
-pub mod server;
 pub mod public_routes;
 
 use crate::{

@@ -63,6 +63,13 @@ function init(): ()
             ctx[k] = "[]"
         end
     end
+    -- Contadores nascem "…", não "0": antes do primeiro snapshot não sabemos
+    -- quantos são, e "0" AFIRMA vazio — a UI piscava "Projects (0)" → "Projects
+    -- (2)", e mensagens como "Nenhum job cadastrado ainda" apareciam durante o
+    -- carregamento. O snapshot troca todos por número (apply_snapshot em
+    -- handlers/stream.luau, junto de `data_loading = "false"`). Os `equals="0"`
+    -- dos templates continuam valendo: com "…" não casam, então o estado vazio
+    -- só pinta quando o dado realmente chegou e é zero.
     for _, k in ipairs{
         "deployments_count",
         "projects_count",
@@ -70,7 +77,9 @@ function init(): ()
         "ingress_count",
         "host_ports_count",
         "jobs_count",
+        "proj_env_count",
         "proj_jobs_count",
+        "proj_secrets_count",
         "docker_images_count",
         "docker_volumes_count",
         "docker_networks_count",
@@ -83,7 +92,7 @@ function init(): ()
         "services_total",
     } do
         if not ctx[k] or ctx[k] == "" then
-            ctx[k] = "0"
+            ctx[k] = "…"
         end
     end
     -- Semeia o formulário de login com o que foi lembrado (persistido via
@@ -176,6 +185,18 @@ function connect(): ()
     Stream.open_stream()
 end
 
+-- Logout: nada da sessão anterior pode sobreviver em RAM — nem no `ctx` (o
+-- espelho do contexto do motor, de onde a UI pinta tudo: nomes de projeto,
+-- linhas de log, api_token…) nem no `State` (cache do snapshot/métricas).
+--
+-- Em vez de enumerar as chaves a limpar — a lista cresce a cada tela nova e
+-- sempre esquece alguma — apagamos o `ctx` INTEIRO e deixamos `init()` semear
+-- os defaults como no boot. O login lembrado volta do `storage` (disco), não da
+-- memória, então conectar de novo continua nascendo preenchido.
+--
+-- `ctx[k] = nil` é remoção de verdade, não só sumiço do lado Luau: o glacier
+-- espelha o contexto na tabela no início da execução e, no fim, remove do motor
+-- toda chave ausente nela (sync_to_luau/sync_from_luau).
 function disconnect(): ()
     if State.state_conn then
         pcall(function()
@@ -185,6 +206,26 @@ function disconnect(): ()
     end
     State.api = nil
     State.snap = nil
+    State.last_pairs = {}
+    State.metrics_by_id = {}
+    State.jobs_by_id = {}
+    State.ns_templates_all = {}
+    State.search_term = ""
+    State.deploy_track =
+        { service_id = "", deployment_id = "", running = false, name = "" }
+
+    -- Coleta as chaves antes de apagar: mutar a tabela durante o próprio
+    -- `pairs` sobre ela é comportamento indefinido.
+    local data = ctx :: { [string]: any }
+    local keys: { string } = {}
+    for k in pairs(data) do
+        table.insert(keys, k)
+    end
+    for _, k in ipairs(keys) do
+        data[k] = nil
+    end
+
+    init()
     ctx.connected = "false"
     ctx.screen = "login"
     ctx.status_line = "desconectado"

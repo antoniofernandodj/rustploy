@@ -8,6 +8,26 @@ function M.trim(s: any): string
     return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", ""));
 end
 
+-- Referência a secret num valor de env var → nome do secret (ou nil se o valor
+-- for texto comum). Aceita as DUAS formas em que a referência aparece no
+-- projeto, porque cada uma é a sintaxe natural de um lugar:
+--   <secret:NOME>  — editor .env/campo valor da GUI (o que o Exportar gera)
+--   secret:NOME    — manifesto YAML do IaC (SECRET_PREFIX em shared/manifest.rs)
+-- Aceitar só a primeira fazia `secret:NOME` (copiado de um manifesto ou da doc
+-- antiga) virar valor LITERAL calado, e o container subia com a string
+-- "secret:NOME" no lugar do segredo. Um único ponto de verdade para os quatro
+-- call sites (env do serviço e do projeto, editor .env e campo valor) — foi a
+-- duplicação entre eles que deixou as sintaxes divergirem.
+function M.parse_secret_ref(v: string?): string?
+    local s = M.trim(v)
+    local name = s:match("^<secret:(.+)>$") or s:match("^secret:(.+)$")
+    if name == nil then
+        return nil
+    end
+    name = M.trim(name)
+    return name ~= "" and name or nil
+end
+
 -- URI de callback OAuth do Gitea que o usuário registra no app do Gitea.
 -- `base` é a URL pública do daemon (`DaemonSettings.public_base_url`), derivada
 -- de [api] domain/port — o callback OAuth é servido pelo mesmo listener da API.

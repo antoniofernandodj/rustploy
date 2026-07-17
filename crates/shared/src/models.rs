@@ -317,8 +317,6 @@ pub enum ServiceStatus {
     Degraded,
     Error(String),
     /// Deploy criado e esperando na fila global — ainda não começou a rodar.
-    /// Variante anexada no FIM do enum de propósito: o wire postcard é
-    /// posicional, então acrescentar aqui não desloca as variantes anteriores.
     Queued,
 }
 
@@ -525,8 +523,7 @@ pub struct DeployEngineSummary {
     pub successful_24h: u64,
     pub failed_24h: u64,
     /// Deploys esperando na fila global (em ordem de execução; o primeiro é o
-    /// próximo a rodar). Campos novos anexados no fim do struct de propósito
-    /// (wire postcard posicional; sem serde default — regra dos tipos de wire).
+    /// próximo a rodar).
     pub queued: Vec<ActiveDeployInfo>,
     /// Fila pausada — o worker não puxa o próximo até retomar.
     pub paused: bool,
@@ -864,7 +861,7 @@ mod git_provider_tests {
     }
 
     #[test]
-    fn command_postcard_round_trip() {
+    fn command_json_round_trip() {
         let cmd = Command::GitProviderCreate {
             kind: GitProviderKind::Gitea,
             name: "Gitea".into(),
@@ -874,13 +871,13 @@ mod git_provider_tests {
             oauth_client_secret: Some("secret".into()),
             pat: None,
         };
-        let bytes = postcard::to_allocvec(&cmd).unwrap();
-        let back: Command = postcard::from_bytes(&bytes).unwrap();
+        let s = serde_json::to_string(&cmd).unwrap();
+        let back: Command = serde_json::from_str(&s).unwrap();
         assert!(matches!(back, Command::GitProviderCreate { kind: GitProviderKind::Gitea, .. }));
     }
 
     #[test]
-    fn response_postcard_round_trip() {
+    fn response_json_round_trip() {
         let resp = Response::GitProviders(vec![GitProvider {
             id: "1".into(),
             kind: GitProviderKind::Gitea,
@@ -891,8 +888,8 @@ mod git_provider_tests {
             account: Some(GitAccount { login: "alice".into(), avatar_url: None }),
             created_at: Utc::now(),
         }]);
-        let bytes = postcard::to_allocvec(&resp).unwrap();
-        let back: Response = postcard::from_bytes(&bytes).unwrap();
+        let s = serde_json::to_string(&resp).unwrap();
+        let back: Response = serde_json::from_str(&s).unwrap();
         match back {
             Response::GitProviders(v) => assert_eq!(v[0].account.as_ref().unwrap().login, "alice"),
             _ => panic!("variante errada"),

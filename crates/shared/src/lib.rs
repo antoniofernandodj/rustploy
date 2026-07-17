@@ -30,5 +30,5 @@ pub use manifest::{
     ResourceActionKind, ServerManifest, ServiceEnvDoc, ServiceManifest,
 };
 pub use models::*;
-pub use protocol::{ClientFrame, Command, Event, Response};
+pub use protocol::{Command, Event, Response};
 pub use wizard::WizardCreateReq;

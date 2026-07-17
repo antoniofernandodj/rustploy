@@ -37,7 +37,7 @@ Decisões confirmadas com o usuário:
 ## Modelo de dados
 
 ### `crates/shared/src/models.rs`
-- `ServiceSpec`: adicionar `#[serde(default)] pub depends_on: Vec<String>` como último campo (mesmo padrão seguro já usado por `domains`/`db_kind`/`host_port` — seguro tanto no JSON do blob `service.spec` quanto no wire postcard, contanto que nunca leve `skip_serializing_if`).
+- `ServiceSpec`: adicionar `#[serde(default)] pub depends_on: Vec<String>` como último campo (mesmo padrão já usado por `domains`/`db_kind`/`host_port`; o `serde(default)` é o que permite ler specs antigas do blob JSON `service.spec` sem migração).
 - Novo enum `DesiredState { Running, Stopped }` com `Display`/parse espelhando o padrão existente de `ServiceStatus` (`db/services.rs::parse_status`).
 - `Service`: adicionar `pub desired_state: DesiredState` como último campo.
 - Novo módulo `crates/shared/src/deps.rs`:
@@ -93,7 +93,7 @@ Lógica (`run`):
 
 ## Protocolo (`crates/shared/src/protocol.rs`)
 
-Nenhuma mudança obrigatória de `Command`/`Response` — `depends_on` e `desired_state` andam de carona nas variantes já existentes (`Command::ServiceCreate(ServiceSpec)`, `Command::ServiceUpdate{id, spec}`, `Response::Service`/`Services`). Confirma-se novamente a regra do projeto: nunca `skip_serializing_if` em algo carregado por postcard — `depends_on` é campo simples (`Vec<String>` sempre serializado), seguro.
+Nenhuma mudança obrigatória de `Command`/`Response` — `depends_on` e `desired_state` andam de carona nas variantes já existentes (`Command::ServiceCreate(ServiceSpec)`, `Command::ServiceUpdate{id, spec}`, `Response::Service`/`Services`).
 
 ## UI
 
@@ -103,7 +103,7 @@ Nenhuma mudança obrigatória de `Command`/`Response` — `depends_on` e `desire
 
 ## IaC / Manifest (`crates/shared/src/manifest.rs`)
 
-`ServiceManifest` (linha 84) ganha `#[serde(default, skip_serializing_if = "Vec::is_empty")] pub depends_on: Vec<String>` — aqui referenciando **nomes** de serviços irmãos (não IDs, já que manifests são editados por humanos antes da criação) — `skip_serializing_if` é seguro aqui porque manifests só trafegam como YAML (nunca postcard). `ServiceManifest::to_spec`/`from_spec` (linhas ~300-350) resolvem nome↔ID dentro do escopo do mesmo `apply` (todos os serviços do manifesto sendo aplicados juntos podem se referenciar entre si por nome).
+`ServiceManifest` (linha 84) ganha `#[serde(default, skip_serializing_if = "Vec::is_empty")] pub depends_on: Vec<String>` — aqui referenciando **nomes** de serviços irmãos (não IDs, já que manifests são editados por humanos antes da criação); o `skip_serializing_if` mantém o YAML exportado enxuto. `ServiceManifest::to_spec`/`from_spec` (linhas ~300-350) resolvem nome↔ID dentro do escopo do mesmo `apply` (todos os serviços do manifesto sendo aplicados juntos podem se referenciar entre si por nome).
 
 ## Arquivos principais a tocar
 

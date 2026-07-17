@@ -156,9 +156,9 @@ A peça-chave: a **interpolação `${VAR}` acontece no cliente**, porque depende
 
 ### Por que os manifestos trafegam como String YAML
 
-O IPC do Rustploy usa **postcard**, um formato **não auto-descritivo**: structs são (de)serializados por **posição fixa de campo**. Os structs do manifesto usam `skip_serializing_if` e `serde(default)` para um YAML enxuto — e isso **quebra o postcard** (um campo omitido na serialização desincroniza o stream na desserialização).
+O YAML é o formato que o usuário edita, versiona e exporta — mandá-lo cru pelo wire mantém uma só representação de ponta a ponta: o que o daemon recebe é exatamente o texto do arquivo, comentários e formatação inclusive, e o parse acontece num lugar só (`serde_yaml`, do qual o daemon já depende). Reserializar em struct significaria que o texto aplicado e o texto do arquivo poderiam divergir.
 
-Por isso o wire carrega **YAML como `String`**, e o daemon (que já depende de `serde_yaml`) faz o parse. Os structs do manifesto nunca cruzam o postcard; apenas tipos "puros" como `ApplyReport` (sem skips/defaults) trafegam como struct.
+Havia também uma razão histórica: o wire era **postcard**, um formato posicional que quebrava com os `skip_serializing_if`/`serde(default)` que os structs do manifesto usam para um YAML enxuto. Esse motivo não existe mais (o wire é JSON, auto-descritivo), mas o design continua valendo pelo primeiro motivo. Tipos "puros" como `ApplyReport` seguem trafegando como struct.
 
 ### Interpolação e secrets
 
