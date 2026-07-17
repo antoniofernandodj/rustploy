@@ -177,7 +177,7 @@ deb-gui: ## Pacote .deb do remote-gui p/ Linux (apaga dist e regera)
 
 .PHONY: deb-rustploy
 deb-rustploy: ## Compila e gera apenas o .deb do rustploy
-	cargo build --release -p rustploy -p fw-helper
+	cargo build --release -p rustploy
 	cargo deb -p rustploy --no-build
 	@echo ""
 	@echo "$(GREEN)Pacote gerado:$(RESET)"
