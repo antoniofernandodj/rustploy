@@ -22,9 +22,9 @@ build: ## Compila daemon e gui em modo release
 check: ## Verifica o workspace sem linkar (mais rápido)
 	cargo check --workspace
 
-.PHONY: dev-daemon
-dev-daemon: ## Roda o daemon em modo debug (para desenvolvimento)
-	cargo run -p daemon
+.PHONY: dev-rustploy
+dev-rustploy: ## Roda o rustploy em modo debug (para desenvolvimento)
+	cargo run -p rustploy
 
 # ── Qualidade ─────────────────────────────────────────────────────────────────
 
@@ -175,19 +175,19 @@ deb-gui: ## Pacote .deb do remote-gui p/ Linux (apaga dist e regera)
 
 # ── Packaging ─────────────────────────────────────────────────────────────────
 
-.PHONY: deb-daemon
-deb-daemon: ## Compila e gera apenas o .deb do daemon
-	cargo build --release -p daemon -p fw-helper
-	cargo deb -p daemon --no-build
+.PHONY: deb-rustploy
+deb-rustploy: ## Compila e gera apenas o .deb do rustploy
+	cargo build --release -p rustploy -p fw-helper
+	cargo deb -p rustploy --no-build
 	@echo ""
 	@echo "$(GREEN)Pacote gerado:$(RESET)"
 	@ls -lh target/debian/rustployd_*.deb
 
 
-.PHONY: install-daemon
-install-daemon: deb-daemon ## Compila, empacota e instala apenas o daemon
+.PHONY: install-rustploy
+install-rustploy: deb-rustploy ## Compila, empacota e instala apenas o rustploy
 	sudo dpkg -i $$(ls target/debian/rustployd_*.deb | tail -1)
-	sudo systemctl daemon-reload
+	sudo systemctl rustploy-reload
 	# Explícito (não só via postinst, que silencia falhas com `|| true`):
 	# helper de firewall — allow/deny de porta externa via /run/rustploy/fw.sock.
 	sudo systemctl enable --now rustployd-fw.socket
