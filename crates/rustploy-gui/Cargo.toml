@@ -18,7 +18,9 @@ path = "src/main.rs"
 # Declarative UI engine (published; XML templates + async bridge + widgets).
 # 0.36 traz o runner multi-janela (iced::daemon): a casca em `src/app/` é um
 # runtime `iced::daemon` próprio, um `GlacierUI` por janela — ver `app/mod.rs`.
-glacier-ui = "0.46.0"
+# feature `tray` (0.47+): ícone de bandeja + app que sobrevive à última janela
+# (ver app/mod.rs e docs/plano-tray-bandeja-e-ciclo-de-vida.md).
+glacier-ui = { version = "0.47.0", features = ["tray"] }
 
 shared = { package = "rustploy-shared", version = "0.1.0", path = "../shared" }
 
@@ -54,6 +56,10 @@ copyright            = "2026, Antonio Fernando"
 extended-description = "Rustploy — desktop client (glacier-ui) for the Rustploy PaaS daemon"
 section              = "admin"
 priority             = "optional"
+# `$auto` = libs detectadas do binário (libc, etc.). O ícone de bandeja usa
+# libappindicator+GTK em runtime (ver src/tray.rs na glacier), então garantimos
+# as libs de sistema para o tray subir no desktop do usuário.
+depends              = "$auto, libgtk-3-0, libayatana-appindicator3-1"
 maintainer-scripts   = "../../packaging/rustploy-gui"
 assets = [
     ["target/release/rustploy-gui", "usr/bin/rustploy-gui", "755"],

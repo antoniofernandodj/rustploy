@@ -28,8 +28,18 @@ use glacier_ui::{
     GlacierDaemon,
     Point,
     Size,
+    TrayActions,
+    TrayConfig,
+    TrayItem,
     WindowGeometry,
+    notifications_enabled,
+    set_notifications_enabled,
 };
+
+/// Ícone da bandeja: os mesmos bytes PNG embutidos usados no ícone da janela
+/// (`main_window_settings`), para o app ter a mesma identidade na área de
+/// notificação.
+const TRAY_ICON: &[u8] = include_bytes!("../../assets/rustploy.png");
 
 /// Fontes embutidas (JetBrains Mono): registradas no builder do daemon e usadas
 /// como `default_font` de todas as janelas.
@@ -50,6 +60,11 @@ pub(crate) fn run() -> iced::Result {
         // para o mesmo data dir do usuário que o resto da persistência local usa,
         // então o arquivo cai em `~/.local/share/rustploy/.glacier-storage/`.
         .storage_dir(shared::fallback_data_dir())
+        // Ícone de bandeja: com ele, fechar a última janela NÃO encerra o app —
+        // ele recolhe para a bandeja, e o menu controla o ciclo de vida. Ver
+        // `docs/plano-tray-bandeja-e-ciclo-de-vida.md`.
+        .tray(tray_config())
+        .on_tray(handle_tray)
         .main_window(main_window_settings())
         // Janelas-filhas (ex.: "Novo projeto") também são borderless: o template
         // delas traz a própria titlebar, e sem isto o SO desenharia a nativa por
@@ -76,6 +91,46 @@ pub(crate) fn run() -> iced::Result {
         )
         .toast_period(Duration::from_millis(250))
         .run()
+}
+
+/// Menu da bandeja. Os ids (`open`/`notifications`/`quit`) são o que chega ao
+/// [`handle_tray`]. O item de notificações começa como "Disable…" porque as
+/// notificações começam ligadas (default do glacier).
+fn tray_config() -> TrayConfig {
+    TrayConfig {
+        icon: TRAY_ICON.to_vec(),
+        tooltip: "Rustploy".to_string(),
+        items: vec![
+            TrayItem::button("open", "Open Rustploy"),
+            TrayItem::button("notifications", "Disable notifications"),
+            TrayItem::separator(),
+            TrayItem::button("quit", "Quit Rustploy"),
+        ],
+    }
+}
+
+/// Trata um clique num item da bandeja (ou o clique esquerdo no ícone, no
+/// Windows, que o glacier roteia como "abrir"). `open`/`quit` são ações do
+/// runner; `notifications` alterna o interruptor global do SO e reflete o novo
+/// estado no rótulo do próprio item.
+fn handle_tray(id: &str, tray: &mut TrayActions) {
+    match id {
+        "open" => tray.open_main(),
+        "quit" => tray.quit(),
+        "notifications" => {
+            let on = !notifications_enabled();
+            set_notifications_enabled(on);
+            tray.set_label(
+                "notifications",
+                if on {
+                    "Disable notifications"
+                } else {
+                    "Enable notifications"
+                },
+            );
+        }
+        _ => {}
+    }
 }
 
 
