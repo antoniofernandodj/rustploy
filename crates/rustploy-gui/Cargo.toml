@@ -22,7 +22,7 @@ path = "src/main.rs"
 # 0.48+: fechar a principal recolhe o motor headless (SSE + login vivos → as
 # notificações de deploy chegam com a janela fechada). Ver app/mod.rs e
 # docs/plano-tray-bandeja-e-ciclo-de-vida.md.
-glacier-ui = { version = "0.50", features = ["tray"] }
+glacier-ui = { version = "0.51", features = ["tray"] }
 
 # Embute a árvore de assets (views/estilos/scripts/ícones/logos) no binário em
 # builds de release, para um executável standalone que não depende dos arquivos

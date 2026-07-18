@@ -65,6 +65,8 @@ Default master key: `/etc/rustploy/master.key`
 
 `rustploy-gui` is the only client, and speaks plain **HTTP/JSON + SSE** (`crates/daemon/src/api/http_api.rs`: `POST /api/rpc`, `GET /api/events`, `GET /api/health`) — its logic runs in Luau (`fetch`/`sse`). `Command`/`Response`/`Event` are defined in `crates/shared/src/protocol.rs` and dispatched via `dispatch()`. This is the daemon's only client-facing protocol; JSON is self-describing, so a renamed field surfaces as a `nil` on the Luau side instead of silently decoding as garbage.
 
+As respostas JSON do `POST /api/rpc` são **comprimidas com gzip** quando o cliente manda `Accept-Encoding: gzip` (o `fetch` do glacier-ui 0.51+ manda por padrão e descomprime transparente) e o corpo passa de 1 KB — ganho em conexão remota, no-op prático em localhost. O SSE **não** é comprimido de propósito (stream de vida longa). Ver `docs/compressao-gzip-api.md`.
+
 ### Daemon internals (`crates/daemon/src/`)
 
 - **`api/routes.rs`** — `dispatch()` matches every `Command` variant to a handler module.

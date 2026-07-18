@@ -244,6 +244,8 @@ async fn rpc(
     req: Request<Incoming>,
     state: AppState
 ) -> Response<ApiBody> {
+    // Lê o Accept-Encoding ANTES de consumir o corpo com `into_body`.
+    let accept_gzip = accepts_gzip(&req);
     let body = match req.into_body().collect().await {
         Ok(c) => c.to_bytes(),
         Err(_) => return text(
@@ -258,7 +260,7 @@ async fn rpc(
     };
     let resp = dispatch(state, cmd).await;
     match serde_json::to_vec(&resp) {
-        Ok(bytes) => json_ok(bytes),
+        Ok(bytes) => json_response(bytes, accept_gzip),
         Err(e) => text(
             StatusCode::INTERNAL_SERVER_ERROR,
             format!("erro ao serializar resposta: {e}"),
@@ -718,6 +720,47 @@ fn json_ok(bytes: Vec<u8>) -> Response<ApiBody> {
         .unwrap()
 }
 
+/// Corpo mínimo (bytes) para valer a pena comprimir: abaixo disto o overhead do
+/// cabeçalho gzip + o custo de CPU não compensam o ganho irrisório.
+const GZIP_MIN: usize = 1024;
+
+/// O cliente aceita gzip? (`Accept-Encoding` contém "gzip"). O `fetch` do
+/// glacier-ui manda esse header por padrão desde a 0.51.
+fn accepts_gzip(req: &Request<Incoming>) -> bool {
+    req.headers()
+        .get(hyper::header::ACCEPT_ENCODING)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.to_ascii_lowercase().contains("gzip"))
+}
+
+/// Resposta JSON, comprimida com gzip quando o cliente aceita e o corpo passa de
+/// [`GZIP_MIN`]. JSON comprime muito bem; numa conexão remota (GUI → daemon numa
+/// VPS) isso corta a maior parte do tráfego — o cliente descomprime pelo
+/// `Content-Encoding`. Em localhost o ganho some perto do loopback, mas o custo é
+/// baixo, então comprimimos mesmo assim em vez de detectar o par. Falha ao
+/// comprimir (rara) → cai no corpo sem comprimir.
+fn json_response(bytes: Vec<u8>, accept_gzip: bool) -> Response<ApiBody> {
+    if accept_gzip && bytes.len() >= GZIP_MIN {
+        if let Ok(gz) = gzip(&bytes) {
+            return Response::builder()
+                .status(StatusCode::OK)
+                .header(hyper::header::CONTENT_TYPE, "application/json")
+                .header(hyper::header::CONTENT_ENCODING, "gzip")
+                .body(Full::new(Bytes::from(gz)).boxed())
+                .unwrap();
+        }
+    }
+    json_ok(bytes)
+}
+
+/// Comprime `data` em gzip (flate2, mesmo crate do tar do build Docker).
+fn gzip(data: &[u8]) -> std::io::Result<Vec<u8>> {
+    use std::io::Write;
+    let mut enc = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    enc.write_all(data)?;
+    enc.finish()
+}
+
 /// Short-circuits on length mismatch but is otherwise constant-time over the
 /// compared bytes. Adequate for a static admin token.
 fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
@@ -729,4 +772,44 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
         diff |= x ^ y;
     }
     diff == 0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn content_encoding(resp: &Response<ApiBody>) -> Option<String> {
+        resp.headers()
+            .get(hyper::header::CONTENT_ENCODING)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_owned)
+    }
+
+    /// `json_response` comprime só quando o cliente aceita gzip E o corpo passa
+    /// de `GZIP_MIN`; senão manda cru (sem `Content-Encoding`). E o gzip é
+    /// reversível — o cliente recupera o JSON original.
+    #[test]
+    fn json_response_comprime_grande_e_deixa_pequeno_cru() {
+        use std::io::Read;
+
+        let big = vec![b'{'; GZIP_MIN + 10]; // >= limiar, comprime bem (repetido)
+        let small = b"{\"ok\":true}".to_vec(); // < limiar
+
+        // Grande + aceita gzip → Content-Encoding: gzip, e descomprime de volta.
+        let resp = json_response(big.clone(), true);
+        assert_eq!(content_encoding(&resp).as_deref(), Some("gzip"));
+
+        // Corpo pequeno → nunca comprime (não vale o overhead).
+        assert_eq!(content_encoding(&json_response(small.clone(), true)), None);
+        // Cliente não aceita gzip → nunca comprime, mesmo grande.
+        assert_eq!(content_encoding(&json_response(big.clone(), false)), None);
+
+        // Round-trip: o corpo gzipado descomprime no conteúdo original.
+        let gz = gzip(&big).unwrap();
+        let mut back = Vec::new();
+        flate2::read::GzDecoder::new(&gz[..])
+            .read_to_end(&mut back)
+            .unwrap();
+        assert_eq!(back, big);
+    }
 }
