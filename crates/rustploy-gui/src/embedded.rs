@@ -36,9 +36,10 @@ static VIEWS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/views");
 /// `assets/icons/`: ícones SVG referenciados por `<svg src="crates/…/icons/…">`.
 static ICONS: Dir<'static> = include_dir!("$CARGO_MANIFEST_DIR/assets/icons");
 /// Logos dos blueprints, referenciados via o `{logo}` data-driven do catálogo
-/// do daemon (`crates/shared/templates/blueprints/<id>/<arquivo>`).
-static BLUEPRINTS: Dir<'static> =
-    include_dir!("$CARGO_MANIFEST_DIR/../shared/templates/blueprints");
+/// do daemon (`crates/shared/templates/blueprints/<id>/<arquivo>`). Apenas as
+/// **imagens** são embutidas, espelhadas em `<id>/<arquivo>` pelo `build.rs`
+/// (que filtra o `docker-compose.yml`/`template.toml` — ver `stage_blueprint_logos`).
+static BLUEPRINTS: Dir<'static> = include_dir!("$OUT_DIR/blueprint_logos");
 
 /// Roteia um caminho lógico para a árvore embutida + o caminho relativo a ela
 /// (a chave que `include_dir` usa, relativa à raiz do `#[folder]`).
