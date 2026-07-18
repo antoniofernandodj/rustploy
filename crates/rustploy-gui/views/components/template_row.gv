@@ -34,14 +34,21 @@
     centralizamos o logo dentro dele — mantém a coluna de texto alinhada.
   -->
   <column class="tpl_logo_box">
+    <!--
+      A origem da imagem vem no atributo `src` (interpolado do `{logo}`) — o
+      parser lê o source de `<svg>`/`<image>` só de atributo, nunca do conteúdo
+      entre as tags. Ver o `<svg src="…"/>` do login.gv.
+    -->
     <svg
       class="tpl_logo"
+      src="{logo}"
       if="{logo_kind}"
-      equals="svg">{logo}</svg>
+      equals="svg" />
     <image
       class="tpl_logo"
+      src="{logo}"
       if="{logo_kind}"
-      equals="img">{logo}</image>
+      equals="img" />
   </column>
   <column class="header_titles">
     <text class="env_key">{name}</text>
