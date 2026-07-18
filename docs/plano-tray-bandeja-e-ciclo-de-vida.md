@@ -1,20 +1,34 @@
 # Plano — ícone de bandeja e o app que sobrevive à última janela
 
-> Status: **IMPLEMENTADO** (2026-07-17). glacier-ui **0.47.0** publicada com a
-> feature `tray`; rustploy-gui subiu a dep e ligou `.tray()`/`.on_tray()`.
+> Status: **IMPLEMENTADO** (2026-07-17). glacier-ui **0.47.0** (bandeja) +
+> **0.48.0** (motor headless) publicadas; rustploy-gui subiu a dep e ligou
+> `.tray()`/`.on_tray()`.
 >
 > **Onde ficou cada peça:**
 > - glacier: `src/tray.rs` (bandeja + thread/loop por plataforma + gate de
 >   notificações), `src/daemon.rs` (`.tray()`/`.on_tray()`, sobreviver à última
->   janela, reabrir a principal), `examples/bandeja`. Feature `tray` (opt-in).
+>   janela, **destacar/religar o motor da principal** — `main_shown`/`open_main`),
+>   `examples/bandeja`. Feature `tray` (opt-in).
 > - rustploy-gui: `src/app/mod.rs` (`tray_config()` + `handle_tray()`),
 >   `Cargo.toml` (dep `features=["tray"]` + `Depends` do `.deb`).
 >
+> **Motor headless (0.48.0):** fechar a janela principal passou a **recolher o
+> motor sem matá-lo**. Antes, fechar descartava o motor — e com ele o login e o
+> SSE —, então nada de notificações de deploy com a janela fechada. Por que no
+> glacier e não "esconder a janela": no Wayland o toolkit **não** esconde
+> (`set_visible` é no-op) nem restaura um minimizado — destruir a janela é a única
+> forma de ela sumir. Agora o motor fica vivo e headless (SSE conectado, login
+> intacto, notificações continuam), e "Open Rustploy" religa esse mesmo motor numa
+> janela nova. Detalhes no CHANGELOG do glacier (0.48.0) e nos docs de
+> `src/daemon.rs`.
+>
 > **Falta validar manualmente** (não dá para automatizar aqui): clicar nos 3
-> itens do menu, conferir que fechar a janela recolhe para a bandeja e que "Open
-> Rustploy" reabre. O boot da bandeja já foi verificado rodando o app (sem panic,
-> GTK inicializou). No **Windows** o caminho (`run_loop` Win32) não foi compilado
-> nesta máquina Linux — validar num build Windows.
+> itens do menu; conferir que fechar a janela recolhe para a bandeja; que "Open
+> Rustploy" reabre **na mesma sessão** (sem pedir login de novo); e que um deploy
+> concluído **com a janela fechada** dispara a notificação do SO. O boot já foi
+> verificado rodando o app (sem panic, GTK inicializou). No **Windows** o caminho
+> (`run_loop` Win32) não foi compilado nesta máquina Linux — validar num build
+> Windows.
 
 ---
 
