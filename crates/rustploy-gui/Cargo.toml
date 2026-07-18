@@ -51,6 +51,11 @@ chrono = { version = "0.4", features = ["serde"] }
 # Embeds the Windows .exe icon (via the RC tool; llvm-rc on cross builds).
 embed-resource = "2.4"
 
+# Reduz (Lanczos3) os logos raster dos blueprints no staging do build — os
+# originais são ~512×512 e aparecem a ~30px, então a GPU fazia um downscale de
+# ~17x por quadro (serrilhado) e o binário carregava ~12 MB de logo. Ver build.rs.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp"] }
+
 # ── Debian package (cargo deb -p rustploy-gui) ───────────────────────────────────
 # Installs the binary to /usr/bin, all runtime assets under /usr/share/rustploy
 # preserving the `crates/…` prefix the templates reference (the app chdir's here
