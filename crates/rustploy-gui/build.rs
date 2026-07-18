@@ -24,10 +24,10 @@ const LOGO_EXTS: &[&str] = &["png", "svg", "webp", "jpg", "jpeg", "gif", "ico", 
 
 /// Alvo do redimensionamento dos logos raster: a maior dimensão é reduzida para
 /// no máximo isto, preservando a proporção. Os logos aparecem a ~30px lógicos
-/// (`template_row.gv`); 128px cobre telas HiDPI (até ~4x) com folga e ainda corta
-/// os 512×512 originais em ordens de grandeza. Só **reduz** — imagens já menores
-/// (ou vetor) passam intactas, para não borrar quem já é pequeno.
-const LOGO_MAX_DIM: u32 = 128;
+/// (`template_row.gv`); 96px cobre telas HiDPI (até ~3x) e ainda corta os 512×512
+/// originais em ordens de grandeza. Só **reduz** — imagens já menores (ou vetor)
+/// passam intactas, para não borrar quem já é pequeno.
+const LOGO_MAX_DIM: u32 = 96;
 
 fn main() {
     stage_blueprint_logos();
