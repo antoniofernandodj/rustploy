@@ -43,7 +43,7 @@ const FONT_BOLD: &[u8] = include_bytes!("../../assets/fonts/JetBrainsMono-Bold.t
 /// Sobe o daemon multi-janela e roda o loop do iced até a última janela fechar.
 /// Chamado por `main` depois de `assets::locate_and_chdir()`.
 pub(crate) fn run() -> iced::Result {
-    GlacierDaemon::new()
+    let daemon = GlacierDaemon::new()
         .title("Rustploy")
         .font(FONT_REGULAR)
         .font(FONT_BOLD)
@@ -84,8 +84,15 @@ pub(crate) fn run() -> iced::Result {
                 }
             motor.set_initial_screen("app");
         })
-        .toast_period(Duration::from_millis(250))
-        .run()
+        .toast_period(Duration::from_millis(250));
+
+    // Release: injeta a fonte de assets embutida — o motor passa a ler
+    // templates/estilos/scripts/binários de dentro do binário, e nada do disco.
+    // Em dev, o `daemon` fica com o `DiskAssets` default (disco + hot-reload).
+    #[cfg(not(debug_assertions))]
+    let daemon = daemon.assets(std::sync::Arc::new(crate::embedded::EmbeddedAssets));
+
+    daemon.run()
 }
 
 /// Menu da bandeja. Os ids (`open`/`notifications`/`quit`) são o que chega ao

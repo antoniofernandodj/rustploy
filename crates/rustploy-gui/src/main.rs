@@ -8,11 +8,19 @@
 #![cfg_attr(all(target_os = "windows", not(debug_assertions)), windows_subsystem = "windows")]
 
 mod app;
+// Em dev os assets são lidos do disco (com hot-reload) por caminho relativo ao
+// CWD → precisamos entrar na pasta-base. Em release eles são embutidos no
+// binário (ver `embedded` + `app::run`), então nem o localizador nem o `chdir`
+// existem — o executável roda de qualquer diretório, sozinho.
+#[cfg(debug_assertions)]
 mod assets;
+#[cfg(not(debug_assertions))]
+mod embedded;
 
 fn main() -> iced::Result {
-    // Assets (XML templates, styles, icons, blueprint logos) are referenced by
-    // CWD-relative paths; enter their base directory before anything loads.
+    // Dev: entra no diretório-base dos assets antes de qualquer carga. Release:
+    // nada a localizar — os assets vivem dentro do binário.
+    #[cfg(debug_assertions)]
     assets::locate_and_chdir();
 
     // Multi-janela sobre `iced::daemon` — a casca custom (fontes, janela
