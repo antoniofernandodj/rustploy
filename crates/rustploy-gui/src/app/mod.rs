@@ -16,22 +16,16 @@
 //! roteamento por janela, os listeners globais e a abertura de filhas, só para
 //! poder embutir uma fonte e desenhar a própria titlebar.
 
-mod store;
-
 use std::time::Duration;
 
 use glacier_ui::{
     window,
-    // EngineMessage e GlacierUI eram usados só pela persistência do login movida
-    // para o Luau (funções comentadas abaixo); reintroduzir se ela voltar.
     Font,
     GlacierDaemon,
-    Point,
     Size,
     TrayActions,
     TrayConfig,
     TrayItem,
-    WindowGeometry,
     notifications_enabled,
     set_notifications_enabled,
 };
@@ -60,6 +54,11 @@ pub(crate) fn run() -> iced::Result {
         // para o mesmo data dir do usuário que o resto da persistência local usa,
         // então o arquivo cai em `~/.local/share/rustploy/.glacier-storage/`.
         .storage_dir(shared::fallback_data_dir())
+        // Persistência automática da geometria da principal (glacier 0.49+):
+        // grava tamanho/posição ao fechar e restaura ao abrir, sob o
+        // `storage_dir` acima. Substituiu a antiga `src/app/store.rs` (WindowState
+        // em JSON à mão) + o gancho `on_close`. No Wayland só o tamanho volta.
+        .remember_window_geometry(true)
         // Ícone de bandeja: com ele, fechar a última janela NÃO encerra o app —
         // ele recolhe para a bandeja, e o menu controla o ciclo de vida. Ver
         // `docs/plano-tray-bandeja-e-ciclo-de-vida.md`.
@@ -85,10 +84,6 @@ pub(crate) fn run() -> iced::Result {
                 }
             motor.set_initial_screen("app");
         })
-
-        .on_close(
-            |_motor, geometry| save_geometry(geometry)
-        )
         .toast_period(Duration::from_millis(250))
         .run()
 }
@@ -134,39 +129,19 @@ fn handle_tray(id: &str, tray: &mut TrayActions) {
 }
 
 
-/// Persiste a geometria da janela principal ao fechar, para o app reabrir onde
-/// parou. `position` é sempre `None` no Wayland (o protocolo não expõe a posição
-/// da janela ao cliente — não é contornável do lado do cliente), então na prática
-/// só o tamanho é restaurado lá; `x`/`y` ficam sem valor.
-fn save_geometry(geometry: WindowGeometry) {
-    store::WindowState {
-        width: geometry.size.width,
-        height: geometry.size.height,
-        x: geometry.position.map(|p| p.x),
-        y: geometry.position.map(|p| p.y),
-    }
-    .save();
-}
-
-/// Builds the main window's settings, restoring the last remembered size/position
-/// ([`store::WindowState`]) so the app reopens where it was left. Falls back to
-/// the default at the platform-default placement on first launch, or when no
-/// position was ever saved (e.g. Wayland, which never reports one to restore).
+/// Builds the main window's settings. Size/position are **not** restored here:
+/// since glacier-ui 0.49 that's handled natively by `remember_window_geometry`
+/// (see `run`), which overrides these with the saved geometry at boot. So this
+/// just sets the first-launch default size and the static chrome.
 /// Borderless (`decorations: false`) — the OS titlebar is replaced by a custom
 /// one in `views/app.gv`, whose `window:*` actions the daemon drives against
 /// this window's own id. `exit_on_close_request: false` routes the WM's own close
-/// through the daemon's `on_close` hook, so the geometry is saved before the
-/// window actually closes.
+/// through the daemon so the geometry is saved before the window actually closes.
 fn main_window_settings() -> window::Settings {
-    let ws = store::WindowState::load();
     let min = Size::new(480.0, 680.0);
-    let position = match (ws.x, ws.y) {
-        (Some(x), Some(y)) => window::Position::Specific(Point::new(x, y)),
-        _ => window::Position::Default,
-    };
     window::Settings {
-        size: Size::new(ws.width.max(min.width), ws.height.max(min.height)),
-        position,
+        size: Size::new(1280.0, 820.0),
+        position: window::Position::Default,
         min_size: Some(min),
         // Taskbar / dock icon while the app runs (Windows taskbar, X11 dock).
         // Embedded so it works regardless of CWD; on Wayland the dock icon

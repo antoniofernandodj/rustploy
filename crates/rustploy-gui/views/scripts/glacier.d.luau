@@ -30,7 +30,12 @@ export type Viewport = {
 }
 declare function viewport(): Viewport
 
+-- HTTP, ou leitura de arquivo local quando a URL começa com `file://`
+-- (glacier-ui 0.49+): devolve o mesmo FetchResult, com o conteúdo no `body`.
 declare function fetch(url: string, opts: any?): FetchResult
+-- Escrita de arquivo local (glacier-ui 0.49+), contraparte do `fetch("file://…")`.
+-- Devolve `true` no sucesso, ou `false, mensagem` na falha.
+declare function write_file(path: string, contents: string): (boolean, string?)
 declare function sse(url: string, opts: any?): StreamHandle
 declare function websocket(url: string, opts: any?): StreamHandle
 declare function toast(opts: any): ()

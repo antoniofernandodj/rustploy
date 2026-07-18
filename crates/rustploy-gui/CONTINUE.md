@@ -288,5 +288,5 @@ relacionado, `git stash` antes ou `--allow-dirty`). Depois bump
 `glacier-ui = "0.2.x"` no `rustploy-gui/Cargo.toml`.
 
 ## Repos (ambos na branch main, commitar direto)
-- glacier-ui: github.com/antoniofernandodj/xml-ui
+- glacier-ui: github.com/antoniofernandodj/glacier-ui
 - rustploy:   github.com/antoniofernandodj/rustploy
