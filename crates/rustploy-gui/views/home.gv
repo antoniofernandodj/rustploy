@@ -1071,7 +1071,7 @@
               <button
                 class="btn_primary"
                 on_click="gp_connect"
-                text="Copiar"
+                text="Conectar conta"
               />
               <button
                 class="tab"
