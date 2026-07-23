@@ -241,22 +241,27 @@ impl Default for GitSource {
 
 // ── Git providers (Gitea OAuth2 / PAT) ────────────────────────────────────────
 
-/// Which hosted Git service a provider connects to. Only Gitea is implemented
-/// today; the enum exists so GitHub/GitLab can be added without a wire break.
+/// Which hosted Git service a provider connects to. Gitea and GitHub are
+/// implemented; the enum exists so GitLab (etc.) can be added without a wire
+/// break. New variants MUST be appended at the end — the JSON tag is the
+/// variant name (`"Gitea"`/`"Github"`), so order only matters for postcard.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum GitProviderKind {
     Gitea,
+    Github,
 }
 
 impl GitProviderKind {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Gitea => "gitea",
+            Self::Github => "github",
         }
     }
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "gitea" => Some(Self::Gitea),
+            "github" => Some(Self::Github),
             _ => None,
         }
     }

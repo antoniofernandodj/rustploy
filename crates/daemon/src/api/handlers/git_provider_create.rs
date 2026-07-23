@@ -18,9 +18,15 @@ pub async fn handle(
     oauth_client_secret: Option<String>,
     pat: Option<String>,
 ) -> Response {
-    let base_url = base_url.trim().trim_end_matches('/').to_string();
+    let mut base_url = base_url.trim().trim_end_matches('/').to_string();
+    // GitHub conecta ao github.com por padrão — a Base URL só é preenchida para
+    // GitHub Enterprise Server. Os demais provedores (Gitea) exigem uma URL.
     if base_url.is_empty() {
-        return Response::err("InvalidInput", "Base URL obrigatória");
+        if kind == GitProviderKind::Github {
+            base_url = "https://github.com".to_string();
+        } else {
+            return Response::err("InvalidInput", "Base URL obrigatória");
+        }
     }
 
     let id = format!("gp_{}", Ulid::new());
@@ -37,7 +43,7 @@ pub async fn handle(
         let Some(pat) = pat.filter(|p| !p.is_empty()) else {
             return Response::err("InvalidInput", "Personal Access Token obrigatório");
         };
-        match crate::git_providers::gitea::current_user(&base_url, &pat).await {
+        match crate::git_providers::current_user(kind, &base_url, &pat).await {
             Ok(acc) => {
                 let enc = match state.secrets.encrypt(&pat) {
                     Ok(e) => e,
@@ -45,7 +51,7 @@ pub async fn handle(
                 };
                 (Some(enc), Some(acc.login), acc.avatar_url)
             }
-            Err(e) => return Response::err("GiteaAuthFailed", e.to_string()),
+            Err(e) => return Response::err("GitAuthFailed", e.to_string()),
         }
     } else {
         if oauth_client_id.as_deref().unwrap_or("").is_empty() || client_secret_enc.is_none() {

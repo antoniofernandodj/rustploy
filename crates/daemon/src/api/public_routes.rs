@@ -87,9 +87,10 @@ fn html(status: StatusCode, title: &str, body: &str) -> Response<Full<Bytes>> {
         .unwrap()
 }
 
-/// `GET /oauth/gitea/callback` — completes the Gitea OAuth2 authorization-code
+/// `GET /oauth/{gitea,github}/callback` — completes an OAuth2 authorization-code
 /// flow: validates the CSRF `state`, exchanges the `code` for tokens, records
-/// the connected account.
+/// the connected account. The provider kind comes from the stored row (keyed by
+/// the CSRF `state`), so a single handler serves every provider.
 pub async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response<Full<Bytes>> {
     use crate::db::git_providers;
 
@@ -117,6 +118,8 @@ pub async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response
         Ok(Some(p)) => p,
         _ => return html(StatusCode::NOT_FOUND, "Erro", "Provider não encontrado."),
     };
+    let kind = shared::GitProviderKind::from_str(&provider.kind)
+        .unwrap_or(shared::GitProviderKind::Gitea);
 
     let client_id = provider.oauth_client_id.clone().unwrap_or_default();
     let client_secret = match &provider.oauth_client_secret_enc {
@@ -130,7 +133,7 @@ pub async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response
         None => return html(StatusCode::BAD_REQUEST, "Erro", "Provider sem client secret."),
     };
 
-    let redirect_uri = match callback_redirect_uri(&state) {
+    let redirect_uri = match callback_redirect_uri(&state, kind) {
         Some(u) => u,
         None => {
             return html(
@@ -141,7 +144,8 @@ pub async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response
         }
     };
 
-    let tokens = match crate::git_providers::gitea::exchange_code(
+    let tokens = match crate::git_providers::exchange_code(
+        kind,
         &provider.base_url,
         &client_id,
         &client_secret,
@@ -157,25 +161,26 @@ pub async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response
         }
     };
 
-    // Auto-registra a redirect URI atual no app OAuth2 do Gitea para que
-    // futuras trocas funcionem mesmo após mudança do domínio/porta da API.
+    // Auto-registra a redirect URI atual no app OAuth2 do provider para que
+    // futuras trocas funcionem mesmo após mudança do domínio/porta da API
+    // (no-op no GitHub — callback URL não é editável via API).
     {
         let base_url = provider.base_url.clone();
         let token = tokens.access_token.clone();
         let cid = client_id.clone();
         let ru = redirect_uri.clone();
         tokio::spawn(async move {
-            if let Err(e) = crate::git_providers::gitea::ensure_redirect_uri(
-                &base_url, &token, &cid, &ru,
+            if let Err(e) = crate::git_providers::ensure_redirect_uri(
+                kind, &base_url, &token, &cid, &ru,
             )
             .await
             {
-                warn!(error = %e, "oauth: falha ao sincronizar redirect URI no Gitea (não crítico)");
+                warn!(error = %e, "oauth: falha ao sincronizar redirect URI no provider (não crítico)");
             }
         });
     }
 
-    let account = match crate::git_providers::gitea::current_user(&provider.base_url, &tokens.access_token).await {
+    let account = match crate::git_providers::current_user(kind, &provider.base_url, &tokens.access_token).await {
         Ok(a) => a,
         Err(e) => {
             error!(error = %e, "oauth: current_user falhou");
@@ -203,20 +208,26 @@ pub async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response
         return html(StatusCode::INTERNAL_SERVER_ERROR, "Erro", "Falha ao salvar a conexão.");
     }
 
-    info!(provider_id = %provider_id, login = %account.login, "oauth: conta Gitea conectada");
+    let provider_label = match kind {
+        shared::GitProviderKind::Github => "GitHub",
+        shared::GitProviderKind::Gitea => "Gitea",
+    };
+    info!(provider_id = %provider_id, kind = %provider.kind, login = %account.login, "oauth: conta conectada");
     html(
         StatusCode::OK,
         "Conta conectada",
-        &format!("Gitea @{} conectado. Você já pode fechar esta aba.", account.login),
+        &format!("{} @{} conectado. Você já pode fechar esta aba.", provider_label, account.login),
     )
 }
 
-/// Builds `{public_base_url}/oauth/gitea/callback` — a base sai de `[api]`
-/// (domínio/porta do listener que atende este callback), não mais de uma setting
-/// no banco. `Option` mantido porque o chamador ainda trata o caso "sem base
-/// utilizável"; hoje ela é sempre derivável.
-pub fn callback_redirect_uri(state: &AppState) -> Option<String> {
-    Some(format!("{}/oauth/gitea/callback", state.public_base_url()))
+/// Builds `{public_base_url}/oauth/{gitea,github}/callback` — a base sai de
+/// `[api]` (domínio/porta do listener que atende este callback), não de uma
+/// setting no banco; o segmento do path vem do kind do provider. `Option`
+/// mantido porque o chamador ainda trata o caso "sem base utilizável"; hoje ela
+/// é sempre derivável.
+pub fn callback_redirect_uri(state: &AppState, kind: shared::GitProviderKind) -> Option<String> {
+    let seg = crate::git_providers::callback_path_segment(kind);
+    Some(format!("{}/oauth/{seg}/callback", state.public_base_url()))
 }
 
 /// Tiny `application/x-www-form-urlencoded` query parser (percent-decoding).

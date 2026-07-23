@@ -34,10 +34,22 @@ function settings_save(): ()
     end
 end
 
--- ── Settings → Git (provedores Gitea) ────────────────────────────────────
+-- ── Settings → Git (provedores Gitea / GitHub) ───────────────────────────
 
 function gp_mode(m: string): ()
     ctx.gp_mode = m
+end
+
+-- Alterna o tipo de provedor (gitea | github) e recomputa a redirect URI, que
+-- tem path por provedor (/oauth/gitea/callback vs /oauth/github/callback).
+function gp_kind(k: string): ()
+    local kind = (k == "github") and "github" or "gitea"
+    ctx.gp_kind = kind
+    ctx.gp_redirect = Helpers.oauth_redirect_uri(ctx.ss_public_base, kind)
+    -- GitHub conecta ao github.com por padrão; Base URL só p/ Enterprise.
+    if kind == "github" and Helpers.trim(ctx.gp_base_url) == "" then
+        ctx.gp_name = (Helpers.trim(ctx.gp_name) == "" and "GitHub" or ctx.gp_name)
+    end
 end
 
 local function gp_refresh_list(): ()
@@ -65,13 +77,22 @@ function gp_connect(): ()
         return
     end
     ctx.gp_oauth_url = ""
+    local is_github = (ctx.gp_kind or "gitea") == "github"
+    local kind_wire = is_github and "Github" or "Gitea"
+    local label = is_github and "GitHub" or "Gitea"
     local base = Helpers.trim(ctx.gp_base_url)
+    -- GitHub conecta ao github.com por padrão; a Base URL só é preenchida para
+    -- GitHub Enterprise Server. Gitea sempre exige a Base URL.
     if base == "" then
-        ctx.gp_msg = "informe a Base URL do Gitea";
-        return
+        if is_github then
+            base = "https://github.com"
+        else
+            ctx.gp_msg = "informe a Base URL do Gitea";
+            return
+        end
     end
     local name = Helpers.trim(ctx.gp_name); if name == "" then
-        name = "Gitea"
+        name = label
     end
     local is_oauth = (ctx.gp_mode or "oauth") ~= "pat"
     local cmd: any
@@ -82,7 +103,7 @@ function gp_connect(): ()
             ctx.gp_msg = "Client ID e Client Secret são obrigatórios";
             return
         end
-        cmd = { GitProviderCreate = { kind = "Gitea", name = name, base_url = base,
+        cmd = { GitProviderCreate = { kind = kind_wire, name = name, base_url = base,
             auth_mode = "OAuth", oauth_client_id = cid, oauth_client_secret = csec, pat = nil } }
     else
         local pat = ctx.gp_pat or ""
@@ -92,7 +113,7 @@ function gp_connect(): ()
         end
         cmd = {
             GitProviderCreate = {
-                kind = "Gitea",
+                kind = kind_wire,
                 name = name,
                 base_url = base,
                 auth_mode = "Pat",
@@ -121,7 +142,7 @@ function gp_connect(): ()
             ctx.gp_msg = "provider criado; inicie o OAuth manualmente"
         end
     else
-        ctx.gp_msg = "conta Gitea conectada ✓"
+        ctx.gp_msg = "conta " .. label .. " conectada ✓"
     end
     ctx.gp_name = ""
     ctx.gp_base_url = ""

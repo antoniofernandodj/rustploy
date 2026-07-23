@@ -899,7 +899,7 @@
             CONTAS CONECTADAS ({gitea_count})
           </text>
           <text if="{gitea_count}" equals="0" class="muted">
-            Nenhuma conta Gitea conectada ainda.
+            Nenhuma conta Git conectada ainda.
           </text>
 
           <column class="kv_list">
@@ -908,7 +908,7 @@
                 <column class="header_titles">
                   <text class="env_key">{p.name}</text>
                   <text class="muted">
-                    {p.base_url}  ·  {p.auth_mode}  ·  {p.account}
+                    {p.kind}  ·  {p.base_url}  ·  {p.auth_mode}  ·  {p.account}
                   </text>
                 </column>
                 <button class="btn_danger" on_click="gp_delete:{p.id}" text="Remover" />
@@ -917,7 +917,25 @@
           </column>
 
           <rule />
-          <text class="label_cap">CONECTAR CONTA GITEA</text>
+          <text class="label_cap">CONECTAR CONTA GIT</text>
+
+          <!-- Tipo de provedor: Gitea ou GitHub. Troca a redirect URI (path por
+               provedor) e os textos de ajuda abaixo. -->
+          <row class="tabs">
+            <TabButton
+              label="Gitea"
+              current="{gp_kind}"
+              target="gitea"
+              action="gp_kind:gitea"
+            />
+            <TabButton
+              label="GitHub"
+              current="{gp_kind}"
+              target="github"
+              action="gp_kind:github"
+            />
+          </row>
+
           <text if="{gp_msg}" not_equals="" class="muted">
             {gp_msg}
           </text>
@@ -960,6 +978,10 @@
                   value="gp_base_url"
                   on_change="field:gp_base_url"
                 />
+                <text if="{gp_kind}" equals="github" class="muted">
+                  Deixe vazio para github.com. Só preencha para GitHub
+                  Enterprise Server (ex.: https://ghe.suaempresa.com).
+                </text>
               </column>
             </row>
 
@@ -1001,7 +1023,7 @@
               />
 
               <text class="label_cap">
-                REDIRECT URI (cole no app OAuth do Gitea)
+                REDIRECT URI (cole no app OAuth do provedor)
               </text>
               <row class="kv_row">
                 <text class="kv_val_fill">{gp_redirect}</text>
@@ -1011,9 +1033,14 @@
                   text="Copiar"
                 />
               </row>
-              <text class="muted">
+              <text if="{gp_kind}" not_equals="github" class="muted">
                 No Gitea: Settings → Applications → crie um OAuth2
                 app e cole a Redirect URI acima.
+              </text>
+              <text if="{gp_kind}" equals="github" class="muted">
+                No GitHub: Settings → Developer settings → OAuth Apps →
+                New OAuth App e cole a Redirect URI acima em "Authorization
+                callback URL".
               </text>
             </if>
 
@@ -1031,8 +1058,12 @@
                 on_change="field:gp_pat"
               />
 
-              <text class="muted">
+              <text if="{gp_kind}" not_equals="github" class="muted">
                 No Gitea: Settings → Applications → Generate New Token (escopo: repo).
+              </text>
+              <text if="{gp_kind}" equals="github" class="muted">
+                No GitHub: Settings → Developer settings → Personal access
+                tokens → gere um token com escopo "repo".
               </text>
             </if>
 

@@ -28,15 +28,17 @@ function M.parse_secret_ref(v: string?): string?
     return name ~= "" and name or nil
 end
 
--- URI de callback OAuth do Gitea que o usuário registra no app do Gitea.
--- `base` é a URL pública do daemon (`DaemonSettings.public_base_url`), derivada
--- de [api] domain/port — o callback OAuth é servido pelo mesmo listener da API.
-function M.oauth_redirect_uri(base: string?): string
+-- URI de callback OAuth que o usuário registra no app do provedor. `base` é a
+-- URL pública do daemon (`DaemonSettings.public_base_url`), derivada de [api]
+-- domain/port — o callback OAuth é servido pelo mesmo listener da API. `seg` é o
+-- segmento do path por provedor ("gitea" | "github"), default "gitea".
+function M.oauth_redirect_uri(base: string?, seg: string?): string
+    local s = (seg == "github") and "github" or "gitea"
     local d = M.trim(base):gsub("/+$", "");
     if d == "" then
-        return "<URL pública do daemon indisponível>/oauth/gitea/callback";
+        return "<URL pública do daemon indisponível>/oauth/" .. s .. "/callback";
     end
-    return d .. "/oauth/gitea/callback";
+    return d .. "/oauth/" .. s .. "/callback";
 end
 
 -- Heurística: a URL denota um repo Git (clonar+buildar) e não uma imagem.

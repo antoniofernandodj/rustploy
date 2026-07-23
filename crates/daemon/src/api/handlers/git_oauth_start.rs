@@ -3,21 +3,24 @@ use shared::Response;
 use tracing::warn;
 use ulid::Ulid;
 
-/// Produces the Gitea authorization URL the client opens in a browser, after
-/// stashing a CSRF `state` mapped to this provider for the callback to consume.
+/// Produces the provider's authorization URL the client opens in a browser,
+/// after stashing a CSRF `state` mapped to this provider for the callback to
+/// consume. Works for any provider kind via the `git_providers` dispatch layer.
 pub async fn handle(state: AppState, provider_id: String) -> Response {
     let provider = match crate::db::git_providers::get(&state.db, &provider_id).await {
         Ok(Some(p)) => p,
         Ok(None) => return Response::err("NotFound", "Provider não encontrado"),
         Err(e) => return Response::err("DatabaseError", e.to_string()),
     };
+    let kind = shared::GitProviderKind::from_str(&provider.kind)
+        .unwrap_or(shared::GitProviderKind::Gitea);
 
     let client_id = provider.oauth_client_id.clone().unwrap_or_default();
     if client_id.is_empty() {
         return Response::err("InvalidInput", "Provider sem Client ID (OAuth)");
     }
 
-    let redirect_uri = match crate::api::public_routes::callback_redirect_uri(&state) {
+    let redirect_uri = match crate::api::public_routes::callback_redirect_uri(&state, kind) {
         Some(u) => u,
         None => {
             return Response::err(
@@ -28,10 +31,12 @@ pub async fn handle(state: AppState, provider_id: String) -> Response {
     };
 
     // Se já há um access token armazenado, tenta garantir que a redirect URI
-    // atual está registrada no Gitea — auto-cura após mudança de domínio/porta.
+    // atual está registrada no provider — auto-cura após mudança de domínio/porta
+    // (no-op no GitHub, que não permite editar a callback URL via API).
     if let Some(enc) = &provider.access_token_enc {
         if let Ok(token) = state.secrets.decrypt(enc) {
-            if let Err(e) = crate::git_providers::gitea::ensure_redirect_uri(
+            if let Err(e) = crate::git_providers::ensure_redirect_uri(
+                kind,
                 &provider.base_url,
                 &token,
                 &client_id,
@@ -51,12 +56,12 @@ pub async fn handle(state: AppState, provider_id: String) -> Response {
         .unwrap()
         .insert(csrf.clone(), provider_id);
 
-    let url = format!(
-        "{}/login/oauth/authorize?client_id={}&redirect_uri={}&response_type=code&state={}",
-        provider.base_url.trim_end_matches('/'),
-        pct(&client_id),
-        pct(&redirect_uri),
-        pct(&csrf),
+    let url = crate::git_providers::authorize_url(
+        kind,
+        &provider.base_url,
+        &pct(&client_id),
+        &pct(&redirect_uri),
+        &pct(&csrf),
     );
     Response::OAuthUrl(url)
 }

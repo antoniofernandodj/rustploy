@@ -43,6 +43,13 @@ end
 function nav_settings(): ()
     goto_view("settings")
     ctx.settings_tab = "web"
+    -- Defaults do form de conexão Git (destaca a aba certa e o método OAuth).
+    if (ctx.gp_kind or "") == "" then
+        ctx.gp_kind = "gitea"
+    end
+    if (ctx.gp_mode or "") == "" then
+        ctx.gp_mode = "oauth"
+    end
 end
 
 function nav_support(): ()

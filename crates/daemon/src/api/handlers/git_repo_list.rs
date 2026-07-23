@@ -11,16 +11,18 @@ pub async fn handle(state: AppState, provider_id: String) -> Response {
         Ok(t) => t,
         Err(e) => return Response::err("NotConnected", e.to_string()),
     };
-    match crate::git_providers::gitea::list_repos(&provider.base_url, &token).await {
+    let kind = shared::GitProviderKind::from_str(&provider.kind)
+        .unwrap_or(shared::GitProviderKind::Gitea);
+    match crate::git_providers::list_repos(kind, &provider.base_url, &token).await {
         Ok(repos) => Response::GitRepos(repos),
         Err(first) => {
             // Token possivelmente expirado: tenta um refresh OAuth e repete.
             match crate::git_providers::refresh_access_token(&state.db, &state.secrets, &provider).await {
-                Some(fresh) => match crate::git_providers::gitea::list_repos(&provider.base_url, &fresh).await {
+                Some(fresh) => match crate::git_providers::list_repos(kind, &provider.base_url, &fresh).await {
                     Ok(repos) => Response::GitRepos(repos),
-                    Err(e) => Response::err("GiteaApiError", e.to_string()),
+                    Err(e) => Response::err("GitApiError", e.to_string()),
                 },
-                None => Response::err("GiteaApiError", first.to_string()),
+                None => Response::err("GitApiError", first.to_string()),
             }
         }
     }

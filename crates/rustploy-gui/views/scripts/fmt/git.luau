@@ -1,8 +1,18 @@
 --!strict
--- fmt/git.luau — builders dos provedores/repositórios/branches Gitea
--- conectados (Settings → Git e o picker da aba General do serviço).
+-- fmt/git.luau — builders dos provedores/repositórios/branches Git conectados
+-- (Gitea/GitHub) — Settings → Git e o picker da aba General do serviço.
 
 local Util = require("util")
+
+-- Rótulo amigável do tipo de provedor a partir do enum do wire (GitProviderKind).
+local function kind_label(kind: any): string
+    if kind == "Github" then
+        return "GitHub"
+    elseif kind == "Gitea" then
+        return "Gitea"
+    end
+    return tostring(kind or "Git")
+end
 
 local M = {}
 
@@ -27,6 +37,7 @@ function M.git_providers(list: {any}?): string
         table.insert(rows, {
             id = p.id,
             name = p.name,
+            kind = kind_label(p.kind),
             display = display,
             base_url = p.base_url,
             auth_mode = auth_mode,

@@ -175,7 +175,7 @@ async fn handle(
             let (method, path) = (m.clone(), p.to_owned());
             return Ok(boxed(public_routes::webhook(&method, &path, state).await));
         }
-        (&Method::GET, "/oauth/gitea/callback") => {
+        (&Method::GET, "/oauth/gitea/callback" | "/oauth/github/callback") => {
             return Ok(boxed(public_routes::oauth_callback(req, state).await));
         }
         _ => {}
