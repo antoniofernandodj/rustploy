@@ -160,6 +160,7 @@ function M.source_summary(source: any): string
     elseif source.Git then
         local g = source.Git
         return (g.url or "") .. " @ " .. (g.branch or "")
+    elseif source.Archive then return source.Archive.original_filename or source.Archive.archive_id or "zip enviado"
     elseif source.Compose then return "docker-compose"
     end
     return "—"

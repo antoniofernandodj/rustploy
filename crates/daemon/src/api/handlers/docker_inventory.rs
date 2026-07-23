@@ -46,7 +46,7 @@ impl ServiceIndex {
                 .unwrap_or_else(|| s.spec.project_id.clone());
             by_service_id.insert(s.id.clone(), (project_name.clone(), s.spec.name.clone()));
             match &s.spec.source {
-                ServiceSource::Git(_) => {
+                ServiceSource::Git(_) | ServiceSource::Archive(_) => {
                     by_safe_name.insert(s.spec.safe_name(), (project_name, s.spec.name.clone()));
                 }
                 ServiceSource::Registry { image } => {

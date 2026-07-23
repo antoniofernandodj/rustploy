@@ -24,6 +24,7 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
         source = match &svc.spec.source {
             ServiceSource::Registry { image } => format!("registry:{image}"),
             ServiceSource::Git(g) => format!("git:{}", g.url),
+            ServiceSource::Archive(a) => format!("archive:{}", a.archive_id),
             ServiceSource::Compose(c) => format!("compose:{}", c.content),
         },
         port = svc.spec.port,
@@ -54,6 +55,13 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
                 "git URL is empty — configure o repositório antes de fazer deploy",
             );
         }
+        ServiceSource::Archive(a) if a.archive_id.is_empty() => {
+            warn!(service_id = %service_id, "deploy_start: archive vazio");
+            return RpResponse::err(
+                "InvalidSource",
+                "zip archive is empty — envie um zip antes de fazer deploy",
+            );
+        }
         ServiceSource::Compose(c) if c.content.is_empty() => {
             warn!(service_id = %service_id, "deploy_start: compose file vazio");
             return RpResponse::err(
@@ -72,6 +80,11 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
         ServiceSource::Git(_) => {
             let tag = format!("rp_{}", svc.spec.safe_name());
             info!(service_id = %service_id, tag = %tag, "deploy_start: fonte git, tag de build resolvida");
+            tag
+        }
+        ServiceSource::Archive(_) => {
+            let tag = format!("rp_{}", svc.spec.safe_name());
+            info!(service_id = %service_id, tag = %tag, "deploy_start: fonte archive, tag de build resolvida");
             tag
         }
         ServiceSource::Compose(c) => {

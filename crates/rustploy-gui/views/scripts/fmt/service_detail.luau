@@ -45,6 +45,9 @@ function M.source_summary3(source: any): (string, string, string)
     elseif source.Git then
         local g = source.Git
         return "Git", (g.url or "") .. " @ " .. (g.branch or ""), g.dockerfile_path or "Dockerfile"
+    elseif source.Archive then
+        local a = source.Archive
+        return "Zip", a.original_filename or a.archive_id or "zip enviado", a.dockerfile_path or "Dockerfile"
     elseif source.Compose then return "Compose", "docker-compose", "Compose"
     end
     return "—", "—", "—"

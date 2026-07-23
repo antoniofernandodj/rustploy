@@ -188,6 +188,23 @@ async fn handle(
         }
     }
 
+    // Upload de zip: `POST /api/services/<id>/archive`. Tratado antes do `match`
+    // porque o handler **move** `req` (lê o corpo binário), o que colide com o
+    // borrow que o discriminante do `match` mantém sobre `req.uri().path()`.
+    if req.method() == Method::POST {
+        let path = req.uri().path().to_owned();
+        if let Some(id) = path
+            .strip_prefix("/api/services/")
+            .and_then(|s| s.strip_suffix("/archive"))
+        {
+            return Ok(if id.is_empty() {
+                text(StatusCode::NOT_FOUND, "not found")
+            } else {
+                service_archive_upload(req, state, id.to_string()).await
+            });
+        }
+    }
+
     Ok(match (req.method(), req.uri().path()) {
         (&Method::POST, "/api/rpc") => rpc(req, state).await,
         (&Method::GET, "/api/events") => events(state),
@@ -236,6 +253,36 @@ async fn handle(
         }
         _ => text(StatusCode::NOT_FOUND, "not found"),
     })
+}
+
+async fn service_archive_upload(
+    req: Request<Incoming>,
+    state: AppState,
+    service_id: String,
+) -> Response<ApiBody> {
+    let accept_gzip = accepts_gzip(&req);
+    let filename = req
+        .headers()
+        .get("x-rustploy-filename")
+        .and_then(|v| v.to_str().ok())
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.to_string());
+    let body = match req.into_body().collect().await {
+        Ok(c) => c.to_bytes(),
+        Err(_) => return text(StatusCode::BAD_REQUEST, "erro ao ler o corpo"),
+    };
+    if body.len() > super::handlers::service_archive_upload::MAX_ZIP_BYTES {
+        return text(StatusCode::PAYLOAD_TOO_LARGE, "zip excede 100 MiB");
+    }
+    let resp =
+        super::handlers::service_archive_upload::handle(state, service_id, body, filename).await;
+    match serde_json::to_vec(&resp) {
+        Ok(bytes) => json_response(bytes, accept_gzip),
+        Err(e) => text(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("erro ao serializar resposta: {e}"),
+        ),
+    }
 }
 
 /// `POST /api/rpc`: decode a `Command`, run it through `dispatch`, encode the

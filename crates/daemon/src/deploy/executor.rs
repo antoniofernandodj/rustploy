@@ -18,6 +18,22 @@ use std::{path::PathBuf, sync::Arc, time::Duration};
 use tokio::time::sleep;
 use tracing::{debug, error, info, warn};
 
+fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        let from = entry.path();
+        let to = dst.join(entry.file_name());
+        if ty.is_dir() {
+            copy_dir_all(&from, &to)?;
+        } else if ty.is_file() {
+            std::fs::copy(&from, &to)?;
+        }
+    }
+    Ok(())
+}
+
 pub struct DeployExecutor {
     pub db: Arc<Db>,
     pub docker: Arc<DockerClient>,
@@ -174,6 +190,15 @@ impl DeployExecutor {
                         self.log_step(&dep.id, &svc.id, &format!("--> Clonando repositório: {} ({})", g.url, g.branch)).await;
                         DeployState::CloningRepo
                     }
+                    ServiceSource::Archive(a) => {
+                        info!(
+                            deployment_id = %dep.id,
+                            archive_id = %a.archive_id,
+                            "step[ResolvingDeps]: fonte é Archive → irá para BuildingImage"
+                        );
+                        self.log_step(&dep.id, &svc.id, "--> Preparando zip enviado").await;
+                        DeployState::BuildingImage
+                    }
                     ServiceSource::Compose(c) => {
                         info!(
                             deployment_id = %dep.id,
@@ -282,25 +307,43 @@ impl DeployExecutor {
             }
 
             DeployState::BuildingImage => {
-                let ServiceSource::Git(git) = &svc.spec.source else {
-                    return Err(anyhow!("expected Git source"));
+                let (context, dockerfile_path) = match &svc.spec.source {
+                    ServiceSource::Git(git) => {
+                        let clone_dir = self.clone_dir(&dep.id);
+                        (clone_dir.join(&git.build_context), git.dockerfile_path.clone())
+                    }
+                    ServiceSource::Archive(archive) => {
+                        let src = self.archive_dir(&svc.id, &archive.archive_id);
+                        let dst = self.clone_dir(&dep.id);
+                        if dst.exists() {
+                            let _ = std::fs::remove_dir_all(&dst);
+                        }
+                        copy_dir_all(&src, &dst)?;
+                        let dockerfile = dst.join(&archive.dockerfile_path);
+                        if !dockerfile.is_file() {
+                            return Err(anyhow!(
+                                "Dockerfile não encontrado no zip: {}",
+                                archive.dockerfile_path
+                            ));
+                        }
+                        (dst.join(&archive.build_context), archive.dockerfile_path.clone())
+                    }
+                    _ => return Err(anyhow!("expected Git or Archive source")),
                 };
                 let tag = format!("rp_{}:{}", svc.spec.safe_name(), self.short(&dep.id));
-                let clone_dir = self.clone_dir(&dep.id);
-                let context = clone_dir.join(&git.build_context);
                 info!(
                     deployment_id = %dep.id,
                     tag = %tag,
-                    dockerfile = %git.dockerfile_path,
+                    dockerfile = %dockerfile_path,
                     context = %context.display(),
                     "step[BuildingImage]: iniciando build Docker"
                 );
-                self.log_step(&dep.id, &svc.id, &format!("--> Build Docker: {} ({})", tag, git.dockerfile_path)).await;
+                self.log_step(&dep.id, &svc.id, &format!("--> Build Docker: {} ({})", tag, dockerfile_path)).await;
                 images::build(
                     &self.docker.inner,
                     &self.db,
                     &context,
-                    &git.dockerfile_path,
+                    &dockerfile_path,
                     &tag,
                     &svc.id,
                     &dep.id,
@@ -1099,8 +1142,17 @@ impl DeployExecutor {
         match &svc.spec.source {
             ServiceSource::Registry { image } => image.clone(),
             ServiceSource::Git(_) => format!("rp_{}:{}", svc.spec.safe_name(), self.short(&dep.id)),
+            ServiceSource::Archive(_) => format!("rp_{}:{}", svc.spec.safe_name(), self.short(&dep.id)),
             ServiceSource::Compose(c) => format!("compose:{}", c.content),
         }
+    }
+
+    fn archive_dir(&self, service_id: &str, archive_id: &str) -> PathBuf {
+        self.db_path
+            .join("uploads")
+            .join("services")
+            .join(service_id)
+            .join(archive_id)
     }
 
     fn network_name(&self, project_id: &str) -> String {

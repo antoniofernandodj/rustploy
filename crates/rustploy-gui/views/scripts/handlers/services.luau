@@ -226,6 +226,7 @@ function M.fetch_service_detail(sid: string): ()
     ctx.f_dockerfile = g.dockerfile
     ctx.f_context_path = g.context_path
     ctx.f_build_stage = g.build_stage
+    ctx.f_archive_path = ""
     ctx.f_gen_port = tostring(spec.port)
     ctx.prov_tab = prov_tab
     ctx.gitea_provider_id = gen_provider_id
@@ -435,6 +436,37 @@ function gen_save(): ()
             spec.source = { Registry = { image = repo } }
         end
     end)
+end
+
+function archive_upload(): ()
+    local api = State.api
+    local sid = ctx.selected_service or ""
+    local path = Helpers.trim(ctx.f_archive_path)
+    if not api or sid == "" then return end
+    if path == "" then
+        ctx.svc_action_msg = "informe o caminho do zip"
+        return
+    end
+
+    ctx.svc_action_msg = "lendo zip…"
+    local read = fetch("file://" .. path, { response = "base64" })
+    if not read.ok then
+        ctx.svc_action_msg = "erro ao ler zip: " .. tostring(read.error)
+        toast{ message = tostring(ctx.svc_action_msg), kind = "error" }
+        return
+    end
+
+    ctx.svc_action_msg = "enviando zip…"
+    local filename = path:match("([^/\\]+)$") or "archive.zip"
+    local ok, res = api:upload_archive(sid, filename, read.body)
+    if ok and res.Service then
+        ctx.svc_action_msg = "zip enviado"
+        toast{ message = tostring("Zip enviado"), kind = "success" }
+        M.fetch_service_detail(sid)
+    else
+        ctx.svc_action_msg = "erro: " .. tostring(res)
+        toast{ message = tostring(res), kind = "error" }
+    end
 end
 
 -- ── Environment ──────────────────────────────────────────────────────────

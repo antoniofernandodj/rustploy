@@ -161,7 +161,32 @@ pub fn looks_like_git_url(url: &str) -> bool {
 pub enum ServiceSource {
     Registry { image: String },
     Git(GitSource),
+    Archive(ArchiveSource),
     Compose(ComposeSource),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ArchiveSource {
+    /// Identifier of the last uploaded zip stored under the daemon data dir.
+    pub archive_id: String,
+    #[serde(default)]
+    pub original_filename: Option<String>,
+    /// Dockerfile path inside the extracted archive. The GUI defaults this to
+    /// `Dockerfile`; deploy validation requires it to exist.
+    pub dockerfile_path: String,
+    /// Docker build context inside the extracted archive.
+    pub build_context: String,
+}
+
+impl Default for ArchiveSource {
+    fn default() -> Self {
+        Self {
+            archive_id: String::new(),
+            original_filename: None,
+            dockerfile_path: "Dockerfile".into(),
+            build_context: ".".into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

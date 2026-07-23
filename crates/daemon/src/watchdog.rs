@@ -245,6 +245,7 @@ async fn trigger_redeploy(state: &AppState, svc: &shared::Service) {
     let image = match &svc.spec.source {
         ServiceSource::Registry { image } => image.clone(),
         ServiceSource::Git(_) => format!("rp_{}", svc.spec.name),
+        ServiceSource::Archive(_) => format!("rp_{}", svc.spec.name),
         ServiceSource::Compose(c) => format!("compose:{}", c.content),
     };
 

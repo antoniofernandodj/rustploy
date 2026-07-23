@@ -72,6 +72,29 @@ function M:rpc_checked(cmd: any): (boolean, any)
     return true, res
 end
 
+function M:upload_archive(service_id: string, filename: string, body_base64: string): (boolean, any)
+    local h = self:headers()
+    h["Content-Type"] = "application/zip"
+    h["X-Rustploy-Filename"] = filename
+
+    local res = fetch(tostring(self.base_url) .. "/api/services/" .. service_id .. "/archive", {
+        method = "POST",
+        body_base64 = body_base64,
+        headers = h,
+    })
+    if not res.ok then
+        return false, (res.error ~= nil and res.error ~= "") and res.error or ("HTTP " .. tostring(res.status))
+    end
+    local ok, decoded = pcall(json.decode, res.body)
+    if not ok then
+        return false, "resposta inválida do daemon"
+    end
+    if type(decoded) == "table" and decoded.Err ~= nil then
+        return false, tostring(decoded.Err.code) .. ": " .. tostring(decoded.Err.message)
+    end
+    return true, decoded
+end
+
 export type Client = typeof(setmetatable(
     {} :: {
         base_url: string,

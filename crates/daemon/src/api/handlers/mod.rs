@@ -64,6 +64,7 @@ pub mod recent_deployments;
 pub mod reconcile;
 pub mod regenerate_webhook_token;
 pub mod service_create;
+pub mod service_archive_upload;
 pub mod service_delete;
 pub mod service_get;
 pub mod service_list;

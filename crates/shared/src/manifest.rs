@@ -539,6 +539,10 @@ impl SourceManifest {
                 }),
                 ..Default::default()
             },
+            ServiceSource::Archive(_) => SourceManifest {
+                registry: Some(String::new()),
+                ..Default::default()
+            },
             ServiceSource::Compose(c) => SourceManifest {
                 compose: Some(c.content.clone()),
                 ..Default::default()

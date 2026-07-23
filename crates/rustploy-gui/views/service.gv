@@ -258,6 +258,12 @@
                   action="prov:gitea"
                 />
               </if>
+              <TabButton
+                label="Zip"
+                current="{prov_tab}"
+                target="zip"
+                action="prov:zip"
+              />
             </row>
             <rule />
 
@@ -396,6 +402,42 @@
               <row class="env_add">
                 <button class="btn_primary" on_click="gen_save" text="Save" />
                 <text class="muted">{svc_action_msg}</text>
+              </row>
+            </if>
+
+            <!-- ── Sub-aba Zip: upload de arquivo local com Dockerfile na raiz ─ -->
+            <if cond="{prov_tab}" equals="zip">
+              <text class="label_cap">ZIP DOCKERFILE</text>
+              <input
+                class="field_input"
+                form_control="f_archive_path"
+                value="f_archive_path"
+                on_change="field:f_archive_path"
+                placeholder="/caminho/para/app.zip"
+              />
+              <text class="muted">
+                O zip deve conter um Dockerfile na raiz. Depois do envio,
+                o deploy normal usa os arquivos descompactados pelo daemon.
+              </text>
+              <row class="hc_grid">
+                <column class="hc_field">
+                  <text class="label_cap">PORT</text>
+                  <input
+                    class="field_input"
+                    form_control="f_gen_port"
+                    value="f_gen_port"
+                    on_change="field:f_gen_port"
+                    placeholder="80"
+                  />
+                </column>
+                <column class="hc_field">
+                  <text class="label_cap">STATUS</text>
+                  <text class="muted">{svc_action_msg}</text>
+                </column>
+              </row>
+              <row class="env_add">
+                <button class="btn_primary" on_click="archive_upload" text="Enviar zip" />
+                <button class="btn_secondary" on_click="gen_save" text="Salvar porta" />
               </row>
             </if>
 

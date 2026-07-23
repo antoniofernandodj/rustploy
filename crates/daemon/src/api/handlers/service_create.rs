@@ -15,6 +15,7 @@ pub async fn handle(state: AppState, mut spec: ServiceSpec) -> RpResponse {
         source = match &spec.source {
             ServiceSource::Registry { image } => format!("registry:{image}"),
             ServiceSource::Git(g) => format!("git:{}", g.url),
+            ServiceSource::Archive(a) => format!("archive:{}", a.archive_id),
             ServiceSource::Compose(c) => format!("compose:{}", c.content),
         },
         port = spec.port,
