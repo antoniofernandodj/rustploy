@@ -73,7 +73,7 @@ rustls = { version = "0.23", features = ["ring"] }
 rustls-pemfile = "2"
 tokio-rustls = "0.26"
 instant-acme = "0.7"
-rcgen = { version = "0.13", features = ["ring"] }
+rcgen = { version = "0.14.8", features = ["aws_lc_rs", "pem"] }
 
 # Crypto / Secrets
 age = { version = "0.10", features = ["async"] }

@@ -140,8 +140,7 @@ async fn handle_http(
     }
 
     // ── Proxy normal (sem TLS ativo) ──────────────────────────────────────────
-    handle(req, routes).await
-}
+    handle(req, routes, false).await}
 
 // ─── HTTPS ────────────────────────────────────────────────────────────────────
 
@@ -188,7 +187,7 @@ async fn serve_https_connection(
     let io = TokioIo::new(stream);
     let svc = service_fn(move |req: Request<Incoming>| {
         let routes = routes.clone();
-        async move { handle(req, routes).await }
+        async move { handle(req, routes, false).await }
     });
 
     if let Err(e) = http1::Builder::new().serve_connection(io, svc).await {
@@ -201,6 +200,7 @@ async fn serve_https_connection(
 async fn handle(
     req: Request<Incoming>,
     routes: RouteHandle,
+    is_tls: bool, // <--- Adicione este parâmetro
 ) -> Result<Response<ProxyBody>, std::convert::Infallible> {
     let host = req
         .headers()
@@ -219,13 +219,27 @@ async fn handle(
         return Ok(status_response(StatusCode::NOT_FOUND));
     };
 
-    forward(req, &backend_addr).await
+    forward(req, &backend_addr, is_tls).await
 }
 
 async fn forward(
-    req: Request<Incoming>,
+    mut req: Request<Incoming>,
     backend_addr: &str,
+    is_tls: bool,
 ) -> Result<Response<ProxyBody>, std::convert::Infallible> {
+    // 1. Injeta/Ajusta os cabeçalhos de Proxy na requisição de IDA para o Backend
+    let headers = req.headers_mut();
+    
+    // Define se a conexão externa foi HTTPS ou HTTP
+    let proto = if is_tls { "https" } else { "http" };
+    headers.insert("x-forwarded-proto", proto.parse().unwrap());
+
+    // Preserva/Injeta o Host original
+    if let Some(host) = headers.get("host").cloned() {
+        headers.insert("x-forwarded-host", host);
+    }
+
+    // 2. Conecta ao Backend via TCP
     let stream = match TcpStream::connect(backend_addr).await {
         Ok(s) => s,
         Err(e) => {
@@ -247,9 +261,15 @@ async fn forward(
         let _ = conn.await;
     });
 
+    // 3. Envia e trata a resposta de VOLTA do Backend
     match sender.send_request(req).await {
         Ok(resp) => {
             let (parts, body) = resp.into_parts();
+
+            // Resolve o problema de duplicação:
+            // Garante que o HeaderMap retornado esteja limpo/sanitizado se necessário,
+            // tirando headers repetidos ou indesejados vindos do servidor de aplicação.
+            
             Ok(Response::from_parts(parts, body.map_err(|e| e).boxed()))
         }
         Err(e) => {

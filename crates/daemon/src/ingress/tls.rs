@@ -51,20 +51,26 @@ pub struct TlsManager {
 }
 
 impl TlsManager {
-    pub fn new(cert_dir: PathBuf, acme_config: AcmeConfig) -> Result<Self> {
+pub fn new(cert_dir: PathBuf, acme_config: AcmeConfig) -> Result<Self> {
         std::fs::create_dir_all(&cert_dir)?;
 
         let resolver = Arc::new(SniResolver {
             certs: RwLock::new(HashMap::new()),
         });
 
-        let server_config = Arc::new(
-            ServerConfig::builder_with_provider(Arc::new(default_provider()))
-                .with_safe_default_protocol_versions()
-                .map_err(|e| anyhow!("TLS protocol config: {e}"))?
-                .with_no_client_auth()
-                .with_cert_resolver(resolver.clone()),
-        );
+        // 1. Cria o ServerConfig normalmente (com let mut)
+        let mut server_config = ServerConfig::builder_with_provider(
+            Arc::new(default_provider()))
+            .with_safe_default_protocol_versions()
+            .map_err(|e| anyhow!("TLS protocol config: {e}"))?
+            .with_no_client_auth()
+            .with_cert_resolver(resolver.clone());
+
+        // 2. Define os protocolos ALPN aceitos pelo servidor (ordem de preferência)
+        server_config.alpn_protocols = vec![b"http/1.1".to_vec()];
+
+        // 3. Envolve no Arc::new para guardar na struct
+        let server_config = Arc::new(server_config);
 
         let mgr = Self {
             cert_dir,
@@ -213,9 +219,8 @@ impl TlsManager {
 
         info!(domain, "TLS: gerando chave privada e CSR");
 
-        // DEPOIS (Força chave RSA 2048)
-        let key_pair = KeyPair::generate_for_alg(&rcgen::PKCS_RSA_SHA256)
-            .map_err(|e| anyhow!("rcgen keygen: {e}"))?;
+        let key_pair = KeyPair::generate_for(&rcgen::PKCS_RSA_SHA256)
+            .map_err(|e| anyhow!("rcgen keygen RSA: {e}"))?;
         let mut params = CertificateParams::new(vec![domain.to_string()])
             .map_err(|e| anyhow!("rcgen params: {e}"))?;
         params.distinguished_name = DistinguishedName::new();
@@ -368,8 +373,8 @@ impl TlsManager {
     fn save_cert(&self, domain: &str, cert_pem: &str, key_pem: &str) -> Result<()> {
         let dir = self.cert_dir.join(domain);
         std::fs::create_dir_all(&dir)?;
-        std::fs::write(dir.join("cert.pem"), cert_pem)?;
-        std::fs::write(dir.join("key.pem"), key_pem)?;
+        std::fs::write(dir.join("cert.pem"), cert_pem.as_bytes())?;
+        std::fs::write(dir.join("key.pem"), key_pem.as_bytes())?;
         Ok(())
     }
 
