@@ -213,12 +213,10 @@ impl TlsManager {
 
         info!(domain, "TLS: gerando chave privada e CSR");
 
-        // Gera chave privada e CSR.
-        // DistinguishedName vazio evita que rcgen coloque o CN padrão
-        // "rcgen self signed cert" no CSR — o LE rejeita qualquer CN que
-        // não seja um hostname válido (urn:acme:error:rejectedIdentifier).
-        // Autoridades modernas usam apenas os SANs para validação.
-        let key_pair = KeyPair::generate().map_err(|e| anyhow!("rcgen keygen: {e}"))?;
+        // DEPOIS (Força chave RSA 2048)
+        let key_pair = KeyPair::generate_for_alg(&rcgen::PKCS_RSA_SHA256)
+            .map_err(|e| anyhow!("rcgen keygen: {e}"))?;
+
         let mut params = CertificateParams::new(vec![domain.to_string()])
             .map_err(|e| anyhow!("rcgen params: {e}"))?;
         params.distinguished_name = DistinguishedName::new();
