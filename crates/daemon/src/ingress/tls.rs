@@ -216,7 +216,6 @@ impl TlsManager {
         // DEPOIS (Força chave RSA 2048)
         let key_pair = KeyPair::generate_for_alg(&rcgen::PKCS_RSA_SHA256)
             .map_err(|e| anyhow!("rcgen keygen: {e}"))?;
-
         let mut params = CertificateParams::new(vec![domain.to_string()])
             .map_err(|e| anyhow!("rcgen params: {e}"))?;
         params.distinguished_name = DistinguishedName::new();
