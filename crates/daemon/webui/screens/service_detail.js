@@ -14,6 +14,8 @@ import {
   stateLabelKind,
   dotenvFromVars,
   parseDotenv,
+  stripAnsi,
+  timeHms,
 } from "../fmt.js";
 
 document.addEventListener("alpine:init", () => {
@@ -28,6 +30,7 @@ document.addEventListener("alpine:init", () => {
     newDomainTls: false,
     buildLogText: "",
     buildLogFor: null,
+    timeHms,
 
     get svc() {
       return this.store.serviceDetail;
@@ -165,7 +168,9 @@ document.addEventListener("alpine:init", () => {
     async viewBuildLog(deploymentId) {
       const r = await this.store.api.rpc({ GetBuildLogs: { deployment_id: deploymentId } });
       if (r.ok && r.value?.BuildLogs) {
-        this.buildLogText = r.value.BuildLogs.map((l) => l.line).join("\n");
+        // `docker build` também manda cores ANSI — mesmo tratamento dos logs
+        // de runtime (ver app.js::cleanLogEntry).
+        this.buildLogText = r.value.BuildLogs.map((l) => stripAnsi(l.line)).join("\n");
         this.buildLogFor = deploymentId;
       }
     },

@@ -9,6 +9,15 @@ function toEpochMs(iso) {
   return Number.isNaN(ms) ? null : ms;
 }
 
+/** "HH:MM:SS" local. */
+export function timeHms(iso) {
+  const ms = toEpochMs(iso);
+  if (ms === null) return "";
+  const d = new Date(ms);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 /** "dd/mm HH:MM:SS" local. */
 export function dateDmHms(iso) {
   const ms = toEpochMs(iso);
@@ -126,6 +135,24 @@ export function dotenvFromVars(vars, comments) {
     if (c.before_key === null || c.before_key === undefined) lines.push(c.text);
   }
   return lines.join("\n");
+}
+
+/** Remove sequências de escape ANSI (cor/cursor/erase) de uma linha de log.
+ * Porta literal de fmt/util.luau::strip_ansi. Sem isso, um logger colorido
+ * (chalk/pino-pretty/etc.) manda bytes de controle que o HTML não interpreta
+ * — em vez de cor, viram glifos de caixa (░/□) e o texto quebra visualmente
+ * (linhas empilhando por cima umas das outras). */
+export function stripAnsi(s) {
+  let str = s || "";
+  // CSI: ESC [ params byte-final(letra) — cobre SGR (cor), erase (K/J), cursor.
+  str = str.replace(/\x1b\[[\d;?]*[a-zA-Z]/g, "");
+  // OSC: ESC ] … BEL.
+  str = str.replace(/\x1b\][^\x07]*\x07/g, "");
+  // Qualquer ESC + 1 byte remanescente (ESC c, ESC =, …).
+  str = str.replace(/\x1b./g, "");
+  // CR/NUL soltos.
+  str = str.replace(/[\r\0]/g, "");
+  return str;
 }
 
 /** Texto `.env` → { vars, comments } (env_vars/env_comments do ServiceSpec/

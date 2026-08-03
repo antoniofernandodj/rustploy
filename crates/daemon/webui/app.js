@@ -20,7 +20,7 @@ import "./screens/service_detail.js";
 import Alpine from "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/module.esm.js";
 import { Api } from "./net/api.js";
 import { openStream } from "./net/sse.js";
-import { fmtUptime } from "./fmt.js";
+import { fmtUptime, stripAnsi } from "./fmt.js";
 
 window.Alpine = Alpine;
 
@@ -497,8 +497,21 @@ document.addEventListener("alpine:init", () => {
 
     // ── Logs (aba Logs do serviço) ───────────────────────────────────
     // Mesmo endpoint SSE dedicado do client iced (crates/daemon/src/api/
-    // http_api.rs::service_logs); sem tail histórico, só o que chegar a
-    // partir da conexão (mesmo comportamento do client iced).
+    // http_api.rs::service_logs), com o mesmo histórico inicial via LogsGet
+    // (ver startServiceLogs).
+
+    /** LogEntry/LogLine cru → { stream, line, timestamp } com ANSI limpo e
+     * truncado (defesa contra uma linha absurda — ex. um dump binário sem
+     * quebra — quebrar o layout inteiro da aba, como aconteceu antes de
+     * filtrar ANSI: a barra de escape crua virava glifos de caixa e o texto
+     * "empilhava" visualmente). Mesmo teto de fmt/service_detail.luau::
+     * log_rows (LINE_MAX). */
+    cleanLogEntry(e) {
+      const LINE_MAX = 4000;
+      let line = stripAnsi(e.line || "");
+      if (line.length > LINE_MAX) line = line.slice(0, LINE_MAX) + "…";
+      return { stream: e.stream, line, timestamp: e.timestamp };
+    },
 
     async startServiceLogs() {
       this.stopServiceLogs();
@@ -508,7 +521,7 @@ document.addEventListener("alpine:init", () => {
       // serviço já rodando há tempo (sem stdout novo desde então) mostra a
       // aba vazia para sempre, mesmo tendo logs de sobra.
       const seed = await this.api.rpc({ LogsGet: { service_id: id, tail: 500 } });
-      this.serviceLogLines = (seed.ok && seed.value?.Logs) || [];
+      this.serviceLogLines = ((seed.ok && seed.value?.Logs) || []).map(this.cleanLogEntry);
       // A troca de aba pode ter acontecido enquanto o fetch estava em voo —
       // se o usuário já saiu da aba Logs (ou do serviço), não abre a stream.
       if (this.serviceTab !== "logs" || this.selectedServiceId !== id) return;
@@ -521,7 +534,7 @@ document.addEventListener("alpine:init", () => {
             if (data?.kind === "bus_batch" && Array.isArray(data.events)) {
               for (const ev of data.events) {
                 const line = ev?.LogLine;
-                if (line) this.serviceLogLines.push(line);
+                if (line) this.serviceLogLines.push(this.cleanLogEntry(line));
               }
               const MAX = 2000;
               if (this.serviceLogLines.length > MAX) {

@@ -732,8 +732,8 @@
                 <column class="log_body">
                   <template x-for="(l, i) in store.serviceLogLines" :key="i">
                     <row class="log_line">
-                      <text class="log_time" x-text="l.stream"></text>
-                      <text class="log_text" x-text="l.line"></text>
+                      <text class="log_time" x-text="timeHms(l.timestamp)"></text>
+                      <text class="log_text" :style="l.stream === 'Stderr' ? 'color:#F85149' : ''" x-text="l.line"></text>
                     </row>
                   </template>
                   <text class="muted" x-show="store.serviceLogLines.length === 0" style="padding:12px">
