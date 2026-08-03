@@ -605,14 +605,20 @@
             <row class="tabs">
               <button type="button" :class="store.serviceTab === 'general' ? 'tab_on' : 'tab_off'"
                       @click="store.setServiceTab('general')">General</button>
+              <button type="button" :class="store.serviceTab === 'connection' ? 'tab_on' : 'tab_off'"
+                      @click="store.setServiceTab('connection')">Connection</button>
               <button type="button" :class="store.serviceTab === 'environment' ? 'tab_on' : 'tab_off'"
                       @click="store.setServiceTab('environment')">Environment</button>
               <button type="button" :class="store.serviceTab === 'domains' ? 'tab_on' : 'tab_off'"
                       @click="store.setServiceTab('domains')">Domains</button>
               <button type="button" :class="store.serviceTab === 'deployments' ? 'tab_on' : 'tab_off'"
                       @click="store.setServiceTab('deployments')">Deployments</button>
+              <button type="button" :class="store.serviceTab === 'healthcheck' ? 'tab_on' : 'tab_off'"
+                      @click="initHcForm(); store.setServiceTab('healthcheck')">Healthcheck</button>
               <button type="button" :class="store.serviceTab === 'logs' ? 'tab_on' : 'tab_off'"
                       @click="store.setServiceTab('logs')">Logs</button>
+              <button type="button" :class="store.serviceTab === 'advanced' ? 'tab_on' : 'tab_off'"
+                      @click="initAdvForm(); store.setServiceTab('advanced')">Advanced</button>
             </row>
             <hr class="rule" />
 
@@ -627,6 +633,56 @@
               </row>
               <button class="btn_danger" type="button" style="margin-top:14px; align-self:flex-start"
                       @click="store.deleteService(svc.id)">Remover serviço</button>
+            </column>
+
+            <!-- Connection (valores copiáveis) -->
+            <column class="kv_list" x-show="store.serviceTab === 'connection'">
+              <row class="kv_row">
+                <text class="kv_key">Container port</text>
+                <text class="kv_val_fill" x-text="connectionInfo.port"></text>
+                <button class="copy_btn" type="button" @click="copyToClipboard(String(connectionInfo.port))">Copiar</button>
+              </row>
+              <row class="kv_row">
+                <text class="kv_key">Host port</text>
+                <text class="kv_val_fill" x-text="connectionInfo.hostPort"></text>
+                <button class="copy_btn" type="button" @click="copyToClipboard(String(connectionInfo.hostPort))">Copiar</button>
+              </row>
+              <row class="kv_row">
+                <text class="kv_key">Domain</text>
+                <text class="kv_val_fill" x-text="connectionInfo.domain"></text>
+                <button class="copy_btn" type="button" @click="copyToClipboard(connectionInfo.domain)">Copiar</button>
+              </row>
+              <row class="kv_row">
+                <text class="kv_key">TLS</text>
+                <text class="kv_val_fill" x-text="connectionInfo.tls"></text>
+              </row>
+              <row class="kv_row">
+                <text class="kv_key">External URL</text>
+                <text class="kv_val_fill" x-text="connectionInfo.externalUrl"></text>
+                <button class="copy_btn" type="button" @click="copyToClipboard(connectionInfo.externalUrl)">Copiar</button>
+              </row>
+              <row class="kv_row">
+                <text class="kv_key">Internal URL</text>
+                <text class="kv_val_fill" x-text="connectionInfo.internalUrl"></text>
+                <button class="copy_btn" type="button" @click="copyToClipboard(connectionInfo.internalUrl)">Copiar</button>
+              </row>
+              <row class="kv_row" x-show="connectionInfo.dbKind">
+                <text class="kv_key">Tipo</text>
+                <text class="kv_val_fill" x-text="connectionInfo.dbKind"></text>
+              </row>
+              <text class="muted" x-show="copyMsg" x-text="copyMsg"></text>
+
+              <hr class="rule" />
+              <text class="label_cap" x-text="'CONTAINERS (' + liveContainers.length + ')'"></text>
+              <text class="muted" x-show="liveContainers.length === 0">Nenhum container em execução.</text>
+              <row class="kv_row" x-show="liveContainers.length > 0" style="flex-wrap:wrap">
+                <template x-for="c in liveContainers" :key="c.id">
+                  <row class="badge" style="margin-right:18px">
+                    <text class="state_dot" :class="'state_' + c.kind">●</text>
+                    <text class="kv_val_fill" x-text="c.name + '  ' + c.idShort"></text>
+                  </row>
+                </template>
+              </row>
             </column>
 
             <!-- Environment -->
@@ -726,6 +782,49 @@
               </column>
             </column>
 
+            <!-- Healthcheck (editável) -->
+            <column class="form_panel" x-show="store.serviceTab === 'healthcheck'">
+              <text class="label_cap">KIND</text>
+              <row class="tabs">
+                <button type="button" :class="hcKind === 'none' ? 'tab_on' : 'tab_off'" @click="hcKind = 'none'">None</button>
+                <button type="button" :class="hcKind === 'tcp' ? 'tab_on' : 'tab_off'" @click="hcKind = 'tcp'">Tcp</button>
+                <button type="button" :class="hcKind === 'http' ? 'tab_on' : 'tab_off'" @click="hcKind = 'http'">Http</button>
+                <button type="button" :class="hcKind === 'docker' ? 'tab_on' : 'tab_off'" @click="hcKind = 'docker'">Docker</button>
+              </row>
+              <template x-if="hcKind === 'http'">
+                <column style="gap:8px; margin-top:8px">
+                  <text class="label_cap">HTTP PATH</text>
+                  <input class="field_input" type="text" x-model="hcPath" placeholder="/health" />
+                  <text class="label_cap">EXPECTED STATUS</text>
+                  <input class="field_input" type="text" x-model="hcStatus" placeholder="200" />
+                </column>
+              </template>
+              <row class="hc_grid" style="margin-top:14px">
+                <column class="hc_field">
+                  <text class="label_cap">INTERVAL (s)</text>
+                  <input class="field_input" type="text" x-model="hcInterval" />
+                </column>
+                <column class="hc_field">
+                  <text class="label_cap">TIMEOUT (s)</text>
+                  <input class="field_input" type="text" x-model="hcTimeout" />
+                </column>
+              </row>
+              <row class="hc_grid">
+                <column class="hc_field">
+                  <text class="label_cap">RETRIES</text>
+                  <input class="field_input" type="text" x-model="hcRetries" />
+                </column>
+                <column class="hc_field">
+                  <text class="label_cap">START PERIOD (s)</text>
+                  <input class="field_input" type="text" x-model="hcStart" />
+                </column>
+              </row>
+              <row class="env_add" style="margin-top:14px">
+                <button class="btn_primary" type="button" @click="saveHealthcheck()">Save</button>
+                <text class="muted" x-show="store.serviceMsg" x-text="store.serviceMsg"></text>
+              </row>
+            </column>
+
             <!-- Logs -->
             <column class="log_panel" x-show="store.serviceTab === 'logs'">
               <column class="scroll_fill">
@@ -741,6 +840,19 @@
                   </text>
                 </column>
               </column>
+            </column>
+
+            <!-- Advanced (editável) -->
+            <column class="form_panel" x-show="store.serviceTab === 'advanced'">
+              <text class="label_cap">REPLICAS</text>
+              <input class="field_input" type="text" x-model="advReplicas" placeholder="1" />
+              <text class="label_cap" style="margin-top:14px">RUN COMMAND</text>
+              <input class="field_input" type="text" x-model="advRunCommand" placeholder="(padrão da imagem)" />
+              <text class="muted" style="margin-top:8px" x-text="'Run args atuais: ' + runArgsText"></text>
+              <row class="env_add" style="margin-top:14px">
+                <button class="btn_primary" type="button" @click="saveAdvanced()">Save</button>
+                <text class="muted" x-show="store.serviceMsg" x-text="store.serviceMsg"></text>
+              </row>
             </column>
           </column>
         </template>

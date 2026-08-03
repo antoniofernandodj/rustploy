@@ -183,3 +183,133 @@ export function parseDotenv(text) {
   for (const c of pending) comments.push({ text: c, before_key: null });
   return { vars, comments };
 }
+
+// ── Connection tab: URLs de conexão por tipo de serviço/banco ────────────
+// Porta de fmt/service_detail.luau (safe_name/internal_url/external_url +
+// os helpers internos de credenciais/esquema/percent-encode).
+
+/** Normaliza um nome de serviço para `[a-z0-9_]`, mesmo algoritmo de
+ * `crate::normalize_name` (Rust) / `fmt/service_detail.luau::safe_name`. */
+export function safeName(name) {
+  let out = "";
+  let lastDash = true;
+  for (const ch of name || "") {
+    if (/[a-zA-Z0-9]/.test(ch)) {
+      out += ch.toLowerCase();
+      lastDash = false;
+    } else if (!lastDash) {
+      out += "_";
+      lastDash = true;
+    }
+  }
+  return out.replace(/^_+/, "").replace(/_+$/, "");
+}
+
+function internalScheme(dbKind) {
+  const k = (dbKind || "").toLowerCase();
+  if (k === "postgres" || k === "postgresql") return "postgresql";
+  if (k === "mysql" || k === "mariadb") return "mysql";
+  if (k === "redis") return "redis";
+  if (k === "mongodb" || k === "mongo") return "mongodb";
+  if (k === "rabbitmq") return "amqp";
+  if (k === "nats") return "nats";
+  return null; // kafka / serviço comum: passthrough sem esquema
+}
+
+/** URL de conexão dentro da rede Docker do daemon (`rp_<safe>:<porta>`, com
+ * esquema por tipo de banco). */
+export function internalUrl(dbKind, safe, port) {
+  const host = `rp_${safe}:${port}`;
+  const scheme = internalScheme(dbKind);
+  return scheme ? `${scheme}://${host}` : host;
+}
+
+function envPlain(vars, key) {
+  const v = (vars || []).find((e) => e.key === key);
+  return v?.value?.Plain || null;
+}
+
+/** (database, user, password) lidos das env vars conhecidas do banco. */
+function dbCredentials(dbKind, vars) {
+  const k = (dbKind || "").toLowerCase();
+  if (k === "postgres" || k === "postgresql") {
+    return [envPlain(vars, "POSTGRES_DB"), envPlain(vars, "POSTGRES_USER"), envPlain(vars, "POSTGRES_PASSWORD")];
+  }
+  if (k === "mysql" || k === "mariadb") {
+    return [envPlain(vars, "MYSQL_DATABASE"), envPlain(vars, "MYSQL_USER"), envPlain(vars, "MYSQL_PASSWORD")];
+  }
+  if (k === "mongodb" || k === "mongo") {
+    return [null, envPlain(vars, "MONGO_INITDB_ROOT_USERNAME"), envPlain(vars, "MONGO_INITDB_ROOT_PASSWORD")];
+  }
+  if (k === "redis") return [null, null, envPlain(vars, "REDIS_PASSWORD")];
+  if (k === "rabbitmq") return [null, envPlain(vars, "RABBITMQ_DEFAULT_USER"), envPlain(vars, "RABBITMQ_DEFAULT_PASS")];
+  return [null, null, null];
+}
+
+function withDbCredentials(base, database, user, password) {
+  let url = base;
+  if (database) url += `/${database}`;
+  const params = [];
+  if (user) params.push(`user=${user}`);
+  if (password) params.push(`password=${password}`);
+  if (params.length) url += `?${params.join("&")}`;
+  return url;
+}
+
+function pct(s) {
+  return encodeURIComponent(s).replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase());
+}
+
+function userinfo(user, password) {
+  const u = user ? pct(user) : "";
+  const p = password ? pct(password) : "";
+  if (!u && !p) return "";
+  return p ? `${u}:${p}@` : `${u}@`;
+}
+
+function externalScheme(k) {
+  if (k === "mysql") return "mysql";
+  if (k === "mariadb") return "mariadb";
+  if (k === "redis") return "redis";
+  if (k === "mongodb" || k === "mongo") return "mongodb";
+  if (k === "rabbitmq") return "amqp";
+  if (k === "nats") return "nats";
+  return null;
+}
+
+function dbConnectionUrl(dbKind, host, port, database, user, password) {
+  const k = (dbKind || "").toLowerCase();
+  const hp = `${host}:${port}`;
+  if (k === "postgres" || k === "postgresql") {
+    return "jdbc:" + withDbCredentials(`postgresql://${hp}`, database, user, password);
+  }
+  const scheme = externalScheme(k);
+  if (!scheme) return hp;
+  let url = `${scheme}://${userinfo(user, password)}${hp}`;
+  if (database) url += `/${database}`;
+  else if (k === "mongodb" || k === "mongo") url += "/";
+  if ((k === "mongodb" || k === "mongo") && user) url += "?authSource=admin";
+  return url;
+}
+
+function urlHost(apiUrl) {
+  const u = (apiUrl || "").replace(/\s/g, "");
+  if (!u) return null;
+  const m = u.match(/^[a-zA-Z][\w+.-]*:\/\/([^:/]+)/);
+  return m ? m[1] : u.match(/^([^:/]+)/)?.[1] || null;
+}
+
+/** URL de conexão externa: domínio HTTP tem prioridade; sem domínio, cai
+ * pro passthrough TCP (host_port) com a URL idiomática do banco. */
+export function externalUrl(domain, tls, hostPort, dbKind, apiUrl, envVars) {
+  const [database, user, password] = dbCredentials(dbKind, envVars);
+  if (domain && domain.trim()) {
+    const clean = domain.replace(/\/+$/, "");
+    return `${tls ? "https" : "http"}://${clean}`;
+  }
+  if (hostPort) {
+    const host = urlHost(apiUrl) || "<host>";
+    return dbConnectionUrl(dbKind, host, String(hostPort), database, user, password);
+  }
+  return "—";
+}

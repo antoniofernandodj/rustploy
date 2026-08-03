@@ -16,6 +16,9 @@ import {
   parseDotenv,
   stripAnsi,
   timeHms,
+  safeName,
+  internalUrl,
+  externalUrl,
 } from "../fmt.js";
 
 document.addEventListener("alpine:init", () => {
@@ -43,6 +46,57 @@ document.addEventListener("alpine:init", () => {
     },
     get sourceText() {
       return this.svc ? sourceSummary(this.svc.spec.source) : "—";
+    },
+
+    // ── Connection ────────────────────────────────────────────────────
+    copyMsg: "",
+    async copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text || "");
+        this.copyMsg = "copiado!";
+        setTimeout(() => (this.copyMsg = ""), 1500);
+      } catch {
+        /* clipboard indisponível (ex. contexto não-seguro) — sem drama */
+      }
+    },
+
+    /** Containers reais em execução para este serviço: só vêm no snapshot
+     * (ManagedContainer[], anexado por http_api.rs::snapshot), não no
+     * `Service` cru de `ServiceGet` — daí o cross-reference pelo id. */
+    get liveContainers() {
+      const s = this.store;
+      const entry = ((s.snap && s.snap.services) || []).find((e) => e.service.id === this.svc?.id);
+      const list = entry?.service.containers || [];
+      const colorFor = (state) => {
+        if (state === "running") return "ok";
+        if (state === "restarting" || state === "created" || state === "paused") return "warn";
+        return "muted";
+      };
+      return list.map((c) => ({
+        id: c.id,
+        idShort: (c.id || "").slice(0, 12),
+        name: c.name || "—",
+        state: c.state || "—",
+        kind: colorFor(c.state),
+      }));
+    },
+
+    get connectionInfo() {
+      const svc = this.svc;
+      if (!svc) return null;
+      const spec = svc.spec;
+      const domain = spec.domains?.[0]?.domain || spec.domain || "";
+      const tls = spec.domains?.[0]?.tls ?? spec.tls_enabled ?? false;
+      const safe = safeName(spec.name);
+      return {
+        port: spec.port,
+        hostPort: spec.host_port || "—",
+        domain: domain || "—",
+        tls: tls ? "enabled" : "disabled",
+        dbKind: spec.db_kind || null,
+        internalUrl: internalUrl(spec.db_kind, safe, spec.port),
+        externalUrl: externalUrl(domain, tls, spec.host_port, spec.db_kind, this.store.api.baseUrl, spec.env_vars),
+      };
     },
 
     get envVars() {
@@ -148,6 +202,83 @@ document.addEventListener("alpine:init", () => {
       const spec = JSON.parse(JSON.stringify(this.svc.spec));
       spec.domains = (spec.domains || []).filter((d) => d.domain !== domain);
       await this.store.saveServiceSpec(spec, "domínio removido");
+    },
+
+    // ── Healthcheck ───────────────────────────────────────────────────
+    hcKind: "none", // "none" | "tcp" | "http" | "docker"
+    hcPath: "",
+    hcStatus: "200",
+    hcInterval: "5",
+    hcTimeout: "3",
+    hcRetries: "10",
+    hcStart: "5",
+
+    /** Popula o form local a partir do spec atual — chamado ao abrir a aba
+     * (o form é editável, não reativo direto ao spec, então precisa de um
+     * ponto explícito de sincronização). */
+    initHcForm() {
+      const hc = this.svc?.spec?.healthcheck;
+      if (!hc) return;
+      if (typeof hc.kind === "string") {
+        this.hcKind = hc.kind === "DockerNative" ? "docker" : hc.kind.toLowerCase();
+      } else if (hc.kind?.Http) {
+        this.hcKind = "http";
+        this.hcPath = hc.kind.Http.path;
+        this.hcStatus = String(hc.kind.Http.expected_status);
+      }
+      this.hcInterval = String(hc.interval_secs);
+      this.hcTimeout = String(hc.timeout_secs);
+      this.hcRetries = String(hc.retries);
+      this.hcStart = String(hc.start_period_secs);
+    },
+
+    async saveHealthcheck() {
+      let kind;
+      if (this.hcKind === "http") {
+        kind = { Http: { path: this.hcPath.trim() || "/", expected_status: Number(this.hcStatus) || 200 } };
+      } else if (this.hcKind === "docker") {
+        kind = "DockerNative";
+      } else if (this.hcKind === "tcp") {
+        kind = "Tcp";
+      } else {
+        kind = "None";
+      }
+      const cur = this.svc.spec.healthcheck;
+      const spec = JSON.parse(JSON.stringify(this.svc.spec));
+      spec.healthcheck = {
+        kind,
+        interval_secs: Number(this.hcInterval) || cur.interval_secs,
+        timeout_secs: Number(this.hcTimeout) || cur.timeout_secs,
+        retries: Number(this.hcRetries) || cur.retries,
+        start_period_secs: Number(this.hcStart) || cur.start_period_secs,
+      };
+      await this.store.saveServiceSpec(spec, "healthcheck salvo");
+    },
+
+    // ── Advanced ──────────────────────────────────────────────────────
+    advReplicas: "1",
+    advRunCommand: "",
+
+    initAdvForm() {
+      const spec = this.svc?.spec;
+      if (!spec) return;
+      this.advReplicas = String(spec.replicas || 1);
+      this.advRunCommand = spec.run_command || "";
+    },
+
+    get runArgsText() {
+      const args = this.svc?.spec?.run_args || [];
+      return args.length ? args.join(" ") : "(nenhum)";
+    },
+
+    async saveAdvanced() {
+      const spec = JSON.parse(JSON.stringify(this.svc.spec));
+      let r = Number(this.advReplicas) || 1;
+      if (r < 1) r = 1;
+      spec.replicas = Math.floor(r);
+      const rc = this.advRunCommand.trim();
+      spec.run_command = rc || null;
+      await this.store.saveServiceSpec(spec, "advanced salvo");
     },
 
     get deployments() {
