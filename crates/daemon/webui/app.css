@@ -101,11 +101,14 @@ button, input {
 .trow       { width: 100%; padding: 13px 18px; align-items: center; }
 .td         { font-size: 13px; color: var(--text-2); }
 .td_key     { font-size: 13px; font-weight: 700; color: var(--accent); }
+.col_icon   { width: 28px; }
 .col_svc    { width: 240px; }
+.col_img    { width: 200px; }
 .col_proj   { width: 180px; }
 .col_state  { width: 170px; }
 .col_dur    { width: 150px; }
 .col_start  { flex: 1 1 auto; }
+.col_act    { width: 120px; justify-content: flex-end; }
 hr, .rule   { width: 100%; height: 1px; border: none; background: var(--border); margin: 0; }
 
 /* ── Stat card ────────────────────────────────────────────────────────── */
@@ -198,7 +201,11 @@ hr, .rule   { width: 100%; height: 1px; border: none; background: var(--border);
 .btn_sm_danger  { color: var(--danger); border-color: var(--danger); background: rgba(218,54,51,.10); }
 
 /* ── Sub-abas (origem do novo serviço / abas do detalhe de serviço) ────── */
-.tabs   { gap: 4px; }
+/* flex-shrink:0 pelo mesmo motivo do .log_line abaixo: sem isso, uma aba
+   com conteúdo grande (ex. Logs cheio de linhas) disputa espaço com esta
+   barra de abas dentro da coluna de altura fixa do detalhe de serviço, e o
+   flexbox espreme a barra de abas a poucos pixels — ela some da tela. */
+.tabs   { gap: 4px; flex-shrink: 0; }
 .tab_on, .tab_off {
     padding: 9px 16px; border-radius: 5px; cursor: pointer; border: none; font-family: inherit; font-size: 13px;
 }
@@ -208,7 +215,13 @@ hr, .rule   { width: 100%; height: 1px; border: none; background: var(--border);
 
 /* ── Formulários (criar projeto/serviço) ────────────────────────────────
    .field_group/.field_input já vêm da tela de login. */
-.form_panel { width: 100%; max-width: 640px; background: var(--surface); border-radius: 7px; border: 1px solid var(--border); padding: 24px; gap: 10px; }
+/* flex-shrink:0: dentro de .scroll_fill (flex column com overflow:auto), um
+   .form_panel mais alto que o espaço disponível senão é espremido pelo
+   algoritmo de flexbox em vez de simplesmente rolar — filhos como .hc_grid
+   (que não tem altura própria fixa) colapsam pra quase 0 e o <input> "flutua"
+   visualmente por cima do texto seguinte (overflow:visible). Só o scroll
+   deve ceder espaço, nunca o conteúdo. */
+.form_panel { width: 100%; max-width: 640px; flex-shrink: 0; background: var(--surface); border-radius: 7px; border: 1px solid var(--border); padding: 24px; gap: 10px; }
 
 /* ── Listas chave/valor (env vars / domínios) ───────────────────────────
    Compartilhado por Environment e Domains, mesmo padrão do client iced. */
@@ -224,6 +237,8 @@ hr, .rule   { width: 100%; height: 1px; border: none; background: var(--border);
 .env_key     { font-size: 13px; font-weight: 700; color: var(--accent); width: 220px; }
 .env_sep     { width: 10px; }
 .env_del     { color: var(--danger); padding: 4px 10px; cursor: pointer; border: none; background: none; font-family: inherit; }
+.dk_rm       { color: var(--danger); padding: 5px 12px; border-radius: 3px; cursor: pointer; border: 1px solid var(--danger); background: rgba(218,54,51,.10); font-size: 12px; }
+.dk_rm:hover { background: rgba(218,54,51,.20); }
 
 /* ── Detalhe de serviço: cabeçalho + abas ────────────────────────────── */
 .svc_head       { width: 100%; align-items: flex-start; justify-content: space-between; gap: 16px; }
@@ -246,11 +261,18 @@ hr, .rule   { width: 100%; height: 1px; border: none; background: var(--border);
 .dep_logs_btn { color: var(--text-2); padding: 5px 12px; border-radius: 3px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); }
 .dep_del_btn  { color: var(--danger); padding: 5px 12px; border-radius: 3px; cursor: pointer; border: 1px solid var(--danger); background: rgba(218,54,51,.10); }
 .col_act_2    { width: 90px; justify-content: flex-end; }
+.col_act_4    { width: 170px; justify-content: flex-end; gap: 8px; }
 
 /* ── Logs (aba Logs do serviço) ─────────────────────────────────────── */
 .log_panel { width: 100%; flex: 1 1 auto; min-height: 0; background: var(--surface); border-radius: 6px; border: 1px solid var(--border); padding: 14px 16px; gap: 8px; }
-.log_body  { width: 100%; gap: 2px; }
-.log_line  { width: 100%; gap: 12px; }
+/* flex-shrink:0 é necessário aqui: o reset global `row, column { min-height: 0 }`
+   (linha 42) tira a resistência natural desses itens a encolher, então sem
+   isso centenas de .log_line disputando espaço dentro de .scroll_fill
+   (overflow:auto) eram espremidas a ~1px de altura cada, sobrepondo os
+   glifos de todas as linhas — parecia texto embaralhado/corrompido, mas
+   era só compressão via flexbox; o scroll nunca chegava a entrar em ação. */
+.log_body  { width: 100%; gap: 2px; flex-shrink: 0; }
+.log_line  { width: 100%; gap: 12px; flex-shrink: 0; }
 .log_time  { width: 76px; font-size: 11px; color: var(--faint); }
 .log_text  { flex: 1 1 auto; font-size: 12px; color: #9DA7B3; }
 

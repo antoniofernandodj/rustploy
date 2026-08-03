@@ -27,6 +27,22 @@ export function dateDmHms(iso) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
+/** "dd/mm HH:MM" local (sem segundos — usado em listas Docker/Registry). */
+export function dateDmHm(iso) {
+  const ms = toEpochMs(iso);
+  if (ms === null) return "";
+  const d = new Date(ms);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** `term` já em minúsculas; casa se algum campo (string) contém `term`
+ * (substring, case-insensitive). Porta de fmt/util.luau::matches. */
+function matchesTerm(term, fields) {
+  if (!term) return true;
+  return fields.some((f) => typeof f === "string" && f.toLowerCase().includes(term));
+}
+
 /** Ns ou Mm Ns. */
 export function fmtSecs(secs) {
   const n = Math.floor(Number(secs) || 0);
@@ -312,4 +328,396 @@ export function externalUrl(domain, tls, hostPort, dbKind, apiUrl, envVars) {
     return dbConnectionUrl(dbKind, host, String(hostPort), database, user, password);
   }
   return "—";
+}
+
+// ── Deploy Engine / Monitoring / Ingress ──────────────────────────────────
+// Porta de fmt/dashboard.luau (ingress/host_ports/monitoring/eng_*) e
+// fmt/util.luau::domain_routes/pair_list — mesmas fórmulas, sem a truncagem
+// por coluna (Util.ellipsis/col_budgets), que só existe no glacier por causa
+// da janela redimensionável; aqui o CSS já cuida do overflow.
+
+/** `msg.services` (`[{project_name, service}]`) → `[{svc, proj}]`. */
+export function pairList(services) {
+  return (services || []).map((e) => ({ svc: e.service, proj: e.project_name || "" }));
+}
+
+/** `spec.domains` se houver, senão o legado `domain`/`tls_enabled`. Porta
+ * literal de fmt/util.luau::domain_routes — ver memória multi_domain_routes:
+ * é o helper canônico, não reimplementar ad-hoc. */
+export function domainRoutes(spec) {
+  if (spec.domains && spec.domains.length > 0) {
+    return spec.domains.map((r) => ({ domain: r.domain, port: r.port ?? null, tls: r.tls === true }));
+  }
+  if (spec.domain && spec.domain.trim()) {
+    return [{ domain: spec.domain, port: null, tls: spec.tls_enabled === true }];
+  }
+  return [];
+}
+
+/** Ingress: uma linha por rota de domínio (não filtrado pela busca). */
+export function ingressRows(pairs) {
+  const rows = [];
+  for (const p of pairs) {
+    const spec = p.svc.spec;
+    for (const r of domainRoutes(spec)) {
+      if (r.domain && r.domain.trim()) {
+        const cport = r.port ?? spec.port;
+        rows.push({
+          domain: r.domain,
+          url: `${r.tls ? "https" : "http"}://${r.domain}`,
+          service: spec.name,
+          project: p.proj,
+          upstream: `:${cport}`,
+          tls: r.tls ? "TLS" : "—",
+        });
+      }
+    }
+  }
+  return rows;
+}
+
+/** Portas TCP de host: uma linha por serviço com `host_port` configurado. */
+export function hostPortRows(pairs) {
+  const rows = [];
+  for (const p of pairs) {
+    const spec = p.svc.spec;
+    if (spec.host_port != null) {
+      rows.push({
+        service: spec.name,
+        project: p.proj,
+        hostPort: spec.host_port,
+        containerPort: spec.port,
+      });
+    }
+  }
+  rows.sort((a, b) => a.hostPort - b.hostPort);
+  return rows;
+}
+
+/** Monitoring: uma linha por serviço COM métricas vivas (`metricsById[id]`
+ * só existe depois do primeiro evento `ContainerMetrics`). */
+export function monitoringRows(pairs, metricsById) {
+  const rows = [];
+  for (const p of pairs) {
+    const m = metricsById && metricsById[p.svc.id];
+    if (m) {
+      rows.push({
+        name: p.svc.spec.name,
+        project: p.proj,
+        cpu: `${(m.cpu_percent || 0).toFixed(1)}%`,
+        mem: fmtBytes(m.mem_used_bytes),
+        rx: fmtBytes(m.net_rx_bytes),
+        tx: fmtBytes(m.net_tx_bytes),
+      });
+    }
+  }
+  return rows;
+}
+
+/** Barra de progresso em blocos (`█`/`░`). Porta literal de
+ * fmt/time.luau::progress_bar. */
+export function progressBar(percent, width = 12) {
+  const p = Number(percent) || 0;
+  let filled = Math.floor((p * width) / 100);
+  if (filled > width) filled = width;
+  if (filled < 0) filled = 0;
+  return "█".repeat(filled) + "░".repeat(width - filled);
+}
+
+/** Deploy Engine: "Executando agora". */
+export function engActiveRows(active) {
+  return (active || []).map((info) => {
+    const [label, kind] = stateLabelKind(info.state);
+    return {
+      service: info.service_name,
+      project: info.project_name,
+      stateLabel: label,
+      stateKind: kind,
+      percent: `${info.percent}%`,
+      bar: progressBar(info.percent, 12),
+      total: fmtSecs(info.elapsed_secs),
+      phase: fmtSecs(info.current_state_secs),
+      serviceId: info.service_id,
+    };
+  });
+}
+
+/** Deploy Engine: "Na fila" (o primeiro é o próximo a rodar). */
+export function engQueuedRows(queued) {
+  return (queued || []).map((info, i) => ({
+    deploymentId: info.deployment_id,
+    pos: i + 1,
+    service: info.service_name,
+    project: info.project_name,
+  }));
+}
+
+// ── Docker (host-wide: containers/imagens/volumes/networks) ──────────────
+// Porta de fmt/dashboard.luau::docker_containers/docker_images/docker_volumes/
+// docker_networks — mesmas fórmulas, sem a truncagem por coluna (decisão já
+// tomada na Fase 5: o CSS cuida do overflow na web).
+
+/** Containers do host (rodando + parados). `canRemove` só nos parados (o
+ * Docker recusa `rm` de um rodando sem force). `owner` mostra projeto/serviço
+ * quando atribuído, senão "rustploy" (managed) ou "—". */
+export function dockerContainerRows(list, term) {
+  const t = (term || "").toLowerCase();
+  const sorted = [...(list || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const rows = [];
+  for (const c of sorted) {
+    if (!matchesTerm(t, [c.name, c.image, c.state, c.project || "", c.service || ""])) continue;
+    const stateLabel = containerStateLabel(c.state);
+    let owner;
+    if (c.project && c.service) owner = `${c.project} / ${c.service}`;
+    else if (c.managed) owner = "rustploy";
+    else owner = "—";
+    const image = (c.image || "—").replace(/^sha256:/, "");
+    rows.push({
+      idFull: c.id || "",
+      id: (c.id || "").slice(0, 12),
+      name: c.name || "—",
+      image,
+      owner,
+      stateLabel: stateLabel[0],
+      stateKind: stateLabel[1],
+      canRemove: containerStopped(c.state),
+    });
+  }
+  return rows;
+}
+
+/** Rótulo/kind de um estado bruto do Docker ("running","exited",...). Porta
+ * literal de fmt/util.luau::container_state. */
+function containerStateLabel(state) {
+  const s = (state || "").toLowerCase();
+  if (s === "running") return ["running", "ok"];
+  if (s === "restarting") return ["restarting", "info"];
+  if (s === "paused") return ["paused", "warn"];
+  if (s === "created") return ["created", "info"];
+  if (s === "dead") return ["dead", "bad"];
+  return [s || "exited", "muted"];
+}
+
+/** Porta literal de fmt/util.luau::container_stopped — só os parados podem
+ * ser removidos (o Docker recusa `rm` de um rodando sem force). */
+function containerStopped(state) {
+  const s = (state || "").toLowerCase();
+  return s !== "running" && s !== "restarting" && s !== "paused";
+}
+
+export function dockerImageRows(list, term) {
+  const t = (term || "").toLowerCase();
+  const sorted = [...(list || [])].sort((a, b) => (a.tags || []).join(",").localeCompare((b.tags || []).join(",")));
+  const rows = [];
+  for (const img of sorted) {
+    const tagStr = (img.tags || []).join(" ");
+    if (!matchesTerm(t, [tagStr, img.project || "", img.service || ""])) continue;
+    const inUse = (img.containers || 0) > 0;
+    const id = (img.id || "").replace(/^sha256:/, "");
+    rows.push({
+      id: id.slice(0, 12),
+      idFull: id,
+      tags: (img.tags || []).length ? img.tags.join(", ") : "<none>",
+      size: fmtBytes(img.size_bytes),
+      created: dateDmHm(img.created),
+      project: img.project || "—",
+      service: img.service || "—",
+      owner: `${img.project || "—"} / ${img.service || "—"}`,
+      inUse,
+      inUseLabel: inUse ? "EM USO" : "SEM USO",
+      inUseKind: inUse ? "ok" : "muted",
+    });
+  }
+  return rows;
+}
+
+export function dockerVolumeRows(list, term) {
+  const t = (term || "").toLowerCase();
+  const sorted = [...(list || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const rows = [];
+  for (const v of sorted) {
+    if (!matchesTerm(t, [v.name, v.driver])) continue;
+    rows.push({
+      name: v.name,
+      nameFull: v.name,
+      driver: v.driver,
+      mountpoint: v.mountpoint,
+      size: v.size_bytes != null && v.size_bytes >= 0 ? fmtBytes(v.size_bytes) : "—",
+      inUse: !!v.in_use,
+      inUseLabel: v.in_use ? "EM USO" : "SEM USO",
+      inUseKind: v.in_use ? "ok" : "muted",
+    });
+  }
+  return rows;
+}
+
+export function dockerNetworkRows(list, term) {
+  const t = (term || "").toLowerCase();
+  const sorted = [...(list || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const rows = [];
+  for (const n of sorted) {
+    if (!matchesTerm(t, [n.name, n.project || ""])) continue;
+    rows.push({
+      name: n.name,
+      idFull: n.id || "",
+      driver: n.driver,
+      scope: n.scope,
+      project: n.project || "—",
+      containers: n.container_count || 0,
+      inUse: !!n.in_use,
+      inUseLabel: n.in_use ? "EM USO" : "SEM USO",
+      inUseKind: n.in_use ? "ok" : "muted",
+    });
+  }
+  return rows;
+}
+
+// ── Registry OCI embutido ──────────────────────────────────────────────────
+// Porta de fmt/registry.luau.
+
+/** Lista de repositórios (filtrada pela busca global). */
+export function registryRepoRows(list, term) {
+  const t = (term || "").toLowerCase();
+  const rows = [];
+  for (const r of list || []) {
+    if (!matchesTerm(t, [r.name])) continue;
+    rows.push({
+      name: r.name,
+      tagCount: r.tag_count || 0,
+      size: fmtBytes(r.size_bytes || 0),
+      created: dateDmHm(r.created_at),
+    });
+  }
+  return rows;
+}
+
+/** Tags de UM repositório (sem filtro — lista pequena, buscada sob demanda). */
+export function registryTagRows(list) {
+  return (list || []).map((t) => ({
+    tag: t.tag,
+    digest: (t.digest || "").slice(0, 12),
+    digestFull: t.digest,
+    size: fmtBytes(t.size_bytes || 0),
+    updated: dateDmHm(t.updated_at),
+  }));
+}
+
+/** Tokens de acesso Basic auth (sem filtro — lista pequena). */
+export function registryTokenRows(list) {
+  return (list || []).map((t) => ({
+    name: t.name,
+    scope: t.scope,
+    created: dateDmHm(t.created_at),
+    lastUsed: t.last_used_at ? dateDmHm(t.last_used_at) : "nunca",
+  }));
+}
+
+// ── Schedules (jobs one-shot via docker-compose) ──────────────────────────
+// Porta de fmt/jobs.luau.
+
+const WEEKDAYS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
+
+/** Resumo textual de uma `Recurrence?` (nil = só manual). Porta literal de
+ * fmt/jobs.luau::recurrence_label. */
+export function recurrenceLabel(r) {
+  if (r == null) return "manual";
+  if (r.IntervalHours != null) return `a cada ${r.IntervalHours}h`;
+  if (r.Daily) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `diariamente às ${pad(r.Daily.hour)}:${pad(r.Daily.minute)}`;
+  }
+  if (r.Weekly) {
+    const pad = (n) => String(n).padStart(2, "0");
+    const wd = WEEKDAYS[((r.Weekly.weekday % 7) + 7) % 7] || "?";
+    return `semanalmente ${wd} às ${pad(r.Weekly.hour)}:${pad(r.Weekly.minute)}`;
+  }
+  return "—";
+}
+
+/** Rótulo/kind da última execução de um job. `run == null` (nunca rodou) /
+ * `run.success == null` (rodando agora) / `true`/`false` (ok/falhou). Porta
+ * literal de fmt/jobs.luau::run_status. */
+export function jobRunStateLabel(run) {
+  if (run == null) return ["nunca rodou", "muted"];
+  if (run.success == null) return ["rodando…", "warn"];
+  return run.success ? ["ok", "ok"] : ["falhou", "bad"];
+}
+
+/** Tela global "Schedules": uma linha por job, de todos os projetos. */
+export function jobSummaryRows(list, term) {
+  const t = (term || "").toLowerCase();
+  const rows = [];
+  for (const s of list || []) {
+    const job = s.job;
+    if (!matchesTerm(t, [job.name, s.project_name, s.trigger_service_name || ""])) continue;
+    const [lastRunLabel, lastRunKind] = jobRunStateLabel(s.last_run);
+    rows.push({
+      id: job.id,
+      name: job.name,
+      project: s.project_name,
+      owner: s.trigger_service_name ? `${s.project_name} / ${s.trigger_service_name}` : s.project_name,
+      recurrence: recurrenceLabel(job.recurrence),
+      enabled: job.enabled,
+      enabledLabel: job.enabled ? "Pausar" : "Ativar",
+      lastRunLabel,
+      lastRunKind,
+      lastRunId: s.last_run ? s.last_run.id : "",
+      nextRunAt: job.next_run_at ? dateDmHm(job.next_run_at) : "—",
+    });
+  }
+  return rows;
+}
+
+// ── Settings (Web Server / Git / Infra as Code) ───────────────────────────
+
+/** Redirect URI do OAuth (`{base}/oauth/{gitea|github}/callback`). Porta
+ * literal de helpers.luau::oauth_redirect_uri. */
+export function oauthRedirectUri(base, kind) {
+  const seg = kind === "github" ? "github" : "gitea";
+  const d = (base || "").trim().replace(/\/+$/, "");
+  if (d === "") return `<URL pública do daemon indisponível>/oauth/${seg}/callback`;
+  return `${d}/oauth/${seg}/callback`;
+}
+
+function gitKindLabel(kind) {
+  if (kind === "Github") return "GitHub";
+  if (kind === "Gitea") return "Gitea";
+  return kind || "Git";
+}
+
+/** Porta literal de fmt/git.luau::git_providers. */
+export function gitProviderRows(list) {
+  return (list || []).map((p) => {
+    const login = p.account?.login;
+    const connected = login != null;
+    return {
+      id: p.id,
+      name: p.name,
+      kind: gitKindLabel(p.kind),
+      display: connected ? `${p.name || ""} (@${login})` : `${p.name || ""} — não conectado`,
+      baseUrl: p.base_url,
+      authMode: p.auth_mode === "OAuth" ? "OAuth2" : "PAT",
+      account: connected ? `@${login}` : "(pendente — autorize no navegador)",
+      connected,
+    };
+  });
+}
+
+/** Deploy Engine: "Histórico 24h". */
+export function engRecentRows(recent) {
+  return (recent || []).map((info) => {
+    const [label, kind] = stateLabelKind(info.state);
+    let icon = "○";
+    if (info.state === "Live") icon = "✓";
+    else if (info.state === "Failed") icon = "✕";
+    return {
+      icon,
+      service: info.service_name,
+      project: info.project_name,
+      stateLabel: label,
+      stateKind: kind,
+      duration: fmtSecs(info.elapsed_secs),
+      start: timeHms(info.started_at),
+    };
+  });
 }

@@ -96,25 +96,30 @@
         <text :class="$store.app.view === 'deployments' ? 'nav_icon_on' : 'nav_icon_off'">▶</text>
         <text :class="$store.app.view === 'deployments' ? 'nav_label_on' : 'nav_label_off'">Deployments</text>
       </button>
-      <button class="nav_row_off" type="button" disabled title="em breve — próxima fase" style="opacity:.5">
-        <text class="nav_icon_off">⚡</text>
-        <text class="nav_label_off">Deploy Engine</text>
+      <button type="button" @click="$store.app.nav('deploy_engine')"
+              :class="$store.app.view === 'deploy_engine' ? 'nav_row_on' : 'nav_row_off'">
+        <text :class="$store.app.view === 'deploy_engine' ? 'nav_icon_on' : 'nav_icon_off'">⚡</text>
+        <text :class="$store.app.view === 'deploy_engine' ? 'nav_label_on' : 'nav_label_off'">Deploy Engine</text>
       </button>
-      <button class="nav_row_off" type="button" disabled title="em breve — próxima fase" style="opacity:.5">
-        <text class="nav_icon_off">◔</text>
-        <text class="nav_label_off">Monitoring</text>
+      <button type="button" @click="$store.app.nav('monitoring')"
+              :class="$store.app.view === 'monitoring' ? 'nav_row_on' : 'nav_row_off'">
+        <text :class="$store.app.view === 'monitoring' ? 'nav_icon_on' : 'nav_icon_off'">◔</text>
+        <text :class="$store.app.view === 'monitoring' ? 'nav_label_on' : 'nav_label_off'">Monitoring</text>
       </button>
-      <button class="nav_row_off" type="button" disabled title="em breve — próxima fase" style="opacity:.5">
-        <text class="nav_icon_off">◫</text>
-        <text class="nav_label_off">Schedules</text>
+      <button type="button" @click="$store.app.nav('schedules')"
+              :class="$store.app.view === 'schedules' ? 'nav_row_on' : 'nav_row_off'">
+        <text :class="$store.app.view === 'schedules' ? 'nav_icon_on' : 'nav_icon_off'">◫</text>
+        <text :class="$store.app.view === 'schedules' ? 'nav_label_on' : 'nav_label_off'">Schedules</text>
       </button>
-      <button class="nav_row_off" type="button" disabled title="em breve — próxima fase" style="opacity:.5">
-        <text class="nav_icon_off">↦</text>
-        <text class="nav_label_off">Ingress</text>
+      <button type="button" @click="$store.app.nav('ingress')"
+              :class="$store.app.view === 'ingress' ? 'nav_row_on' : 'nav_row_off'">
+        <text :class="$store.app.view === 'ingress' ? 'nav_icon_on' : 'nav_icon_off'">↦</text>
+        <text :class="$store.app.view === 'ingress' ? 'nav_label_on' : 'nav_label_off'">Ingress</text>
       </button>
-      <button class="nav_row_off" type="button" disabled title="em breve — próxima fase" style="opacity:.5">
-        <text class="nav_icon_off">◉</text>
-        <text class="nav_label_off">Docker</text>
+      <button type="button" @click="$store.app.nav('docker')"
+              :class="$store.app.view === 'docker' ? 'nav_row_on' : 'nav_row_off'">
+        <text :class="$store.app.view === 'docker' ? 'nav_icon_on' : 'nav_icon_off'">◉</text>
+        <text :class="$store.app.view === 'docker' ? 'nav_label_on' : 'nav_label_off'">Docker</text>
       </button>
       <text class="nav_section">MANAGEMENT</text>
       <button type="button" @click="$store.app.nav('projects')"
@@ -124,9 +129,10 @@
       </button>
       <column class="nav_spacer"></column>
       <hr class="rule" />
-      <button class="nav_row_off" type="button" disabled title="em breve — próxima fase" style="opacity:.5">
-        <text class="nav_icon_off">⌥</text>
-        <text class="nav_label_off">Settings</text>
+      <button type="button" @click="$store.app.nav('settings')"
+              :class="$store.app.view === 'settings' ? 'nav_row_on' : 'nav_row_off'">
+        <text :class="$store.app.view === 'settings' ? 'nav_icon_on' : 'nav_icon_off'">⌥</text>
+        <text :class="$store.app.view === 'settings' ? 'nav_label_on' : 'nav_label_off'">Settings</text>
       </button>
     </column>
 
@@ -195,6 +201,1008 @@
                 Nenhum deployment ainda.
               </text>
             </column>
+          </column>
+        </column>
+      </column>
+
+      <!-- ── Deploy Engine ────────────────────────────────────────────── -->
+      <column class="content" x-data="deployEngine" x-show="$store.app.view === 'deploy_engine'">
+        <row class="header_row">
+          <column class="header_titles">
+            <text class="title">Deploy Engine</text>
+            <text class="subtitle">Pipeline de deploy: em andamento e histórico recente.</text>
+          </column>
+          <row class="stats_row stats_hide_lg">
+            <column class="stat_card">
+              <text class="label_cap">ATIVOS</text>
+              <text class="stat_num_g" x-text="active.length"></text>
+            </column>
+            <column class="stat_card">
+              <text class="label_cap">SUCESSO 24H</text>
+              <text class="stat_num" x-text="successCount"></text>
+            </column>
+            <column class="stat_card">
+              <text class="label_cap">FALHAS 24H</text>
+              <text class="stat_num" x-text="failedCount"></text>
+            </column>
+            <column class="stat_card">
+              <text class="label_cap">TOTAL 24H</text>
+              <text class="stat_num" x-text="totalCount"></text>
+            </column>
+            <column class="stat_card">
+              <text class="label_cap">UPTIME</text>
+              <text class="stat_num" x-text="uptime"></text>
+            </column>
+          </row>
+        </row>
+        <text class="muted" x-show="store.engineMsg" x-text="store.engineMsg"></text>
+
+        <!-- Na fila -->
+        <column class="panel_fill">
+          <row class="env_head">
+            <text class="label_cap" x-text="'NA FILA (' + queued.length + ')'"></text>
+            <button class="copy_btn" type="button" @click="store.queueTogglePause()"
+                    x-text="paused ? '▶ Retomar fila' : '⏸ Pausar fila'"></button>
+          </row>
+          <text class="muted" x-show="paused">Fila pausada — deploys esperam até você retomar.</text>
+          <text class="muted" x-show="queued.length === 0" style="padding:12px">Nenhum deploy na fila.</text>
+          <column class="table_body">
+            <template x-for="q in queued" :key="q.deploymentId">
+              <row class="trow">
+                <text class="td_key col_svc" x-text="q.pos + '. ' + q.service"></text>
+                <text class="td col_proj" x-text="q.project"></text>
+                <button class="copy_btn" type="button" @click="store.queuePromote(q.deploymentId)">↑ topo</button>
+                <button class="env_del" type="button" @click="store.queueCancel(q.deploymentId)">✕</button>
+              </row>
+            </template>
+          </column>
+        </column>
+
+        <!-- Executando agora -->
+        <column class="panel_fill">
+          <text class="label_cap" x-text="'EXECUTANDO AGORA (' + active.length + ')'"></text>
+          <row class="thead">
+            <text class="th col_svc">SERVIÇO</text>
+            <text class="th col_proj">PROJETO</text>
+            <text class="th col_state">ESTADO</text>
+            <text class="th col_dur">PROGRESSO</text>
+            <text class="th col_dur">TOTAL</text>
+            <text class="th col_start">FASE</text>
+          </row>
+          <column class="scroll_fill">
+            <column class="table_body">
+              <text class="muted" x-show="active.length === 0" style="padding:16px">Nenhum deploy em andamento.</text>
+              <template x-for="a in active" :key="a.serviceId">
+                <column class="row_wrap">
+                  <row class="trow">
+                    <text class="td_key col_svc" x-text="a.service"></text>
+                    <text class="td col_proj" x-text="a.project"></text>
+                    <row class="state_cell col_state">
+                      <text class="state_dot" :class="'state_' + a.stateKind">●</text>
+                      <text class="state_lbl" :class="'state_' + a.stateKind" x-text="a.stateLabel"></text>
+                    </row>
+                    <text class="td col_dur" x-text="a.bar + ' ' + a.percent"></text>
+                    <text class="muted col_dur" x-text="a.total"></text>
+                    <text class="muted col_start" x-text="a.phase"></text>
+                  </row>
+                  <hr class="rule" />
+                </column>
+              </template>
+            </column>
+          </column>
+
+          <!-- Histórico 24h -->
+          <text class="label_cap" x-text="'HISTÓRICO 24H (' + recent.length + ')'"></text>
+          <row class="thead">
+            <text class="th col_icon"></text>
+            <text class="th col_svc">SERVIÇO</text>
+            <text class="th col_proj">PROJETO</text>
+            <text class="th col_state">ESTADO</text>
+            <text class="th col_dur">DURAÇÃO</text>
+            <text class="th col_start">INÍCIO</text>
+          </row>
+          <column class="scroll_fill">
+            <column class="table_body">
+              <text class="muted" x-show="recent.length === 0" style="padding:16px">
+                Nenhum deploy concluído nas últimas 24h.
+              </text>
+              <template x-for="(r, i) in recent" :key="r.service + r.start + i">
+                <column class="row_wrap">
+                  <row class="trow">
+                    <text class="td col_icon" x-text="r.icon"></text>
+                    <text class="td_key col_svc" x-text="r.service"></text>
+                    <text class="td col_proj" x-text="r.project"></text>
+                    <row class="state_cell col_state">
+                      <text class="state_dot" :class="'state_' + r.stateKind">●</text>
+                      <text class="state_lbl" :class="'state_' + r.stateKind" x-text="r.stateLabel"></text>
+                    </row>
+                    <text class="muted col_dur" x-text="r.duration"></text>
+                    <text class="muted col_start" x-text="r.start"></text>
+                  </row>
+                  <hr class="rule" />
+                </column>
+              </template>
+            </column>
+          </column>
+        </column>
+      </column>
+
+      <!-- ── Monitoring ───────────────────────────────────────────────── -->
+      <column class="content" x-data="monitoring" x-show="$store.app.view === 'monitoring'">
+        <row class="header_row">
+          <column class="header_titles">
+            <text class="title">Monitoring</text>
+            <text class="subtitle">Host and per-container resource usage.</text>
+          </column>
+          <row class="stats_row stats_hide_md">
+            <column class="stat_card">
+              <text class="label_cap">CPU</text>
+              <text class="stat_num_g" x-text="store.sysCpu"></text>
+            </column>
+            <column class="stat_card">
+              <text class="label_cap">MEMORY</text>
+              <text class="stat_num" x-text="store.sysMem"></text>
+            </column>
+            <column class="stat_card">
+              <text class="label_cap">DISK</text>
+              <text class="stat_num" x-text="store.sysDisk"></text>
+            </column>
+            <column class="stat_card">
+              <text class="label_cap">LOAD</text>
+              <text class="stat_num" x-text="store.sysLoad"></text>
+            </column>
+          </row>
+        </row>
+        <column class="panel_fill">
+          <row class="thead">
+            <text class="th col_svc">CONTAINER</text>
+            <text class="th col_proj">PROJETO</text>
+            <text class="th col_dur">CPU</text>
+            <text class="th col_dur">MEM</text>
+            <text class="th col_dur">RX</text>
+            <text class="th col_start">TX</text>
+          </row>
+          <column class="scroll_fill">
+            <column class="table_body">
+              <template x-for="m in rows" :key="m.name + m.project">
+                <column class="row_wrap">
+                  <row class="trow">
+                    <text class="td_key col_svc" x-text="m.name"></text>
+                    <text class="td col_proj" x-text="m.project"></text>
+                    <text class="td col_dur" x-text="m.cpu"></text>
+                    <text class="td col_dur" x-text="m.mem"></text>
+                    <text class="muted col_dur" x-text="m.rx"></text>
+                    <text class="muted col_start" x-text="m.tx"></text>
+                  </row>
+                  <hr class="rule" />
+                </column>
+              </template>
+              <text class="muted" x-show="rows.length === 0" style="padding:16px">
+                Nenhuma métrica ainda — aguardando o primeiro container em execução.
+              </text>
+            </column>
+          </column>
+        </column>
+      </column>
+
+      <!-- ── Ingress ──────────────────────────────────────────────────── -->
+      <column class="content" x-data="ingress" x-show="$store.app.view === 'ingress'">
+        <row class="header_row">
+          <column class="header_titles">
+            <text class="title">Ingress</text>
+            <text class="subtitle">Active routes in the reverse proxy.</text>
+          </column>
+          <row class="stats_row">
+            <column class="stat_card">
+              <text class="label_cap">ROUTES</text>
+              <text class="stat_num_g" x-text="routes.length"></text>
+            </column>
+            <column class="stat_card">
+              <text class="label_cap">PORTAS DE HOST</text>
+              <text class="stat_num" x-text="hostPorts.length"></text>
+            </column>
+          </row>
+        </row>
+        <column class="panel_fill">
+          <row class="thead">
+            <text class="th col_svc">DOMÍNIO</text>
+            <text class="th col_proj">SERVIÇO</text>
+            <text class="th col_dur">UPSTREAM</text>
+            <text class="th col_start">TLS</text>
+          </row>
+          <column class="scroll_fill">
+            <column class="table_body">
+              <template x-for="i in routes" :key="i.domain">
+                <column class="row_wrap">
+                  <row class="trow">
+                    <text class="td_key col_svc" x-text="i.domain"></text>
+                    <text class="td col_proj" x-text="i.service"></text>
+                    <text class="td col_dur" x-text="i.upstream"></text>
+                    <text class="muted col_start" x-text="i.tls"></text>
+                  </row>
+                  <hr class="rule" />
+                </column>
+              </template>
+            </column>
+          </column>
+
+          <text class="label_cap" x-text="'PORTAS TCP DE HOST (' + hostPorts.length + ')'"></text>
+          <row class="thead">
+            <text class="th col_svc">SERVIÇO</text>
+            <text class="th col_proj">PROJETO</text>
+            <text class="th col_dur">PORTA HOST</text>
+            <text class="th col_start">PORTA CONTAINER</text>
+          </row>
+          <text class="muted" x-show="hostPorts.length === 0" style="padding:12px">
+            Nenhum serviço com porta de host configurada.
+          </text>
+          <column class="table_body">
+            <template x-for="hp in hostPorts" :key="hp.service">
+              <column class="row_wrap">
+                <row class="trow">
+                  <text class="td_key col_svc" x-text="hp.service"></text>
+                  <text class="td col_proj" x-text="hp.project"></text>
+                  <text class="td col_dur" x-text="hp.hostPort"></text>
+                  <text class="muted col_start" x-text="hp.containerPort"></text>
+                </row>
+                <hr class="rule" />
+              </column>
+            </template>
+          </column>
+        </column>
+      </column>
+
+      <!-- ── Docker ───────────────────────────────────────────────────── -->
+      <column class="content" x-data="docker" x-show="$store.app.view === 'docker'">
+        <row class="header_row">
+          <column class="header_titles">
+            <text class="title">Docker</text>
+            <text class="subtitle">Containers, imagens, volumes e networks do host.</text>
+          </column>
+          <row class="stats_row stats_hide_md">
+            <column class="stat_card">
+              <text class="label_cap">CONTAINERS</text>
+              <text class="stat_num_g" x-text="store.snap?.docker_containers?.length || 0"></text>
+            </column>
+            <column class="stat_card">
+              <text class="label_cap">IMAGENS</text>
+              <text class="stat_num" x-text="store.snap?.docker_images?.length || 0"></text>
+            </column>
+            <column class="stat_card">
+              <text class="label_cap">VOLUMES</text>
+              <text class="stat_num" x-text="store.snap?.docker_volumes?.length || 0"></text>
+            </column>
+            <column class="stat_card">
+              <text class="label_cap">NETWORKS</text>
+              <text class="stat_num_g" x-text="store.snap?.docker_networks?.length || 0"></text>
+            </column>
+          </row>
+        </row>
+
+        <row class="tabs">
+          <button type="button" :class="store.dockerTab === 'containers' ? 'tab_on' : 'tab_off'"
+                  @click="store.dockerSetTab('containers')">Containers</button>
+          <button type="button" :class="store.dockerTab === 'images' ? 'tab_on' : 'tab_off'"
+                  @click="store.dockerSetTab('images')">Images</button>
+          <button type="button" :class="store.dockerTab === 'volumes' ? 'tab_on' : 'tab_off'"
+                  @click="store.dockerSetTab('volumes')">Volumes</button>
+          <button type="button" :class="store.dockerTab === 'networks' ? 'tab_on' : 'tab_off'"
+                  @click="store.dockerSetTab('networks')">Networks</button>
+          <button type="button" :class="store.dockerTab === 'registry' ? 'tab_on' : 'tab_off'"
+                  @click="store.dockerSetTab('registry')">Registry</button>
+        </row>
+        <hr class="rule" />
+
+        <!-- Containers -->
+        <column class="panel_fill" x-show="store.dockerTab === 'containers'">
+          <row class="env_head">
+            <text class="muted_fill" x-text="containers.length + ' container(s)'"></text>
+            <button class="btn_danger" type="button" @click="store.dockerPruneContainers()">Limpar parados</button>
+          </row>
+          <text class="muted" x-show="store.dockerMsg" x-text="store.dockerMsg"></text>
+          <row class="thead">
+            <text class="th col_svc">NOME</text>
+            <text class="th col_img">IMAGEM</text>
+            <text class="th col_state">DONO</text>
+            <text class="th col_dur">ESTADO</text>
+            <text class="th col_act">AÇÃO</text>
+          </row>
+          <column class="scroll_fill">
+            <column class="table_body">
+              <template x-for="c in containers" :key="c.idFull">
+                <column class="row_wrap">
+                  <row class="trow">
+                    <text class="td_key col_svc" x-text="c.name"></text>
+                    <text class="td col_img" x-text="c.image"></text>
+                    <text class="muted col_state" x-text="c.owner"></text>
+                    <row class="state_cell col_dur">
+                      <text class="state_dot" :class="'state_' + c.stateKind">●</text>
+                      <text class="state_lbl" :class="'state_' + c.stateKind" x-text="c.stateLabel"></text>
+                    </row>
+                    <row class="col_act">
+                      <button class="dk_rm" type="button" x-show="c.canRemove"
+                              @click="store.dockerRemoveContainer(c.idFull)">Remover</button>
+                    </row>
+                  </row>
+                  <hr class="rule" />
+                </column>
+              </template>
+              <text class="muted" x-show="containers.length === 0" style="padding:16px">Nenhum container.</text>
+            </column>
+          </column>
+        </column>
+
+        <!-- Images -->
+        <column class="panel_fill" x-show="store.dockerTab === 'images'">
+          <row class="env_head">
+            <text class="muted_fill" x-text="images.length + ' imagem(ns)'"></text>
+            <label class="check_row">
+              <input type="checkbox" x-model="store.onlyUsedImages" /><span>Somente em uso</span>
+            </label>
+            <label class="check_row">
+              <input type="checkbox" x-model="store.pruneAllImages" /><span>-a (limpar tudo, não só dangling)</span>
+            </label>
+            <button class="btn_danger" type="button" @click="store.dockerPruneImages()">Limpar sem uso</button>
+          </row>
+          <text class="muted" x-show="store.dockerMsg" x-text="store.dockerMsg"></text>
+          <row class="thead">
+            <text class="th col_svc">TAGS</text>
+            <text class="th col_proj">PROJETO / SERVIÇO</text>
+            <text class="th col_dur">TAMANHO</text>
+            <text class="th col_dur">CRIADA</text>
+            <text class="th col_state">USO</text>
+            <text class="th col_act">AÇÃO</text>
+          </row>
+          <column class="scroll_fill">
+            <column class="table_body">
+              <template x-for="i in images" :key="i.idFull">
+                <column class="row_wrap">
+                  <row class="trow">
+                    <text class="td_key col_svc" x-text="i.tags"></text>
+                    <text class="td col_proj" x-text="i.owner"></text>
+                    <text class="muted col_dur" x-text="i.size"></text>
+                    <text class="muted col_dur" x-text="i.created"></text>
+                    <row class="state_cell col_state">
+                      <text class="state_dot" :class="'state_' + i.inUseKind">●</text>
+                      <text class="state_lbl" :class="'state_' + i.inUseKind" x-text="i.inUseLabel"></text>
+                    </row>
+                    <row class="col_act">
+                      <button class="dk_rm" type="button" x-show="!i.inUse"
+                              @click="store.dockerRemoveImage(i.idFull)">Remover</button>
+                    </row>
+                  </row>
+                  <hr class="rule" />
+                </column>
+              </template>
+              <text class="muted" x-show="images.length === 0" style="padding:16px">Nenhuma imagem.</text>
+            </column>
+          </column>
+        </column>
+
+        <!-- Volumes -->
+        <column class="panel_fill" x-show="store.dockerTab === 'volumes'">
+          <row class="env_head">
+            <text class="muted_fill" x-text="volumes.length + ' volume(s)'"></text>
+            <label class="check_row">
+              <input type="checkbox" x-model="store.onlyUsedVolumes" /><span>Somente em uso</span>
+            </label>
+            <label class="check_row">
+              <input type="checkbox" x-model="store.pruneAllVolumes" /><span>-a (limpar tudo, não só anônimos)</span>
+            </label>
+            <button class="btn_danger" type="button" @click="store.dockerPruneVolumes()">Limpar sem uso</button>
+          </row>
+          <text class="muted" x-show="store.dockerMsg" x-text="store.dockerMsg"></text>
+          <row class="thead">
+            <text class="th col_svc">NOME</text>
+            <text class="th col_proj">DRIVER</text>
+            <text class="th col_dur">TAMANHO</text>
+            <text class="th col_state">USO</text>
+            <text class="th col_act">AÇÃO</text>
+          </row>
+          <column class="scroll_fill">
+            <column class="table_body">
+              <template x-for="v in volumes" :key="v.nameFull">
+                <column class="row_wrap">
+                  <row class="trow">
+                    <text class="td_key col_svc" x-text="v.name"></text>
+                    <text class="td col_proj" x-text="v.driver"></text>
+                    <text class="muted col_dur" x-text="v.size"></text>
+                    <row class="state_cell col_state">
+                      <text class="state_dot" :class="'state_' + v.inUseKind">●</text>
+                      <text class="state_lbl" :class="'state_' + v.inUseKind" x-text="v.inUseLabel"></text>
+                    </row>
+                    <row class="col_act">
+                      <button class="dk_rm" type="button" x-show="!v.inUse"
+                              @click="store.dockerRemoveVolume(v.nameFull)">Remover</button>
+                    </row>
+                  </row>
+                  <hr class="rule" />
+                </column>
+              </template>
+              <text class="muted" x-show="volumes.length === 0" style="padding:16px">Nenhum volume.</text>
+            </column>
+          </column>
+        </column>
+
+        <!-- Networks -->
+        <column class="panel_fill" x-show="store.dockerTab === 'networks'">
+          <row class="env_head">
+            <text class="muted_fill" x-text="networks.length + ' network(s)'"></text>
+            <label class="check_row">
+              <input type="checkbox" x-model="store.onlyUsedNetworks" /><span>Somente em uso</span>
+            </label>
+            <button class="btn_danger" type="button" @click="store.dockerPruneNetworks()">Limpar sem uso</button>
+          </row>
+          <text class="muted" x-show="store.dockerMsg" x-text="store.dockerMsg"></text>
+          <row class="thead">
+            <text class="th col_svc">NOME</text>
+            <text class="th col_proj">PROJETO</text>
+            <text class="th col_dur">DRIVER</text>
+            <text class="th col_dur">CONTAINERS</text>
+            <text class="th col_state">USO</text>
+            <text class="th col_act">AÇÃO</text>
+          </row>
+          <column class="scroll_fill">
+            <column class="table_body">
+              <template x-for="n in networks" :key="n.idFull">
+                <column class="row_wrap">
+                  <row class="trow">
+                    <text class="td_key col_svc" x-text="n.name"></text>
+                    <text class="td col_proj" x-text="n.project"></text>
+                    <text class="muted col_dur" x-text="n.driver"></text>
+                    <text class="muted col_dur" x-text="n.containers"></text>
+                    <row class="state_cell col_state">
+                      <text class="state_dot" :class="'state_' + n.inUseKind">●</text>
+                      <text class="state_lbl" :class="'state_' + n.inUseKind" x-text="n.inUseLabel"></text>
+                    </row>
+                    <row class="col_act">
+                      <button class="dk_rm" type="button" x-show="!n.inUse"
+                              @click="store.dockerRemoveNetwork(n.idFull)">Remover</button>
+                    </row>
+                  </row>
+                  <hr class="rule" />
+                </column>
+              </template>
+              <text class="muted" x-show="networks.length === 0" style="padding:16px">Nenhuma network.</text>
+            </column>
+          </column>
+        </column>
+
+        <!-- Registry -->
+        <column class="panel_fill" x-show="store.dockerTab === 'registry'">
+          <row class="env_head">
+            <text class="muted_fill"
+                  x-text="'Registry ' + registryStatusLabel + ' · ' + repos.length + ' repositório(s)'"></text>
+            <button class="btn_danger" type="button" x-show="store.snap?.registry_status?.enabled"
+                    @click="store.registryGc()">Executar GC</button>
+          </row>
+          <text class="muted" x-show="store.registryMsg" x-text="store.registryMsg"></text>
+
+          <!-- Lista de repositórios -->
+          <column x-show="!store.registrySelectedRepo">
+            <row class="thead">
+              <text class="th col_svc">REPOSITÓRIO</text>
+              <text class="th col_proj">TAGS</text>
+              <text class="th col_dur">TAMANHO</text>
+              <text class="th col_dur">CRIADO</text>
+              <text class="th col_act_2">AÇÃO</text>
+            </row>
+            <text class="muted" x-show="repos.length === 0" style="padding:16px">
+              Nenhum repositório ainda. Faça `docker push` para o registry embutido.
+            </text>
+            <column class="scroll_fill">
+              <column class="table_body">
+                <template x-for="r in repos" :key="r.name">
+                  <column class="row_wrap">
+                    <row class="trow">
+                      <text class="td_key col_svc" x-text="r.name"></text>
+                      <text class="td col_proj" x-text="r.tagCount"></text>
+                      <text class="muted col_dur" x-text="r.size"></text>
+                      <text class="muted col_dur" x-text="r.created"></text>
+                      <row class="col_act_2">
+                        <button class="copy_btn" type="button" title="Ver tags"
+                                @click="store.registryOpenRepo(r.name)">≡</button>
+                        <button class="env_del" type="button" title="Remover"
+                                @click="store.registryRmRepo(r.name)">✕</button>
+                      </row>
+                    </row>
+                    <hr class="rule" />
+                  </column>
+                </template>
+              </column>
+            </column>
+
+            <text class="label_cap" x-text="'TOKENS DE ACESSO (' + tokens.length + ')'"></text>
+            <row class="env_head">
+              <text class="muted_fill">Basic auth (docker login) — o segredo só aparece uma vez, na criação.</text>
+              <button class="btn_primary" type="button" @click="openTokenModal()">+ Novo token</button>
+            </row>
+            <text class="muted" x-show="tokens.length === 0" style="padding:12px">
+              Nenhum token ainda. Sem token nenhum push/pull é autenticado — crie um antes de usar o registry.
+            </text>
+            <row class="thead" x-show="tokens.length > 0">
+              <text class="th col_svc">NOME</text>
+              <text class="th col_proj">ESCOPO</text>
+              <text class="th col_dur">CRIADO</text>
+              <text class="th col_dur">ÚLTIMO USO</text>
+              <text class="th col_act">AÇÃO</text>
+            </row>
+            <column class="table_body">
+              <template x-for="tk in tokens" :key="tk.name">
+                <row class="trow">
+                  <text class="td_key col_svc" x-text="tk.name"></text>
+                  <text class="td col_proj" x-text="tk.scope"></text>
+                  <text class="muted col_dur" x-text="tk.created"></text>
+                  <text class="muted col_dur" x-text="tk.lastUsed"></text>
+                  <row class="col_act">
+                    <button class="env_del" type="button" title="Revogar"
+                            @click="store.registryRmToken(tk.name)">✕</button>
+                  </row>
+                </row>
+                <hr class="rule" />
+              </template>
+            </column>
+          </column>
+
+          <!-- Tags do repositório selecionado -->
+          <column x-show="store.registrySelectedRepo">
+            <row class="env_head">
+              <text class="muted_fill" x-text="store.registrySelectedRepo + ' — ' + tags.length + ' tag(s)'"></text>
+              <button class="btn_ghost" type="button" @click="store.registryCloseRepo()">← Voltar</button>
+            </row>
+            <row class="thead">
+              <text class="th col_svc">TAG</text>
+              <text class="th col_proj">DIGEST</text>
+              <text class="th col_dur">TAMANHO</text>
+              <text class="th col_dur">ATUALIZADA</text>
+              <text class="th col_act">AÇÃO</text>
+            </row>
+            <column class="content_center" x-show="store.registryTagsLoading" style="padding:24px">
+              <text class="muted">carregando…</text>
+            </column>
+            <column class="scroll_fill" x-show="!store.registryTagsLoading">
+              <column class="table_body">
+                <template x-for="t in tags" :key="t.tag">
+                  <column class="row_wrap">
+                    <row class="trow">
+                      <text class="td_key col_svc" x-text="t.tag"></text>
+                      <text class="muted col_proj" x-text="t.digest"></text>
+                      <text class="muted col_dur" x-text="t.size"></text>
+                      <text class="muted col_dur" x-text="t.updated"></text>
+                      <row class="col_act">
+                        <button class="dk_rm" type="button" @click="store.registryRmTag(t.tag)">Remover</button>
+                      </row>
+                    </row>
+                    <hr class="rule" />
+                  </column>
+                </template>
+              </column>
+            </column>
+          </column>
+        </column>
+
+        <!-- Modal "novo token de registry": 2 passos, form → reveal (o
+             segredo só aparece uma vez e nunca mais é recuperável). -->
+        <column class="modal_backdrop" x-show="showTokenModal" @click.self="closeTokenModal()">
+          <column class="modal_box">
+            <row class="modal_head">
+              <text class="label_cap">NOVO TOKEN DE REGISTRY</text>
+              <button class="btn_ghost" type="button" @click="closeTokenModal()">Fechar</button>
+            </row>
+            <column class="modal_body">
+              <template x-if="ntokStep === 'form'">
+                <column class="form_panel">
+                  <text class="label_cap">NOME</text>
+                  <input class="field_input" type="text" x-model="ntokName" placeholder="ci-deploy" />
+                  <text class="label_cap" style="margin-top:14px">ESCOPO</text>
+                  <row class="tabs">
+                    <button type="button" :class="ntokScope === 'pull' ? 'tab_on' : 'tab_off'"
+                            @click="ntokScope = 'pull'">pull</button>
+                    <button type="button" :class="ntokScope === 'push' ? 'tab_on' : 'tab_off'"
+                            @click="ntokScope = 'push'">push</button>
+                  </row>
+                  <text class="err" x-show="ntokErr" x-text="ntokErr" style="margin-top:8px"></text>
+                  <row class="env_add" style="margin-top:14px">
+                    <button class="btn_primary" type="button" @click="ntokCreate()">Criar token</button>
+                  </row>
+                </column>
+              </template>
+              <template x-if="ntokStep === 'reveal'">
+                <column class="form_panel">
+                  <text class="muted_fill">
+                    Guarde este comando agora — o segredo não é mostrado de novo.
+                  </text>
+                  <pre class="log_pre" x-text="ntokLoginCmd" style="margin-top:10px"></pre>
+                  <row class="env_add" style="margin-top:10px">
+                    <button class="copy_btn" type="button" @click="navigator.clipboard.writeText(ntokLoginCmd)">Copiar</button>
+                    <button class="btn_primary" type="button" @click="closeTokenModal()">Concluir</button>
+                  </row>
+                </column>
+              </template>
+            </column>
+          </column>
+        </column>
+      </column>
+
+      <!-- ── Schedules ────────────────────────────────────────────────── -->
+      <column class="content" x-data="schedules" x-show="$store.app.view === 'schedules'">
+        <row class="header_row">
+          <column class="header_titles">
+            <text class="title">Schedules</text>
+            <text class="subtitle">Tarefas one-shot (docker-compose) agendadas ou manuais, de todos os projetos.</text>
+          </column>
+          <row class="stats_row stats_hide_md">
+            <column class="stat_card">
+              <text class="label_cap">JOBS</text>
+              <text class="stat_num_g" x-text="rows.length"></text>
+            </column>
+          </row>
+          <button class="btn_primary" type="button" @click="openNewJob()">+ Novo job</button>
+        </row>
+        <text class="muted" x-show="store.jobMsg" x-text="store.jobMsg"></text>
+
+        <column class="panel_fill">
+          <row class="thead">
+            <text class="th col_svc">NOME</text>
+            <text class="th col_proj">PROJETO / GATILHO</text>
+            <text class="th col_state">ÚLTIMA EXECUÇÃO</text>
+            <text class="th col_dur">RECORRÊNCIA</text>
+            <text class="th col_dur">PRÓXIMA EXECUÇÃO</text>
+            <text class="th col_act_4">AÇÕES</text>
+          </row>
+          <text class="muted" x-show="rows.length === 0" style="padding:16px">Nenhum job cadastrado ainda.</text>
+          <column class="scroll_fill">
+            <column class="table_body">
+              <template x-for="j in rows" :key="j.id">
+                <column class="row_wrap">
+                  <row class="trow">
+                    <text class="td_key col_svc" x-text="j.name"></text>
+                    <text class="td col_proj" x-text="j.owner"></text>
+                    <row class="state_cell col_state">
+                      <text class="state_dot" :class="'state_' + j.lastRunKind">●</text>
+                      <text class="state_lbl" :class="'state_' + j.lastRunKind" x-text="j.lastRunLabel"></text>
+                    </row>
+                    <text class="muted col_dur" x-text="j.recurrence"></text>
+                    <text class="muted col_dur" x-text="j.nextRunAt"></text>
+                    <row class="col_act_4">
+                      <button class="copy_btn" type="button" title="Rodar agora" @click="store.jobRunNow(j.id)">▶</button>
+                      <button class="copy_btn" type="button" title="Ver logs" x-show="j.lastRunId"
+                              @click="openJobLogs(j.lastRunId)">≡</button>
+                      <button class="copy_btn" type="button" :title="j.enabledLabel" @click="store.jobToggle(j.id)"
+                              x-text="j.enabled ? '‖' : '▶'"></button>
+                      <button class="env_del" type="button" title="Remover" @click="store.jobDelete(j.id)">✕</button>
+                    </row>
+                  </row>
+                  <hr class="rule" />
+                </column>
+              </template>
+            </column>
+          </column>
+        </column>
+
+        <!-- Modal "novo job": wizard de 3 passos (projeto → serviço → form),
+             equivalente ao new_job_window do cliente iced. Projetos/serviços
+             já vêm do snapshot em memória — sem pré-semear como o Luau
+             precisa fazer pro motor isolado da janela. -->
+        <column class="modal_backdrop" x-show="showNewJob" @click.self="closeNewJob()">
+          <column class="modal_box">
+            <row class="modal_head">
+              <text class="label_cap">NOVO JOB</text>
+              <row style="gap:8px">
+                <button class="btn_ghost" type="button" x-show="njobStep !== 'pick_project'" @click="njobBack()">‹ Voltar</button>
+                <button class="btn_ghost" type="button" @click="closeNewJob()">Fechar</button>
+              </row>
+            </row>
+            <column class="modal_body">
+              <!-- Passo 1: projeto -->
+              <column class="grid" x-show="njobStep === 'pick_project'">
+                <template x-for="p in projects" :key="p.id">
+                  <column class="card">
+                    <text class="card_name" x-text="p.name"></text>
+                    <button class="card_open" type="button" @click="njobPickProject(p.id, p.name)">Selecionar ›</button>
+                  </column>
+                </template>
+                <text class="muted" x-show="projects.length === 0" style="padding:16px">Nenhum projeto ainda.</text>
+              </column>
+
+              <!-- Passo 2: serviço gatilho (ou autônomo) -->
+              <column class="grid" x-show="njobStep === 'pick_service'">
+                <column class="card">
+                  <text class="card_name">Nenhum (autônomo)</text>
+                  <text class="muted">Job sem serviço gatilho — só variáveis do projeto.</text>
+                  <button class="card_open" type="button" @click="njobPickNoService()">Selecionar ›</button>
+                </column>
+                <template x-for="e in servicesFiltered" :key="e.service.id">
+                  <column class="card">
+                    <text class="card_name" x-text="e.service.spec.name"></text>
+                    <button class="card_open" type="button"
+                            @click="njobPickService(e.service.id, e.service.spec.name)">Selecionar ›</button>
+                  </column>
+                </template>
+              </column>
+
+              <!-- Passo 3: formulário -->
+              <column class="form_panel" x-show="njobStep === 'form'" style="max-width:100%">
+                <text class="muted_fill" x-text="njobProjectName + ' / ' + (njobServiceName || 'nenhum (autônomo)')"></text>
+                <text class="label_cap" style="margin-top:10px">NOME</text>
+                <input class="field_input" type="text" x-model="njobName" placeholder="backup-diario" />
+                <text class="label_cap" style="margin-top:14px">DOCKER COMPOSE (YAML)</text>
+                <textarea class="env_editor" x-model="njobCompose"></textarea>
+                <text class="label_cap" style="margin-top:14px">MAIN SERVICE</text>
+                <input class="field_input" type="text" x-model="njobMainService" placeholder="job" />
+
+                <text class="label_cap" style="margin-top:14px">RECORRÊNCIA</text>
+                <row class="tabs">
+                  <button type="button" :class="njobKind === 'manual' ? 'tab_on' : 'tab_off'" @click="njobKind = 'manual'">Manual</button>
+                  <button type="button" :class="njobKind === 'interval' ? 'tab_on' : 'tab_off'" @click="njobKind = 'interval'">Intervalo</button>
+                  <button type="button" :class="njobKind === 'daily' ? 'tab_on' : 'tab_off'" @click="njobKind = 'daily'">Diário</button>
+                  <button type="button" :class="njobKind === 'weekly' ? 'tab_on' : 'tab_off'" @click="njobKind = 'weekly'">Semanal</button>
+                </row>
+                <row class="hc_grid" style="margin-top:8px" x-show="njobKind === 'interval'">
+                  <column class="hc_field">
+                    <text class="label_cap">A CADA (HORAS)</text>
+                    <input class="field_input" type="text" x-model="njobHours" />
+                  </column>
+                </row>
+                <row class="hc_grid" style="margin-top:8px" x-show="njobKind === 'daily' || njobKind === 'weekly'">
+                  <column class="hc_field" x-show="njobKind === 'weekly'">
+                    <text class="label_cap">DIA (0=seg…6=dom)</text>
+                    <input class="field_input" type="text" x-model="njobWeekday" />
+                  </column>
+                  <column class="hc_field">
+                    <text class="label_cap">HORA</text>
+                    <input class="field_input" type="text" x-model="njobHour" />
+                  </column>
+                  <column class="hc_field">
+                    <text class="label_cap">MINUTO</text>
+                    <input class="field_input" type="text" x-model="njobMinute" />
+                  </column>
+                </row>
+
+                <text class="err" x-show="njobErr" x-text="njobErr" style="margin-top:8px"></text>
+                <row class="env_add" style="margin-top:14px">
+                  <button class="btn_primary" type="button" @click="njobCreate()" :disabled="submitting"
+                          x-text="submitting ? 'Criando…' : 'Criar job'"></button>
+                </row>
+              </column>
+            </column>
+          </column>
+        </column>
+
+        <!-- Modal de logs ao vivo de uma execução -->
+        <column class="modal_backdrop" x-show="jobLogsFor" @click.self="closeJobLogs()">
+          <column class="modal_box">
+            <row class="modal_head">
+              <text class="label_cap">LOGS DO JOB</text>
+              <button class="btn_ghost" type="button" @click="closeJobLogs()">Fechar</button>
+            </row>
+            <column class="modal_body log_panel">
+              <column class="scroll_fill">
+                <column class="log_body">
+                  <template x-for="(l, i) in store.jobLogLines" :key="i">
+                    <row class="log_line">
+                      <text class="log_time" x-text="timeHms(l.timestamp)"></text>
+                      <text class="log_text" :style="l.stream === 'Stderr' ? 'color:#F85149' : ''" x-text="l.line"></text>
+                    </row>
+                  </template>
+                  <text class="muted" x-show="store.jobLogLines.length === 0" style="padding:12px">
+                    Aguardando linhas de log…
+                  </text>
+                </column>
+              </column>
+            </column>
+          </column>
+        </column>
+      </column>
+
+      <!-- ── Settings ─────────────────────────────────────────────────── -->
+      <column class="content" x-data="settings" x-show="$store.app.view === 'settings'">
+        <row class="header_row">
+          <column class="header_titles">
+            <text class="title">Settings</text>
+            <text class="subtitle">Daemon web server, HTTPS e contas Git.</text>
+          </column>
+        </row>
+        <row class="tabs">
+          <button type="button" :class="store.settingsTab === 'web' ? 'tab_on' : 'tab_off'"
+                  @click="store.settingsTab = 'web'">Web Server</button>
+          <button type="button" :class="store.settingsTab === 'git' ? 'tab_on' : 'tab_off'"
+                  @click="store.settingsTab = 'git'">Git</button>
+          <button type="button" :class="store.settingsTab === 'iac' ? 'tab_on' : 'tab_off'"
+                  @click="store.settingsTab = 'iac'">Infra as Code</button>
+        </row>
+        <hr class="rule" />
+
+        <!-- Web Server -->
+        <column class="scroll_fill" x-show="store.settingsTab === 'web'">
+          <column class="form_panel">
+            <text class="label_cap">URL PÚBLICA DA API</text>
+            <row class="kv_row">
+              <text class="kv_val_fill" x-text="store.ssPublicBase || '—'"></text>
+              <button class="copy_btn" type="button" @click="navigator.clipboard.writeText(store.ssPublicBase)">Copiar</button>
+            </row>
+            <text class="muted">
+              Derivada de [api] domain/port no daemon — é a base das URLs de webhook dos serviços e
+              do callback OAuth (mesma porta da API). Para mudá-la, configure api.domain e reinicie o daemon.
+            </text>
+
+            <text class="label_cap" style="margin-top:14px">E-MAIL LET'S ENCRYPT (HTTPS AUTOMÁTICO)</text>
+            <input class="field_input" type="text" x-model="store.ssEmail" placeholder="voce@exemplo.com" />
+            <text class="muted">Certificados TLS emitidos automaticamente. Requer restart do daemon.</text>
+
+            <text class="label_cap" style="margin-top:14px">DOMÍNIO DO REGISTRY (EXPOSIÇÃO PÚBLICA)</text>
+            <input class="field_input" type="text" x-model="store.ssRegistryDomain" placeholder="registry.meusite.com" />
+            <text class="muted">
+              Expõe o registry Docker embutido via ingress + certificado automático. Requer [registry]
+              enabled = true na config. Vazio = só acessível em 127.0.0.1.
+            </text>
+
+            <row class="env_add" style="margin-top:14px">
+              <button class="btn_primary" type="button" @click="store.settingsSave()">Save</button>
+              <text class="muted" x-text="store.settingsMsg"></text>
+            </row>
+          </column>
+        </column>
+
+        <!-- Git -->
+        <column class="scroll_fill" x-show="store.settingsTab === 'git'">
+          <column class="form_panel">
+            <text class="label_cap" x-text="'CONTAS CONECTADAS (' + gitProviderRows.length + ')'"></text>
+            <text class="muted" x-show="gitProviderRows.length === 0">Nenhuma conta Git conectada ainda.</text>
+            <column class="kv_list">
+              <template x-for="p in gitProviderRows" :key="p.id">
+                <row class="kv_row">
+                  <column class="header_titles">
+                    <text class="env_key" x-text="p.name"></text>
+                    <text class="muted" x-text="p.kind + '  ·  ' + p.baseUrl + '  ·  ' + p.authMode + '  ·  ' + p.account"></text>
+                  </column>
+                  <button class="btn_danger" type="button" @click="store.gpDelete(p.id)">Remover</button>
+                </row>
+              </template>
+            </column>
+
+            <hr class="rule" />
+            <text class="label_cap">CONECTAR CONTA GIT</text>
+            <row class="tabs">
+              <button type="button" :class="store.gpKind === 'gitea' ? 'tab_on' : 'tab_off'"
+                      @click="store.gpKind = 'gitea'">Gitea</button>
+              <button type="button" :class="store.gpKind === 'github' ? 'tab_on' : 'tab_off'"
+                      @click="store.gpKind = 'github'">GitHub</button>
+            </row>
+            <text class="muted" x-show="store.gpMsg" x-text="store.gpMsg"></text>
+            <button class="btn_primary" type="button" x-show="store.gpOauthUrl"
+                    @click="window.open(store.gpOauthUrl, '_blank')">Abrir autorização no navegador</button>
+
+            <row class="hc_grid" style="margin-top:8px">
+              <column class="hc_field">
+                <text class="label_cap">NOME</text>
+                <input class="field_input" type="text" x-model="store.gpName" placeholder="Meu Gitea" />
+              </column>
+              <column class="hc_field">
+                <text class="label_cap">BASE URL</text>
+                <input class="field_input" type="text" x-model="store.gpBaseUrl" placeholder="https://gitea.exemplo.com" />
+                <text class="muted" x-show="store.gpKind === 'github'">
+                  Deixe vazio para github.com. Só preencha para GitHub Enterprise Server.
+                </text>
+              </column>
+            </row>
+
+            <text class="label_cap" style="margin-top:14px">MÉTODO</text>
+            <row class="tabs">
+              <button type="button" :class="store.gpMode === 'oauth' ? 'tab_on' : 'tab_off'"
+                      @click="store.gpMode = 'oauth'">OAuth2</button>
+              <button type="button" :class="store.gpMode === 'pat' ? 'tab_on' : 'tab_off'"
+                      @click="store.gpMode = 'pat'">Token (PAT)</button>
+            </row>
+
+            <template x-if="store.gpMode !== 'pat'">
+              <column style="gap:8px; margin-top:8px">
+                <text class="label_cap">CLIENT ID</text>
+                <input class="field_input" type="text" x-model="store.gpClientId" />
+                <text class="label_cap">CLIENT SECRET</text>
+                <input class="field_input" type="password" x-model="store.gpClientSecret" />
+                <text class="label_cap">REDIRECT URI (cole no app OAuth do provedor)</text>
+                <row class="kv_row">
+                  <text class="kv_val_fill" x-text="store.gpRedirect"></text>
+                  <button class="copy_btn" type="button" @click="navigator.clipboard.writeText(store.gpRedirect)">Copiar</button>
+                </row>
+                <text class="muted" x-show="store.gpKind !== 'github'">
+                  No Gitea: Settings → Applications → crie um OAuth2 app e cole a Redirect URI acima.
+                </text>
+                <text class="muted" x-show="store.gpKind === 'github'">
+                  No GitHub: Settings → Developer settings → OAuth Apps → New OAuth App e cole a Redirect
+                  URI acima em "Authorization callback URL".
+                </text>
+              </column>
+            </template>
+            <template x-if="store.gpMode === 'pat'">
+              <column style="gap:8px; margin-top:8px">
+                <text class="label_cap">PERSONAL ACCESS TOKEN</text>
+                <input class="field_input" type="password" x-model="store.gpPat" />
+                <text class="muted" x-show="store.gpKind !== 'github'">
+                  No Gitea: Settings → Applications → Generate New Token (escopo: repo).
+                </text>
+                <text class="muted" x-show="store.gpKind === 'github'">
+                  No GitHub: Settings → Developer settings → Personal access tokens → gere um token
+                  com escopo "repo".
+                </text>
+              </column>
+            </template>
+
+            <row class="env_add" style="margin-top:14px">
+              <button class="btn_primary" type="button" @click="store.gpConnect()">Conectar conta</button>
+              <button class="btn_ghost" type="button" @click="store.gpRefresh()">Atualizar lista</button>
+            </row>
+          </column>
+        </column>
+
+        <!-- Infra as Code -->
+        <column class="scroll_fill" x-show="store.settingsTab === 'iac'">
+          <column class="form_panel">
+            <text class="label_cap">EXPORTAR</text>
+            <text class="muted">
+              Gera um YAML com todos os projetos e serviços — valores de env var nunca aparecem no
+              YAML, só o nome entre cifrão-chaves. Os valores reais das vars (exceto secrets, que
+              nunca saem do daemon) vão no TOML ao lado, aninhado por projeto → serviço.
+            </text>
+            <row class="env_add">
+              <button class="btn_primary" type="button" @click="store.iacExport()">Exportar tudo</button>
+              <text class="muted" x-text="store.iacExportMsg"></text>
+            </row>
+
+            <template x-if="store.iacHasExport">
+              <column>
+                <row class="env_head">
+                  <text class="label_cap">rustploy.yml</text>
+                  <button class="copy_btn" type="button" @click="navigator.clipboard.writeText(store.iacYaml)">Copiar</button>
+                </row>
+                <textarea class="env_editor" readonly x-model="store.iacYaml"></textarea>
+                <row class="env_head">
+                  <text class="label_cap">variáveis.toml</text>
+                  <button class="copy_btn" type="button" @click="navigator.clipboard.writeText(store.iacDotenv)">Copiar</button>
+                </row>
+                <textarea class="env_editor" readonly x-model="store.iacDotenv"></textarea>
+              </column>
+            </template>
+
+            <hr class="rule" />
+            <text class="label_cap">IMPORTAR</text>
+            <text class="muted">
+              Cole o YAML e o TOML de variáveis correspondente. Falta o valor de alguma variável usada
+              no YAML? O import é cancelado antes de aplicar qualquer coisa.
+            </text>
+
+            <text class="label_cap">rustploy.yml</text>
+            <textarea class="env_editor" x-model="store.iacImportYaml"
+                      placeholder="Cole aqui o YAML exportado (ou escrito à mão)"></textarea>
+            <text class="label_cap">variáveis.toml</text>
+            <textarea class="env_editor" x-model="store.iacImportDotenv"
+                      placeholder='Cole aqui o TOML de variáveis ([project."App".env] com DB_PASS = "s3cr3t")'></textarea>
+
+            <label class="check_row">
+              <input type="checkbox" x-model="store.iacPrune" /><span>Remover serviços ausentes do manifesto (prune)</span>
+            </label>
+            <label class="check_row">
+              <input type="checkbox" x-model="store.iacDeploy" /><span>Disparar deploy dos serviços criados/alterados</span>
+            </label>
+
+            <row class="env_add" style="margin-top:8px">
+              <button class="btn_primary" type="button" @click="store.iacImport()">Importar</button>
+              <text class="muted" x-text="store.iacImportMsg"></text>
+            </row>
+
+            <text class="err" x-show="store.iacHasMissing" x-text="'Variáveis sem valor no TOML: ' + store.iacMissingVars"></text>
+
+            <template x-if="store.iacHasReport">
+              <column>
+                <text class="label_cap">RESULTADO</text>
+                <column class="kv_list">
+                  <template x-for="(l, i) in store.iacReportLines" :key="i">
+                    <row class="kv_row"><text class="muted" x-text="l"></text></row>
+                  </template>
+                </column>
+              </column>
+            </template>
           </column>
         </column>
       </column>

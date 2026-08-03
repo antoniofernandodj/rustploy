@@ -13,6 +13,12 @@
 //      listeners acima já registrados.
 import "./screens/login.js";
 import "./screens/dashboard.js";
+import "./screens/deploy_engine.js";
+import "./screens/monitoring.js";
+import "./screens/ingress.js";
+import "./screens/docker.js";
+import "./screens/schedules.js";
+import "./screens/settings.js";
 import "./screens/projects.js";
 import "./screens/project_detail.js";
 import "./screens/new_service.js";
@@ -20,7 +26,7 @@ import "./screens/service_detail.js";
 import Alpine from "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/module.esm.js";
 import { Api } from "./net/api.js";
 import { openStream } from "./net/sse.js";
-import { fmtUptime, stripAnsi } from "./fmt.js";
+import { fmtUptime, fmtBytes, stripAnsi, oauthRedirectUri } from "./fmt.js";
 
 window.Alpine = Alpine;
 
@@ -68,6 +74,71 @@ document.addEventListener("alpine:init", () => {
     daemonUptime: "…",
     servicesLabel: "…",
     deploymentsMsg: "",
+
+    // ── Eventos ao vivo do bus (≈ State.metrics_by_id / ctx.sys_*) ─────
+    // Só chegam por /api/events kind="bus" — o snapshot periódico (2s) não
+    // carrega métricas por container nem do host (ver onStreamEvent).
+    metricsById: {}, // service_id -> ContainerMetricsPoint
+    sysCpu: "—",
+    sysMem: "—",
+    sysDisk: "—",
+    sysLoad: "—",
+    engineMsg: "",
+
+    // ── Docker / Registry (aba Docker) ──────────────────────────────────
+    dockerTab: "containers",
+    dockerMsg: "",
+    onlyUsedImages: false,
+    onlyUsedVolumes: false,
+    onlyUsedNetworks: false,
+    pruneAllImages: false,
+    pruneAllVolumes: false,
+    registrySelectedRepo: "",
+    registryTags: [],
+    registryTagsLoading: false,
+    registryTokens: [],
+    registryMsg: "",
+
+    // ── Schedules (jobs one-shot) ────────────────────────────────────────
+    jobsById: {}, // id -> Job cru (porta de State.jobs_by_id, precisa do
+    // record completo pra reenviar em JobUpdate — só `enabled` muda)
+    jobMsg: "",
+    jobLogLines: [],
+    jobLogStream: null,
+
+    // ── Settings (Web Server / Git / Infra as Code) ─────────────────────
+    settingsTab: "web",
+    ssPublicBase: "",
+    ssEmail: "",
+    ssRegistryDomain: "",
+    settingsMsg: "",
+    gitProviders: [],
+    gpKind: "gitea", // "gitea" | "github"
+    gpMode: "oauth", // "oauth" | "pat"
+    gpName: "",
+    gpBaseUrl: "",
+    gpClientId: "",
+    gpClientSecret: "",
+    gpPat: "",
+    gpMsg: "",
+    gpOauthUrl: "",
+    iacYaml: "",
+    iacDotenv: "",
+    iacHasExport: false,
+    iacExportMsg: "",
+    iacImportYaml: "",
+    iacImportDotenv: "",
+    iacPrune: false,
+    iacDeploy: false,
+    iacHasMissing: false,
+    iacMissingVars: "",
+    iacHasReport: false,
+    iacReportLines: [],
+    iacImportMsg: "",
+
+    get gpRedirect() {
+      return oauthRedirectUri(this.ssPublicBase, this.gpKind);
+    },
 
     // ── Navegação (≈ ctx.view do glacier) ───────────────────────────
     // "deployments" | "projects" | "project" | "service" | "new_service"
@@ -144,6 +215,7 @@ document.addEventListener("alpine:init", () => {
       this.statusLine = "conectado";
       this.screen = "shell";
       this.dataLoading = true;
+      await this.loadSettings();
       this.openStream();
     },
 
@@ -183,8 +255,27 @@ document.addEventListener("alpine:init", () => {
     onStreamEvent(msg) {
       if (!msg || typeof msg !== "object") return;
       if (msg.kind === "snapshot") this.applySnapshot(msg);
-      // Eventos "bus" (métricas/deploy) chegam em fases futuras junto das
-      // telas que os consomem (Monitoring, Deploy Engine).
+      else if (msg.kind === "bus") this.applyBusEvent(msg.event);
+    },
+
+    /** Um evento do bus (mesmo formato que stream.luau::apply_bus trata) —
+     * unit variants chegam como string crua (ex. "DeployQueueChanged"). */
+    applyBusEvent(ev) {
+      if (ev === "DeployQueueChanged") {
+        this.refreshNow();
+        return;
+      }
+      if (!ev || typeof ev !== "object") return;
+      if (ev.ContainerMetrics) {
+        const p = ev.ContainerMetrics;
+        if (p.service_id) this.metricsById[p.service_id] = p;
+      } else if (ev.SystemMetrics) {
+        const s = ev.SystemMetrics;
+        this.sysCpu = `${(s.cpu_percent || 0).toFixed(0)}%`;
+        this.sysMem = `${fmtBytes(s.mem_used_bytes)} / ${fmtBytes(s.mem_total_bytes)}`;
+        this.sysDisk = `${fmtBytes(s.disk_used_bytes)} / ${fmtBytes(s.disk_total_bytes)}`;
+        this.sysLoad = `${(s.load_avg_1 || 0).toFixed(2)} ${(s.load_avg_5 || 0).toFixed(2)} ${(s.load_avg_15 || 0).toFixed(2)}`;
+      }
     },
 
     applySnapshot(msg) {
@@ -195,6 +286,9 @@ document.addEventListener("alpine:init", () => {
         this.daemonUptime = fmtUptime(st.uptime_secs);
         this.servicesLabel = `${st.services_running || 0}/${st.services_total || 0}`;
       }
+      const byId = {};
+      for (const s of msg.jobs || []) byId[s.job.id] = s.job;
+      this.jobsById = byId;
       this.dataLoading = false;
     },
 
@@ -478,6 +572,429 @@ document.addEventListener("alpine:init", () => {
       const r = await this.api.rpcChecked({ DeployDelete: { deployment_id: deploymentId } });
       if (r.ok) await this.fetchServiceDetail(this.selectedServiceId);
       return r;
+    },
+
+    // ── Deploy Engine (fila global) ─────────────────────────────────────
+    // Porta de handlers/deploy_queue.luau — sem drag-and-drop (só glacier);
+    // "↑ topo" e "✕" cobrem furar fila / desistir de um item.
+
+    /** Cancela um deploy que ainda espera na fila — reaproveita DeployAbort
+     * (o daemon já trata remoção da fila como caso do abort). */
+    async queueCancel(deploymentId) {
+      const r = await this.api.rpcChecked({ DeployAbort: { deployment_id: deploymentId } });
+      this.engineMsg = r.ok ? "" : "erro: " + r.error;
+      await this.refreshNow();
+    },
+
+    async queuePromote(deploymentId) {
+      const r = await this.api.rpcChecked({ DeployQueuePromote: { deployment_id: deploymentId } });
+      this.engineMsg = r.ok ? "" : "erro: " + r.error;
+      await this.refreshNow();
+    },
+
+    async queueTogglePause() {
+      const paused = !!this.snap?.engine?.paused;
+      const r = await this.api.rpcChecked({ DeployQueuePause: { paused: !paused } });
+      this.engineMsg = r.ok ? "" : "erro: " + r.error;
+      await this.refreshNow();
+    },
+
+    // ── Docker (host-wide) ──────────────────────────────────────────────
+    // Porta de handlers/docker.luau — cada prune/remove segue o mesmo padrão:
+    // rpcChecked + mensagem em dockerMsg + refreshNow() pra refletir na hora
+    // (o snapshot de 2s pegaria de qualquer jeito, mas assim fica imediato).
+
+    /** Formata Response::PruneResult{count,reclaimed_bytes}; sem esse payload
+     * (algum prune que devolve só Ok), mensagem genérica. */
+    pruneResultMsg(r) {
+      if (!r.ok) return "erro: " + r.error;
+      const pr = r.value?.PruneResult;
+      if (pr) return `removidos: ${pr.count} · ${fmtBytes(pr.reclaimed_bytes)} liberados`;
+      return "limpeza concluída";
+    },
+
+    async dockerPruneContainers() {
+      const r = await this.api.rpcChecked("PruneContainers");
+      this.dockerMsg = this.pruneResultMsg(r);
+      await this.refreshNow();
+    },
+    async dockerPruneImages() {
+      const r = await this.api.rpcChecked({ PruneImages: { all: this.pruneAllImages } });
+      this.dockerMsg = this.pruneResultMsg(r);
+      await this.refreshNow();
+    },
+    async dockerPruneVolumes() {
+      const r = await this.api.rpcChecked({ PruneVolumes: { all: this.pruneAllVolumes } });
+      this.dockerMsg = this.pruneResultMsg(r);
+      await this.refreshNow();
+    },
+    async dockerPruneNetworks() {
+      const r = await this.api.rpcChecked("PruneNetworks");
+      this.dockerMsg = this.pruneResultMsg(r);
+      await this.refreshNow();
+    },
+
+    async dockerRemoveContainer(id) {
+      const r = await this.api.rpcChecked({ RemoveContainer: { id } });
+      this.dockerMsg = r.ok ? "" : "erro: " + r.error;
+      if (r.ok) await this.refreshNow();
+    },
+    async dockerRemoveImage(id) {
+      const r = await this.api.rpcChecked({ RemoveImage: { id } });
+      this.dockerMsg = r.ok ? "" : "erro: " + r.error;
+      if (r.ok) await this.refreshNow();
+    },
+    async dockerRemoveVolume(name) {
+      const r = await this.api.rpcChecked({ RemoveVolume: { name } });
+      this.dockerMsg = r.ok ? "" : "erro: " + r.error;
+      if (r.ok) await this.refreshNow();
+    },
+    async dockerRemoveNetwork(id) {
+      const r = await this.api.rpcChecked({ RemoveNetwork: { id } });
+      this.dockerMsg = r.ok ? "" : "erro: " + r.error;
+      if (r.ok) await this.refreshNow();
+    },
+
+    /** Troca a sub-aba Docker; ao entrar em "registry" busca os tokens (não
+     * vêm no snapshot periódico, diferente de repos/containers/imagens). */
+    async dockerSetTab(tab) {
+      this.dockerTab = tab;
+      if (tab === "registry") await this.registryRefreshTokens();
+    },
+
+    // ── Registry OCI embutido ────────────────────────────────────────────
+
+    async registryOpenRepo(name) {
+      this.registrySelectedRepo = name;
+      this.registryTagsLoading = true;
+      const r = await this.api.rpc({ RegistryTagList: { repo: name } });
+      this.registryTags = (r.ok && r.value?.RegistryTags) || [];
+      this.registryTagsLoading = false;
+    },
+    registryCloseRepo() {
+      this.registrySelectedRepo = "";
+      this.registryTags = [];
+    },
+
+    /** Sem rpcChecked de propósito (mesmo comportamento silencioso do Luau —
+     * falha aqui não é acionável pelo usuário, só deixa a lista vazia). */
+    async registryRefreshTokens() {
+      const r = await this.api.rpc("RegistryTokenList");
+      this.registryTokens = (r.ok && r.value?.RegistryTokens) || [];
+    },
+
+    async registryRmTag(tag) {
+      const repo = this.registrySelectedRepo;
+      const r = await this.api.rpcChecked({ RegistryTagDelete: { repo, tag } });
+      this.registryMsg = r.ok ? "" : "erro: " + r.error;
+      if (r.ok) {
+        await this.registryOpenRepo(repo);
+        await this.refreshNow();
+      }
+    },
+    async registryRmRepo(name) {
+      const r = await this.api.rpcChecked({ RegistryRepoDelete: { repo: name } });
+      this.registryMsg = r.ok ? "" : "erro: " + r.error;
+      if (r.ok) {
+        if (this.registrySelectedRepo === name) this.registryCloseRepo();
+        await this.refreshNow();
+      }
+    },
+    async registryGc() {
+      const r = await this.api.rpcChecked("RegistryGc");
+      if (r.ok) {
+        const gc = r.value?.RegistryGcResult;
+        this.registryMsg = gc
+          ? `GC: ${gc.blobs_removed} arquivo(s) removido(s) · ${fmtBytes(gc.bytes_freed)} liberados`
+          : "GC concluído";
+        await this.refreshNow();
+      } else {
+        this.registryMsg = "erro: " + r.error;
+      }
+    },
+    async registryRmToken(name) {
+      const r = await this.api.rpcChecked({ RegistryTokenRevoke: { name } });
+      this.registryMsg = r.ok ? "" : "erro: " + r.error;
+      if (r.ok) await this.registryRefreshTokens();
+    },
+
+    /** Devolve {ok, secret} pro modal de "novo token" — o segredo só existe
+     * nesta resposta, nunca mais é recuperável depois. */
+    async registryCreateToken(name, scope) {
+      const r = await this.api.rpcChecked({ RegistryTokenCreate: { name, scope } });
+      if (!r.ok) return { ok: false, error: r.error };
+      await this.registryRefreshTokens();
+      return { ok: true, secret: r.value.RegistryTokenCreated.secret };
+    },
+
+    // ── Schedules (jobs one-shot) ────────────────────────────────────────
+    // Porta de handlers/jobs.luau.
+
+    async jobRunNow(id) {
+      const r = await this.api.rpcChecked({ JobRunNow: { id } });
+      this.jobMsg = r.ok ? "" : "erro: " + r.error;
+      await this.refreshNow();
+    },
+
+    /** Reenvia o Job inteiro (só `enabled` inverte) — o daemon não tem um
+     * PATCH parcial; mesma limitação do cliente iced. */
+    async jobToggle(id) {
+      const job = this.jobsById[id];
+      if (!job) {
+        this.jobMsg = "job não encontrado no snapshot atual";
+        return;
+      }
+      const r = await this.api.rpcChecked({
+        JobUpdate: {
+          id: job.id,
+          name: job.name,
+          compose: job.compose,
+          main_service: job.main_service,
+          enabled: !job.enabled,
+          recurrence: job.recurrence,
+        },
+      });
+      this.jobMsg = r.ok ? "" : "erro: " + r.error;
+      await this.refreshNow();
+    },
+
+    async jobDelete(id) {
+      if (!confirm("Remover este job? Ação irreversível.")) return;
+      const r = await this.api.rpcChecked({ JobDelete: { id } });
+      this.jobMsg = r.ok ? "" : "erro: " + r.error;
+      await this.refreshNow();
+    },
+
+    /** `payload` = { project_id, trigger_service_id, name, compose,
+     * main_service, recurrence }. */
+    async jobCreate(payload) {
+      const r = await this.api.rpcChecked({ JobCreate: payload });
+      if (r.ok) await this.refreshNow();
+      return r;
+    },
+
+    /** Logs ao vivo de UMA execução de job — mesmo par seed+SSE de
+     * startServiceLogs/stopServiceLogs, apontando pro endpoint dedicado de
+     * job run (gêmeo do de serviço: mesmo framing bus_batch). */
+    async startJobLogs(jobRunId) {
+      this.stopJobLogs();
+      const seed = await this.api.rpc({ GetJobLogs: { job_run_id: jobRunId } });
+      this.jobLogLines = ((seed.ok && seed.value?.JobLogs) || []).map(this.cleanLogEntry);
+      this.jobLogStream = openStream(
+        this.api.baseUrl,
+        this.api.token,
+        `/api/jobs/runs/${jobRunId}/logs`,
+        {
+          onEvent: (_kind, data) => {
+            if (data?.kind === "bus_batch" && Array.isArray(data.events)) {
+              for (const ev of data.events) {
+                const line = ev?.JobLogLine;
+                if (line) this.jobLogLines.push(this.cleanLogEntry(line));
+              }
+              const MAX = 2000;
+              if (this.jobLogLines.length > MAX) {
+                this.jobLogLines.splice(0, this.jobLogLines.length - MAX);
+              }
+            }
+          },
+        }
+      );
+    },
+    stopJobLogs() {
+      this.jobLogStream?.close();
+      this.jobLogStream = null;
+    },
+
+    // ── Settings ──────────────────────────────────────────────────────────
+    // Porta de handlers/settings.luau + a load_settings() de connection.luau.
+    // Buscado uma vez na conexão (não a cada snapshot — senão apagaria o que
+    // o usuário está digitando nos formulários).
+
+    async loadSettings() {
+      const r = await this.api.rpc("GetDaemonSettings");
+      if (r.ok && r.value?.DaemonSettings) {
+        const s = r.value.DaemonSettings;
+        this.ssPublicBase = s.public_base_url || "";
+        this.ssEmail = s.acme_email || "";
+        this.ssRegistryDomain = s.registry_domain || "";
+      }
+      await this.gpRefresh();
+    },
+
+    async settingsSave() {
+      const email = this.ssEmail.trim();
+      const registryDomain = this.ssRegistryDomain.trim();
+      this.settingsMsg = "salvando…";
+      const r = await this.api.rpcChecked({
+        SetDaemonSettings: {
+          acme_email: email || null,
+          registry_domain: registryDomain || null,
+        },
+      });
+      this.settingsMsg = r.ok ? "configurações salvas" : "erro: " + r.error;
+    },
+
+    async gpRefresh() {
+      const r = await this.api.rpc("GitProviderList");
+      this.gitProviders = (r.ok && r.value?.GitProviders) || [];
+    },
+
+    /** Mesmas validações de handlers/settings.luau::gp_connect: GitHub cai
+     * pro github.com se a Base URL vier vazia (só existe pra Enterprise);
+     * Gitea sempre exige Base URL. Client id+secret OU PAT, conforme gpMode. */
+    async gpConnect() {
+      this.gpOauthUrl = "";
+      const isGithub = this.gpKind === "github";
+      const kindWire = isGithub ? "Github" : "Gitea";
+      const label = isGithub ? "GitHub" : "Gitea";
+      let base = this.gpBaseUrl.trim();
+      if (!base) {
+        if (isGithub) base = "https://github.com";
+        else {
+          this.gpMsg = "informe a Base URL do Gitea";
+          return;
+        }
+      }
+      const name = this.gpName.trim() || label;
+      const isOauth = this.gpMode !== "pat";
+      let cmd;
+      if (isOauth) {
+        const cid = this.gpClientId.trim();
+        const csec = this.gpClientSecret || "";
+        if (!cid || !csec.trim()) {
+          this.gpMsg = "Client ID e Client Secret são obrigatórios";
+          return;
+        }
+        cmd = {
+          GitProviderCreate: {
+            kind: kindWire,
+            name,
+            base_url: base,
+            auth_mode: "OAuth",
+            oauth_client_id: cid,
+            oauth_client_secret: csec,
+            pat: null,
+          },
+        };
+      } else {
+        const pat = this.gpPat || "";
+        if (!pat.trim()) {
+          this.gpMsg = "informe o Personal Access Token";
+          return;
+        }
+        cmd = {
+          GitProviderCreate: {
+            kind: kindWire,
+            name,
+            base_url: base,
+            auth_mode: "Pat",
+            oauth_client_id: null,
+            oauth_client_secret: null,
+            pat,
+          },
+        };
+      }
+      this.gpMsg = "conectando…";
+      const r = await this.api.rpc(cmd);
+      if (!r.ok || !r.value?.GitProviderInfo) {
+        this.gpMsg = "erro: " + (r.ok ? "resposta inesperada" : r.error);
+        return;
+      }
+      const pid = r.value.GitProviderInfo.id;
+      if (isOauth) {
+        // OAuth precisa de round-trip no navegador — diferente do Luau (que só
+        // linkava por não saber abrir o browser), aqui abrimos direto.
+        const ro = await this.api.rpc({ GitOAuthStart: { provider_id: pid } });
+        if (ro.ok && ro.value?.OAuthUrl) {
+          this.gpOauthUrl = ro.value.OAuthUrl;
+          this.gpMsg = "autorize a janela aberta e depois clique em Atualizar";
+          window.open(ro.value.OAuthUrl, "_blank");
+        } else {
+          this.gpMsg = "provider criado; inicie o OAuth manualmente";
+        }
+      } else {
+        this.gpMsg = `conta ${label} conectada ✓`;
+      }
+      this.gpName = "";
+      this.gpBaseUrl = "";
+      this.gpClientId = "";
+      this.gpClientSecret = "";
+      this.gpPat = "";
+      await this.gpRefresh();
+    },
+
+    async gpDelete(id) {
+      const r = await this.api.rpcChecked({ GitProviderDelete: { id } });
+      this.gpMsg = r.ok ? "provider removido" : "erro: " + r.error;
+      await this.gpRefresh();
+    },
+
+    async iacExport() {
+      this.iacExportMsg = "exportando…";
+      const r = await this.api.rpcChecked("ManifestExportAll");
+      if (!r.ok || !r.value?.ManifestBundle) {
+        this.iacExportMsg = "erro: " + (r.ok ? "resposta inesperada" : r.error);
+        return;
+      }
+      this.iacYaml = r.value.ManifestBundle.yaml;
+      this.iacDotenv = r.value.ManifestBundle.dotenv;
+      this.iacHasExport = true;
+      this.iacExportMsg = "exportado ✓";
+    },
+
+    /** 3 formas de resposta possíveis (mesma distinção de handlers/
+     * settings.luau::iac_import): MissingEnvVars (nada aplicado), Err
+     * (rpc-level), ou ManifestReport (sucesso). */
+    async iacImport() {
+      this.iacHasMissing = false;
+      this.iacHasReport = false;
+      this.iacMissingVars = "";
+      this.iacReportLines = [];
+
+      const yaml = this.iacImportYaml || "";
+      if (!yaml.trim()) {
+        this.iacImportMsg = "cole o YAML do manifesto";
+        return;
+      }
+
+      this.iacImportMsg = "importando…";
+      const r = await this.api.rpc({
+        ManifestImport: {
+          yaml,
+          dotenv: this.iacImportDotenv || "",
+          prune: this.iacPrune,
+          deploy: this.iacDeploy,
+        },
+      });
+      if (!r.ok) {
+        this.iacImportMsg = "erro: " + r.error;
+        return;
+      }
+      const v = r.value;
+      if (v?.MissingEnvVars) {
+        this.iacHasMissing = true;
+        this.iacMissingVars = v.MissingEnvVars.join(", ");
+        this.iacImportMsg = "faltam variáveis — nada foi aplicado";
+        return;
+      }
+      if (v?.Err) {
+        this.iacImportMsg = `erro: ${v.Err.code}: ${v.Err.message}`;
+        return;
+      }
+      if (!v?.ManifestReport) {
+        this.iacImportMsg = "resposta inesperada do daemon";
+        return;
+      }
+      const lines = (v.ManifestReport.actions || []).map(
+        (a) => `[${a.action}] ${a.kind} ${a.name}`
+      );
+      if ((v.ManifestReport.deployed || []).length > 0) {
+        lines.push("deploy disparado: " + v.ManifestReport.deployed.join(", "));
+      }
+      this.iacReportLines = lines;
+      this.iacHasReport = true;
+      this.iacImportMsg = "import concluído ✓";
+      await this.refreshNow();
     },
 
     async serviceStop() {
