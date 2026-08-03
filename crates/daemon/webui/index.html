@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Rustploy</title>
+<meta name="description" content="Infrastructure management for professional teams" />
+<meta name="theme-color" content="#0A0E14" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="icon" href="/icons/favicon.png" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<link rel="stylesheet" href="/app.css" />
+<script type="module" src="/app.js"></script>
+</head>
+<body>
+
+<div class="screen" x-data x-cloak>
+
+  <!-- ── Login ────────────────────────────────────────────────────────── -->
+  <column class="login_wrap" x-show="$store.app.screen === 'login'" x-data="login">
+    <column class="login_card">
+      <row class="login_head">
+        <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true">
+          <rect width="64" height="64" rx="12" fill="#1b1d22"/>
+          <path d="M32 8 C32 8 44 18 44 34 L32 44 L20 34 C20 18 32 8 32 8Z" fill="#4ccfe6"/>
+          <circle cx="32" cy="28" r="5" fill="#1b1d22"/>
+          <circle cx="32" cy="28" r="3" fill="#4ccfe6" opacity="0.5"/>
+          <path d="M20 34 L14 44 L22 40Z" fill="#3ab8cf"/>
+          <path d="M44 34 L50 44 L42 40Z" fill="#3ab8cf"/>
+          <ellipse cx="32" cy="45" rx="5" ry="3" fill="#e6a040" opacity="0.9"/>
+          <ellipse cx="32" cy="49" rx="3" ry="4" fill="#e67840" opacity="0.6"/>
+        </svg>
+        <column class="login_brand">
+          <text class="login_title">Rustploy</text>
+          <text class="subtitle">Infrastructure management for professional teams</text>
+        </column>
+      </row>
+
+      <form @submit.prevent="submit()">
+        <column class="field_group">
+          <row class="field_row">
+            <text class="field_label" style="flex:1">SERVER URL</text>
+            <text class="field_label">ENDPOINT</text>
+          </row>
+          <input class="field_input" type="text" placeholder="https://rustploy.dominio.com"
+                 x-model="$store.app.url" />
+          <text class="err" x-show="$store.app.erroUrl" x-text="$store.app.erroUrl"></text>
+        </column>
+
+        <column class="field_group" style="margin-top:16px">
+          <row class="field_row">
+            <text class="field_label" style="flex:1">ACCESS TOKEN</text>
+            <text class="field_label">SECURE</text>
+          </row>
+          <input class="field_input" type="password" placeholder="token de acesso"
+                 x-model="$store.app.token" />
+        </column>
+
+        <column class="login_checks" style="margin-top:16px">
+          <label class="check_row">
+            <input type="checkbox" x-model="$store.app.rememberUrl" @change="$store.app.persistPrefs()" />
+            <span>Remember server</span>
+          </label>
+          <label class="check_row">
+            <input type="checkbox" x-model="$store.app.rememberToken" @change="$store.app.persistPrefs()" />
+            <span>Remember token</span>
+          </label>
+        </column>
+
+        <button type="submit" class="connect_btn" style="margin-top:16px"
+                x-text="$store.app.statusLine === 'conectando…' ? 'Conectando…' : 'Connect'"
+                :disabled="$store.app.statusLine === 'conectando…'"></button>
+      </form>
+
+      <text class="err" x-show="$store.app.error" x-text="'⚠ ' + $store.app.error"></text>
+
+      <hr class="rule" style="margin:4px 0" />
+
+      <row class="status_row">
+        <text class="ok" style="font-size:10px">●</text>
+        <text class="muted" x-text="$store.app.statusLine"></text>
+      </row>
+    </column>
+  </column>
+
+  <!-- ── Shell (sidebar + topbar + conteúdo) ─────────────────────────── -->
+  <row class="screen" x-show="$store.app.screen === 'shell'">
+    <column class="sidebar">
+      <column class="brand_box">
+        <text class="brand">Rustploy</text>
+        <text class="brand_sub">PRODUCTION CLUSTER</text>
+      </column>
+      <text class="nav_section">DEPLOYMENT OPS</text>
+      <button class="nav_row_on" type="button">
+        <text class="nav_icon_on">▶</text>
+        <text class="nav_label_on">Deployments</text>
+      </button>
+      <button class="nav_row_off" type="button" disabled title="em breve — próxima fase" style="opacity:.5">
+        <text class="nav_icon_off">⚡</text>
+        <text class="nav_label_off">Deploy Engine</text>
+      </button>
+      <button class="nav_row_off" type="button" disabled title="em breve — próxima fase" style="opacity:.5">
+        <text class="nav_icon_off">◔</text>
+        <text class="nav_label_off">Monitoring</text>
+      </button>
+      <button class="nav_row_off" type="button" disabled title="em breve — próxima fase" style="opacity:.5">
+        <text class="nav_icon_off">◫</text>
+        <text class="nav_label_off">Schedules</text>
+      </button>
+      <button class="nav_row_off" type="button" disabled title="em breve — próxima fase" style="opacity:.5">
+        <text class="nav_icon_off">↦</text>
+        <text class="nav_label_off">Ingress</text>
+      </button>
+      <button class="nav_row_off" type="button" disabled title="em breve — próxima fase" style="opacity:.5">
+        <text class="nav_icon_off">◉</text>
+        <text class="nav_label_off">Docker</text>
+      </button>
+      <text class="nav_section">MANAGEMENT</text>
+      <button class="nav_row_off" type="button" disabled title="em breve — próxima fase" style="opacity:.5">
+        <text class="nav_icon_off">◧</text>
+        <text class="nav_label_off">Projects</text>
+      </button>
+      <column class="nav_spacer"></column>
+      <hr class="rule" />
+      <button class="nav_row_off" type="button" disabled title="em breve — próxima fase" style="opacity:.5">
+        <text class="nav_icon_off">⌥</text>
+        <text class="nav_label_off">Settings</text>
+      </button>
+    </column>
+
+    <column class="main_col">
+      <row class="topbar">
+        <input class="search" type="text" placeholder="Search deployments, nodes…"
+               x-model="$store.app.search" @input="$store.app.searchChanged($event.target.value)" />
+        <text class="muted topbar_status" x-text="'● daemon v' + $store.app.daemonVersion"></text>
+        <button class="btn_danger" type="button" @click="$store.app.stopAll()">Stop All</button>
+        <button class="btn_ghost" type="button" @click="$store.app.disconnect()">Disconnect</button>
+      </row>
+      <hr class="rule" />
+
+      <column class="content" x-data="dashboard">
+        <row class="header_row">
+          <column class="header_titles">
+            <text class="title">Deployments</text>
+            <text class="subtitle">Real-time status of services in the cluster.</text>
+          </column>
+          <row class="stats_row stats_hide_lg">
+            <column class="stat_card">
+              <text class="label_cap">STATUS</text>
+              <text class="stat_num_g" x-text="store.servicesLabel"></text>
+            </column>
+            <column class="stat_card">
+              <text class="label_cap">UPTIME</text>
+              <text class="stat_num" x-text="store.daemonUptime"></text>
+            </column>
+          </row>
+          <button class="btn_danger" type="button" @click="store.clearFinished()">Limpar parados/falhos</button>
+        </row>
+
+        <text class="muted" x-show="store.deploymentsMsg" x-text="store.deploymentsMsg"></text>
+
+        <column class="panel_fill">
+          <row class="thead">
+            <text class="th col_svc">SERVIÇO</text>
+            <text class="th col_proj">PROJETO</text>
+            <text class="th col_state">ESTADO</text>
+            <text class="th col_dur">DURAÇÃO</text>
+            <text class="th col_start">INÍCIO</text>
+          </row>
+
+          <column class="content_center" x-show="store.dataLoading" style="padding:24px">
+            <text class="muted">carregando…</text>
+          </column>
+
+          <column class="scroll_fill" x-show="!store.dataLoading">
+            <column class="table_body">
+              <template x-for="d in rows" :key="d.service + d.start">
+                <column class="row_wrap">
+                  <row class="trow">
+                    <text class="td_key col_svc" x-text="d.service"></text>
+                    <text class="td col_proj" x-text="d.project"></text>
+                    <row class="state_cell col_state">
+                      <text class="state_dot" :class="'state_' + d.stateKind">●</text>
+                      <text class="state_lbl" :class="'state_' + d.stateKind" x-text="d.stateLabel"></text>
+                    </row>
+                    <text class="td col_dur" x-text="d.duration"></text>
+                    <text class="muted col_start" x-text="d.start"></text>
+                  </row>
+                  <hr class="rule" />
+                </column>
+              </template>
+              <text class="muted" x-show="rows.length === 0" style="padding:16px">
+                Nenhum deployment ainda.
+              </text>
+            </column>
+          </column>
+        </column>
+      </column>
+    </column>
+  </row>
+</div>
+
+</body>
+</html>

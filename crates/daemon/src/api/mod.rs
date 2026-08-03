@@ -2,6 +2,7 @@ pub mod handlers;
 pub mod http_api;
 pub mod routes;
 pub mod public_routes;
+pub mod web_ui;
 
 use crate::{
     db::Db, docker::DockerClient, event_bus::EventBus, ingress::{IngressController, TlsManager},

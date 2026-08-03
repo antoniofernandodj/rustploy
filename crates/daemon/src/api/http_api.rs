@@ -35,6 +35,7 @@ use tracing::{error, info, warn};
 
 use super::public_routes;
 use super::routes::dispatch;
+use super::web_ui;
 use super::AppState;
 use crate::ingress::TlsManager;
 
@@ -177,6 +178,15 @@ async fn handle(
         }
         (&Method::GET, "/oauth/gitea/callback" | "/oauth/github/callback") => {
             return Ok(boxed(public_routes::oauth_callback(req, state).await));
+        }
+        (&Method::GET, p) => {
+            // Web UI/PWA (crates/daemon/webui/): HTML/CSS/JS/ícones
+            // estáticos, sem dado nenhum — servidos fora do gate de token de
+            // propósito (ver módulo `web_ui`, docstring). `None` quando `p`
+            // não é uma rota do app shell, caindo no restante do match.
+            if let Some(resp) = web_ui::serve(p) {
+                return Ok(resp);
+            }
         }
         _ => {}
     }
