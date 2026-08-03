@@ -97,3 +97,62 @@ export function sourceSummary(source) {
   if (source.Compose) return "docker-compose";
   return "—";
 }
+
+/** `<secret:NOME>` ou `secret:NOME` → "NOME" (ou null se não for referência).
+ * Porta de helpers.luau::parse_secret_ref. */
+export function parseSecretRef(v) {
+  const s = (v || "").trim();
+  const m = s.match(/^<secret:(.+)>$/) || s.match(/^secret:(.+)$/);
+  if (!m) return null;
+  const name = m[1].trim();
+  return name || null;
+}
+
+/** env_vars + env_comments → texto `.env` (KEY=VALUE, secrets como
+ * `<secret:NOME>`, comentários `# ...` na posição ancorada por `before_key`).
+ * Porta literal de fmt/service_detail.luau::env_dotenv_with_comments. */
+export function dotenvFromVars(vars, comments) {
+  const activeVars = vars || [];
+  const activeComments = comments || [];
+  const lines = [];
+  for (const v of activeVars) {
+    for (const c of activeComments) {
+      if (c.before_key === v.key) lines.push(c.text);
+    }
+    const val = v.value?.Secret !== undefined ? `<secret:${v.value.Secret}>` : v.value?.Plain || "";
+    lines.push(`${v.key}=${val}`);
+  }
+  for (const c of activeComments) {
+    if (c.before_key === null || c.before_key === undefined) lines.push(c.text);
+  }
+  return lines.join("\n");
+}
+
+/** Texto `.env` → { vars, comments } (env_vars/env_comments do ServiceSpec/
+ * Project). Porta literal de handlers/services.luau::parse_dotenv — linhas
+ * `# ...` acumulam e ancoram (`before_key`) na próxima `KEY=VALUE` real;
+ * sobras no fim viram comentários soltos (`before_key: null`). */
+export function parseDotenv(text) {
+  const vars = [];
+  const comments = [];
+  let pending = [];
+  for (const raw of (text || "").split("\n")) {
+    const l = raw.trim();
+    if (l === "") continue;
+    if (l.startsWith("#")) {
+      pending.push(l);
+      continue;
+    }
+    const eq = l.indexOf("=");
+    if (eq < 0) continue;
+    const key = l.slice(0, eq).trim();
+    if (!key) continue;
+    const v = l.slice(eq + 1).trim();
+    for (const c of pending) comments.push({ text: c, before_key: key });
+    pending = [];
+    const secret = parseSecretRef(v);
+    vars.push({ key, value: secret ? { Secret: secret } : { Plain: v } });
+  }
+  for (const c of pending) comments.push({ text: c, before_key: null });
+  return { vars, comments };
+}

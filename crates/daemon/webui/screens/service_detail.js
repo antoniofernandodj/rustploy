@@ -6,7 +6,15 @@
 // (ver plano). Estado de navegação/fetch/mutação mora no Alpine.store('app')
 // (app.js); este módulo só formata para exibição e cuida dos formulários
 // locais (novo env var, novo domínio).
-import { serviceStatusLabelKind, sourceSummary, dateDmHms, fmtDuration, stateLabelKind } from "../fmt.js";
+import {
+  serviceStatusLabelKind,
+  sourceSummary,
+  dateDmHms,
+  fmtDuration,
+  stateLabelKind,
+  dotenvFromVars,
+  parseDotenv,
+} from "../fmt.js";
 
 document.addEventListener("alpine:init", () => {
   Alpine.data("serviceDetail", () => ({
@@ -46,7 +54,12 @@ document.addEventListener("alpine:init", () => {
 
     async addEnvVar() {
       if (!this.newEnvKey.trim()) return;
-      const spec = structuredClone(this.svc.spec);
+      // JSON round-trip (não structuredClone): this.svc.spec é um Proxy
+      // reativo do Alpine — o clonador estrutural nativo do browser não
+      // sabe copiá-lo (DataCloneError). O JSON round-trip descarta a
+      // reatividade de forma segura, já que o ServiceSpec é sempre dados
+      // planos (sem funções/Date/referências circulares).
+      const spec = JSON.parse(JSON.stringify(this.svc.spec));
       spec.env_vars = spec.env_vars.filter((e) => e.key !== this.newEnvKey.trim());
       spec.env_vars.push({ key: this.newEnvKey.trim(), value: { Plain: this.newEnvValue } });
       const r = await this.store.saveServiceSpec(spec, "variável salva");
@@ -57,9 +70,38 @@ document.addEventListener("alpine:init", () => {
     },
 
     async delEnvVar(key) {
-      const spec = structuredClone(this.svc.spec);
+      // JSON round-trip (não structuredClone): this.svc.spec é um Proxy
+      // reativo do Alpine — o clonador estrutural nativo do browser não
+      // sabe copiá-lo (DataCloneError). O JSON round-trip descarta a
+      // reatividade de forma segura, já que o ServiceSpec é sempre dados
+      // planos (sem funções/Date/referências circulares).
+      const spec = JSON.parse(JSON.stringify(this.svc.spec));
       spec.env_vars = spec.env_vars.filter((e) => e.key !== key);
       await this.store.saveServiceSpec(spec, "variável removida");
+    },
+
+    // ── Editor .env de texto (toggle "Exportar"/".env") ───────────────
+    envTextOpen: false,
+    envText: "",
+    openEnvText() {
+      this.envText = dotenvFromVars(this.svc.spec.env_vars, this.svc.spec.env_comments);
+      this.envTextOpen = true;
+    },
+    closeEnvText() {
+      this.envTextOpen = false;
+    },
+    async saveEnvText() {
+      const { vars, comments } = parseDotenv(this.envText);
+      // JSON round-trip (não structuredClone): this.svc.spec é um Proxy
+      // reativo do Alpine — o clonador estrutural nativo do browser não
+      // sabe copiá-lo (DataCloneError). O JSON round-trip descarta a
+      // reatividade de forma segura, já que o ServiceSpec é sempre dados
+      // planos (sem funções/Date/referências circulares).
+      const spec = JSON.parse(JSON.stringify(this.svc.spec));
+      spec.env_vars = vars;
+      spec.env_comments = comments;
+      const r = await this.store.saveServiceSpec(spec, "variáveis salvas");
+      if (r.ok) this.envTextOpen = false;
     },
 
     get domains() {
@@ -74,7 +116,12 @@ document.addEventListener("alpine:init", () => {
 
     async addDomain() {
       if (!this.newDomain.trim()) return;
-      const spec = structuredClone(this.svc.spec);
+      // JSON round-trip (não structuredClone): this.svc.spec é um Proxy
+      // reativo do Alpine — o clonador estrutural nativo do browser não
+      // sabe copiá-lo (DataCloneError). O JSON round-trip descarta a
+      // reatividade de forma segura, já que o ServiceSpec é sempre dados
+      // planos (sem funções/Date/referências circulares).
+      const spec = JSON.parse(JSON.stringify(this.svc.spec));
       spec.domains = spec.domains || [];
       spec.domains.push({
         domain: this.newDomain.trim(),
@@ -90,7 +137,12 @@ document.addEventListener("alpine:init", () => {
     },
 
     async delDomain(domain) {
-      const spec = structuredClone(this.svc.spec);
+      // JSON round-trip (não structuredClone): this.svc.spec é um Proxy
+      // reativo do Alpine — o clonador estrutural nativo do browser não
+      // sabe copiá-lo (DataCloneError). O JSON round-trip descarta a
+      // reatividade de forma segura, já que o ServiceSpec é sempre dados
+      // planos (sem funções/Date/referências circulares).
+      const spec = JSON.parse(JSON.stringify(this.svc.spec));
       spec.domains = (spec.domains || []).filter((d) => d.domain !== domain);
       await this.store.saveServiceSpec(spec, "domínio removido");
     },

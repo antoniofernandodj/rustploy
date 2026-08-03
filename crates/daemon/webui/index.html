@@ -286,7 +286,18 @@
           </column>
         </template>
 
-        <column class="scroll_fill">
+        <row class="tabs">
+          <button type="button" :class="projTab === 'services' ? 'tab_on' : 'tab_off'"
+                  @click="projTab = 'services'">Serviços</button>
+          <button type="button" :class="projTab === 'env' ? 'tab_on' : 'tab_off'"
+                  @click="projTab = 'env'" x-text="'Variáveis (' + envVars.length + ')'"></button>
+          <button type="button" :class="projTab === 'secrets' ? 'tab_on' : 'tab_off'"
+                  @click="projTab = 'secrets'" x-text="'Secrets (' + secrets.length + ')'"></button>
+        </row>
+        <hr class="rule" />
+
+        <!-- Serviços -->
+        <column class="scroll_fill" x-show="projTab === 'services'">
           <column class="grid">
             <template x-for="s in services" :key="s.id">
               <column class="card">
@@ -306,32 +317,131 @@
             </text>
           </column>
         </column>
+
+        <!-- Variáveis do projeto -->
+        <column class="env_wrap" x-show="projTab === 'env'">
+          <row class="env_head">
+            <text class="muted_fill">Herdadas por todos os serviços deste projeto no deploy.</text>
+            <button class="btn_export" type="button" @click="openEnvText()" x-show="!envTextOpen">.env</button>
+            <button class="btn_export_on" type="button" @click="closeEnvText()" x-show="envTextOpen">Fechar</button>
+          </row>
+          <text class="muted" x-show="store.projectMsg" x-text="store.projectMsg"></text>
+          <template x-if="!envTextOpen">
+            <column style="gap:10px">
+              <row class="env_add">
+                <input class="env_in_key" type="text" placeholder="KEY" x-model="newEnvKey" />
+                <input class="env_in_val" type="text" placeholder="value" x-model="newEnvValue" />
+                <button class="btn_primary" type="button" @click="addEnvVar()">Adicionar</button>
+              </row>
+              <column class="kv_list">
+                <template x-for="e in envVars" :key="e.key">
+                  <row class="kv_row">
+                    <button class="env_del" type="button" @click="delEnvVar(e.key)">✕</button>
+                    <text class="env_sep"></text>
+                    <text class="env_key" x-text="e.key"></text>
+                    <text class="kv_val_fill" x-text="e.isSecret ? '(secret)' : e.value"></text>
+                  </row>
+                </template>
+                <text class="muted" x-show="envVars.length === 0" style="padding:12px">Nenhuma variável.</text>
+              </column>
+            </column>
+          </template>
+          <template x-if="envTextOpen">
+            <column style="gap:8px">
+              <text class="muted">Cole/edite no formato KEY=VALUE (# comentário).</text>
+              <textarea class="env_editor" x-model="envText" placeholder="KEY=VALUE   (# comentário)"></textarea>
+              <row class="env_add">
+                <button class="btn_primary" type="button" @click="saveEnvText()">Salvar</button>
+                <button class="btn_ghost" type="button" @click="closeEnvText()">Cancelar</button>
+              </row>
+            </column>
+          </template>
+        </column>
+
+        <!-- Secrets do projeto -->
+        <column class="env_wrap" x-show="projTab === 'secrets'">
+          <text class="muted_fill">
+            Valores sensíveis (tokens, senhas, chaves de API) cifrados com a chave mestre do
+            servidor. Depois de salvo, o valor nunca mais é exibido — para trocá-lo, salve um novo
+            com o mesmo nome. Para usar num serviço, escreva &lt;secret:NOME&gt; como valor de uma
+            variável de ambiente.
+          </text>
+          <row class="env_add">
+            <input class="env_in_key" type="text" placeholder="NOME" x-model="newSecretName" />
+            <input class="env_in_val" type="password" placeholder="valor (cifrado ao salvar)" x-model="newSecretValue" />
+            <button class="btn_primary" type="button" @click="submitSecret()">Salvar secret</button>
+          </row>
+          <column class="kv_list">
+            <template x-for="s in secrets" :key="s.name">
+              <row class="kv_row">
+                <button class="env_del" type="button" @click="store.deleteSecret(s.name)">✕</button>
+                <text class="env_sep"></text>
+                <text class="env_key" x-text="s.name"></text>
+                <text class="kv_val_fill">cifrado</text>
+              </row>
+            </template>
+            <text class="muted" x-show="secrets.length === 0" style="padding:12px">
+              Nenhum secret neste projeto ainda.
+            </text>
+          </column>
+        </column>
       </column>
 
-      <!-- ── Novo serviço (form simplificado) ─────────────────────────── -->
+      <!-- ── Novo serviço (wizard por passos, porta de new_service.gv) ──── -->
       <column class="content" x-data="newService" x-show="$store.app.view === 'new_service'">
         <row class="header_row">
           <column class="header_titles">
             <text class="title">Novo serviço</text>
-            <text class="subtitle">Formulário simplificado — repositório Git ou imagem de registry.</text>
+            <text class="subtitle" x-show="step === 'pick_type'">Escolha o tipo de serviço.</text>
           </column>
+          <row class="proj_actions">
+            <button class="btn_sm_ghost" type="button" @click="gotoType()" x-show="step !== 'pick_type'">‹ Tipo</button>
+            <button class="btn_sm_ghost" type="button" @click="cancel()">Cancelar</button>
+          </row>
         </row>
-        <column class="form_panel">
-          <text class="label_cap">NOME</text>
-          <input class="field_input" type="text" x-model="name" placeholder="meu-servico" />
+        <text class="err" x-show="error" x-text="error"></text>
 
+        <!-- Passo 1: escolher tipo -->
+        <column class="grid" x-show="step === 'pick_type'">
+          <column class="card">
+            <text class="card_name">Application</text>
+            <text class="muted">Repositório Git (build) ou imagem pronta de registry.</text>
+            <button class="card_open" type="button" @click="gotoApp()">Selecionar ›</button>
+          </column>
+          <column class="card">
+            <text class="card_name">Compose Stack</text>
+            <text class="muted">Cole um docker-compose.yml próprio.</text>
+            <button class="card_open" type="button" @click="gotoCompose()">Selecionar ›</button>
+          </column>
+          <column class="card">
+            <text class="card_name">Database</text>
+            <text class="muted">PostgreSQL, MySQL, MariaDB, MongoDB ou Redis já configurados.</text>
+            <button class="card_open" type="button" @click="gotoDb()">Selecionar ›</button>
+          </column>
+          <column class="card">
+            <text class="card_name">Broker</text>
+            <text class="muted">Kafka, RabbitMQ ou NATS já configurados.</text>
+            <button class="card_open" type="button" @click="gotoBroker()">Selecionar ›</button>
+          </column>
+          <column class="card">
+            <text class="card_name">Template</text>
+            <text class="muted">Blueprints prontos do catálogo (stacks completas).</text>
+            <button class="card_open" type="button" @click="gotoTemplate()">Selecionar ›</button>
+          </column>
+        </column>
+
+        <!-- Application -->
+        <column class="form_panel" x-show="step === 'app_form'">
+          <text class="label_cap">NOME</text>
+          <input class="field_input" type="text" x-model="appName" placeholder="meu-servico" />
           <text class="label_cap" style="margin-top:14px">ORIGEM</text>
           <row class="tabs">
-            <button type="button" :class="sourceKind === 'git' ? 'tab_on' : 'tab_off'"
-                    @click="sourceKind = 'git'">Git</button>
-            <button type="button" :class="sourceKind === 'registry' ? 'tab_on' : 'tab_off'"
-                    @click="sourceKind = 'registry'">Registry</button>
+            <button type="button" :class="sourceKind === 'git' ? 'tab_on' : 'tab_off'" @click="sourceKind = 'git'">Git</button>
+            <button type="button" :class="sourceKind === 'registry' ? 'tab_on' : 'tab_off'" @click="sourceKind = 'registry'">Registry</button>
           </row>
-
           <template x-if="sourceKind === 'git'">
             <column style="gap:8px; margin-top:8px">
-              <input class="field_input" type="text" x-model="gitUrl"
-                     placeholder="https://github.com/usuario/repo.git" />
+              <input class="field_input" type="text" x-model="gitUrl" placeholder="https://github.com/usuario/repo.git" />
               <input class="field_input" type="text" x-model="gitBranch" placeholder="main" />
             </column>
           </template>
@@ -340,19 +450,124 @@
               <input class="field_input" type="text" x-model="registryImage" placeholder="nginx:latest" />
             </column>
           </template>
-
           <text class="label_cap" style="margin-top:14px">PORTA</text>
-          <input class="field_input" type="number" x-model="port" />
-
+          <input class="field_input" type="number" x-model="appPort" />
           <text class="label_cap" style="margin-top:14px">DOMÍNIO (opcional)</text>
-          <input class="field_input" type="text" x-model="domain" placeholder="meuservico.dominio.com" />
-
-          <text class="err" x-show="error" x-text="error" style="margin-top:8px"></text>
-
+          <input class="field_input" type="text" x-model="appDomain" placeholder="meuservico.dominio.com" />
           <row class="env_add" style="margin-top:14px">
-            <button class="btn_primary" type="button" @click="submit()" :disabled="submitting"
-                    x-text="submitting ? 'Criando…' : 'Criar serviço'"></button>
-            <button class="btn_ghost" type="button" @click="cancel()">Cancelar</button>
+            <button class="btn_primary" type="button" @click="submitApp()" :disabled="submitting"
+                    x-text="submitting ? 'Criando…' : 'Criar Application'"></button>
+          </row>
+        </column>
+
+        <!-- Compose Stack -->
+        <column class="form_panel" x-show="step === 'compose_form'">
+          <text class="label_cap">NOME</text>
+          <input class="field_input" type="text" x-model="composeName" placeholder="meu-stack" />
+          <text class="label_cap" style="margin-top:14px">PORTA</text>
+          <input class="field_input" type="number" x-model="composePort" />
+          <text class="label_cap" style="margin-top:14px">DOMÍNIO (opcional)</text>
+          <input class="field_input" type="text" x-model="composeDomain" placeholder="meuservico.dominio.com" />
+          <text class="label_cap" style="margin-top:14px">DOCKER COMPOSE (YAML)</text>
+          <textarea class="env_editor" x-model="composeText"></textarea>
+          <row class="env_add" style="margin-top:14px">
+            <button class="btn_primary" type="button" @click="submitCompose()" :disabled="submitting"
+                    x-text="submitting ? 'Criando…' : 'Criar Compose Stack'"></button>
+          </row>
+        </column>
+
+        <!-- Database: escolher -->
+        <column class="grid" x-show="step === 'pick_db'">
+          <template x-for="db in catalog.dbs" :key="db.id">
+            <column class="card">
+              <text class="card_name" x-text="db.label"></text>
+              <text class="muted" x-text="db.image"></text>
+              <button class="card_open" type="button" @click="pickDb(db)">Selecionar ›</button>
+            </column>
+          </template>
+        </column>
+        <!-- Database: form -->
+        <column class="form_panel" x-show="step === 'db_form'">
+          <text class="label_cap" x-text="selectedDb ? selectedDb.label : ''"></text>
+          <input class="field_input" type="text" x-model="dbServiceName" placeholder="nome do serviço (opcional)" style="margin-top:8px" />
+          <template x-if="selectedDb && selectedDb.has_db_name">
+            <input class="field_input" type="text" x-model="dbName" placeholder="nome do banco" style="margin-top:8px" />
+          </template>
+          <template x-if="selectedDb && selectedDb.has_user">
+            <input class="field_input" type="text" x-model="dbUser" placeholder="usuário" style="margin-top:8px" />
+          </template>
+          <input class="field_input" type="password" x-model="dbPassword" placeholder="senha" style="margin-top:8px" />
+          <template x-if="selectedDb && selectedDb.has_rootpw">
+            <input class="field_input" type="password" x-model="dbRootPassword" placeholder="senha root" style="margin-top:8px" />
+          </template>
+          <template x-if="selectedDb && selectedDb.has_replica">
+            <label class="check_row" style="margin-top:8px">
+              <input type="checkbox" x-model="dbUseReplica" /><span>Use Replica Sets</span>
+            </label>
+          </template>
+          <input class="field_input" type="text" x-model="dbImage" placeholder="imagem" style="margin-top:8px" />
+          <row class="env_add" style="margin-top:14px">
+            <button class="btn_primary" type="button" @click="submitDb()" :disabled="submitting"
+                    x-text="submitting ? 'Criando…' : 'Criar'"></button>
+          </row>
+        </column>
+
+        <!-- Broker: escolher -->
+        <column class="grid" x-show="step === 'pick_broker'">
+          <template x-for="b in catalog.brokers" :key="b.id">
+            <column class="card">
+              <text class="card_name" x-text="b.label"></text>
+              <text class="muted" x-text="b.image"></text>
+              <button class="card_open" type="button" @click="pickBroker(b)">Selecionar ›</button>
+            </column>
+          </template>
+        </column>
+        <!-- Broker: form -->
+        <column class="form_panel" x-show="step === 'broker_form'">
+          <text class="label_cap" x-text="selectedBroker ? selectedBroker.label : ''"></text>
+          <input class="field_input" type="text" x-model="brokerServiceName" placeholder="nome do serviço (opcional)" style="margin-top:8px" />
+          <template x-if="selectedBroker && selectedBroker.has_user">
+            <column style="gap:8px; margin-top:8px">
+              <input class="field_input" type="text" x-model="brokerUser" placeholder="usuário" />
+              <input class="field_input" type="password" x-model="brokerPassword" placeholder="senha" />
+            </column>
+          </template>
+          <input class="field_input" type="text" x-model="brokerImage" placeholder="imagem" style="margin-top:8px" />
+          <row class="env_add" style="margin-top:14px">
+            <button class="btn_primary" type="button" @click="submitBroker()" :disabled="submitting"
+                    x-text="submitting ? 'Criando…' : 'Criar'"></button>
+          </row>
+        </column>
+
+        <!-- Template: escolher -->
+        <column x-show="step === 'pick_template'">
+          <input class="field_input" type="text" x-model="templateSearch" placeholder="Buscar template…" style="max-width:400px" />
+          <column class="grid" style="margin-top:14px">
+            <template x-for="t in filteredTemplates" :key="t.id">
+              <column class="card">
+                <text class="card_name" x-text="t.name"></text>
+                <text class="muted" x-text="t.description"></text>
+                <button class="card_open" type="button" @click="pickTemplate(t)">Selecionar ›</button>
+              </column>
+            </template>
+            <text class="muted" x-show="filteredTemplates.length === 0" style="padding:16px">
+              Nenhum template encontrado.
+            </text>
+          </column>
+        </column>
+        <!-- Template: form -->
+        <column class="form_panel" x-show="step === 'template_form'">
+          <text class="label_cap" x-text="selectedTemplate ? selectedTemplate.name : ''"></text>
+          <input class="field_input" type="text" x-model="templateServiceName" placeholder="nome do serviço (opcional)" style="margin-top:8px" />
+          <template x-for="(v, i) in (selectedTemplate ? selectedTemplate.vars : [])" :key="v.idx">
+            <column style="margin-top:8px">
+              <text class="label_cap" x-text="v.label"></text>
+              <input class="field_input" type="text" x-model="templateValues[i]" :placeholder="v.placeholder" />
+            </column>
+          </template>
+          <row class="env_add" style="margin-top:14px">
+            <button class="btn_primary" type="button" @click="submitTemplate()" :disabled="submitting"
+                    x-text="submitting ? 'Criando…' : 'Criar'"></button>
           </row>
         </column>
       </column>
@@ -416,22 +631,45 @@
 
             <!-- Environment -->
             <column class="env_wrap" x-show="store.serviceTab === 'environment'">
-              <row class="env_add">
-                <input class="env_in_key" type="text" placeholder="KEY" x-model="newEnvKey" />
-                <input class="env_in_val" type="text" placeholder="value" x-model="newEnvValue" />
-                <button class="btn_primary" type="button" @click="addEnvVar()">Adicionar</button>
+              <row class="env_head">
+                <text class="muted_fill" x-text="envVars.length + ' variável(eis)'"></text>
+                <button class="btn_export" type="button" @click="openEnvText()" x-show="!envTextOpen">.env</button>
+                <button class="btn_export_on" type="button" @click="closeEnvText()" x-show="envTextOpen">Fechar</button>
               </row>
-              <column class="kv_list">
-                <template x-for="e in envVars" :key="e.key">
-                  <row class="kv_row">
-                    <button class="env_del" type="button" @click="delEnvVar(e.key)">✕</button>
-                    <text class="env_sep"></text>
-                    <text class="env_key" x-text="e.key"></text>
-                    <text class="kv_val_fill" x-text="e.isSecret ? '(secret)' : e.value"></text>
+              <template x-if="!envTextOpen">
+                <column style="gap:10px">
+                  <row class="env_add">
+                    <input class="env_in_key" type="text" placeholder="KEY" x-model="newEnvKey" />
+                    <input class="env_in_val" type="text" placeholder="value" x-model="newEnvValue" />
+                    <button class="btn_primary" type="button" @click="addEnvVar()">Adicionar</button>
                   </row>
-                </template>
-                <text class="muted" x-show="envVars.length === 0" style="padding:12px">Nenhuma variável.</text>
-              </column>
+                  <text class="muted_fill">
+                    Para um valor sensível, use um secret do projeto: escreva &lt;secret:NOME&gt; ou
+                    secret:NOME como valor. O secret é criado na aba Secrets do projeto.
+                  </text>
+                  <column class="kv_list">
+                    <template x-for="e in envVars" :key="e.key">
+                      <row class="kv_row">
+                        <button class="env_del" type="button" @click="delEnvVar(e.key)">✕</button>
+                        <text class="env_sep"></text>
+                        <text class="env_key" x-text="e.key"></text>
+                        <text class="kv_val_fill" x-text="e.isSecret ? '(secret)' : e.value"></text>
+                      </row>
+                    </template>
+                    <text class="muted" x-show="envVars.length === 0" style="padding:12px">Nenhuma variável.</text>
+                  </column>
+                </column>
+              </template>
+              <template x-if="envTextOpen">
+                <column style="gap:8px">
+                  <text class="muted">Cole/edite no formato KEY=VALUE (# comentário).</text>
+                  <textarea class="env_editor" x-model="envText" placeholder="KEY=VALUE   (# comentário)"></textarea>
+                  <row class="env_add">
+                    <button class="btn_primary" type="button" @click="saveEnvText()">Salvar</button>
+                    <button class="btn_ghost" type="button" @click="closeEnvText()">Cancelar</button>
+                  </row>
+                </column>
+              </template>
             </column>
 
             <!-- Domains -->
@@ -507,14 +745,19 @@
           </column>
         </template>
 
-        <!-- Modal simples de build log -->
-        <column class="panel_fill" x-show="buildLogFor" style="position:fixed; inset:40px; z-index:50; background:var(--bg)">
-          <row class="env_head">
-            <text class="label_cap">BUILD LOG</text>
-            <button class="btn_ghost" type="button" @click="closeBuildLog()">Fechar</button>
-          </row>
-          <column class="scroll_fill" style="padding:12px">
-            <text class="log_text" style="white-space:pre-wrap" x-text="buildLogText"></text>
+        <!-- Modal de build log: caixa de tamanho fixo centralizada, header
+             fora da área rolável (sempre visível), scroll 2D contido no
+             <pre> — build logs têm linhas longas sem quebra (barras de
+             progresso do docker pull) que antes vazavam da tela. -->
+        <column class="modal_backdrop" x-show="buildLogFor" @click.self="closeBuildLog()">
+          <column class="modal_box">
+            <row class="modal_head">
+              <text class="label_cap">BUILD LOG</text>
+              <button class="btn_ghost" type="button" @click="closeBuildLog()">Fechar</button>
+            </row>
+            <column class="modal_body">
+              <pre class="log_pre" x-text="buildLogText"></pre>
+            </column>
           </column>
         </column>
       </column>

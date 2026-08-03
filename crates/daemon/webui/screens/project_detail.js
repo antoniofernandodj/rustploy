@@ -1,8 +1,8 @@
 // screens/project_detail.js — projeto aberto (view=project_services no
-// client iced, só a sub-aba "Serviços" nesta fase — Variáveis/Secrets/Jobs
-// do projeto ficam para depois). Porta de fmt.service_rows + o cabeçalho
-// editável de shell.gv.
-import { serviceStatusLabelKind } from "../fmt.js";
+// client iced): sub-abas Serviços/Variáveis/Secrets (Jobs fica para depois).
+// Porta de fmt.service_rows, o cabeçalho editável e as sub-abas env/secrets
+// de shell.gv + handlers/projects.luau.
+import { serviceStatusLabelKind, dotenvFromVars, parseDotenv } from "../fmt.js";
 
 document.addEventListener("alpine:init", () => {
   Alpine.data("projectDetail", () => ({
@@ -12,6 +12,7 @@ document.addEventListener("alpine:init", () => {
     editing: false,
     editName: "",
     editDesc: "",
+    projTab: "services", // "services" | "env" | "secrets"
 
     get project() {
       const s = this.store;
@@ -59,6 +60,71 @@ document.addEventListener("alpine:init", () => {
     async saveEdit() {
       const r = await this.store.updateProject(this.store.selectedProjectId, this.editName, this.editDesc);
       if (r.ok) this.editing = false;
+    },
+
+    // ── Variáveis do projeto ─────────────────────────────────────────
+    newEnvKey: "",
+    newEnvValue: "",
+    envTextOpen: false,
+    envText: "",
+
+    get envVars() {
+      const p = this.project;
+      if (!p) return [];
+      return (p.env_vars || []).map((e) => ({
+        key: e.key,
+        value: e.value?.Plain ?? (e.value?.Secret ? `<secret:${e.value.Secret}>` : ""),
+        isSecret: !!e.value?.Secret,
+      }));
+    },
+
+    async addEnvVar() {
+      if (!this.newEnvKey.trim()) return;
+      const p = this.project;
+      const vars = (p.env_vars || []).filter((e) => e.key !== this.newEnvKey.trim());
+      vars.push({ key: this.newEnvKey.trim(), value: { Plain: this.newEnvValue } });
+      const r = await this.store.saveProjectEnv(vars, p.env_comments || []);
+      if (r.ok) {
+        this.newEnvKey = "";
+        this.newEnvValue = "";
+      }
+    },
+    async delEnvVar(key) {
+      const p = this.project;
+      const vars = (p.env_vars || []).filter((e) => e.key !== key);
+      const comments = (p.env_comments || []).filter((c) => c.before_key !== key);
+      await this.store.saveProjectEnv(vars, comments);
+    },
+
+    openEnvText() {
+      const p = this.project;
+      this.envText = dotenvFromVars(p?.env_vars, p?.env_comments);
+      this.envTextOpen = true;
+    },
+    closeEnvText() {
+      this.envTextOpen = false;
+    },
+    async saveEnvText() {
+      const { vars, comments } = parseDotenv(this.envText);
+      const r = await this.store.saveProjectEnv(vars, comments);
+      if (r.ok) this.envTextOpen = false;
+    },
+
+    // ── Secrets do projeto ────────────────────────────────────────────
+    newSecretName: "",
+    newSecretValue: "",
+
+    get secrets() {
+      const p = this.project;
+      return (p?.secrets || []).map((name) => ({ name }));
+    },
+
+    async submitSecret() {
+      const r = await this.store.addSecret(this.newSecretName, this.newSecretValue);
+      if (r.ok) {
+        this.newSecretName = "";
+        this.newSecretValue = "";
+      }
     },
   }));
 });

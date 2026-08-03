@@ -290,17 +290,86 @@ document.addEventListener("alpine:init", () => {
       this.nav("project");
     },
 
+    async saveProjectEnv(envVars, envComments) {
+      const r = await this.api.rpcChecked({
+        ProjectEnvSet: {
+          project_id: this.selectedProjectId,
+          env_vars: envVars,
+          env_comments: envComments,
+        },
+      });
+      this.projectMsg = r.ok ? "variáveis salvas" : "erro: " + r.error;
+      if (r.ok) await this.refreshNow();
+      return r;
+    },
+
+    async addSecret(name, value) {
+      if (!name.trim()) return { ok: false, error: "nome obrigatório" };
+      const r = await this.api.rpcChecked({
+        SecretSet: { project_id: this.selectedProjectId, name: name.trim(), value },
+      });
+      if (r.ok) await this.refreshNow();
+      return r;
+    },
+
+    async deleteSecret(name) {
+      if (!confirm(`Remover o secret "${name}"? Serviços que o referenciam vão falhar no próximo deploy.`)) {
+        return;
+      }
+      const r = await this.api.rpcChecked({
+        SecretDelete: { project_id: this.selectedProjectId, name },
+      });
+      if (r.ok) await this.refreshNow();
+    },
+
     // ── Services ─────────────────────────────────────────────────────
 
     openNewService() {
       this.nav("new_service");
     },
 
-    /** `source` já é o `ServiceSource` externally-tagged (ver new_service.js). */
-    async createService(name, projectId, source, port, domain) {
+    /** Catálogos do wizard (bancos/brokers/templates) — buscados uma vez ao
+     * abrir a tela "Novo serviço" (ver screens/new_service.js). */
+    async fetchWizardCatalog(search) {
+      const r = await this.api.rpc({ WizardCatalog: { search: search || "" } });
+      if (!r.ok || !r.value?.WizardCatalog) return { dbs: [], brokers: [], templates: [] };
+      const c = r.value.WizardCatalog;
+      try {
+        return {
+          dbs: JSON.parse(c.dbs),
+          brokers: JSON.parse(c.brokers),
+          templates: JSON.parse(c.templates),
+        };
+      } catch {
+        return { dbs: [], brokers: [], templates: [] };
+      }
+    },
+
+    /** `req` é o `WizardCreateReq` completo (ver screens/new_service.js) — o
+     * daemon (shared::wizard::build_spec) monta o ServiceSpec certo conforme
+     * `req.kind`. Usado por Compose/Database/Broker/Template: o backend gera
+     * o compose e as env vars corretas (mesma lógica do client iced). */
+    async wizardCreate(req) {
+      const r = await this.api.rpcChecked({ WizardCreate: req });
+      if (r.ok) {
+        await this.refreshNow();
+        const created = r.value?.Service;
+        if (created) this.openService(created.id);
+        else this.nav("project");
+      }
+      return r;
+    },
+
+    /** `source` já é o `ServiceSource` externally-tagged. Usado só pelo tipo
+     * "Application" do wizard: diferente dos outros 4 tipos, o
+     * `WizardCreateReq` não carrega URL de Git nem imagem de registry — o
+     * wizard iced cria um serviço vazio (`Registry{image:""}`) e deixa o
+     * usuário preencher depois na aba General. Aqui coletamos a origem já na
+     * criação (mais direto), então vamos por `ServiceCreate` puro. */
+    async createServiceDirect(name, source, port, domain) {
       const spec = {
         name: name.trim(),
-        project_id: projectId,
+        project_id: this.selectedProjectId,
         source,
         port: Number(port) || 80,
         host_port: null,
@@ -431,10 +500,18 @@ document.addEventListener("alpine:init", () => {
     // http_api.rs::service_logs); sem tail histórico, só o que chegar a
     // partir da conexão (mesmo comportamento do client iced).
 
-    startServiceLogs() {
+    async startServiceLogs() {
       this.stopServiceLogs();
-      this.serviceLogLines = [];
       const id = this.selectedServiceId;
+      // Semeia o histórico ANTES de abrir o stream ao vivo — mesma ordem do
+      // client iced (handlers/services.luau::open_logs_window): sem isso, um
+      // serviço já rodando há tempo (sem stdout novo desde então) mostra a
+      // aba vazia para sempre, mesmo tendo logs de sobra.
+      const seed = await this.api.rpc({ LogsGet: { service_id: id, tail: 500 } });
+      this.serviceLogLines = (seed.ok && seed.value?.Logs) || [];
+      // A troca de aba pode ter acontecido enquanto o fetch estava em voo —
+      // se o usuário já saiu da aba Logs (ou do serviço), não abre a stream.
+      if (this.serviceTab !== "logs" || this.selectedServiceId !== id) return;
       this.serviceLogStream = openStream(
         this.api.baseUrl,
         this.api.token,
