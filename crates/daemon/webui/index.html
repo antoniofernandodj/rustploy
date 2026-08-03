@@ -91,9 +91,10 @@
         <text class="brand_sub">PRODUCTION CLUSTER</text>
       </column>
       <text class="nav_section">DEPLOYMENT OPS</text>
-      <button class="nav_row_on" type="button">
-        <text class="nav_icon_on">▶</text>
-        <text class="nav_label_on">Deployments</text>
+      <button type="button" @click="$store.app.nav('deployments')"
+              :class="$store.app.view === 'deployments' ? 'nav_row_on' : 'nav_row_off'">
+        <text :class="$store.app.view === 'deployments' ? 'nav_icon_on' : 'nav_icon_off'">▶</text>
+        <text :class="$store.app.view === 'deployments' ? 'nav_label_on' : 'nav_label_off'">Deployments</text>
       </button>
       <button class="nav_row_off" type="button" disabled title="em breve — próxima fase" style="opacity:.5">
         <text class="nav_icon_off">⚡</text>
@@ -116,9 +117,10 @@
         <text class="nav_label_off">Docker</text>
       </button>
       <text class="nav_section">MANAGEMENT</text>
-      <button class="nav_row_off" type="button" disabled title="em breve — próxima fase" style="opacity:.5">
-        <text class="nav_icon_off">◧</text>
-        <text class="nav_label_off">Projects</text>
+      <button type="button" @click="$store.app.nav('projects')"
+              :class="['projects','project','new_service','service'].includes($store.app.view) ? 'nav_row_on' : 'nav_row_off'">
+        <text :class="['projects','project','new_service','service'].includes($store.app.view) ? 'nav_icon_on' : 'nav_icon_off'">◧</text>
+        <text :class="['projects','project','new_service','service'].includes($store.app.view) ? 'nav_label_on' : 'nav_label_off'">Projects</text>
       </button>
       <column class="nav_spacer"></column>
       <hr class="rule" />
@@ -138,7 +140,7 @@
       </row>
       <hr class="rule" />
 
-      <column class="content" x-data="dashboard">
+      <column class="content" x-data="dashboard" x-show="$store.app.view === 'deployments'">
         <row class="header_row">
           <column class="header_titles">
             <text class="title">Deployments</text>
@@ -193,6 +195,326 @@
                 Nenhum deployment ainda.
               </text>
             </column>
+          </column>
+        </column>
+      </column>
+
+      <!-- ── Projects ─────────────────────────────────────────────────── -->
+      <column class="content" x-data="projects" x-show="$store.app.view === 'projects'">
+        <row class="header_row">
+          <column class="header_titles">
+            <text class="title">Projects</text>
+            <text class="subtitle">Projetos do cluster e a contagem de serviços de cada um.</text>
+          </column>
+        </row>
+        <row class="env_add">
+          <button class="btn_primary" type="button" @click="showNewForm = !showNewForm"
+                  x-text="showNewForm ? 'Cancelar' : '+ Novo projeto'"></button>
+        </row>
+        <column class="form_panel" x-show="showNewForm" style="max-width:480px">
+          <input class="field_input" type="text" placeholder="Nome do projeto" x-model="newName" />
+          <input class="field_input" type="text" placeholder="Descrição (opcional)" x-model="newDesc"
+                 style="margin-top:8px" />
+          <text class="err" x-show="newError" x-text="newError" style="margin-top:6px"></text>
+          <row class="env_add" style="margin-top:10px">
+            <button class="btn_primary" type="button" @click="submitNew()">Criar</button>
+          </row>
+        </column>
+
+        <column class="scroll_fill">
+          <column class="grid">
+            <template x-for="row in rows" :key="row.id">
+              <column class="card">
+                <row class="card_head">
+                  <text class="card_name" x-text="row.name"></text>
+                </row>
+                <text class="muted" x-text="row.description || '—'"></text>
+                <text class="muted" x-text="row.runningCount + '/' + row.serviceCount + ' serviços rodando'"></text>
+
+                <template x-if="editingId === row.id">
+                  <column style="gap:8px; margin-top:8px">
+                    <input class="field_input" type="text" x-model="editName" />
+                    <input class="field_input" type="text" x-model="editDesc" />
+                    <row class="env_add">
+                      <button class="btn_primary" type="button" @click="saveEdit()">Salvar</button>
+                      <button class="btn_ghost" type="button" @click="cancelEdit()">Cancelar</button>
+                    </row>
+                  </column>
+                </template>
+                <template x-if="editingId !== row.id">
+                  <row style="gap:8px; margin-top:8px">
+                    <button class="card_open" type="button" @click="store.openProject(row.id)">Abrir</button>
+                    <button class="card_edit" type="button" @click="startEdit(row)">Editar</button>
+                    <button class="card_remove" type="button" x-show="row.canDelete"
+                            @click="store.deleteProject(row.id)">Remover</button>
+                  </row>
+                </template>
+              </column>
+            </template>
+            <text class="muted" x-show="rows.length === 0" style="padding:16px">Nenhum projeto ainda.</text>
+          </column>
+        </column>
+      </column>
+
+      <!-- ── Projeto aberto ───────────────────────────────────────────── -->
+      <column class="content" x-data="projectDetail" x-show="$store.app.view === 'project'">
+        <row class="proj_topbar">
+          <button class="btn_ghost" type="button" @click="store.nav('projects')">‹ Projetos</button>
+          <column class="hspacer"></column>
+          <row class="proj_actions" x-show="!editing">
+            <button class="btn_sm_primary" type="button" @click="store.openNewService()">+ Novo serviço</button>
+            <button class="btn_sm_ghost" type="button" @click="startEdit()">Editar projeto</button>
+            <button class="btn_sm_danger" type="button" x-show="canDelete"
+                    @click="store.deleteProject(store.selectedProjectId)">Remover projeto</button>
+          </row>
+        </row>
+
+        <template x-if="editing">
+          <column class="field_group" style="max-width:480px">
+            <input class="field_input" type="text" x-model="editName" />
+            <input class="field_input" type="text" x-model="editDesc" style="margin-top:8px" />
+            <row class="env_add" style="margin-top:8px">
+              <button class="btn_primary" type="button" @click="saveEdit()">Salvar</button>
+              <button class="btn_ghost" type="button" @click="cancelEdit()">Cancelar</button>
+            </row>
+          </column>
+        </template>
+        <template x-if="!editing">
+          <column class="header_titles">
+            <text class="title" x-text="project ? project.name : ''"></text>
+            <text class="subtitle" x-text="project ? (project.description || '') : ''"></text>
+          </column>
+        </template>
+
+        <column class="scroll_fill">
+          <column class="grid">
+            <template x-for="s in services" :key="s.id">
+              <column class="card">
+                <row class="card_head">
+                  <text class="card_name" x-text="s.name"></text>
+                  <row class="badge">
+                    <text class="state_dot" :class="'state_' + s.statusKind">●</text>
+                    <text class="badge_lbl" :class="'state_' + s.statusKind" x-text="s.statusLabel"></text>
+                  </row>
+                </row>
+                <text class="muted" x-text="'porta ' + s.port"></text>
+                <button class="card_open" type="button" @click="store.openService(s.id)">Abrir</button>
+              </column>
+            </template>
+            <text class="muted" x-show="services.length === 0" style="padding:16px">
+              Nenhum serviço neste projeto ainda.
+            </text>
+          </column>
+        </column>
+      </column>
+
+      <!-- ── Novo serviço (form simplificado) ─────────────────────────── -->
+      <column class="content" x-data="newService" x-show="$store.app.view === 'new_service'">
+        <row class="header_row">
+          <column class="header_titles">
+            <text class="title">Novo serviço</text>
+            <text class="subtitle">Formulário simplificado — repositório Git ou imagem de registry.</text>
+          </column>
+        </row>
+        <column class="form_panel">
+          <text class="label_cap">NOME</text>
+          <input class="field_input" type="text" x-model="name" placeholder="meu-servico" />
+
+          <text class="label_cap" style="margin-top:14px">ORIGEM</text>
+          <row class="tabs">
+            <button type="button" :class="sourceKind === 'git' ? 'tab_on' : 'tab_off'"
+                    @click="sourceKind = 'git'">Git</button>
+            <button type="button" :class="sourceKind === 'registry' ? 'tab_on' : 'tab_off'"
+                    @click="sourceKind = 'registry'">Registry</button>
+          </row>
+
+          <template x-if="sourceKind === 'git'">
+            <column style="gap:8px; margin-top:8px">
+              <input class="field_input" type="text" x-model="gitUrl"
+                     placeholder="https://github.com/usuario/repo.git" />
+              <input class="field_input" type="text" x-model="gitBranch" placeholder="main" />
+            </column>
+          </template>
+          <template x-if="sourceKind === 'registry'">
+            <column style="margin-top:8px">
+              <input class="field_input" type="text" x-model="registryImage" placeholder="nginx:latest" />
+            </column>
+          </template>
+
+          <text class="label_cap" style="margin-top:14px">PORTA</text>
+          <input class="field_input" type="number" x-model="port" />
+
+          <text class="label_cap" style="margin-top:14px">DOMÍNIO (opcional)</text>
+          <input class="field_input" type="text" x-model="domain" placeholder="meuservico.dominio.com" />
+
+          <text class="err" x-show="error" x-text="error" style="margin-top:8px"></text>
+
+          <row class="env_add" style="margin-top:14px">
+            <button class="btn_primary" type="button" @click="submit()" :disabled="submitting"
+                    x-text="submitting ? 'Criando…' : 'Criar serviço'"></button>
+            <button class="btn_ghost" type="button" @click="cancel()">Cancelar</button>
+          </row>
+        </column>
+      </column>
+
+      <!-- ── Detalhe de serviço ───────────────────────────────────────── -->
+      <column class="content" x-data="serviceDetail" x-show="$store.app.view === 'service'">
+        <row class="svc_head">
+          <column class="header_titles">
+            <row class="svc_title_row">
+              <button class="btn_ghost" type="button" @click="store.nav('project')">‹ Voltar</button>
+              <text class="title svc_title" x-text="svc ? svc.spec.name : ''"></text>
+            </row>
+            <row class="svc_substatus">
+              <row class="badge">
+                <text class="state_dot" :class="'state_' + statusKind">●</text>
+                <text class="badge_lbl" :class="'state_' + statusKind" x-text="statusLabel"></text>
+              </row>
+            </row>
+            <text class="muted" x-show="store.serviceMsg" x-text="store.serviceMsg"></text>
+          </column>
+          <row class="svc_actions" x-show="svc">
+            <button class="btn_primary" type="button" @click="store.deployStart()">Deploy</button>
+            <button class="btn_blue" type="button" @click="store.serviceReload()">Reload</button>
+            <button class="btn_blue" type="button" @click="store.deployRollback()">Rollback</button>
+            <button class="btn_danger" type="button" @click="store.serviceStop()">Stop</button>
+          </row>
+        </row>
+
+        <column class="content_center" x-show="store.serviceLoading" style="padding:24px">
+          <text class="muted">carregando…</text>
+        </column>
+
+        <template x-if="!store.serviceLoading && svc">
+          <column>
+            <row class="tabs">
+              <button type="button" :class="store.serviceTab === 'general' ? 'tab_on' : 'tab_off'"
+                      @click="store.setServiceTab('general')">General</button>
+              <button type="button" :class="store.serviceTab === 'environment' ? 'tab_on' : 'tab_off'"
+                      @click="store.setServiceTab('environment')">Environment</button>
+              <button type="button" :class="store.serviceTab === 'domains' ? 'tab_on' : 'tab_off'"
+                      @click="store.setServiceTab('domains')">Domains</button>
+              <button type="button" :class="store.serviceTab === 'deployments' ? 'tab_on' : 'tab_off'"
+                      @click="store.setServiceTab('deployments')">Deployments</button>
+              <button type="button" :class="store.serviceTab === 'logs' ? 'tab_on' : 'tab_off'"
+                      @click="store.setServiceTab('logs')">Logs</button>
+            </row>
+            <hr class="rule" />
+
+            <!-- General -->
+            <column class="panel_pad" x-show="store.serviceTab === 'general'">
+              <row class="kv_row"><text class="kv_key">Origem</text><text class="kv_val" x-text="sourceText"></text></row>
+              <row class="kv_row"><text class="kv_key">Porta</text><text class="kv_val" x-text="svc.spec.port"></text></row>
+              <row class="kv_row"><text class="kv_key">Réplicas</text><text class="kv_val" x-text="svc.spec.replicas"></text></row>
+              <row class="kv_row" x-show="svc.live_container_id">
+                <text class="kv_key">Container ao vivo</text>
+                <text class="kv_val" x-text="svc.live_container_id"></text>
+              </row>
+              <button class="btn_danger" type="button" style="margin-top:14px; align-self:flex-start"
+                      @click="store.deleteService(svc.id)">Remover serviço</button>
+            </column>
+
+            <!-- Environment -->
+            <column class="env_wrap" x-show="store.serviceTab === 'environment'">
+              <row class="env_add">
+                <input class="env_in_key" type="text" placeholder="KEY" x-model="newEnvKey" />
+                <input class="env_in_val" type="text" placeholder="value" x-model="newEnvValue" />
+                <button class="btn_primary" type="button" @click="addEnvVar()">Adicionar</button>
+              </row>
+              <column class="kv_list">
+                <template x-for="e in envVars" :key="e.key">
+                  <row class="kv_row">
+                    <button class="env_del" type="button" @click="delEnvVar(e.key)">✕</button>
+                    <text class="env_sep"></text>
+                    <text class="env_key" x-text="e.key"></text>
+                    <text class="kv_val_fill" x-text="e.isSecret ? '(secret)' : e.value"></text>
+                  </row>
+                </template>
+                <text class="muted" x-show="envVars.length === 0" style="padding:12px">Nenhuma variável.</text>
+              </column>
+            </column>
+
+            <!-- Domains -->
+            <column class="env_wrap" x-show="store.serviceTab === 'domains'">
+              <row class="env_add">
+                <input class="env_in_key" type="text" placeholder="dominio.com" x-model="newDomain" />
+                <input class="env_in_val" type="text" placeholder="porta (opcional)" x-model="newDomainPort" />
+                <label class="check_row"><input type="checkbox" x-model="newDomainTls" /><span>TLS</span></label>
+                <button class="btn_primary" type="button" @click="addDomain()">Adicionar</button>
+              </row>
+              <column class="kv_list">
+                <template x-for="d in domains" :key="d.domain">
+                  <row class="kv_row">
+                    <button class="env_del" type="button" @click="delDomain(d.domain)">✕</button>
+                    <text class="env_sep"></text>
+                    <text class="env_key" x-text="d.domain"></text>
+                    <text class="kv_val_fill" x-text="(d.tls ? 'https' : 'http') + ' → :' + d.port"></text>
+                  </row>
+                </template>
+                <text class="muted" x-show="domains.length === 0" style="padding:12px">
+                  Nenhum domínio configurado.
+                </text>
+              </column>
+            </column>
+
+            <!-- Deployments -->
+            <column class="panel_fill" x-show="store.serviceTab === 'deployments'">
+              <row class="thead">
+                <text class="th col_state">ESTADO</text>
+                <text class="th col_dur">DURAÇÃO</text>
+                <text class="th col_start">INÍCIO</text>
+                <text class="th col_act_2">AÇÃO</text>
+              </row>
+              <column class="table_body">
+                <template x-for="d in deployments" :key="d.id">
+                  <column class="row_wrap">
+                    <row class="trow">
+                      <row class="state_cell col_state">
+                        <text class="state_dot" :class="'state_' + d.stateKind">●</text>
+                        <text class="state_lbl" :class="'state_' + d.stateKind" x-text="d.stateLabel"></text>
+                      </row>
+                      <text class="td col_dur" x-text="d.duration"></text>
+                      <text class="muted col_start" x-text="d.start"></text>
+                      <row class="dep_actions col_act_2">
+                        <button class="dep_logs_btn" type="button" @click="viewBuildLog(d.id)" title="Ver build log">↗</button>
+                        <button class="dep_logs_btn" type="button" x-show="!d.terminal" @click="abortDeployment(d.id)" title="Cancelar">⏹</button>
+                        <button class="dep_del_btn" type="button" x-show="d.terminal" @click="removeDeployment(d.id)" title="Remover">✕</button>
+                      </row>
+                    </row>
+                    <hr class="rule" />
+                  </column>
+                </template>
+                <text class="muted" x-show="deployments.length === 0" style="padding:16px">Nenhum deploy ainda.</text>
+              </column>
+            </column>
+
+            <!-- Logs -->
+            <column class="log_panel" x-show="store.serviceTab === 'logs'">
+              <column class="scroll_fill">
+                <column class="log_body">
+                  <template x-for="(l, i) in store.serviceLogLines" :key="i">
+                    <row class="log_line">
+                      <text class="log_time" x-text="l.stream"></text>
+                      <text class="log_text" x-text="l.line"></text>
+                    </row>
+                  </template>
+                  <text class="muted" x-show="store.serviceLogLines.length === 0" style="padding:12px">
+                    Aguardando linhas de log…
+                  </text>
+                </column>
+              </column>
+            </column>
+          </column>
+        </template>
+
+        <!-- Modal simples de build log -->
+        <column class="panel_fill" x-show="buildLogFor" style="position:fixed; inset:40px; z-index:50; background:var(--bg)">
+          <row class="env_head">
+            <text class="label_cap">BUILD LOG</text>
+            <button class="btn_ghost" type="button" @click="closeBuildLog()">Fechar</button>
+          </row>
+          <column class="scroll_fill" style="padding:12px">
+            <text class="log_text" style="white-space:pre-wrap" x-text="buildLogText"></text>
           </column>
         </column>
       </column>

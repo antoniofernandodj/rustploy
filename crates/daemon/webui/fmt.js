@@ -54,3 +54,46 @@ export function stateLabelKind(state) {
   if (state === "Failed") return ["FAILED", "bad"];
   return ["BUILDING", "info"];
 }
+
+/** ServiceStatus (string ou `{Error: "..."}`) → (rótulo, kind). Porta de
+ * fmt/util.luau::status_label_color/status_kind. */
+export function serviceStatusLabelKind(status) {
+  if (typeof status === "object" && status?.Error !== undefined) return ["Error", "bad"];
+  switch (status) {
+    case "Running":
+      return ["Running", "ok"];
+    case "Deploying":
+      return ["Deploying", "info"];
+    case "Queued":
+      return ["Na fila", "muted"];
+    case "Degraded":
+      return ["Degraded", "warn"];
+    case "Stopping":
+    case "Stopped":
+      return ["Stopped", "muted"];
+    default:
+      return ["Error", "bad"];
+  }
+}
+
+/** Tamanho de bytes legível ("—" para 0/ausente). */
+export function fmtBytes(b) {
+  const n = Number(b) || 0;
+  if (n === 0) return "—";
+  const KB = 1024,
+    MB = KB * 1024,
+    GB = MB * 1024;
+  if (n >= GB) return (n / GB).toFixed(1) + " GB";
+  if (n >= MB) return (n / MB).toFixed(0) + " MB";
+  return (n / KB).toFixed(0) + " KB";
+}
+
+/** Resumo curto da origem de um serviço (ServiceSource externally-tagged). */
+export function sourceSummary(source) {
+  if (!source || typeof source !== "object") return "—";
+  if (source.Registry) return source.Registry.image || "—";
+  if (source.Git) return `${source.Git.url} @ ${source.Git.branch}`;
+  if (source.Archive) return source.Archive.original_filename || source.Archive.archive_id || "zip enviado";
+  if (source.Compose) return "docker-compose";
+  return "—";
+}

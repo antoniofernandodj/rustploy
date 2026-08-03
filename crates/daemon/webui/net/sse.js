@@ -1,26 +1,32 @@
-// net/sse.js — consumidor do SSE `/api/events`. Porta de
-// crates/rustploy-gui/views/scripts/handlers/stream.luau (a parte de
-// transporte; a aplicação do snapshot/bus mora em screens/dashboard.js).
+// net/sse.js — consumidor de endpoints SSE do daemon: o firehose
+// `/api/events` (porta de crates/rustploy-gui/views/scripts/handlers/
+// stream.luau — só a parte de transporte, a aplicação do snapshot/bus mora
+// em app.js/screens/*.js) e os endpoints dedicados de logs por serviço/
+// deployment (`/api/services/{id}/logs`, `/api/deployments/{id}/build-logs`
+// — ver crates/daemon/src/api/http_api.rs), que usam o MESMO framing SSE.
 //
 // Não usa `EventSource` nativo: ele não permite mandar o header
-// `Authorization`, e a rota exige o mesmo Bearer token de `/api/rpc`. Em vez
-// disso, lê o corpo da resposta como stream de bytes (mesmo protocolo
-// text/event-stream, decodificado à mão) via `fetch` + `ReadableStream`.
+// `Authorization`, e toda rota SSE do daemon exige o mesmo Bearer token de
+// `/api/rpc`. Em vez disso, lê o corpo da resposta como stream de bytes
+// (mesmo protocolo text/event-stream, decodificado à mão) via `fetch` +
+// `ReadableStream`.
 
 /**
- * Abre a stream e devolve um controlador com `close()`.
+ * Abre a stream em `path` (relativo a `baseUrl`, ex. "/api/events" ou
+ * "/api/services/<id>/logs") e devolve um controlador com `close()`.
  * @param {string} baseUrl
  * @param {string} token
+ * @param {string} path
  * @param {{onEvent:(kind:string,data:any)=>void, onError?:(msg:string)=>void, onClose?:()=>void}} handlers
  */
-export function openStream(baseUrl, token, handlers) {
+export function openStream(baseUrl, token, path, handlers) {
   const controller = new AbortController();
   let closedByUs = false;
 
   (async () => {
     let res;
     try {
-      res = await fetch(baseUrl.replace(/\/+$/, "") + "/api/events", {
+      res = await fetch(baseUrl.replace(/\/+$/, "") + path, {
         headers: token ? { Authorization: "Bearer " + token } : {},
         signal: controller.signal,
       });

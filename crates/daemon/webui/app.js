@@ -13,6 +13,10 @@
 //      listeners acima já registrados.
 import "./screens/login.js";
 import "./screens/dashboard.js";
+import "./screens/projects.js";
+import "./screens/project_detail.js";
+import "./screens/new_service.js";
+import "./screens/service_detail.js";
 import Alpine from "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/module.esm.js";
 import { Api } from "./net/api.js";
 import { openStream } from "./net/sse.js";
@@ -64,6 +68,28 @@ document.addEventListener("alpine:init", () => {
     daemonUptime: "…",
     servicesLabel: "…",
     deploymentsMsg: "",
+
+    // ── Navegação (≈ ctx.view do glacier) ───────────────────────────
+    // "deployments" | "projects" | "project" | "service" | "new_service"
+    view: "deployments",
+    selectedProjectId: null,
+    selectedServiceId: null,
+    projectMsg: "",
+
+    // ── Detalhe de serviço aberto ────────────────────────────────────
+    serviceDetail: null, // Service (ServiceGet)
+    serviceDeployments: [], // Vec<Deployment> (DeployHistory)
+    serviceTab: "general",
+    serviceMsg: "",
+    serviceLoading: false,
+    serviceLogLines: [],
+    serviceLogStream: null,
+
+    nav(view) {
+      this.stopServiceLogs();
+      this.view = view;
+      if (view === "projects") this.projectMsg = "";
+    },
 
     persistPrefs() {
       savePrefs({
@@ -122,6 +148,7 @@ document.addEventListener("alpine:init", () => {
     },
 
     disconnect() {
+      this.stopServiceLogs();
       this.stream?.close();
       this.stream = null;
       this.api = null;
@@ -129,11 +156,15 @@ document.addEventListener("alpine:init", () => {
       this.connected = false;
       this.screen = "login";
       this.statusLine = "desconectado";
+      this.view = "deployments";
+      this.selectedProjectId = null;
+      this.selectedServiceId = null;
+      this.serviceDetail = null;
     },
 
     openStream() {
       this.stream?.close();
-      this.stream = openStream(this.api.baseUrl, this.api.token, {
+      this.stream = openStream(this.api.baseUrl, this.api.token, "/api/events", {
         onEvent: (kind, data) => this.onStreamEvent(data),
         onError: (msg) => {
           this.statusLine = "stream: " + msg;
@@ -220,6 +251,220 @@ document.addEventListener("alpine:init", () => {
           /* snapshot malformado — ignora, o próximo tick de 2s corrige */
         }
       }
+    },
+
+    // ── Projects ─────────────────────────────────────────────────────
+
+    async createProject(name, description) {
+      if (!name || !name.trim()) return { ok: false, error: "nome obrigatório" };
+      const r = await this.api.rpcChecked({
+        ProjectCreate: { name: name.trim(), description: description?.trim() || null },
+      });
+      if (r.ok) await this.refreshNow();
+      return r;
+    },
+
+    async updateProject(id, name, description) {
+      const r = await this.api.rpcChecked({
+        ProjectUpdate: { id, name: name.trim(), description: description?.trim() || null },
+      });
+      if (r.ok) await this.refreshNow();
+      return r;
+    },
+
+    async deleteProject(id) {
+      if (!confirm("Remover este projeto? Só funciona se não houver serviços nele.")) {
+        return { ok: false, error: "cancelado" };
+      }
+      const r = await this.api.rpcChecked({ ProjectDelete: { id } });
+      if (r.ok) {
+        await this.refreshNow();
+        this.nav("projects");
+      }
+      return r;
+    },
+
+    openProject(id) {
+      this.selectedProjectId = id;
+      this.projectMsg = "";
+      this.nav("project");
+    },
+
+    // ── Services ─────────────────────────────────────────────────────
+
+    openNewService() {
+      this.nav("new_service");
+    },
+
+    /** `source` já é o `ServiceSource` externally-tagged (ver new_service.js). */
+    async createService(name, projectId, source, port, domain) {
+      const spec = {
+        name: name.trim(),
+        project_id: projectId,
+        source,
+        port: Number(port) || 80,
+        host_port: null,
+        domain: domain?.trim() || null,
+        tls_enabled: false,
+        env_vars: [],
+        env_comments: [],
+        volumes: [],
+        healthcheck: {
+          kind: "None",
+          interval_secs: 5,
+          timeout_secs: 3,
+          retries: 10,
+          start_period_secs: 5,
+        },
+        replicas: 1,
+        resources: { cpu_shares: 0, mem_limit_bytes: 0 },
+        run_command: null,
+        run_args: [],
+        db_kind: null,
+        domains: [],
+      };
+      const r = await this.api.rpcChecked({ ServiceCreate: spec });
+      if (r.ok) {
+        await this.refreshNow();
+        const created = r.value?.Service;
+        if (created) this.openService(created.id);
+        else this.nav("project");
+      }
+      return r;
+    },
+
+    async openService(id) {
+      this.selectedServiceId = id;
+      this.serviceTab = "general";
+      this.serviceMsg = "";
+      this.serviceDeployments = [];
+      this.serviceLoading = true;
+      this.nav("service");
+      await this.fetchServiceDetail(id);
+    },
+
+    async fetchServiceDetail(id) {
+      const r = await this.api.rpc({ ServiceGet: { id } });
+      if (!r.ok || !r.value?.Service) {
+        this.serviceMsg = r.ok ? "serviço não encontrado" : r.error;
+        this.serviceLoading = false;
+        return;
+      }
+      this.serviceDetail = r.value.Service;
+      const rh = await this.api.rpc({ DeployHistory: { service_id: id, limit: 30 } });
+      this.serviceDeployments = (rh.ok && rh.value?.Deployments) || [];
+      this.serviceLoading = false;
+    },
+
+    async saveServiceSpec(spec, okMsg) {
+      const id = this.selectedServiceId;
+      const r = await this.api.rpcChecked({ ServiceUpdate: { id, spec } });
+      if (r.ok) {
+        this.serviceMsg = okMsg || "salvo";
+        await this.fetchServiceDetail(id);
+        await this.refreshNow();
+      } else {
+        this.serviceMsg = "erro: " + r.error;
+      }
+      return r;
+    },
+
+    async deleteService(id) {
+      if (!confirm("Remover este serviço? Para o container e apaga o histórico. Ação irreversível.")) {
+        return;
+      }
+      const r = await this.api.rpcChecked({ ServiceDelete: { id } });
+      if (r.ok) {
+        await this.refreshNow();
+        this.nav("project");
+      } else {
+        this.serviceMsg = "erro ao remover: " + r.error;
+      }
+    },
+
+    async deployStart() {
+      const id = this.selectedServiceId;
+      this.serviceMsg = "iniciando deploy…";
+      const r = await this.api.rpcChecked({ DeployStart: { service_id: id } });
+      this.serviceMsg = r.ok ? "deploy iniciado" : "erro: " + r.error;
+      await this.fetchServiceDetail(id);
+      await this.refreshNow();
+    },
+
+    async deployAbort(deploymentId) {
+      const r = await this.api.rpcChecked({ DeployAbort: { deployment_id: deploymentId } });
+      this.serviceMsg = r.ok ? "deploy cancelado" : "erro: " + r.error;
+      await this.fetchServiceDetail(this.selectedServiceId);
+    },
+
+    async deployRollback() {
+      if (!confirm("Reverter para o deploy anterior?")) return;
+      const id = this.selectedServiceId;
+      const r = await this.api.rpcChecked({ DeployRollback: { service_id: id } });
+      this.serviceMsg = r.ok ? "rollback iniciado" : "erro: " + r.error;
+      await this.fetchServiceDetail(id);
+    },
+
+    async deleteDeployment(deploymentId) {
+      const r = await this.api.rpcChecked({ DeployDelete: { deployment_id: deploymentId } });
+      if (r.ok) await this.fetchServiceDetail(this.selectedServiceId);
+      return r;
+    },
+
+    async serviceStop() {
+      const id = this.selectedServiceId;
+      const r = await this.api.rpcChecked({ ServiceStop: { service_id: id } });
+      this.serviceMsg = r.ok ? "serviço parado" : "erro: " + r.error;
+      await this.fetchServiceDetail(id);
+      await this.refreshNow();
+    },
+
+    async serviceReload() {
+      const id = this.selectedServiceId;
+      const r = await this.api.rpcChecked({ ServiceReload: { service_id: id } });
+      this.serviceMsg = r.ok ? "serviço recarregado" : "erro: " + r.error;
+      await this.fetchServiceDetail(id);
+    },
+
+    // ── Logs (aba Logs do serviço) ───────────────────────────────────
+    // Mesmo endpoint SSE dedicado do client iced (crates/daemon/src/api/
+    // http_api.rs::service_logs); sem tail histórico, só o que chegar a
+    // partir da conexão (mesmo comportamento do client iced).
+
+    startServiceLogs() {
+      this.stopServiceLogs();
+      this.serviceLogLines = [];
+      const id = this.selectedServiceId;
+      this.serviceLogStream = openStream(
+        this.api.baseUrl,
+        this.api.token,
+        `/api/services/${id}/logs`,
+        {
+          onEvent: (_kind, data) => {
+            if (data?.kind === "bus_batch" && Array.isArray(data.events)) {
+              for (const ev of data.events) {
+                const line = ev?.LogLine;
+                if (line) this.serviceLogLines.push(line);
+              }
+              const MAX = 2000;
+              if (this.serviceLogLines.length > MAX) {
+                this.serviceLogLines.splice(0, this.serviceLogLines.length - MAX);
+              }
+            }
+          },
+        }
+      );
+    },
+
+    stopServiceLogs() {
+      this.serviceLogStream?.close();
+      this.serviceLogStream = null;
+    },
+
+    setServiceTab(tab) {
+      this.serviceTab = tab;
+      if (tab === "logs") this.startServiceLogs();
+      else this.stopServiceLogs();
     },
   });
 });
