@@ -75,6 +75,18 @@ function M.summaries(list: { any }?): (string, number)
     return Util.enc_array(rows), #rows
 end
 
+-- Opções pro `<select>` de pré-deploy check (aba Advanced do serviço) — a
+-- partir da lista crua de `Command::JobList` (jobs do projeto do serviço),
+-- com um sentinel "Nenhum" na frente. `services.luau::adv_save` mapeia o
+-- valor "" de volta pra `nil` no spec.
+function M.pre_deploy_options(list: { any }?): string
+    local rows = { { id = "", name = "Nenhum (sem check)" } }
+    for _, job in ipairs(list or {}) do
+        table.insert(rows, { id = job.id, name = job.name })
+    end
+    return Util.enc_array(rows)
+end
+
 -- Histórico de execuções (`Command::JobRunHistory`) — usado pra listar runs e
 -- abrir "Ver logs" (log_window apontando pro `job_run_id`).
 function M.runs(list: { any }?): string

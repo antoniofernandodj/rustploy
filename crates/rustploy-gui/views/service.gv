@@ -1086,6 +1086,24 @@
           Run args atuais: {svc_run_args}
         </text>
 
+        <text class="label_cap">
+          PRÉ-DEPLOY CHECK (OPCIONAL)
+        </text>
+        <select
+          class="select"
+          options="pre_deploy_jobs"
+          value="f_pre_deploy_job_id"
+          on_change="field:f_pre_deploy_job_id"
+          placeholder="nenhum"
+          labelField="name"
+          valueField="id"
+        />
+        <text class="muted">
+          Roda esse Job antes do deploy (manual ou webhook). Se o exit code do
+          job for diferente de 0, o deploy não acontece. Cadastre jobs em
+          Schedules.
+        </text>
+
         <row class="env_add">
           <button class="btn_primary" on_click="adv_save" text="Save" />
           <text class="muted">{svc_action_msg}</text>

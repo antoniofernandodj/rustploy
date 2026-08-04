@@ -114,6 +114,7 @@ function M.state_label_color(state: string?): (string, string)
     if state == "Live" then return "LIVE", "#3FB950"
     elseif state == "Stopped" then return "STOPPED", "#8B949E"
     elseif state == "Failed" then return "FAILED", "#F85149"
+    elseif state == "PreDeployCheck" then return "PRÉ-DEPLOY CHECK", "#58A6FF"
     end
     return "BUILDING", "#58A6FF"
 end

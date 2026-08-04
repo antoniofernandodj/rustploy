@@ -216,6 +216,7 @@ function M.fetch_service_detail(sid: string): ()
     ctx.f_hc_start = tostring(hc.start_period_secs)
     ctx.f_replicas = tostring(spec.replicas)
     ctx.f_run_command = spec.run_command or ""
+    ctx.f_pre_deploy_job_id = spec.pre_deploy_job_id or ""
     ctx.f_repo_url = g.repo_url
     ctx.f_branch = g.branch
     ctx.f_username = g.username
@@ -230,6 +231,11 @@ function M.fetch_service_detail(sid: string): ()
     ctx.f_gen_port = tostring(spec.port)
     ctx.prov_tab = prov_tab
     ctx.gitea_provider_id = gen_provider_id
+
+    -- Jobs do projeto (aba Advanced → seletor de pré-deploy check). Ver
+    -- docs/plano-pre-deploy-gate.md.
+    local okj, resj = api:rpc{ JobList = { project_id = spec.project_id } }
+    ctx.pre_deploy_jobs = fmt.pre_deploy_job_options(okj and resj.Jobs or nil)
 
     -- Provedores Gitea conectados (para o picker de conta).
     local okp, resp = api:rpc("GitProviderList")
@@ -401,6 +407,8 @@ function adv_save(): ()
         spec.replicas = math.floor(r)
         local rc = Helpers.trim(ctx.f_run_command)
         spec.run_command = (rc ~= "") and rc or nil
+        local pdj = Helpers.trim(ctx.f_pre_deploy_job_id)
+        spec.pre_deploy_job_id = (pdj ~= "") and pdj or nil
     end)
 end
 

@@ -80,7 +80,8 @@ pub async fn recover(
             }
 
             // Pre-swap states (já começaram): safe to abort
-            DeployState::ResolvingDeps
+            DeployState::PreDeployCheck
+            | DeployState::ResolvingDeps
             | DeployState::PullingImage
             | DeployState::CloningRepo
             | DeployState::BuildingImage

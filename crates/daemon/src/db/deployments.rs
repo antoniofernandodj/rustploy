@@ -34,6 +34,7 @@ fn row_to_deployment(row: DeploymentRow) -> Deployment {
 fn parse_state(s: &str) -> DeployState {
     match s {
         "Pending" => DeployState::Pending,
+        "PreDeployCheck" => DeployState::PreDeployCheck,
         "ResolvingDeps" => DeployState::ResolvingDeps,
         "PullingImage" => DeployState::PullingImage,
         "CloningRepo" => DeployState::CloningRepo,

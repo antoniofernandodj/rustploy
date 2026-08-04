@@ -166,7 +166,73 @@ impl DeployExecutor {
                     network = %net,
                     "step[Pending]: rede pronta"
                 );
-                Ok(DeployState::ResolvingDeps)
+                Ok(DeployState::PreDeployCheck)
+            }
+
+            DeployState::PreDeployCheck => {
+                let Some(job_id) = &svc.spec.pre_deploy_job_id else {
+                    return Ok(DeployState::ResolvingDeps);
+                };
+
+                let job = crate::db::job::get(&self.db, job_id)
+                    .await?
+                    .ok_or_else(|| anyhow!("job de pré-deploy check não encontrado: {job_id}"))?;
+
+                info!(
+                    deployment_id = %dep.id,
+                    job_id = %job.id,
+                    job_name = %job.name,
+                    "step[PreDeployCheck]: rodando job de pré-deploy"
+                );
+                self.log_step(&dep.id, &svc.id, &format!("==> Pré-deploy check: {}", job.name)).await;
+
+                let run = crate::db::job_run::create(&self.db, &job.id).await?;
+                self.bus.publish(Event::JobRunStateChanged {
+                    job_id: job.id.clone(),
+                    job_run_id: run.id.clone(),
+                    running: true,
+                    success: None,
+                });
+
+                let runner = crate::jobs::runner::JobRunner {
+                    db: self.db.clone(),
+                    docker: self.docker.clone(),
+                    bus: self.bus.clone(),
+                    secrets: self.secrets.clone(),
+                    db_path: self.db_path.clone(),
+                    registry_internal_token: self.registry_internal_token.clone(),
+                };
+                let result = runner
+                    .run_inner_mirrored(&job, &run.id, Some((dep.id.clone(), svc.id.clone())))
+                    .await;
+
+                let (exit_code, success) = match &result {
+                    Ok(code) => (*code, *code == 0),
+                    Err(e) => {
+                        warn!(
+                            deployment_id = %dep.id,
+                            job_id = %job.id,
+                            error = %e,
+                            "step[PreDeployCheck]: falha ao executar job"
+                        );
+                        let _ = crate::db::job_run::finish(&self.db, &run.id, -1).await;
+                        (-1, false)
+                    }
+                };
+
+                self.bus.publish(Event::JobRunStateChanged {
+                    job_id: job.id.clone(),
+                    job_run_id: run.id.clone(),
+                    running: false,
+                    success: Some(success),
+                });
+
+                if success {
+                    self.log_step(&dep.id, &svc.id, "--> Pré-deploy check OK").await;
+                    Ok(DeployState::ResolvingDeps)
+                } else {
+                    Err(anyhow!("pré-deploy check falhou (exit code {exit_code})"))
+                }
             }
 
             DeployState::ResolvingDeps => {
@@ -1258,5 +1324,94 @@ mod tests {
     fn imagem_externa_nao_bate() {
         assert!(!is_embedded_registry_image("nginx:latest", 5100, None));
         assert!(!is_embedded_registry_image("ghcr.io/user/app:v1", 5100, Some("registry.exemplo.com")));
+    }
+}
+
+/// Testa só os dois ramos de `step[PreDeployCheck]` que não tocam Docker
+/// (sem job configurado = no-op; job apagado/inexistente = falha) — o ramo
+/// de exit code exigiria um `docker compose up` real, fora do escopo de um
+/// teste unitário (nenhum outro teste deste crate sobe containers de verdade).
+#[cfg(test)]
+mod pre_deploy_check_tests {
+    use super::*;
+    use crate::{db, docker::DockerClient, event_bus::EventBus, ingress::{IngressController, TlsManager}, secrets::SecretsManager};
+    use shared::config::AcmeConfig;
+    use shared::{Healthcheck, ResourceLimits, ServiceSource, ServiceSpec};
+    use ulid::Ulid;
+
+    async fn test_executor() -> DeployExecutor {
+        let dir = std::env::temp_dir().join(format!("rustploy_test_predeploy_{}", Ulid::new()));
+        let db = Arc::new(db::connect(&dir).await.unwrap());
+        let docker = Arc::new(DockerClient::connect("/var/run/docker.sock").unwrap());
+        let secrets = Arc::new(SecretsManager::new(&dir.join("master.key"), db.clone()).unwrap());
+        let tls = Arc::new(
+            TlsManager::new(
+                dir.join("certs"),
+                AcmeConfig { enabled: false, email: None, directory: String::new() },
+            )
+            .unwrap(),
+        );
+        DeployExecutor {
+            db,
+            docker,
+            ingress: Arc::new(IngressController::new()),
+            bus: Arc::new(EventBus::new()),
+            secrets,
+            tls,
+            db_path: dir,
+            drain_secs: 5,
+            registry_internal_token: None,
+        }
+    }
+
+    fn spec(pre_deploy_job_id: Option<String>) -> ServiceSpec {
+        ServiceSpec {
+            name: format!("svc-{}", Ulid::new()),
+            project_id: "proj-1".into(),
+            source: ServiceSource::Registry { image: "nginx:latest".into() },
+            port: 8080,
+            host_port: None,
+            domain: None,
+            tls_enabled: false,
+            env_vars: vec![],
+            env_comments: vec![],
+            volumes: vec![],
+            healthcheck: Healthcheck::default(),
+            replicas: 1,
+            resources: ResourceLimits::default(),
+            run_command: None,
+            run_args: vec![],
+            db_kind: None,
+            domains: vec![],
+            pre_deploy_job_id,
+        }
+    }
+
+    #[tokio::test]
+    async fn sem_job_configurado_e_no_op() {
+        let executor = test_executor().await;
+        let svc = db::services::create(&executor.db, spec(None)).await.unwrap();
+        let mut dep = db::deployments::create(&executor.db, &svc.id, "nginx:latest")
+            .await
+            .unwrap();
+        dep.state = DeployState::PreDeployCheck;
+
+        let next = executor.step(&dep, &svc).await.unwrap();
+        assert_eq!(next, DeployState::ResolvingDeps);
+    }
+
+    #[tokio::test]
+    async fn job_inexistente_falha_o_step() {
+        let executor = test_executor().await;
+        let svc = db::services::create(&executor.db, spec(Some("job_nao_existe".into())))
+            .await
+            .unwrap();
+        let mut dep = db::deployments::create(&executor.db, &svc.id, "nginx:latest")
+            .await
+            .unwrap();
+        dep.state = DeployState::PreDeployCheck;
+
+        let err = executor.step(&dep, &svc).await.unwrap_err();
+        assert!(err.to_string().contains("não encontrado"));
     }
 }

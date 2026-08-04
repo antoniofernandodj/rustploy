@@ -19,6 +19,7 @@ import {
   safeName,
   internalUrl,
   externalUrl,
+  envRowsWithComments,
 } from "../fmt.js";
 
 document.addEventListener("alpine:init", () => {
@@ -102,11 +103,7 @@ document.addEventListener("alpine:init", () => {
     get envVars() {
       const svc = this.svc;
       if (!svc) return [];
-      return (svc.spec.env_vars || []).map((e) => ({
-        key: e.key,
-        value: e.value?.Plain ?? (e.value?.Secret ? `<secret:${e.value.Secret}>` : ""),
-        isSecret: !!e.value?.Secret,
-      }));
+      return envRowsWithComments(svc.spec.env_vars, svc.spec.env_comments);
     },
 
     async addEnvVar() {
@@ -258,17 +255,30 @@ document.addEventListener("alpine:init", () => {
     // ── Advanced ──────────────────────────────────────────────────────
     advReplicas: "1",
     advRunCommand: "",
+    advPreDeployJobId: "",
 
     initAdvForm() {
       const spec = this.svc?.spec;
       if (!spec) return;
       this.advReplicas = String(spec.replicas || 1);
       this.advRunCommand = spec.run_command || "";
+      this.advPreDeployJobId = spec.pre_deploy_job_id || "";
     },
 
     get runArgsText() {
       const args = this.svc?.spec?.run_args || [];
       return args.length ? args.join(" ") : "(nenhum)";
+    },
+
+    // Jobs do mesmo projeto do serviço, pro seletor de pré-deploy check —
+    // vem do snapshot já em memória (mesmo padrão de `servicesFiltered` em
+    // schedules.js), sem RPC dedicado. Ver docs/plano-pre-deploy-gate.md.
+    get preDeployJobOptions() {
+      const projectId = this.svc?.spec?.project_id;
+      if (!projectId) return [];
+      return (this.store.snap?.jobs || [])
+        .filter((s) => s.job.project_id === projectId)
+        .map((s) => ({ id: s.job.id, name: s.job.name }));
     },
 
     async saveAdvanced() {
@@ -278,6 +288,7 @@ document.addEventListener("alpine:init", () => {
       spec.replicas = Math.floor(r);
       const rc = this.advRunCommand.trim();
       spec.run_command = rc || null;
+      spec.pre_deploy_job_id = this.advPreDeployJobId || null;
       await this.store.saveServiceSpec(spec, "advanced salvo");
     },
 

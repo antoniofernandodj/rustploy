@@ -77,6 +77,7 @@ export function stateLabelKind(state) {
   if (state === "Live") return ["LIVE", "ok"];
   if (state === "Stopped") return ["STOPPED", "muted"];
   if (state === "Failed") return ["FAILED", "bad"];
+  if (state === "PreDeployCheck") return ["PRÉ-DEPLOY CHECK", "info"];
   return ["BUILDING", "info"];
 }
 
@@ -151,6 +152,34 @@ export function dotenvFromVars(vars, comments) {
     if (c.before_key === null || c.before_key === undefined) lines.push(c.text);
   }
   return lines.join("\n");
+}
+
+/** env_vars + env_comments → linhas pra exibição na lista normal (fora do
+ * editor `.env` bruto), comentários `# ...` intercalados na posição ancorada
+ * por `before_key`. Cada linha de comentário ganha uma `key` sintética
+ * (`__cN`) pra servir de `:key` do `x-for` — comentários não têm chave
+ * própria. Porta de fmt/service_detail.luau::env_json_with_comments. */
+export function envRowsWithComments(vars, comments) {
+  const activeVars = vars || [];
+  const activeComments = comments || [];
+  const rows = [];
+  for (const v of activeVars) {
+    activeComments.forEach((c, i) => {
+      if (c.before_key === v.key) rows.push({ key: `__c${i}`, isComment: true, text: c.text });
+    });
+    rows.push({
+      key: v.key,
+      isComment: false,
+      value: v.value?.Plain ?? (v.value?.Secret ? `<secret:${v.value.Secret}>` : ""),
+      isSecret: !!v.value?.Secret,
+    });
+  }
+  activeComments.forEach((c, i) => {
+    if (c.before_key === null || c.before_key === undefined) {
+      rows.push({ key: `__c${i}`, isComment: true, text: c.text });
+    }
+  });
+  return rows;
 }
 
 /** Remove sequências de escape ANSI (cor/cursor/erase) de uma linha de log.

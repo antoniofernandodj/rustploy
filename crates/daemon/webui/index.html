@@ -1288,17 +1288,19 @@
           </column>
         </template>
         <template x-if="!editing">
-          <column class="header_titles">
-            <text class="title" x-text="project ? project.name : ''"></text>
-            <text class="subtitle" x-text="project ? (project.description || '') : ''"></text>
-          </column>
+          <row class="header_row">
+            <column class="header_titles">
+              <text class="title" x-text="project ? project.name : ''"></text>
+              <text class="subtitle" x-text="project ? (project.description || '') : ''"></text>
+            </column>
+          </row>
         </template>
 
         <row class="tabs">
           <button type="button" :class="projTab === 'services' ? 'tab_on' : 'tab_off'"
                   @click="projTab = 'services'">Serviços</button>
           <button type="button" :class="projTab === 'env' ? 'tab_on' : 'tab_off'"
-                  @click="projTab = 'env'" x-text="'Variáveis (' + envVars.length + ')'"></button>
+                  @click="projTab = 'env'" x-text="'Variáveis (' + (project ? project.env_vars.length : 0) + ')'"></button>
           <button type="button" :class="projTab === 'secrets' ? 'tab_on' : 'tab_off'"
                   @click="projTab = 'secrets'" x-text="'Secrets (' + secrets.length + ')'"></button>
         </row>
@@ -1343,12 +1345,17 @@
               </row>
               <column class="kv_list">
                 <template x-for="e in envVars" :key="e.key">
-                  <row class="kv_row">
-                    <button class="env_del" type="button" @click="delEnvVar(e.key)">✕</button>
-                    <text class="env_sep"></text>
-                    <text class="env_key" x-text="e.key"></text>
-                    <text class="kv_val_fill" x-text="e.isSecret ? '(secret)' : e.value"></text>
-                  </row>
+                  <column style="width:100%">
+                    <row class="kv_row" x-show="e.isComment">
+                      <text class="muted" x-text="e.text"></text>
+                    </row>
+                    <row class="kv_row" x-show="!e.isComment">
+                      <button class="env_del" type="button" @click="delEnvVar(e.key)">✕</button>
+                      <text class="env_sep"></text>
+                      <text class="env_key" x-text="e.key"></text>
+                      <text class="kv_val_fill" x-text="e.isSecret ? '(secret)' : e.value"></text>
+                    </row>
+                  </column>
                 </template>
                 <text class="muted" x-show="envVars.length === 0" style="padding:12px">Nenhuma variável.</text>
               </column>
@@ -1696,7 +1703,7 @@
             <!-- Environment -->
             <column class="env_wrap" x-show="store.serviceTab === 'environment'">
               <row class="env_head">
-                <text class="muted_fill" x-text="envVars.length + ' variável(eis)'"></text>
+                <text class="muted_fill" x-text="(svc ? svc.spec.env_vars.length : 0) + ' variável(eis)'"></text>
                 <button class="btn_export" type="button" @click="openEnvText()" x-show="!envTextOpen">.env</button>
                 <button class="btn_export_on" type="button" @click="closeEnvText()" x-show="envTextOpen">Fechar</button>
               </row>
@@ -1713,12 +1720,17 @@
                   </text>
                   <column class="kv_list">
                     <template x-for="e in envVars" :key="e.key">
-                      <row class="kv_row">
-                        <button class="env_del" type="button" @click="delEnvVar(e.key)">✕</button>
-                        <text class="env_sep"></text>
-                        <text class="env_key" x-text="e.key"></text>
-                        <text class="kv_val_fill" x-text="e.isSecret ? '(secret)' : e.value"></text>
-                      </row>
+                      <column style="width:100%">
+                        <row class="kv_row" x-show="e.isComment">
+                          <text class="muted" x-text="e.text"></text>
+                        </row>
+                        <row class="kv_row" x-show="!e.isComment">
+                          <button class="env_del" type="button" @click="delEnvVar(e.key)">✕</button>
+                          <text class="env_sep"></text>
+                          <text class="env_key" x-text="e.key"></text>
+                          <text class="kv_val_fill" x-text="e.isSecret ? '(secret)' : e.value"></text>
+                        </row>
+                      </column>
                     </template>
                     <text class="muted" x-show="envVars.length === 0" style="padding:12px">Nenhuma variável.</text>
                   </column>
@@ -1857,6 +1869,20 @@
               <text class="label_cap" style="margin-top:14px">RUN COMMAND</text>
               <input class="field_input" type="text" x-model="advRunCommand" placeholder="(padrão da imagem)" />
               <text class="muted" style="margin-top:8px" x-text="'Run args atuais: ' + runArgsText"></text>
+
+              <text class="label_cap" style="margin-top:14px">PRÉ-DEPLOY CHECK (OPCIONAL)</text>
+              <select class="field_input" x-model="advPreDeployJobId">
+                <option value="">Nenhum (sem check)</option>
+                <template x-for="j in preDeployJobOptions" :key="j.id">
+                  <option :value="j.id" x-text="j.name"></option>
+                </template>
+              </select>
+              <text class="muted" style="margin-top:8px">
+                Roda esse Job antes do deploy (manual ou webhook). Se o exit
+                code do job for diferente de 0, o deploy não acontece.
+                Cadastre jobs em Schedules.
+              </text>
+
               <row class="env_add" style="margin-top:14px">
                 <button class="btn_primary" type="button" @click="saveAdvanced()">Save</button>
                 <text class="muted" x-show="store.serviceMsg" x-text="store.serviceMsg"></text>

@@ -2,7 +2,7 @@
 // client iced): sub-abas Serviços/Variáveis/Secrets (Jobs fica para depois).
 // Porta de fmt.service_rows, o cabeçalho editável e as sub-abas env/secrets
 // de shell.gv + handlers/projects.luau.
-import { serviceStatusLabelKind, dotenvFromVars, parseDotenv } from "../fmt.js";
+import { serviceStatusLabelKind, dotenvFromVars, parseDotenv, envRowsWithComments } from "../fmt.js";
 
 document.addEventListener("alpine:init", () => {
   Alpine.data("projectDetail", () => ({
@@ -71,11 +71,7 @@ document.addEventListener("alpine:init", () => {
     get envVars() {
       const p = this.project;
       if (!p) return [];
-      return (p.env_vars || []).map((e) => ({
-        key: e.key,
-        value: e.value?.Plain ?? (e.value?.Secret ? `<secret:${e.value.Secret}>` : ""),
-        isSecret: !!e.value?.Secret,
-      }));
+      return envRowsWithComments(p.env_vars, p.env_comments);
     },
 
     async addEnvVar() {

@@ -252,6 +252,7 @@ mod tests {
             run_args: vec![],
             db_kind: None,
             domains: vec![],
+            pre_deploy_job_id: None,
         }
     }
 

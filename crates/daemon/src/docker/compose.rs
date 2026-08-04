@@ -360,6 +360,11 @@ pub async fn up(
 /// o processo espera `main_service` terminar e propaga o exit code dele.
 /// Sempre roda `down(...)` depois (sucesso ou falha), pra não deixar
 /// containers/redes zumbis do job. Retorna o exit code de `main_service`.
+///
+/// `mirror_deployment`, quando `Some((deployment_id, service_id))`, também
+/// espelha cada linha como `Event::BuildLog`/`build_log` do deployment —
+/// usado pelo `DeployExecutor` no estado `PreDeployCheck` pra a saída do
+/// job aparecer na tela de deploy, além do histórico normal do Job.
 pub async fn run_once(
     content: &str,
     project_name: &str,
@@ -372,6 +377,7 @@ pub async fn run_once(
     env_vars: &[(String, String)],
     build_dir: &Path,
     registry_internal_token: Option<Arc<str>>,
+    mirror_deployment: Option<(String, String)>,
 ) -> Result<i32> {
     info!(project = %project_name, job_id = %job_id, "compose_run_once: iniciando job one-shot");
 
@@ -408,6 +414,7 @@ pub async fn run_once(
         bus,
         db,
         build_dir,
+        mirror_deployment,
     )
     .await;
 
@@ -436,6 +443,7 @@ async fn run_once_up(
     bus: &Arc<EventBus>,
     db: &Arc<Db>,
     build_dir: &Path,
+    mirror_deployment: Option<(String, String)>,
 ) -> Result<i32> {
     let mut child = Command::new("docker")
         .args([
@@ -466,6 +474,7 @@ async fn run_once_up(
     let db_s = db.clone();
     let jid = job_id.to_string();
     let rid = job_run_id.to_string();
+    let mirror_s = mirror_deployment.clone();
     let read_stdout = async move {
         let mut lines = stdout.lines();
         while let Ok(Some(line)) = lines.next_line().await {
@@ -481,12 +490,22 @@ async fn run_once_up(
                 stream: shared::protocol::LogStream::Stdout,
             });
             let _ = crate::db::job_log::append(&db_s, &rid, &shared::protocol::LogStream::Stdout, &line, ts).await;
+            if let Some((deployment_id, service_id)) = &mirror_s {
+                let _ = crate::db::build_logs::append(&db_s, deployment_id, &line, ts).await;
+                bus_s.publish(Event::BuildLog {
+                    deployment_id: deployment_id.clone(),
+                    service_id: service_id.clone(),
+                    line: line.clone(),
+                    timestamp: ts,
+                });
+            }
         }
     };
     let bus_e = bus.clone();
     let db_e = db.clone();
     let jid_e = job_id.to_string();
     let rid_e = job_run_id.to_string();
+    let mirror_e = mirror_deployment;
     let read_stderr = async move {
         let mut lines = stderr.lines();
         while let Ok(Some(line)) = lines.next_line().await {
@@ -502,6 +521,15 @@ async fn run_once_up(
                 stream: shared::protocol::LogStream::Stderr,
             });
             let _ = crate::db::job_log::append(&db_e, &rid_e, &shared::protocol::LogStream::Stderr, &line, ts).await;
+            if let Some((deployment_id, service_id)) = &mirror_e {
+                let _ = crate::db::build_logs::append(&db_e, deployment_id, &line, ts).await;
+                bus_e.publish(Event::BuildLog {
+                    deployment_id: deployment_id.clone(),
+                    service_id: service_id.clone(),
+                    line: line.clone(),
+                    timestamp: ts,
+                });
+            }
         }
     };
 

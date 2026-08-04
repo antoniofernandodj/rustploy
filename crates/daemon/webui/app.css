@@ -81,7 +81,7 @@ button, input {
 .label_cap  { font-size: 11px; font-weight: 700; color: var(--faint); letter-spacing: .04em; }
 
 /* ── Shell layout ─────────────────────────────────────────────────────── */
-.header_row    { width: 100%; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.header_row    { width: 100%; align-items: flex-start; justify-content: space-between; gap: 16px; flex-shrink: 0; }
 /* flex:1 1 0 (não width:100%): dentro de .header_row/.svc_head/.proj_topbar
    este é UM DOS FILHOS de uma row junto com ações/stats ao lado — width:100%
    reivindicaria a largura inteira do pai e empurraria os irmãos pra fora da
@@ -92,15 +92,39 @@ button, input {
 .header_titles { flex: 1 1 0; min-width: 0; gap: 6px; }
 .stats_row     { gap: 14px; flex-shrink: 0; }
 .scroll_fill   { width: 100%; flex: 1 1 auto; min-height: 0; overflow: auto; }
-.table_body    { width: 100%; }
+/* flex-shrink:0 — mesmo caso do .form_panel documentado abaixo: dentro de
+   .scroll_fill (overflow:auto), o corpo da tabela tem que manter a altura
+   natural de todas as linhas e deixar só o scroll ceder espaço. Sem isso,
+   tabelas com mais linhas (Images/Volumes/Networks) eram espremidas por
+   uma fração diferente da tabela de Containers (1 linha só), produzindo
+   alturas de linha inconsistentes entre abas. */
+.table_body    { width: 100%; flex-shrink: 0; }
 .row_wrap      { width: 100%; }
 
 /* ── Table ────────────────────────────────────────────────────────────── */
-.thead      { width: 100%; padding: 14px 18px; background: var(--raised); border-radius: 5px; }
+/* flex-shrink:0 em .env_head/.thead — sem isso, o mesmo espremimento acima
+   também atinge a barra de filtros e o cabeçalho da tabela: a altura deles
+   colapsa e, como as células de coluna agora têm overflow:hidden (pro
+   truncate funcionar), o texto do cabeçalho fica cortado/invisível em vez
+   de só "vazar" visualmente como antes. */
+.thead      { width: 100%; padding: 14px 18px; background: var(--raised); border-radius: 5px; flex-shrink: 0; }
 .th         { font-size: 11px; font-weight: 700; color: var(--faint); }
 .trow       { width: 100%; padding: 13px 18px; align-items: center; }
 .td         { font-size: 13px; color: var(--text-2); }
 .td_key     { font-size: 13px; font-weight: 700; color: var(--accent); }
+/* Colunas que exibem texto puro (não badge/botão): truncam com reticências em
+   vez de vazar pra fora da célula ou esticar a linha (nomes/tags/imagens
+   longos). `min-width:0` é necessário além de `overflow:hidden` — <text> não
+   é `row`/`column`, então não herda o reset global da linha 44, e um item
+   flex sem isso ignora `width`/`flex` e cresce pro tamanho do conteúdo em vez
+   de truncar. Como a largura vem de `width`/`flex` — inclusive as reduzidas
+   nos breakpoints abaixo — o corte reage ao redimensionar a janela sem JS. */
+.col_icon, .col_svc, .col_img, .col_proj, .col_dur, .col_start {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .col_icon   { width: 28px; }
 .col_svc    { width: 240px; }
 .col_img    { width: 200px; }
@@ -109,7 +133,7 @@ button, input {
 .col_dur    { width: 150px; }
 .col_start  { flex: 1 1 auto; }
 .col_act    { width: 120px; justify-content: flex-end; }
-hr, .rule   { width: 100%; height: 1px; border: none; background: var(--border); margin: 0; }
+hr, .rule   { width: 100%; height: 1px; border: none; background: var(--border); margin: 0; flex-shrink: 0; }
 
 /* ── Stat card ────────────────────────────────────────────────────────── */
 .stat_card  { background: var(--surface); border-radius: 6px; border: 1px solid var(--border); padding: 16px 22px; gap: 6px; }
@@ -189,7 +213,7 @@ hr, .rule   { width: 100%; height: 1px; border: none; background: var(--border);
 .badge_lbl  { font-size: 12px; font-weight: 700; }
 
 /* ── Barra de topo do projeto/serviço (voltar + ações à direita) ───────── */
-.proj_topbar  { width: 100%; align-items: center; }
+.proj_topbar  { width: 100%; align-items: center; flex-shrink: 0; }
 .proj_actions { gap: 8px; align-items: center; flex-shrink: 0; }
 .hspacer      { flex: 1 1 auto; }
 .btn_sm_primary, .btn_sm_ghost, .btn_sm_danger {
@@ -228,7 +252,7 @@ hr, .rule   { width: 100%; height: 1px; border: none; background: var(--border);
 .env_wrap    { width: 100%; gap: 10px; }
 .env_add     { gap: 8px; align-items: center; }
 .env_in_key, .env_in_val { flex: 1 1 auto; padding: 9px 12px; background: var(--raised); border: 1px solid var(--border); border-radius: 4px; color: var(--text); }
-.env_head    { width: 100%; align-items: center; justify-content: space-between; }
+.env_head    { width: 100%; align-items: center; justify-content: space-between; flex-shrink: 0; }
 .kv_list     { width: 100%; background: var(--surface); border-radius: 6px; border: 1px solid var(--border); padding: 8px 18px; }
 .kv_row      { width: 100%; padding: 12px 0; align-items: center; gap: 8px; }
 .kv_key      { flex: 1 1 auto; font-size: 13px; color: var(--muted); }
@@ -241,7 +265,7 @@ hr, .rule   { width: 100%; height: 1px; border: none; background: var(--border);
 .dk_rm:hover { background: rgba(218,54,51,.20); }
 
 /* ── Detalhe de serviço: cabeçalho + abas ────────────────────────────── */
-.svc_head       { width: 100%; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.svc_head       { width: 100%; align-items: flex-start; justify-content: space-between; gap: 16px; flex-shrink: 0; }
 .svc_title_row  { align-items: center; gap: 14px; }
 .svc_title      { flex: 1 1 auto; }
 .svc_substatus  { gap: 10px; align-items: center; }

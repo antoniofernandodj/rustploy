@@ -321,6 +321,7 @@ fn base_spec(
         run_args: vec![],
         db_kind,
         domains: vec![],
+        pre_deploy_job_id: None,
     }
 }
 

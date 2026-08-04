@@ -56,6 +56,13 @@ pub struct ServiceSpec {
     /// para `port`). Ver [`ServiceSpec::domain_routes`].
     #[serde(default)]
     pub domains: Vec<DomainRoute>,
+    /// `Job` (Schedules) usado como pré-deploy check. `None` = sem check,
+    /// deploy segue direto. Quando setado, o deploy roda esse job antes de
+    /// tocar em qualquer coisa (pull/build/staging) e só prossegue se o
+    /// exit code do `main_service` do job for 0 — ver
+    /// `DeployState::PreDeployCheck` e `docs/plano-pre-deploy-gate.md`.
+    #[serde(default)]
+    pub pre_deploy_job_id: Option<String>,
 }
 
 /// Uma rota HTTP de domínio de um serviço: qual domínio, para qual porta do
@@ -378,6 +385,10 @@ pub struct Deployment {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum DeployState {
     Pending,
+    /// Roda o `Job` de `ServiceSpec.pre_deploy_job_id` (quando configurado) e
+    /// só avança para `ResolvingDeps` se ele passar (exit code 0). Sem job
+    /// configurado, passa direto — no-op.
+    PreDeployCheck,
     ResolvingDeps,
     PullingImage,
     CloningRepo,
@@ -406,6 +417,7 @@ impl DeployState {
     pub fn to_percent(&self) -> u8 {
         match self {
             Self::Pending => 5,
+            Self::PreDeployCheck => 8,
             Self::ResolvingDeps => 10,
             Self::PullingImage => 30,
             Self::CloningRepo => 20,
@@ -424,6 +436,7 @@ impl DeployState {
     pub fn label(&self) -> &'static str {
         match self {
             Self::Pending => "Pending",
+            Self::PreDeployCheck => "PreDeployCheck",
             Self::ResolvingDeps => "ResolvingDeps",
             Self::PullingImage => "PullingImage",
             Self::CloningRepo => "CloningRepo",
@@ -440,6 +453,60 @@ impl DeployState {
             Self::Pruning => "Pruning",
             Self::ComposingUp => "ComposingUp",
         }
+    }
+}
+
+#[cfg(test)]
+mod pre_deploy_gate_tests {
+    use super::*;
+
+    fn sample_spec(pre_deploy_job_id: Option<String>) -> ServiceSpec {
+        ServiceSpec {
+            name: "svc".into(),
+            project_id: "proj-1".into(),
+            source: ServiceSource::Registry { image: "nginx:latest".into() },
+            port: 8080,
+            host_port: None,
+            domain: None,
+            tls_enabled: false,
+            env_vars: vec![],
+            env_comments: vec![],
+            volumes: vec![],
+            healthcheck: Healthcheck::default(),
+            replicas: 1,
+            resources: ResourceLimits::default(),
+            run_command: None,
+            run_args: vec![],
+            db_kind: None,
+            domains: vec![],
+            pre_deploy_job_id,
+        }
+    }
+
+    #[test]
+    fn pre_deploy_job_id_json_round_trip() {
+        let spec = sample_spec(Some("job_123".into()));
+        let json = serde_json::to_string(&spec).unwrap();
+        let back: ServiceSpec = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.pre_deploy_job_id, Some("job_123".into()));
+    }
+
+    #[test]
+    fn pre_deploy_job_id_json_back_compat_when_absent() {
+        // Specs salvos antes da feature não têm o campo; serde default
+        // precisa preencher como None (mesmo padrão de host_port/domains/etc.).
+        let spec = sample_spec(None);
+        let mut value = serde_json::to_value(&spec).unwrap();
+        value.as_object_mut().unwrap().remove("pre_deploy_job_id");
+        let back: ServiceSpec = serde_json::from_value(value).unwrap();
+        assert_eq!(back.pre_deploy_job_id, None);
+    }
+
+    #[test]
+    fn deploy_state_pre_deploy_check_label_and_serde() {
+        assert_eq!(DeployState::PreDeployCheck.label(), "PreDeployCheck");
+        let json = serde_json::to_string(&DeployState::PreDeployCheck).unwrap();
+        assert_eq!(json, "\"PreDeployCheck\"");
     }
 }
 

@@ -456,6 +456,9 @@ impl ServiceManifest {
             // TODO(multi-domain): o manifesto ainda carrega só o `domain` legado;
             // o campo `domains` fica vazio no import/export.
             domains: vec![],
+            // TODO(pre-deploy-gate): o manifesto ainda não expõe o pré-deploy
+            // check; fica vazio no import/export.
+            pre_deploy_job_id: None,
         }
     }
 
@@ -1157,6 +1160,7 @@ services:
             run_args: vec![],
             db_kind: None,
             domains: vec![],
+            pre_deploy_job_id: None,
         };
         let svc = Service {
             id: "svc-1".into(),

@@ -76,7 +76,26 @@ impl JobRunner {
         self.reschedule(job).await;
     }
 
-    async fn run_inner(&self, job: &Job, run_id: &str) -> Result<i32> {
+    /// Roda `job` até o `main_service` terminar e devolve o exit code — sem
+    /// tocar em `job.recurrence`/`reschedule` (isso é responsabilidade de
+    /// `run()`, chamado pelo scheduler/`JobRunNow`). Reaproveitado pelo
+    /// `DeployExecutor` para o estado `PreDeployCheck` (ver
+    /// `docs/plano-pre-deploy-gate.md`): a chamada do gate cria/finaliza o
+    /// `job_run` do mesmo jeito, mas não deve mexer no agendamento do job.
+    pub(crate) async fn run_inner(&self, job: &Job, run_id: &str) -> Result<i32> {
+        self.run_inner_mirrored(job, run_id, None).await
+    }
+
+    /// Como [`Self::run_inner`], mas espelha a saída como `Event::BuildLog`
+    /// de `mirror_deployment = Some((deployment_id, service_id))` — usado
+    /// pelo `DeployExecutor` no estado `PreDeployCheck` pra a saída do check
+    /// aparecer na tela de deploy.
+    pub(crate) async fn run_inner_mirrored(
+        &self,
+        job: &Job,
+        run_id: &str,
+        mirror_deployment: Option<(String, String)>,
+    ) -> Result<i32> {
         let network_name = networks::ensure_project_network(&self.docker.inner, &job.project_id).await?;
 
         // Job autônomo (sem serviço gatilho): só env vars do projeto. Com
@@ -111,6 +130,7 @@ impl JobRunner {
             &env_vars,
             &build_dir,
             self.registry_internal_token.clone(),
+            mirror_deployment,
         )
         .await?;
 
