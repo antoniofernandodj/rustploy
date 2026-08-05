@@ -255,30 +255,18 @@ document.addEventListener("alpine:init", () => {
     // ── Advanced ──────────────────────────────────────────────────────
     advReplicas: "1",
     advRunCommand: "",
-    advPreDeployJobId: "",
 
     initAdvForm() {
       const spec = this.svc?.spec;
       if (!spec) return;
       this.advReplicas = String(spec.replicas || 1);
       this.advRunCommand = spec.run_command || "";
-      this.advPreDeployJobId = spec.pre_deploy_job_id || "";
+      this.advPdcAddJobId = "";
     },
 
     get runArgsText() {
       const args = this.svc?.spec?.run_args || [];
       return args.length ? args.join(" ") : "(nenhum)";
-    },
-
-    // Jobs do mesmo projeto do serviço, pro seletor de pré-deploy check —
-    // vem do snapshot já em memória (mesmo padrão de `servicesFiltered` em
-    // schedules.js), sem RPC dedicado. Ver docs/plano-pre-deploy-gate.md.
-    get preDeployJobOptions() {
-      const projectId = this.svc?.spec?.project_id;
-      if (!projectId) return [];
-      return (this.store.snap?.jobs || [])
-        .filter((s) => s.job.project_id === projectId)
-        .map((s) => ({ id: s.job.id, name: s.job.name }));
     },
 
     async saveAdvanced() {
@@ -288,8 +276,85 @@ document.addEventListener("alpine:init", () => {
       spec.replicas = Math.floor(r);
       const rc = this.advRunCommand.trim();
       spec.run_command = rc || null;
-      spec.pre_deploy_job_id = this.advPreDeployJobId || null;
       await this.store.saveServiceSpec(spec, "advanced salvo");
+    },
+
+    // ── Fila de pré-deploy check ────────────────────────────────────────
+    // Efeito imediato (como Domains), não passa pelo Save acima — cada
+    // add/remove/reorder já salva na hora. Ver docs/plano-pre-deploy-gate.md.
+
+    // Fila efetiva de ids: `pre_deploy_job_ids` quando não vazia, senão cai
+    // no `pre_deploy_job_id` legado (retrocompat) — mesmo idioma de
+    // `ServiceSpec::pre_deploy_checks` no lado Rust.
+    get preDeployQueueIds() {
+      const spec = this.svc?.spec;
+      if (!spec) return [];
+      if (spec.pre_deploy_job_ids && spec.pre_deploy_job_ids.length > 0) {
+        return spec.pre_deploy_job_ids;
+      }
+      if (spec.pre_deploy_job_id) return [spec.pre_deploy_job_id];
+      return [];
+    },
+
+    // Fila com nome resolvido a partir dos Jobs do projeto (vem do snapshot
+    // já em memória, mesmo padrão de `servicesFiltered` em schedules.js). Um
+    // job apagado por fora mas ainda referenciado aparece com rótulo
+    // "(job removido)" em vez de sumir, pra dar pra removê-lo da fila.
+    get preDeployChecks() {
+      const byId = new Map(
+        (this.store.snap?.jobs || []).map((s) => [s.job.id, s.job.name])
+      );
+      return this.preDeployQueueIds.map((id, i) => ({
+        id,
+        index: i + 1,
+        name: byId.get(id) || `(job removido: ${id})`,
+      }));
+    },
+
+    // Jobs do projeto que AINDA NÃO estão na fila — opções do seletor
+    // "adicionar à fila" (evita duplicar o mesmo job na sequência).
+    get preDeployAvailableJobs() {
+      const projectId = this.svc?.spec?.project_id;
+      if (!projectId) return [];
+      const inQueue = new Set(this.preDeployQueueIds);
+      return (this.store.snap?.jobs || [])
+        .filter((s) => s.job.project_id === projectId && !inQueue.has(s.job.id))
+        .map((s) => ({ id: s.job.id, name: s.job.name }));
+    },
+
+    advPdcAddJobId: "",
+
+    async pdcAdd() {
+      const jobId = this.advPdcAddJobId;
+      if (!jobId) return;
+      const ids = this.preDeployQueueIds.slice();
+      if (!ids.includes(jobId)) ids.push(jobId);
+      const spec = JSON.parse(JSON.stringify(this.svc.spec));
+      spec.pre_deploy_job_ids = ids;
+      spec.pre_deploy_job_id = null;
+      const r = await this.store.saveServiceSpec(spec, "check adicionado à fila");
+      if (r.ok) this.advPdcAddJobId = "";
+    },
+
+    async pdcDel(jobId) {
+      const spec = JSON.parse(JSON.stringify(this.svc.spec));
+      spec.pre_deploy_job_ids = this.preDeployQueueIds.filter((id) => id !== jobId);
+      spec.pre_deploy_job_id = null;
+      await this.store.saveServiceSpec(spec, "check removido da fila");
+    },
+
+    // Sem drag-and-drop na web UI (sem lib de DnD): reordena com botões
+    // mover-pra-cima/baixo — mesmo resultado final do arraste na GUI iced.
+    async pdcMove(jobId, delta) {
+      const ids = this.preDeployQueueIds.slice();
+      const i = ids.indexOf(jobId);
+      const j = i + delta;
+      if (i < 0 || j < 0 || j >= ids.length) return;
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+      const spec = JSON.parse(JSON.stringify(this.svc.spec));
+      spec.pre_deploy_job_ids = ids;
+      spec.pre_deploy_job_id = null;
+      await this.store.saveServiceSpec(spec, "fila reordenada");
     },
 
     get deployments() {

@@ -170,69 +170,96 @@ impl DeployExecutor {
             }
 
             DeployState::PreDeployCheck => {
-                let Some(job_id) = &svc.spec.pre_deploy_job_id else {
+                // Fila inteira roda dentro deste ÚNICO step (sem sub-estado por
+                // índice): o loop de `execute()` não impõe timeout por step, e
+                // manter a fila num só `PreDeployCheck` evita precisar persistir
+                // "em qual item da fila estamos" (sem mudança de schema/wire).
+                let checks = svc.spec.pre_deploy_checks();
+                if checks.is_empty() {
                     return Ok(DeployState::ResolvingDeps);
-                };
+                }
+                let total = checks.len();
 
-                let job = crate::db::job::get(&self.db, job_id)
-                    .await?
-                    .ok_or_else(|| anyhow!("job de pré-deploy check não encontrado: {job_id}"))?;
+                for (idx, job_id) in checks.iter().enumerate() {
+                    let job = crate::db::job::get(&self.db, job_id)
+                        .await?
+                        .ok_or_else(|| anyhow!("job de pré-deploy check não encontrado: {job_id}"))?;
 
-                info!(
-                    deployment_id = %dep.id,
-                    job_id = %job.id,
-                    job_name = %job.name,
-                    "step[PreDeployCheck]: rodando job de pré-deploy"
-                );
-                self.log_step(&dep.id, &svc.id, &format!("==> Pré-deploy check: {}", job.name)).await;
-
-                let run = crate::db::job_run::create(&self.db, &job.id).await?;
-                self.bus.publish(Event::JobRunStateChanged {
-                    job_id: job.id.clone(),
-                    job_run_id: run.id.clone(),
-                    running: true,
-                    success: None,
-                });
-
-                let runner = crate::jobs::runner::JobRunner {
-                    db: self.db.clone(),
-                    docker: self.docker.clone(),
-                    bus: self.bus.clone(),
-                    secrets: self.secrets.clone(),
-                    db_path: self.db_path.clone(),
-                    registry_internal_token: self.registry_internal_token.clone(),
-                };
-                let result = runner
-                    .run_inner_mirrored(&job, &run.id, Some((dep.id.clone(), svc.id.clone())))
+                    info!(
+                        deployment_id = %dep.id,
+                        job_id = %job.id,
+                        job_name = %job.name,
+                        step = idx + 1,
+                        total,
+                        "step[PreDeployCheck]: rodando job de pré-deploy"
+                    );
+                    self.log_step(
+                        &dep.id,
+                        &svc.id,
+                        &format!("==> Pré-deploy check {}/{}: {}", idx + 1, total, job.name),
+                    )
                     .await;
 
-                let (exit_code, success) = match &result {
-                    Ok(code) => (*code, *code == 0),
-                    Err(e) => {
-                        warn!(
-                            deployment_id = %dep.id,
-                            job_id = %job.id,
-                            error = %e,
-                            "step[PreDeployCheck]: falha ao executar job"
-                        );
-                        let _ = crate::db::job_run::finish(&self.db, &run.id, -1).await;
-                        (-1, false)
+                    let run = crate::db::job_run::create(&self.db, &job.id).await?;
+                    self.bus.publish(Event::JobRunStateChanged {
+                        job_id: job.id.clone(),
+                        job_run_id: run.id.clone(),
+                        running: true,
+                        success: None,
+                    });
+
+                    let runner = crate::jobs::runner::JobRunner {
+                        db: self.db.clone(),
+                        docker: self.docker.clone(),
+                        bus: self.bus.clone(),
+                        secrets: self.secrets.clone(),
+                        db_path: self.db_path.clone(),
+                        registry_internal_token: self.registry_internal_token.clone(),
+                    };
+                    let result = runner
+                        .run_inner_mirrored(&job, &run.id, Some((dep.id.clone(), svc.id.clone())))
+                        .await;
+
+                    let (exit_code, success) = match &result {
+                        Ok(code) => (*code, *code == 0),
+                        Err(e) => {
+                            warn!(
+                                deployment_id = %dep.id,
+                                job_id = %job.id,
+                                error = %e,
+                                "step[PreDeployCheck]: falha ao executar job"
+                            );
+                            let _ = crate::db::job_run::finish(&self.db, &run.id, -1).await;
+                            (-1, false)
+                        }
+                    };
+
+                    self.bus.publish(Event::JobRunStateChanged {
+                        job_id: job.id.clone(),
+                        job_run_id: run.id.clone(),
+                        running: false,
+                        success: Some(success),
+                    });
+
+                    if !success {
+                        // Primeira falha interrompe a fila inteira — os checks
+                        // seguintes não rodam.
+                        return Err(anyhow!(
+                            "pré-deploy check {}/{} ({}) falhou (exit code {exit_code})",
+                            idx + 1,
+                            total,
+                            job.name
+                        ));
                     }
-                };
-
-                self.bus.publish(Event::JobRunStateChanged {
-                    job_id: job.id.clone(),
-                    job_run_id: run.id.clone(),
-                    running: false,
-                    success: Some(success),
-                });
-
-                if success {
-                    self.log_step(&dep.id, &svc.id, "--> Pré-deploy check OK").await;
-                    Ok(DeployState::ResolvingDeps)
-                } else {
-                    Err(anyhow!("pré-deploy check falhou (exit code {exit_code})"))
+                    self.log_step(
+                        &dep.id,
+                        &svc.id,
+                        &format!("--> Pré-deploy check {}/{} OK", idx + 1, total),
+                    )
+                    .await;
                 }
+
+                Ok(DeployState::ResolvingDeps)
             }
 
             DeployState::ResolvingDeps => {
@@ -1345,7 +1372,7 @@ mod pre_deploy_check_tests {
         }
     }
 
-    fn spec(pre_deploy_job_id: Option<String>) -> ServiceSpec {
+    fn spec(pre_deploy_job_ids: Vec<String>) -> ServiceSpec {
         ServiceSpec {
             name: format!("svc-{}", Ulid::new()),
             project_id: "proj-1".into(),
@@ -1364,14 +1391,15 @@ mod pre_deploy_check_tests {
             run_args: vec![],
             db_kind: None,
             domains: vec![],
-            pre_deploy_job_id,
+            pre_deploy_job_id: None,
+            pre_deploy_job_ids,
         }
     }
 
     #[tokio::test]
-    async fn sem_job_configurado_e_no_op() {
+    async fn fila_vazia_e_no_op() {
         let executor = test_executor().await;
-        let svc = db::services::create(&executor.db, spec(None)).await.unwrap();
+        let svc = db::services::create(&executor.db, spec(vec![])).await.unwrap();
         let mut dep = db::deployments::create(&executor.db, &svc.id, "nginx:latest")
             .await
             .unwrap();
@@ -1384,7 +1412,7 @@ mod pre_deploy_check_tests {
     #[tokio::test]
     async fn job_inexistente_falha_o_step() {
         let executor = test_executor().await;
-        let svc = db::services::create(&executor.db, spec(Some("job_nao_existe".into())))
+        let svc = db::services::create(&executor.db, spec(vec!["job_nao_existe".into()]))
             .await
             .unwrap();
         let mut dep = db::deployments::create(&executor.db, &svc.id, "nginx:latest")
@@ -1394,5 +1422,46 @@ mod pre_deploy_check_tests {
 
         let err = executor.step(&dep, &svc).await.unwrap_err();
         assert!(err.to_string().contains("não encontrado"));
+    }
+
+    /// Fila com dois checks, ambos apontando pra jobs que não existem: a
+    /// falha tem que citar o PRIMEIRO da fila (`job_ausente_1`) — prova que o
+    /// loop parou ali e nunca chegou a olhar o segundo item.
+    #[tokio::test]
+    async fn fila_para_no_primeiro_job_ausente_sem_chegar_no_segundo() {
+        let executor = test_executor().await;
+        let svc = db::services::create(
+            &executor.db,
+            spec(vec!["job_ausente_1".into(), "job_ausente_2".into()]),
+        )
+        .await
+        .unwrap();
+        let mut dep = db::deployments::create(&executor.db, &svc.id, "nginx:latest")
+            .await
+            .unwrap();
+        dep.state = DeployState::PreDeployCheck;
+
+        let err = executor.step(&dep, &svc).await.unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("job_ausente_1"));
+        assert!(!msg.contains("job_ausente_2"));
+    }
+
+    /// Retrocompat: specs antigos só têm `pre_deploy_job_id` (singular) —
+    /// `pre_deploy_checks()` precisa cair nesse legado quando a fila nova
+    /// está vazia (ver `ServiceSpec::pre_deploy_checks`).
+    #[tokio::test]
+    async fn legado_pre_deploy_job_id_ainda_funciona_via_fallback() {
+        let executor = test_executor().await;
+        let mut s = spec(vec![]);
+        s.pre_deploy_job_id = Some("job_legado_nao_existe".into());
+        let svc = db::services::create(&executor.db, s).await.unwrap();
+        let mut dep = db::deployments::create(&executor.db, &svc.id, "nginx:latest")
+            .await
+            .unwrap();
+        dep.state = DeployState::PreDeployCheck;
+
+        let err = executor.step(&dep, &svc).await.unwrap_err();
+        assert!(err.to_string().contains("job_legado_nao_existe"));
     }
 }

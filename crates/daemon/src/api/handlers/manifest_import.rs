@@ -384,6 +384,7 @@ mod git_provider_iac_tests {
             db_kind: None,
             domains: vec![],
             pre_deploy_job_id: None,
+            pre_deploy_job_ids: vec![],
         };
         crate::db::services::create(&db, spec).await.unwrap();
 
@@ -501,6 +502,7 @@ mod git_provider_iac_tests {
             db_kind: None,
             domains: vec![],
             pre_deploy_job_id: None,
+            pre_deploy_job_ids: vec![],
         };
         crate::db::services::create(&src_db, spec).await.unwrap();
 
@@ -643,6 +645,7 @@ services:
             db_kind: None,
             domains: vec![],
             pre_deploy_job_id: None,
+            pre_deploy_job_ids: vec![],
         };
         crate::db::services::create(&db, spec).await.unwrap();
 
@@ -728,6 +731,7 @@ services:
             db_kind: None,
             domains: vec![],
             pre_deploy_job_id: None,
+            pre_deploy_job_ids: vec![],
         };
         crate::db::services::create(&src_db, spec).await.unwrap();
 

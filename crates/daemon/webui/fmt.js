@@ -690,6 +690,9 @@ export function jobSummaryRows(list, term) {
       enabledLabel: job.enabled ? "Pausar" : "Ativar",
       lastRunLabel,
       lastRunKind,
+      // Usado pra desativar/trocar o botão "Rodar agora" enquanto o job_run
+      // em voo não termina (mesma condição de lastRunKind === "warn").
+      running: lastRunKind === "warn",
       lastRunId: s.last_run ? s.last_run.id : "",
       nextRunAt: job.next_run_at ? dateDmHm(job.next_run_at) : "—",
     });

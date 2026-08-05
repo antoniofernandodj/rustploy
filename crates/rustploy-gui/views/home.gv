@@ -1222,7 +1222,10 @@
                 <text class="muted col_dur">{j.recurrence}</text>
                 <text class="muted col_dur">{j.next_run_at}</text>
                 <row class="col_act_5">
-                  <button class="copy_btn" on_click="job_run_now:{j.id}" text="▶" tooltip="Rodar agora" />
+                  <button class="copy_btn" if="{j.running}" not_equals="true"
+                    on_click="job_run_now:{j.id}" text="▶" tooltip="Rodar agora" />
+                  <button class="copy_btn" if="{j.running}" equals="true"
+                    disabled="true" text="…" tooltip="Rodando…" />
                   <button class="copy_btn" if="{j.last_run_id}" not_equals=""
                     on_click="open_job_logs_window:{j.last_run_id}" text="≡" tooltip="Ver logs" />
                   <button class="copy_btn" if="{j.enabled}" equals="true"

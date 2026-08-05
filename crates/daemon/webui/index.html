@@ -865,7 +865,8 @@
                     <text class="muted col_dur" x-text="j.recurrence"></text>
                     <text class="muted col_dur" x-text="j.nextRunAt"></text>
                     <row class="col_act_5">
-                      <button class="copy_btn" type="button" title="Rodar agora" @click="store.jobRunNow(j.id)">▶</button>
+                      <button class="copy_btn" type="button" title="Rodar agora" :disabled="j.running"
+                              @click="store.jobRunNow(j.id)" x-text="j.running ? '…' : '▶'"></button>
                       <button class="copy_btn" type="button" title="Ver logs" x-show="j.lastRunId"
                               @click="store.openJobLogs(j.lastRunId)">≡</button>
                       <button class="copy_btn" type="button" :title="j.enabledLabel" @click="store.jobToggle(j.id)"
@@ -1501,7 +1502,8 @@
                   <text class="state_lbl" :class="'state_' + j.lastRunKind" x-text="j.lastRunLabel"></text>
                 </row>
                 <text class="muted kv_val_fill" x-text="'→ ' + j.nextRunAt"></text>
-                <button class="copy_btn" type="button" @click="store.jobRunNow(j.id)">Rodar agora</button>
+                <button class="copy_btn" type="button" :disabled="j.running" @click="store.jobRunNow(j.id)"
+                        x-text="j.running ? 'Rodando…' : 'Rodar agora'"></button>
                 <button class="copy_btn" type="button" x-show="j.lastRunId" @click="store.openJobLogs(j.lastRunId)">Ver logs</button>
                 <button class="copy_btn" type="button" @click="store.jobToggle(j.id)" x-text="j.enabledLabel"></button>
                 <button class="copy_btn" type="button" @click="store.openEditJob(j.id)">Editar</button>
@@ -1980,22 +1982,43 @@
               <input class="field_input" type="text" x-model="advRunCommand" placeholder="(padrão da imagem)" />
               <text class="muted" style="margin-top:8px" x-text="'Run args atuais: ' + runArgsText"></text>
 
-              <text class="label_cap" style="margin-top:14px">PRÉ-DEPLOY CHECK (OPCIONAL)</text>
-              <select class="field_input" x-model="advPreDeployJobId">
-                <option value="">Nenhum (sem check)</option>
-                <template x-for="j in preDeployJobOptions" :key="j.id">
-                  <option :value="j.id" x-text="j.name"></option>
-                </template>
-              </select>
-              <text class="muted" style="margin-top:8px">
-                Roda esse Job antes do deploy (manual ou webhook). Se o exit
-                code do job for diferente de 0, o deploy não acontece.
-                Cadastre jobs em Schedules.
-              </text>
-
               <row class="env_add" style="margin-top:14px">
                 <button class="btn_primary" type="button" @click="saveAdvanced()">Save</button>
                 <text class="muted" x-show="store.serviceMsg" x-text="store.serviceMsg"></text>
+              </row>
+
+              <text class="label_cap" style="margin-top:14px" x-text="'FILA DE PRÉ-DEPLOY (' + preDeployChecks.length + ')'"></text>
+              <text class="muted">
+                Roda esses Jobs em ORDEM antes do deploy (manual ou webhook),
+                um de cada vez. Se o exit code de algum for diferente de 0, a
+                fila para e o deploy não acontece — os checks seguintes não
+                rodam. Cadastre jobs em Schedules.
+              </text>
+              <column class="kv_list">
+                <template x-for="(c, i) in preDeployChecks" :key="c.id">
+                  <row class="kv_row">
+                    <button class="env_del" type="button" @click="pdcDel(c.id)">✕</button>
+                    <text class="env_sep"></text>
+                    <text class="env_key" x-text="c.index + '.'"></text>
+                    <text class="kv_val_fill" x-text="c.name"></text>
+                    <button class="btn_ghost" type="button" :disabled="i === 0" @click="pdcMove(c.id, -1)">↑</button>
+                    <button class="btn_ghost" type="button" :disabled="i === preDeployChecks.length - 1" @click="pdcMove(c.id, 1)">↓</button>
+                  </row>
+                </template>
+                <text class="muted" x-show="preDeployChecks.length === 0" style="padding:12px">
+                  Nenhum check configurado — deploy segue direto.
+                </text>
+              </column>
+
+              <text class="label_cap" style="margin-top:14px">ADICIONAR À FILA</text>
+              <row class="env_add">
+                <select class="field_input" x-model="advPdcAddJobId">
+                  <option value="">escolher job...</option>
+                  <template x-for="j in preDeployAvailableJobs" :key="j.id">
+                    <option :value="j.id" x-text="j.name"></option>
+                  </template>
+                </select>
+                <button class="btn_primary" type="button" @click="pdcAdd()">Adicionar à fila</button>
               </row>
             </column>
           </column>

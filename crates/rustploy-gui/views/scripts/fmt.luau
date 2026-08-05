@@ -75,7 +75,8 @@ M.git_branches = Git.git_branches
 M.job_recurrence_label = Jobs.recurrence_label
 M.job_summaries = Jobs.summaries
 M.job_runs = Jobs.runs
-M.pre_deploy_job_options = Jobs.pre_deploy_options
+M.pre_deploy_queue = Jobs.pre_deploy_queue
+M.pre_deploy_available = Jobs.pre_deploy_available
 
 -- Registry OCI embutido (fmt/registry.luau)
 M.registry_repos = Registry.repos

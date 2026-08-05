@@ -322,6 +322,7 @@ fn base_spec(
         db_kind,
         domains: vec![],
         pre_deploy_job_id: None,
+        pre_deploy_job_ids: vec![],
     }
 }
 

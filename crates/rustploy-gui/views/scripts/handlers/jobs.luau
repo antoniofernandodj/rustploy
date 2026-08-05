@@ -8,11 +8,21 @@ local State = require("../state")
 local Stream = require("stream")
 local fmt = require("../fmt")
 
+-- Trava double-click: entre o click e o refresh_now() logo abaixo (que é
+-- quando o botão passa a refletir `running=true` vindo do snapshot), a RPC
+-- ainda está em voo — sem essa trava um segundo click nesse intervalo
+-- dispara um segundo job_run. `jobs_inflight` some assim que o refresh_now()
+-- termina (sucesso ou erro), já tendo entregue um snapshot fresco pro botão
+-- decidir sozinho (via `j.running`) se continua desabilitado.
 function job_run_now(id: string): ()
     local api = State.api
     if not api then
         return
     end
+    if State.jobs_inflight[id] then
+        return
+    end
+    State.jobs_inflight[id] = true
     local ok, res = api:rpc_checked{ JobRunNow = { id = id } }
     if ok then
         toast{ message = tostring("Job disparado"), kind = "success" }
@@ -20,6 +30,7 @@ function job_run_now(id: string): ()
         toast{ message = tostring(res), kind = "error" }
     end
     Stream.refresh_now()
+    State.jobs_inflight[id] = nil
 end
 
 -- Pausa/ativa um job: `JobUpdate` substitui o registro inteiro, então

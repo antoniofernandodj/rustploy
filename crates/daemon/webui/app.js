@@ -113,6 +113,9 @@ document.addEventListener("alpine:init", () => {
     jobMsg: "",
     jobLogLines: [],
     jobLogStream: null,
+    jobsInflight: {}, // id -> true entre o click em "Rodar agora" e o
+    // refreshNow() que segue (trava double-click durante o round-trip da
+    // RPC — depois disso o botão passa a refletir `running` do snapshot).
 
     // Wizard "novo job" (3 passos: projeto → serviço gatilho → form) — mora
     // no store (não num componente de tela) porque duas entradas abrem o
@@ -786,9 +789,15 @@ document.addEventListener("alpine:init", () => {
     // Porta de handlers/jobs.luau.
 
     async jobRunNow(id) {
-      const r = await this.api.rpcChecked({ JobRunNow: { id } });
-      this.jobMsg = r.ok ? "" : "erro: " + r.error;
-      await this.refreshNow();
+      if (this.jobsInflight[id]) return;
+      this.jobsInflight[id] = true;
+      try {
+        const r = await this.api.rpcChecked({ JobRunNow: { id } });
+        this.jobMsg = r.ok ? "" : "erro: " + r.error;
+        await this.refreshNow();
+      } finally {
+        delete this.jobsInflight[id];
+      }
     },
 
     /** Reenvia o Job inteiro (só `enabled` inverte) — o daemon não tem um

@@ -1,5 +1,29 @@
 # Pré-deploy gate: rodar um check antes do deploy, e só prosseguir se ele passar
 
+> **Atualização (2026-08-05): virou uma FILA.** `ServiceSpec.pre_deploy_job_id`
+> (um único Job) foi generalizado para `pre_deploy_job_ids: Vec<String>` (uma
+> sequência ordenada de Jobs) — caso de uso: migration → análise estática →
+> linter → testes → deploy, cada etapa um Job de Schedules separado. Mesmo
+> idioma de retrocompat do `domain`/`domains` (`ServiceSpec::domain_routes`):
+> o campo singular fica só como legado, lido por `ServiceSpec::
+> pre_deploy_checks()` quando a fila nova está vazia, nunca mais escrito por
+> código novo. `DeployState::PreDeployCheck` **não ganhou sub-estado por
+> índice** — o `step()` desse estado roda a fila INTEIRA num laço, dentro de
+> uma única chamada (o loop de `execute()` não impõe timeout por step, então
+> não há necessidade de persistir "em qual item da fila estamos"). A primeira
+> falha interrompe a fila inteira (mesmo comportamento de antes: erro do
+> `step()` → `RollingBack` → `Failed`), sem rodar os checks seguintes. UI dos
+> dois clientes trocou o `<select>` único por uma lista ordenada (arrastável
+> na GUI iced via `on_reorder`/`dragHandle`; botões mover-pra-cima/baixo na
+> web UI, que não tem lib de drag-and-drop) + um seletor "adicionar à fila"
+> que exclui jobs já usados. Arquivos: `crates/shared/src/models.rs`
+> (campo + `pre_deploy_checks()`/`materialize_pre_deploy_checks()`),
+> `crates/daemon/src/deploy/executor.rs` (laço no `step[PreDeployCheck]`),
+> `crates/daemon/src/db/services.rs` (`clear_pre_deploy_job` agora limpa o
+> id de dentro da fila, preservando a ordem dos demais), `crates/rustploy-gui/
+> views/service.gv`+`scripts/handlers/services.luau`+`scripts/fmt/jobs.luau`,
+> `crates/daemon/webui/index.html`+`screens/service_detail.js`.
+
 > **Status: implementado** (2026-08-04). Este doc é o desenho aprovado; abaixo,
 > os desvios em relação ao rascunho original:
 > - **Falha do check não pula `RollingBack`** (diferente do que a seção 2

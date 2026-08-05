@@ -180,6 +180,18 @@ function M.domain_routes(spec: ServiceSpec): {DomainRoute}
     return routes
 end
 
+-- Fila efetiva de pré-deploy check: `pre_deploy_job_ids` quando não vazia,
+-- senão cai no `pre_deploy_job_id` legado (retrocompat) — mesmo idioma de
+-- `ServiceSpec::pre_deploy_checks` no lado Rust.
+function M.pre_deploy_checks(spec: any): { string }
+    if spec.pre_deploy_job_ids and #spec.pre_deploy_job_ids > 0 then
+        return spec.pre_deploy_job_ids
+    elseif spec.pre_deploy_job_id and spec.pre_deploy_job_id ~= "" then
+        return { spec.pre_deploy_job_id }
+    end
+    return {}
+end
+
 -- `services` do snapshot é uma lista de { project_name, service }.
 -- Normaliza para pares { svc = Service, proj = "nome" }.
 function M.pair_list(services: {any}?): {ServicePair}

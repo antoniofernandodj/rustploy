@@ -1086,29 +1086,69 @@
           Run args atuais: {svc_run_args}
         </text>
 
-        <text class="label_cap">
-          PRÉ-DEPLOY CHECK (OPCIONAL)
-        </text>
-        <select
-          class="select"
-          options="pre_deploy_jobs"
-          value="f_pre_deploy_job_id"
-          on_change="field:f_pre_deploy_job_id"
-          placeholder="nenhum"
-          labelField="name"
-          valueField="id"
-        />
-        <text class="muted">
-          Roda esse Job antes do deploy (manual ou webhook). Se o exit code do
-          job for diferente de 0, o deploy não acontece. Cadastre jobs em
-          Schedules.
-        </text>
-
         <row class="env_add">
           <button class="btn_primary" on_click="adv_save" text="Save" />
           <text class="muted">{svc_action_msg}</text>
         </row>
       </form>
+
+      <!-- Fila de pré-deploy (editável, efeito imediato — como Domains, não
+           passa pelo Save do form acima): cada item roda em ORDEM antes do
+           deploy; a primeira falha para a fila inteira. -->
+      <column if="{tab}" equals="advanced" class="form_panel">
+        <text class="label_cap">
+          FILA DE PRÉ-DEPLOY ({pre_deploy_checks_count})
+        </text>
+        <text class="muted">
+          Roda esses Jobs em ORDEM antes do deploy (manual ou webhook), um de
+          cada vez. Se o exit code de algum for diferente de 0, a fila para e
+          o deploy não acontece — os checks seguintes não rodam. Arraste
+          pelo ⋮ para reordenar. Cadastre jobs em Schedules.
+        </text>
+
+        <scrollable direction="vertical" class="env_list_scroll">
+          <column class="kv_list">
+            <foreach items="pre_deploy_checks" var="c" on_reorder="pdc_reorder" reorder_key="id">
+              <if cond="{c.__dragging}" equals="true">
+                <row class="kv_row_drag">
+                  <text class="env_drag_handle env_dragging" dragHandle="true">
+                    ⋮
+                  </text>
+                  <button class="env_del" on_click="pdc_del:{c.id}" text="✕" />
+                  <text class="env_sep"> </text>
+                  <text class="env_key">{c.index}.</text>
+                  <text class="kv_val_fill">{c.name}</text>
+                </row>
+              </if>
+              <else>
+                <row class="kv_row">
+                  <text class="env_drag_handle" dragHandle="true">⋮ </text>
+                  <button class="env_del" on_click="pdc_del:{c.id}" text="✕" />
+                  <text class="env_sep"> </text>
+                  <text class="env_key">{c.index}.</text>
+                  <text class="kv_val_fill">{c.name}</text>
+                </row>
+              </else>
+            </foreach>
+          </column>
+        </scrollable>
+
+        <text class="label_cap">
+          ADICIONAR À FILA
+        </text>
+        <select
+          class="select"
+          options="pre_deploy_available_jobs"
+          value="f_pdc_add_job_id"
+          on_change="field:f_pdc_add_job_id"
+          placeholder="escolher job..."
+          labelField="name"
+          valueField="id"
+        />
+        <row class="env_add">
+          <button class="btn_primary" on_click="pdc_add" text="Adicionar à fila" />
+        </row>
+      </column>
     </column>
 
     <!-- Painel lateral: status. O log ao vivo saiu daqui (era um for-each sempre

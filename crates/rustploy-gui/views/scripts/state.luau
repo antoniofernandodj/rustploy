@@ -37,6 +37,7 @@ export type State = {
     deploy_track: DeployTrack,
     ns_templates_all: { any },         -- catálogo completo de templates (filtrar busca)
     jobs_by_id: { [string]: any },     -- job_id → Job cru (do snapshot) — job_toggle precisa do compose/name/main_service completos pra reenviar o JobUpdate.
+    jobs_inflight: { [string]: boolean }, -- job_id → true entre o click em "Rodar agora" e o refresh_now() que confirma o novo job_run — trava double-click durante o round-trip da RPC (o botão só reflete `running` do snapshot DEPOIS disso).
 }
 
 local S: State = {
@@ -49,6 +50,7 @@ local S: State = {
     deploy_track = { service_id = "", deployment_id = "", running = false, name = "" },
     ns_templates_all = {},
     jobs_by_id = {},
+    jobs_inflight = {},
 }
 
 return S

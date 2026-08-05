@@ -12,6 +12,18 @@ local fmt = require("../fmt")
 
 local M = {}
 
+-- Fila efetiva de pré-deploy check: `pre_deploy_job_ids` quando não vazia,
+-- senão cai no `pre_deploy_job_id` legado (retrocompat) — mesmo idioma de
+-- `ServiceSpec::pre_deploy_checks` no lado Rust.
+local function pre_deploy_checks_ids(spec: any): { string }
+    if spec.pre_deploy_job_ids and #spec.pre_deploy_job_ids > 0 then
+        return spec.pre_deploy_job_ids
+    elseif spec.pre_deploy_job_id and spec.pre_deploy_job_id ~= "" then
+        return { spec.pre_deploy_job_id }
+    end
+    return {}
+end
+
 -- ── Fetch completo do painel de detalhe ─────────────────────────────────────
 
 -- Abrir o detalhe de um serviço: navega e dispara o fetch (spec + logs +
@@ -216,7 +228,7 @@ function M.fetch_service_detail(sid: string): ()
     ctx.f_hc_start = tostring(hc.start_period_secs)
     ctx.f_replicas = tostring(spec.replicas)
     ctx.f_run_command = spec.run_command or ""
-    ctx.f_pre_deploy_job_id = spec.pre_deploy_job_id or ""
+    ctx.f_pdc_add_job_id = ""
     ctx.f_repo_url = g.repo_url
     ctx.f_branch = g.branch
     ctx.f_username = g.username
@@ -232,10 +244,13 @@ function M.fetch_service_detail(sid: string): ()
     ctx.prov_tab = prov_tab
     ctx.gitea_provider_id = gen_provider_id
 
-    -- Jobs do projeto (aba Advanced → seletor de pré-deploy check). Ver
+    -- Jobs do projeto (aba Advanced → fila de pré-deploy check). Ver
     -- docs/plano-pre-deploy-gate.md.
     local okj, resj = api:rpc{ JobList = { project_id = spec.project_id } }
-    ctx.pre_deploy_jobs = fmt.pre_deploy_job_options(okj and resj.Jobs or nil)
+    local pdj = okj and resj.Jobs or nil
+    ctx.pre_deploy_checks = fmt.pre_deploy_queue(spec, pdj)
+    ctx.pre_deploy_checks_count = tostring(#(pre_deploy_checks_ids(spec)))
+    ctx.pre_deploy_available_jobs = fmt.pre_deploy_available(spec, pdj)
 
     -- Provedores Gitea conectados (para o picker de conta).
     local okp, resp = api:rpc("GitProviderList")
@@ -407,8 +422,53 @@ function adv_save(): ()
         spec.replicas = math.floor(r)
         local rc = Helpers.trim(ctx.f_run_command)
         spec.run_command = (rc ~= "") and rc or nil
-        local pdj = Helpers.trim(ctx.f_pre_deploy_job_id)
-        spec.pre_deploy_job_id = (pdj ~= "") and pdj or nil
+    end)
+end
+
+-- Move o `pre_deploy_job_id` legado pra `pre_deploy_job_ids` — mesmo idioma
+-- de `materialize_domains`.
+local function materialize_pre_deploy(spec: any): ()
+    if not spec.pre_deploy_job_ids or #spec.pre_deploy_job_ids == 0 then
+        spec.pre_deploy_job_ids = json.array(pre_deploy_checks_ids(spec))
+    end
+    spec.pre_deploy_job_id = nil
+end
+
+-- Adiciona o job escolhido (ctx.f_pdc_add_job_id) ao FIM da fila — a ordem
+-- de adição É a ordem de execução; reordene arrastando na lista.
+function pdc_add(): ()
+    local job_id = Helpers.trim(ctx.f_pdc_add_job_id)
+    if job_id == "" then return end
+    with_spec(function(spec: any): ()
+        materialize_pre_deploy(spec)
+        local already = false
+        for _, id in ipairs(spec.pre_deploy_job_ids) do
+            if id == job_id then already = true; break end
+        end
+        if not already then table.insert(spec.pre_deploy_job_ids, job_id) end
+    end)
+end
+
+function pdc_del(job_id: string): ()
+    with_spec(function(spec: any): ()
+        materialize_pre_deploy(spec)
+        local kept = json.array{}
+        for _, id in ipairs(spec.pre_deploy_job_ids) do
+            if id ~= job_id then table.insert(kept, id) end
+        end
+        spec.pre_deploy_job_ids = kept
+    end)
+end
+
+-- Reordena a fila (arraste): `v` é um JSON array de job_ids na nova ordem
+-- (mesmo formato de `env_reorder` — o `reorder_key` do foreach é `id`).
+function pdc_reorder(v: string?): ()
+    if not v then return end
+    local ok, ids = pcall(json.decode, v)
+    if not ok or type(ids) ~= "table" then return end
+    with_spec(function(spec: any): ()
+        materialize_pre_deploy(spec)
+        spec.pre_deploy_job_ids = json.array(ids)
     end)
 end
 

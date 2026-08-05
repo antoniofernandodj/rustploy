@@ -56,13 +56,22 @@ pub struct ServiceSpec {
     /// para `port`). Ver [`ServiceSpec::domain_routes`].
     #[serde(default)]
     pub domains: Vec<DomainRoute>,
-    /// `Job` (Schedules) usado como pré-deploy check. `None` = sem check,
-    /// deploy segue direto. Quando setado, o deploy roda esse job antes de
-    /// tocar em qualquer coisa (pull/build/staging) e só prossegue se o
-    /// exit code do `main_service` do job for 0 — ver
-    /// `DeployState::PreDeployCheck` e `docs/plano-pre-deploy-gate.md`.
+    /// Legado (pré-fila, até 2026-08-05): um único `Job` de pré-deploy check.
+    /// Substituído por `pre_deploy_job_ids`; mantido só pra retrocompat de
+    /// specs salvos antes — nunca mais escrito por código novo. Ver
+    /// [`ServiceSpec::pre_deploy_checks`].
     #[serde(default)]
     pub pre_deploy_job_id: Option<String>,
+    /// Fila de `Job`s (Schedules) rodados em ORDEM antes de tocar em
+    /// qualquer coisa (pull/build/staging) — vazio = sem checks, deploy
+    /// segue direto. Cada item roda até completar (exit code do
+    /// `main_service`); a primeira falha interrompe a fila **e** o deploy
+    /// inteiro, sem rodar os checks seguintes. Ver `DeployState::
+    /// PreDeployCheck` e `docs/plano-pre-deploy-gate.md`. Retrocompat: quando
+    /// vazio, cai no `pre_deploy_job_id` legado — ver
+    /// [`ServiceSpec::pre_deploy_checks`].
+    #[serde(default)]
+    pub pre_deploy_job_ids: Vec<String>,
 }
 
 /// Uma rota HTTP de domínio de um serviço: qual domínio, para qual porta do
@@ -129,6 +138,28 @@ impl ServiceSpec {
         }
         self.domain = None;
         self.tls_enabled = false;
+    }
+
+    /// Fila efetiva de checks de pré-deploy: `pre_deploy_job_ids` quando não
+    /// vazia, ou — para specs antigos que só têm o campo singular — uma fila
+    /// de um item sintetizada a partir do `pre_deploy_job_id` legado.
+    pub fn pre_deploy_checks(&self) -> Vec<String> {
+        if !self.pre_deploy_job_ids.is_empty() {
+            self.pre_deploy_job_ids.clone()
+        } else if let Some(j) = &self.pre_deploy_job_id {
+            vec![j.clone()]
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Move o `pre_deploy_job_id` legado para `pre_deploy_job_ids` e zera o
+    /// campo legado — mesmo idioma de `materialize_domains`. Idempotente.
+    pub fn materialize_pre_deploy_checks(&mut self) {
+        if self.pre_deploy_job_ids.is_empty() {
+            self.pre_deploy_job_ids = self.pre_deploy_checks();
+        }
+        self.pre_deploy_job_id = None;
     }
 }
 
@@ -385,9 +416,10 @@ pub struct Deployment {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum DeployState {
     Pending,
-    /// Roda o `Job` de `ServiceSpec.pre_deploy_job_id` (quando configurado) e
-    /// só avança para `ResolvingDeps` se ele passar (exit code 0). Sem job
-    /// configurado, passa direto — no-op.
+    /// Roda a fila `ServiceSpec.pre_deploy_checks()` em ordem (quando não
+    /// vazia) e só avança para `ResolvingDeps` se TODOS passarem (exit code
+    /// 0) — a primeira falha interrompe a fila e o deploy. Fila vazia passa
+    /// direto — no-op.
     PreDeployCheck,
     ResolvingDeps,
     PullingImage,
@@ -460,7 +492,7 @@ impl DeployState {
 mod pre_deploy_gate_tests {
     use super::*;
 
-    fn sample_spec(pre_deploy_job_id: Option<String>) -> ServiceSpec {
+    fn sample_spec(pre_deploy_job_id: Option<String>, pre_deploy_job_ids: Vec<String>) -> ServiceSpec {
         ServiceSpec {
             name: "svc".into(),
             project_id: "proj-1".into(),
@@ -480,26 +512,50 @@ mod pre_deploy_gate_tests {
             db_kind: None,
             domains: vec![],
             pre_deploy_job_id,
+            pre_deploy_job_ids,
         }
     }
 
     #[test]
-    fn pre_deploy_job_id_json_round_trip() {
-        let spec = sample_spec(Some("job_123".into()));
+    fn pre_deploy_job_ids_json_round_trip() {
+        let spec = sample_spec(None, vec!["job_migration".into(), "job_lint".into(), "job_test".into()]);
         let json = serde_json::to_string(&spec).unwrap();
         let back: ServiceSpec = serde_json::from_str(&json).unwrap();
-        assert_eq!(back.pre_deploy_job_id, Some("job_123".into()));
+        assert_eq!(
+            back.pre_deploy_job_ids,
+            vec!["job_migration".to_string(), "job_lint".to_string(), "job_test".to_string()]
+        );
     }
 
     #[test]
-    fn pre_deploy_job_id_json_back_compat_when_absent() {
+    fn pre_deploy_job_ids_back_compat_when_absent() {
         // Specs salvos antes da feature não têm o campo; serde default
-        // precisa preencher como None (mesmo padrão de host_port/domains/etc.).
-        let spec = sample_spec(None);
+        // precisa preencher como vec vazio (mesmo padrão de domains/etc.).
+        let spec = sample_spec(None, vec![]);
         let mut value = serde_json::to_value(&spec).unwrap();
-        value.as_object_mut().unwrap().remove("pre_deploy_job_id");
+        value.as_object_mut().unwrap().remove("pre_deploy_job_ids");
         let back: ServiceSpec = serde_json::from_value(value).unwrap();
-        assert_eq!(back.pre_deploy_job_id, None);
+        assert_eq!(back.pre_deploy_job_ids, Vec::<String>::new());
+    }
+
+    #[test]
+    fn pre_deploy_checks_falls_back_to_legacy_single_job() {
+        let spec = sample_spec(Some("job_legacy".into()), vec![]);
+        assert_eq!(spec.pre_deploy_checks(), vec!["job_legacy".to_string()]);
+    }
+
+    #[test]
+    fn pre_deploy_checks_prefers_queue_over_legacy() {
+        let spec = sample_spec(Some("job_legacy".into()), vec!["job_a".into(), "job_b".into()]);
+        assert_eq!(spec.pre_deploy_checks(), vec!["job_a".to_string(), "job_b".to_string()]);
+    }
+
+    #[test]
+    fn materialize_pre_deploy_checks_moves_legacy_and_clears_it() {
+        let mut spec = sample_spec(Some("job_legacy".into()), vec![]);
+        spec.materialize_pre_deploy_checks();
+        assert_eq!(spec.pre_deploy_job_ids, vec!["job_legacy".to_string()]);
+        assert_eq!(spec.pre_deploy_job_id, None);
     }
 
     #[test]

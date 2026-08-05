@@ -68,6 +68,10 @@ function M.summaries(list: { any }?): (string, number)
             enabled_label = job.enabled and "Pausar" or "Ativar",
             last_run_label = status_label,
             last_run_kind = status_kind,
+            -- `running`: usado pra desativar/trocar o botão "Rodar agora"
+            -- enquanto o job_run em voo não termina (mesma condição de
+            -- status_kind == "warn").
+            running = status_kind == "warn",
             last_run_id = s.last_run and s.last_run.id or "",
             next_run_at = job.next_run_at and Time.date_dm_hm(job.next_run_at) or "—",
         })
@@ -75,14 +79,41 @@ function M.summaries(list: { any }?): (string, number)
     return Util.enc_array(rows), #rows
 end
 
--- Opções pro `<select>` de pré-deploy check (aba Advanced do serviço) — a
--- partir da lista crua de `Command::JobList` (jobs do projeto do serviço),
--- com um sentinel "Nenhum" na frente. `services.luau::adv_save` mapeia o
--- valor "" de volta pra `nil` no spec.
-function M.pre_deploy_options(list: { any }?): string
-    local rows = { { id = "", name = "Nenhum (sem check)" } }
+-- Fila de checks de pré-deploy do serviço (aba Advanced), na ORDEM
+-- configurada, com o nome resolvido a partir dos Jobs do projeto — mesmo
+-- idioma de retrocompat do `ServiceSpec::pre_deploy_checks` no lado Rust
+-- (`Util.pre_deploy_checks`, que cai no `pre_deploy_job_id` legado quando a
+-- fila nova está vazia). Um job apagado por fora (Schedules) mas ainda
+-- referenciado aparece com rótulo "(job removido)" em vez de sumir — assim
+-- dá pra removê-lo da fila pela própria UI.
+function M.pre_deploy_queue(spec: any, list: { any }?): string
+    local by_id = {}
     for _, job in ipairs(list or {}) do
-        table.insert(rows, { id = job.id, name = job.name })
+        by_id[job.id] = job.name
+    end
+    local rows = {}
+    for i, id in ipairs(Util.pre_deploy_checks(spec)) do
+        table.insert(rows, {
+            id = id,
+            name = by_id[id] or ("(job removido: " .. id .. ")"),
+            index = tostring(i),
+        })
+    end
+    return Util.enc_array(rows)
+end
+
+-- Jobs do projeto que AINDA NÃO estão na fila — opções do `<select>` de
+-- "adicionar à fila" (evita duplicar o mesmo job na sequência).
+function M.pre_deploy_available(spec: any, list: { any }?): string
+    local in_queue = {}
+    for _, id in ipairs(Util.pre_deploy_checks(spec)) do
+        in_queue[id] = true
+    end
+    local rows = {}
+    for _, job in ipairs(list or {}) do
+        if not in_queue[job.id] then
+            table.insert(rows, { id = job.id, name = job.name })
+        end
     end
     return Util.enc_array(rows)
 end

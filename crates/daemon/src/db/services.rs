@@ -153,6 +153,44 @@ pub async fn update_spec(db: &Db, id: &str, spec: ServiceSpec) -> Result<Option<
     get(db, id).await
 }
 
+/// Remove o job dado da fila de pré-deploy check (`pre_deploy_job_ids`, e do
+/// `pre_deploy_job_id` legado) de qualquer serviço que o referencie —
+/// cascade do `job_delete` (o job pode ter sido apagado em Schedules
+/// enquanto ainda referenciado como check de um ou mais serviços; sem essa
+/// limpeza o deploy falha em `DeployState::PreDeployCheck` com "job não
+/// encontrado", e a UI mostra a fila sem esse item porque o seletor só lista
+/// jobs que existem hoje, mascarando o ID órfão que continua salvo no
+/// spec). Preserva a ordem dos itens restantes. Retorna quantos serviços
+/// foram atualizados.
+pub async fn clear_pre_deploy_job(db: &Db, job_id: &str) -> Result<u64> {
+    let rows = sqlx::query_as::<_, ServiceRow>(&format!("SELECT {SELECT_COLS} FROM service"))
+        .fetch_all(db)
+        .await?;
+    let mut cleared = 0u64;
+    for row in rows {
+        let svc = row_to_service(row)?;
+        let referenced_legacy = svc.spec.pre_deploy_job_id.as_deref() == Some(job_id);
+        let referenced_in_queue = svc.spec.pre_deploy_job_ids.iter().any(|j| j == job_id);
+        if !referenced_legacy && !referenced_in_queue {
+            continue;
+        }
+        let mut spec = svc.spec;
+        if referenced_legacy {
+            spec.pre_deploy_job_id = None;
+        }
+        spec.pre_deploy_job_ids.retain(|j| j != job_id);
+        let spec_json = serde_json::to_string(&spec)?;
+        sqlx::query("UPDATE service SET spec = ?, updated_at = ? WHERE id = ?")
+            .bind(&spec_json)
+            .bind(Utc::now())
+            .bind(&svc.id)
+            .execute(db)
+            .await?;
+        cleared += 1;
+    }
+    Ok(cleared)
+}
+
 pub async fn update_status(
     db: &Db,
     id: &str,
@@ -253,6 +291,7 @@ mod tests {
             db_kind: None,
             domains: vec![],
             pre_deploy_job_id: None,
+            pre_deploy_job_ids: vec![],
         }
     }
 
@@ -293,5 +332,57 @@ mod tests {
         assert!(update_spec(&db, &web.id, spec("web2", "proj_a")).await.unwrap().is_some());
         // Regravar o próprio serviço com o mesmo nome (não é colisão) funciona.
         assert!(update_spec(&db, &web.id, spec("web2", "proj_a")).await.unwrap().is_some());
+    }
+
+    #[tokio::test]
+    async fn clear_pre_deploy_job_limpa_so_servicos_que_referenciam_o_job_legado() {
+        let db = mem_db().await;
+        let mut with_job = spec("api", "proj_a");
+        with_job.pre_deploy_job_id = Some("job_alvo".into());
+        let api = create(&db, with_job).await.unwrap();
+
+        let mut with_other_job = spec("web", "proj_a");
+        with_other_job.pre_deploy_job_id = Some("job_outro".into());
+        let web = create(&db, with_other_job).await.unwrap();
+
+        let cleared = clear_pre_deploy_job(&db, "job_alvo").await.unwrap();
+        assert_eq!(cleared, 1);
+
+        assert_eq!(get(&db, &api.id).await.unwrap().unwrap().spec.pre_deploy_job_id, None);
+        assert_eq!(
+            get(&db, &web.id).await.unwrap().unwrap().spec.pre_deploy_job_id,
+            Some("job_outro".into())
+        );
+    }
+
+    /// Serviço com a fila NOVA (`pre_deploy_job_ids`): o job removido some da
+    /// lista, mas os outros ficam — e na MESMA ordem relativa (só o item
+    /// removido sai do meio).
+    #[tokio::test]
+    async fn clear_pre_deploy_job_remove_so_o_item_da_fila_preservando_ordem() {
+        let db = mem_db().await;
+        let mut with_queue = spec("api", "proj_a");
+        with_queue.pre_deploy_job_ids =
+            vec!["job_migration".into(), "job_alvo".into(), "job_test".into()];
+        let api = create(&db, with_queue).await.unwrap();
+
+        let cleared = clear_pre_deploy_job(&db, "job_alvo").await.unwrap();
+        assert_eq!(cleared, 1);
+
+        assert_eq!(
+            get(&db, &api.id).await.unwrap().unwrap().spec.pre_deploy_job_ids,
+            vec!["job_migration".to_string(), "job_test".to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn clear_pre_deploy_job_no_op_quando_ninguem_referencia() {
+        let db = mem_db().await;
+        let mut with_queue = spec("api", "proj_a");
+        with_queue.pre_deploy_job_ids = vec!["job_migration".into()];
+        create(&db, with_queue).await.unwrap();
+
+        let cleared = clear_pre_deploy_job(&db, "job_nunca_referenciado").await.unwrap();
+        assert_eq!(cleared, 0);
     }
 }
