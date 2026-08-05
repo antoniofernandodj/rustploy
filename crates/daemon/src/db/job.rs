@@ -1,7 +1,7 @@
 use super::Db;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use shared::{Job, JobGitSource, Recurrence};
+use shared::{EnvComment, EnvVar, Job, JobGitSource, Recurrence};
 use ulid::Ulid;
 
 type JobRow = (
@@ -17,10 +17,13 @@ type JobRow = (
     Option<DateTime<Utc>>, // next_run_at
     DateTime<Utc>,  // created_at
     Option<String>, // git_source (JSON)
+    String,         // env_vars (JSON)
+    String,         // env_comments (JSON)
 );
 
 const SELECT_COLS: &str = "id, project_id, trigger_service_id, name, compose, main_service, \
-    enabled, recurrence, last_run_at, next_run_at, created_at, git_source";
+    enabled, recurrence, last_run_at, next_run_at, created_at, git_source, \
+    env_vars, env_comments";
 
 fn row_to_job(row: JobRow) -> Result<Job> {
     let (
@@ -36,6 +39,8 @@ fn row_to_job(row: JobRow) -> Result<Job> {
         next_run_at,
         created_at,
         git_source_json,
+        env_vars_json,
+        env_comments_json,
     ) = row;
     let recurrence: Option<Recurrence> = recurrence_json
         .as_deref()
@@ -45,6 +50,8 @@ fn row_to_job(row: JobRow) -> Result<Job> {
         .as_deref()
         .map(serde_json::from_str)
         .transpose()?;
+    let env_vars: Vec<EnvVar> = serde_json::from_str(&env_vars_json)?;
+    let env_comments: Vec<EnvComment> = serde_json::from_str(&env_comments_json)?;
     // Coluna é NOT NULL (sem migração de schema): string vazia é o sentinel
     // de "sem serviço gatilho" (job autônomo), não NULL.
     let trigger_service_id = if trigger_service_id.is_empty() {
@@ -60,6 +67,8 @@ fn row_to_job(row: JobRow) -> Result<Job> {
         compose,
         git_source,
         main_service,
+        env_vars,
+        env_comments,
         enabled,
         recurrence,
         last_run_at,
@@ -77,6 +86,8 @@ pub async fn create(
     compose: &str,
     git_source: Option<&JobGitSource>,
     main_service: &str,
+    env_vars: &[EnvVar],
+    env_comments: &[EnvComment],
     recurrence: Option<Recurrence>,
 ) -> Result<Job> {
     let id = format!("job_{}", Ulid::new());
@@ -84,10 +95,13 @@ pub async fn create(
     let recurrence_json = recurrence.map(|r| serde_json::to_string(&r)).transpose()?;
     let next_run_at = recurrence.map(|r| r.next_after(now));
     let git_source_json = git_source.map(serde_json::to_string).transpose()?;
+    let env_vars_json = serde_json::to_string(env_vars)?;
+    let env_comments_json = serde_json::to_string(env_comments)?;
     sqlx::query(
         "INSERT INTO job (id, project_id, trigger_service_id, name, compose, main_service,
-            enabled, recurrence, last_run_at, next_run_at, created_at, git_source)
-         VALUES (?, ?, ?, ?, ?, ?, 1, ?, NULL, ?, ?, ?)",
+            enabled, recurrence, last_run_at, next_run_at, created_at, git_source,
+            env_vars, env_comments)
+         VALUES (?, ?, ?, ?, ?, ?, 1, ?, NULL, ?, ?, ?, ?, ?)",
     )
     .bind(&id)
     .bind(project_id)
@@ -99,6 +113,8 @@ pub async fn create(
     .bind(next_run_at)
     .bind(now)
     .bind(&git_source_json)
+    .bind(&env_vars_json)
+    .bind(&env_comments_json)
     .execute(db)
     .await?;
     Ok(Job {
@@ -109,6 +125,8 @@ pub async fn create(
         compose: compose.to_string(),
         git_source: git_source.cloned(),
         main_service: main_service.to_string(),
+        env_vars: env_vars.to_vec(),
+        env_comments: env_comments.to_vec(),
         enabled: true,
         recurrence,
         last_run_at: None,
@@ -165,15 +183,19 @@ pub async fn update(
     compose: &str,
     git_source: Option<&JobGitSource>,
     main_service: &str,
+    env_vars: &[EnvVar],
+    env_comments: &[EnvComment],
     enabled: bool,
     recurrence: Option<Recurrence>,
 ) -> Result<Option<Job>> {
     let recurrence_json = recurrence.map(|r| serde_json::to_string(&r)).transpose()?;
     let next_run_at = recurrence.map(|r| r.next_after(Utc::now()));
     let git_source_json = git_source.map(serde_json::to_string).transpose()?;
+    let env_vars_json = serde_json::to_string(env_vars)?;
+    let env_comments_json = serde_json::to_string(env_comments)?;
     let rows_affected = sqlx::query(
         "UPDATE job SET name = ?, compose = ?, main_service = ?, enabled = ?, recurrence = ?,
-            next_run_at = ?, git_source = ? WHERE id = ?",
+            next_run_at = ?, git_source = ?, env_vars = ?, env_comments = ? WHERE id = ?",
     )
     .bind(name)
     .bind(compose)
@@ -182,6 +204,8 @@ pub async fn update(
     .bind(&recurrence_json)
     .bind(next_run_at)
     .bind(&git_source_json)
+    .bind(&env_vars_json)
+    .bind(&env_comments_json)
     .bind(id)
     .execute(db)
     .await?
@@ -278,6 +302,8 @@ mod tests {
             "version: '3'\nservices:\n  backup:\n    image: busybox\n",
             None,
             "backup",
+            &[],
+            &[],
             Some(Recurrence::IntervalHours(6)),
         )
         .await
@@ -288,10 +314,12 @@ mod tests {
         let got = get(&db, &job.id).await.unwrap().unwrap();
         assert_eq!(got.recurrence, Some(Recurrence::IntervalHours(6)));
 
-        let updated = update(&db, &job.id, "backup2", &job.compose, None, "backup", false, None)
-            .await
-            .unwrap()
-            .unwrap();
+        let updated = update(
+            &db, &job.id, "backup2", &job.compose, None, "backup", &[], &[], false, None,
+        )
+        .await
+        .unwrap()
+        .unwrap();
         assert_eq!(updated.name, "backup2");
         assert!(!updated.enabled);
         assert_eq!(updated.recurrence, None);
@@ -304,7 +332,7 @@ mod tests {
     #[tokio::test]
     async fn delete_cascateia_runs_e_logs() {
         let db = mem_db().await;
-        let job = create(&db, "prj_1", None, "backup", "c", None, "m", None)
+        let job = create(&db, "prj_1", None, "backup", "c", None, "m", &[], &[], None)
             .await
             .unwrap();
         let run = super::super::job_run::create(&db, &job.id).await.unwrap();
@@ -323,8 +351,12 @@ mod tests {
     #[tokio::test]
     async fn contagem_por_projeto_e_cascade_por_gatilho() {
         let db = mem_db().await;
-        let gatilhado = create(&db, "prj_1", Some("svc_1"), "a", "c", None, "m", None).await.unwrap();
-        let autonomo = create(&db, "prj_1", None, "b", "c", None, "m", None).await.unwrap();
+        let gatilhado = create(&db, "prj_1", Some("svc_1"), "a", "c", None, "m", &[], &[], None)
+            .await
+            .unwrap();
+        let autonomo = create(&db, "prj_1", None, "b", "c", None, "m", &[], &[], None)
+            .await
+            .unwrap();
 
         assert_eq!(count_by_project(&db, "prj_1").await.unwrap(), 2);
         assert_eq!(count_by_project(&db, "prj_2").await.unwrap(), 0);
@@ -339,7 +371,7 @@ mod tests {
     #[tokio::test]
     async fn job_sem_servico_gatilho_ida_e_volta_none() {
         let db = mem_db().await;
-        let job = create(&db, "prj_1", None, "autonomo", "c", None, "m", None)
+        let job = create(&db, "prj_1", None, "autonomo", "c", None, "m", &[], &[], None)
             .await
             .unwrap();
         assert_eq!(job.trigger_service_id, None);
@@ -359,6 +391,8 @@ mod tests {
             "c",
             None,
             "m",
+            &[],
+            &[],
             Some(Recurrence::IntervalHours(1)),
         )
         .await
@@ -379,11 +413,13 @@ mod tests {
             "c",
             None,
             "m",
+            &[],
+            &[],
             Some(Recurrence::IntervalHours(6)),
         )
         .await
         .unwrap();
-        let _manual = create(&db, "p", Some("s"), "manual", "c", None, "m", None)
+        let _manual = create(&db, "p", Some("s"), "manual", "c", None, "m", &[], &[], None)
             .await
             .unwrap();
 

@@ -294,6 +294,8 @@ hr, .rule   { width: 100%; height: 1px; border: none; background: var(--border);
 .dep_del_btn  { color: var(--danger); padding: 5px 12px; border-radius: 3px; cursor: pointer; border: 1px solid var(--danger); background: rgba(218,54,51,.10); }
 .col_act_2    { width: 90px; justify-content: flex-end; }
 .col_act_4    { width: 170px; justify-content: flex-end; gap: 8px; }
+/* Mesma linha de job acima, +1 controle (editar). */
+.col_act_5    { width: 210px; justify-content: flex-end; gap: 8px; }
 
 /* ── Logs (aba Logs do serviço) ─────────────────────────────────────── */
 .log_panel { width: 100%; flex: 1 1 auto; min-height: 0; background: var(--surface); border-radius: 6px; border: 1px solid var(--border); padding: 14px 16px; gap: 8px; }

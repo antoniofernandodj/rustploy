@@ -32,6 +32,24 @@ local function decode(s: string?): { any }
     return {}
 end
 
+-- Recorrência (Option<Recurrence>, externally-tagged) → (kind, hours, hour,
+-- minute, weekday), pro formulário. Inverso do bloco em njob_create.
+local function unpack_recurrence(r: any): (string, string, string, string, string)
+    if r == nil then
+        return "manual", "6", "3", "0", "0"
+    end
+    if r.IntervalHours ~= nil then
+        return "interval", tostring(r.IntervalHours), "3", "0", "0"
+    end
+    if r.Daily ~= nil then
+        return "daily", "6", tostring(r.Daily.hour), tostring(r.Daily.minute), "0"
+    end
+    if r.Weekly ~= nil then
+        return "weekly", "6", tostring(r.Weekly.hour), tostring(r.Weekly.minute), tostring(r.Weekly.weekday)
+    end
+    return "manual", "6", "3", "0", "0"
+end
+
 function init(): ()
     -- ctx.njob_projects/njob_services já chegam como JSON (semeados via data).
     ctx.njob_projects = ctx.njob_projects or "[]"
@@ -50,15 +68,21 @@ function init(): ()
     -- Fonte do compose: "compose" (colado, default) | "git" (clona um repo
     -- a cada execução — mesmo picker conta→repo→branch da aba Gitea de
     -- serviço). Ver njob_source/njob_git_provider_pick/njob_git_repo_pick.
+    -- Os campos de picker usam `or` (não sobrescrevem à força): em modo
+    -- edição de job git-sourced, open_edit_job_window já resolveu e semeou
+    -- esses valores (não dá pra buscar aqui dentro, ver docstring do topo).
     ctx.njob_source = "compose"
-    ctx.njob_git_providers = "[]"
+    ctx.njob_git_providers = ctx.njob_git_providers or "[]"
     ctx.njob_git_provider_id = ""
-    ctx.njob_git_repos = "[]"
-    ctx.njob_git_repo = ""
-    ctx.njob_git_branches = "[]"
+    ctx.njob_git_repos = ctx.njob_git_repos or "[]"
+    ctx.njob_git_repo = ctx.njob_git_repo or ""
+    ctx.njob_git_branches = ctx.njob_git_branches or "[]"
     ctx.njob_git_branch = ""
     ctx.njob_compose_path = "docker-compose.yml"
     ctx.njob_git_msg = ""
+
+    -- Env vars próprias do job (blob .env colado, parseado em njob_create).
+    ctx.njob_env_text = ""
 
     ctx.njob_kind = "manual"
     ctx.njob_hours = "6"
@@ -67,6 +91,42 @@ function init(): ()
     ctx.njob_weekday = "0"
     ctx.njob_err = ""
     ctx.njob_msg = ""
+
+    -- ── Modo edição: open_edit_job_window semeia njob_edit_job (Job cru em
+    -- JSON) — pula os passos 1/2 (projeto/serviço gatilho não são editáveis
+    -- via JobUpdate) e preenche o passo 3 inteiro com o job existente.
+    ctx.njob_edit_id = ""
+    ctx.njob_enabled = "true"
+    if ctx.njob_edit_job and ctx.njob_edit_job ~= "" then
+        local ok, job = pcall(json.decode, ctx.njob_edit_job)
+        if ok and type(job) == "table" then
+            ctx.njob_edit_id = job.id
+            ctx.njob_step = "form"
+            ctx.njob_name = job.name or ""
+            ctx.njob_main_service = job.main_service or ""
+            ctx.njob_enabled = job.enabled and "true" or "false"
+
+            if job.git_source then
+                ctx.njob_source = "git"
+                ctx.njob_git_provider_id = job.git_source.provider_id or ""
+                ctx.njob_git_branch = job.git_source.branch or ""
+                ctx.njob_compose_path = job.git_source.compose_path or "docker-compose.yml"
+                -- njob_git_repo já vem semeado (resolvido por
+                -- open_edit_job_window a partir de git_source.url).
+            else
+                ctx.njob_compose = job.compose or ""
+            end
+
+            ctx.njob_env_text = fmt.env_dotenv_with_comments(job.env_vars, job.env_comments)
+
+            local kind, hours, hour, minute, weekday = unpack_recurrence(job.recurrence)
+            ctx.njob_kind = kind
+            ctx.njob_hours = hours
+            ctx.njob_hour = hour
+            ctx.njob_minute = minute
+            ctx.njob_weekday = weekday
+        end
+    end
 end
 
 -- onChange dos inputs (mesma convenção `field:<chave>` do app principal).
@@ -188,6 +248,12 @@ function njob_pick_no_service(): ()
 end
 
 function njob_back(): ()
+    -- Modo edição: não há passos 1/2 pra voltar (projeto/serviço gatilho não
+    -- são editáveis via JobUpdate) — "Voltar" fecha a janela.
+    if ctx.njob_edit_id ~= "" then
+        close_window()
+        return
+    end
     if ctx.njob_step == "form" then
         ctx.njob_step = "pick_service"
     elseif ctx.njob_step == "pick_service" then
@@ -285,18 +351,40 @@ function njob_create(): ()
         }
     end
 
-    ctx.njob_msg = "criando…"
-    local ok, res = api:rpc_checked{
-        JobCreate = {
-            project_id = ctx.njob_project_id,
-            trigger_service_id = ctx.njob_service_id,
-            name = name,
-            compose = compose,
-            git_source = git_source,
-            main_service = main_service,
-            recurrence = recurrence,
-        },
-    }
+    local env_vars, env_comments = Helpers.parse_dotenv(ctx.njob_env_text)
+    local editing = ctx.njob_edit_id ~= ""
+
+    ctx.njob_msg = editing and "salvando…" or "criando…"
+    local ok, res
+    if editing then
+        ok, res = api:rpc_checked{
+            JobUpdate = {
+                id = ctx.njob_edit_id,
+                name = name,
+                compose = compose,
+                git_source = git_source,
+                main_service = main_service,
+                env_vars = env_vars,
+                env_comments = env_comments,
+                enabled = ctx.njob_enabled == "true",
+                recurrence = recurrence,
+            },
+        }
+    else
+        ok, res = api:rpc_checked{
+            JobCreate = {
+                project_id = ctx.njob_project_id,
+                trigger_service_id = ctx.njob_service_id,
+                name = name,
+                compose = compose,
+                git_source = git_source,
+                main_service = main_service,
+                env_vars = env_vars,
+                env_comments = env_comments,
+                recurrence = recurrence,
+            },
+        }
+    end
     if not ok then
         ctx.njob_msg = ""
         ctx.njob_err = "erro: " .. tostring(res)
@@ -304,7 +392,7 @@ function njob_create(): ()
     end
 
     local j = (type(res) == "table" and res.Job) or {}
-    broadcast("job_created", { id = j.id, name = j.name or name })
+    broadcast(editing and "job_updated" or "job_created", { id = j.id, name = j.name or name })
     close_window()
 end
 

@@ -223,6 +223,16 @@ async fn migrate(pool: &SqlitePool) -> Result<()> {
     )
     .await?;
     add_column_if_missing(pool, "ALTER TABLE job ADD COLUMN git_source TEXT").await?;
+    add_column_if_missing(
+        pool,
+        "ALTER TABLE job ADD COLUMN env_vars TEXT NOT NULL DEFAULT '[]'",
+    )
+    .await?;
+    add_column_if_missing(
+        pool,
+        "ALTER TABLE job ADD COLUMN env_comments TEXT NOT NULL DEFAULT '[]'",
+    )
+    .await?;
 
     Ok(())
 }

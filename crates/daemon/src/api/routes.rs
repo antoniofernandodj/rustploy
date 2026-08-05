@@ -214,6 +214,8 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
             compose,
             git_source,
             main_service,
+            env_vars,
+            env_comments,
             recurrence,
         } => {
             handlers::job_create::handle(
@@ -224,6 +226,8 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
                 compose,
                 git_source,
                 main_service,
+                env_vars,
+                env_comments,
                 recurrence,
             )
             .await
@@ -234,11 +238,14 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
             compose,
             git_source,
             main_service,
+            env_vars,
+            env_comments,
             enabled,
             recurrence,
         } => {
             handlers::job_update::handle(
-                state, id, name, compose, git_source, main_service, enabled, recurrence,
+                state, id, name, compose, git_source, main_service, env_vars, env_comments,
+                enabled, recurrence,
             )
             .await
         }

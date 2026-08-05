@@ -1,5 +1,5 @@
 use crate::api::AppState;
-use shared::{JobGitSource, Recurrence, Response as RpResponse};
+use shared::{EnvComment, EnvVar, JobGitSource, Recurrence, Response as RpResponse};
 
 #[allow(clippy::too_many_arguments)]
 pub async fn handle(
@@ -10,6 +10,8 @@ pub async fn handle(
     compose: String,
     git_source: Option<JobGitSource>,
     main_service: String,
+    env_vars: Vec<EnvVar>,
+    env_comments: Vec<EnvComment>,
     recurrence: Option<Recurrence>,
 ) -> RpResponse {
     // String vazia (sentinel no wire, ver db/job.rs) = job autônomo, sem
@@ -40,6 +42,8 @@ pub async fn handle(
         &compose,
         git_source.as_ref(),
         &main_service,
+        &env_vars,
+        &env_comments,
         recurrence,
     )
     .await

@@ -635,6 +635,7 @@
                     <button class="copy_btn" if="{j.last_run_id}" not_equals=""
                       on_click="open_job_logs_window:{j.last_run_id}" text="Ver logs" />
                     <button class="copy_btn" on_click="job_toggle:{j.id}" text="{j.enabled_label}" />
+                    <button class="copy_btn" on_click="open_edit_job_window:{j.id}" text="Editar" />
                     <button class="env_del" on_click="job_del:{j.id}" text="✕" />
                   </row>
                 </column>

@@ -8,7 +8,7 @@ use crate::db;
 use crate::docker::{self, networks, DockerClient};
 use crate::event_bus::EventBus;
 use crate::secrets::SecretsManager;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use chrono::Utc;
 use shared::{Event, Job, JobRun};
 use std::path::PathBuf;
@@ -98,20 +98,9 @@ impl JobRunner {
     ) -> Result<i32> {
         let network_name = networks::ensure_project_network(&self.docker.inner, &job.project_id).await?;
 
-        // Job autônomo (sem serviço gatilho): só env vars do projeto. Com
-        // serviço gatilho: projeto + serviço (mesma precedência do deploy).
-        let env_vars = match &job.trigger_service_id {
-            Some(sid) => {
-                let svc = db::services::get(&self.db, sid)
-                    .await?
-                    .ok_or_else(|| anyhow!("serviço gatilho não encontrado: {sid}"))?;
-                crate::deploy::env_resolve::resolve(&self.db, &self.secrets, &svc).await?
-            }
-            None => {
-                crate::deploy::env_resolve::resolve_project_only(&self.db, &self.secrets, &job.project_id)
-                    .await?
-            }
-        };
+        // Base (projeto [+ serviço gatilho]) + overrides do próprio job, maior
+        // precedência — ver deploy::env_resolve::resolve_job.
+        let env_vars = crate::deploy::env_resolve::resolve_job(&self.db, &self.secrets, job).await?;
 
         // Nome de projeto do compose: só minúsculas/dígitos/`_`/`-` (regra do
         // próprio `docker compose`) — o run_id (ULID) tem letras maiúsculas.

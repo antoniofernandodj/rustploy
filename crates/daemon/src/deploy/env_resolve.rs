@@ -7,7 +7,7 @@
 use crate::db::Db;
 use crate::secrets::SecretsManager;
 use anyhow::Result;
-use shared::{EnvVarValue, Service};
+use shared::{EnvVarValue, Job, Service};
 use std::collections::HashMap;
 use tracing::{debug, error, warn};
 
@@ -97,5 +97,45 @@ pub async fn resolve_project_only(
         total = env_map.len(),
         "resolve_env: vars resolvidas (só projeto, job autônomo sem serviço gatilho)"
     );
+    Ok(env_map.into_iter().collect())
+}
+
+/// Env vars completas de um `Job`: base (projeto, + serviço gatilho quando
+/// houver) por baixo, `job.env_vars` sobrescrevendo por cima — maior
+/// precedência, pensado pra overrides específicos do job (ex.:
+/// `FLOW_MYENV=test`) sem precisar duplicar toda a config do
+/// projeto/serviço. Centraliza aqui a lógica que antes vivia inline em
+/// `jobs::runner` (o `match trigger_service_id` pra escolher `resolve` vs
+/// `resolve_project_only`).
+pub async fn resolve_job(db: &Db, secrets: &SecretsManager, job: &Job) -> Result<Vec<(String, String)>> {
+    let base = match &job.trigger_service_id {
+        Some(sid) => {
+            let svc = crate::db::services::get(db, sid)
+                .await?
+                .ok_or_else(|| anyhow::anyhow!("serviço gatilho não encontrado: {sid}"))?;
+            resolve(db, secrets, &svc).await?
+        }
+        None => resolve_project_only(db, secrets, &job.project_id).await?,
+    };
+    let mut env_map: HashMap<String, String> = base.into_iter().collect();
+
+    for ev in &job.env_vars {
+        let value = match &ev.value {
+            EnvVarValue::Plain(v) => v.clone(),
+            EnvVarValue::Secret(name) => {
+                debug!(job_id = %job.id, secret = %name, "resolve_env: desencriptando secret do job");
+                secrets.get_raw(&job.project_id, name).await.unwrap_or_default()
+            }
+        };
+        env_map.insert(ev.key.clone(), value);
+    }
+
+    tracing::info!(
+        job_id = %job.id,
+        job_vars = job.env_vars.len(),
+        total = env_map.len(),
+        "resolve_env: vars resolvidas (projeto [+ serviço] + overrides do job)"
+    );
+
     Ok(env_map.into_iter().collect())
 }

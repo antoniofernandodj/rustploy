@@ -105,11 +105,18 @@
         </row>
       </if>
 
-      <!-- Passo 3: formulário do job -->
+      <!-- Passo 3: formulário do job (também o único passo em modo edição —
+           aberto por open_edit_job_window, sem passos 1/2: projeto/serviço
+           gatilho não são editáveis via JobUpdate). -->
       <if cond="{njob_step}" equals="form">
-        <text class="label_cap">
-          NOVO JOB — {njob_project_name} / {njob_service_name}
-        </text>
+        <if cond="{njob_edit_id}" not_equals="">
+          <text class="label_cap">EDITAR JOB — {njob_name}</text>
+        </if>
+        <else>
+          <text class="label_cap">
+            NOVO JOB — {njob_project_name} / {njob_service_name}
+          </text>
+        </else>
 
         <form name="njob_form" on_submit="njob_create" width="fill" spacing="10">
 
@@ -181,6 +188,17 @@
           <input class="np_input" form_control="njob_main_service" value="njob_main_service"
             on_change="field:njob_main_service" placeholder="ex.: job" />
 
+          <!-- Env vars próprias do job — maior precedência na resolução
+               (por cima de projeto + serviço gatilho). Formato .env colado,
+               igual ao editor de projeto/serviço; parseado em njob_create. -->
+          <text class="np_label">VARIÁVEIS DE AMBIENTE (opcional)</text>
+          <text class="muted">
+            Sobrescrevem as do projeto/serviço gatilho por cima. Formato
+            KEY=VALUE, uma por linha (# comentário).
+          </text>
+          <textarea class="env_editor" font="mono" value="njob_env_text"
+            placeholder="FLOW_MYENV=test" />
+
           <text class="label_cap">RECORRÊNCIA</text>
           <row class="tabs">
             <TabButton label="Manual" current="{njob_kind}" target="manual" action="njob_kind:manual" />
@@ -240,8 +258,10 @@
 
           <row class="np_actions">
             <column class="np_spacer" />
-            <button class="btn_ghost" on_click="njob_back" text="‹ Voltar" />
-            <button class="btn_primary" on_click="njob_create" text="Criar job" />
+            <button class="btn_ghost" if="{njob_edit_id}" not_equals="" on_click="njob_back" text="Fechar" />
+            <button class="btn_ghost" if="{njob_edit_id}" equals="" on_click="njob_back" text="‹ Voltar" />
+            <button class="btn_primary" if="{njob_edit_id}" not_equals="" on_click="njob_create" text="Salvar" />
+            <button class="btn_primary" if="{njob_edit_id}" equals="" on_click="njob_create" text="Criar job" />
           </row>
 
         </form>

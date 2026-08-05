@@ -75,6 +75,14 @@ function on_broadcast(event: string, payload: any): ()
             kind = "success"
         }
         Stream.refresh_now()
+    elseif event == "job_updated" then
+        toast{
+            message = tostring(
+                "Job \"" .. (name ~= "" and name or "job") .. "\" salvo"
+            ),
+            kind = "success"
+        }
+        Stream.refresh_now()
     elseif event == "registry_token_created" then
         toast{
             message = tostring(

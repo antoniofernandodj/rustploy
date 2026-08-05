@@ -172,6 +172,10 @@ pub enum Command {
         #[serde(default)]
         git_source: Option<JobGitSource>,
         main_service: String,
+        #[serde(default)]
+        env_vars: Vec<EnvVar>,
+        #[serde(default)]
+        env_comments: Vec<EnvComment>,
         recurrence: Option<Recurrence>,
     },
     JobUpdate {
@@ -181,6 +185,10 @@ pub enum Command {
         #[serde(default)]
         git_source: Option<JobGitSource>,
         main_service: String,
+        #[serde(default)]
+        env_vars: Vec<EnvVar>,
+        #[serde(default)]
+        env_comments: Vec<EnvComment>,
         enabled: bool,
         recurrence: Option<Recurrence>,
     },

@@ -531,6 +531,11 @@ pub struct EnvVar {
 pub struct EnvComment {
     /// Linha completa, incluindo o `#`.
     pub text: String,
+    /// `#[serde(default)]`: um comentário final/solto (`before_key = nil`)
+    /// vira uma tabela Lua sem essa chave (nil em table constructor nunca
+    /// gera entrada) — sem isso, o JSON resultante omite a chave e a
+    /// desserialização falha com "missing field".
+    #[serde(default)]
     pub before_key: Option<String>,
 }
 
@@ -810,6 +815,17 @@ pub struct Job {
     /// code decide sucesso/falha do job (`docker compose up
     /// --exit-code-from`).
     pub main_service: String,
+    /// Env vars próprias do job — maior precedência na resolução (por cima
+    /// de projeto + serviço gatilho, ver `deploy::env_resolve::resolve_job`).
+    /// Pensado pra overrides específicos do job que não fazem sentido herdar
+    /// de um serviço "de verdade" (ex.: `FLOW_MYENV=test` num job de CI que
+    /// roda testes de um repo, sem precisar duplicar as vars do serviço real).
+    #[serde(default)]
+    pub env_vars: Vec<EnvVar>,
+    /// Comentários do editor `.env` do job — mesmo esquema de
+    /// `Project.env_comments`/`ServiceSpec.env_comments`.
+    #[serde(default)]
+    pub env_comments: Vec<EnvComment>,
     pub enabled: bool,
     /// `None` = sem agendamento automático, só `Command::JobRunNow`.
     pub recurrence: Option<Recurrence>,

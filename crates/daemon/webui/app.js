@@ -26,7 +26,15 @@ import "./screens/service_detail.js";
 import Alpine from "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/module.esm.js";
 import { Api } from "./net/api.js";
 import { openStream } from "./net/sse.js";
-import { fmtUptime, fmtBytes, stripAnsi, oauthRedirectUri, timeHms } from "./fmt.js";
+import {
+  fmtUptime,
+  fmtBytes,
+  stripAnsi,
+  oauthRedirectUri,
+  timeHms,
+  parseDotenv,
+  dotenvFromVars,
+} from "./fmt.js";
 
 window.Alpine = Alpine;
 
@@ -114,6 +122,11 @@ document.addEventListener("alpine:init", () => {
     // renderizado uma vez em index.html, fora do escopo de qualquer tela.
     showNewJob: false,
     njobStep: "pick_project", // "pick_project" | "pick_service" | "form"
+    // Modo edição: aberto por openEditJob(id) em vez do fluxo normal — pula
+    // pro passo "form" (project_id/trigger_service_id não são editáveis via
+    // JobUpdate, então não há passos 1/2). `null` = criando um job novo.
+    njobEditId: null,
+    njobEnabled: true,
     njobProjectId: "",
     njobProjectName: "",
     njobServiceId: "",
@@ -133,6 +146,9 @@ document.addEventListener("alpine:init", () => {
     njobComposePath: "docker-compose.yml",
     njobGitMsg: "",
     njobMainService: "",
+    // Env vars próprias do job — maior precedência (por cima de projeto +
+    // serviço gatilho). Blob .env colado, parseado em njobCreate.
+    njobEnvText: "",
     njobKind: "manual", // "manual" | "interval" | "daily" | "weekly"
     njobHours: "6",
     njobHour: "3",
@@ -788,7 +804,10 @@ document.addEventListener("alpine:init", () => {
           id: job.id,
           name: job.name,
           compose: job.compose,
+          git_source: job.git_source ?? null,
           main_service: job.main_service,
+          env_vars: job.env_vars ?? [],
+          env_comments: job.env_comments ?? [],
           enabled: !job.enabled,
           recurrence: job.recurrence,
         },
@@ -829,6 +848,8 @@ document.addEventListener("alpine:init", () => {
     openNewJob() {
       this.showNewJob = true;
       this.njobStep = "pick_project";
+      this.njobEditId = null;
+      this.njobEnabled = true;
       this.njobProjectId = "";
       this.njobProjectName = "";
       this.njobServiceId = "";
@@ -845,6 +866,7 @@ document.addEventListener("alpine:init", () => {
       this.njobComposePath = "docker-compose.yml";
       this.njobGitMsg = "";
       this.njobMainService = "";
+      this.njobEnvText = "";
       this.njobKind = "manual";
       this.njobHours = "6";
       this.njobHour = "3";
@@ -871,6 +893,12 @@ document.addEventListener("alpine:init", () => {
       this.njobStep = "form";
     },
     njobBack() {
+      // Modo edição: não há passos 1/2 pra voltar (project_id/
+      // trigger_service_id não são editáveis via JobUpdate) — fecha o modal.
+      if (this.njobEditId) {
+        this.closeNewJob();
+        return;
+      }
       if (this.njobStep === "form") this.njobStep = "pick_service";
       else if (this.njobStep === "pick_service") this.njobStep = "pick_project";
     },
@@ -983,21 +1011,110 @@ document.addEventListener("alpine:init", () => {
       }
       this.njobErr = "";
       this.njobSubmitting = true;
-      const r = await this.jobCreate({
-        project_id: this.njobProjectId,
-        // "" (não null) = job autônomo — Command::JobCreate::trigger_service_id
-        // é String simples no protocolo (não Option<String>); o handler no
-        // daemon é quem converte "" → None (job_create.rs).
-        trigger_service_id: this.njobServiceId || "",
-        name: this.njobName.trim(),
-        compose,
-        git_source: gitSource,
-        main_service: this.njobMainService.trim(),
-        recurrence: this.buildNjobRecurrence(),
-      });
+      const { vars: envVars, comments: envComments } = parseDotenv(this.njobEnvText);
+      let r;
+      if (this.njobEditId) {
+        r = await this.api.rpcChecked({
+          JobUpdate: {
+            id: this.njobEditId,
+            name: this.njobName.trim(),
+            compose,
+            git_source: gitSource,
+            main_service: this.njobMainService.trim(),
+            env_vars: envVars,
+            env_comments: envComments,
+            enabled: this.njobEnabled,
+            recurrence: this.buildNjobRecurrence(),
+          },
+        });
+        if (r.ok) await this.refreshNow();
+      } else {
+        r = await this.jobCreate({
+          project_id: this.njobProjectId,
+          // "" (não null) = job autônomo — Command::JobCreate::trigger_service_id
+          // é String simples no protocolo (não Option<String>); o handler no
+          // daemon é quem converte "" → None (job_create.rs).
+          trigger_service_id: this.njobServiceId || "",
+          name: this.njobName.trim(),
+          compose,
+          git_source: gitSource,
+          main_service: this.njobMainService.trim(),
+          env_vars: envVars,
+          env_comments: envComments,
+          recurrence: this.buildNjobRecurrence(),
+        });
+      }
       this.njobSubmitting = false;
       if (r.ok) this.closeNewJob();
       else this.njobErr = r.error;
+    },
+
+    /** Abre o mesmo modal do wizard, mas em modo edição: pula pro passo
+     * "form" já preenchido com o job existente (project_id/trigger_service_id
+     * não são editáveis via JobUpdate, então não há passos 1/2 aqui). Só
+     * webui — sem a limitação de janela isolada do cliente iced, então
+     * resolve a conta/repo/branch do git_source direto, sem pré-fetch. */
+    async openEditJob(id) {
+      const job = this.jobsById[id];
+      if (!job) {
+        this.jobMsg = "job não encontrado no snapshot atual";
+        return;
+      }
+      this.showNewJob = true;
+      this.njobEditId = id;
+      this.njobStep = "form";
+      this.njobErr = "";
+      this.njobName = job.name || "";
+      this.njobMainService = job.main_service || "";
+      this.njobEnabled = !!job.enabled;
+      this.njobEnvText = dotenvFromVars(job.env_vars, job.env_comments);
+
+      const rec = job.recurrence;
+      if (rec?.IntervalHours != null) {
+        this.njobKind = "interval";
+        this.njobHours = String(rec.IntervalHours);
+      } else if (rec?.Daily) {
+        this.njobKind = "daily";
+        this.njobHour = String(rec.Daily.hour);
+        this.njobMinute = String(rec.Daily.minute);
+      } else if (rec?.Weekly) {
+        this.njobKind = "weekly";
+        this.njobWeekday = String(rec.Weekly.weekday);
+        this.njobHour = String(rec.Weekly.hour);
+        this.njobMinute = String(rec.Weekly.minute);
+      } else {
+        this.njobKind = "manual";
+      }
+
+      if (job.git_source) {
+        this.njobSourceTab = "git";
+        this.njobCompose = "";
+        this.njobGitBranch = job.git_source.branch || "";
+        this.njobComposePath = job.git_source.compose_path || "docker-compose.yml";
+        this.njobGitProviderId = job.git_source.provider_id || "";
+        if (this.njobGitProviderId) {
+          const rp = await this.api.rpc("GitProviderList");
+          if (rp.ok && rp.value?.GitProviders) this.njobGitProviders = rp.value.GitProviders;
+          const rr = await this.api.rpc({ GitRepoList: { provider_id: this.njobGitProviderId } });
+          if (rr.ok && rr.value?.GitRepos) {
+            this.njobGitRepos = rr.value.GitRepos;
+            const match = this.njobGitRepos.find((repo) => repo.clone_url === job.git_source.url);
+            this.njobGitRepoFullName = match?.full_name || "";
+            if (this.njobGitRepoFullName) {
+              const rb = await this.api.rpc({
+                GitBranchList: {
+                  provider_id: this.njobGitProviderId,
+                  repo_full_name: this.njobGitRepoFullName,
+                },
+              });
+              if (rb.ok && rb.value?.GitBranches) this.njobGitBranches = rb.value.GitBranches;
+            }
+          }
+        }
+      } else {
+        this.njobSourceTab = "compose";
+        this.njobCompose = job.compose || "";
+      }
     },
 
     openJobLogs(jobRunId) {

@@ -848,7 +848,7 @@
             <text class="th col_state">ÚLTIMA EXECUÇÃO</text>
             <text class="th col_dur">RECORRÊNCIA</text>
             <text class="th col_dur">PRÓXIMA EXECUÇÃO</text>
-            <text class="th col_act_4">AÇÕES</text>
+            <text class="th col_act_5">AÇÕES</text>
           </row>
           <text class="muted" x-show="rows.length === 0" style="padding:16px">Nenhum job cadastrado ainda.</text>
           <column class="scroll_fill">
@@ -864,12 +864,13 @@
                     </row>
                     <text class="muted col_dur" x-text="j.recurrence"></text>
                     <text class="muted col_dur" x-text="j.nextRunAt"></text>
-                    <row class="col_act_4">
+                    <row class="col_act_5">
                       <button class="copy_btn" type="button" title="Rodar agora" @click="store.jobRunNow(j.id)">▶</button>
                       <button class="copy_btn" type="button" title="Ver logs" x-show="j.lastRunId"
                               @click="store.openJobLogs(j.lastRunId)">≡</button>
                       <button class="copy_btn" type="button" :title="j.enabledLabel" @click="store.jobToggle(j.id)"
                               x-text="j.enabled ? '‖' : '▶'"></button>
+                      <button class="copy_btn" type="button" title="Editar" @click="store.openEditJob(j.id)">✎</button>
                       <button class="env_del" type="button" title="Remover" @click="store.jobDelete(j.id)">✕</button>
                     </row>
                   </row>
@@ -894,9 +895,10 @@
       <column class="modal_backdrop" x-show="$store.app.showNewJob" @click.self="$store.app.closeNewJob()">
         <column class="modal_box">
           <row class="modal_head">
-            <text class="label_cap">NOVO JOB</text>
+            <text class="label_cap" x-text="$store.app.njobEditId ? 'EDITAR JOB' : 'NOVO JOB'"></text>
             <row style="gap:8px">
-              <button class="btn_ghost" type="button" x-show="$store.app.njobStep !== 'pick_project'"
+              <button class="btn_ghost" type="button"
+                      x-show="$store.app.njobStep !== 'pick_project' && !$store.app.njobEditId"
                       @click="$store.app.njobBack()">‹ Voltar</button>
               <button class="btn_ghost" type="button" @click="$store.app.closeNewJob()">Fechar</button>
             </row>
@@ -997,6 +999,16 @@
               <text class="label_cap" style="margin-top:14px">MAIN SERVICE</text>
               <input class="field_input" type="text" x-model="$store.app.njobMainService" placeholder="job" />
 
+              <!-- Env vars próprias do job — maior precedência (por cima de
+                   projeto + serviço gatilho). Formato .env colado, mesmo
+                   parser de projeto/serviço (parseDotenv). -->
+              <text class="label_cap" style="margin-top:14px">VARIÁVEIS DE AMBIENTE (opcional)</text>
+              <text class="muted">
+                Sobrescrevem as do projeto/serviço gatilho por cima. Formato
+                KEY=VALUE, uma por linha (# comentário).
+              </text>
+              <textarea class="env_editor" x-model="$store.app.njobEnvText" placeholder="FLOW_MYENV=test"></textarea>
+
               <text class="label_cap" style="margin-top:14px">RECORRÊNCIA</text>
               <row class="tabs">
                 <button type="button" :class="$store.app.njobKind === 'manual' ? 'tab_on' : 'tab_off'" @click="$store.app.njobKind = 'manual'">Manual</button>
@@ -1028,7 +1040,7 @@
               <text class="err" x-show="$store.app.njobErr" x-text="$store.app.njobErr" style="margin-top:8px"></text>
               <row class="env_add" style="margin-top:14px">
                 <button class="btn_primary" type="button" @click="$store.app.njobCreate()" :disabled="$store.app.njobSubmitting"
-                        x-text="$store.app.njobSubmitting ? 'Criando…' : 'Criar job'"></button>
+                        x-text="$store.app.njobSubmitting ? ($store.app.njobEditId ? 'Salvando…' : 'Criando…') : ($store.app.njobEditId ? 'Salvar' : 'Criar job')"></button>
               </row>
             </column>
           </column>
@@ -1492,6 +1504,7 @@
                 <button class="copy_btn" type="button" @click="store.jobRunNow(j.id)">Rodar agora</button>
                 <button class="copy_btn" type="button" x-show="j.lastRunId" @click="store.openJobLogs(j.lastRunId)">Ver logs</button>
                 <button class="copy_btn" type="button" @click="store.jobToggle(j.id)" x-text="j.enabledLabel"></button>
+                <button class="copy_btn" type="button" @click="store.openEditJob(j.id)">Editar</button>
                 <button class="env_del" type="button" @click="store.jobDelete(j.id)">✕</button>
               </row>
             </template>

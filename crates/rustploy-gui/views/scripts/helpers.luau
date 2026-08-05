@@ -28,6 +28,43 @@ function M.parse_secret_ref(v: string?): string?
     return name ~= "" and name or nil
 end
 
+-- Parseia um blob .env em (vars, comments). Comentários ancoram na var
+-- seguinte (before_key), ou nil no fim. `<secret:NAME>` volta a ser referência
+-- de secret. Extraído de handlers/services.luau pra reuso em
+-- new_job_window.luau (env vars próprias do job).
+function M.parse_dotenv(text: string?): ({any}, {any})
+    local vars = json.array{}
+    local comments = json.array{}
+    local pending = {}
+    for line in string.gmatch((text or "") .. "\n", "([^\n]*)\n") do
+        local l = M.trim(line)
+        if l == "" then
+            -- ignora
+        elseif l:sub(1, 1) == "#" then
+            table.insert(pending, l)
+        else
+            local k, v = l:match("^([^=]+)=(.*)$")
+            if k and v then
+                local key = M.trim(k)
+                if key ~= "" then
+                    for _, c in ipairs(pending) do
+                        table.insert(comments, { text = c, before_key = key })
+                    end
+                    pending = {}
+                    v = M.trim(v)
+                    local secret = M.parse_secret_ref(v)
+                    local value = secret and { Secret = secret } or { Plain = v }
+                    table.insert(vars, { key = key, value = value })
+                end
+            end
+        end
+    end
+    for _, c in ipairs(pending) do
+        table.insert(comments, { text = c, before_key = nil })
+    end
+    return vars, comments
+end
+
 -- URI de callback OAuth que o usuário registra no app do provedor. `base` é a
 -- URL pública do daemon (`DaemonSettings.public_base_url`), derivada de [api]
 -- domain/port — o callback OAuth é servido pelo mesmo listener da API. `seg` é o

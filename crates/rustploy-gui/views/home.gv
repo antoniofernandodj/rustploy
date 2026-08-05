@@ -19,6 +19,8 @@
    remover pra fora da largura visível da janela (sem scroll horizontal);
    4 ícones cabem em bem menos espaço. */
 .col_act_4 { width: 170; align-x: end; text-align: end; spacing: 8; }
+/* Mesma linha de job acima, +1 controle (editar). */
+.col_act_5 { width: 210; align-x: end; text-align: end; spacing: 8; }
 </style>
 
 <column class="content">
@@ -1204,7 +1206,7 @@
         <text class="th col_state">ÚLTIMA EXECUÇÃO</text>
         <text class="th col_dur">RECORRÊNCIA</text>
         <text class="th col_dur">PRÓXIMA EXECUÇÃO</text>
-        <text class="th col_act_4">AÇÕES</text>
+        <text class="th col_act_5">AÇÕES</text>
       </row>
       <text if="{jobs_count}" equals="0" class="muted">
         Nenhum job cadastrado ainda.
@@ -1219,7 +1221,7 @@
                 <StateCell kind="{j.last_run_kind}" label="{j.last_run_label}" />
                 <text class="muted col_dur">{j.recurrence}</text>
                 <text class="muted col_dur">{j.next_run_at}</text>
-                <row class="col_act_4">
+                <row class="col_act_5">
                   <button class="copy_btn" on_click="job_run_now:{j.id}" text="▶" tooltip="Rodar agora" />
                   <button class="copy_btn" if="{j.last_run_id}" not_equals=""
                     on_click="open_job_logs_window:{j.last_run_id}" text="≡" tooltip="Ver logs" />
@@ -1227,6 +1229,7 @@
                     on_click="job_toggle:{j.id}" text="‖" tooltip="Pausar" />
                   <button class="copy_btn" if="{j.enabled}" not_equals="true"
                     on_click="job_toggle:{j.id}" text="▶" tooltip="Ativar" />
+                  <button class="copy_btn" on_click="open_edit_job_window:{j.id}" text="✎" tooltip="Editar" />
                   <button class="env_del" on_click="job_del:{j.id}" text="✕" tooltip="Remover" />
                 </row>
               </row>
