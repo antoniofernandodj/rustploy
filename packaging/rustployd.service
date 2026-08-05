@@ -26,6 +26,14 @@ ConfigurationDirectory=rustploy
 
 Environment=RUSTPLOY_DB_PATH=/var/lib/rustploy/db
 Environment=RUST_LOG=info
+# O usuário `rustploy` é --no-create-home (postinst); sem isso, $HOME herda
+# /home/rustploy do /etc/passwd — diretório que não existe e que o usuário
+# não pode criar (sem permissão de escrita em /home). `docker build`/`buildx`
+# shellados por docker/compose.rs precisam de um $HOME gravável pro estado
+# deles (~/.docker/buildx/...), senão falham com "mkdir /home/rustploy:
+# permission denied". StateDirectory=rustploy acima já garante /var/lib/rustploy
+# gravável por este usuário — reaproveita.
+Environment=HOME=/var/lib/rustploy
 EnvironmentFile=-/etc/rustploy/environment
 
 StandardOutput=journal
