@@ -464,6 +464,25 @@ pub async fn run_once(
     up_result
 }
 
+/// Filtra uma linha bruta de `docker compose up` (sem `-d`) pra só sobrar a
+/// saída do `main_service`: sem `-d`, o compose intercala stdout/stderr de
+/// TODOS os serviços do stack (prefixo `<service>-<replica> | <msg>`, ex.:
+/// `main-1  | hello`) e ainda emite linhas de controle próprias (`Container
+/// x Started`, spinners com códigos ANSI) sem esse prefixo — tudo isso
+/// deixa "Ver logs" do job ilegível quando o compose tem mais de um serviço
+/// (ex.: um serviço gatilho + um banco auxiliar). Só a linha de conteúdo do
+/// `main_service` sobrevive (prefixo removido); linhas de outros serviços e
+/// linhas de controle do compose (sem esse prefixo) são descartadas.
+fn filter_main_service_line<'a>(line: &'a str, main_service: &str) -> Option<&'a str> {
+    let (prefix, rest) = line.split_once('|')?;
+    let prefix = prefix.trim();
+    let (name, replica) = prefix.rsplit_once('-')?;
+    if name != main_service || replica.is_empty() || !replica.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    Some(rest.trim_start_matches(' '))
+}
+
 async fn run_once_up(
     project_name: &str,
     compose_rel_path: &str,
@@ -505,12 +524,17 @@ async fn run_once_up(
     let jid = job_id.to_string();
     let rid = job_run_id.to_string();
     let mirror_s = mirror_deployment.clone();
+    let main_service_s = main_service.to_string();
     let read_stdout = async move {
         let mut lines = stdout.lines();
-        while let Ok(Some(line)) = lines.next_line().await {
+        while let Ok(Some(raw_line)) = lines.next_line().await {
+            let Some(line) = filter_main_service_line(&raw_line, &main_service_s) else {
+                continue;
+            };
             if line.trim().is_empty() {
                 continue;
             }
+            let line = line.to_string();
             let ts = Utc::now();
             bus_s.publish(Event::JobLogLine {
                 job_run_id: rid.clone(),
@@ -536,12 +560,17 @@ async fn run_once_up(
     let jid_e = job_id.to_string();
     let rid_e = job_run_id.to_string();
     let mirror_e = mirror_deployment;
+    let main_service_e = main_service.to_string();
     let read_stderr = async move {
         let mut lines = stderr.lines();
-        while let Ok(Some(line)) = lines.next_line().await {
+        while let Ok(Some(raw_line)) = lines.next_line().await {
+            let Some(line) = filter_main_service_line(&raw_line, &main_service_e) else {
+                continue;
+            };
             if line.trim().is_empty() {
                 continue;
             }
+            let line = line.to_string();
             let ts = Utc::now();
             bus_e.publish(Event::JobLogLine {
                 job_run_id: rid_e.clone(),
@@ -614,4 +643,41 @@ pub async fn down(
     }
     info!(project = %project_name, "compose_down: concluído");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn keeps_and_strips_main_service_line() {
+        assert_eq!(
+            filter_main_service_line("main-1  | hello world", "main"),
+            Some("hello world")
+        );
+    }
+
+    #[test]
+    fn drops_other_service_lines() {
+        assert_eq!(filter_main_service_line("side-1  | hello world", "main"), None);
+    }
+
+    #[test]
+    fn keeps_main_service_with_hyphen_in_name() {
+        assert_eq!(
+            filter_main_service_line("my-service-1  | booted", "my-service"),
+            Some("booted")
+        );
+    }
+
+    #[test]
+    fn drops_compose_control_lines_without_pipe() {
+        assert_eq!(filter_main_service_line(" Container rp-main-1 Started ", "main"), None);
+        assert_eq!(filter_main_service_line("main-1 exited with code 0", "main"), None);
+    }
+
+    #[test]
+    fn drops_lines_without_replica_suffix() {
+        assert_eq!(filter_main_service_line("main | hello", "main"), None);
+    }
 }
