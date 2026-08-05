@@ -1,7 +1,7 @@
 use super::Db;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use shared::{Job, Recurrence};
+use shared::{Job, JobGitSource, Recurrence};
 use ulid::Ulid;
 
 type JobRow = (
@@ -16,10 +16,11 @@ type JobRow = (
     Option<DateTime<Utc>>, // last_run_at
     Option<DateTime<Utc>>, // next_run_at
     DateTime<Utc>,  // created_at
+    Option<String>, // git_source (JSON)
 );
 
 const SELECT_COLS: &str = "id, project_id, trigger_service_id, name, compose, main_service, \
-    enabled, recurrence, last_run_at, next_run_at, created_at";
+    enabled, recurrence, last_run_at, next_run_at, created_at, git_source";
 
 fn row_to_job(row: JobRow) -> Result<Job> {
     let (
@@ -34,8 +35,13 @@ fn row_to_job(row: JobRow) -> Result<Job> {
         last_run_at,
         next_run_at,
         created_at,
+        git_source_json,
     ) = row;
     let recurrence: Option<Recurrence> = recurrence_json
+        .as_deref()
+        .map(serde_json::from_str)
+        .transpose()?;
+    let git_source: Option<JobGitSource> = git_source_json
         .as_deref()
         .map(serde_json::from_str)
         .transpose()?;
@@ -52,6 +58,7 @@ fn row_to_job(row: JobRow) -> Result<Job> {
         trigger_service_id,
         name,
         compose,
+        git_source,
         main_service,
         enabled,
         recurrence,
@@ -68,6 +75,7 @@ pub async fn create(
     trigger_service_id: Option<&str>,
     name: &str,
     compose: &str,
+    git_source: Option<&JobGitSource>,
     main_service: &str,
     recurrence: Option<Recurrence>,
 ) -> Result<Job> {
@@ -75,10 +83,11 @@ pub async fn create(
     let now = Utc::now();
     let recurrence_json = recurrence.map(|r| serde_json::to_string(&r)).transpose()?;
     let next_run_at = recurrence.map(|r| r.next_after(now));
+    let git_source_json = git_source.map(serde_json::to_string).transpose()?;
     sqlx::query(
         "INSERT INTO job (id, project_id, trigger_service_id, name, compose, main_service,
-            enabled, recurrence, last_run_at, next_run_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, 1, ?, NULL, ?, ?)",
+            enabled, recurrence, last_run_at, next_run_at, created_at, git_source)
+         VALUES (?, ?, ?, ?, ?, ?, 1, ?, NULL, ?, ?, ?)",
     )
     .bind(&id)
     .bind(project_id)
@@ -89,6 +98,7 @@ pub async fn create(
     .bind(&recurrence_json)
     .bind(next_run_at)
     .bind(now)
+    .bind(&git_source_json)
     .execute(db)
     .await?;
     Ok(Job {
@@ -97,6 +107,7 @@ pub async fn create(
         trigger_service_id: trigger_service_id.map(String::from),
         name: name.to_string(),
         compose: compose.to_string(),
+        git_source: git_source.cloned(),
         main_service: main_service.to_string(),
         enabled: true,
         recurrence,
@@ -152,15 +163,17 @@ pub async fn update(
     id: &str,
     name: &str,
     compose: &str,
+    git_source: Option<&JobGitSource>,
     main_service: &str,
     enabled: bool,
     recurrence: Option<Recurrence>,
 ) -> Result<Option<Job>> {
     let recurrence_json = recurrence.map(|r| serde_json::to_string(&r)).transpose()?;
     let next_run_at = recurrence.map(|r| r.next_after(Utc::now()));
+    let git_source_json = git_source.map(serde_json::to_string).transpose()?;
     let rows_affected = sqlx::query(
         "UPDATE job SET name = ?, compose = ?, main_service = ?, enabled = ?, recurrence = ?,
-            next_run_at = ? WHERE id = ?",
+            next_run_at = ?, git_source = ? WHERE id = ?",
     )
     .bind(name)
     .bind(compose)
@@ -168,6 +181,7 @@ pub async fn update(
     .bind(enabled)
     .bind(&recurrence_json)
     .bind(next_run_at)
+    .bind(&git_source_json)
     .bind(id)
     .execute(db)
     .await?
@@ -262,6 +276,7 @@ mod tests {
             Some("svc_1"),
             "backup",
             "version: '3'\nservices:\n  backup:\n    image: busybox\n",
+            None,
             "backup",
             Some(Recurrence::IntervalHours(6)),
         )
@@ -273,7 +288,7 @@ mod tests {
         let got = get(&db, &job.id).await.unwrap().unwrap();
         assert_eq!(got.recurrence, Some(Recurrence::IntervalHours(6)));
 
-        let updated = update(&db, &job.id, "backup2", &job.compose, "backup", false, None)
+        let updated = update(&db, &job.id, "backup2", &job.compose, None, "backup", false, None)
             .await
             .unwrap()
             .unwrap();
@@ -289,7 +304,7 @@ mod tests {
     #[tokio::test]
     async fn delete_cascateia_runs_e_logs() {
         let db = mem_db().await;
-        let job = create(&db, "prj_1", None, "backup", "c", "m", None)
+        let job = create(&db, "prj_1", None, "backup", "c", None, "m", None)
             .await
             .unwrap();
         let run = super::super::job_run::create(&db, &job.id).await.unwrap();
@@ -308,8 +323,8 @@ mod tests {
     #[tokio::test]
     async fn contagem_por_projeto_e_cascade_por_gatilho() {
         let db = mem_db().await;
-        let gatilhado = create(&db, "prj_1", Some("svc_1"), "a", "c", "m", None).await.unwrap();
-        let autonomo = create(&db, "prj_1", None, "b", "c", "m", None).await.unwrap();
+        let gatilhado = create(&db, "prj_1", Some("svc_1"), "a", "c", None, "m", None).await.unwrap();
+        let autonomo = create(&db, "prj_1", None, "b", "c", None, "m", None).await.unwrap();
 
         assert_eq!(count_by_project(&db, "prj_1").await.unwrap(), 2);
         assert_eq!(count_by_project(&db, "prj_2").await.unwrap(), 0);
@@ -324,7 +339,7 @@ mod tests {
     #[tokio::test]
     async fn job_sem_servico_gatilho_ida_e_volta_none() {
         let db = mem_db().await;
-        let job = create(&db, "prj_1", None, "autonomo", "c", "m", None)
+        let job = create(&db, "prj_1", None, "autonomo", "c", None, "m", None)
             .await
             .unwrap();
         assert_eq!(job.trigger_service_id, None);
@@ -336,9 +351,18 @@ mod tests {
     #[tokio::test]
     async fn list_due_only_returns_enabled_scheduled_and_overdue() {
         let db = mem_db().await;
-        let past = create(&db, "p", Some("s"), "past", "c", "m", Some(Recurrence::IntervalHours(1)))
-            .await
-            .unwrap();
+        let past = create(
+            &db,
+            "p",
+            Some("s"),
+            "past",
+            "c",
+            None,
+            "m",
+            Some(Recurrence::IntervalHours(1)),
+        )
+        .await
+        .unwrap();
         // força next_run_at pro passado, direto no banco (create já teria calculado no futuro).
         sqlx::query("UPDATE job SET next_run_at = ? WHERE id = ?")
             .bind(Utc::now() - chrono::Duration::hours(1))
@@ -347,10 +371,21 @@ mod tests {
             .await
             .unwrap();
 
-        let _future = create(&db, "p", Some("s"), "future", "c", "m", Some(Recurrence::IntervalHours(6)))
+        let _future = create(
+            &db,
+            "p",
+            Some("s"),
+            "future",
+            "c",
+            None,
+            "m",
+            Some(Recurrence::IntervalHours(6)),
+        )
+        .await
+        .unwrap();
+        let _manual = create(&db, "p", Some("s"), "manual", "c", None, "m", None)
             .await
             .unwrap();
-        let _manual = create(&db, "p", Some("s"), "manual", "c", "m", None).await.unwrap();
 
         let due = list_due(&db, Utc::now()).await.unwrap();
         assert_eq!(due.len(), 1);

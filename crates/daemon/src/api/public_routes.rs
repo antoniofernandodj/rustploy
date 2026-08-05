@@ -14,15 +14,19 @@ use tracing::{error, info, warn};
 use super::AppState;
 use crate::db::webhook_tokens;
 
-/// `POST /webhook/{service_id}/{token}` — valida o token e dispara um deploy.
-/// O corpo da requisição é ignorado (ver `docs/webhooks.md`); a autenticação é
-/// inteiramente o token na URL. Método e path chegam já roteados pelo `http_api`.
+/// `POST /webhook/{service_id}/{token}` — valida o token e dispara um deploy,
+/// a menos que o serviço seja git-sourced com uma branch configurada e o
+/// payload identifique um push pra outra branch (ver `extract_push_branch`).
+/// A autenticação é inteiramente o token na URL; método e path chegam já
+/// roteados pelo `http_api`.
 ///
 /// Todo método é roteado para cá (não só POST) para que um GET — a URL colada no
 /// navegador, o "ping" de um provedor — receba o `405` honesto do webhook, e não
 /// o `401 unauthorized` do gate de Bearer da API, que faria parecer que a URL
 /// está errada.
-pub async fn webhook(method: &Method, path: &str, state: AppState) -> Response<Full<Bytes>> {
+pub async fn webhook(req: Request<Incoming>, state: AppState) -> Response<Full<Bytes>> {
+    let method = req.method().clone();
+    let path = req.uri().path().to_owned();
     if method != Method::POST {
         return resp(StatusCode::METHOD_NOT_ALLOWED, "method not allowed");
     }
@@ -33,7 +37,7 @@ pub async fn webhook(method: &Method, path: &str, state: AppState) -> Response<F
     }
 
     let service_id = parts[1].to_string();
-    let provided_token = parts[2];
+    let provided_token = parts[2].to_string();
 
     let stored = match webhook_tokens::get(&state.db, &service_id).await {
         Ok(Some(t)) => t,
@@ -49,12 +53,48 @@ pub async fn webhook(method: &Method, path: &str, state: AppState) -> Response<F
         return resp(StatusCode::UNAUTHORIZED, "invalid token");
     }
 
+    // Filtro de branch: GitHub/Gitea/Gogs mandam `"ref": "refs/heads/<branch>"`
+    // no payload de push (mesmo formato nos três). Só filtra quando o serviço é
+    // git-sourced com uma branch configurada E o payload trouxe um ref
+    // reconhecível — qualquer outro caso (Docker Hub, curl manual sem body,
+    // provider não suportado) dispara o deploy do jeito de sempre; não dá pra
+    // bloquear silenciosamente um trigger que a gente não sabe interpretar.
+    let body = match http_body_util::BodyExt::collect(req.into_body()).await {
+        Ok(c) => c.to_bytes(),
+        Err(_) => Bytes::new(),
+    };
+    if let Some(payload_branch) = extract_push_branch(&body) {
+        if let Ok(Some(service)) = crate::db::services::get(&state.db, &service_id).await {
+            if let shared::ServiceSource::Git(git) = &service.spec.source {
+                if !git.branch.is_empty() && git.branch != payload_branch {
+                    info!(
+                        service_id = %service_id,
+                        configured = %git.branch,
+                        received = %payload_branch,
+                        "webhook: branch do payload não confere com a configurada, deploy ignorado"
+                    );
+                    return resp(StatusCode::OK, "skipped: branch mismatch");
+                }
+            }
+        }
+    }
+
     info!(service_id = %service_id, "webhook: disparando deploy");
     tokio::spawn(async move {
         crate::api::handlers::deploy_start::handle(state, service_id).await;
     });
 
     resp(StatusCode::OK, "deploy triggered")
+}
+
+/// Extrai o nome curto da branch de um payload de push GitHub/Gitea/Gogs
+/// (`{"ref": "refs/heads/main", ...}`). `None` pra qualquer coisa que não seja
+/// JSON com esse formato — tags (`refs/tags/...`) também caem em `None`, já
+/// que não têm branch pra comparar.
+fn extract_push_branch(body: &[u8]) -> Option<String> {
+    let v: serde_json::Value = serde_json::from_slice(body).ok()?;
+    let r = v.get("ref")?.as_str()?;
+    r.strip_prefix("refs/heads/").map(str::to_string)
 }
 
 fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
@@ -270,4 +310,39 @@ fn percent_decode(s: &str) -> String {
         }
     }
     String::from_utf8_lossy(&out).into_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::extract_push_branch;
+
+    #[test]
+    fn extrai_branch_de_payload_github_gitea() {
+        let body = br#"{"ref":"refs/heads/main","repository":{}}"#;
+        assert_eq!(extract_push_branch(body), Some("main".to_string()));
+    }
+
+    #[test]
+    fn none_pra_ref_de_tag() {
+        let body = br#"{"ref":"refs/tags/v1.0.0"}"#;
+        assert_eq!(extract_push_branch(body), None);
+    }
+
+    #[test]
+    fn none_pra_corpo_vazio_ou_nao_json() {
+        assert_eq!(extract_push_branch(b""), None);
+        assert_eq!(extract_push_branch(b"not json"), None);
+    }
+
+    #[test]
+    fn none_pra_payload_sem_ref_ex_docker_hub() {
+        let body = br#"{"push_data":{"tag":"latest"},"repository":{"repo_name":"user/img"}}"#;
+        assert_eq!(extract_push_branch(body), None);
+    }
+
+    #[test]
+    fn branch_com_barra_no_nome() {
+        let body = br#"{"ref":"refs/heads/feature/login"}"#;
+        assert_eq!(extract_push_branch(body), Some("feature/login".to_string()));
+    }
 }

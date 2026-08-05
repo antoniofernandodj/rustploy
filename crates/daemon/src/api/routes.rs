@@ -212,6 +212,7 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
             trigger_service_id,
             name,
             compose,
+            git_source,
             main_service,
             recurrence,
         } => {
@@ -221,6 +222,7 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
                 trigger_service_id,
                 name,
                 compose,
+                git_source,
                 main_service,
                 recurrence,
             )
@@ -230,12 +232,15 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
             id,
             name,
             compose,
+            git_source,
             main_service,
             enabled,
             recurrence,
         } => {
-            handlers::job_update::handle(state, id, name, compose, main_service, enabled, recurrence)
-                .await
+            handlers::job_update::handle(
+                state, id, name, compose, git_source, main_service, enabled, recurrence,
+            )
+            .await
         }
         Command::JobDelete { id } => handlers::job_delete::handle(state, id).await,
         Command::JobList { project_id } => handlers::job_list::handle(state, project_id).await,

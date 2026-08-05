@@ -26,7 +26,7 @@ import "./screens/service_detail.js";
 import Alpine from "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/module.esm.js";
 import { Api } from "./net/api.js";
 import { openStream } from "./net/sse.js";
-import { fmtUptime, fmtBytes, stripAnsi, oauthRedirectUri } from "./fmt.js";
+import { fmtUptime, fmtBytes, stripAnsi, oauthRedirectUri, timeHms } from "./fmt.js";
 
 window.Alpine = Alpine;
 
@@ -105,6 +105,45 @@ document.addEventListener("alpine:init", () => {
     jobMsg: "",
     jobLogLines: [],
     jobLogStream: null,
+
+    // Wizard "novo job" (3 passos: projeto → serviço gatilho → form) — mora
+    // no store (não num componente de tela) porque duas entradas abrem o
+    // MESMO wizard: a tela global "Schedules" e a aba "Jobs" do projeto
+    // (equivalente ao new_job_window do cliente iced, aberto por ambos
+    // handlers/jobs.luau::open_new_job_window e a aba do projeto). Modal
+    // renderizado uma vez em index.html, fora do escopo de qualquer tela.
+    showNewJob: false,
+    njobStep: "pick_project", // "pick_project" | "pick_service" | "form"
+    njobProjectId: "",
+    njobProjectName: "",
+    njobServiceId: "",
+    njobServiceName: "",
+    njobName: "",
+    njobCompose: "",
+    // Fonte do compose: "compose" (colado, default) | "git" (clona um repo a
+    // cada execução, mesmo picker conta→repo→branch da aba Git de serviço —
+    // ver njobSetSourceTab/njobGitProviderPick/njobGitRepoPick).
+    njobSourceTab: "compose",
+    njobGitProviderId: "",
+    njobGitProviders: [],
+    njobGitRepos: [],
+    njobGitRepoFullName: "",
+    njobGitBranches: [],
+    njobGitBranch: "",
+    njobComposePath: "docker-compose.yml",
+    njobGitMsg: "",
+    njobMainService: "",
+    njobKind: "manual", // "manual" | "interval" | "daily" | "weekly"
+    njobHours: "6",
+    njobHour: "3",
+    njobMinute: "0",
+    njobWeekday: "0",
+    njobErr: "",
+    njobSubmitting: false,
+
+    // Modal de logs ao vivo de uma execução de job — mesma razão do wizard
+    // acima (aberto tanto da tela Schedules quanto da aba Jobs do projeto).
+    jobLogsFor: null,
 
     // ── Settings (Web Server / Git / Infra as Code) ─────────────────────
     settingsTab: "web",
@@ -773,6 +812,203 @@ document.addEventListener("alpine:init", () => {
       return r;
     },
 
+    // ── Wizard "novo job" (ver campos no bloco de estado acima) ──────────
+    // Porta de new_job_window.luau — mesmos passos e mesma validação.
+
+    get njobProjects() {
+      return this.snap?.projects || [];
+    },
+    /** Serviços do projeto escolhido — já em memória (snap.services), sem
+     * re-fetch (diferente do Luau, que precisa pré-semear a janela isolada). */
+    get njobServicesFiltered() {
+      return (this.snap?.services || []).filter(
+        (e) => e.service.spec.project_id === this.njobProjectId
+      );
+    },
+
+    openNewJob() {
+      this.showNewJob = true;
+      this.njobStep = "pick_project";
+      this.njobProjectId = "";
+      this.njobProjectName = "";
+      this.njobServiceId = "";
+      this.njobServiceName = "";
+      this.njobName = "";
+      this.njobCompose = "";
+      this.njobSourceTab = "compose";
+      this.njobGitProviderId = "";
+      this.njobGitProviders = [];
+      this.njobGitRepos = [];
+      this.njobGitRepoFullName = "";
+      this.njobGitBranches = [];
+      this.njobGitBranch = "";
+      this.njobComposePath = "docker-compose.yml";
+      this.njobGitMsg = "";
+      this.njobMainService = "";
+      this.njobKind = "manual";
+      this.njobHours = "6";
+      this.njobHour = "3";
+      this.njobMinute = "0";
+      this.njobWeekday = "0";
+      this.njobErr = "";
+    },
+    closeNewJob() {
+      this.showNewJob = false;
+    },
+    njobPickProject(id, name) {
+      this.njobProjectId = id;
+      this.njobProjectName = name;
+      this.njobStep = "pick_service";
+    },
+    njobPickService(id, name) {
+      this.njobServiceId = id;
+      this.njobServiceName = name;
+      this.njobStep = "form";
+    },
+    njobPickNoService() {
+      this.njobServiceId = "";
+      this.njobServiceName = "nenhum (autônomo)";
+      this.njobStep = "form";
+    },
+    njobBack() {
+      if (this.njobStep === "form") this.njobStep = "pick_service";
+      else if (this.njobStep === "pick_service") this.njobStep = "pick_project";
+    },
+
+    // ── Fonte do compose: aba "Compose" x aba "Git" (picker conta→repo→branch) ──
+    // Porta de njob_source/njob_git_provider_pick/njob_git_repo_pick do
+    // cliente iced (new_job_window.luau) — mesma resolução, sem a limitação
+    // de janela isolada (aqui é só um fetch preguiçoso na primeira troca de aba).
+    async njobSetSourceTab(kind) {
+      this.njobSourceTab = kind;
+      if (kind === "git" && this.njobGitProviders.length === 0) {
+        this.njobGitMsg = "carregando contas…";
+        const r = await this.api.rpc("GitProviderList");
+        if (r.ok && r.value?.GitProviders) {
+          this.njobGitProviders = r.value.GitProviders;
+          this.njobGitMsg = "";
+        } else {
+          this.njobGitMsg = "erro ao listar contas conectadas";
+        }
+      }
+    },
+    async njobGitProviderPick(id) {
+      this.njobGitProviderId = id || "";
+      this.njobGitRepoFullName = "";
+      this.njobGitRepos = [];
+      this.njobGitBranches = [];
+      if (!this.njobGitProviderId) return;
+      this.njobGitMsg = "carregando repositórios…";
+      const r = await this.api.rpc({ GitRepoList: { provider_id: this.njobGitProviderId } });
+      if (r.ok && r.value?.GitRepos) {
+        this.njobGitRepos = r.value.GitRepos;
+        this.njobGitMsg = `${r.value.GitRepos.length} repositório(s)`;
+      } else {
+        this.njobGitMsg = "erro ao listar repositórios";
+      }
+    },
+    async njobGitRepoPick(fullName) {
+      if (!fullName) return;
+      this.njobGitRepoFullName = fullName;
+      const repo = this.njobGitRepos.find((r) => r.full_name === fullName);
+      if (repo?.default_branch) this.njobGitBranch = repo.default_branch;
+      this.njobGitBranches = [];
+      if (!this.njobGitProviderId) return;
+      this.njobGitMsg = "carregando branches…";
+      const r = await this.api.rpc({
+        GitBranchList: { provider_id: this.njobGitProviderId, repo_full_name: fullName },
+      });
+      if (r.ok && r.value?.GitBranches) {
+        this.njobGitBranches = r.value.GitBranches;
+        this.njobGitMsg = "";
+      } else {
+        this.njobGitMsg = "erro ao listar branches";
+      }
+    },
+
+    /** Monta `recurrence` (Option<Recurrence>, externally-tagged) a partir
+     * de njobKind. */
+    buildNjobRecurrence() {
+      if (this.njobKind === "interval") {
+        return { IntervalHours: Math.max(1, Number(this.njobHours) || 1) };
+      }
+      if (this.njobKind === "daily") {
+        return { Daily: { hour: Number(this.njobHour) || 0, minute: Number(this.njobMinute) || 0 } };
+      }
+      if (this.njobKind === "weekly") {
+        return {
+          Weekly: {
+            weekday: Number(this.njobWeekday) || 0,
+            hour: Number(this.njobHour) || 0,
+            minute: Number(this.njobMinute) || 0,
+          },
+        };
+      }
+      return null;
+    },
+
+    async njobCreate() {
+      if (!this.njobName.trim() || !this.njobMainService.trim()) {
+        this.njobErr = "nome e main service são obrigatórios";
+        return;
+      }
+      let compose = "";
+      let gitSource = null;
+      if (this.njobSourceTab === "git") {
+        const branch = this.njobGitBranch.trim();
+        if (!this.njobGitRepoFullName || !branch) {
+          this.njobErr = "selecione repositório e branch";
+          return;
+        }
+        const composePath = this.njobComposePath.trim() || "docker-compose.yml";
+        const repo = this.njobGitRepos.find((r) => r.full_name === this.njobGitRepoFullName);
+        if (!repo?.clone_url) {
+          this.njobErr = "não foi possível resolver a URL do repositório — selecione de novo";
+          return;
+        }
+        gitSource = {
+          provider_id: this.njobGitProviderId || null,
+          url: repo.clone_url,
+          branch,
+          username: null,
+          credentials: null,
+          compose_path: composePath,
+        };
+      } else {
+        compose = this.njobCompose;
+        if (!compose.trim()) {
+          this.njobErr = "cole o docker-compose.yml do job";
+          return;
+        }
+      }
+      this.njobErr = "";
+      this.njobSubmitting = true;
+      const r = await this.jobCreate({
+        project_id: this.njobProjectId,
+        // "" (não null) = job autônomo — Command::JobCreate::trigger_service_id
+        // é String simples no protocolo (não Option<String>); o handler no
+        // daemon é quem converte "" → None (job_create.rs).
+        trigger_service_id: this.njobServiceId || "",
+        name: this.njobName.trim(),
+        compose,
+        git_source: gitSource,
+        main_service: this.njobMainService.trim(),
+        recurrence: this.buildNjobRecurrence(),
+      });
+      this.njobSubmitting = false;
+      if (r.ok) this.closeNewJob();
+      else this.njobErr = r.error;
+    },
+
+    openJobLogs(jobRunId) {
+      this.jobLogsFor = jobRunId;
+      this.startJobLogs(jobRunId);
+    },
+    closeJobLogs() {
+      this.jobLogsFor = null;
+      this.stopJobLogs();
+    },
+
     /** Logs ao vivo de UMA execução de job — mesmo par seed+SSE de
      * startServiceLogs/stopServiceLogs, apontando pro endpoint dedicado de
      * job run (gêmeo do de serviço: mesmo framing bus_batch). */
@@ -1029,6 +1265,10 @@ document.addEventListener("alpine:init", () => {
       if (line.length > LINE_MAX) line = line.slice(0, LINE_MAX) + "…";
       return { stream: e.stream, line, timestamp: e.timestamp };
     },
+
+    /** Exposta no store (não só no módulo) porque o modal de logs de job é
+     * global — ver bloco "Modais globais de Jobs" em index.html. */
+    timeHms,
 
     async startServiceLogs() {
       this.stopServiceLogs();

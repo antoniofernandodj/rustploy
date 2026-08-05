@@ -165,6 +165,12 @@ pub enum Command {
         trigger_service_id: String,
         name: String,
         compose: String,
+        /// `Some` = clona esse repo a cada execução em vez de usar `compose`
+        /// (cliente manda `compose: ""` nesse caso). `#[serde(default)]`: os
+        /// clientes só incluem esta chave no modo Git (Luau/JS table
+        /// constructor com valor Lua/JS `nil`/`undefined` não gera a chave).
+        #[serde(default)]
+        git_source: Option<JobGitSource>,
         main_service: String,
         recurrence: Option<Recurrence>,
     },
@@ -172,6 +178,8 @@ pub enum Command {
         id: String,
         name: String,
         compose: String,
+        #[serde(default)]
+        git_source: Option<JobGitSource>,
         main_service: String,
         enabled: bool,
         recurrence: Option<Recurrence>,

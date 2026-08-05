@@ -117,9 +117,65 @@
           <input class="np_input" form_control="njob_name" value="njob_name"
             on_change="field:njob_name" placeholder="ex.: backup-db" />
 
-          <text class="np_label">DOCKER-COMPOSE.YML</text>
-          <textarea class="env_editor" font="mono" value="njob_compose"
-            placeholder="services:&#10;  job:&#10;    image: busybox&#10;    command: [&quot;sh&quot;, &quot;-c&quot;, &quot;echo ok&quot;]" />
+          <text class="label_cap">FONTE DO COMPOSE</text>
+          <row class="tabs">
+            <TabButton label="Compose" current="{njob_source}" target="compose" action="njob_source:compose" />
+            <TabButton label="Git" current="{njob_source}" target="git" action="njob_source:git" />
+          </row>
+
+          <if cond="{njob_source}" equals="compose">
+            <text class="np_label">DOCKER-COMPOSE.YML</text>
+            <textarea class="env_editor" font="mono" value="njob_compose"
+              placeholder="services:&#10;  job:&#10;    image: busybox&#10;    command: [&quot;sh&quot;, &quot;-c&quot;, &quot;echo ok&quot;]" />
+          </if>
+
+          <!-- Aba Git: mesmo picker conta→repo→branch da aba Gitea de
+               serviço (service.gv); o repo escolhido precisa já ter um
+               docker-compose.yml no caminho informado — o job clona e roda
+               esse arquivo a cada execução, em vez do colado acima. -->
+          <if cond="{njob_source}" equals="git">
+            <text class="muted">
+              Selecione a conta conectada, o repositório e a branch. O repo
+              precisa já ter um docker-compose.yml no caminho informado.
+            </text>
+            <text if="{njob_git_msg}" not_equals="" class="muted">{njob_git_msg}</text>
+
+            <text class="np_label">CONTA GIT</text>
+            <select
+              class="select"
+              options="njob_git_providers"
+              value="njob_git_provider_id"
+              on_change="njob_git_provider_pick"
+              placeholder="selecione a conta"
+              labelField="display"
+              valueField="id"
+            />
+            <text class="muted">Conecte contas em Settings → Git.</text>
+
+            <text class="np_label">REPOSITÓRIO</text>
+            <select
+              class="select"
+              options="njob_git_repos"
+              value="njob_git_repo"
+              on_change="njob_git_repo_pick"
+              placeholder="selecione o repositório"
+              labelField="full_name"
+              valueField="full_name"
+            />
+
+            <text class="np_label">BRANCH</text>
+            <select class="select" options="njob_git_branches"
+              value="njob_git_branch"
+              on_change="field:njob_git_branch"
+              placeholder="selecione a branch"
+              labelField="name"
+              valueField="name"
+            />
+
+            <text class="np_label">CAMINHO DO COMPOSE NO REPO</text>
+            <input class="np_input" form_control="njob_compose_path" value="njob_compose_path"
+              on_change="field:njob_compose_path" placeholder="docker-compose.yml" />
+          </if>
 
           <text class="np_label">MAIN SERVICE (nome dentro do compose acima)</text>
           <input class="np_input" form_control="njob_main_service" value="njob_main_service"

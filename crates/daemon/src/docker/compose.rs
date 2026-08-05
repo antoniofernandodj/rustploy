@@ -365,8 +365,19 @@ pub async fn up(
 /// espelha cada linha como `Event::BuildLog`/`build_log` do deployment —
 /// usado pelo `DeployExecutor` no estado `PreDeployCheck` pra a saída do
 /// job aparecer na tela de deploy, além do histórico normal do Job.
+/// De onde vem o `docker-compose.yml` de um `run_once`. `Compose` é o modo
+/// original (cola o YAML na mão); `Git` é usado quando `Job.git_source` é
+/// `Some` — o repo já foi clonado pra dentro de `build_dir` (ver
+/// `jobs::runner`) antes de chegar aqui, então só falta ler o arquivo.
+pub enum JobBuildSource<'a> {
+    Compose(&'a str),
+    /// Caminho relativo a `build_dir` de um `docker-compose.yml` já presente
+    /// no clone (ex.: `"docker-compose.yml"` ou `"ci/docker-compose.yml"`).
+    Git { compose_rel_path: &'a str },
+}
+
 pub async fn run_once(
-    content: &str,
+    source: JobBuildSource<'_>,
     project_name: &str,
     network_name: &str,
     main_service: &str,
@@ -381,11 +392,28 @@ pub async fn run_once(
 ) -> Result<i32> {
     info!(project = %project_name, job_id = %job_id, "compose_run_once: iniciando job one-shot");
 
-    let content = inject_project_network(content, network_name)?;
-
     tokio::fs::create_dir_all(build_dir).await?;
+
+    // Path relativo (ao `build_dir`) do compose de verdade — fixo pro modo
+    // colado; configurável no modo Git (repo pode ter o compose num
+    // subdiretório). O conteúdo lido/colado é reescrito no MESMO lugar após
+    // `inject_project_network` — nunca movido, pra `build:` relativo no
+    // compose do usuário continuar resolvendo certo (o Compose resolve
+    // contexto de build relativo à posição do arquivo `-f`, não do cwd).
+    let (raw_content, compose_rel_path): (String, String) = match source {
+        JobBuildSource::Compose(content) => (content.to_string(), "docker-compose.yml".to_string()),
+        JobBuildSource::Git { compose_rel_path } => {
+            let path = build_dir.join(compose_rel_path);
+            let content = tokio::fs::read_to_string(&path)
+                .await
+                .map_err(|e| anyhow!("compose não encontrado em {}: {e}", path.display()))?;
+            (content, compose_rel_path.to_string())
+        }
+    };
+    let content = inject_project_network(&raw_content, network_name)?;
+
     let env_file_path = build_dir.join(".env");
-    let compose_file_path = build_dir.join("docker-compose.yml");
+    let compose_file_path = build_dir.join(&compose_rel_path);
 
     {
         let mut env_file = File::create(&env_file_path).await?;
@@ -408,6 +436,7 @@ pub async fn run_once(
 
     let up_result = run_once_up(
         project_name,
+        &compose_rel_path,
         main_service,
         job_id,
         job_run_id,
@@ -437,6 +466,7 @@ pub async fn run_once(
 
 async fn run_once_up(
     project_name: &str,
+    compose_rel_path: &str,
     main_service: &str,
     job_id: &str,
     job_run_id: &str,
@@ -451,7 +481,7 @@ async fn run_once_up(
             "-p",
             project_name,
             "-f",
-            "docker-compose.yml",
+            compose_rel_path,
             "--env-file",
             ".env",
             "up",

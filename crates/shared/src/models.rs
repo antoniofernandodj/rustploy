@@ -797,10 +797,18 @@ pub struct Job {
     pub trigger_service_id: Option<String>,
     pub name: String,
     /// Conteúdo de um `docker-compose.yml` — mesma UX/formato de
-    /// `ComposeSource.content`.
+    /// `ComposeSource.content`. Vazio/ignorado quando `git_source` é `Some`
+    /// (o YAML real vem do clone a cada execução, nunca fica salvo aqui —
+    /// mesma filosofia do deploy de serviço git-sourced).
     pub compose: String,
-    /// Nome do serviço, dentro de `compose`, cujo exit code decide
-    /// sucesso/falha do job (`docker compose up --exit-code-from`).
+    /// Quando presente, o job clona este repositório a cada execução e roda
+    /// o `docker-compose.yml` encontrado nele (`compose_path`), em vez do
+    /// conteúdo colado em `compose`.
+    #[serde(default)]
+    pub git_source: Option<JobGitSource>,
+    /// Nome do serviço, dentro do compose (colado ou clonado), cujo exit
+    /// code decide sucesso/falha do job (`docker compose up
+    /// --exit-code-from`).
     pub main_service: String,
     pub enabled: bool,
     /// `None` = sem agendamento automático, só `Command::JobRunNow`.
@@ -809,6 +817,44 @@ pub struct Job {
     /// `None` quando `recurrence` é `None` (nada a agendar).
     pub next_run_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
+}
+
+/// Fonte git de um `Job` — irmã mais enxuta de `GitSource` (sem
+/// `dockerfile_path`/`build_context`/`build_stage`/`submodules`/
+/// `watch_paths`, que não fazem sentido pra um `docker-compose.yml` inteiro
+/// clonado do repo em vez de um único Dockerfile buildado pelo daemon).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct JobGitSource {
+    /// Conta git conectada (Gitea/GitHub) — quando presente, tem precedência
+    /// sobre `credentials` na resolução do token de clone (mesma regra de
+    /// `GitSource.provider_id`). `#[serde(default)]`: os clientes (Luau/JS)
+    /// omitem a chave inteira pra "sem valor" em vez de mandar `null`.
+    #[serde(default)]
+    pub provider_id: Option<String>,
+    pub url: String,
+    pub branch: String,
+    /// Auth manual (sem `provider_id`): usuário do clone HTTPS.
+    #[serde(default)]
+    pub username: Option<String>,
+    /// Nome de um secret do projeto, usado como token quando não há
+    /// `provider_id` (mesma semântica de `GitSource.credentials`).
+    #[serde(default)]
+    pub credentials: Option<String>,
+    /// Caminho do `docker-compose.yml` dentro do repo clonado.
+    pub compose_path: String,
+}
+
+impl Default for JobGitSource {
+    fn default() -> Self {
+        Self {
+            provider_id: None,
+            url: String::new(),
+            branch: "main".into(),
+            username: None,
+            credentials: None,
+            compose_path: "docker-compose.yml".into(),
+        }
+    }
 }
 
 /// Recorrência estruturada (sem expressão cron — ver decisão em

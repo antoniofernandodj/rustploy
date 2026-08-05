@@ -171,11 +171,14 @@ async fn handle(
     // sua própria autenticação (token de 192 bits na URL, no webhook; `state`
     // CSRF, no callback OAuth). São chamadas por terceiros (GitHub/Gitea/Docker
     // Hub, o navegador no fim do fluxo OAuth) que não têm o token da API.
+    // Fora do `match` abaixo (não só `if let`) porque `webhook()` precisa
+    // consumir `req` inteiro (corpo incluso, pro filtro de branch) — um braço
+    // de match que empresta `req.uri().path()` no padrão não libera o
+    // empréstimo a tempo do `move` implícito no `.await` seguinte.
+    if req.uri().path().starts_with("/webhook/") {
+        return Ok(boxed(public_routes::webhook(req, state).await));
+    }
     match (req.method(), req.uri().path()) {
-        (m, p) if p.starts_with("/webhook/") => {
-            let (method, path) = (m.clone(), p.to_owned());
-            return Ok(boxed(public_routes::webhook(&method, &path, state).await));
-        }
         (&Method::GET, "/oauth/gitea/callback" | "/oauth/github/callback") => {
             return Ok(boxed(public_routes::oauth_callback(req, state).await));
         }

@@ -1,12 +1,14 @@
 use crate::api::AppState;
-use shared::{Recurrence, Response as RpResponse};
+use shared::{JobGitSource, Recurrence, Response as RpResponse};
 
+#[allow(clippy::too_many_arguments)]
 pub async fn handle(
     state: AppState,
     project_id: String,
     trigger_service_id: String,
     name: String,
     compose: String,
+    git_source: Option<JobGitSource>,
     main_service: String,
     recurrence: Option<Recurrence>,
 ) -> RpResponse {
@@ -24,12 +26,19 @@ pub async fn handle(
         }
     }
 
+    if let Some(git) = &git_source {
+        if git.url.trim().is_empty() || git.branch.trim().is_empty() {
+            return RpResponse::err("InvalidInput", "URL e branch do repositório são obrigatórios");
+        }
+    }
+
     match crate::db::job::create(
         &state.db,
         &project_id,
         trigger_service_id.as_deref(),
         &name,
         &compose,
+        git_source.as_ref(),
         &main_service,
         recurrence,
     )

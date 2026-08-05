@@ -248,8 +248,16 @@ hr, .rule   { width: 100%; height: 1px; border: none; background: var(--border);
 .form_panel { width: 100%; max-width: 640px; flex-shrink: 0; background: var(--surface); border-radius: 7px; border: 1px solid var(--border); padding: 24px; gap: 10px; }
 
 /* ── Listas chave/valor (env vars / domínios) ───────────────────────────
-   Compartilhado por Environment e Domains, mesmo padrão do client iced. */
-.env_wrap    { width: 100%; gap: 10px; }
+   Compartilhado por Environment e Domains, mesmo padrão do client iced.
+   flex-shrink:0 — mesmo motivo do .form_panel acima: .env_wrap é filho
+   direto de .content (flex column de altura fixa, overflow:auto). Sem isso,
+   um projeto com muitas variáveis (ex. 68) faz o flexbox espremer .env_wrap
+   pra caber na altura disponível em vez de deixar o .content rolar — como
+   row/column têm min-height:0 globalmente (linha ~42), o espremimento passa
+   pros filhos (.kv_list/.kv_row) e cada linha de texto (overflow:visible)
+   acaba se sobrepondo à seguinte. Só o scroll de .content deve ceder
+   espaço, nunca o conteúdo. */
+.env_wrap    { width: 100%; gap: 10px; flex-shrink: 0; }
 .env_add     { gap: 8px; align-items: center; }
 .env_in_key, .env_in_val { flex: 1 1 auto; padding: 9px 12px; background: var(--raised); border: 1px solid var(--border); border-radius: 4px; color: var(--text); }
 .env_head    { width: 100%; align-items: center; justify-content: space-between; flex-shrink: 0; }

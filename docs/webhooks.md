@@ -160,7 +160,7 @@ O Docker Hub envia uma notificação quando uma nova tag de imagem é publicada:
 }
 ```
 
-> **Nota sobre uso futuro:** o Rustploy atualmente não parseia o body do webhook. Em versões futuras, o payload poderá ser usado para filtrar deploys por branch (ex: deployar apenas quando `ref == "refs/heads/main"`) ou para registrar qual commit disparou o deploy.
+> **Filtro de branch:** quando o serviço é git-sourced com uma branch configurada, o Rustploy lê o campo `ref` do payload (`"ref": "refs/heads/<branch>"`, formato usado por GitHub/Gitea/Gogs/GitLab em eventos de push) e ignora o disparo se a branch não bater com a configurada — responde `200 OK` / `skipped: branch mismatch`, sem deployar. Sem `ref` reconhecível no payload (webhook do Docker Hub, `curl` sem corpo, etc.) o deploy dispara do jeito de sempre, já que não dá pra filtrar o que não dá pra interpretar.
 
 ## Testando com curl
 
@@ -191,16 +191,18 @@ Confirme na aba Deployments, não pelo status HTTP — detalhes e captura real e
 
 1. No repositório, vá em **Settings › Webhooks › Add webhook**
 2. **Payload URL**: cole a URL do webhook
-3. **Content type**: `application/json` (o corpo é ignorado pelo Rustploy, mas o GitHub exige um valor)
+3. **Content type**: `application/json` (precisa ser JSON pro filtro de branch conseguir ler o `ref` — ver nota acima)
 4. **Secret**: deixe em branco — a autenticação é feita pelo token na URL
 5. **Which events**: marque apenas **Just the push event** (ou os eventos que fizerem sentido)
 6. Marque **Active** e clique em **Add webhook**
 
 A partir daí, cada push para o repositório dispara automaticamente um deploy no Rustploy.
 
-### Filtrando por branch (limitação atual)
+### Filtrando por branch
 
-O Rustploy ainda não filtra por branch — qualquer push aciona o deploy independentemente do branch. Se precisar filtrar, use um intermediário como um GitHub Action que chame o webhook apenas em pushes para `main`:
+Configurando a branch do serviço (aba Git, ao cadastrar/editar o serviço) o Rustploy já ignora pushes de outras branches automaticamente — ver a nota no topo deste documento. Isso cobre o caso comum sem precisar de nada extra no lado do GitHub.
+
+Se quiser filtrar por algo mais específico que uma branch (ex: só em tags, ou só quando um path específico muda), ainda vale usar um intermediário como um GitHub Action:
 
 ```yaml
 # .github/workflows/deploy.yml

@@ -306,34 +306,15 @@ impl DeployExecutor {
                     branch = %git.branch,
                     "step[CloningRepo]: resolvendo credenciais"
                 );
-                let mut provider_login: Option<String> = None;
-                let token = if let Some(pid) = &git.provider_id {
-                    info!(deployment_id = %dep.id, provider_id = %pid, "step[CloningRepo]: resolvendo token via Git provider");
-                    match crate::db::git_providers::get(&self.db, pid).await {
-                        Ok(Some(p)) => {
-                            provider_login = p.account_login.clone();
-                            crate::git_providers::usable_token(&self.secrets, &p).ok()
-                        }
-                        _ => {
-                            info!(deployment_id = %dep.id, provider_id = %pid, "step[CloningRepo]: provider não encontrado");
-                            None
-                        }
-                    }
-                } else if let Some(name) = &git.credentials {
-                    info!(
-                        deployment_id = %dep.id,
-                        secret = %name,
-                        "step[CloningRepo]: buscando token do secret"
-                    );
-                    self.secrets.get_raw(&svc.spec.project_id, name).await.ok()
-                } else {
-                    info!(deployment_id = %dep.id, "step[CloningRepo]: sem credenciais configuradas");
-                    None
-                };
-                // Username: login da conta do provider tem precedência sobre o manual.
-                let clone_username = provider_login
-                    .as_deref()
-                    .or(git.username.as_deref());
+                let (token, clone_username) = super::git::resolve_clone_credentials(
+                    &self.db,
+                    &self.secrets,
+                    git.provider_id.as_deref(),
+                    git.credentials.as_deref(),
+                    git.username.as_deref(),
+                    &svc.spec.project_id,
+                )
+                .await;
 
                 let dir = self.clone_dir(&dep.id);
                 let bus = self.bus.clone();
@@ -352,7 +333,7 @@ impl DeployExecutor {
                         url: &git.url,
                         branch: &git.branch,
                         token: token.as_deref(),
-                        username: clone_username,
+                        username: clone_username.as_deref(),
                         dir: &dir,
                     },
                     |p| {

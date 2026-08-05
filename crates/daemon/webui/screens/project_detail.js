@@ -1,8 +1,17 @@
 // screens/project_detail.js — projeto aberto (view=project_services no
-// client iced): sub-abas Serviços/Variáveis/Secrets (Jobs fica para depois).
-// Porta de fmt.service_rows, o cabeçalho editável e as sub-abas env/secrets
-// de shell.gv + handlers/projects.luau.
-import { serviceStatusLabelKind, dotenvFromVars, parseDotenv, envRowsWithComments } from "../fmt.js";
+// client iced): sub-abas Serviços/Variáveis/Secrets/Jobs. Porta de
+// fmt.service_rows, o cabeçalho editável e as sub-abas env/secrets/jobs de
+// shell.gv + handlers/projects.luau (aba "Jobs" filtra `snap.jobs` pelo
+// projeto aberto — mesma lógica de stream.luau::update_open_project). O
+// wizard "novo job" acionado pelo botão desta aba é o mesmo modal global do
+// store (app.js), compartilhado com a tela "Schedules".
+import {
+  serviceStatusLabelKind,
+  dotenvFromVars,
+  parseDotenv,
+  envRowsWithComments,
+  jobSummaryRows,
+} from "../fmt.js";
 
 document.addEventListener("alpine:init", () => {
   Alpine.data("projectDetail", () => ({
@@ -12,7 +21,7 @@ document.addEventListener("alpine:init", () => {
     editing: false,
     editName: "",
     editDesc: "",
-    projTab: "services", // "services" | "env" | "secrets"
+    projTab: "services", // "services" | "env" | "secrets" | "jobs"
 
     get project() {
       const s = this.store;
@@ -45,6 +54,13 @@ document.addEventListener("alpine:init", () => {
 
     get canDelete() {
       return this.services.length === 0;
+    },
+
+    // ── Jobs do projeto ──────────────────────────────────────────────
+    get jobs() {
+      const pid = this.store.selectedProjectId;
+      const list = (this.store.snap?.jobs || []).filter((s) => s.job.project_id === pid);
+      return jobSummaryRows(list);
     },
 
     startEdit() {

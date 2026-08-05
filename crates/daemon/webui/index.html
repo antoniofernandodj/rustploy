@@ -837,7 +837,7 @@
               <text class="stat_num_g" x-text="rows.length"></text>
             </column>
           </row>
-          <button class="btn_primary" type="button" @click="openNewJob()">+ Novo job</button>
+          <button class="btn_primary" type="button" @click="store.openNewJob()">+ Novo job</button>
         </row>
         <text class="muted" x-show="store.jobMsg" x-text="store.jobMsg"></text>
 
@@ -867,7 +867,7 @@
                     <row class="col_act_4">
                       <button class="copy_btn" type="button" title="Rodar agora" @click="store.jobRunNow(j.id)">▶</button>
                       <button class="copy_btn" type="button" title="Ver logs" x-show="j.lastRunId"
-                              @click="openJobLogs(j.lastRunId)">≡</button>
+                              @click="store.openJobLogs(j.lastRunId)">≡</button>
                       <button class="copy_btn" type="button" :title="j.enabledLabel" @click="store.jobToggle(j.id)"
                               x-text="j.enabled ? '‖' : '▶'"></button>
                       <button class="env_del" type="button" title="Remover" @click="store.jobDelete(j.id)">✕</button>
@@ -879,116 +879,181 @@
             </column>
           </column>
         </column>
+      </column>
 
-        <!-- Modal "novo job": wizard de 3 passos (projeto → serviço → form),
-             equivalente ao new_job_window do cliente iced. Projetos/serviços
-             já vêm do snapshot em memória — sem pré-semear como o Luau
-             precisa fazer pro motor isolado da janela. -->
-        <column class="modal_backdrop" x-show="showNewJob" @click.self="closeNewJob()">
-          <column class="modal_box">
-            <row class="modal_head">
-              <text class="label_cap">NOVO JOB</text>
-              <row style="gap:8px">
-                <button class="btn_ghost" type="button" x-show="njobStep !== 'pick_project'" @click="njobBack()">‹ Voltar</button>
-                <button class="btn_ghost" type="button" @click="closeNewJob()">Fechar</button>
-              </row>
+      <!-- ── Modais globais de Jobs ───────────────────────────────────────
+           Fora do escopo de qualquer tela: tanto "Schedules" quanto a aba
+           "Jobs" do projeto (screens/project_detail.js) abrem o MESMO
+           wizard/modal — por isso o estado mora no store (app.js), não num
+           x-data local, e a marcação só referencia $store.app.*. -->
+
+      <!-- Modal "novo job": wizard de 3 passos (projeto → serviço → form),
+           equivalente ao new_job_window do cliente iced. Projetos/serviços
+           já vêm do snapshot em memória — sem pré-semear como o Luau
+           precisa fazer pro motor isolado da janela. -->
+      <column class="modal_backdrop" x-show="$store.app.showNewJob" @click.self="$store.app.closeNewJob()">
+        <column class="modal_box">
+          <row class="modal_head">
+            <text class="label_cap">NOVO JOB</text>
+            <row style="gap:8px">
+              <button class="btn_ghost" type="button" x-show="$store.app.njobStep !== 'pick_project'"
+                      @click="$store.app.njobBack()">‹ Voltar</button>
+              <button class="btn_ghost" type="button" @click="$store.app.closeNewJob()">Fechar</button>
             </row>
-            <column class="modal_body">
-              <!-- Passo 1: projeto -->
-              <column class="grid" x-show="njobStep === 'pick_project'">
-                <template x-for="p in projects" :key="p.id">
-                  <column class="card">
-                    <text class="card_name" x-text="p.name"></text>
-                    <button class="card_open" type="button" @click="njobPickProject(p.id, p.name)">Selecionar ›</button>
-                  </column>
-                </template>
-                <text class="muted" x-show="projects.length === 0" style="padding:16px">Nenhum projeto ainda.</text>
-              </column>
-
-              <!-- Passo 2: serviço gatilho (ou autônomo) -->
-              <column class="grid" x-show="njobStep === 'pick_service'">
+          </row>
+          <column class="modal_body">
+            <!-- Passo 1: projeto -->
+            <column class="grid" x-show="$store.app.njobStep === 'pick_project'">
+              <template x-for="p in $store.app.njobProjects" :key="p.id">
                 <column class="card">
-                  <text class="card_name">Nenhum (autônomo)</text>
-                  <text class="muted">Job sem serviço gatilho — só variáveis do projeto.</text>
-                  <button class="card_open" type="button" @click="njobPickNoService()">Selecionar ›</button>
+                  <text class="card_name" x-text="p.name"></text>
+                  <button class="card_open" type="button" @click="$store.app.njobPickProject(p.id, p.name)">Selecionar ›</button>
                 </column>
-                <template x-for="e in servicesFiltered" :key="e.service.id">
-                  <column class="card">
-                    <text class="card_name" x-text="e.service.spec.name"></text>
-                    <button class="card_open" type="button"
-                            @click="njobPickService(e.service.id, e.service.spec.name)">Selecionar ›</button>
-                  </column>
-                </template>
+              </template>
+              <text class="muted" x-show="$store.app.njobProjects.length === 0" style="padding:16px">Nenhum projeto ainda.</text>
+            </column>
+
+            <!-- Passo 2: serviço gatilho (ou autônomo) -->
+            <column class="grid" x-show="$store.app.njobStep === 'pick_service'">
+              <column class="card">
+                <text class="card_name">Nenhum (autônomo)</text>
+                <text class="muted">Job sem serviço gatilho — só variáveis do projeto.</text>
+                <button class="card_open" type="button" @click="$store.app.njobPickNoService()">Selecionar ›</button>
               </column>
+              <template x-for="e in $store.app.njobServicesFiltered" :key="e.service.id">
+                <column class="card">
+                  <text class="card_name" x-text="e.service.spec.name"></text>
+                  <button class="card_open" type="button"
+                          @click="$store.app.njobPickService(e.service.id, e.service.spec.name)">Selecionar ›</button>
+                </column>
+              </template>
+            </column>
 
-              <!-- Passo 3: formulário -->
-              <column class="form_panel" x-show="njobStep === 'form'" style="max-width:100%">
-                <text class="muted_fill" x-text="njobProjectName + ' / ' + (njobServiceName || 'nenhum (autônomo)')"></text>
-                <text class="label_cap" style="margin-top:10px">NOME</text>
-                <input class="field_input" type="text" x-model="njobName" placeholder="backup-diario" />
-                <text class="label_cap" style="margin-top:14px">DOCKER COMPOSE (YAML)</text>
-                <textarea class="env_editor" x-model="njobCompose"></textarea>
-                <text class="label_cap" style="margin-top:14px">MAIN SERVICE</text>
-                <input class="field_input" type="text" x-model="njobMainService" placeholder="job" />
+            <!-- Passo 3: formulário -->
+            <column class="form_panel" x-show="$store.app.njobStep === 'form'" style="max-width:100%">
+              <text class="muted_fill" x-text="$store.app.njobProjectName + ' / ' + ($store.app.njobServiceName || 'nenhum (autônomo)')"></text>
+              <text class="label_cap" style="margin-top:10px">NOME</text>
+              <input class="field_input" type="text" x-model="$store.app.njobName" placeholder="backup-diario" />
+              <text class="label_cap" style="margin-top:14px">FONTE DO COMPOSE</text>
+              <row class="tabs">
+                <button type="button" :class="$store.app.njobSourceTab === 'compose' ? 'tab_on' : 'tab_off'"
+                        @click="$store.app.njobSetSourceTab('compose')">Compose</button>
+                <button type="button" :class="$store.app.njobSourceTab === 'git' ? 'tab_on' : 'tab_off'"
+                        @click="$store.app.njobSetSourceTab('git')">Git</button>
+              </row>
 
-                <text class="label_cap" style="margin-top:14px">RECORRÊNCIA</text>
-                <row class="tabs">
-                  <button type="button" :class="njobKind === 'manual' ? 'tab_on' : 'tab_off'" @click="njobKind = 'manual'">Manual</button>
-                  <button type="button" :class="njobKind === 'interval' ? 'tab_on' : 'tab_off'" @click="njobKind = 'interval'">Intervalo</button>
-                  <button type="button" :class="njobKind === 'daily' ? 'tab_on' : 'tab_off'" @click="njobKind = 'daily'">Diário</button>
-                  <button type="button" :class="njobKind === 'weekly' ? 'tab_on' : 'tab_off'" @click="njobKind = 'weekly'">Semanal</button>
-                </row>
-                <row class="hc_grid" style="margin-top:8px" x-show="njobKind === 'interval'">
-                  <column class="hc_field">
-                    <text class="label_cap">A CADA (HORAS)</text>
-                    <input class="field_input" type="text" x-model="njobHours" />
-                  </column>
-                </row>
-                <row class="hc_grid" style="margin-top:8px" x-show="njobKind === 'daily' || njobKind === 'weekly'">
-                  <column class="hc_field" x-show="njobKind === 'weekly'">
-                    <text class="label_cap">DIA (0=seg…6=dom)</text>
-                    <input class="field_input" type="text" x-model="njobWeekday" />
-                  </column>
-                  <column class="hc_field">
-                    <text class="label_cap">HORA</text>
-                    <input class="field_input" type="text" x-model="njobHour" />
-                  </column>
-                  <column class="hc_field">
-                    <text class="label_cap">MINUTO</text>
-                    <input class="field_input" type="text" x-model="njobMinute" />
-                  </column>
-                </row>
+              <template x-if="$store.app.njobSourceTab === 'compose'">
+                <column>
+                  <text class="label_cap" style="margin-top:14px">DOCKER COMPOSE (YAML)</text>
+                  <textarea class="env_editor" x-model="$store.app.njobCompose"></textarea>
+                </column>
+              </template>
 
-                <text class="err" x-show="njobErr" x-text="njobErr" style="margin-top:8px"></text>
-                <row class="env_add" style="margin-top:14px">
-                  <button class="btn_primary" type="button" @click="njobCreate()" :disabled="submitting"
-                          x-text="submitting ? 'Criando…' : 'Criar job'"></button>
-                </row>
-              </column>
+              <!-- Aba Git: mesmo picker conta→repo→branch da aba Git de
+                   serviço; o repo escolhido precisa já ter um
+                   docker-compose.yml no caminho informado — o job clona e
+                   roda esse arquivo a cada execução, em vez do colado acima. -->
+              <template x-if="$store.app.njobSourceTab === 'git'">
+                <column style="margin-top:10px; gap:10px">
+                  <text class="muted">
+                    Selecione a conta conectada, o repositório e a branch. O
+                    repo precisa já ter um docker-compose.yml no caminho
+                    informado.
+                  </text>
+                  <text class="muted" x-show="$store.app.njobGitMsg" x-text="$store.app.njobGitMsg"></text>
+
+                  <text class="label_cap">CONTA GIT</text>
+                  <select class="field_input" x-model="$store.app.njobGitProviderId"
+                          @change="$store.app.njobGitProviderPick($event.target.value)">
+                    <option value="">selecione a conta</option>
+                    <template x-for="p in $store.app.njobGitProviders" :key="p.id">
+                      <option :value="p.id" x-text="p.name"></option>
+                    </template>
+                  </select>
+                  <text class="muted">Conecte contas em Settings → Git.</text>
+
+                  <text class="label_cap">REPOSITÓRIO</text>
+                  <select class="field_input" x-model="$store.app.njobGitRepoFullName"
+                          @change="$store.app.njobGitRepoPick($event.target.value)">
+                    <option value="">selecione o repositório</option>
+                    <template x-for="r in $store.app.njobGitRepos" :key="r.full_name">
+                      <option :value="r.full_name" x-text="r.full_name"></option>
+                    </template>
+                  </select>
+
+                  <text class="label_cap">BRANCH</text>
+                  <select class="field_input" x-model="$store.app.njobGitBranch">
+                    <option value="">selecione a branch</option>
+                    <template x-for="b in $store.app.njobGitBranches" :key="b.name">
+                      <option :value="b.name" x-text="b.name"></option>
+                    </template>
+                  </select>
+
+                  <text class="label_cap">CAMINHO DO COMPOSE NO REPO</text>
+                  <input class="field_input" type="text" x-model="$store.app.njobComposePath" placeholder="docker-compose.yml" />
+                </column>
+              </template>
+
+              <text class="label_cap" style="margin-top:14px">MAIN SERVICE</text>
+              <input class="field_input" type="text" x-model="$store.app.njobMainService" placeholder="job" />
+
+              <text class="label_cap" style="margin-top:14px">RECORRÊNCIA</text>
+              <row class="tabs">
+                <button type="button" :class="$store.app.njobKind === 'manual' ? 'tab_on' : 'tab_off'" @click="$store.app.njobKind = 'manual'">Manual</button>
+                <button type="button" :class="$store.app.njobKind === 'interval' ? 'tab_on' : 'tab_off'" @click="$store.app.njobKind = 'interval'">Intervalo</button>
+                <button type="button" :class="$store.app.njobKind === 'daily' ? 'tab_on' : 'tab_off'" @click="$store.app.njobKind = 'daily'">Diário</button>
+                <button type="button" :class="$store.app.njobKind === 'weekly' ? 'tab_on' : 'tab_off'" @click="$store.app.njobKind = 'weekly'">Semanal</button>
+              </row>
+              <row class="hc_grid" style="margin-top:8px" x-show="$store.app.njobKind === 'interval'">
+                <column class="hc_field">
+                  <text class="label_cap">A CADA (HORAS)</text>
+                  <input class="field_input" type="text" x-model="$store.app.njobHours" />
+                </column>
+              </row>
+              <row class="hc_grid" style="margin-top:8px" x-show="$store.app.njobKind === 'daily' || $store.app.njobKind === 'weekly'">
+                <column class="hc_field" x-show="$store.app.njobKind === 'weekly'">
+                  <text class="label_cap">DIA (0=seg…6=dom)</text>
+                  <input class="field_input" type="text" x-model="$store.app.njobWeekday" />
+                </column>
+                <column class="hc_field">
+                  <text class="label_cap">HORA</text>
+                  <input class="field_input" type="text" x-model="$store.app.njobHour" />
+                </column>
+                <column class="hc_field">
+                  <text class="label_cap">MINUTO</text>
+                  <input class="field_input" type="text" x-model="$store.app.njobMinute" />
+                </column>
+              </row>
+
+              <text class="err" x-show="$store.app.njobErr" x-text="$store.app.njobErr" style="margin-top:8px"></text>
+              <row class="env_add" style="margin-top:14px">
+                <button class="btn_primary" type="button" @click="$store.app.njobCreate()" :disabled="$store.app.njobSubmitting"
+                        x-text="$store.app.njobSubmitting ? 'Criando…' : 'Criar job'"></button>
+              </row>
             </column>
           </column>
         </column>
+      </column>
 
-        <!-- Modal de logs ao vivo de uma execução -->
-        <column class="modal_backdrop" x-show="jobLogsFor" @click.self="closeJobLogs()">
-          <column class="modal_box">
-            <row class="modal_head">
-              <text class="label_cap">LOGS DO JOB</text>
-              <button class="btn_ghost" type="button" @click="closeJobLogs()">Fechar</button>
-            </row>
-            <column class="modal_body log_panel">
-              <column class="scroll_fill">
-                <column class="log_body">
-                  <template x-for="(l, i) in store.jobLogLines" :key="i">
-                    <row class="log_line">
-                      <text class="log_time" x-text="timeHms(l.timestamp)"></text>
-                      <text class="log_text" :style="l.stream === 'Stderr' ? 'color:#F85149' : ''" x-text="l.line"></text>
-                    </row>
-                  </template>
-                  <text class="muted" x-show="store.jobLogLines.length === 0" style="padding:12px">
-                    Aguardando linhas de log…
-                  </text>
-                </column>
+      <!-- Modal de logs ao vivo de uma execução de job -->
+      <column class="modal_backdrop" x-show="$store.app.jobLogsFor" @click.self="$store.app.closeJobLogs()">
+        <column class="modal_box">
+          <row class="modal_head">
+            <text class="label_cap">LOGS DO JOB</text>
+            <button class="btn_ghost" type="button" @click="$store.app.closeJobLogs()">Fechar</button>
+          </row>
+          <column class="modal_body log_panel">
+            <column class="scroll_fill">
+              <column class="log_body">
+                <template x-for="(l, i) in $store.app.jobLogLines" :key="i">
+                  <row class="log_line">
+                    <text class="log_time" x-text="$store.app.timeHms(l.timestamp)"></text>
+                    <text class="log_text" :style="l.stream === 'Stderr' ? 'color:#F85149' : ''" x-text="l.line"></text>
+                  </row>
+                </template>
+                <text class="muted" x-show="$store.app.jobLogLines.length === 0" style="padding:12px">
+                  Aguardando linhas de log…
+                </text>
               </column>
             </column>
           </column>
@@ -1303,6 +1368,8 @@
                   @click="projTab = 'env'" x-text="'Variáveis (' + (project ? project.env_vars.length : 0) + ')'"></button>
           <button type="button" :class="projTab === 'secrets' ? 'tab_on' : 'tab_off'"
                   @click="projTab = 'secrets'" x-text="'Secrets (' + secrets.length + ')'"></button>
+          <button type="button" :class="projTab === 'jobs' ? 'tab_on' : 'tab_off'"
+                  @click="projTab = 'jobs'" x-text="'Jobs (' + jobs.length + ')'"></button>
         </row>
         <hr class="rule" />
 
@@ -1398,6 +1465,36 @@
             <text class="muted" x-show="secrets.length === 0" style="padding:12px">
               Nenhum secret neste projeto ainda.
             </text>
+          </column>
+        </column>
+
+        <!-- Jobs do projeto (tarefas one-shot via docker-compose) — mesma
+             lista/ações da tela global "Schedules", filtrada a este projeto.
+             "+ Novo job" abre o mesmo wizard global (store.openNewJob). -->
+        <column class="env_wrap" x-show="projTab === 'jobs'">
+          <row class="env_head">
+            <text class="muted_fill" x-text="jobs.length + ' job(s)'"></text>
+            <button class="btn_sm_primary" type="button" @click="store.openNewJob()">+ Novo job</button>
+          </row>
+          <text class="muted" x-show="jobs.length === 0" style="padding:12px">
+            Nenhum job cadastrado ainda.
+          </text>
+          <column class="kv_list">
+            <template x-for="j in jobs" :key="j.id">
+              <row class="kv_row">
+                <text class="env_key" x-text="j.name"></text>
+                <text class="muted col_dur" x-text="j.recurrence"></text>
+                <row class="state_cell">
+                  <text class="state_dot" :class="'state_' + j.lastRunKind">●</text>
+                  <text class="state_lbl" :class="'state_' + j.lastRunKind" x-text="j.lastRunLabel"></text>
+                </row>
+                <text class="muted kv_val_fill" x-text="'→ ' + j.nextRunAt"></text>
+                <button class="copy_btn" type="button" @click="store.jobRunNow(j.id)">Rodar agora</button>
+                <button class="copy_btn" type="button" x-show="j.lastRunId" @click="store.openJobLogs(j.lastRunId)">Ver logs</button>
+                <button class="copy_btn" type="button" @click="store.jobToggle(j.id)" x-text="j.enabledLabel"></button>
+                <button class="env_del" type="button" @click="store.jobDelete(j.id)">✕</button>
+              </row>
+            </template>
           </column>
         </column>
       </column>

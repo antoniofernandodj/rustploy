@@ -118,8 +118,71 @@ impl JobRunner {
         let project_name = run_id.to_lowercase();
         let build_dir = self.db_path.join("jobs").join(run_id);
 
+        // Job git-sourced: clona pra dentro do PRÓPRIO build_dir (vira o
+        // checkout) antes do compose — mesma resolução de credenciais do
+        // deploy de serviço git-sourced (`deploy::git::resolve_clone_
+        // credentials`), reusada aqui pra não duplicar. O progresso do clone
+        // vira linha de log do job (mesmo bus_batch que o stdout do compose),
+        // pra aparecer ao vivo em "Ver logs" igual o resto da execução.
+        let build_source = match &job.git_source {
+            Some(git) => {
+                let (token, username) = crate::deploy::git::resolve_clone_credentials(
+                    &self.db,
+                    &self.secrets,
+                    git.provider_id.as_deref(),
+                    git.credentials.as_deref(),
+                    git.username.as_deref(),
+                    &job.project_id,
+                )
+                .await;
+
+                let bus = self.bus.clone();
+                let db_handle = self.db.clone();
+                let jid = job.id.clone();
+                let rid = run_id.to_string();
+                crate::deploy::git::clone(
+                    crate::deploy::git::CloneOptions {
+                        url: &git.url,
+                        branch: &git.branch,
+                        token: token.as_deref(),
+                        username: username.as_deref(),
+                        dir: &build_dir,
+                    },
+                    move |p| {
+                        let ts = Utc::now();
+                        bus.publish(Event::JobLogLine {
+                            job_run_id: rid.clone(),
+                            job_id: jid.clone(),
+                            line: p.description.clone(),
+                            timestamp: ts,
+                            stream: shared::protocol::LogStream::Stdout,
+                        });
+                        let db_handle = db_handle.clone();
+                        let rid = rid.clone();
+                        let line = p.description;
+                        tokio::spawn(async move {
+                            let _ = db::job_log::append(
+                                &db_handle,
+                                &rid,
+                                &shared::protocol::LogStream::Stdout,
+                                &line,
+                                ts,
+                            )
+                            .await;
+                        });
+                    },
+                )
+                .await?;
+
+                docker::compose::JobBuildSource::Git {
+                    compose_rel_path: &git.compose_path,
+                }
+            }
+            None => docker::compose::JobBuildSource::Compose(&job.compose),
+        };
+
         let exit_code = docker::compose::run_once(
-            &job.compose,
+            build_source,
             &project_name,
             &network_name,
             &job.main_service,

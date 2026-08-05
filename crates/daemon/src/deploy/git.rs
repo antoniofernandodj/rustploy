@@ -1,3 +1,5 @@
+use crate::db::Db;
+use crate::secrets::SecretsManager;
 use anyhow::{Result, anyhow};
 use std::path::Path;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -150,6 +152,39 @@ pub async fn clone(
         "git::clone: concluído"
     );
     Ok(())
+}
+
+/// Resolve o token + username de clone a partir de `provider_id` (conta git
+/// conectada — tem precedência) ou `credentials` (nome de um secret do
+/// projeto, fallback quando não há conta conectada). Usado tanto pelo deploy
+/// de serviço git-sourced (`deploy/executor.rs::CloningRepo`) quanto pelo job
+/// git-sourced (`jobs::runner`) — mesma resolução de credenciais nos dois,
+/// extraída daqui pra não duplicar.
+pub async fn resolve_clone_credentials(
+    db: &Db,
+    secrets: &SecretsManager,
+    provider_id: Option<&str>,
+    credentials: Option<&str>,
+    manual_username: Option<&str>,
+    project_id: &str,
+) -> (Option<String>, Option<String>) {
+    let mut provider_login: Option<String> = None;
+    let token = if let Some(pid) = provider_id {
+        match crate::db::git_providers::get(db, pid).await {
+            Ok(Some(p)) => {
+                provider_login = p.account_login.clone();
+                crate::git_providers::usable_token(secrets, &p).ok()
+            }
+            _ => None,
+        }
+    } else if let Some(name) = credentials {
+        secrets.get_raw(project_id, name).await.ok()
+    } else {
+        None
+    };
+    // Login da conta do provider tem precedência sobre o username manual.
+    let username = provider_login.or_else(|| manual_username.map(String::from));
+    (token, username)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
