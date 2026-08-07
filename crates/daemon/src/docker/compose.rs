@@ -376,6 +376,30 @@ pub enum JobBuildSource<'a> {
     Git { compose_rel_path: &'a str },
 }
 
+/// Exit code sentinel pra "job_run cancelado pelo usuário" (`JobRunCancel`)
+/// — distinto do `-1` genérico (processo morto por sinal por outro motivo),
+/// pra a UI poder rotular "Cancelado" em vez de "Falhou". Não exige mudança
+/// de schema: `job_run.exit_code` já é um inteiro livre. Ver
+/// `docs/plano-cancelamento-de-jobs.md`.
+pub const CANCELLED_EXIT_CODE: i32 = -2;
+
+/// Espera até o sinal de cancelamento virar `true` (ou o sender ser
+/// derrubado, o que só acontece se a task inteira já tiver sumido — nesse
+/// caso não há mais nada a cancelar). `watch::Receiver` rastreia versão, não
+/// só o valor: mesmo que `true` já tenha sido enviado ANTES desta chamada
+/// começar a observar, `changed()` retorna na hora — sem race de "perder" um
+/// cancelamento que chegou cedo demais.
+async fn wait_for_cancel(rx: &mut tokio::sync::watch::Receiver<bool>) {
+    loop {
+        if *rx.borrow() {
+            return;
+        }
+        if rx.changed().await.is_err() {
+            return;
+        }
+    }
+}
+
 pub async fn run_once(
     source: JobBuildSource<'_>,
     project_name: &str,
@@ -389,6 +413,7 @@ pub async fn run_once(
     build_dir: &Path,
     registry_internal_token: Option<Arc<str>>,
     mirror_deployment: Option<(String, String)>,
+    cancel_rx: Option<tokio::sync::watch::Receiver<bool>>,
 ) -> Result<i32> {
     info!(project = %project_name, job_id = %job_id, "compose_run_once: iniciando job one-shot");
 
@@ -444,6 +469,7 @@ pub async fn run_once(
         db,
         build_dir,
         mirror_deployment,
+        cancel_rx,
     )
     .await;
 
@@ -493,6 +519,7 @@ async fn run_once_up(
     db: &Arc<Db>,
     build_dir: &Path,
     mirror_deployment: Option<(String, String)>,
+    cancel_rx: Option<tokio::sync::watch::Receiver<bool>>,
 ) -> Result<i32> {
     let mut child = Command::new("docker")
         .args([
@@ -592,11 +619,37 @@ async fn run_once_up(
         }
     };
 
-    tokio::join!(read_stdout, read_stderr);
+    // Sem cancelamento: espera os readers normalmente (eles só terminam
+    // quando os pipes fecham, ou seja, quando o processo sai). Com
+    // cancelamento: corre os readers contra o sinal — se o sinal vencer,
+    // mata o processo (fecha os pipes, os readers terminam sozinhos) em vez
+    // de esperar `read_stdout`/`read_stderr` até o fim (que só terminariam
+    // quando o processo sair por conta própria — exatamente o que o
+    // cancelamento quer evitar).
+    let mut cancelado = false;
+    match cancel_rx {
+        Some(mut rx) => {
+            tokio::select! {
+                _ = async { tokio::join!(read_stdout, read_stderr) } => {}
+                _ = wait_for_cancel(&mut rx) => {
+                    cancelado = true;
+                    let _ = child.start_kill();
+                }
+            }
+        }
+        None => {
+            tokio::join!(read_stdout, read_stderr);
+        }
+    }
+
     let status = child
         .wait()
         .await
         .map_err(|e| anyhow!("falha ao aguardar: {e}"))?;
+
+    if cancelado {
+        return Ok(CANCELLED_EXIT_CODE);
+    }
 
     // `--exit-code-from` propaga o exit code de `main_service` como o do
     // processo `docker compose` — sem código (ex.: morto por sinal) conta
@@ -679,5 +732,42 @@ mod tests {
     #[test]
     fn drops_lines_without_replica_suffix() {
         assert_eq!(filter_main_service_line("main | hello", "main"), None);
+    }
+
+    #[tokio::test]
+    async fn wait_for_cancel_returns_immediately_if_already_true() {
+        // Cobre o caso "cancelamento chegou antes de alguém observar":
+        // watch::Receiver rastreia versão, então mesmo enviado ANTES desta
+        // chamada começar, `changed()` não perde o sinal.
+        let (tx, mut rx) = tokio::sync::watch::channel(false);
+        tx.send(true).unwrap();
+        tokio::time::timeout(std::time::Duration::from_millis(200), wait_for_cancel(&mut rx))
+            .await
+            .expect("wait_for_cancel não deveria bloquear quando já está true");
+    }
+
+    #[tokio::test]
+    async fn wait_for_cancel_resolves_when_sent_later() {
+        let (tx, mut rx) = tokio::sync::watch::channel(false);
+        let waiter = tokio::spawn(async move {
+            wait_for_cancel(&mut rx).await;
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        tx.send(true).unwrap();
+        tokio::time::timeout(std::time::Duration::from_millis(200), waiter)
+            .await
+            .expect("wait_for_cancel deveria resolver após o send")
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn wait_for_cancel_returns_when_sender_dropped() {
+        // Sender derrubado sem nunca enviar `true` (task já sumiu) — não
+        // pode travar pra sempre.
+        let (tx, mut rx) = tokio::sync::watch::channel(false);
+        drop(tx);
+        tokio::time::timeout(std::time::Duration::from_millis(200), wait_for_cancel(&mut rx))
+            .await
+            .expect("wait_for_cancel não deveria travar com o sender derrubado");
     }
 }

@@ -205,6 +205,13 @@ pub enum Command {
     JobRunNow {
         id: String,
     },
+    /// Cancela um `job_run` em andamento: mata o processo `docker compose
+    /// up` de verdade (não só a task) — ver `AppState::active_jobs`. Erro
+    /// `NotFound` se o run já não estiver mais registrado como em execução
+    /// (terminou, ou o id nunca existiu).
+    JobRunCancel {
+        job_run_id: String,
+    },
     JobRunHistory {
         job_id: String,
         limit: usize,

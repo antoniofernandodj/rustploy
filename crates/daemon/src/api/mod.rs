@@ -25,6 +25,17 @@ pub type OAuthStates = Arc<Mutex<HashMap<String, String>>>;
 /// Permite cancelar a task do executor ao receber DeployAbort.
 pub type ActiveDeploys = Arc<Mutex<HashMap<String, tokio::task::AbortHandle>>>;
 
+/// Sinais de cancelamento para `job_run`s em execução: job_run_id → sender
+/// de um `watch<bool>` (valor `true` = cancelar). Diferente de
+/// `ActiveDeploys` (que aborta a TASK): abortar só a task não mata o
+/// processo `docker compose up` filho — `tokio::process::Child` não é
+/// `kill_on_drop` por padrão, então uma task abortada deixaria o processo
+/// (e os containers que ele sobe) órfãos. O sinal aqui é observado dentro de
+/// `docker::compose::run_once_up`, que mata o processo de verdade
+/// (`Child::kill`) antes de retornar — o `down()` de sempre cuida de
+/// desmontar containers/rede depois. Ver `docs/plano-cancelamento-de-jobs.md`.
+pub type ActiveJobs = Arc<Mutex<HashMap<String, tokio::sync::watch::Sender<bool>>>>;
+
 /// How long the host-wide Docker inventory (`docker system df` + the network
 /// cross-reference) stays cached before the next request re-hits the Docker
 /// Engine. These calls are slow (hundreds of ms to seconds) and the 2s status
@@ -111,6 +122,8 @@ pub struct AppState {
     pub started_at: std::time::Instant,
     pub oauth_states: OAuthStates,
     pub active_deploys: ActiveDeploys,
+    /// Ver [`ActiveJobs`].
+    pub active_jobs: ActiveJobs,
     /// Fila global de deploys (um por vez). `deploy_start` enfileira aqui e o
     /// worker (`crate::deploy::queue::run_worker`) puxa serialmente.
     pub deploy_queue: Arc<crate::deploy::queue::DeployQueue>,
@@ -156,6 +169,7 @@ impl AppState {
             started_at: std::time::Instant::now(),
             oauth_states: Arc::new(Mutex::new(HashMap::new())),
             active_deploys: Arc::new(Mutex::new(HashMap::new())),
+            active_jobs: Arc::new(Mutex::new(HashMap::new())),
             deploy_queue: crate::deploy::queue::DeployQueue::new(),
             docker_cache: Arc::new(DockerCache::new()),
             registry_storage,

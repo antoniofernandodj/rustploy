@@ -8,12 +8,14 @@ local State = require("../state")
 local Stream = require("stream")
 local fmt = require("../fmt")
 
--- Trava double-click: entre o click e o refresh_now() logo abaixo (que é
--- quando o botão passa a refletir `running=true` vindo do snapshot), a RPC
--- ainda está em voo — sem essa trava um segundo click nesse intervalo
--- dispara um segundo job_run. `jobs_inflight` some assim que o refresh_now()
--- termina (sucesso ou erro), já tendo entregue um snapshot fresco pro botão
--- decidir sozinho (via `j.running`) se continua desabilitado.
+-- Bloqueia o botão IMEDIATAMENTE ao clicar (antes de qualquer resposta do
+-- backend chegar) e trava double-click: `State.jobs_inflight[id] = true` +
+-- os dois recomputos locais (sem RPC) fazem `j.running` virar `true` na
+-- HORA em ambas as telas (sidebar Schedules e aba Jobs do projeto) — sem
+-- isso o botão só desabilitava quando `refresh_now()` (rede) terminava,
+-- alguns segundos depois do click. Só desbloqueia em erro (na hora, sem
+-- esperar `refresh_now()`) ou depois que `refresh_now()` confirma o
+-- `job_run` criado (dali em diante `j.running` já vem do snapshot real).
 function job_run_now(id: string): ()
     local api = State.api
     if not api then
@@ -23,14 +25,40 @@ function job_run_now(id: string): ()
         return
     end
     State.jobs_inflight[id] = true
+    Stream.update_open_project()
+    Stream.refresh_jobs_summary_local()
+
     local ok, res = api:rpc_checked{ JobRunNow = { id = id } }
+    if not ok then
+        toast{ message = tostring(res), kind = "error" }
+        State.jobs_inflight[id] = nil
+        Stream.update_open_project()
+        Stream.refresh_jobs_summary_local()
+        return
+    end
+    toast{ message = tostring("Job disparado"), kind = "success" }
+    Stream.refresh_now()
+    State.jobs_inflight[id] = nil
+end
+
+-- Cancela um job_run em execução (ver docs/plano-cancelamento-de-jobs.md):
+-- mata o processo `docker compose up` de verdade no daemon, não só a UI.
+-- `job_run_id` vem de `j.last_run_id` — enquanto `j.running` só reflete o
+-- estado otimista (ver `job_run_now`, antes do primeiro refresh confirmar o
+-- job_run novo), pode ainda apontar pro run ANTERIOR; o daemon devolve
+-- NotFound nesse caso (inofensivo, só o toast de erro).
+function job_run_cancel(job_run_id: string): ()
+    local api = State.api
+    if not api or not job_run_id or job_run_id == "" then
+        return
+    end
+    local ok, res = api:rpc_checked{ JobRunCancel = { job_run_id = job_run_id } }
     if ok then
-        toast{ message = tostring("Job disparado"), kind = "success" }
+        toast{ message = tostring("Cancelamento solicitado"), kind = "success" }
     else
         toast{ message = tostring(res), kind = "error" }
     end
     Stream.refresh_now()
-    State.jobs_inflight[id] = nil
 end
 
 -- Pausa/ativa um job: `JobUpdate` substitui o registro inteiro, então
@@ -121,6 +149,12 @@ function open_edit_job_window(id: string): ()
     if job.git_source and api then
         local pid = job.git_source.provider_id
         if pid and pid ~= "" then
+            -- Essa cascata de RPCs (conta → repos → branches) roda ANTES de
+            -- `open_window` — a janela filha não pode buscar no próprio
+            -- init (mesma restrição de `open_new_job_window`), então até ela
+            -- abrir o clique em "Editar" fica sem NENHUM feedback visual.
+            -- Só o toast avisa que algo está acontecendo nesse intervalo.
+            toast{ message = tostring("Carregando dados do repositório…"), kind = "info" }
             local okp, resp = api:rpc("GitProviderList")
             if okp and resp.GitProviders then
                 njob_git_providers = fmt.git_providers(resp.GitProviders)

@@ -14,7 +14,7 @@ document.addEventListener("alpine:init", () => {
     timeHms,
 
     get rows() {
-      return jobSummaryRows(this.store.snap?.jobs, this.store.search);
+      return jobSummaryRows(this.store.snap?.jobs, this.store.search, this.store.jobsInflight);
     },
   }));
 });

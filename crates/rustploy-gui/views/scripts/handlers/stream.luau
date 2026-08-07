@@ -101,12 +101,28 @@ local function update_open_project(): ()
             table.insert(proj_jobs, s)
         end
     end
-    local jobs_json, jobs_count = fmt.job_summaries(proj_jobs)
+    local jobs_json, jobs_count = fmt.job_summaries(proj_jobs, State.jobs_inflight)
     ctx.proj_jobs = jobs_json
     ctx.proj_jobs_count = tostring(jobs_count)
 end
 
 M.update_open_project = update_open_project
+
+-- Recomputa SÓ `ctx.jobs_summary`/`ctx.jobs_count` (tela global "Schedules")
+-- a partir do último snapshot em cache — sem RPC. Chamada por
+-- handlers/jobs.luau::job_run_now logo após tocar `State.jobs_inflight`,
+-- pra o botão desabilitar na hora, sem esperar o round-trip do
+-- `JobRunNow`/`refresh_now()`.
+local function refresh_jobs_summary_local(): ()
+    local snap = State.snap
+    if not snap then
+        return
+    end
+    local jobs_summary, jobs_count = fmt.job_summaries(snap.jobs, State.jobs_inflight)
+    ctx.jobs_summary = jobs_summary
+    ctx.jobs_count = tostring(jobs_count)
+end
+M.refresh_jobs_summary_local = refresh_jobs_summary_local
 
 local function apply_snapshot(msg: any): ()
     State.snap = msg
@@ -195,7 +211,7 @@ local function apply_snapshot(msg: any): ()
         jobs_by_id[s.job.id] = s.job
     end
     State.jobs_by_id = jobs_by_id
-    local jobs_summary, jobs_count = fmt.job_summaries(msg.jobs)
+    local jobs_summary, jobs_count = fmt.job_summaries(msg.jobs, State.jobs_inflight)
     ctx.jobs_summary = jobs_summary
     ctx.jobs_count = tostring(jobs_count)
 

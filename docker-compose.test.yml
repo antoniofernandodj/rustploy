@@ -1,0 +1,16 @@
+services:
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile        # o mesmo Dockerfile do serviço, ou um Dockerfile.test com deps de dev
+    command: pytest -v --maxfail=1 --junitxml=/tmp/report.xml
+    env_file: .env                  # o runner do job já grava aqui as env vars do projeto/serviço gatilho
+    depends_on:
+      - db
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: test

@@ -46,6 +46,7 @@ pub mod job_create;
 pub mod job_delete;
 pub mod job_list;
 pub mod job_list_all;
+pub mod job_run_cancel;
 pub mod job_run_history;
 pub mod job_run_now;
 pub mod job_update;

@@ -40,14 +40,38 @@ pub async fn spawn(state: &AppState, job: Job) -> Result<JobRun> {
         registry_internal_token: state.registry_internal_token.clone(),
     });
     let run_id = run.id.clone();
+
+    // Sinal de cancelamento (`Command::JobRunCancel` → `AppState::
+    // active_jobs`): registrado ANTES da task começar a rodar, removido
+    // depois de terminar (sucesso, falha ou cancelamento) — mesmo idioma de
+    // `active_deploys`, mas com um `watch<bool>` observado dentro de
+    // `docker::compose::run_once_up` em vez de abortar a task (abortar a
+    // task não mataria o processo `docker compose up` filho). Só o caminho
+    // scheduler/`JobRunNow` (aqui) registra — o `run_inner_mirrored` chamado
+    // pelo `DeployExecutor` (`PreDeployCheck`) passa `None`, fora de escopo
+    // por ora.
+    let (cancel_tx, cancel_rx) = tokio::sync::watch::channel(false);
+    if let Ok(mut map) = state.active_jobs.lock() {
+        map.insert(run_id.clone(), cancel_tx);
+    }
+    let active_jobs = state.active_jobs.clone();
+
     tokio::spawn(async move {
-        runner.run(&job, run_id).await;
+        runner.run(&job, run_id.clone(), Some(cancel_rx)).await;
+        if let Ok(mut map) = active_jobs.lock() {
+            map.remove(&run_id);
+        }
     });
     Ok(run)
 }
 
 impl JobRunner {
-    pub async fn run(&self, job: &Job, run_id: String) {
+    pub async fn run(
+        &self,
+        job: &Job,
+        run_id: String,
+        cancel_rx: Option<tokio::sync::watch::Receiver<bool>>,
+    ) {
         info!(job_id = %job.id, run_id = %run_id, "job_runner: iniciando execução");
         self.bus.publish(Event::JobRunStateChanged {
             job_id: job.id.clone(),
@@ -56,7 +80,7 @@ impl JobRunner {
             success: None,
         });
 
-        let result = self.run_inner(job, &run_id).await;
+        let result = self.run_inner_mirrored(job, &run_id, None, cancel_rx).await;
         let success = match &result {
             Ok(exit_code) => *exit_code == 0,
             Err(e) => {
@@ -78,23 +102,19 @@ impl JobRunner {
 
     /// Roda `job` até o `main_service` terminar e devolve o exit code — sem
     /// tocar em `job.recurrence`/`reschedule` (isso é responsabilidade de
-    /// `run()`, chamado pelo scheduler/`JobRunNow`). Reaproveitado pelo
-    /// `DeployExecutor` para o estado `PreDeployCheck` (ver
-    /// `docs/plano-pre-deploy-gate.md`): a chamada do gate cria/finaliza o
-    /// `job_run` do mesmo jeito, mas não deve mexer no agendamento do job.
-    pub(crate) async fn run_inner(&self, job: &Job, run_id: &str) -> Result<i32> {
-        self.run_inner_mirrored(job, run_id, None).await
-    }
-
-    /// Como [`Self::run_inner`], mas espelha a saída como `Event::BuildLog`
-    /// de `mirror_deployment = Some((deployment_id, service_id))` — usado
-    /// pelo `DeployExecutor` no estado `PreDeployCheck` pra a saída do check
-    /// aparecer na tela de deploy.
+    /// `run()`, chamado pelo scheduler/`JobRunNow`). `mirror_deployment`,
+    /// quando `Some((deployment_id, service_id))`, também espelha a saída
+    /// como `Event::BuildLog` — usado pelo `DeployExecutor` no estado
+    /// `PreDeployCheck` (ver `docs/plano-pre-deploy-gate.md`) pra a saída do
+    /// check aparecer na tela de deploy; nesse caminho `cancel_rx` é sempre
+    /// `None` (cancelamento de job só é suportado no caminho scheduler/
+    /// `JobRunNow`, via `spawn()` — ver `docs/plano-cancelamento-de-jobs.md`).
     pub(crate) async fn run_inner_mirrored(
         &self,
         job: &Job,
         run_id: &str,
         mirror_deployment: Option<(String, String)>,
+        cancel_rx: Option<tokio::sync::watch::Receiver<bool>>,
     ) -> Result<i32> {
         let network_name = networks::ensure_project_network(&self.docker.inner, &job.project_id).await?;
 
@@ -170,21 +190,30 @@ impl JobRunner {
             None => docker::compose::JobBuildSource::Compose(&job.compose),
         };
 
-        let exit_code = docker::compose::run_once(
-            build_source,
-            &project_name,
-            &network_name,
-            &job.main_service,
-            &job.id,
-            run_id,
-            &self.bus,
-            &self.db,
-            &env_vars,
-            &build_dir,
-            self.registry_internal_token.clone(),
-            mirror_deployment,
-        )
-        .await?;
+        // Cancelamento pode chegar durante um clone Git lento (não
+        // interrompido no meio — só checado depois); sem isso, o job
+        // seguiria pra subir containers mesmo já tendo sido cancelado.
+        let already_cancelled = cancel_rx.as_ref().map(|rx| *rx.borrow()).unwrap_or(false);
+        let exit_code = if already_cancelled {
+            docker::compose::CANCELLED_EXIT_CODE
+        } else {
+            docker::compose::run_once(
+                build_source,
+                &project_name,
+                &network_name,
+                &job.main_service,
+                &job.id,
+                run_id,
+                &self.bus,
+                &self.db,
+                &env_vars,
+                &build_dir,
+                self.registry_internal_token.clone(),
+                mirror_deployment,
+                cancel_rx,
+            )
+            .await?
+        };
 
         db::job_run::finish(&self.db, run_id, exit_code).await?;
 

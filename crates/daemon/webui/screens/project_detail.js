@@ -60,7 +60,7 @@ document.addEventListener("alpine:init", () => {
     get jobs() {
       const pid = this.store.selectedProjectId;
       const list = (this.store.snap?.jobs || []).filter((s) => s.job.project_id === pid);
-      return jobSummaryRows(list);
+      return jobSummaryRows(list, "", this.store.jobsInflight);
     },
 
     startEdit() {

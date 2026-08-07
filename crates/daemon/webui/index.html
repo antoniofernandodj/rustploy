@@ -851,8 +851,10 @@
                     <text class="muted col_dur" x-text="j.recurrence"></text>
                     <text class="muted col_dur" x-text="j.nextRunAt"></text>
                     <row class="col_act_5">
-                      <button class="copy_btn" type="button" title="Rodar agora" :disabled="j.running"
-                              @click="store.jobRunNow(j.id)" x-text="j.running ? '…' : '▶'"></button>
+                      <button class="copy_btn" type="button" title="Rodar agora" x-show="!j.running"
+                              @click="store.jobRunNow(j.id)">▶</button>
+                      <button class="env_del" type="button" title="Cancelar" x-show="j.running"
+                              @click="store.jobRunCancel(j.lastRunId)">■</button>
                       <button class="copy_btn" type="button" title="Ver logs" x-show="j.lastRunId"
                               @click="store.openJobLogs(j.lastRunId)">≡</button>
                       <button class="copy_btn" type="button" :title="j.enabledLabel" @click="store.jobToggle(j.id)"
@@ -1488,8 +1490,8 @@
                   <text class="state_lbl" :class="'state_' + j.lastRunKind" x-text="j.lastRunLabel"></text>
                 </row>
                 <text class="muted kv_val_fill" x-text="'→ ' + j.nextRunAt"></text>
-                <button class="copy_btn" type="button" :disabled="j.running" @click="store.jobRunNow(j.id)"
-                        x-text="j.running ? 'Rodando…' : 'Rodar agora'"></button>
+                <button class="copy_btn" type="button" x-show="!j.running" @click="store.jobRunNow(j.id)">Rodar agora</button>
+                <button class="env_del" type="button" x-show="j.running" @click="store.jobRunCancel(j.lastRunId)">Cancelar</button>
                 <button class="copy_btn" type="button" x-show="j.lastRunId" @click="store.openJobLogs(j.lastRunId)">Ver logs</button>
                 <button class="copy_btn" type="button" @click="store.jobToggle(j.id)" x-text="j.enabledLabel"></button>
                 <button class="copy_btn" type="button" @click="store.openEditJob(j.id)">Editar</button>

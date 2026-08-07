@@ -46,6 +46,7 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::JobList { .. } => "JobList",
         Command::JobListAll => "JobListAll",
         Command::JobRunNow { .. } => "JobRunNow",
+        Command::JobRunCancel { .. } => "JobRunCancel",
         Command::JobRunHistory { .. } => "JobRunHistory",
         Command::GetJobLogs { .. } => "GetJobLogs",
         Command::PruneContainers => "PruneContainers",
@@ -253,6 +254,9 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::JobList { project_id } => handlers::job_list::handle(state, project_id).await,
         Command::JobListAll => handlers::job_list_all::handle(state).await,
         Command::JobRunNow { id } => handlers::job_run_now::handle(state, id).await,
+        Command::JobRunCancel { job_run_id } => {
+            handlers::job_run_cancel::handle(state, job_run_id).await
+        }
         Command::JobRunHistory { job_id, limit } => {
             handlers::job_run_history::handle(state, job_id, limit).await
         }

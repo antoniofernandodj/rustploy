@@ -84,7 +84,12 @@ pub(crate) fn run() -> iced::Result {
                 }
             motor.set_initial_screen("app");
         })
-        .toast_period(Duration::from_millis(250));
+        .toast_period(Duration::from_millis(250))
+        // O MSAAx4 default do iced custa caro num fallback 100% por software
+        // (sem GPU compatível — `wgpu` recusa adapters não-Vulkan-compliant e
+        // cai pra CPU). Telas de formulário/lista não perdem em legibilidade
+        // sem antialiasing, então o custo não compensa aqui.
+        .antialiasing(false);
 
     // Release: injeta a fonte de assets embutida — o motor passa a ler
     // templates/estilos/scripts/binários de dentro do binário, e nada do disco.

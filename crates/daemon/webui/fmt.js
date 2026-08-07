@@ -672,8 +672,15 @@ export function jobRunStateLabel(run) {
   return run.success ? ["ok", "ok"] : ["falhou", "bad"];
 }
 
-/** Tela global "Schedules": uma linha por job, de todos os projetos. */
-export function jobSummaryRows(list, term) {
+/** Tela global "Schedules": uma linha por job, de todos os projetos.
+ * `inflight` (opcional): `store.jobsInflight` — job_id → true entre o click
+ * em "Rodar agora" e a confirmação do servidor (ver app.js::jobRunNow). Sem
+ * isso, `running` só reflete o snapshot já confirmado pelo daemon, deixando
+ * o botão clicável durante todo o round-trip da RPC — como os dois call
+ * sites (schedules.js/project_detail.js) são `get` do Alpine, passar
+ * `store.jobsInflight` aqui é suficiente pra eles recomputarem sozinhos
+ * assim que o objeto mutar (reatividade do Proxy do Alpine). */
+export function jobSummaryRows(list, term, inflight) {
   const t = (term || "").toLowerCase();
   const rows = [];
   for (const s of list || []) {
@@ -690,9 +697,11 @@ export function jobSummaryRows(list, term) {
       enabledLabel: job.enabled ? "Pausar" : "Ativar",
       lastRunLabel,
       lastRunKind,
-      // Usado pra desativar/trocar o botão "Rodar agora" enquanto o job_run
-      // em voo não termina (mesma condição de lastRunKind === "warn").
-      running: lastRunKind === "warn",
+      // `running`: usado pra desativar/trocar o botão "Rodar agora" enquanto
+      // o job_run em voo não termina. `lastRunKind === "warn"` é o estado
+      // CONFIRMADO pelo servidor; `inflight[job.id]` cobre o intervalo entre
+      // o click e essa confirmação chegar.
+      running: lastRunKind === "warn" || !!(inflight && inflight[job.id]),
       lastRunId: s.last_run ? s.last_run.id : "",
       nextRunAt: job.next_run_at ? dateDmHm(job.next_run_at) : "—",
     });

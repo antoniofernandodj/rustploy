@@ -217,7 +217,7 @@ impl DeployExecutor {
                         registry_internal_token: self.registry_internal_token.clone(),
                     };
                     let result = runner
-                        .run_inner_mirrored(&job, &run.id, Some((dep.id.clone(), svc.id.clone())))
+                        .run_inner_mirrored(&job, &run.id, Some((dep.id.clone(), svc.id.clone())), None)
                         .await;
 
                     let (exit_code, success) = match &result {

@@ -47,7 +47,11 @@ function M.run_status(run: any): (string, string)
 end
 
 -- Tela global "Schedules": uma linha por job, de todos os projetos.
-function M.summaries(list: { any }?): (string, number)
+-- `inflight` (opcional): `State.jobs_inflight` — job_id → true entre o click
+-- em "Rodar agora" e a confirmação do servidor (ver handlers/jobs.luau::
+-- job_run_now). Sem isso, `running` só reflete o snapshot já confirmado
+-- pelo daemon, deixando o botão clicável durante todo o round-trip da RPC.
+function M.summaries(list: { any }?, inflight: { [string]: boolean }?): (string, number)
     local B = Util.col_budgets()
     local rows = {}
     for _, s in ipairs(list or {}) do
@@ -69,9 +73,10 @@ function M.summaries(list: { any }?): (string, number)
             last_run_label = status_label,
             last_run_kind = status_kind,
             -- `running`: usado pra desativar/trocar o botão "Rodar agora"
-            -- enquanto o job_run em voo não termina (mesma condição de
-            -- status_kind == "warn").
-            running = status_kind == "warn",
+            -- enquanto o job_run em voo não termina. `status_kind == "warn"`
+            -- é o estado CONFIRMADO pelo servidor; `inflight[job.id]` cobre o
+            -- intervalo entre o click e essa confirmação chegar.
+            running = status_kind == "warn" or (inflight ~= nil and inflight[job.id] == true),
             last_run_id = s.last_run and s.last_run.id or "",
             next_run_at = job.next_run_at and Time.date_dm_hm(job.next_run_at) or "—",
         })

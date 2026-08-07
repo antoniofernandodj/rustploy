@@ -98,6 +98,13 @@ impl AssetSource for EmbeddedAssets {
         // Embutido não muda sob o processo → desliga o hot-reload no motor.
         None
     }
+
+    fn supports_reload(&self) -> bool {
+        // Sem isto o daemon manteria o ticker de hot-reload rodando pra
+        // sempre (redesenha a tela inteira a cada tick) sem nunca ter
+        // trabalho de verdade a fazer — `modified` já é `None` sempre aqui.
+        false
+    }
 }
 
 // Estes testes só existem em build de release (o módulo inteiro é

@@ -775,6 +775,19 @@ document.addEventListener("alpine:init", () => {
       }
     },
 
+    /** Cancela um job_run em execução (ver docs/plano-cancelamento-de-jobs.md):
+     * mata o processo `docker compose up` de verdade no daemon, não só a UI.
+     * `jobRunId` vem de `j.lastRunId` — enquanto `j.running` só reflete o
+     * estado otimista de `jobsInflight` (antes do primeiro refresh confirmar
+     * o job_run novo), pode ainda apontar pro run ANTERIOR; o daemon devolve
+     * NotFound nesse caso (inofensivo, só a mensagem de erro). */
+    async jobRunCancel(jobRunId) {
+      if (!jobRunId) return;
+      const r = await this.api.rpcChecked({ JobRunCancel: { job_run_id: jobRunId } });
+      this.jobMsg = r.ok ? "cancelamento solicitado" : "erro: " + r.error;
+      await this.refreshNow();
+    },
+
     /** Reenvia o Job inteiro (só `enabled` inverte) — o daemon não tem um
      * PATCH parcial; mesma limitação do cliente iced. */
     async jobToggle(id) {
@@ -1077,6 +1090,10 @@ document.addEventListener("alpine:init", () => {
         this.njobComposePath = job.git_source.compose_path || "docker-compose.yml";
         this.njobGitProviderId = job.git_source.provider_id || "";
         if (this.njobGitProviderId) {
+          // O modal já está visível neste ponto (showNewJob=true lá em cima)
+          // — sem esta mensagem os selects de repo/branch ficam vazios,
+          // sem nenhuma explicação, durante os 2-3 round-trips abaixo.
+          this.njobGitMsg = "carregando repositórios…";
           const rp = await this.api.rpc("GitProviderList");
           if (rp.ok && rp.value?.GitProviders) this.njobGitProviders = rp.value.GitProviders;
           const rr = await this.api.rpc({ GitRepoList: { provider_id: this.njobGitProviderId } });
@@ -1085,6 +1102,7 @@ document.addEventListener("alpine:init", () => {
             const match = this.njobGitRepos.find((repo) => repo.clone_url === job.git_source.url);
             this.njobGitRepoFullName = match?.full_name || "";
             if (this.njobGitRepoFullName) {
+              this.njobGitMsg = "carregando branches…";
               const rb = await this.api.rpc({
                 GitBranchList: {
                   provider_id: this.njobGitProviderId,
@@ -1094,6 +1112,7 @@ document.addEventListener("alpine:init", () => {
               if (rb.ok && rb.value?.GitBranches) this.njobGitBranches = rb.value.GitBranches;
             }
           }
+          this.njobGitMsg = "";
         }
       } else {
         this.njobSourceTab = "compose";
