@@ -5,7 +5,8 @@
 .login_brand      { width: fill; spacing: 6; align-x: start; }
 .field_group      { width: fill; spacing: 6; }
 .field_row        { width: fill; }
-.login_checks     { width: fill; spacing: 8; padding: 4 0; }
+.forget_row       { width: fill; align-x: end; padding: 2 0; }
+.forget_btn       { size: 11; color: var(--muted); }
 .status_row       { spacing: 14; align-y: center; }
 .login_title      { size: 30; bold: true; color: #A9C7FF; }
 .field_label      { size: 11; bold: true; color: var(--muted); }
@@ -46,10 +47,14 @@
           </text>
         </row>
 
-        <input
+        <ComboEdit
+          options="saved_servers"
+          value="url"
           placeholder="https://rustploy.domain.com"
           class="field_input"
-          form_control="url"
+          onChange="servidor_escolhido"
+          onSelect="servidor_escolhido"
+          width="fill"
         />
 
         <text
@@ -57,6 +62,10 @@
           not_equals=""
           class="err"
         >{erro_url}</text>
+
+        <row class="forget_row">
+          <button class="forget_btn" on_click="esquecer_servidor" text="Esquecer este servidor" />
+        </row>
       </column>
 
       <column class="field_group">
@@ -72,21 +81,6 @@
           placeholder="token de acesso"
           class="field_input"
           form_control="token"
-        />
-
-      </column>
-
-      <column class="login_checks">
-
-        <checkbox
-          checked="remember_url"
-          on_toggle="toggle_remember_url"
-          label="Remember server"
-        />
-        <checkbox
-          checked="remember_token"
-          on_toggle="toggle_remember_token"
-          label="Remember token"
         />
 
       </column>

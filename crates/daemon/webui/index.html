@@ -39,16 +39,6 @@
       <form @submit.prevent="submit()">
         <column class="field_group">
           <row class="field_row">
-            <text class="field_label" style="flex:1">SERVER URL</text>
-            <text class="field_label">ENDPOINT</text>
-          </row>
-          <input class="field_input" type="text" placeholder="https://rustploy.dominio.com"
-                 x-model="$store.app.url" />
-          <text class="err" x-show="$store.app.erroUrl" x-text="$store.app.erroUrl"></text>
-        </column>
-
-        <column class="field_group" style="margin-top:16px">
-          <row class="field_row">
             <text class="field_label" style="flex:1">ACCESS TOKEN</text>
             <text class="field_label">SECURE</text>
           </row>
@@ -57,10 +47,6 @@
         </column>
 
         <column class="login_checks" style="margin-top:16px">
-          <label class="check_row">
-            <input type="checkbox" x-model="$store.app.rememberUrl" @change="$store.app.persistPrefs()" />
-            <span>Remember server</span>
-          </label>
           <label class="check_row">
             <input type="checkbox" x-model="$store.app.rememberToken" @change="$store.app.persistPrefs()" />
             <span>Remember token</span>

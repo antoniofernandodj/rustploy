@@ -62,12 +62,11 @@ document.addEventListener("alpine:init", () => {
     connected: false,
     statusLine: "pronto para conectar",
     error: "",
-    erroUrl: "",
 
     // ── Formulário de login ───────────────────────────────────────────
-    url: prefs.rememberUrl && prefs.url ? prefs.url : "",
+    // Sem campo de servidor: a webui é sempre servida pelo próprio daemon
+    // (ver net/api.js), então o servidor é a própria origem da página.
     token: prefs.rememberToken && prefs.token ? prefs.token : "",
-    rememberUrl: !!prefs.rememberUrl,
     rememberToken: !!prefs.rememberToken,
 
     // ── Sessão ativa ─────────────────────────────────────────────────
@@ -222,39 +221,15 @@ document.addEventListener("alpine:init", () => {
 
     persistPrefs() {
       savePrefs({
-        rememberUrl: this.rememberUrl,
         rememberToken: this.rememberToken,
-        url: this.rememberUrl ? this.url : undefined,
         token: this.rememberToken ? this.token : undefined,
       });
     },
 
-    normalizeUrl(raw) {
-      const u = (raw || "").trim();
-      if (!u) return null;
-      const m = u.match(/^([a-zA-Z][\w+.-]*):\/\/(.*)$/);
-      let scheme, rest;
-      if (m) {
-        scheme = m[1].toLowerCase();
-        if (scheme !== "http" && scheme !== "https") return null;
-        rest = m[2];
-      } else {
-        scheme = "https";
-        rest = u;
-      }
-      rest = rest.split(/[/?#]/)[0];
-      if (!rest) return null;
-      return `${scheme}://${rest}`;
-    },
-
     async connect() {
-      const base = this.normalizeUrl(this.url);
-      if (!base) {
-        this.erroUrl = "URL inválida (ex.: https://rustploy.dominio.com)";
-        return;
-      }
-      this.erroUrl = "";
-      this.url = base;
+      // Sem servidor pra digitar: a webui só existe servida pelo próprio
+      // daemon, então a origem da página É o servidor.
+      const base = window.location.origin;
       this.persistPrefs();
       this.statusLine = "conectando…";
       this.error = "";

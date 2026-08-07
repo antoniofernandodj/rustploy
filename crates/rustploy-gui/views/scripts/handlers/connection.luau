@@ -8,22 +8,74 @@ local Helpers = require("../helpers")
 local Api = require("../net/api")
 local Stream = require("stream")
 
--- ── persistência do login lembrado (via o global `storage` do glacier) ──────
--- Antes o Rust gravava isto (store::Prefs + hook on_message); agora a própria
--- camada Luau é dona da escrita. `storage` grava num arquivo local que sobrevive
--- a restart (fora do `ctx`, que é só memória), em
+-- ── login lembrado: lista de servidor/token (via o `storage` do glacier) ────
+-- Antes era um único par com dois checkboxes "lembrar"; agora toda conexão
+-- bem-sucedida salva/atualiza sozinha (ver `connect()`), sem checkbox nenhum,
+-- e quem administra mais de um daemon tem a lista inteira num
+-- `<ComboEdit>` (login.gv): escolher um servidor já conhecido preenche o
+-- token sozinho; digitar um novo deixa o campo livre pra um par ainda não
+-- salvo. `storage` grava num arquivo local que sobrevive a restart (fora do
+-- `ctx`, que é só memória), em
 -- `~/.local/share/rustploy/.glacier-storage/app.json` (raiz definida por
--- `.storage_dir(...)` no Rust). Só guarda url/token quando o respectivo
--- "lembrar" está ligado; senão os campos ficam de fora.
-local function persist_prefs(): ()
-    local remember_url = ctx.remember_url == "true"
-    local remember_token = ctx.remember_token == "true"
-    storage.set("prefs", {
-        remember_url = remember_url,
-        remember_token = remember_token,
-        url = remember_url and ctx.url or nil,
-        token = remember_token and ctx.token or nil,
-    })
+-- `.storage_dir(...)` no Rust).
+local saved_servers: { { url: string, token: string } } = {}
+
+-- Publica só as URLs (o `<ComboEdit>` não precisa do token pra montar a
+-- lista — o token vem de `token_for` quando um item é escolhido).
+local function publish_saved_servers(): ()
+    local urls = json.array{}
+    for _, s in ipairs(saved_servers) do
+        table.insert(urls, s.url)
+    end
+    ctx.saved_servers = json.encode(urls)
+end
+
+local function token_for(url: string): string?
+    for _, s in ipairs(saved_servers) do
+        if s.url == url then
+            return s.token
+        end
+    end
+    return nil
+end
+
+-- Salva/atualiza um par e o move pro topo da lista — o mais usado por último
+-- fica em primeiro, e é também o que `init()` pré-preenche no próximo boot.
+local function remember_server(url: string, token: string): ()
+    for i = #saved_servers, 1, -1 do
+        if saved_servers[i].url == url then
+            table.remove(saved_servers, i)
+        end
+    end
+    table.insert(saved_servers, 1, { url = url, token = token })
+    storage.set("saved_servers", saved_servers)
+    publish_saved_servers()
+end
+
+-- Handler do `<ComboEdit>` de servidor: dispara a cada tecla (`onChange`) e
+-- ao escolher um item já salvo (`onSelect`). Se a URL atual bate com um
+-- servidor conhecido, preenche o token junto; se não bate com nenhum,
+-- LIMPA o token — sem isso, trocar de um servidor salvo pra um digitado na
+-- mão mantinha o token do servidor anterior no campo, e um Connect apressado
+-- mandava o token errado pro servidor novo.
+function servidor_escolhido(value: string): ()
+    ctx.token = token_for(value) or ""
+end
+
+-- Botão "Esquecer" ao lado do combo: remove o servidor atual da lista salva
+-- e limpa os campos — sem isso a tela continuava mostrando o par recém
+-- esquecido até a próxima troca de servidor ou reabertura do app.
+function esquecer_servidor(): ()
+    local url = ctx.url or ""
+    for i = #saved_servers, 1, -1 do
+        if saved_servers[i].url == url then
+            table.remove(saved_servers, i)
+        end
+    end
+    storage.set("saved_servers", saved_servers)
+    publish_saved_servers()
+    ctx.url = ""
+    ctx.token = ""
 end
 
 -- ── init: semeia o contexto para a UI pintar antes de qualquer dado ─────────
@@ -95,32 +147,18 @@ function init(): ()
             ctx[k] = "…"
         end
     end
-    -- Semeia o formulário de login com o que foi lembrado (persistido via
-    -- `storage`), para nascer preenchido. url/token só voltam quando o respectivo
-    -- "lembrar" estava ligado.
-    local prefs = storage.get("prefs")
-    if type(prefs) == "table" then
-        ctx.remember_url = prefs.remember_url and "true" or "false"
-        ctx.remember_token = prefs.remember_token and "true" or "false"
-        if prefs.remember_url and prefs.url then
-            ctx.url = prefs.url
-        end
-        if prefs.remember_token and prefs.token then
-            ctx.token = prefs.token
-        end
-    else
-        ctx.remember_url = ctx.remember_url or "false"
-        ctx.remember_token = ctx.remember_token or "false"
+    -- Semeia o formulário de login com a lista de servidores salvos, e
+    -- pré-preenche url/token com o mais usado por último (topo da lista) —
+    -- para nascer pronto pra conectar de novo sem escolher nada.
+    local stored = storage.get("saved_servers")
+    if type(stored) == "table" then
+        saved_servers = stored
     end
-end
-
-function toggle_remember_url(v: string): ()
-    ctx.remember_url = v
-    persist_prefs()
-end
-function toggle_remember_token(v: string): ()
-    ctx.remember_token = v
-    persist_prefs()
+    publish_saved_servers()
+    if #saved_servers > 0 and (not ctx.url or ctx.url == "") then
+        ctx.url = saved_servers[1].url
+        ctx.token = saved_servers[1].token
+    end
 end
 
 -- Configurações do daemon + provedores Git, buscados uma vez na conexão (não
@@ -157,9 +195,6 @@ function connect(): ()
     local token = ctx.token or ""
     ctx.api_url = base
     ctx.api_token = token
-    -- Lembra url/token (conforme os flags) já na tentativa de conectar, para não
-    -- se perder mesmo se a conexão falhar — o antigo hook Rust persistia aqui.
-    persist_prefs()
     ctx.status_line = "conectando…"
     ctx.error = ""
 
@@ -173,6 +208,10 @@ function connect(): ()
         ctx.connected = "false"
         return
     end
+
+    -- Só salva na lista quando a conexão realmente deu certo — uma tentativa
+    -- com URL/token errados não deve virar entrada salva.
+    remember_server(base, token)
 
     ctx.connected = "true"
     ctx.status_line = "conectado"
