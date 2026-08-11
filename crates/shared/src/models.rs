@@ -227,18 +227,56 @@ impl Default for ArchiveSource {
     }
 }
 
+/// Arquivo de config avulso que acompanha um `ComposeSource` — o equivalente
+/// aos `[[config.mounts]]` dos blueprints (`shared::templates`). O daemon
+/// materializa cada um em `<db_path>/compose/<service_id>/files/<path>` antes
+/// do `docker compose up`, e o compose os referencia como
+/// `../files/<path>` (o arquivo do compose vive em `.../code/`).
+///
+/// Sem isto, um compose que dependa de qualquer arquivo do repo (`kong.yml`,
+/// scripts de init do Postgres, …) sobe com o Docker criando diretórios
+/// vazios no lugar dos arquivos ausentes — o container falha e o sintoma
+/// aparece como healthcheck que nunca fica verde.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ComposeSource {
-    #[serde(alias = "compose_file")]
+pub struct ComposeFile {
+    /// Caminho **relativo** ao diretório `files/` do serviço, com `/` como
+    /// separador (ex.: `volumes/api/kong.yml`). Ver [`ComposeFile::is_safe_path`].
+    pub path: String,
     pub content: String,
 }
 
-impl Default for ComposeSource {
-    fn default() -> Self {
-        Self {
-            content: String::new(),
+impl ComposeFile {
+    /// Um `path` só é aceito se for relativo, não-vazio e composto apenas de
+    /// componentes normais — nada de `..`, raiz (`/`, `C:\`) ou prefixo de
+    /// volume. O conteúdo vem do spec do serviço, que qualquer cliente
+    /// autenticado pode escrever, e o daemon roda com privilégio suficiente
+    /// para escrever fora do `db_path`: sem esta checagem, um `path` como
+    /// `../../../../etc/cron.d/x` seria escrita arbitrária no host.
+    pub fn is_safe_path(path: &str) -> bool {
+        use std::path::{Component, Path};
+        if path.trim().is_empty() {
+            return false;
         }
+        // `\` não é separador no Unix, então `..\..` passaria como um único
+        // componente "normal"; rejeitamos explicitamente para o path não
+        // significar coisas diferentes conforme o host.
+        if path.contains('\\') {
+            return false;
+        }
+        Path::new(path)
+            .components()
+            .all(|c| matches!(c, Component::Normal(_)))
     }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct ComposeSource {
+    #[serde(alias = "compose_file")]
+    pub content: String,
+    /// Arquivos de config a materializar ao lado do compose. Vazio no caso
+    /// comum (compose colado que não depende de arquivo nenhum).
+    #[serde(default)]
+    pub files: Vec<ComposeFile>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

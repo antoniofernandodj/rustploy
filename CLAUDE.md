@@ -105,3 +105,15 @@ Git-sourced deploys: clone repo (`git2` in `spawn_blocking` because `!Send`) →
 Registry-sourced deploys skip clone/build and go straight to pull → staging.
 
 Containers are named `rp_<service_name>_live` (production) and `rp_<service_name>_<deploy_id[:8]>_staging` (in-flight). Build artifacts live at `<db_path>/builds/<deployment_id>/` and are deleted on promotion or rollback.
+
+Compose-sourced deploys (`ServiceSource::Compose`) skip that pipeline entirely: `ResolvingDeps → ComposingUp → Live`, shelling out to `docker compose up -d` (`docker/compose.rs`). They do **not** live under `builds/` — their directory is keyed by **service**, not deployment, at `<db_path>/compose/<service_id>/`:
+
+| | |
+|---|---|
+| `code/docker-compose.yml` | the compose text, `-p rp_<id8>_<name>`; the process cwd |
+| `code/.env` | resolved env vars; deleted right after the `up` |
+| `files/<path>` | `ComposeSource.files` (`ComposeFile { path, content }`), materialized before every `up` and referenced from the compose as `../files/<path>` |
+
+`files/` is the fix for compose stacks that need config files next to the YAML (`kong.yml`, Postgres init scripts, …). A per-deployment directory would be swapped out from under the running containers' bind mounts on the next deploy, hence the per-service key. The directory is wiped and rewritten on each `up` (so a mount dropped from the spec doesn't linger) and removed by `service_delete`. `ComposeFile::is_safe_path` rejects `..`/absolute paths — the spec is client-writable and the daemon is privileged. The `[[config.mounts]]` of a blueprint (`shared/templates/`) become these files via `wizard::template_spec`; the `../files/…` prefix in every blueprint compose is exactly this layout.
+
+A pasted compose (no `files`) must be self-contained: no relative host paths, no `container_name:` (ingress discovery keys off the `rp_<id8>_<name>-` prefix), named volumes for data. `examples/supabase-compose-service.yml` is a worked example that inlines every config file via Compose `configs:` + `content:` instead.

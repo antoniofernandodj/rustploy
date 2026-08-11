@@ -12,6 +12,16 @@ pub async fn handle(state: AppState, id: String) -> RpResponse {
     }
     match crate::db::services::delete(&state.db, &id).await {
         Ok(true) => {
+            // Diretório de um serviço Compose (`<db_path>/compose/<id>`, com
+            // os `ComposeFile` materializados). Best-effort: nada aqui é
+            // recriável a partir do DB depois que o spec sumiu, mas também
+            // nada depende dele — o stack já foi derrubado.
+            let compose_dir = state.db_path.join("compose").join(&id);
+            if compose_dir.exists() {
+                if let Err(e) = std::fs::remove_dir_all(&compose_dir) {
+                    tracing::warn!(service_id = %id, error = %e, "service_delete: falha ao remover diretório de compose");
+                }
+            }
             // Sem regra órfã: com o serviço fora do DB, fecha a porta no
             // firewall (a menos que outro serviço compartilhe a mesma porta).
             if let Some(port) = host_port {

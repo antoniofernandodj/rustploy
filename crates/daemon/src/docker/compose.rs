@@ -2,7 +2,7 @@ use crate::{db::Db, event_bus::EventBus};
 use anyhow::{Result, anyhow};
 use bollard::{Docker, volume::CreateVolumeOptions};
 use chrono::Utc;
-use shared::{Event, RustployConfig};
+use shared::{ComposeFile, Event, RustployConfig};
 use std::sync::Arc;
 use tokio::fs::{File, remove_file};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -216,6 +216,49 @@ pub async fn ensure_external_volumes(docker: &Docker, content: &str) -> Result<(
     Ok(())
 }
 
+/// Subdiretório, dentro do diretório estável do serviço, onde vive o
+/// `docker-compose.yml` (é o cwd do `docker compose`).
+pub const CODE_SUBDIR: &str = "code";
+/// Subdiretório irmão onde os [`ComposeFile`] são materializados. O compose
+/// os referencia como `../files/<path>` — mesma convenção dos blueprints.
+pub const FILES_SUBDIR: &str = "files";
+
+/// Escreve os arquivos de config do serviço em `<base_dir>/files/`, zerando o
+/// diretório antes para um mount removido do spec não sobreviver ao redeploy.
+///
+/// Zerar é seguro mesmo com a versão anterior do stack no ar: um bind mount
+/// já estabelecido segura o inode, então containers vivos continuam lendo o
+/// arquivo antigo até serem recriados pelo `up` logo em seguida.
+pub async fn materialize_files(files: &[ComposeFile], base_dir: &Path) -> Result<()> {
+    let files_dir = base_dir.join(FILES_SUBDIR);
+    if tokio::fs::try_exists(&files_dir).await.unwrap_or(false) {
+        tokio::fs::remove_dir_all(&files_dir).await?;
+    }
+    if files.is_empty() {
+        return Ok(());
+    }
+
+    for f in files {
+        if !ComposeFile::is_safe_path(&f.path) {
+            return Err(anyhow!(
+                "caminho de arquivo de compose inválido: {:?} (precisa ser relativo, sem `..`)",
+                f.path
+            ));
+        }
+        let dest = files_dir.join(&f.path);
+        if let Some(parent) = dest.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        tokio::fs::write(&dest, f.content.as_bytes()).await?;
+    }
+    info!(
+        count = files.len(),
+        dir = %files_dir.display(),
+        "compose::materialize_files: arquivos de config escritos"
+    );
+    Ok(())
+}
+
 pub async fn up(
     docker: &Docker,
     content: &str,
@@ -226,7 +269,8 @@ pub async fn up(
     bus: &Arc<EventBus>,
     db: &Arc<Db>,
     env_vars: &[(String, String)],
-    build_dir: &Path,
+    files: &[ComposeFile],
+    base_dir: &Path,
     registry_internal_token: Option<Arc<str>>,
 ) -> Result<()> {
     info!(project = %project_name, "compose_up: iniciando docker compose up");
@@ -234,13 +278,17 @@ pub async fn up(
     let content = inject_project_network(content, network_name)?;
     ensure_external_volumes(docker, &content).await?;
 
-    // Garantir diretório
-    tokio::fs::create_dir_all(build_dir).await?;
+    // `<base_dir>` é estável por serviço (não por deployment): os arquivos
+    // ficam bind-montados enquanto o stack viver, então não podem morar num
+    // diretório de build descartável.
+    materialize_files(files, base_dir).await?;
+    let build_dir = base_dir.join(CODE_SUBDIR);
+    tokio::fs::create_dir_all(&build_dir).await?;
 
     // Criar arquivos .env e docker-compose.yml
     let env_file_path = build_dir.join(".env");
     let compose_file_path = build_dir.join("docker-compose.yml");
-    
+
     {
         let mut env_file = File::create(&env_file_path).await?;
         for (k, v) in env_vars {
@@ -274,7 +322,7 @@ pub async fn up(
             "--build",
             "--remove-orphans",
         ])
-        .current_dir(build_dir)
+        .current_dir(&build_dir)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
@@ -282,7 +330,7 @@ pub async fn up(
 
     let stdout = BufReader::new(child.stdout.take().unwrap());
     let stderr = BufReader::new(child.stderr.take().unwrap());
-    
+
     let bus_s = bus.clone();
     let db_s = db.clone();
     let sid = service_id.to_string();
@@ -732,6 +780,73 @@ mod tests {
     #[test]
     fn drops_lines_without_replica_suffix() {
         assert_eq!(filter_main_service_line("main | hello", "main"), None);
+    }
+
+    fn tmpdir(tag: &str) -> std::path::PathBuf {
+        let d = std::env::temp_dir().join(format!(
+            "rp_compose_test_{tag}_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[tokio::test]
+    async fn materialize_writes_nested_files() {
+        let base = tmpdir("write");
+        let files = vec![
+            ComposeFile { path: "volumes/api/kong.yml".into(), content: "_format_version: '2.1'\n".into() },
+            ComposeFile { path: "volumes/db/roles.sql".into(), content: "ALTER USER x;\n".into() },
+        ];
+        materialize_files(&files, &base).await.unwrap();
+
+        let kong = base.join(FILES_SUBDIR).join("volumes/api/kong.yml");
+        assert_eq!(std::fs::read_to_string(&kong).unwrap(), "_format_version: '2.1'\n");
+        assert!(base.join(FILES_SUBDIR).join("volumes/db/roles.sql").exists());
+        std::fs::remove_dir_all(&base).ok();
+    }
+
+    #[tokio::test]
+    async fn materialize_drops_files_removed_from_the_spec() {
+        // Redeploy com um mount a menos não pode deixar o arquivo antigo pra
+        // trás (o container leria config obsoleta e a causa seria invisível).
+        let base = tmpdir("prune");
+        materialize_files(
+            &[ComposeFile { path: "a.txt".into(), content: "a".into() },
+              ComposeFile { path: "b.txt".into(), content: "b".into() }],
+            &base,
+        )
+        .await
+        .unwrap();
+        materialize_files(&[ComposeFile { path: "a.txt".into(), content: "a2".into() }], &base)
+            .await
+            .unwrap();
+
+        assert_eq!(std::fs::read_to_string(base.join(FILES_SUBDIR).join("a.txt")).unwrap(), "a2");
+        assert!(!base.join(FILES_SUBDIR).join("b.txt").exists());
+        std::fs::remove_dir_all(&base).ok();
+    }
+
+    #[tokio::test]
+    async fn materialize_rejects_path_traversal() {
+        let base = tmpdir("escape");
+        for bad in ["../escapou.txt", "/etc/cron.d/x", "a/../../b", "..\\win.txt", "  "] {
+            let err = materialize_files(
+                &[ComposeFile { path: bad.into(), content: "x".into() }],
+                &base,
+            )
+            .await
+            .unwrap_err();
+            assert!(
+                err.to_string().contains("inválido"),
+                "path {bad:?} deveria ser rejeitado, veio: {err}"
+            );
+        }
+        assert!(!base.parent().unwrap().join("escapou.txt").exists());
+        std::fs::remove_dir_all(&base).ok();
     }
 
     #[tokio::test]

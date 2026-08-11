@@ -508,6 +508,10 @@ impl SourceManifest {
         } else if let Some(content) = &self.compose {
             ServiceSource::Compose(ComposeSource {
                 content: content.clone(),
+                // O manifesto (formato de texto do `rustploy apply`) ainda não
+                // declara arquivos de config avulsos; um compose vindo daqui
+                // precisa ser autossuficiente.
+                files: Vec::new(),
             })
         } else {
             // Sem origem declarada: registry vazio (será rejeitado no deploy).

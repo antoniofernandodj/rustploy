@@ -112,9 +112,10 @@ pub struct Rendered {
     pub port: u16,
     /// Arquivos de config declarados por `[[config.mounts]]` (filePath/content),
     /// já com os `${var}` do template substituídos — tokens que não são do
-    /// template ficam intactos, para o container interpolar. O `ComposeSource`
-    /// do rustploy ainda não carrega arquivos avulsos, então hoje isto é
-    /// informativo.
+    /// template ficam intactos, para o container interpolar. O
+    /// `wizard::template_spec` os converte em [`crate::ComposeFile`]s, que o
+    /// daemon materializa em `<db_path>/compose/<service_id>/files/` antes do
+    /// `docker compose up` (é o `../files/...` que o compose referencia).
     pub mounts: Vec<(String, String)>,
 }
 

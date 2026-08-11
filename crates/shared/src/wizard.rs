@@ -8,7 +8,8 @@
 
 use crate::templates::{self, Template};
 use crate::{
-    ComposeSource, EnvVar, EnvVarValue, Healthcheck, ResourceLimits, ServiceSource, ServiceSpec,
+    ComposeFile, ComposeSource, EnvVar, EnvVarValue, Healthcheck, ResourceLimits, ServiceSource,
+    ServiceSpec,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -334,7 +335,7 @@ pub fn compose_spec(name: String, project_id: String) -> ServiceSpec {
     base_spec(
         name,
         project_id,
-        ServiceSource::Compose(ComposeSource { content: String::new() }),
+        ServiceSource::Compose(ComposeSource { content: String::new(), files: Vec::new() }),
         80,
         vec![],
         None,
@@ -348,7 +349,7 @@ pub fn db_spec(db: DbKind, name: String, project_id: String, f: &DbFormInput) ->
     base_spec(
         name,
         project_id,
-        ServiceSource::Compose(ComposeSource { content: db_compose(db, &svc, &image, f) }),
+        ServiceSource::Compose(ComposeSource { content: db_compose(db, &svc, &image, f), files: Vec::new() }),
         db.default_port(),
         db_env_vars(db, f),
         Some(db.kind_id().to_string()),
@@ -429,7 +430,7 @@ pub fn broker_spec(broker: BrokerKind, name: String, project_id: String, f: &DbF
     base_spec(
         name,
         project_id,
-        ServiceSource::Compose(ComposeSource { content: broker_compose(broker, &svc, &image, f) }),
+        ServiceSource::Compose(ComposeSource { content: broker_compose(broker, &svc, &image, f), files: Vec::new() }),
         broker.default_port(),
         broker_env_vars(broker, f),
         Some(broker.kind_id().to_string()),
@@ -474,10 +475,24 @@ pub fn template_spec(t: &'static Template, name: String, project_id: String, val
         .into_iter()
         .map(|(key, value)| EnvVar { key, value: EnvVarValue::Plain(value) })
         .collect();
+    // Os `[[config.mounts]]` do blueprint viram `ComposeFile`s materializados
+    // pelo daemon em `<db_path>/compose/<service_id>/files/` — que é o que o
+    // compose dos blueprints referencia como `../files/volumes/...`. O
+    // `file_path` do template vem com barra inicial (`/volumes/api/kong.yml`);
+    // aqui ele é relativo ao diretório `files/`, então a barra sai.
+    let files = rendered
+        .mounts
+        .into_iter()
+        .map(|(path, content)| ComposeFile {
+            path: path.trim_start_matches('/').to_string(),
+            content,
+        })
+        .filter(|f| ComposeFile::is_safe_path(&f.path))
+        .collect();
     let mut spec = base_spec(
         name,
         project_id,
-        ServiceSource::Compose(ComposeSource { content: rendered.compose }),
+        ServiceSource::Compose(ComposeSource { content: rendered.compose, files }),
         rendered.port,
         env_vars,
         None,
@@ -565,5 +580,75 @@ fn build_spec_inner(req: &WizardCreateReq) -> Result<ServiceSpec, String> {
             Ok(template_spec(t, name, req.project_id.clone(), &req.template_values))
         }
         other => Err(format!("tipo de serviço desconhecido: {other}")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ServiceSource;
+
+    /// O blueprint do Supabase é o caso que motivou os `ComposeFile`: seu
+    /// compose referencia `../files/volumes/...`, então o spec gerado pelo
+    /// wizard tem de carregar esses arquivos — antes disso os mounts eram
+    /// só informativos e o stack subia com diretórios vazios no lugar deles.
+    #[test]
+    fn template_spec_carries_blueprint_mounts_as_compose_files() {
+        let t = templates::all()
+            .iter()
+            .find(|t| t.id == "supabase")
+            .expect("blueprint supabase");
+        let spec = template_spec(t, "sb".into(), "proj_1".into(), &[]);
+
+        let ServiceSource::Compose(src) = &spec.source else {
+            panic!("template deveria virar ServiceSource::Compose");
+        };
+        assert!(!src.files.is_empty(), "os mounts do blueprint sumiram");
+
+        // Diretórios de dados: o compose os monta para o container escrever,
+        // e é o Docker que os cria vazios. Não são config e não têm mount.
+        const DATA_DIRS: &[&str] = &["volumes/storage", "volumes/db/data"];
+
+        // Todo `../files/<path>` de *config* citado no compose tem de existir
+        // em `files` — como arquivo exato ou como diretório implicado por um
+        // arquivo dentro dele (o compose monta `volumes/functions` inteiro).
+        for referenced in src
+            .content
+            .split_whitespace()
+            .filter_map(|tok| tok.split("../files/").nth(1))
+            .map(|p| p.split(':').next().unwrap_or(p).to_string())
+        {
+            if DATA_DIRS.contains(&referenced.as_str()) {
+                continue;
+            }
+            let dir_prefix = format!("{referenced}/");
+            assert!(
+                src.files
+                    .iter()
+                    .any(|f| f.path == referenced || f.path.starts_with(&dir_prefix)),
+                "compose referencia `../files/{referenced}` mas não há ComposeFile nesse caminho"
+            );
+        }
+
+        // Os arquivos sem os quais o stack sobe e falha no healthcheck.
+        for must in [
+            "volumes/api/kong.yml",
+            "volumes/api/kong-entrypoint.sh",
+            "volumes/db/roles.sql",
+            "volumes/db/jwt.sql",
+            "volumes/db/webhooks.sql",
+            "volumes/db/_supabase.sql",
+            "volumes/pooler/pooler.exs",
+        ] {
+            let f = src.files.iter().find(|f| f.path == must);
+            assert!(f.is_some(), "faltou o ComposeFile `{must}`");
+            assert!(!f.unwrap().content.trim().is_empty(), "`{must}` veio vazio");
+        }
+
+        // E nenhum path pode escapar do diretório `files/`.
+        for f in &src.files {
+            assert!(ComposeFile::is_safe_path(&f.path), "path inseguro: {:?}", f.path);
+            assert!(!f.path.starts_with('/'), "barra inicial não removida: {:?}", f.path);
+        }
     }
 }

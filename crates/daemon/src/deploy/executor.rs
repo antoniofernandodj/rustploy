@@ -949,7 +949,8 @@ impl DeployExecutor {
                     &self.bus,
                     &self.db,
                     &env_vars,
-                    &self.clone_dir(&dep.id),
+                    &compose.files,
+                    &self.compose_dir(&svc.id),
                     self.registry_internal_token.clone(),
                 )
                 .await?;
@@ -1145,6 +1146,15 @@ impl DeployExecutor {
 
     fn clone_dir(&self, deployment_id: &str) -> PathBuf {
         self.db_path.join("builds").join(deployment_id)
+    }
+
+    /// Diretório de um serviço Compose. Ao contrário de [`Self::clone_dir`],
+    /// é indexado pelo **serviço**, não pelo deployment: os arquivos de
+    /// config (`ComposeFile`) ficam bind-montados enquanto o stack viver, e
+    /// um diretório por deployment seria apagado (ou trocado) embaixo dos
+    /// containers no redeploy seguinte. Ver `docker::compose::up`.
+    pub fn compose_dir(&self, service_id: &str) -> PathBuf {
+        self.db_path.join("compose").join(service_id)
     }
 
     fn short<'a>(&self, id: &'a str) -> &'a str {

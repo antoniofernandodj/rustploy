@@ -135,7 +135,13 @@ pub fn transform(data: DokployData, gitea_url: Option<&str>) -> (TransformedData
             spec: ServiceSpec {
                 name: dc.name,
                 project_id: project_id.clone(),
-                source: ServiceSource::Compose(ComposeSource { content: cleaned_compose }),
+                // `files` vazio: o dump do Dokploy lido em `source/dokploy.rs`
+                // ainda não traz os mounts do compose (tabela `mount`), então
+                // um stack que dependa deles precisa deles recolocados à mão.
+                source: ServiceSource::Compose(ComposeSource {
+                    content: cleaned_compose,
+                    files: Vec::new(),
+                }),
                 port,
                 host_port: None,
                 domain,
