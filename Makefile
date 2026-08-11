@@ -278,11 +278,14 @@ setup: ## Instala todas as dependências necessárias
 	@echo "$(GREEN)  cargo: $$(cargo --version)$(RESET)"
 
 	@echo "$(BOLD)==> Verificando cargo-deb$(RESET)"
-	@cargo deb --version >/dev/null 2>&1 || cargo install cargo-deb
-	@echo "$(GREEN)  cargo-deb: $$(cargo deb --version)$(RESET)"
+	@command -v cargo-deb >/dev/null 2>&1 || \
+		(echo "  Instalando cargo-deb..." && cargo install cargo-deb)
+	@command -v cargo-deb >/dev/null 2>&1 || \
+		{ echo "$(RED)  falha ao instalar cargo-deb (necessário para 'make deb')$(RESET)"; exit 1; }
+	@echo "$(GREEN)  cargo-deb: $$(cargo-deb --version)$(RESET)"
 
 	@echo "$(BOLD)==> Verificando cargo-watch (opcional, para dev)$(RESET)"
-	@cargo watch --version >/dev/null 2>&1 || cargo install cargo-watch || \
+	@command -v cargo-watch >/dev/null 2>&1 || cargo install cargo-watch || \
 		echo "  cargo-watch não instalado (opcional)"
 
 	@echo "$(BOLD)==> Verificando wl-clipboard (Wayland clipboard)$(RESET)"
