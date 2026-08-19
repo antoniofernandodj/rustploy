@@ -663,6 +663,10 @@
         <text if="{erro_env_new_key}" not_equals="" class="err">
           {erro_env_new_key}
         </text>
+        <!-- scrollable só renderiza o PRIMEIRO filho (glacier-ui
+             widget.rs: NodeType::Scrollable usa node.children.first()) —
+             por isso a lista e o editor .env vivem dentro de UM único
+             <column>, nunca como irmãos diretos do <scrollable>. -->
         <scrollable direction="vertical" class="env_list_scroll">
           <column class="kv_list">
             <foreach items="svc_env" var="e" on_reorder="env_reorder" reorder_key="key">
@@ -705,39 +709,40 @@
                 </row>
               </else>
             </foreach>
+
+            <!-- Editor .env: vários filhos condicionais → TAG if (o atributo
+                 if= só esconderia o Text, deixando TextArea/botões sempre
+                 visíveis). Vive dentro do mesmo <column> da lista (e não
+                 como irmão dela) para que os botões Salvar/Cancelar nunca
+                 fiquem fora da área visível da janela (antes eram irmãos
+                 fixos após um scrollable height:fill, e podiam ser
+                 cortados/escondidos em janelas mais baixas). -->
+            <if cond="{env_text_open}" equals="true">
+              <text class="muted">
+                Cole/edite no formato KEY=VALUE (# comentário).
+              </text>
+
+              <textarea
+                class="env_editor"
+                font="mono"
+                value="svc_env_text"
+                placeholder="KEY=VALUE   (# comentário)"
+              />
+
+              <row class="env_add">
+                <button
+                  class="btn_primary"
+                  on_click="env_import"
+                  text="Salvar"
+                />
+                <button
+                  class="btn_ghost"
+                  on_click="env_text_cancel"
+                  text="Cancelar"
+                />
+              </row>
+            </if>
           </column>
-          <!-- Editor .env: vários filhos condicionais → TAG if (o atributo
-               if= só esconderia o Text, deixando TextArea/botões sempre
-               visíveis). Vive dentro do mesmo scrollable da lista para que
-               os botões Salvar/Cancelar nunca fiquem fora da área visível
-               da janela (antes eram irmãos fixos após um scrollable
-               height:fill, e podiam ser cortados/escondidos em janelas
-               mais baixas). -->
-          <if cond="{env_text_open}" equals="true">
-            <text class="muted">
-              Cole/edite no formato KEY=VALUE (# comentário).
-            </text>
-
-            <textarea
-              class="env_editor"
-              font="mono"
-              value="svc_env_text"
-              placeholder="KEY=VALUE   (# comentário)"
-            />
-
-            <row class="env_add">
-              <button
-                class="btn_primary"
-                on_click="env_import"
-                text="Salvar"
-              />
-              <button
-                class="btn_ghost"
-                on_click="env_text_cancel"
-                text="Cancelar"
-              />
-            </row>
-          </if>
         </scrollable>
       </column>
 
