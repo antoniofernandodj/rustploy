@@ -256,8 +256,20 @@ logs-boot: ## Exibe logs desde o último boot
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
+# Vazio quando já se está como root (container/CI); senão usa sudo.
+SUDO := $(shell [ "$$(id -u)" = 0 ] || command -v sudo)
+
+# Garante que o cargo recém-instalado pelo rustup seja encontrado nas receitas
+# seguintes (cada linha do make roda num shell novo, sem o ~/.cargo/env).
+export PATH := $(HOME)/.cargo/bin:$(PATH)
+
 .PHONY: setup
 setup: ## Instala todas as dependências necessárias
+	@echo "$(BOLD)==> Instalando dependências de build (pkg-config, libssl-dev)$(RESET)"
+	$(SUDO) apt-get update
+	$(SUDO) apt-get install -y pkg-config libssl-dev
+	@echo "$(GREEN)  pkg-config: $$(pkg-config --version)$(RESET)"
+
 	@echo "$(BOLD)==> Verificando rustup / cargo$(RESET)"
 	@command -v cargo >/dev/null 2>&1 || \
 		(echo "Instalando rustup..." && \
@@ -266,24 +278,23 @@ setup: ## Instala todas as dependências necessárias
 	@echo "$(GREEN)  cargo: $$(cargo --version)$(RESET)"
 
 	@echo "$(BOLD)==> Verificando cargo-deb$(RESET)"
-	@cargo deb --version >/dev/null 2>&1 || cargo install cargo-deb
-	@echo "$(GREEN)  cargo-deb: $$(cargo deb --version)$(RESET)"
+	@command -v cargo-deb >/dev/null 2>&1 || \
+		(echo "  Instalando cargo-deb..." && cargo install cargo-deb)
+	@command -v cargo-deb >/dev/null 2>&1 || \
+		{ echo "$(RED)  falha ao instalar cargo-deb (necessário para 'make deb')$(RESET)"; exit 1; }
+	@echo "$(GREEN)  cargo-deb: $$(cargo-deb --version)$(RESET)"
 
 	@echo "$(BOLD)==> Verificando cargo-watch (opcional, para dev)$(RESET)"
-	@cargo watch --version >/dev/null 2>&1 || cargo install cargo-watch || \
+	@command -v cargo-watch >/dev/null 2>&1 || cargo install cargo-watch || \
 		echo "  cargo-watch não instalado (opcional)"
 
 	@echo "$(BOLD)==> Verificando wl-clipboard (Wayland clipboard)$(RESET)"
 	@command -v wl-copy >/dev/null 2>&1 || \
-		(echo "  Instalando wl-clipboard..." && sudo apt-get install -y wl-clipboard)
+		(echo "  Instalando wl-clipboard..." && $(SUDO) apt-get install -y wl-clipboard)
 	@echo "$(GREEN)  wl-copy: $$(which wl-copy)$(RESET)"
 
 	@echo "$(BOLD)==> Verificando Docker$(RESET)"
-	@command -v docker >/dev/null 2>&1 || \
-		echo "  $(BOLD)AVISO:$(RESET) Docker não encontrado. Instale em https://docs.docker.com/engine/install/"
-	@docker info >/dev/null 2>&1 && \
-		echo "$(GREEN)  docker: $$(docker --version)$(RESET)" || \
-		echo "  Docker instalado mas daemon não está rodando"
+	@$(MAKE) --no-print-directory install-docker
 
 	@echo "$(BOLD)==> Verificando dpkg (para install)$(RESET)"
 	@command -v dpkg >/dev/null 2>&1 && \
@@ -295,6 +306,53 @@ setup: ## Instala todas as dependências necessárias
 	@echo "  make build    — compila em release"
 	@echo "  make deb      — gera os .deb"
 	@echo "  make install  — instala"
+
+# Pacotes do repositório oficial do Docker (docs.docker.com/engine/install/ubuntu).
+DOCKER_PKGS := docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+.PHONY: install-docker
+install-docker: ## Instala o Docker Engine pelo repositório oficial (Ubuntu/Debian)
+	@set -e; \
+	if command -v docker >/dev/null 2>&1; then \
+		echo "$(GREEN)  docker já instalado: $$(docker --version)$(RESET)"; \
+	else \
+		command -v apt-get >/dev/null 2>&1 || { \
+			echo "$(RED)  apt-get não encontrado — instale o Docker manualmente:$(RESET)"; \
+			echo "  https://docs.docker.com/engine/install/"; exit 1; }; \
+		. /etc/os-release; \
+		case "$$ID" in \
+			ubuntu|debian) distro=$$ID ;; \
+			*) case "$$ID_LIKE" in *ubuntu*) distro=ubuntu ;; *) distro=debian ;; esac ;; \
+		esac; \
+		codename=$${UBUNTU_CODENAME:-$$VERSION_CODENAME}; \
+		echo "  repositório: $$distro/$$codename ($$(dpkg --print-architecture))"; \
+		$(SUDO) apt-get update; \
+		$(SUDO) apt-get install -y ca-certificates curl; \
+		$(SUDO) install -m 0755 -d /etc/apt/keyrings; \
+		$(SUDO) curl -fsSL https://download.docker.com/linux/$$distro/gpg \
+			-o /etc/apt/keyrings/docker.asc; \
+		$(SUDO) chmod a+r /etc/apt/keyrings/docker.asc; \
+		printf 'Types: deb\nURIs: https://download.docker.com/linux/%s\nSuites: %s\nComponents: stable\nArchitectures: %s\nSigned-By: /etc/apt/keyrings/docker.asc\n' \
+			"$$distro" "$$codename" "$$(dpkg --print-architecture)" \
+			| $(SUDO) tee /etc/apt/sources.list.d/docker.sources >/dev/null; \
+		$(SUDO) apt-get update; \
+		$(SUDO) apt-get install -y $(DOCKER_PKGS); \
+		echo "$(GREEN)  docker: $$(docker --version)$(RESET)"; \
+	fi; \
+	if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then \
+		$(SUDO) systemctl enable --now docker.service containerd.service; \
+	fi; \
+	user=$$(id -un); \
+	if [ "$$user" != root ]; then \
+		getent group docker >/dev/null || $(SUDO) groupadd docker; \
+		id -nG "$$user" | tr ' ' '\n' | grep -qx docker || { \
+			$(SUDO) usermod -aG docker "$$user"; \
+			echo "  $(BOLD)$$user adicionado ao grupo 'docker'$(RESET) — refaça o login (ou 'newgrp docker') para valer"; \
+		}; \
+	fi; \
+	docker info >/dev/null 2>&1 \
+		&& echo "$(GREEN)  daemon docker: OK$(RESET)" \
+		|| echo "  daemon docker inacessível (provável falta de re-login para o grupo 'docker')"
 
 # ── Limpeza ───────────────────────────────────────────────────────────────────
 

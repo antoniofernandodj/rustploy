@@ -56,8 +56,29 @@ pub async fn run(
     cfg: ApiConfig,
     tls: Option<Arc<TlsManager>>
 ) {
+    // Trim: um token vindo de `EnvironmentFile` ou de um TOML copiado à mão
+    // chega com frequência com espaço/`\n` em volta. O header HTTP já perde
+    // esses bytes na borda (OWS), então SEM o trim aqui o cliente manda o token
+    // certo e leva 401 — com a diferença invisível dos dois lados. Feito ANTES
+    // do guard de bind público: um token só de espaços tem que contar como
+    // ausente ali também, senão o guard passa e a porta abre sem auth.
+    if let Some(t) = cfg.token.as_deref() {
+        if t != t.trim() {
+            warn!(
+                "API: api.token tem espaço/quebra de linha em volta — ignorados \
+                 na comparação, mas vale limpar a config"
+            );
+        }
+    }
+    let token = cfg
+        .token
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned);
+
     // Safety guard: refuse a non-loopback bind without a token.
-    if cfg.is_public_bind() && cfg.token.as_deref().unwrap_or("").is_empty() {
+    if cfg.is_public_bind() && token.is_none() {
         warn!(
             bind = %cfg.bind_address,
             "API: bind não-loopback sem token configurado — listener NÃO iniciado. \
@@ -106,7 +127,7 @@ pub async fn run(
             None => None,
         };
 
-    let token = Arc::new(cfg.token.clone().filter(|s| !s.is_empty()));
+    let token = Arc::new(token);
     info!(
         addr = %addr,
         auth = token.is_some(),
@@ -151,7 +172,7 @@ async fn serve_conn<I>(
 where
     I: hyper::rt::Read + hyper::rt::Write + Unpin + 'static,
 {
-    let svc = service_fn(move |req| handle(req, state.clone(), token.clone()));
+    let svc = service_fn(move |req| handle(req, state.clone(), token.clone(), peer));
     if let Err(e) = hyper::server::conn::http1::Builder::new()
         .serve_connection(io, svc)
         .await
@@ -166,6 +187,7 @@ async fn handle(
     req: Request<Incoming>,
     state: AppState,
     token: Arc<Option<String>>,
+    peer: std::net::SocketAddr,
 ) -> Result<Response<ApiBody>, Infallible> {
     // Rotas públicas — servidas ANTES do gate de Bearer porque cada uma tem a
     // sua própria autenticação (token de 192 bits na URL, no webhook; `state`
@@ -196,7 +218,13 @@ async fn handle(
 
     // Bearer-token auth (constant-time), only when a token is configured.
     if let Some(expected) = token.as_ref() {
-        if !authorized(&req, expected) {
+        if let Err(motivo) = auth_check(&req, expected) {
+            warn!(
+                peer = %peer,
+                path = %req.uri().path(),
+                motivo = %motivo,
+                "API: 401 — requisição recusada"
+            );
             return Ok(text(StatusCode::UNAUTHORIZED, "unauthorized"));
         }
     }
@@ -748,14 +776,38 @@ async fn send_log_batch(
 }
 
 /// Checks the `Authorization: Bearer <token>` header against `expected`.
-fn authorized(req: &Request<Incoming>, expected: &str) -> bool {
-    let got = req
-        .headers()
-        .get(hyper::header::AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
-    let got = got.strip_prefix("Bearer ").unwrap_or(got);
-    constant_time_eq(got.as_bytes(), expected.as_bytes())
+///
+/// Devolve o MOTIVO da recusa em vez de um bool: um 401 mudo é indistinguível
+/// de "token certo, daemon errado" do lado do cliente, e sem isso a única saída
+/// é adivinhar. O motivo é logado (nunca o token em si — só o comprimento, que
+/// já separa "colou um token truncado/com lixo" de "token de outra instalação").
+fn auth_check<B>(req: &Request<B>, expected: &str) -> Result<(), String> {
+    let Some(raw) = req.headers().get(hyper::header::AUTHORIZATION) else {
+        return Err("sem header Authorization".into());
+    };
+    let Ok(raw) = raw.to_str() else {
+        return Err("header Authorization não é ASCII válido".into());
+    };
+    // O prefixo `Bearer ` é opcional (ambos os clientes mandam), mas um esquema
+    // DIFERENTE (Basic…) é erro de cliente, não token errado — vale distinguir.
+    let got = match raw.split_once(' ') {
+        Some((scheme, rest)) if scheme.eq_ignore_ascii_case("bearer") => rest,
+        Some((scheme, _)) => {
+            return Err(format!("esquema de autorização inesperado: {scheme}"));
+        }
+        None => raw,
+    };
+    if constant_time_eq(got.as_bytes(), expected.as_bytes()) {
+        return Ok(());
+    }
+    if got.len() != expected.len() {
+        return Err(format!(
+            "token não confere (recebido {} bytes, esperado {} bytes)",
+            got.len(),
+            expected.len()
+        ));
+    }
+    Err("token não confere (mesmo comprimento, conteúdo diferente)".into())
 }
 
 /// As rotas públicas (`public_routes`) devolvem `Full<Bytes>`; o listener
@@ -837,6 +889,42 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn req_com_auth(valor: Option<&str>) -> Request<()> {
+        let mut b = Request::builder().uri("/api/rpc");
+        if let Some(v) = valor {
+            b = b.header(hyper::header::AUTHORIZATION, v);
+        }
+        b.body(()).unwrap()
+    }
+
+    /// O token certo passa com ou sem o prefixo `Bearer`; o motivo da recusa
+    /// distingue header ausente, esquema errado e token divergente — é o que
+    /// torna um 401 diagnosticável no journal do daemon.
+    #[test]
+    fn auth_check_aceita_token_certo_e_explica_a_recusa() {
+        let esperado = "s3cr3t-token";
+
+        assert!(auth_check(&req_com_auth(Some("Bearer s3cr3t-token")), esperado).is_ok());
+        assert!(auth_check(&req_com_auth(Some("bearer s3cr3t-token")), esperado).is_ok());
+        assert!(auth_check(&req_com_auth(Some("s3cr3t-token")), esperado).is_ok());
+
+        let e = auth_check(&req_com_auth(None), esperado).unwrap_err();
+        assert!(e.contains("sem header"), "{e}");
+
+        let e = auth_check(&req_com_auth(Some("Basic s3cr3t-token")), esperado).unwrap_err();
+        assert!(e.contains("esquema"), "{e}");
+
+        // Comprimento diferente = token truncado/com lixo colado junto: o
+        // motivo cita os dois tamanhos (nunca o token).
+        let e = auth_check(&req_com_auth(Some("Bearer s3cr3t")), esperado).unwrap_err();
+        assert!(e.contains("6 bytes") && e.contains("12 bytes"), "{e}");
+        assert!(!e.contains("s3cr3t"), "o motivo não pode vazar o token: {e}");
+
+        // Mesmo comprimento, conteúdo diferente = token de outra instalação.
+        let e = auth_check(&req_com_auth(Some("Bearer 0000000token")), esperado).unwrap_err();
+        assert!(e.contains("mesmo comprimento"), "{e}");
+    }
 
     fn content_encoding(resp: &Response<ApiBody>) -> Option<String> {
         resp.headers()
