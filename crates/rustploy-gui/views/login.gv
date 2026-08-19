@@ -6,7 +6,7 @@
 .field_group      { width: fill; spacing: 6; }
 .field_row        { width: fill; }
 .forget_row       { width: fill; align-x: end; padding: 2 0; }
-.forget_btn       { size: 11; color: var(--muted); }
+.forget_btn       { size: 11; color: var(--border); padding: 5 12; border-radius: 4; }
 .status_row       { spacing: 14; align-y: center; }
 .login_title      { size: 30; bold: true; color: #A9C7FF; }
 .field_label      { size: 11; bold: true; color: var(--muted); }
