@@ -64,6 +64,13 @@ pub(crate) fn run() -> iced::Result {
         // `docs/plano-tray-bandeja-e-ciclo-de-vida.md`.
         .tray(tray_config())
         .on_tray(handle_tray)
+        // Instância única (glacier-ui 0.57+): com bandeja, o app sobrevive ao
+        // fechar a janela — sem isto, clicar no launcher de novo enquanto ele
+        // já está recolhido na bandeja abre uma segunda instância, e o usuário
+        // acumula N processos sem perceber. Uma segunda tentativa pinga esta e
+        // sai sem abrir janela; a instância já viva reabre/foca a principal
+        // (mesmo `application_id` do `platform_specific` abaixo).
+        .single_instance("rustploy-gui")
         .main_window(main_window_settings())
         // Janelas-filhas (ex.: "Novo projeto") também são borderless: o template
         // delas traz a própria titlebar, e sem isto o SO desenharia a nativa por
