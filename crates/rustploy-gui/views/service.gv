@@ -706,34 +706,39 @@
               </else>
             </foreach>
           </column>
+          <!-- Editor .env: vários filhos condicionais → TAG if (o atributo
+               if= só esconderia o Text, deixando TextArea/botões sempre
+               visíveis). Vive dentro do mesmo scrollable da lista para que
+               os botões Salvar/Cancelar nunca fiquem fora da área visível
+               da janela (antes eram irmãos fixos após um scrollable
+               height:fill, e podiam ser cortados/escondidos em janelas
+               mais baixas). -->
+          <if cond="{env_text_open}" equals="true">
+            <text class="muted">
+              Cole/edite no formato KEY=VALUE (# comentário).
+            </text>
+
+            <textarea
+              class="env_editor"
+              font="mono"
+              value="svc_env_text"
+              placeholder="KEY=VALUE   (# comentário)"
+            />
+
+            <row class="env_add">
+              <button
+                class="btn_primary"
+                on_click="env_import"
+                text="Salvar"
+              />
+              <button
+                class="btn_ghost"
+                on_click="env_text_cancel"
+                text="Cancelar"
+              />
+            </row>
+          </if>
         </scrollable>
-        <!-- Editor .env: vários filhos condicionais → TAG if (o atributo
-             if= só esconderia o Text, deixando TextArea/botões sempre visíveis). -->
-        <if cond="{env_text_open}" equals="true">
-          <text class="muted">
-            Cole/edite no formato KEY=VALUE (# comentário).
-          </text>
-
-          <textarea
-            class="env_editor"
-            font="mono"
-            value="svc_env_text"
-            placeholder="KEY=VALUE   (# comentário)"
-          />
-
-          <row class="env_add">
-            <button
-              class="btn_primary"
-              on_click="env_import"
-              text="Salvar"
-            />
-            <button
-              class="btn_ghost"
-              on_click="env_text_cancel"
-              text="Cancelar"
-            />
-          </row>
-        </if>
       </column>
 
       <!-- Domains (editável): lista de rotas HTTP (domínio → porta de container,
