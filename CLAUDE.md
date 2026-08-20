@@ -34,11 +34,21 @@ A crate `rustploy-gui` consome `glacier-ui` **do crates.io** (versão fixada no 
 
 **Regra (sempre):** quando uma mudança no `glacier-ui` for necessária (renomear um item público, corrigir bug, adicionar recurso), o fluxo é **sempre publicar uma nova versão e subir a dependência** — nunca usar `[patch.crates-io]` ou dependência por `path` para contornar:
 
+0. **Antes de qualquer coisa, conferir se o tree local bate com a última versão publicada.** A `version` do `Cargo.toml` local não é prova: já aconteceu de o repositório parar na `0.57.0` enquanto o crates.io seguia até a `0.57.4` (versões publicadas de outra máquina, nunca commitadas nem enviadas ao `origin`). Bumpar a partir dali teria revertido quatro versões silenciosamente. Comparar com o pacote real:
+
+   ```bash
+   # a versão publicada fica em ~/.cargo/registry depois de qualquer build que a use
+   diff -rq ~/Desenvolvimento/glacier-ui/src \
+            ~/.cargo/registry/src/*/glacier-ui-<versão-publicada>/src
+   ```
+
+   Se diferir, recuperar primeiro (o `Cargo.toml.orig` do pacote preserva os comentários; o `Cargo.toml` é gerado pelo cargo e os descarta) e commitar essa recuperação **separada** da mudança nova.
 1. Aplicar a mudança em `~/Desenvolvimento/glacier-ui`.
 2. Bump da versão em `glacier-ui/Cargo.toml` (ex.: `0.3.1` → `0.3.2`).
 3. `cargo publish` (validar antes com `cargo publish --dry-run`).
 4. Subir a versão de `glacier-ui` no `crates/rustploy-gui/Cargo.toml` para a recém-publicada.
 5. `cargo check -p rustploy-gui` para confirmar.
+6. Enviar o commit ao `origin` — é justamente o passo pulado que criou a divergência acima.
 
 ## Configuration
 
