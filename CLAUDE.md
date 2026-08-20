@@ -30,11 +30,11 @@ The daemon binary is `rustployd`.
 
 ## glacier-ui (dependência da crate rustploy-gui)
 
-A crate `rustploy-gui` consome `glacier-ui` **do crates.io** (versão fixada no `Cargo.toml`), não o código-fonte local em `~/Development/rust/glacier-ui`.
+A crate `rustploy-gui` consome `glacier-ui` **do crates.io** (versão fixada no `Cargo.toml`), não o código-fonte local em `~/Desenvolvimento/glacier-ui`.
 
 **Regra (sempre):** quando uma mudança no `glacier-ui` for necessária (renomear um item público, corrigir bug, adicionar recurso), o fluxo é **sempre publicar uma nova versão e subir a dependência** — nunca usar `[patch.crates-io]` ou dependência por `path` para contornar:
 
-1. Aplicar a mudança em `~/Development/rust/glacier-ui`.
+1. Aplicar a mudança em `~/Desenvolvimento/glacier-ui`.
 2. Bump da versão em `glacier-ui/Cargo.toml` (ex.: `0.3.1` → `0.3.2`).
 3. `cargo publish` (validar antes com `cargo publish --dry-run`).
 4. Subir a versão de `glacier-ui` no `crates/rustploy-gui/Cargo.toml` para a recém-publicada.

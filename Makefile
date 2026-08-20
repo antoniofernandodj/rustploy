@@ -166,8 +166,11 @@ deb-gui: ## Pacote .deb do remote-gui p/ Linux (apaga dist e regera)
 	@echo "$(BOLD)Apagando dist/ e gerando .deb do rustploy-gui...$(RESET)"
 	@rm -rf dist
 	@mkdir -p dist
-	# --separate-debug-symbols mantém o binário enxuto; assets vão p/
-	# /usr/share/rustploy e o .desktop/ícones p/ o desktop (ver Cargo.toml).
+	# O pacote leva SÓ o binário + .desktop + ícones (ver `[package.metadata.deb]`
+	# no Cargo.toml): os assets de runtime (views/estilos/scripts Luau) são
+	# EMBUTIDOS no executável em release via `include_dir` (src/embedded.rs, que
+	# só compila sob `cfg(not(debug_assertions))`), então não existe
+	# /usr/share/rustploy e o binário roda de qualquer CWD.
 	cargo deb -p rustploy-gui -o dist/
 	@echo ""
 	@echo "$(GREEN)Pacote Linux (.deb) gerado:$(RESET)"
