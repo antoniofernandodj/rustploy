@@ -833,6 +833,12 @@
         target="iac"
         action="settings_tab:iac"
       />
+      <TabButton
+        label="Manutenção"
+        current="{settings_tab}"
+        target="maintenance"
+        action="settings_tab:maintenance"
+      />
     </row>
     <rule />
 
@@ -1180,6 +1186,128 @@
               </row>
             </column>
           </if>
+        </column>
+      </scrollable>
+    </if>
+
+    <!-- Manutenção: limpeza automática de recursos Docker sem uso (ver
+         docs/plano-limpeza-automatica-docker.md) — mesmas funções dos botões
+         manuais da aba Docker, disparadas por agendamento em vez de clique. -->
+    <if cond="{settings_tab}" equals="maintenance">
+      <scrollable direction="vertical" class="scroll_fill">
+        <column class="form_panel">
+          <text class="label_cap">LIMPEZA AUTOMÁTICA</text>
+          <toggle
+            checked="dc_enabled"
+            on_toggle="field:dc_enabled"
+            label="  Ativar limpeza automática"
+          />
+          <text class="muted">
+            Roda sozinha, no horário abaixo, os recursos marcados nesta tela.
+            Desligada por padrão — nada é removido até você marcar pelo menos
+            um recurso e ativar.
+          </text>
+
+          <text class="label_cap">FREQUÊNCIA</text>
+          <row class="tabs">
+            <TabButton label="A cada N horas" current="{dc_kind}" target="interval" action="dc_kind:interval" />
+            <TabButton label="Todo dia" current="{dc_kind}" target="daily" action="dc_kind:daily" />
+            <TabButton label="Toda semana" current="{dc_kind}" target="weekly" action="dc_kind:weekly" />
+          </row>
+
+          <row class="hc_grid" if="{dc_kind}" equals="interval">
+            <column class="hc_field">
+              <text class="label_cap">A CADA (HORAS)</text>
+              <TextInput
+                class="field_input"
+                formControl="dc_hours"
+                value="dc_hours"
+                on_change="field:dc_hours"
+                placeholder="6"
+              />
+            </column>
+          </row>
+
+          <row class="tabs" if="{dc_kind}" equals="weekly">
+            <TabButton label="Seg" current="{dc_weekday}" target="0" action="dc_weekday:0" />
+            <TabButton label="Ter" current="{dc_weekday}" target="1" action="dc_weekday:1" />
+            <TabButton label="Qua" current="{dc_weekday}" target="2" action="dc_weekday:2" />
+            <TabButton label="Qui" current="{dc_weekday}" target="3" action="dc_weekday:3" />
+            <TabButton label="Sex" current="{dc_weekday}" target="4" action="dc_weekday:4" />
+            <TabButton label="Sáb" current="{dc_weekday}" target="5" action="dc_weekday:5" />
+            <TabButton label="Dom" current="{dc_weekday}" target="6" action="dc_weekday:6" />
+          </row>
+
+          <row class="hc_grid" if="{dc_kind}" not_equals="interval">
+            <column class="hc_field">
+              <text class="label_cap">HORA (0-23)</text>
+              <TextInput
+                class="field_input"
+                formControl="dc_hour"
+                value="dc_hour"
+                on_change="field:dc_hour"
+                placeholder="3"
+              />
+            </column>
+            <column class="hc_field">
+              <text class="label_cap">MINUTO (0-59)</text>
+              <TextInput
+                class="field_input"
+                formControl="dc_minute"
+                value="dc_minute"
+                on_change="field:dc_minute"
+                placeholder="0"
+              />
+            </column>
+          </row>
+
+          <text class="muted">Próxima execução agendada: {dc_next_run_label}</text>
+
+          <rule />
+          <text class="label_cap">O QUE LIMPAR</text>
+
+          <checkbox checked="dc_containers" on_toggle="field:dc_containers" label="Containers parados" />
+
+          <checkbox checked="dc_images" on_toggle="field:dc_images" label="Imagens sem uso" />
+          <checkbox
+            if="{dc_images}"
+            equals="true"
+            checked="dc_images_all"
+            on_toggle="field:dc_images_all"
+            label="   incluir todas as não usadas (não só as sem tag)"
+          />
+
+          <checkbox checked="dc_networks" on_toggle="field:dc_networks" label="Redes sem uso" />
+
+          <checkbox checked="dc_build_cache" on_toggle="field:dc_build_cache" label="Cache de build" />
+
+          <rule />
+          <text class="label_cap err">VOLUMES — CUIDADO</text>
+          <text class="muted">
+            Volumes sem uso criados por fora do rustploy (não pelos seus
+            serviços, que só usam bind mount) podem conter dado que ninguém
+            recriaria sozinho. Confirme que sabe o que existe no host antes de
+            ativar.
+          </text>
+          <checkbox checked="dc_volumes" on_toggle="field:dc_volumes" label="Volumes sem uso" />
+          <checkbox
+            if="{dc_volumes}"
+            equals="true"
+            checked="dc_volumes_all"
+            on_toggle="field:dc_volumes_all"
+            label="   incluir todos os sem uso (não só os anônimos)"
+          />
+
+          <row class="env_add">
+            <button class="btn_primary" on_click="dc_save" text="Salvar" />
+            <button class="tab" if="{dc_running}" not_equals="true" on_click="dc_run_now" text="Executar agora" />
+            <button class="tab" if="{dc_running}" equals="true" text="Executando…" />
+            <text class="muted">{dc_msg}</text>
+          </row>
+
+          <rule />
+          <text class="label_cap">ÚLTIMA EXECUÇÃO</text>
+          <text class="muted">{dc_last_run_text}</text>
         </column>
       </scrollable>
     </if>

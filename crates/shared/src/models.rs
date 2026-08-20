@@ -999,6 +999,101 @@ pub struct JobSummary {
     pub last_run: Option<JobRun>,
 }
 
+/// Configuração de limpeza automática de recursos Docker não usados
+/// (containers parados, imagens, volumes, redes, cache de build) — ver
+/// `docs/plano-limpeza-automatica-docker.md`. É uma configuração singleton
+/// do daemon (não uma lista de itens), guardada como um único JSON em
+/// `daemon_settings` (`KEY_DOCKER_CLEANUP_CONFIG`) — sem tabela própria.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct DockerCleanupConfig {
+    pub enabled: bool,
+    pub recurrence: Recurrence,
+    pub containers: bool,
+    pub images: bool,
+    /// Sem isto, só remove imagens "dangling" (sem tag) — mesma semântica do
+    /// parâmetro `all` de `docker_prune::prune_images`.
+    pub images_all: bool,
+    pub volumes: bool,
+    /// Volumes de fora dos serviços gerenciados pelo rustploy (que só usam
+    /// bind mount) podem conter dado — ver aviso no doc do plano.
+    pub volumes_all: bool,
+    pub networks: bool,
+    pub build_cache: bool,
+    /// `#[serde(default)]`: os clientes (Luau/JS) mandam a chave inteira ao
+    /// fazer round-trip do valor recebido, mas o formulário de criação (antes
+    /// do primeiro `Get`) pode omiti-la de vez — mesma convenção de
+    /// `JobGitSource`.
+    #[serde(default)]
+    pub last_run_at: Option<DateTime<Utc>>,
+    /// Calculado e persistido junto (nunca recomputado só a partir de "agora"
+    /// a cada tick do scheduler — ver `recompute_next_run`): igual ao
+    /// `Job.next_run_at`, é o que faz "nunca rodou ainda" convergir pro
+    /// próximo horário da recorrência em vez de rodar assim que é ativado.
+    /// Sempre recalculado no servidor em `DockerCleanupConfigSet` — o que o
+    /// cliente mandar aqui é ignorado.
+    #[serde(default)]
+    pub next_run_at: Option<DateTime<Utc>>,
+}
+
+impl Default for DockerCleanupConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            recurrence: Recurrence::Daily { hour: 3, minute: 0 },
+            containers: false,
+            images: false,
+            images_all: false,
+            volumes: false,
+            volumes_all: false,
+            networks: false,
+            build_cache: false,
+            last_run_at: None,
+            next_run_at: None,
+        }
+    }
+}
+
+impl DockerCleanupConfig {
+    pub fn any_resource_enabled(&self) -> bool {
+        self.containers || self.images || self.volumes || self.networks || self.build_cache
+    }
+
+    /// Recalcula `next_run_at` a partir de `last_run_at` (ou de `now` quando
+    /// nunca rodou) — chamado ao salvar a config e depois de cada execução.
+    /// `None` quando desativado ou sem nenhum recurso marcado, pro scheduler
+    /// não ter que checar essas duas condições de novo em todo tick.
+    pub fn recompute_next_run(&mut self, now: DateTime<Utc>) {
+        self.next_run_at = if self.enabled && self.any_resource_enabled() {
+            Some(self.recurrence.next_after(self.last_run_at.unwrap_or(now)))
+        } else {
+            None
+        };
+    }
+}
+
+/// Resultado da limpeza de UM recurso, dentro de uma execução — usado tanto
+/// no resumo persistido (`DockerCleanupLastRun`) quanto no
+/// `Event::DockerCleanupCompleted`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct DockerCleanupResourceResult {
+    /// "containers" | "images" | "volumes" | "networks" | "build_cache".
+    pub resource: String,
+    pub count: u32,
+    pub reclaimed_bytes: u64,
+    /// `Some` quando esse recurso falhou — os demais continuam rodando (uma
+    /// falha em "volumes" não impede a limpeza de "images", por exemplo).
+    pub error: Option<String>,
+}
+
+/// Resumo persistido da última execução (chave `KEY_DOCKER_CLEANUP_LAST_RUN`
+/// em `daemon_settings`), pra tela mostrar "última limpeza: ..." sem
+/// depender de ainda estar conectada ao SSE quando ela rodou.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct DockerCleanupLastRun {
+    pub at: DateTime<Utc>,
+    pub results: Vec<DockerCleanupResourceResult>,
+}
+
 #[cfg(test)]
 mod job_tests {
     use super::*;

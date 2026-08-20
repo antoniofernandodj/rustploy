@@ -744,6 +744,42 @@ export function gitProviderRows(list) {
   });
 }
 
+// ── Limpeza automática de Docker (Settings → Manutenção) ──────────────────
+// Porta de fmt/docker_cleanup.luau — ver docs/plano-limpeza-automatica-docker.md.
+
+const DOCKER_CLEANUP_LABELS = {
+  containers: "containers",
+  images: "imagens",
+  volumes: "volumes",
+  networks: "redes",
+  build_cache: "cache de build",
+};
+
+export function dockerCleanupResourceLabel(name) {
+  return DOCKER_CLEANUP_LABELS[name] || name;
+}
+
+/** `lr`: `DockerCleanupLastRun?` (`{ at, results: [{ resource, count,
+ * reclaimed_bytes, error }] }`). `null`/`undefined` = nunca rodou. */
+export function dockerCleanupLastRunSummary(lr) {
+  if (!lr) return "ainda não rodou";
+  let totalBytes = 0;
+  let anyError = false;
+  const parts = (lr.results || []).map((r) => {
+    totalBytes += r.reclaimed_bytes || 0;
+    if (r.error != null) {
+      anyError = true;
+      return `${dockerCleanupResourceLabel(r.resource)}: erro`;
+    }
+    return `${dockerCleanupResourceLabel(r.resource)} ${r.count || 0}`;
+  });
+  const head = `${dateDmHms(lr.at)} · ${fmtBytes(totalBytes)} liberados`;
+  if (parts.length === 0) return head;
+  let suffix = ` (${parts.join(", ")})`;
+  if (anyError) suffix += " — alguns recursos falharam, ver logs do daemon";
+  return head + suffix;
+}
+
 /** Deploy Engine: "Histórico 24h". */
 export function engRecentRows(recent) {
   return (recent || []).map((info) => {

@@ -235,6 +235,16 @@ pub enum Command {
     PruneBuildCache,
     PruneNetworks,
 
+    // Limpeza automática (agendada) dos recursos acima — ver
+    // docs/plano-limpeza-automatica-docker.md. `RunNow` dispara o mesmo
+    // caminho de código do scheduler, fora do horário agendado (botão
+    // "Executar agora" da tela).
+    DockerCleanupConfigGet,
+    DockerCleanupConfigSet {
+        config: DockerCleanupConfig,
+    },
+    DockerCleanupRunNow,
+
     // Docker inventory (every image/volume/network on the host, not just
     // rustploy-managed ones — see `shared::DockerImageInfo` etc.)
     DockerImages,
@@ -407,6 +417,13 @@ pub enum Event {
     /// cancelou ou pausou/retomou). Sinal leve: o cliente refaz o
     /// `DeployEngineStatus` ao recebê-lo. Anexado no fim do enum de propósito.
     DeployQueueChanged,
+    /// Uma limpeza automática (ou "Executar agora") terminou — disparada pelo
+    /// `maintenance::scheduler_loop` ou por `Command::DockerCleanupRunNow`.
+    /// Não é por-serviço, então cai no braço "sempre true" de `matches`.
+    DockerCleanupCompleted {
+        at: chrono::DateTime<chrono::Utc>,
+        results: Vec<DockerCleanupResourceResult>,
+    },
 }
 
 impl Event {
@@ -433,7 +450,8 @@ impl Event {
             | Event::SystemMetrics(_)
             | Event::JobLogLine { .. }
             | Event::JobRunStateChanged { .. }
-            | Event::DeployQueueChanged => true,
+            | Event::DeployQueueChanged
+            | Event::DockerCleanupCompleted { .. } => true,
         }
     }
 }
@@ -501,6 +519,12 @@ pub enum Response {
     GitBranches(Vec<GitBranch>),
 
     PruneResult { count: u32, reclaimed_bytes: u64 },
+    /// Resposta de `DockerCleanupConfigGet`/`Set` — `last_run` é `None`
+    /// enquanto a limpeza automática nunca rodou.
+    DockerCleanupConfig {
+        config: DockerCleanupConfig,
+        last_run: Option<DockerCleanupLastRun>,
+    },
     EnvBackupSnapshots(Vec<String>),
 
     // Docker inventory

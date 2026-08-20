@@ -37,3 +37,7 @@ pub async fn delete(db: &Db, key: &str) -> Result<()> {
 pub const KEY_WEBHOOK_BASE_URL: &str = "webhook_base_url";
 pub const KEY_ACME_EMAIL: &str = "acme_email";
 pub const KEY_REGISTRY_DOMAIN: &str = "registry_domain";
+/// JSON de `shared::DockerCleanupConfig` — ver `crate::maintenance`.
+pub const KEY_DOCKER_CLEANUP_CONFIG: &str = "docker_cleanup_config";
+/// JSON de `shared::DockerCleanupLastRun`, ausente até a primeira execução.
+pub const KEY_DOCKER_CLEANUP_LAST_RUN: &str = "docker_cleanup_last_run";

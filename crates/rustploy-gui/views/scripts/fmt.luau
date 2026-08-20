@@ -11,6 +11,7 @@ local ServiceDetail = require("fmt/service_detail")
 local Git = require("fmt/git")
 local Jobs = require("fmt/jobs")
 local Registry = require("fmt/registry")
+local DockerCleanup = require("fmt/docker_cleanup")
 
 local M = {}
 
@@ -77,6 +78,10 @@ M.job_summaries = Jobs.summaries
 M.job_runs = Jobs.runs
 M.pre_deploy_queue = Jobs.pre_deploy_queue
 M.pre_deploy_available = Jobs.pre_deploy_available
+
+-- Limpeza automática de Docker (fmt/docker_cleanup.luau)
+M.docker_cleanup_resource_label = DockerCleanup.resource_label
+M.docker_cleanup_last_run_summary = DockerCleanup.last_run_summary
 
 -- Registry OCI embutido (fmt/registry.luau)
 M.registry_repos = Registry.repos

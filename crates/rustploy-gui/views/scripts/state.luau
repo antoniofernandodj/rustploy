@@ -38,6 +38,7 @@ export type State = {
     ns_templates_all: { any },         -- catálogo completo de templates (filtrar busca)
     jobs_by_id: { [string]: any },     -- job_id → Job cru (do snapshot) — job_toggle precisa do compose/name/main_service completos pra reenviar o JobUpdate.
     jobs_inflight: { [string]: boolean }, -- job_id → true entre o click em "Rodar agora" e o refresh_now() que confirma o novo job_run — trava double-click durante o round-trip da RPC (o botão só reflete `running` do snapshot DEPOIS disso).
+    dc_last_run_at_raw: any,           -- DockerCleanupConfig.last_run_at cru (ISO8601 ou nil), round-trip opaco: preserva o horário real entre saves do formulário de Manutenção, pra um agendamento IntervalHours não reiniciar a contagem a cada "Save" — ver handlers/settings.luau.
 }
 
 local S: State = {
@@ -51,6 +52,7 @@ local S: State = {
     ns_templates_all = {},
     jobs_by_id = {},
     jobs_inflight = {},
+    dc_last_run_at_raw = nil,
 }
 
 return S

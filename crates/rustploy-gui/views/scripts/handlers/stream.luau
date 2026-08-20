@@ -314,7 +314,15 @@ local function apply_bus(ev: any): ()
     if type(ev) ~= "table" then
         return
     end
-    if ev.ContainerMetrics then
+    if ev.DockerCleanupCompleted then
+        -- Settings.luau não é `require`ado aqui de propósito: ele já requer
+        -- este arquivo (`Stream = require("stream")`), e um require cíclico
+        -- devolveria um módulo incompleto. Atualiza os 3 campos direto.
+        local p = ev.DockerCleanupCompleted
+        ctx.dc_running = "false"
+        ctx.dc_last_run_text = fmt.docker_cleanup_last_run_summary({ at = p.at, results = p.results })
+        State.dc_last_run_at_raw = p.at
+    elseif ev.ContainerMetrics then
         local p = ev.ContainerMetrics
         if p.service_id then
             State.metrics_by_id[p.service_id] = p

@@ -32,8 +32,11 @@ import {
   stripAnsi,
   oauthRedirectUri,
   timeHms,
+  dateDmHms,
+  dateDmHm,
   parseDotenv,
   dotenvFromVars,
+  dockerCleanupLastRunSummary,
 } from "./fmt.js";
 
 window.Alpine = Alpine;
@@ -193,6 +196,30 @@ document.addEventListener("alpine:init", () => {
     iacReportLines: [],
     iacImportMsg: "",
 
+    // Settings → Manutenção (limpeza automática de Docker) — ver
+    // docs/plano-limpeza-automatica-docker.md. Porta de handlers/settings.luau
+    // (dc_*). `dcLastRunAtRaw` é um campo "mudo" (não exibido, só round-trip):
+    // preserva o `last_run_at` real entre saves pra um agendamento
+    // IntervalHours não reiniciar a contagem toda vez que o usuário salva.
+    dcEnabled: false,
+    dcKind: "daily", // "interval" | "daily" | "weekly"
+    dcHours: "6",
+    dcHour: "3",
+    dcMinute: "0",
+    dcWeekday: "0",
+    dcContainers: false,
+    dcImages: false,
+    dcImagesAll: false,
+    dcVolumes: false,
+    dcVolumesAll: false,
+    dcNetworks: false,
+    dcBuildCache: false,
+    dcNextRunLabel: "—",
+    dcLastRunAtRaw: null,
+    dcLastRunText: "ainda não rodou",
+    dcRunning: false,
+    dcMsg: "",
+
     get gpRedirect() {
       return oauthRedirectUri(this.ssPublicBase, this.gpKind);
     },
@@ -299,7 +326,12 @@ document.addEventListener("alpine:init", () => {
         return;
       }
       if (!ev || typeof ev !== "object") return;
-      if (ev.ContainerMetrics) {
+      if (ev.DockerCleanupCompleted) {
+        const p = ev.DockerCleanupCompleted;
+        this.dcRunning = false;
+        this.dcLastRunText = dockerCleanupLastRunSummary({ at: p.at, results: p.results });
+        this.dcLastRunAtRaw = p.at;
+      } else if (ev.ContainerMetrics) {
         const p = ev.ContainerMetrics;
         if (p.service_id) this.metricsById[p.service_id] = p;
       } else if (ev.SystemMetrics) {
@@ -1175,6 +1207,7 @@ document.addEventListener("alpine:init", () => {
         this.ssRegistryDomain = s.registry_domain || "";
       }
       await this.gpRefresh();
+      await this.dcLoad();
     },
 
     async settingsSave() {
@@ -1351,6 +1384,126 @@ document.addEventListener("alpine:init", () => {
       this.iacHasReport = true;
       this.iacImportMsg = "import concluído ✓";
       await this.refreshNow();
+    },
+
+    // ── Settings → Manutenção (limpeza automática de Docker) ────────────
+    // Porta de handlers/settings.luau (dc_*) — ver
+    // docs/plano-limpeza-automatica-docker.md. Config é um singleton do
+    // daemon, carregada/salva inteira a cada Get/Set.
+
+    /** Recorrência (Option<Recurrence>, externally-tagged) → campos do
+     * formulário — mesmo formato do unpack usado ao editar um Job (acima,
+     * perto de `njobKind`). */
+    dcApplyConfig(cfg) {
+      this.dcEnabled = !!cfg.enabled;
+      this.dcContainers = !!cfg.containers;
+      this.dcImages = !!cfg.images;
+      this.dcImagesAll = !!cfg.images_all;
+      this.dcVolumes = !!cfg.volumes;
+      this.dcVolumesAll = !!cfg.volumes_all;
+      this.dcNetworks = !!cfg.networks;
+      this.dcBuildCache = !!cfg.build_cache;
+      const r = cfg.recurrence;
+      if (r && r.IntervalHours != null) {
+        this.dcKind = "interval";
+        this.dcHours = String(r.IntervalHours);
+      } else if (r && r.Weekly) {
+        this.dcKind = "weekly";
+        this.dcHour = String(r.Weekly.hour);
+        this.dcMinute = String(r.Weekly.minute);
+        this.dcWeekday = String(r.Weekly.weekday);
+      } else if (r && r.Daily) {
+        this.dcKind = "daily";
+        this.dcHour = String(r.Daily.hour);
+        this.dcMinute = String(r.Daily.minute);
+      } else {
+        this.dcKind = "daily";
+      }
+      this.dcNextRunLabel = cfg.next_run_at ? dateDmHm(cfg.next_run_at) : "—";
+      this.dcLastRunAtRaw = cfg.last_run_at ?? null;
+    },
+
+    async dcLoad() {
+      const r = await this.api.rpc("DockerCleanupConfigGet");
+      if (r.ok && r.value?.DockerCleanupConfig) {
+        this.dcApplyConfig(r.value.DockerCleanupConfig.config);
+        this.dcLastRunText = dockerCleanupLastRunSummary(r.value.DockerCleanupConfig.last_run);
+      }
+    },
+
+    dcBuildRecurrence() {
+      if (this.dcKind === "interval") {
+        return { IntervalHours: Math.max(1, parseInt(this.dcHours, 10) || 1) };
+      }
+      if (this.dcKind === "weekly") {
+        return {
+          Weekly: {
+            weekday: parseInt(this.dcWeekday, 10) || 0,
+            hour: parseInt(this.dcHour, 10) || 0,
+            minute: parseInt(this.dcMinute, 10) || 0,
+          },
+        };
+      }
+      return {
+        Daily: {
+          hour: parseInt(this.dcHour, 10) || 0,
+          minute: parseInt(this.dcMinute, 10) || 0,
+        },
+      };
+    },
+
+    async dcSave() {
+      this.dcMsg = "salvando…";
+      const r = await this.api.rpcChecked({
+        DockerCleanupConfigSet: {
+          config: {
+            enabled: this.dcEnabled,
+            recurrence: this.dcBuildRecurrence(),
+            containers: this.dcContainers,
+            images: this.dcImages,
+            images_all: this.dcImagesAll,
+            volumes: this.dcVolumes,
+            volumes_all: this.dcVolumesAll,
+            networks: this.dcNetworks,
+            build_cache: this.dcBuildCache,
+            last_run_at: this.dcLastRunAtRaw,
+          },
+        },
+      });
+      if (r.ok && r.value?.DockerCleanupConfig) {
+        this.dcApplyConfig(r.value.DockerCleanupConfig.config);
+        this.dcLastRunText = dockerCleanupLastRunSummary(r.value.DockerCleanupConfig.last_run);
+        this.dcMsg = "configurações salvas";
+      } else {
+        this.dcMsg = "erro: " + r.error;
+      }
+    },
+
+    /** Botão "Executar agora": roda os recursos marcados fora do horário
+     * agendado, independente do interruptor geral. Roda em background no
+     * daemon — `dcRunning` volta a `false` quando `Event::DockerCleanupCompleted`
+     * chega (applyBusEvent), não pela resposta deste RPC. */
+    async dcRunNow() {
+      const anySelected =
+        this.dcContainers || this.dcImages || this.dcVolumes || this.dcNetworks || this.dcBuildCache;
+      if (!anySelected) {
+        this.dcMsg = "marque pelo menos um recurso";
+        return;
+      }
+      if (
+        !confirm(
+          "Roda a limpeza dos recursos marcados imediatamente, fora do horário agendado. Ação irreversível."
+        )
+      ) {
+        return;
+      }
+      this.dcRunning = true;
+      this.dcMsg = "executando…";
+      const r = await this.api.rpcChecked("DockerCleanupRunNow");
+      if (!r.ok) {
+        this.dcRunning = false;
+        this.dcMsg = "erro: " + r.error;
+      }
     },
 
     async serviceStop() {

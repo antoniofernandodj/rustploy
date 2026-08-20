@@ -10,6 +10,7 @@ mod health;
 mod ingress;
 mod jobs;
 mod logs;
+mod maintenance;
 mod metrics;
 mod ports;
 mod registry;
@@ -289,6 +290,16 @@ async fn main() -> Result<()> {
         let state2 = state.clone();
         tokio::spawn(async move {
             jobs::scheduler::scheduler_loop(state2).await;
+        });
+    }
+
+    // Scheduler da limpeza automática de Docker (containers/imagens/volumes/
+    // redes/cache de build não usados) — verifica a cada 60s se está devida
+    // (ver docs/plano-limpeza-automatica-docker.md).
+    {
+        let state2 = state.clone();
+        tokio::spawn(async move {
+            maintenance::scheduler::scheduler_loop(state2).await;
         });
     }
 

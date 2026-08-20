@@ -7,6 +7,7 @@ local State = require("../state")
 local Helpers = require("../helpers")
 local Api = require("../net/api")
 local Stream = require("stream")
+local Settings = require("settings")
 
 -- ── login lembrado: lista de servidor/token (via o `storage` do glacier) ────
 -- Antes era um único par com dois checkboxes "lembrar"; agora toda conexão
@@ -181,6 +182,7 @@ local function load_settings(): ()
     if ok2 and res2.GitProviders then
         ctx.gitea_count = tostring(#res2.GitProviders)
     end
+    Settings.dc_load()
 end
 
 -- on_submit/on_click do formulário de login. `fetch` suspende a corrotina, então

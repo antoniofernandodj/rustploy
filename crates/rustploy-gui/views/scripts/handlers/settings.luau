@@ -8,6 +8,8 @@ local Helpers = require("../helpers")
 local fmt = require("../fmt")
 local Stream = require("stream")
 
+local M = {}
+
 -- ── Settings (Web Server) ────────────────────────────────────────────────
 
 function settings_tab(t: string): ()
@@ -248,3 +250,161 @@ function iac_import(): ()
     toast{ message = tostring("Infra as Code importado"), kind = "success" }
     Stream.refresh_now()
 end
+
+-- ── Settings → Manutenção (limpeza automática de Docker) ─────────────────
+-- Ver docs/plano-limpeza-automatica-docker.md. Config é um singleton do
+-- daemon (não uma lista) — sem tabela própria, carregada/salva inteira a
+-- cada Get/Set. `dc_last_run_at_raw`/`dc_next_run_at_raw` são campos "mudos"
+-- (não exibidos, só round-trip): preservam o `last_run_at` real entre saves
+-- pra um agendamento `IntervalHours` não reiniciar a contagem toda vez que o
+-- usuário aperta "Save" sem ter mudado nada de agendamento.
+
+-- Recorrência (Option<Recurrence>, externally-tagged) → (kind, hours, hour,
+-- minute, weekday) — mesmo formato de new_job_window.luau::unpack_recurrence,
+-- mas aqui a recorrência nunca é `nil` (a config sempre tem uma, mesmo com o
+-- interruptor geral desligado).
+local function dc_unpack_recurrence(r: any): (string, string, string, string, string)
+    if r ~= nil and r.IntervalHours ~= nil then
+        return "interval", tostring(r.IntervalHours), "3", "0", "0"
+    end
+    if r ~= nil and r.Weekly ~= nil then
+        return "weekly", "6", tostring(r.Weekly.hour), tostring(r.Weekly.minute), tostring(r.Weekly.weekday)
+    end
+    if r ~= nil and r.Daily ~= nil then
+        return "daily", "6", tostring(r.Daily.hour), tostring(r.Daily.minute), "0"
+    end
+    return "daily", "6", "3", "0", "0"
+end
+
+local function dc_apply_config(cfg: any): ()
+    ctx.dc_enabled = tostring(cfg.enabled)
+    ctx.dc_containers = tostring(cfg.containers)
+    ctx.dc_images = tostring(cfg.images)
+    ctx.dc_images_all = tostring(cfg.images_all)
+    ctx.dc_volumes = tostring(cfg.volumes)
+    ctx.dc_volumes_all = tostring(cfg.volumes_all)
+    ctx.dc_networks = tostring(cfg.networks)
+    ctx.dc_build_cache = tostring(cfg.build_cache)
+    local kind, hours, hour, minute, weekday = dc_unpack_recurrence(cfg.recurrence)
+    ctx.dc_kind = kind
+    ctx.dc_hours = hours
+    ctx.dc_hour = hour
+    ctx.dc_minute = minute
+    ctx.dc_weekday = weekday
+    ctx.dc_next_run_label = cfg.next_run_at and fmt.date_dm_hm(cfg.next_run_at) or "—"
+    State.dc_last_run_at_raw = cfg.last_run_at
+end
+
+-- Carregado uma vez na conexão (handlers/connection.luau::load_settings) —
+-- não faz parte do snapshot de 2s, é config, não estado que muda sozinho
+-- (exceto por `last_run`, atualizado ao vivo por `Event::DockerCleanupCompleted`
+-- em stream.luau, sem precisar buscar de novo).
+function M.dc_load(): ()
+    local api = State.api
+    if not api then
+        return
+    end
+    local ok, res = api:rpc("DockerCleanupConfigGet")
+    if ok and res.DockerCleanupConfig then
+        dc_apply_config(res.DockerCleanupConfig.config)
+        ctx.dc_last_run_text = fmt.docker_cleanup_last_run_summary(res.DockerCleanupConfig.last_run)
+    end
+end
+
+function dc_kind(k: string): ()
+    ctx.dc_kind = k
+end
+
+function dc_weekday(w: string): ()
+    ctx.dc_weekday = w
+end
+
+local function dc_build_recurrence(): any
+    if ctx.dc_kind == "interval" then
+        return { IntervalHours = math.max(1, tonumber(ctx.dc_hours) or 1) }
+    elseif ctx.dc_kind == "weekly" then
+        return {
+            Weekly = {
+                weekday = tonumber(ctx.dc_weekday) or 0,
+                hour = tonumber(ctx.dc_hour) or 0,
+                minute = tonumber(ctx.dc_minute) or 0,
+            },
+        }
+    end
+    return {
+        Daily = {
+            hour = tonumber(ctx.dc_hour) or 0,
+            minute = tonumber(ctx.dc_minute) or 0,
+        },
+    }
+end
+
+function dc_save(): ()
+    local api = State.api
+    if not api then
+        return
+    end
+    ctx.dc_msg = "salvando…"
+    local ok, res = api:rpc_checked{
+        DockerCleanupConfigSet = {
+            config = {
+                enabled = ctx.dc_enabled == "true",
+                recurrence = dc_build_recurrence(),
+                containers = ctx.dc_containers == "true",
+                images = ctx.dc_images == "true",
+                images_all = ctx.dc_images_all == "true",
+                volumes = ctx.dc_volumes == "true",
+                volumes_all = ctx.dc_volumes_all == "true",
+                networks = ctx.dc_networks == "true",
+                build_cache = ctx.dc_build_cache == "true",
+                last_run_at = State.dc_last_run_at_raw,
+            },
+        },
+    }
+    if ok and res.DockerCleanupConfig then
+        dc_apply_config(res.DockerCleanupConfig.config)
+        ctx.dc_last_run_text = fmt.docker_cleanup_last_run_summary(res.DockerCleanupConfig.last_run)
+        ctx.dc_msg = "configurações salvas"
+        toast{ message = tostring("Limpeza automática salva"), kind = "success" }
+    else
+        ctx.dc_msg = "erro: " .. tostring(res)
+        toast{ message = tostring(res), kind = "error" }
+    end
+end
+
+-- Botão "Executar agora": roda os recursos marcados fora do horário
+-- agendado, independente do interruptor geral (é um botão de teste). Roda em
+-- background no daemon — `ctx.dc_running` volta a "false" quando
+-- `Event::DockerCleanupCompleted` chega (stream.luau::apply_bus), não pela
+-- resposta deste RPC.
+function dc_run_now(): ()
+    local api = State.api
+    if not api then
+        return
+    end
+    local any_selected = ctx.dc_containers == "true" or ctx.dc_images == "true"
+        or ctx.dc_volumes == "true" or ctx.dc_networks == "true" or ctx.dc_build_cache == "true"
+    if not any_selected then
+        ctx.dc_msg = "marque pelo menos um recurso"
+        return
+    end
+    local ok_confirm = confirm{
+        title = "Executar limpeza agora?",
+        message = "Roda a limpeza dos recursos marcados imediatamente, fora do horário agendado. Ação irreversível.",
+        confirm_label = "Executar",
+        destructive = true,
+    }
+    if not ok_confirm then
+        return
+    end
+    ctx.dc_running = "true"
+    ctx.dc_msg = "executando…"
+    local ok, res = api:rpc_checked("DockerCleanupRunNow")
+    if not ok then
+        ctx.dc_running = "false"
+        ctx.dc_msg = "erro: " .. tostring(res)
+        toast{ message = tostring(res), kind = "error" }
+    end
+end
+
+return M

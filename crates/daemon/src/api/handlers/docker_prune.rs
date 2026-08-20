@@ -7,7 +7,23 @@ use bollard::{
 };
 use shared::Response as RpResponse;
 
+/// Resultado tipado de uma limpeza — o denominador comum entre o botão manual
+/// (embrulhado em `RpResponse::PruneResult` por cada função pública deste
+/// arquivo) e a limpeza automática (`crate::maintenance`, que chama
+/// `*_core` diretamente e embrulha em `shared::DockerCleanupResourceResult`).
+pub struct PruneStat {
+    pub count: u32,
+    pub reclaimed_bytes: u64,
+}
+
 pub async fn prune_containers(state: AppState) -> RpResponse {
+    match prune_containers_core(&state).await {
+        Ok(s) => RpResponse::PruneResult { count: s.count, reclaimed_bytes: s.reclaimed_bytes },
+        Err(e) => RpResponse::err("DockerError", e),
+    }
+}
+
+pub(crate) async fn prune_containers_core(state: &AppState) -> Result<PruneStat, String> {
     let result = state
         .docker
         .inner
@@ -17,11 +33,11 @@ pub async fn prune_containers(state: AppState) -> RpResponse {
     state.docker_cache.df.invalidate().await;
     state.docker_cache.networks.invalidate().await;
     match result {
-        Ok(r) => RpResponse::PruneResult {
+        Ok(r) => Ok(PruneStat {
             count: r.containers_deleted.map(|v| v.len() as u32).unwrap_or(0),
             reclaimed_bytes: r.space_reclaimed.unwrap_or(0) as u64,
-        },
-        Err(e) => RpResponse::err("DockerError", e.to_string()),
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
@@ -30,6 +46,13 @@ pub async fn prune_containers(state: AppState) -> RpResponse {
 /// 0.17.1's documented list for this endpoint, but `filters` is a plain
 /// map serialized straight to JSON, so the Engine API (1.42+) still honors it.
 pub async fn prune_volumes(state: AppState, all: bool) -> RpResponse {
+    match prune_volumes_core(&state, all).await {
+        Ok(s) => RpResponse::PruneResult { count: s.count, reclaimed_bytes: s.reclaimed_bytes },
+        Err(e) => RpResponse::err("DockerError", e),
+    }
+}
+
+pub(crate) async fn prune_volumes_core(state: &AppState, all: bool) -> Result<PruneStat, String> {
     let mut filters = std::collections::HashMap::new();
     if all {
         filters.insert("all", vec!["true"]);
@@ -41,11 +64,11 @@ pub async fn prune_volumes(state: AppState, all: bool) -> RpResponse {
         .await;
     state.docker_cache.df.invalidate().await;
     match result {
-        Ok(r) => RpResponse::PruneResult {
+        Ok(r) => Ok(PruneStat {
             count: r.volumes_deleted.map(|v| v.len() as u32).unwrap_or(0),
             reclaimed_bytes: r.space_reclaimed.unwrap_or(0) as u64,
-        },
-        Err(e) => RpResponse::err("DockerError", e.to_string()),
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
@@ -53,6 +76,13 @@ pub async fn prune_volumes(state: AppState, all: bool) -> RpResponse {
 /// any container, not just dangling/untagged ones (`dangling=true` is
 /// Docker's own default when the filter is omitted).
 pub async fn prune_images(state: AppState, all: bool) -> RpResponse {
+    match prune_images_core(&state, all).await {
+        Ok(s) => RpResponse::PruneResult { count: s.count, reclaimed_bytes: s.reclaimed_bytes },
+        Err(e) => RpResponse::err("DockerError", e),
+    }
+}
+
+pub(crate) async fn prune_images_core(state: &AppState, all: bool) -> Result<PruneStat, String> {
     let mut filters = std::collections::HashMap::new();
     if all {
         filters.insert("dangling", vec!["false"]);
@@ -64,17 +94,24 @@ pub async fn prune_images(state: AppState, all: bool) -> RpResponse {
         .await;
     state.docker_cache.df.invalidate().await;
     match result {
-        Ok(r) => RpResponse::PruneResult {
+        Ok(r) => Ok(PruneStat {
             count: r.images_deleted.map(|v| v.len() as u32).unwrap_or(0),
             reclaimed_bytes: r.space_reclaimed.unwrap_or(0) as u64,
-        },
-        Err(e) => RpResponse::err("DockerError", e.to_string()),
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }
 
 /// Usa `docker builder prune -f` via subprocess — a API REST do BuildKit
 /// não está exposta pelo bollard 0.17.
 pub async fn prune_build_cache(_state: AppState) -> RpResponse {
+    match prune_build_cache_core().await {
+        Ok(s) => RpResponse::PruneResult { count: s.count, reclaimed_bytes: s.reclaimed_bytes },
+        Err(e) => RpResponse::err("DockerError", e),
+    }
+}
+
+pub(crate) async fn prune_build_cache_core() -> Result<PruneStat, String> {
     let output = tokio::process::Command::new("docker")
         .args(["builder", "prune", "-f"])
         .output()
@@ -85,13 +122,10 @@ pub async fn prune_build_cache(_state: AppState) -> RpResponse {
             // Tenta extrair "Total reclaimed space: X.XXX MB" da saída
             let text = String::from_utf8_lossy(&out.stdout);
             let reclaimed_bytes = parse_reclaimed_space(&text);
-            RpResponse::PruneResult { count: 0, reclaimed_bytes }
+            Ok(PruneStat { count: 0, reclaimed_bytes })
         }
-        Ok(out) => {
-            let msg = String::from_utf8_lossy(&out.stderr).trim().to_string();
-            RpResponse::err("DockerError", msg)
-        }
-        Err(e) => RpResponse::err("DockerError", e.to_string()),
+        Ok(out) => Err(String::from_utf8_lossy(&out.stderr).trim().to_string()),
+        Err(e) => Err(e.to_string()),
     }
 }
 
@@ -116,6 +150,13 @@ fn parse_reclaimed_space(output: &str) -> u64 {
 }
 
 pub async fn prune_networks(state: AppState) -> RpResponse {
+    match prune_networks_core(&state).await {
+        Ok(s) => RpResponse::PruneResult { count: s.count, reclaimed_bytes: s.reclaimed_bytes },
+        Err(e) => RpResponse::err("DockerError", e),
+    }
+}
+
+pub(crate) async fn prune_networks_core(state: &AppState) -> Result<PruneStat, String> {
     let result = state
         .docker
         .inner
@@ -123,10 +164,10 @@ pub async fn prune_networks(state: AppState) -> RpResponse {
         .await;
     state.docker_cache.networks.invalidate().await;
     match result {
-        Ok(r) => RpResponse::PruneResult {
+        Ok(r) => Ok(PruneStat {
             count: r.networks_deleted.map(|v| v.len() as u32).unwrap_or(0),
             reclaimed_bytes: 0,
-        },
-        Err(e) => RpResponse::err("DockerError", e.to_string()),
+        }),
+        Err(e) => Err(e.to_string()),
     }
 }

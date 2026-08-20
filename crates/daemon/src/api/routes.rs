@@ -54,6 +54,9 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::PruneImages { .. } => "PruneImages",
         Command::PruneBuildCache => "PruneBuildCache",
         Command::PruneNetworks => "PruneNetworks",
+        Command::DockerCleanupConfigGet => "DockerCleanupConfigGet",
+        Command::DockerCleanupConfigSet { .. } => "DockerCleanupConfigSet",
+        Command::DockerCleanupRunNow => "DockerCleanupRunNow",
         Command::DockerImages => "DockerImages",
         Command::DockerVolumes => "DockerVolumes",
         Command::DockerNetworks => "DockerNetworks",
@@ -98,6 +101,11 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::PruneImages { all } => handlers::docker_prune::prune_images(state, all).await,
         Command::PruneBuildCache => handlers::docker_prune::prune_build_cache(state).await,
         Command::PruneNetworks => handlers::docker_prune::prune_networks(state).await,
+        Command::DockerCleanupConfigGet => handlers::docker_cleanup::get_config(state).await,
+        Command::DockerCleanupConfigSet { config } => {
+            handlers::docker_cleanup::set_config(state, config).await
+        }
+        Command::DockerCleanupRunNow => handlers::docker_cleanup::run_now(state).await,
         Command::DockerImages => handlers::docker_inventory::list_images(state).await,
         Command::DockerVolumes => handlers::docker_inventory::list_volumes(state).await,
         Command::DockerNetworks => handlers::docker_inventory::list_networks(state).await,
