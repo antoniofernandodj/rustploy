@@ -22,7 +22,11 @@ path = "src/main.rs"
 # 0.48+: fechar a principal recolhe o motor headless (SSE + login vivos → as
 # notificações de deploy chegam com a janela fechada). Ver app/mod.rs e
 # docs/plano-tray-bandeja-e-ciclo-de-vida.md.
-glacier-ui = { version = "0.57", features = ["tray"] }
+# 0.57.5+ é REQUISITO, não preferência: até a 0.57.4 a thread da bandeja deixava
+# o processo no locale do usuário depois do `gtk::init()`, e num locale de
+# vírgula decimal (pt_BR…) o lexer do Luau rejeitava todo literal decimal com
+# "Malformed number" — `require("fmt")` falhava e a janela de logs não abria.
+glacier-ui = { version = "0.57.5", features = ["tray"] }
 
 # Embute a árvore de assets (views/estilos/scripts/ícones/logos) no binário em
 # builds de release, para um executável standalone que não depende dos arquivos

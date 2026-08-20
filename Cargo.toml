@@ -11,7 +11,16 @@ resolver = "2"
 opt-level = 3
 lto = true
 codegen-units = 1
-panic = "abort"
+# NÃO volte a pôr `panic = "abort"` aqui. O Cargo só aceita essa chave na raiz do
+# profile (nunca em `[profile.release.package.*]`), então ela valeria também para
+# o `rustploy-gui` — e o `mlua` EXIGE `panic = "unwind"`: o Luau é C++ e propaga
+# erro de Lua desenrolando a pilha, atravessando frames Rust do mlua
+# (`callback_error_ext`). Compilados como `abort`, esses frames viram `nounwind`
+# e o desenrolamento vira `panic_cannot_unwind` → SIGABRT. Na prática, QUALQUER
+# erro de Lua num callback matava o app em release (o crash era ao abrir a janela
+# de logs: `require("fmt")` durante `open_child` → `build_engine`), enquanto em
+# debug o mesmo erro era tratado normalmente. Se o daemon precisar de `abort`
+# algum dia, tem que ser num profile só dele — não neste, compartilhado.
 
 # Compile heavy dependencies at opt-level 2 even in debug builds so
 # that SurrealDB / bollard don't dominate incremental rebuilds.
