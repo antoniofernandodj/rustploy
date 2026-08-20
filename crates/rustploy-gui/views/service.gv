@@ -239,7 +239,7 @@
               </row>
             </if>
 
-            <!-- Provider Git/Gitea/Registry — apenas para serviços não-Compose. -->
+            <!-- Provider Git/conta-conectada/Zip — apenas para serviços não-Compose. -->
             <if cond="{svc_source_kind}" not_equals="Compose">
 
             <text class="label_cap">PROVIDER</text>
@@ -251,8 +251,11 @@
                 action="prov:git"
               />
               <if cond="{gitea_count}" not_equals="0">
+                <!-- Vale para qualquer conta conectada em Settings → Git —
+                     Gitea *e* GitHub. O `target`/`action` seguem "gitea" por
+                     ser a chave de estado (prov_tab), não o nome do provedor. -->
                 <TabButton
-                  label="Gitea"
+                  label="Gitea/GitHub"
                   current="{prov_tab}"
                   target="gitea"
                   action="prov:gitea"
@@ -441,7 +444,7 @@
               </row>
             </if>
 
-            <!-- ── Sub-aba Gitea: picker de conta/repo/branch conectados ─ -->
+            <!-- ── Sub-aba conta conectada (Gitea/GitHub): picker conta/repo/branch ─ -->
             <if cond="{prov_tab}" equals="gitea">
               <text class="muted">
                 Selecione a conta conectada,
@@ -450,7 +453,7 @@
               <text if="{gitea_msg}" not_equals="" class="muted">
                 {gitea_msg}
               </text>
-              <text class="label_cap">CONTA GITEA</text>
+              <text class="label_cap">CONTA CONECTADA</text>
               <select
                 class="select"
                 options="gitea_providers"
