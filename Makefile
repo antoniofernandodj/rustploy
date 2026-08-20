@@ -265,8 +265,10 @@ export PATH := $(HOME)/.cargo/bin:$(PATH)
 
 .PHONY: setup
 setup: ## Instala todas as dependências necessárias
-	@echo "$(BOLD)==> Instalando dependências de build (pkg-config, libssl-dev)$(RESET)"
+	@echo "$(BOLD)==> Instalando dependências de build (build-essential, pkg-config, libssl-dev)$(RESET)"
+
 	$(SUDO) apt-get update
+	$(SUDO) apt-get install -y build-essential pkg-config libssl-dev
 	$(SUDO) apt-get install -y pkg-config libssl-dev
 	@echo "$(GREEN)  pkg-config: $$(pkg-config --version)$(RESET)"
 
