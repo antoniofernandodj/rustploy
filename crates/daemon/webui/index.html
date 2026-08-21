@@ -1425,13 +1425,15 @@
                   </column>
                 </template>
                 <template x-if="editingId !== row.id">
-                  <row style="gap:8px; margin-top:8px; align-items:center">
-                    <button class="card_open" type="button" @click="store.openProject(row.id)">Abrir ›</button>
-                    <button class="card_edit" type="button" @click="startEdit(row)">Editar</button>
-                    <button class="card_remove" type="button" x-show="row.canDelete"
-                            @click="store.deleteProject(row.id)">Remover</button>
+                  <column style="gap:6px; margin-top:8px">
+                    <row style="gap:8px; align-items:center">
+                      <button class="card_open" type="button" @click="store.openProject(row.id)">Abrir ›</button>
+                      <button class="card_edit" type="button" @click="startEdit(row)">Editar</button>
+                      <button class="card_remove" type="button" x-show="row.canDelete"
+                              @click="store.deleteProject(row.id)">Remover</button>
+                    </row>
                     <text class="muted" x-show="!row.canDelete">Não removível: tem serviços</text>
-                  </row>
+                  </column>
                 </template>
               </column>
             </template>

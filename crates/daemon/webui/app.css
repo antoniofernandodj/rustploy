@@ -196,15 +196,23 @@ hr, .rule   { width: 100%; height: 1px; border: none; background: var(--border);
 .nav_label_off { color: var(--muted); }
 
 /* ── Grid de cards (Projects / serviços de um projeto) ─────────────────── */
-.grid       { width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+/* flex-shrink:0 — mesmo motivo do .form_panel/.env_wrap acima: .grid é
+   filho direto de .scroll_fill (flex column com overflow:auto). Cards com
+   pouco conteúdo nunca estouravam o espaço disponível, então o espremimento
+   nunca aparecia; cards mais altos (container/CPU/MEM/ações no card de
+   serviço) sim — como row/column têm min-height:0 globalmente (linha ~42),
+   o espremimento cascateava pros filhos de CADA .card (linhas viravam ~4px
+   de altura, texto sobreposto). Só o scroll de .scroll_fill deve ceder
+   espaço, nunca o grid. */
+.grid       { width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; flex-shrink: 0; }
 .card_head  { width: 100%; align-items: center; justify-content: space-between; gap: 8px; }
 .card_name  { flex: 1 1 auto; font-size: 16px; font-weight: 700; color: var(--text); }
 .card_open, .card_edit {
-    padding: 9px 14px; text-align: center; border-radius: 5px; cursor: pointer;
+    padding: 9px 14px; text-align: center; border-radius: 5px; cursor: pointer; white-space: nowrap;
     border: 1px solid var(--border); background: var(--surface); color: var(--text-2);
 }
 .card_remove {
-    padding: 9px 10px; text-align: center; border-radius: 5px; cursor: pointer;
+    padding: 9px 10px; text-align: center; border-radius: 5px; cursor: pointer; white-space: nowrap;
     border: 1px solid var(--danger); background: rgba(218,54,51,.10); color: var(--danger);
 }
 .card_open:hover, .card_edit:hover { background: var(--border); }
@@ -223,7 +231,7 @@ hr, .rule   { width: 100%; height: 1px; border: none; background: var(--border);
 .card_stat_num { font-size: 18px; font-weight: 700; color: var(--text-2); }
 .card_actions  { width: 100%; gap: 8px; }
 .card_stop {
-    width: 100%; padding: 9px 10px; text-align: center; border-radius: 5px; cursor: pointer;
+    width: 100%; padding: 9px 10px; text-align: center; border-radius: 5px; cursor: pointer; white-space: nowrap;
     border: 1px solid var(--border); background: var(--surface); color: var(--text-2);
 }
 .card_stop:hover { background: var(--border); }
