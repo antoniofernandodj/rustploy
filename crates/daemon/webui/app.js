@@ -610,6 +610,44 @@ document.addEventListener("alpine:init", () => {
       }
     },
 
+    /** Botão "Parar" do card de serviço (grid do projeto) — porta de
+     * handlers/projects.luau::svc_stop_id. */
+    async stopService(id) {
+      if (!confirm("Parar serviço? O tráfego para ele será interrompido até um novo deploy.")) {
+        return;
+      }
+      const r = await this.api.rpcChecked({ ServiceStop: { service_id: id } });
+      if (!r.ok) this.projectMsg = "erro ao parar: " + r.error;
+      await this.refreshNow();
+    },
+
+    /** Botão "Remover" do card de serviço (grid do projeto) — porta de
+     * handlers/projects.luau::stop_delete_service. `ServiceDelete` sozinho
+     * NÃO para o container (o handler só apaga linhas do DB e rotas de
+     * ingress — ver service_delete.rs), então parar primeiro evita deixar
+     * um container órfão rodando fora do controle do rustploy. */
+    async stopAndDeleteService(id) {
+      const depJobs = (this.snap?.jobs || [])
+        .filter((s) => s.job.trigger_service_id === id)
+        .map((s) => s.job.name)
+        .sort();
+      let message = "O serviço será parado e removido.";
+      if (depJobs.length > 0) {
+        message += ` Os jobs de Schedules que dependem dele também serão removidos, com histórico: ${depJobs.join(", ")}.`;
+      }
+      message += " Essa ação não pode ser desfeita.";
+      if (!confirm(message)) return;
+
+      const r1 = await this.api.rpcChecked({ ServiceStop: { service_id: id } });
+      if (!r1.ok) {
+        this.projectMsg = "erro ao parar: " + r1.error;
+        return;
+      }
+      const r2 = await this.api.rpcChecked({ ServiceDelete: { id } });
+      this.projectMsg = r2.ok ? "serviço parado e removido" : "erro ao remover: " + r2.error;
+      await this.refreshNow();
+    },
+
     async deployStart() {
       const id = this.selectedServiceId;
       this.serviceMsg = "iniciando deploy…";

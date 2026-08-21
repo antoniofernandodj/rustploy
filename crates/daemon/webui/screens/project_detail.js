@@ -11,7 +11,26 @@ import {
   parseDotenv,
   envRowsWithComments,
   jobSummaryRows,
+  fmtBytes,
 } from "../fmt.js";
+
+/** Container "primário" de um serviço pra exibir no card: o live, senão o
+ * primeiro em execução, senão o primeiro da lista. `extra` é "+N" quando há
+ * mais de um container. Porta de fmt/dashboard.luau::primary_container. */
+function primaryContainer(svc) {
+  const list = svc.containers || [];
+  if (list.length === 0) return { name: "—", id: "", extra: "" };
+  let chosen = list[0];
+  for (const c of list) {
+    if (svc.live_container_id && c.id === svc.live_container_id) {
+      chosen = c;
+      break;
+    }
+    if (c.state === "running" && chosen.state !== "running") chosen = c;
+  }
+  const extra = list.length > 1 ? `+${list.length - 1}` : "";
+  return { name: chosen.name || "—", id: (chosen.id || "").slice(0, 12), extra };
+}
 
 document.addEventListener("alpine:init", () => {
   Alpine.data("projectDetail", () => ({
@@ -32,22 +51,25 @@ document.addEventListener("alpine:init", () => {
       const s = this.store;
       const pid = s.selectedProjectId;
       const services = (s.snap && s.snap.services) || [];
+      const metricsById = s.metricsById || {};
       return services
         .filter((e) => e.service.spec.project_id === pid)
         .map((e) => {
           const svc = e.service;
           const [label, kind] = serviceStatusLabelKind(svc.status);
-          // CPU/mem ao vivo dependem do evento ContainerMetrics do bus
-          // (Command::MetricsSubscribe) — ainda não consumido nesta fase
-          // (fica para a tela Monitoring). Placeholder honesto por ora.
+          const m = metricsById[svc.id];
+          const container = primaryContainer(svc);
           return {
             id: svc.id,
             name: svc.spec.name,
             port: svc.spec.port,
             statusLabel: label,
             statusKind: kind,
-            cpu: "—",
-            mem: "—",
+            cpu: m ? `${(m.cpu_percent || 0).toFixed(1)}%` : "—",
+            mem: m ? fmtBytes(m.mem_used_bytes) : "—",
+            containerName: container.name,
+            containerId: container.id,
+            containerExtra: container.extra,
           };
         });
     },

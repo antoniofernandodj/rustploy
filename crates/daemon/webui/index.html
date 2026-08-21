@@ -1410,8 +1410,9 @@
                 <row class="card_head">
                   <text class="card_name" x-text="row.name"></text>
                 </row>
+                <text class="muted" x-text="row.serviceCount + ' serviço(s) · ' + row.runningCount + ' rodando'"></text>
                 <text class="muted" x-text="row.description || '—'"></text>
-                <text class="muted" x-text="row.runningCount + '/' + row.serviceCount + ' serviços rodando'"></text>
+                <hr class="rule" />
 
                 <template x-if="editingId === row.id">
                   <column style="gap:8px; margin-top:8px">
@@ -1424,11 +1425,12 @@
                   </column>
                 </template>
                 <template x-if="editingId !== row.id">
-                  <row style="gap:8px; margin-top:8px">
-                    <button class="card_open" type="button" @click="store.openProject(row.id)">Abrir</button>
+                  <row style="gap:8px; margin-top:8px; align-items:center">
+                    <button class="card_open" type="button" @click="store.openProject(row.id)">Abrir ›</button>
                     <button class="card_edit" type="button" @click="startEdit(row)">Editar</button>
                     <button class="card_remove" type="button" x-show="row.canDelete"
                             @click="store.deleteProject(row.id)">Remover</button>
+                    <text class="muted" x-show="!row.canDelete">Não removível: tem serviços</text>
                   </row>
                 </template>
               </column>
@@ -1488,14 +1490,39 @@
             <template x-for="s in services" :key="s.id">
               <column class="card">
                 <row class="card_head">
-                  <text class="card_name" x-text="s.name"></text>
+                  <row style="align-items:center; gap:6px">
+                    <text class="c_name" x-text="s.name"></text>
+                    <text class="c_port" x-text="':' + s.port"></text>
+                  </row>
                   <row class="badge">
                     <text class="state_dot" :class="'state_' + s.statusKind">●</text>
                     <text class="badge_lbl" :class="'state_' + s.statusKind" x-text="s.statusLabel"></text>
                   </row>
                 </row>
-                <text class="muted" x-text="'porta ' + s.port"></text>
-                <button class="card_open" type="button" @click="store.openService(s.id)">Abrir</button>
+                <row class="card_ctr">
+                  <text class="muted" x-text="'name: ' + s.containerName"></text>
+                </row>
+                <row style="gap:6px">
+                  <text class="muted" x-text="'id: ' + s.containerId"></text>
+                  <text class="muted" x-show="s.containerExtra" x-text="'extra: ' + s.containerExtra"></text>
+                </row>
+                <hr class="rule" />
+                <row class="card_stats">
+                  <column class="card_stat">
+                    <text class="label_cap">CPU</text>
+                    <text class="card_stat_num" x-text="s.cpu"></text>
+                  </column>
+                  <column class="card_stat">
+                    <text class="label_cap">MEM</text>
+                    <text class="card_stat_num" x-text="s.mem"></text>
+                  </column>
+                </row>
+                <button class="card_open" type="button" style="width:100%"
+                        @click="store.openService(s.id)">Abrir ›</button>
+                <row class="card_actions">
+                  <button class="card_stop" type="button" @click="store.stopService(s.id)">Parar</button>
+                  <button class="card_remove" type="button" @click="store.stopAndDeleteService(s.id)">Remover</button>
+                </row>
               </column>
             </template>
             <text class="muted" x-show="services.length === 0" style="padding:16px">
