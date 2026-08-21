@@ -240,10 +240,10 @@
           class="scroll_fill"
         >
           <column class="grid">
-            <foreach items="project_rows" var="r">
+            <template for-each="project_rows" var="r">
               <row class="card_row">
-                <foreach items="r.cards" var="c">
-                  <ProjectCard 
+                <template for-each="r.cards" var="c">
+                  <ProjectCard
                     id="{c.id}"
                     filler="{c.filler}"
                     name="{c.name}"
@@ -252,9 +252,9 @@
                     description="{c.description}"
                     can_delete="{c.can_delete}"
                   />
-                </foreach>
+                </template>
               </row>
-            </foreach>
+            </template>
           </column>
         </scrollable>
       </column>
@@ -466,8 +466,8 @@
             </if>
             <scrollable direction="vertical" class="env_list_scroll">
               <column class="kv_list">
-                <foreach
-                  items="proj_env"
+                <template
+                  for-each="proj_env"
                   var="e"
                   on_reorder="penv_reorder"
                   reorder_key="key"
@@ -513,7 +513,7 @@
                       <text class="kv_val_fill">{e.value}</text>
                     </row>
                   </else>
-                </foreach>
+                </template>
               </column>
             </scrollable>
             <!-- Editor .env: vários filhos condicionais → TAG if (o atributo

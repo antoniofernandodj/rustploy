@@ -672,7 +672,7 @@
              <column>, nunca como irmãos diretos do <scrollable>. -->
         <scrollable direction="vertical" class="env_list_scroll">
           <column class="kv_list">
-            <foreach items="svc_env" var="e" on_reorder="env_reorder" reorder_key="key">
+            <template for-each="svc_env" var="e" on_reorder="env_reorder" reorder_key="key">
               <!-- Comentários (# ...) do .env: arrastáveis como as vars (ao
                    soltar, reancoram na var seguinte da nova ordem), mas sem
                    delete — removem-se editando o .env. A classe da linha muda
@@ -711,7 +711,7 @@
                   <text class="kv_val_fill">{e.value}</text>
                 </row>
               </else>
-            </foreach>
+            </template>
 
             <!-- Editor .env: vários filhos condicionais → TAG if (o atributo
                  if= só esconderia o Text, deixando TextArea/botões sempre
@@ -1121,7 +1121,7 @@
 
         <scrollable direction="vertical" class="env_list_scroll">
           <column class="kv_list">
-            <foreach items="pre_deploy_checks" var="c" on_reorder="pdc_reorder" reorder_key="id">
+            <template for-each="pre_deploy_checks" var="c" on_reorder="pdc_reorder" reorder_key="id">
               <if cond="{c.__dragging}" equals="true">
                 <row class="kv_row_drag">
                   <text class="env_drag_handle env_dragging" dragHandle="true">
@@ -1142,7 +1142,7 @@
                   <text class="kv_val_fill">{c.name}</text>
                 </row>
               </else>
-            </foreach>
+            </template>
           </column>
         </scrollable>
 

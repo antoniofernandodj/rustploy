@@ -109,7 +109,7 @@
         class="scroll_fill"
       >
         <column class="table_body">
-          <foreach items="ingress" var="i">
+          <template for-each="ingress" var="i">
             <column class="row_wrap">
               <row class="trow">
                 <text class="td_key col_svc">{i.domain}</text>
@@ -119,7 +119,7 @@
               </row>
               <rule />
             </column>
-          </foreach>
+          </template>
         </column>
       </scrollable>
 
@@ -138,7 +138,7 @@
         Nenhum serviço com porta de host configurada.
       </text>
       <column class="table_body">
-        <foreach items="host_ports" var="hp">
+        <template for-each="host_ports" var="hp">
           <column class="row_wrap">
             <row class="trow">
               <text class="td_key col_svc">{hp.service}</text>
@@ -148,7 +148,7 @@
             </row>
             <rule />
           </column>
-        </foreach>
+        </template>
       </column>
     </column>
   </if>
@@ -204,8 +204,8 @@
         Nenhum deploy na fila.
       </text>
       <column class="table_body">
-        <foreach
-          items="eng_queued"
+        <template
+          for-each="eng_queued"
           var="q"
           on_reorder="queue_reorder"
           reorder_key="deployment_id"
@@ -226,7 +226,7 @@
             />
           </row>
           <rule />
-        </foreach>
+        </template>
       </column>
     </column>
 
@@ -553,7 +553,7 @@
       >
         <column class="table_body">
           <if cond="{docker_volumes_only_used}" equals="true">
-            <foreach items="docker_volumes" var="v">
+            <template for-each="docker_volumes" var="v">
               <column class="row_wrap" if="{v.in_use_label}" equals="EM USO">
                 <row class="trow">
                   <text class="td_key col_svc">{v.name}</text>
@@ -564,7 +564,7 @@
                 </row>
                 <rule />
               </column>
-            </foreach>
+            </template>
           </if> <else>
             <column for-each="docker_volumes" var="v" class="row_wrap">
               <row class="trow">
@@ -628,7 +628,7 @@
       >
         <column class="table_body">
           <if cond="{docker_networks_only_used}" equals="true">
-            <foreach items="docker_networks" var="n">
+            <template for-each="docker_networks" var="n">
               <column class="row_wrap" if="{n.in_use_label}" equals="EM USO">
                 <row class="trow">
                   <text class="td_key col_svc">{n.name}</text>
@@ -648,9 +648,9 @@
                 </row>
                 <rule />
               </column>
-            </foreach>
+            </template>
           </if> <else>
-            <foreach items="docker_networks" var="n">
+            <template for-each="docker_networks" var="n">
               <column class="row_wrap">
                 <row class="trow">
                   <text class="td_key col_svc">{n.name}</text>
@@ -670,7 +670,7 @@
                 </row>
                 <rule />
               </column>
-            </foreach>
+            </template>
           </else>
         </column>
       </scrollable>
@@ -918,7 +918,7 @@
           </text>
 
           <column class="kv_list">
-            <foreach items="gitea_providers" var="p">
+            <template for-each="gitea_providers" var="p">
               <row class="kv_row">
                 <column class="header_titles">
                   <text class="env_key">{p.name}</text>
@@ -928,7 +928,7 @@
                 </column>
                 <button class="btn_danger" on_click="gp_delete:{p.id}" text="Remover" />
               </row>
-            </foreach>
+            </template>
           </column>
 
           <rule />
@@ -1348,7 +1348,7 @@
       </text>
       <scrollable direction="vertical" class="scroll_fill">
         <column class="table_body">
-          <foreach items="jobs_summary" var="j">
+          <template for-each="jobs_summary" var="j">
             <column class="row_wrap">
               <row class="trow">
                 <text class="td_key col_svc">{j.name}</text>
@@ -1373,7 +1373,7 @@
               </row>
               <rule />
             </column>
-          </foreach>
+          </template>
         </column>
       </scrollable>
     </column>

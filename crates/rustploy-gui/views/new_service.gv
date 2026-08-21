@@ -354,7 +354,7 @@
             on_change="field:ns_name"
           />
 
-          <foreach items="ns_template_vars" var="v">
+          <template for-each="ns_template_vars" var="v">
             <column class="hc_field">
               <text class="label_cap">{v.label}</text>
               <input
@@ -364,7 +364,7 @@
                 on_change="field:ns_tv_{v.idx}"
               />
             </column>
-          </foreach>
+          </template>
 
           <row class="env_add">
             <button
