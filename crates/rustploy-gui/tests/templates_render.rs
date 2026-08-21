@@ -593,3 +593,51 @@ fn disconnect_limpa_o_contexto_da_sessao() {
         "contador deve voltar a 'carregando', não a um 0 mentiroso"
     );
 }
+
+/// Regressão: o item "Projects" da sidebar apagava (perdia o fundo azul)
+/// assim que você entrava num projeto ou num serviço — `nav_item.gv`
+/// comparava `{view}` contra um `target` de UMA view só (`equals`), e
+/// `project_services`/`service` não são `"projects"`. Corrigido usando
+/// `one_of` (glacier-ui 0.57.8): `target="projects project_services
+/// service"` casa com qualquer uma das três. `nav_row_on` é a classe que dá
+/// o fundo azul (`background: var(--blue)`) — depois da resolução de
+/// classe isso vira `node.background = Some("var(--blue)")`; `nav_row_off`
+/// não declara `background`, então fica `None`.
+#[test]
+fn nav_item_projects_fica_aceso_nas_sub_telas() {
+    use glacier_ui::parser::NodeType;
+
+    // `on_click` chega namespaceado pelo componente que o hospeda
+    // (`namespace_action` — ver eval.rs no glacier-ui): mesmo com o valor
+    // vindo de um prop (`action="nav_projects"` em shell.gv), o botão vive
+    // dentro do template do componente `NavItem`, então o dispatch final é
+    // "NavItem::nav_projects".
+    fn projects_nav_button_lit<'a>(node: &'a glacier_ui::parser::UiNode) -> Option<bool> {
+        if let NodeType::Button { on_click, .. } = &node.kind
+            && on_click.as_deref() == Some("NavItem::nav_projects")
+        {
+            return Some(node.background.is_some());
+        }
+        node.children.iter().find_map(projects_nav_button_lit)
+    }
+
+    let mut m = boot();
+    for (view, esperado_aceso) in [
+        ("deployments", false),
+        ("projects", true),
+        ("project_services", true),
+        ("service", true),
+        ("settings", false),
+    ] {
+        m.define_data("screen", "shell");
+        m.define_data("view", view);
+        m.reevaluate_all().unwrap_or_else(|e| panic!("eval view {view}: {e}"));
+        let ast = m.evaluated("app").expect("app evaluated");
+        let aceso = projects_nav_button_lit(ast).expect("item Projects deveria existir na sidebar");
+        assert_eq!(
+            aceso, esperado_aceso,
+            "view={view}: item Projects deveria estar {} ",
+            if esperado_aceso { "aceso" } else { "apagado" }
+        );
+    }
+}

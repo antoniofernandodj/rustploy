@@ -111,7 +111,7 @@
     <NavItem
       label="Projects ({projects_count})"
       icon="◧"
-      target="projects"
+      target="projects project_services service"
       action="nav_projects"
     />
     <column class="nav_spacer" />

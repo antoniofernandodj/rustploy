@@ -4,8 +4,13 @@
   Item de navegação da sidebar: ícone (sempre visível) + rótulo (some abaixo de
   900px de largura — ver @media abaixo, espelhando o breakpoint em que a
   sidebar encolhe no shell.gv). Fica "ligado" (pílula azul) quando a view
-  atual ({view}) é igual a `target`; `equals` compara a interpolação de {view}
-  com {target}.
+  atual ({view}) casa com `target` — via `one_of` (glacier-ui 0.57.8), não
+  `equals`: `target` pode ser mais de uma view separada por espaço (ex.:
+  "projects project_services service"), pra um item continuar aceso nas
+  sub-telas dele. Um `target` de uma view só (a maioria) funciona igual —
+  `one_of` com uma lista de um token só é uma comparação de igualdade.
+  Antes da 0.57.8 isso não dava pra fazer sem inventar gramática de
+  expressão: o item "Projects" apagava assim que você entrava num projeto.
 
   Era um botão-texto puro (Button, com o rótulo em `text`), mas até a 0.57.5
   do glacier-ui o widget de botão não suportava filhos — não dava pra por
@@ -50,7 +55,7 @@
 }
 </style>
 
-<button class="nav_row_on" if="{view}" equals="{target}" on_click="{action}" tooltip="{label}">
+<button class="nav_row_on" if="{view}" one_of="{target}" on_click="{action}" tooltip="{label}">
   <text class="nav_icon_on">{icon}</text>
   <text class="nav_label_on">{label}</text>
 </button>
