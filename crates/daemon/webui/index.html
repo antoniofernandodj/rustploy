@@ -1853,7 +1853,7 @@
         </column>
 
         <template x-if="!store.serviceLoading && svc">
-          <column>
+          <column class="svc_tabs_wrap">
             <row class="tabs">
               <button type="button" :class="store.serviceTab === 'general' ? 'tab_on' : 'tab_off'"
                       @click="initGeneralForm(); store.setServiceTab('general')">General</button>
