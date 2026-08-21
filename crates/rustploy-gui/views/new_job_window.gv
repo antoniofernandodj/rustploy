@@ -9,8 +9,8 @@
   broadcast("job_created") e fecha. -->
 <link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />
 <link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />
-<link rel="import"      href="crates/rustploy-gui/views/components/picker_row.gv" as="PickerRow" />
-<link rel="import"      href="crates/rustploy-gui/views/components/tab_button.gv" as="TabButton" />
+<link rel="import"      href="components/picker_row.gv" as="PickerRow" />
+<link rel="import"      href="components/tab_button.gv" as="TabButton" />
 
 <style>
 /* Titlebar custom (mesma linguagem visual do app.gv) */

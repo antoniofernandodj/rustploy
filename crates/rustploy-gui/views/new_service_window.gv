@@ -8,11 +8,11 @@
   theme + app.gss (motor isolado — não herda o stylesheet do app principal). -->
 <link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />
 <link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />
-<link rel="import"      href="crates/rustploy-gui/views/new_service.gv" as="NewServiceWizard" />
+<link rel="import"      href="new_service.gv" as="NewServiceWizard" />
 <!-- Componentes que o corpo do wizard usa (o shell.gv os importava; num motor
   isolado precisamos reimportá-los). -->
-<link rel="import"      href="crates/rustploy-gui/views/components/picker_row.gv" as="PickerRow" />
-<link rel="import"      href="crates/rustploy-gui/views/components/template_row.gv" as="TemplateRow" />
+<link rel="import"      href="components/picker_row.gv" as="PickerRow" />
+<link rel="import"      href="components/template_row.gv" as="TemplateRow" />
 
 <style>
 /* Titlebar custom (mesma linguagem visual do app.gv) */

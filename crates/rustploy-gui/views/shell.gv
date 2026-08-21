@@ -1,17 +1,17 @@
 
 <!-- ── Imports ──────────────────────────────────────────────────────── -->
-<link rel="import" href="crates/rustploy-gui/views/service.gv" as="ServiceDetail" />
-<link rel="import" href="crates/rustploy-gui/views/home.gv" as="HomeViews" />
-<link rel="import" href="crates/rustploy-gui/views/components/project_card.gv" as="ProjectCard" />
-<link rel="import" href="crates/rustploy-gui/views/components/service_card.gv" as="ServiceCard" />
-<link rel="import" href="crates/rustploy-gui/views/components/stat_card.gv" as="StatCard" />
-<link rel="import" href="crates/rustploy-gui/views/components/state_cell.gv" as="StateCell" />
-<link rel="import" href="crates/rustploy-gui/views/components/badge.gv" as="rp-badge" />
-<link rel="import" href="crates/rustploy-gui/views/components/nav_item.gv" as="NavItem" />
-<link rel="import" href="crates/rustploy-gui/views/components/tab_button.gv" as="TabButton" />
-<link rel="import" href="crates/rustploy-gui/views/components/loading_row.gv" as="LoadingRow" />
-<link rel="import" href="crates/rustploy-gui/views/components/picker_row.gv" as="PickerRow" />
-<link rel="import" href="crates/rustploy-gui/views/components/template_row.gv" as="TemplateRow" />
+<link rel="import" href="service.gv" as="ServiceDetail" />
+<link rel="import" href="home.gv" as="HomeViews" />
+<link rel="import" href="components/project_card.gv" as="ProjectCard" />
+<link rel="import" href="components/service_card.gv" as="ServiceCard" />
+<link rel="import" href="components/stat_card.gv" as="StatCard" />
+<link rel="import" href="components/state_cell.gv" as="StateCell" />
+<link rel="import" href="components/badge.gv" as="rp-badge" />
+<link rel="import" href="components/nav_item.gv" as="NavItem" />
+<link rel="import" href="components/tab_button.gv" as="TabButton" />
+<link rel="import" href="components/loading_row.gv" as="LoadingRow" />
+<link rel="import" href="components/picker_row.gv" as="PickerRow" />
+<link rel="import" href="components/template_row.gv" as="TemplateRow" />
 
 <style>
 .sidebar { width: 264; height: fill; background: var(--surface); padding: 28 20; spacing: 6; }
