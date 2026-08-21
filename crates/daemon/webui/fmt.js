@@ -124,6 +124,20 @@ export function sourceSummary(source) {
   return "—";
 }
 
+/** Heurística "isso parece uma URL de Git, não uma imagem de registry".
+ * Porta de helpers.luau::looks_like_git_url. */
+export function looksLikeGitUrl(u) {
+  const s = (u || "").trim();
+  return (
+    s.startsWith("https://") ||
+    s.startsWith("http://") ||
+    s.startsWith("git@") ||
+    s.startsWith("ssh://") ||
+    s.startsWith("file://") ||
+    s.endsWith(".git")
+  );
+}
+
 /** `<secret:NOME>` ou `secret:NOME` → "NOME" (ou null se não for referência).
  * Porta de helpers.luau::parse_secret_ref. */
 export function parseSecretRef(v) {

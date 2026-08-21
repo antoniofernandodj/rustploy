@@ -1827,7 +1827,7 @@
           <column>
             <row class="tabs">
               <button type="button" :class="store.serviceTab === 'general' ? 'tab_on' : 'tab_off'"
-                      @click="store.setServiceTab('general')">General</button>
+                      @click="initGeneralForm(); store.setServiceTab('general')">General</button>
               <button type="button" :class="store.serviceTab === 'connection' ? 'tab_on' : 'tab_off'"
                       @click="store.setServiceTab('connection')">Connection</button>
               <button type="button" :class="store.serviceTab === 'environment' ? 'tab_on' : 'tab_off'"
@@ -1854,6 +1854,182 @@
                 <text class="kv_key">Container ao vivo</text>
                 <text class="kv_val" x-text="svc.live_container_id"></text>
               </row>
+
+              <!-- Compose: editor de texto direto (mesma origem, sem provider).
+                   flex-shrink:0 via .form_panel — ver comentário em app.css
+                   sobre .hc_grid colapsando dentro de .scroll_fill sem isso. -->
+              <template x-if="isCompose">
+                <column class="form_panel" style="margin-top:14px">
+                  <text class="label_cap">DOCKER COMPOSE (YAML)</text>
+                  <textarea class="env_editor" x-model="composeText"></textarea>
+                  <row class="env_add">
+                    <button class="btn_primary" type="button" @click="saveCompose()">Salvar compose</button>
+                    <button class="btn_ghost" type="button" @click="cancelCompose()">Cancelar</button>
+                    <text class="muted" x-text="store.serviceMsg"></text>
+                  </row>
+                </column>
+              </template>
+
+              <!-- Provider Git / conta conectada / Zip — só para serviços não-Compose.
+                   flex-shrink:0 via .form_panel (mesmo motivo do bloco Compose acima). -->
+              <template x-if="!isCompose">
+                <column class="form_panel" style="margin-top:14px">
+                  <text class="label_cap">PROVIDER</text>
+                  <row class="tabs">
+                    <button type="button" :class="provTab === 'git' ? 'tab_on' : 'tab_off'"
+                            @click="setProvTab('git')">Git</button>
+                    <button type="button" :class="provTab === 'gitea' ? 'tab_on' : 'tab_off'"
+                            @click="setProvTab('gitea')">Gitea/GitHub</button>
+                    <button type="button" :class="provTab === 'zip' ? 'tab_on' : 'tab_off'"
+                            @click="setProvTab('zip')">Zip</button>
+                  </row>
+                  <hr class="rule" />
+
+                  <!-- Sub-aba Git: URL de repositório crua (ou imagem de registry). -->
+                  <template x-if="provTab === 'git'">
+                    <column style="gap:8px">
+                      <text class="label_cap">SOURCE — REPOSITORY URL / IMAGE</text>
+                      <input class="field_input" type="text" x-model="fRepoUrl" placeholder="github.com/user/repo  ou  nginx:latest" />
+                      <text class="muted">URL de repositório vira Git; caso contrário é imagem de registry.</text>
+                      <row class="hc_grid">
+                        <column class="hc_field">
+                          <text class="label_cap">BRANCH</text>
+                          <input class="field_input" type="text" x-model="fBranch" placeholder="main" />
+                        </column>
+                        <column class="hc_field">
+                          <text class="label_cap">PORT</text>
+                          <input class="field_input" type="text" x-model="fGenPort" placeholder="80" />
+                        </column>
+                      </row>
+                      <row class="hc_grid">
+                        <column class="hc_field">
+                          <text class="label_cap">USERNAME</text>
+                          <input class="field_input" type="text" x-model="fUsername" placeholder="(opcional)" />
+                        </column>
+                        <column class="hc_field">
+                          <text class="label_cap">CREDENTIALS (secret)</text>
+                          <input class="field_input" type="text" x-model="fCredentials" placeholder="(opcional)" />
+                          <text class="muted">
+                            Nome de um secret do projeto (aba Secrets), puro — sem &lt;secret:&gt;. Usado
+                            para clonar repositório Git privado via HTTPS; não tem efeito com URL SSH.
+                          </text>
+                        </column>
+                      </row>
+                      <text class="label_cap">BUILD PATH (root)</text>
+                      <input class="field_input" type="text" x-model="fBuildPath" placeholder="." />
+                      <text class="label_cap">WATCH PATHS (separados por vírgula)</text>
+                      <input class="field_input" type="text" x-model="fWatchPaths" placeholder="src, Cargo.toml" />
+                      <label class="check_row"><input type="checkbox" x-model="fSubmodules" /><span>Enable submodules</span></label>
+                      <text class="label_cap">BUILD ENGINE: DOCKERFILE</text>
+                      <row class="hc_grid">
+                        <column class="hc_field">
+                          <text class="label_cap">DOCKERFILE</text>
+                          <input class="field_input" type="text" x-model="fDockerfile" placeholder="Dockerfile" />
+                        </column>
+                        <column class="hc_field">
+                          <text class="label_cap">CONTEXT PATH</text>
+                          <input class="field_input" type="text" x-model="fContextPath" placeholder="." />
+                        </column>
+                      </row>
+                      <text class="label_cap">BUILD STAGE (opcional)</text>
+                      <input class="field_input" type="text" x-model="fBuildStage" placeholder="(multi-stage target)" />
+                      <row class="env_add">
+                        <button class="btn_primary" type="button" @click="saveSource()">Save</button>
+                        <text class="muted" x-text="store.serviceMsg"></text>
+                      </row>
+                    </column>
+                  </template>
+
+                  <!-- Sub-aba Zip: upload de arquivo local com Dockerfile na raiz. -->
+                  <template x-if="provTab === 'zip'">
+                    <column style="gap:8px">
+                      <text class="label_cap">ZIP (Dockerfile na raiz)</text>
+                      <input class="field_input" type="file" accept=".zip" @change="onArchiveFileChange($event)" />
+                      <text class="muted">
+                        O zip deve conter um Dockerfile na raiz. Depois do envio, o deploy normal usa os
+                        arquivos descompactados pelo daemon.
+                      </text>
+                      <row class="hc_grid">
+                        <column class="hc_field">
+                          <text class="label_cap">PORT</text>
+                          <input class="field_input" type="text" x-model="fArchivePort" placeholder="80" />
+                        </column>
+                        <column class="hc_field">
+                          <text class="label_cap">STATUS</text>
+                          <text class="muted" x-text="archiveMsg"></text>
+                        </column>
+                      </row>
+                      <row class="env_add">
+                        <button class="btn_primary" type="button" @click="uploadArchive()">Enviar zip</button>
+                      </row>
+                    </column>
+                  </template>
+
+                  <!-- Sub-aba conta conectada (Gitea/GitHub): picker conta/repo/branch. -->
+                  <template x-if="provTab === 'gitea'">
+                    <column style="gap:8px">
+                      <text class="muted">Selecione a conta conectada, o repositório e a branch a implantar.</text>
+                      <text class="muted" x-show="giteaMsg" x-text="giteaMsg"></text>
+                      <text class="label_cap">CONTA CONECTADA</text>
+                      <select class="field_input" x-model="giteaProviderId" @change="giteaProviderPick($event.target.value)">
+                        <option value="">selecione a conta</option>
+                        <template x-for="p in giteaProviders" :key="p.id">
+                          <option :value="p.id" x-text="p.name"></option>
+                        </template>
+                      </select>
+                      <text class="muted">Conecte contas em Settings → Git.</text>
+                      <text class="label_cap">REPOSITÓRIO</text>
+                      <select class="field_input" x-model="giteaRepoFullName" @change="giteaRepoPick($event.target.value)">
+                        <option value="">selecione o repositório</option>
+                        <template x-for="r in giteaRepos" :key="r.full_name">
+                          <option :value="r.full_name" x-text="r.full_name"></option>
+                        </template>
+                      </select>
+                      <text class="label_cap">BRANCH</text>
+                      <select class="field_input" x-model="fBranch">
+                        <option value="">selecione a branch</option>
+                        <template x-for="b in giteaBranches" :key="b.name">
+                          <option :value="b.name" x-text="b.name"></option>
+                        </template>
+                      </select>
+                      <text class="label_cap">SELEÇÃO ATUAL</text>
+                      <row class="kv_row">
+                        <text class="kv_key">Repo (clone URL)</text>
+                        <text class="kv_val_fill" x-text="fRepoUrl"></text>
+                      </row>
+                      <text class="label_cap">BUILD</text>
+                      <row class="hc_grid">
+                        <column class="hc_field">
+                          <text class="label_cap">BUILD PATH (root)</text>
+                          <input class="field_input" type="text" x-model="fBuildPath" placeholder="." />
+                        </column>
+                        <column class="hc_field">
+                          <text class="label_cap">PORT</text>
+                          <input class="field_input" type="text" x-model="fGenPort" placeholder="80" />
+                        </column>
+                      </row>
+                      <row class="hc_grid">
+                        <column class="hc_field">
+                          <text class="label_cap">DOCKERFILE</text>
+                          <input class="field_input" type="text" x-model="fDockerfile" placeholder="Dockerfile" />
+                        </column>
+                        <column class="hc_field">
+                          <text class="label_cap">CONTEXT PATH</text>
+                          <input class="field_input" type="text" x-model="fContextPath" placeholder="." />
+                        </column>
+                      </row>
+                      <text class="label_cap">WATCH PATHS (separados por vírgula)</text>
+                      <input class="field_input" type="text" x-model="fWatchPaths" placeholder="src, Cargo.toml" />
+                      <label class="check_row"><input type="checkbox" x-model="fSubmodules" /><span>Enable submodules</span></label>
+                      <row class="env_add">
+                        <button class="btn_primary" type="button" @click="saveSource()">Save</button>
+                        <text class="muted" x-text="store.serviceMsg"></text>
+                      </row>
+                    </column>
+                  </template>
+                </column>
+              </template>
+
               <button class="btn_danger" type="button" style="margin-top:14px; align-self:flex-start"
                       @click="store.deleteService(svc.id)">Remover serviço</button>
             </column>

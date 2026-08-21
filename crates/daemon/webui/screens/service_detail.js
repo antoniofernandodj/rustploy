@@ -1,14 +1,15 @@
-// screens/service_detail.js — detalhe de um serviço. Porta parcial de
-// service.gv (client iced): das 8 abas originais (General/Connection/
-// Environment/Domains/Deployments/Healthcheck/Logs/Advanced), esta fase cobre
-// General/Environment/Domains/Deployments/Logs — Connection/Healthcheck/
-// Advanced e a edição de provider Git/Compose ficam para fases seguintes
-// (ver plano). Estado de navegação/fetch/mutação mora no Alpine.store('app')
-// (app.js); este módulo só formata para exibição e cuida dos formulários
-// locais (novo env var, novo domínio).
+// screens/service_detail.js — detalhe de um serviço. Porta de service.gv
+// (client iced): as 8 abas (General/Connection/Environment/Domains/
+// Deployments/Healthcheck/Logs/Advanced). A edição de origem (Compose /
+// Git / conta conectada Gitea-GitHub / Zip) mora na aba General, mesmo
+// lugar do iced (ver service.gv ~L192-566) — não é uma aba própria. Estado
+// de navegação/fetch/mutação mora no Alpine.store('app') (app.js); este
+// módulo só formata para exibição e cuida dos formulários locais (novo env
+// var, novo domínio, form de origem).
 import {
   serviceStatusLabelKind,
   sourceSummary,
+  looksLikeGitUrl,
   dateDmHms,
   fmtDuration,
   stateLabelKind,
@@ -36,6 +37,20 @@ document.addEventListener("alpine:init", () => {
     buildLogFor: null,
     timeHms,
 
+    // `x-show` mantém este componente montado por toda a sessão — abrir um
+    // serviço não recria o Alpine.data. `initGeneralForm()` roda no clique da
+    // aba (mesmo padrão de initHcForm/initAdvForm), mas a aba General é a
+    // default de `openService()`, que não passa por nenhum clique — daí o
+    // watch, pra sincronizar o form assim que `serviceDetail` chega do fetch.
+    init() {
+      this.$watch(
+        () => this.store.serviceDetail,
+        () => {
+          if (this.store.serviceTab === "general") this.initGeneralForm();
+        }
+      );
+    },
+
     get svc() {
       return this.store.serviceDetail;
     },
@@ -47,6 +62,206 @@ document.addEventListener("alpine:init", () => {
     },
     get sourceText() {
       return this.svc ? sourceSummary(this.svc.spec.source) : "—";
+    },
+
+    // ── General → edição de origem (Compose / Git / Zip) ────────────────
+    // Porta de handlers/services.luau (compose_save/compose_cancel/gen_save/
+    // archive_upload/gitea_provider_pick/gitea_repo_pick) + service.gv
+    // ~L192-566. `initGeneralForm()` sincroniza os campos locais com o spec
+    // atual — chamado ao abrir a aba, mesmo padrão de initHcForm/initAdvForm.
+    composeText: "",
+    composeOrig: "",
+    provTab: "git", // "git" | "gitea" | "zip"
+    fRepoUrl: "",
+    fBranch: "",
+    fGenPort: "",
+    fUsername: "",
+    fCredentials: "",
+    fBuildPath: "",
+    fWatchPaths: "",
+    fSubmodules: false,
+    fDockerfile: "",
+    fContextPath: "",
+    fBuildStage: "",
+    fArchivePort: "",
+    sourceMsg: "",
+    giteaProviderId: "",
+    giteaProviders: [],
+    giteaRepoFullName: "",
+    giteaRepos: [],
+    giteaBranches: [],
+    giteaMsg: "",
+    archiveFile: null,
+    archiveMsg: "",
+
+    get isCompose() {
+      return !!this.svc?.spec?.source?.Compose;
+    },
+
+    async initGeneralForm() {
+      const spec = this.svc?.spec;
+      if (!spec) return;
+      this.sourceMsg = "";
+      if (spec.source.Compose) {
+        this.composeText = spec.source.Compose.content || "";
+        this.composeOrig = this.composeText;
+        return;
+      }
+      this.fGenPort = String(spec.port ?? "");
+      this.fArchivePort = this.fGenPort;
+      const git = spec.source.Git;
+      if (git) {
+        this.fRepoUrl = git.url || "";
+        this.fBranch = git.branch || "main";
+        this.fUsername = git.username || "";
+        this.fCredentials = git.credentials || "";
+        this.fBuildPath = git.root_path || ".";
+        this.fWatchPaths = (git.watch_paths || []).join(", ");
+        this.fSubmodules = !!git.submodules;
+        this.fDockerfile = git.dockerfile_path || "Dockerfile";
+        this.fContextPath = git.build_context || ".";
+        this.fBuildStage = git.build_stage || "";
+        this.giteaProviderId = git.provider_id || "";
+        this.provTab = git.provider_id ? "gitea" : "git";
+        // Repõe a lista de contas (o picker não guarda full_name/branches no
+        // spec — só url/branch já resolvidos, que os campos acima preenchem).
+        if (this.provTab === "gitea") await this.setProvTab("gitea");
+      } else {
+        this.fRepoUrl = spec.source.Registry?.image || "";
+        this.fBranch = "main";
+        this.fUsername = "";
+        this.fCredentials = "";
+        this.fBuildPath = ".";
+        this.fWatchPaths = "";
+        this.fSubmodules = false;
+        this.fDockerfile = "Dockerfile";
+        this.fContextPath = ".";
+        this.fBuildStage = "";
+        this.giteaProviderId = "";
+        this.provTab = "git";
+      }
+    },
+
+    async saveCompose() {
+      const spec = JSON.parse(JSON.stringify(this.svc.spec));
+      spec.source = { Compose: { content: this.composeText } };
+      await this.store.saveServiceSpec(spec, "compose salvo");
+    },
+    cancelCompose() {
+      this.composeText = this.composeOrig;
+    },
+
+    async setProvTab(tab) {
+      this.provTab = tab;
+      if (tab === "gitea" && this.giteaProviders.length === 0) {
+        this.giteaMsg = "carregando contas…";
+        const r = await this.store.api.rpc("GitProviderList");
+        if (r.ok && r.value?.GitProviders) {
+          this.giteaProviders = r.value.GitProviders;
+          this.giteaMsg = "";
+        } else {
+          this.giteaMsg = "erro ao listar contas conectadas";
+        }
+      }
+    },
+
+    async giteaProviderPick(id) {
+      this.giteaProviderId = id || "";
+      this.giteaRepoFullName = "";
+      this.giteaRepos = [];
+      this.giteaBranches = [];
+      if (!this.giteaProviderId) return;
+      this.giteaMsg = "carregando repositórios…";
+      const r = await this.store.api.rpc({ GitRepoList: { provider_id: this.giteaProviderId } });
+      if (r.ok && r.value?.GitRepos) {
+        this.giteaRepos = r.value.GitRepos;
+        this.giteaMsg = `${r.value.GitRepos.length} repositório(s)`;
+      } else {
+        this.giteaMsg = "erro ao listar repositórios";
+      }
+    },
+
+    async giteaRepoPick(fullName) {
+      if (!fullName) return;
+      this.giteaRepoFullName = fullName;
+      const repo = this.giteaRepos.find((r) => r.full_name === fullName);
+      if (repo?.clone_url) this.fRepoUrl = repo.clone_url;
+      if (repo?.default_branch) this.fBranch = repo.default_branch;
+      this.giteaBranches = [];
+      if (!this.giteaProviderId) return;
+      this.giteaMsg = "carregando branches…";
+      const r = await this.store.api.rpc({
+        GitBranchList: { provider_id: this.giteaProviderId, repo_full_name: fullName },
+      });
+      if (r.ok && r.value?.GitBranches) {
+        this.giteaBranches = r.value.GitBranches;
+        this.giteaMsg = "";
+      } else {
+        this.giteaMsg = "erro ao listar branches";
+      }
+    },
+
+    /** Porta de handlers/services.luau::gen_save — mesma heurística
+     * looksLikeGitUrl decide Git vs Registry quando a origem ainda não é Git. */
+    async saveSource() {
+      const spec = JSON.parse(JSON.stringify(this.svc.spec));
+      const port = Number(this.fGenPort);
+      if (Number.isFinite(port) && port > 0) spec.port = Math.floor(port);
+      const repo = this.fRepoUrl.trim();
+      const watch = this.fWatchPaths
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const git = {
+        Git: {
+          url: repo,
+          branch: this.fBranch.trim() || "main",
+          root_path: this.fBuildPath.trim() || ".",
+          watch_paths: watch,
+          submodules: this.fSubmodules,
+          dockerfile_path: this.fDockerfile.trim() || "Dockerfile",
+          build_context: this.fContextPath.trim() || ".",
+          build_stage: this.fBuildStage.trim() || null,
+          credentials: this.fCredentials.trim() || null,
+          username: this.fUsername.trim() || null,
+          provider_id: this.giteaProviderId || null,
+        },
+      };
+      if (spec.source.Git || looksLikeGitUrl(repo)) {
+        spec.source = git;
+      } else {
+        spec.source = { Registry: { image: repo } };
+      }
+      await this.store.saveServiceSpec(spec, "origem salva");
+    },
+
+    onArchiveFileChange(event) {
+      this.archiveFile = event.target.files?.[0] || null;
+    },
+
+    async uploadArchive() {
+      if (!this.archiveFile) {
+        this.archiveMsg = "selecione um arquivo .zip";
+        return;
+      }
+      this.archiveMsg = "enviando zip…";
+      const r = await this.store.api.uploadArchive(this.svc.id, this.archiveFile);
+      if (r.ok) {
+        this.archiveMsg = "zip enviado";
+        this.archiveFile = null;
+        await this.store.fetchServiceDetail(this.svc.id);
+        await this.store.refreshNow();
+      } else {
+        this.archiveMsg = "erro: " + r.error;
+      }
+      if (this.fArchivePort) {
+        const spec = JSON.parse(JSON.stringify(this.svc.spec));
+        const port = Number(this.fArchivePort);
+        if (Number.isFinite(port) && port > 0) {
+          spec.port = Math.floor(port);
+          await this.store.saveServiceSpec(spec);
+        }
+      }
     },
 
     // ── Connection ────────────────────────────────────────────────────

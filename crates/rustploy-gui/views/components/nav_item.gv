@@ -7,14 +7,17 @@
   atual ({view}) é igual a `target`; `equals` compara a interpolação de {view}
   com {target}.
 
-  Era um botão-texto puro (Button, com o rótulo em `text`), mas o widget de
-  botão não suporta filhos — não dá pra por ícone+texto lado a lado dentro
-  dele. Virou uma linha (row) com on_press, o mesmo mecanismo de clique dos
-  handles de resize/drag do titlebar (qualquer nó com on_press/cursor vira um
-  mouse_area). Em janelas estreitas, o rótulo ("Deploy Engine", "Projects (2)")
-  não cabia na sidebar encolhida e, sem espaço para quebrar (ou sendo uma
-  palavra só), estourava e quebrava o layout — abaixo do breakpoint, só o
-  ícone fica visível.
+  Era um botão-texto puro (Button, com o rótulo em `text`), mas até a 0.57.5
+  do glacier-ui o widget de botão não suportava filhos — não dava pra por
+  ícone+texto lado a lado dentro dele. Tinha virado uma linha (row) com
+  on_press, o mesmo mecanismo de clique dos handles de resize/drag do
+  titlebar (qualquer nó com on_press/cursor vira um mouse_area) — hack
+  removido na 0.57.6 (`<Button>` com filhos: um filho vira o conteúdo direto,
+  mais de um vira um Row implícito respeitando spacing/align-y do próprio
+  nó — exatamente o caso de ícone+rótulo aqui). Em janelas estreitas, o
+  rótulo ("Deploy Engine", "Projects (2)") não cabia na sidebar encolhida e,
+  sem espaço para quebrar (ou sendo uma palavra só), estourava e quebrava o
+  layout — abaixo do breakpoint, só o ícone fica visível.
 
   `tooltip="{label}"` (glacier-ui 0.37.5) mostra o rótulo completo ao pairar o
   mouse — essencial no modo colapsado (ícone sozinho, sem texto nenhum), e sem
@@ -47,11 +50,11 @@
 }
 </style>
 
-<row class="nav_row_on" if="{view}" equals="{target}" on_press="{action}" tooltip="{label}">
+<button class="nav_row_on" if="{view}" equals="{target}" on_click="{action}" tooltip="{label}">
   <text class="nav_icon_on">{icon}</text>
   <text class="nav_label_on">{label}</text>
-</row>
-<row class="nav_row_off" else on_press="{action}" tooltip="{label}">
+</button>
+<button class="nav_row_off" else on_click="{action}" tooltip="{label}">
   <text class="nav_icon_off">{icon}</text>
   <text class="nav_label_off">{label}</text>
-</row>
+</button>

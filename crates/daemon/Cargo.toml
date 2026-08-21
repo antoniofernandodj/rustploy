@@ -113,3 +113,6 @@ sysinfo = { version = "0.33", default-features = false, features = ["system", "d
 # webui/ → assets estáticos embutidos (build.rs): mesmo gzip usado em runtime
 # por api/http_api.rs, aplicado agora aos fontes da web UI/PWA.
 flate2 = "1"
+
+[dev-dependencies]
+chromiumoxide = "0.9.1"

@@ -192,6 +192,63 @@ fn all_screens_and_service_tabs_render() {
     m.reevaluate_all().unwrap_or_else(|e| panic!("eval ingress/host_ports: {e}"));
     assert!(m.render("app").is_ok(), "render ingress/host_ports");
 
+    // Docker → as 5 sub-abas (o loop de views acima só renderiza o default
+    // "containers"; containers/images/volumes/networks/registry têm cada
+    // uma seu próprio painel escopado por docker_tab, nunca exercitados).
+    m.define_data("view", "docker");
+    m.define_data("docker_containers_count", "1");
+    m.define_data(
+        "docker_containers",
+        r#"[{"id_full":"c1","name":"rp_api_live","image":"acme/api:latest","owner":"acme / api","state_kind":"ok","state_label":"running","can_remove":"0"}]"#,
+    );
+    m.define_data("docker_images_count", "1");
+    m.define_data(
+        "docker_images",
+        r#"[{"id_full":"i1","tags":"acme/api:latest","owner":"acme / api","size":"120 MB","created":"12/07","in_use_kind":"ok","in_use_label":"EM USO"}]"#,
+    );
+    m.define_data("docker_volumes_count", "1");
+    m.define_data(
+        "docker_volumes",
+        r#"[{"name":"pgdata","owner":"—","size":"1.2 GB","in_use_kind":"ok","in_use_label":"EM USO"}]"#,
+    );
+    m.define_data("docker_networks_count", "1");
+    m.define_data(
+        "docker_networks",
+        r#"[{"name":"rp_net_acme","owner":"acme","in_use_kind":"ok","in_use_label":"EM USO"}]"#,
+    );
+    m.define_data("registry_status_label", "ativo em 127.0.0.1:5100");
+    m.define_data("registry_status_enabled", "true");
+    m.define_data("registry_storage_human", "340 MB");
+    m.define_data("registry_repos_count", "1");
+    m.define_data(
+        "registry_repos",
+        r#"[{"name":"acme/api","tag_count":"3","size":"340 MB"}]"#,
+    );
+    m.define_data("registry_tokens_count", "1");
+    m.define_data(
+        "registry_tokens",
+        r#"[{"name":"ci","scope":"pull","created":"12/07"}]"#,
+    );
+    m.define_data("registry_selected_repo", "");
+    m.define_data("registry_tags_loading", "false");
+    m.define_data("registry_tags_count", "0");
+    m.define_data("registry_tags", "[]");
+    for tab in ["containers", "images", "volumes", "networks", "registry"] {
+        m.define_data("docker_tab", tab);
+        m.reevaluate_all().unwrap_or_else(|e| panic!("eval docker/{tab}: {e}"));
+        assert!(m.render("app").is_ok(), "render docker/{tab}");
+    }
+    // Registry: também o branch "repo selecionado" (lista de tags), não só a
+    // lista de repos.
+    m.define_data("registry_selected_repo", "acme/api");
+    m.define_data("registry_tags_count", "1");
+    m.define_data(
+        "registry_tags",
+        r#"[{"tag":"latest","size":"120 MB","created":"12/07","digest_short":"sha256:abcd1234"}]"#,
+    );
+    m.reevaluate_all().unwrap_or_else(|e| panic!("eval docker/registry com repo selecionado: {e}"));
+    assert!(m.render("app").is_ok(), "render docker/registry com repo selecionado");
+
     // Schedules → tabela global de jobs one-shot (todos os projetos).
     m.define_data("view", "schedules");
     m.define_data("jobs_count", "1");
@@ -278,6 +335,33 @@ fn all_screens_and_service_tabs_render() {
     m.reevaluate_all().unwrap_or_else(|e| panic!("eval settings/iac: {e}"));
     assert!(m.render("app").is_ok(), "render settings/iac");
 
+    // Settings → Manutenção (limpeza automática de Docker): as 3 recorrências
+    // (cada uma mostra campos diferentes: HOURS pra interval, HOUR/MINUTE pra
+    // daily, +WEEKDAY pra weekly) e o toggle geral + os 6 sub-toggles do que
+    // limpar.
+    m.define_data("settings_tab", "maintenance");
+    m.define_data("dc_enabled", "true");
+    m.define_data("dc_hours", "6");
+    m.define_data("dc_hour", "3");
+    m.define_data("dc_minute", "0");
+    m.define_data("dc_weekday", "0");
+    m.define_data("dc_containers", "true");
+    m.define_data("dc_images", "true");
+    m.define_data("dc_images_all", "false");
+    m.define_data("dc_volumes", "false");
+    m.define_data("dc_volumes_all", "false");
+    m.define_data("dc_networks", "true");
+    m.define_data("dc_build_cache", "true");
+    m.define_data("dc_next_run_label", "hoje às 03:00");
+    m.define_data("dc_last_run_text", "12/07 03:00 · 3 removidos · 120 MB liberados");
+    m.define_data("dc_running", "false");
+    m.define_data("dc_msg", "");
+    for kind in ["interval", "daily", "weekly"] {
+        m.define_data("dc_kind", kind);
+        m.reevaluate_all().unwrap_or_else(|e| panic!("eval settings/maintenance {kind}: {e}"));
+        assert!(m.render("app").is_ok(), "render settings/maintenance {kind}");
+    }
+
     // Service detail tabs (the editable forms + log views).
     for tab in [
         "general", "connection", "environment", "domains", "deployments",
@@ -312,6 +396,23 @@ fn all_screens_and_service_tabs_render() {
         m.reevaluate_all().unwrap_or_else(|e| panic!("eval tab {tab}: {e}"));
         assert!(m.render("app").is_ok(), "render tab {tab}");
     }
+
+    // General → provider da origem: as sub-abas Git e Zip do bloco
+    // Provider (só "gitea" era exercitada acima) + o editor de Compose
+    // (svc_source_kind="Compose" troca o bloco inteiro pelo textarea).
+    m.define_data("tab", "general");
+    m.define_data("svc_source_kind", "Git");
+    m.define_data("erro_f_gen_port", "");
+    for prov in ["git", "zip"] {
+        m.define_data("prov_tab", prov);
+        m.reevaluate_all().unwrap_or_else(|e| panic!("eval general/prov_tab={prov}: {e}"));
+        assert!(m.render("app").is_ok(), "render general/prov_tab={prov}");
+    }
+    m.define_data("svc_source_kind", "Compose");
+    m.define_data("svc_compose", "services:\n  web:\n    image: nginx\n");
+    m.define_data("svc_compose_orig", "services:\n  web:\n    image: nginx\n");
+    m.reevaluate_all().expect("eval general/compose");
+    assert!(m.render("app").is_ok(), "render general/compose");
 
     // Webhook, os outros dois estados: serviço ainda sem token (nunca deployado,
     // mostra o aviso em vez da URL) e serviço Compose (sem webhook nenhum).
