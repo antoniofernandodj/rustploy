@@ -425,10 +425,10 @@
                     text="usar secret"
                   />
                 </row>
-                <text if="{proj_secrets_count}" equals="0" class="muted">
+                <text if="{proj_secrets}" empty class="muted">
                   Nenhum secret cadastrado — crie um na aba Secrets.
                 </text>
-                <row class="env_add" if="{proj_secrets_count}" not_equals="0">
+                <row class="env_add" if="{proj_secrets}" not_empty>
                   <text class="muted">Secrets do projeto:&nbsp;</text>
                   <button
                     class="copy_btn"
@@ -595,7 +595,7 @@
               <text class="err">{erro_sec_new_name}</text>
             </if>
             <rule />
-            <text if="{proj_secrets_count}" equals="0" class="muted">
+            <text if="{proj_secrets}" empty class="muted">
               Nenhum secret neste projeto ainda.
             </text>
             <scrollable direction="vertical" class="env_list_scroll">
@@ -619,7 +619,7 @@
             <text class="muted_fill">{proj_jobs_count} job(s)</text>
             <button class="btn_sm_primary" on_click="open_new_job_window" text="+ Novo job" />
           </row>
-          <text if="{proj_jobs_count}" equals="0" class="muted">
+          <text if="{proj_jobs}" empty class="muted">
             Nenhum job cadastrado ainda.
           </text>
           <scrollable direction="vertical" class="env_list_scroll">

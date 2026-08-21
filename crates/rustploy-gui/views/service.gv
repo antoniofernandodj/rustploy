@@ -250,7 +250,7 @@
                 target="git"
                 action="prov:git"
               />
-              <if cond="{gitea_count}" not_equals="0">
+              <if cond="{gitea_providers}" not_empty>
                 <!-- Vale para qualquer conta conectada em Settings → Git —
                      Gitea *e* GitHub. O `target`/`action` seguem "gitea" por
                      ser a chave de estado (prov_tab), não o nome do provedor. -->
@@ -611,7 +611,7 @@
         <!-- Containers reais em execução para este serviço (id + nome + estado). -->
         <rule />
         <text class="label_cap">CONTAINERS ({svc_containers_count})</text>
-        <text class="muted" if="{svc_containers_count}" equals="0">
+        <text class="muted" if="{svc_containers}" empty>
           Nenhum container em execução.
         </text>
         <row class="kv_row" for-each="svc_containers" var="c">
