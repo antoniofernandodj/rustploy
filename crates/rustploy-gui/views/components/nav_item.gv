@@ -31,8 +31,8 @@
   hover funciona na linha inteira, não só no ícone.
 -->
 <style>
-.nav_row_on  { width: fill; padding: 11 14; spacing: 10; align-y: center; background: var(--blue); cursor: pointer; }
-.nav_row_off { width: fill; padding: 11 14; spacing: 10; align-y: center; cursor: pointer; }
+.nav_row_on  { width: fill; padding: 11 14; spacing: 10; align-y: center; color: var(--blue); cursor: pointer; }
+.nav_row_off { width: fill; padding: 11 14; spacing: 10; align-y: center; color: var(--surface); cursor: pointer; }
 .nav_icon_on   { size: 14; color: var(--text); }
 .nav_icon_off  { size: 14; color: var(--faint); }
 .nav_label_on  { color: var(--text); }

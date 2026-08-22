@@ -600,9 +600,11 @@ fn disconnect_limpa_o_contexto_da_sessao() {
 /// `project_services`/`service` não são `"projects"`. Corrigido usando
 /// `one_of` (glacier-ui 0.57.8): `target="projects project_services
 /// service"` casa com qualquer uma das três. `nav_row_on` é a classe que dá
-/// o fundo azul (`background: var(--blue)`) — depois da resolução de
-/// classe isso vira `node.background = Some("var(--blue)")`; `nav_row_off`
-/// não declara `background`, então fica `None`.
+/// o fundo azul — só que o widget `<button>` do glacier-ui lê a propriedade
+/// `color:` do GSS pro fundo (não `background:`, que é ignorada em botões;
+/// ver `widget.rs` do glacier-ui, `NodeType::Button { color, .. }`), então o
+/// campo que importa é `node.kind`'s `color`, não o `node.background`
+/// genérico (esse é para containers/rows).
 #[test]
 fn nav_item_projects_fica_aceso_nas_sub_telas() {
     use glacier_ui::parser::NodeType;
@@ -613,10 +615,10 @@ fn nav_item_projects_fica_aceso_nas_sub_telas() {
     // dentro do template do componente `NavItem`, então o dispatch final é
     // "NavItem::nav_projects".
     fn projects_nav_button_lit<'a>(node: &'a glacier_ui::parser::UiNode) -> Option<bool> {
-        if let NodeType::Button { on_click, .. } = &node.kind
+        if let NodeType::Button { on_click, color, .. } = &node.kind
             && on_click.as_deref() == Some("NavItem::nav_projects")
         {
-            return Some(node.background.is_some());
+            return Some(color.as_deref() == Some("#1F6FEB"));
         }
         node.children.iter().find_map(projects_nav_button_lit)
     }
