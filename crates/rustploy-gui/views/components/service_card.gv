@@ -88,7 +88,7 @@
     <text class="muted">id: {container_id}</text>
     <text class="muted" if="{container_extra}" not_equals="">extra: {container_extra}</text>
   </row>
-  <rule />
+  <hr />
   <row class="card_stats">
     <column class="card_stat">
       <text class="label_cap">CPU</text>

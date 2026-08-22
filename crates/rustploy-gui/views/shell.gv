@@ -115,7 +115,7 @@
       action="nav_projects"
     />
     <column class="nav_spacer" />
-    <rule />
+    <hr />
     <NavItem
       label="Settings"
       icon="⌥"
@@ -145,7 +145,7 @@
       <button class="btn_danger" on_click="stop_all" text="Stop All" />
       <button class="btn_ghost" on_click="disconnect" text="Disconnect" />
     </row>
-    <rule />
+    <hr />
     <!-- Content -->
     <if cond="{view}" equals="deployments">
       <column class="content">
@@ -195,7 +195,7 @@
                   <text class="td col_dur">{d.duration}</text>
                   <text class="muted col_start">{d.start}</text>
                 </row>
-                <rule />
+                <hr />
               </column>
             </column>
           </scrollable>
@@ -367,7 +367,7 @@
             action="proj_tab:jobs"
           />
         </row>
-        <rule />
+        <hr />
         <if cond="{proj_loading}" equals="true">
           <LoadingRow />
         </if>
@@ -594,7 +594,7 @@
             <if cond="{erro_sec_new_name}" not_equals="">
               <text class="err">{erro_sec_new_name}</text>
             </if>
-            <rule />
+            <hr />
             <text if="{proj_secrets}" empty class="muted">
               Nenhum secret neste projeto ainda.
             </text>

@@ -23,7 +23,7 @@
       altura mesmo quando só um tem descrição.
     -->
     <text class="muted">{description}</text>
-    <rule />
+    <hr />
     <!-- 
       Ações empilhadas: um botão fill disputando a linha com
       texto/botão fica torto quando o card está estreito.

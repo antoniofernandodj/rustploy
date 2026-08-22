@@ -71,7 +71,7 @@
               <text class="muted col_dur">{m.rx}</text>
               <text class="muted col_start">{m.tx}</text>
             </row>
-            <rule />
+            <hr />
           </column>
         </column>
       </scrollable>
@@ -117,7 +117,7 @@
                 <text class="td col_dur">{i.upstream}</text>
                 <text class="muted col_start">{i.tls}</text>
               </row>
-              <rule />
+              <hr />
             </column>
           </template>
         </column>
@@ -146,7 +146,7 @@
               <text class="td col_dur">{hp.host_port}</text>
               <text class="muted col_start">{hp.container_port}</text>
             </row>
-            <rule />
+            <hr />
           </column>
         </template>
       </column>
@@ -225,7 +225,7 @@
               text="✕"
             />
           </row>
-          <rule />
+          <hr />
         </template>
       </column>
     </column>
@@ -266,7 +266,7 @@
               <text class="muted col_dur">{a.total}</text>
               <text class="muted col_start">{a.phase}</text>
             </row>
-            <rule />
+            <hr />
           </column>
 
         </column>
@@ -303,7 +303,7 @@
               <text class="muted col_dur">{r.duration}</text>
               <text class="muted col_start">{r.start}</text>
             </row>
-            <rule />
+            <hr />
           </column>
         </column>
       </scrollable>
@@ -361,7 +361,7 @@
         action="docker_tab:registry"
       />
     </row>
-    <rule />
+    <hr />
 
     <!-- Containers — um por serviço gerido pelo Rustploy (ligação com
          projeto/serviço é direta, já que o container nasce de um Service). -->
@@ -410,7 +410,7 @@
                 />
               </row>
             </row>
-            <rule />
+            <hr />
           </column>
         </column>
       </scrollable>
@@ -486,7 +486,7 @@
                   />
                 </row>
               </row>
-              <rule />
+              <hr />
             </column>
           </if> <else>
             <column class="row_wrap" for-each="docker_images" var="i">
@@ -506,7 +506,7 @@
                   />
                 </row>
               </row>
-              <rule />
+              <hr />
             </column>
           </else>
         </column>
@@ -562,7 +562,7 @@
                   <StateCell kind="{v.in_use_kind}" label="{v.in_use_label}" />
                   <row class="col_act" />
                 </row>
-                <rule />
+                <hr />
               </column>
             </template>
           </if> <else>
@@ -582,7 +582,7 @@
                   />
                 </row>
               </row>
-              <rule />
+              <hr />
             </column>
           </else>
         </column>
@@ -646,7 +646,7 @@
                     />
                   </row>
                 </row>
-                <rule />
+                <hr />
               </column>
             </template>
           </if> <else>
@@ -668,7 +668,7 @@
                     />
                   </row>
                 </row>
-                <rule />
+                <hr />
               </column>
             </template>
           </else>
@@ -735,7 +735,7 @@
                   <button class="env_del" on_click="registry_rm_repo:{r.name}" text="✕" tooltip="Remover" />
                 </row>
               </row>
-              <rule />
+              <hr />
             </column>
           </column>
         </scrollable>
@@ -769,7 +769,7 @@
               <button class="env_del" on_click="registry_rm_token:{tk.name}" text="✕" tooltip="Revogar" />
             </row>
           </row>
-          <rule />
+          <hr />
         </column>
       </column>
 
@@ -805,7 +805,7 @@
                   <button class="dk_rm" on_click="registry_rm_tag:{t.tag}" text="Remover" />
                 </row>
               </row>
-              <rule />
+              <hr />
             </column>
           </column>
         </scrollable>
@@ -847,7 +847,7 @@
         action="settings_tab:maintenance"
       />
     </row>
-    <rule />
+    <hr />
 
     <!-- Web Server (default) -->
     <if cond="{settings_tab}" equals="web">
@@ -931,7 +931,7 @@
             </template>
           </column>
 
-          <rule />
+          <hr />
           <text class="label_cap">CONECTAR CONTA GIT</text>
 
           <!-- Tipo de provedor: Gitea ou GitHub. Troca a redirect URI (path por
@@ -1133,7 +1133,7 @@
             <textarea class="env_editor" font="mono" value="iac_dotenv" readonly="true" />
           </if>
 
-          <rule />
+          <hr />
 
           <text class="label_cap">IMPORTAR</text>
           <text class="muted">
@@ -1270,7 +1270,7 @@
 
           <text class="muted">Próxima execução agendada: {dc_next_run_label}</text>
 
-          <rule />
+          <hr />
           <text class="label_cap">O QUE LIMPAR</text>
 
           <checkbox checked="dc_containers" on_toggle="field:dc_containers" label="Containers parados" />
@@ -1288,7 +1288,7 @@
 
           <checkbox checked="dc_build_cache" on_toggle="field:dc_build_cache" label="Cache de build" />
 
-          <rule />
+          <hr />
           <text class="label_cap err">VOLUMES — CUIDADO</text>
           <text class="muted">
             Volumes sem uso criados por fora do rustploy (não pelos seus
@@ -1312,7 +1312,7 @@
             <text class="muted">{dc_msg}</text>
           </row>
 
-          <rule />
+          <hr />
           <text class="label_cap">ÚLTIMA EXECUÇÃO</text>
           <text class="muted">{dc_last_run_text}</text>
         </column>
@@ -1371,7 +1371,7 @@
                   <button class="env_del" on_click="job_del:{j.id}" text="✕" tooltip="Remover" />
                 </row>
               </row>
-              <rule />
+              <hr />
             </column>
           </template>
         </column>

@@ -179,7 +179,7 @@
   </row>
   </scroll>
 
-  <rule />
+  <hr />
 
   <!-- ── Corpo: conteúdo da aba + painel lateral ──────────────────────── -->
   <row class="svc_body">
@@ -268,7 +268,7 @@
                 action="prov:zip"
               />
             </row>
-            <rule />
+            <hr />
 
             <!-- ── Sub-aba Git: form de URL/imagem crua ─────────────── -->
             <if cond="{prov_tab}" equals="git">
@@ -609,7 +609,7 @@
         </row>
 
         <!-- Containers reais em execução para este serviço (id + nome + estado). -->
-        <rule />
+        <hr />
         <text class="label_cap">CONTAINERS ({svc_containers_count})</text>
         <text class="muted" if="{svc_containers}" empty>
           Nenhum container em execução.
@@ -907,7 +907,7 @@
               <text class="dep_image">
                 {d.image}
               </text>
-              <rule />
+              <hr />
             </column>
           </column>
         </scrollable>

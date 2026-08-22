@@ -91,7 +91,7 @@
       ⚠ {error}
     </text>
 
-    <rule />
+    <hr />
 
     <row class="status_row">
       <text class="ok" size="10">●</text>
