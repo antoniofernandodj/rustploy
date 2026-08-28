@@ -1,6 +1,4 @@
 <!--
-  Props: label, icon, target, action
-
   Item de navegação da sidebar: ícone (sempre visível) + rótulo (some abaixo de
   900px de largura — ver @media abaixo, espelhando o breakpoint em que a
   sidebar encolhe no shell.gv). Fica "ligado" (pílula azul) quando a view
@@ -31,6 +29,15 @@
   hover funciona na linha inteira, não só no ícone.
 -->
 <component>
+    <!-- `view` NÃO entra aqui: ela vem do contexto global (é a view atual do
+      app), não de quem instancia o item. Declarar só o que é prop é o que
+      mantém a leitura do contexto funcionando. -->
+    <props>
+        <prop name="label" />
+        <prop name="icon" />
+        <prop name="target" />
+        <prop name="action" />
+    </props>
   <resources>
     <style>
     .nav_row_on  { width: fill; padding: 11 14; spacing: 10; align-y: center; color: var(--blue); cursor: pointer; }

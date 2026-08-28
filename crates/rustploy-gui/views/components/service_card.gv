@@ -1,5 +1,4 @@
 <!--
-  Props: id, name, port, status_color, status_label, cpu, mem, filler,
          container_name, container_id, container_extra
 
   Card de serviço da aba "Serviços" de um projeto — o análogo do ProjectCard.
@@ -8,6 +7,19 @@
   o componente `rp-badge`.
 -->
 <component>
+    <props>
+        <prop name="id" />
+        <prop name="name" />
+        <prop name="port" />
+        <prop name="status_color" />
+        <prop name="status_label" />
+        <prop name="cpu" />
+        <prop name="mem" />
+        <prop name="filler" />
+        <prop name="container_name" />
+        <prop name="container_id" />
+        <prop name="container_extra" />
+    </props>
   <resources>
     <style>
     .card_stats    {
