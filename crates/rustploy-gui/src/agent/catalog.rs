@@ -105,6 +105,21 @@ pub(super) fn schema() -> Value {
                      surgiu desde então — o daemon só sabe devolver o log inteiro"
             },
             {
+                "method": "GET", "path": "/agent/ingress",
+                "does": "tabela de rotas VIVA do ingress proxy (domínios + portas)",
+                "returns": "{domains:[{domain, backends:[ip:porta], service_id}], ports:[{host_port, backends}]}",
+                "notes":
+                    "é o diagnóstico de um domínio que responde 502: a rota \
+                     existe? aponta para qual ip:porta? backends vazio = rota \
+                     registrada sem destino"
+            },
+            {
+                "method": "POST", "path": "/agent/ingress/reconcile",
+                "body": { "service_id": "opcional; omitido = todos os serviços" },
+                "does": "recalcula as rotas a partir dos containers reais, sem redeploy",
+                "returns": "a tabela já corrigida, no formato de GET /agent/ingress"
+            },
+            {
                 "method": "POST", "path": "/agent/rpc",
                 "body": "um Command do protocolo, em JSON",
                 "does": "passthrough cru para POST /api/rpc do daemon",
@@ -287,6 +302,8 @@ mod tests {
             ("GET", "/agent/deploys"),
             ("POST", "/agent/deploys"),
             ("GET", "/agent/deploys/<deployment_id>/logs"),
+            ("GET", "/agent/ingress"),
+            ("POST", "/agent/ingress/reconcile"),
             ("POST", "/agent/rpc"),
             ("POST", "/agent/services/<service_id>/archive"),
             ("GET", "/agent/servers"),

@@ -20,6 +20,7 @@ O que procurar lá:
 | Config (o parse é tudo-ou-nada) | Parte 2 — Configuração |
 | Crates, protocolo, internos do daemon e da GUI | Parte 3 — Arquitetura |
 | Máquina de estados do deploy e onde a causa de uma falha aparece | Parte 3 — Arquitetura |
+| Ingress: tabela de rotas, 502 e o alvo numa stack Compose | Parte 3 — Arquitetura |
 | Decisões já revertidas (SurrealDB, UDS, TUI…) e buracos conhecidos | Parte 4 — História |
 
 Planos e relatórios por assunto ficam em `docs/`; o cabeçalho de cada um diz se

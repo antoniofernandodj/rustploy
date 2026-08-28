@@ -714,21 +714,250 @@ pub async fn find_by_name(
     Ok(found)
 }
 
-pub async fn find_by_prefix(
+/// Containers **rodando** cujo nome começa com `prefix`, como `(id, nome)`,
+/// ordenados por nome.
+///
+/// A ordenação não é cosmética: é o que torna a escolha do alvo de ingress
+/// determinística. A ordem que o Docker devolve não é estável, e uma stack
+/// Compose que troca de container-alvo entre dois boots é exatamente o bug que
+/// isto existe para não repetir.
+pub async fn list_running_by_prefix(
     docker: &Docker,
-    prefix: &str
-) -> Result<Option<String>> {
+    prefix: &str,
+) -> Result<Vec<(String, String)>> {
     use bollard::container::ListContainersOptions;
-    debug!(prefix = %prefix, "buscando container por prefix");
     let mut filters = HashMap::new();
     filters.insert("name".to_string(), vec![format!("^/{prefix}")]);
     let opts = ListContainersOptions {
-        all: true,
+        all: false, // só running: container parado não serve de backend
         filters,
         ..Default::default()
     };
-    let containers = docker.list_containers(Some(opts)).await?;
-    // Pega o primeiro que encontrar
-    let found = containers.into_iter().next().and_then(|c| c.id);
-    Ok(found)
+    let mut out: Vec<(String, String)> = docker
+        .list_containers(Some(opts))
+        .await?
+        .into_iter()
+        .filter_map(|c| {
+            let id = c.id?;
+            let name = c
+                .names
+                .unwrap_or_default()
+                .into_iter()
+                .next()?
+                .trim_start_matches('/')
+                .to_string();
+            Some((id, name))
+        })
+        .collect();
+    out.sort_by(|a, b| a.1.cmp(&b.1));
+    Ok(out)
+}
+
+/// Portas TCP que o container declara expor (`EXPOSE` da imagem + `expose:`/
+/// `ports:` do compose).
+async fn exposed_tcp_ports(docker: &Docker, container_id: &str) -> Vec<u16> {
+    let Ok(info) = inspect(docker, container_id).await else {
+        return Vec::new();
+    };
+    let mut out: Vec<u16> = info
+        .config
+        .as_ref()
+        .and_then(|c| c.exposed_ports.as_ref())
+        .map(|ports| {
+            ports
+                .keys()
+                // chave no formato "8000/tcp"
+                .filter_map(|k| {
+                    let (num, proto) = k.split_once('/').unwrap_or((k.as_str(), "tcp"));
+                    (proto == "tcp").then(|| num.parse::<u16>().ok()).flatten()
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    out.sort_unstable();
+    out
+}
+
+/// Índice do candidato cujo nome é o do serviço `svc` dentro do compose.
+///
+/// O Compose nomeia `<projeto>-<serviço>-<réplica>`; aceita também o nome sem
+/// sufixo de réplica, que é o que aparece com `container_name:` fixo.
+fn match_ingress_service(
+    candidates: &[(String, String)],
+    prefix: &str,
+    svc: &str,
+) -> Option<usize> {
+    let exact = format!("{prefix}{svc}");
+    let replica = format!("{prefix}{svc}-");
+    candidates
+        .iter()
+        .position(|(_, n)| *n == exact || n.starts_with(&replica))
+}
+
+/// Índice do primeiro candidato que expõe alguma das portas pedidas.
+///
+/// A ordem de `want_ports` manda: a primeira porta pedida que alguém expuser
+/// decide, para que um serviço com dois domínios em portas diferentes caia
+/// sempre no mesmo container em vez de alternar.
+fn match_exposed_port(exposed: &[Vec<u16>], want_ports: &[u16]) -> Option<usize> {
+    want_ports
+        .iter()
+        .find_map(|want| exposed.iter().position(|ports| ports.contains(want)))
+}
+
+/// Escolhe qual container de uma stack Compose recebe o tráfego do ingress.
+///
+/// Uma stack tem N containers e só um atende o domínio — num Supabase
+/// self-hosted são nove, e quem serve a porta 8000 é o `kong`. Até 2026-08-28
+/// isto era `find_by_prefix`, que "pega o primeiro que encontrar": a rota caía
+/// num container arbitrário da stack e o domínio respondia **502**.
+///
+/// Ordem de decisão:
+/// 1. `ingress_service` do `ComposeSource`, quando preenchido — o compose
+///    nomeia os containers `<projeto>-<serviço>-<n>`;
+/// 2. o container que expõe alguma das `want_ports` (as portas que os domínios
+///    do serviço pedem) — resolve o caso comum sem configuração nenhuma;
+/// 3. o primeiro por nome, com `warn` no log — último recurso, para não deixar
+///    o serviço sem rota alguma.
+pub async fn find_compose_ingress_container(
+    docker: &Docker,
+    project_name: &str,
+    ingress_service: Option<&str>,
+    want_ports: &[u16],
+) -> Result<Option<String>> {
+    let prefix = format!("{project_name}-");
+    let candidates = list_running_by_prefix(docker, &prefix).await?;
+    if candidates.is_empty() {
+        return Ok(None);
+    }
+
+    // 1. Alvo declarado pelo usuário.
+    if let Some(svc) = ingress_service.map(str::trim).filter(|s| !s.is_empty()) {
+        if let Some(i) = match_ingress_service(&candidates, &prefix, svc) {
+            let (id, name) = &candidates[i];
+            info!(container = %name, ingress_service = %svc, "compose ingress: alvo declarado");
+            return Ok(Some(id.clone()));
+        }
+        // Não abortamos: um nome errado no spec não deve derrubar a stack
+        // inteira. Mas o log tem de dizer por que a escolha não foi a pedida.
+        warn!(
+            ingress_service = %svc,
+            project = %project_name,
+            candidatos = ?candidates.iter().map(|(_, n)| n).collect::<Vec<_>>(),
+            "compose ingress: `ingress_service` não existe na stack — caindo para a descoberta por porta"
+        );
+    }
+
+    // 2. Quem expõe a porta que o domínio pede.
+    if !want_ports.is_empty() {
+        let mut portas_por_container: Vec<(String, String, Vec<u16>)> =
+            Vec::with_capacity(candidates.len());
+        for (id, name) in &candidates {
+            let ports = exposed_tcp_ports(docker, id).await;
+            portas_por_container.push((id.clone(), name.clone(), ports));
+        }
+        let so_portas: Vec<Vec<u16>> = portas_por_container
+            .iter()
+            .map(|(_, _, p)| p.clone())
+            .collect();
+        if let Some(i) = match_exposed_port(&so_portas, want_ports) {
+            let (id, name, _) = &portas_por_container[i];
+            info!(container = %name, "compose ingress: alvo por porta exposta");
+            return Ok(Some(id.clone()));
+        }
+        warn!(
+            project = %project_name,
+            ?want_ports,
+            candidatos = ?portas_por_container
+                .iter()
+                .map(|(_, n, p)| format!("{n}{p:?}"))
+                .collect::<Vec<_>>(),
+            "compose ingress: nenhum container expõe a porta pedida — usando o primeiro por nome"
+        );
+    }
+
+    // 3. Último recurso, determinístico.
+    Ok(candidates.into_iter().next().map(|(id, _)| id))
+}
+
+
+#[cfg(test)]
+mod tests_ingress {
+    use super::*;
+
+    fn cands(nomes: &[&str]) -> Vec<(String, String)> {
+        nomes
+            .iter()
+            .map(|n| (format!("id_{n}"), n.to_string()))
+            .collect()
+    }
+
+    /// A stack real que motivou tudo isto: nove containers de um Supabase
+    /// self-hosted, e só o `kong` atende a porta 8000 do domínio.
+    const STACK: &[&str] = &[
+        "rp_01m11z0g_db-auth-1",
+        "rp_01m11z0g_db-db-1",
+        "rp_01m11z0g_db-functions-1",
+        "rp_01m11z0g_db-imgproxy-1",
+        "rp_01m11z0g_db-kong-1",
+        "rp_01m11z0g_db-meta-1",
+        "rp_01m11z0g_db-rest-1",
+        "rp_01m11z0g_db-storage-1",
+        "rp_01m11z0g_db-supavisor-1",
+    ];
+
+    #[test]
+    fn alvo_declarado_acha_o_container_da_replica() {
+        let c = cands(STACK);
+        let i = match_ingress_service(&c, "rp_01m11z0g_db-", "kong").unwrap();
+        assert_eq!(c[i].1, "rp_01m11z0g_db-kong-1");
+    }
+
+    #[test]
+    fn alvo_declarado_aceita_nome_sem_sufixo_de_replica() {
+        let c = cands(&["rp_x-proxy", "rp_x-app-1"]);
+        let i = match_ingress_service(&c, "rp_x-", "proxy").unwrap();
+        assert_eq!(c[i].1, "rp_x-proxy");
+    }
+
+    /// Um `ingress_service` errado não pode casar por acidente com o prefixo
+    /// de outro serviço: `db` não é `db-db`.
+    #[test]
+    fn alvo_declarado_inexistente_nao_casa() {
+        let c = cands(&["rp_x-kong-1", "rp_x-storage-1"]);
+        assert!(match_ingress_service(&c, "rp_x-", "nginx").is_none());
+    }
+
+    /// O caso do 502: sem alvo declarado, quem expõe a porta do domínio vence,
+    /// mesmo estando no meio da lista.
+    #[test]
+    fn porta_do_dominio_escolhe_o_gateway_e_nao_o_primeiro() {
+        // mesma ordem de STACK; só o índice 4 (kong) expõe 8000
+        let exposed = vec![
+            vec![9999],      // auth
+            vec![5432],      // db
+            vec![9000],      // functions
+            vec![8080],      // imgproxy
+            vec![8000, 8443],// kong
+            vec![8080],      // meta
+            vec![3000],      // rest
+            vec![5000],      // storage
+            vec![4000, 5452],// supavisor
+        ];
+        assert_eq!(match_exposed_port(&exposed, &[8000]), Some(4));
+    }
+
+    #[test]
+    fn sem_ninguem_expondo_a_porta_nao_ha_escolha_por_porta() {
+        let exposed = vec![vec![5432], vec![5000]];
+        assert_eq!(match_exposed_port(&exposed, &[8000]), None);
+    }
+
+    /// Duas portas pedidas: manda a ordem de `want_ports`, não a dos containers.
+    #[test]
+    fn a_primeira_porta_pedida_decide() {
+        let exposed = vec![vec![443], vec![8000]];
+        assert_eq!(match_exposed_port(&exposed, &[8000, 443]), Some(1));
+        assert_eq!(match_exposed_port(&exposed, &[443, 8000]), Some(0));
+    }
 }

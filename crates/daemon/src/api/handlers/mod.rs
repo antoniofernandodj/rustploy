@@ -43,6 +43,7 @@ pub mod git_repo_list;
 pub mod get_daemon_settings;
 pub mod get_job_logs;
 pub mod get_webhook_url;
+pub mod ingress;
 pub mod job_create;
 pub mod job_delete;
 pub mod job_list;

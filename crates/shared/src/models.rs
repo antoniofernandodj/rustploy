@@ -129,6 +129,26 @@ impl ServiceSpec {
         }
     }
 
+    /// Portas de container que o ingress precisa alcançar: a de cada domínio,
+    /// mais a `port` do serviço quando há rota de porta no host. Ordenadas e
+    /// sem repetição.
+    ///
+    /// Serve para escolher, numa stack Compose, qual container recebe a rota
+    /// (ver `docker::containers::find_compose_ingress_container`).
+    pub fn ingress_container_ports(&self) -> Vec<u16> {
+        let mut ports: Vec<u16> = self
+            .domain_routes()
+            .iter()
+            .map(|r| r.container_port(self.port))
+            .collect();
+        if self.host_port.is_some() {
+            ports.push(self.port);
+        }
+        ports.sort_unstable();
+        ports.dedup();
+        ports
+    }
+
     /// Move o domínio legado (`domain`/`tls_enabled`) para a lista `domains` e
     /// zera os campos legados, para que edições subsequentes operem numa única
     /// fonte de verdade (a lista). Idempotente.
@@ -227,18 +247,19 @@ impl Default for ArchiveSource {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct ComposeSource {
     #[serde(alias = "compose_file")]
     pub content: String,
-}
-
-impl Default for ComposeSource {
-    fn default() -> Self {
-        Self {
-            content: String::new(),
-        }
-    }
+    /// Nome do serviço **dentro do arquivo compose** que recebe o tráfego do
+    /// ingress (ex.: `kong` numa stack Supabase, `nginx` num LEMP).
+    ///
+    /// Uma stack Compose tem N containers e só um deles atende o domínio. Sem
+    /// isto o daemon descobre o alvo pela porta (ver
+    /// `docker::containers::find_compose_ingress_container`); preencha quando a
+    /// descoberta errar ou quando dois containers expuserem a mesma porta.
+    #[serde(default)]
+    pub ingress_service: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -759,6 +780,35 @@ pub struct DockerVolumeInfo {
 /// Containers sub-tab. Host-wide (not just rustploy-managed) — `managed`/
 /// `project`/`service` are best-effort attribution (label `rustploy.managed` +
 /// the `rp_<safe_name>_...` container-name convention).
+/// Uma rota de domínio viva na tabela do ingress proxy.
+///
+/// É o estado **em memória** do proxy, não o que está no banco: é isto que
+/// decide para onde uma requisição HTTP vai agora. Quando um domínio responde
+/// 502, a pergunta é se existe rota aqui e para onde ela aponta.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct IngressDomainRoute {
+    pub domain: String,
+    /// `ip:porta` de cada réplica. Vazio = rota registrada sem backend (502).
+    pub backends: Vec<String>,
+    /// Serviço dono da rota; `rp-registry` para a rota interna do registry.
+    pub service_id: String,
+}
+
+/// Uma rota de porta TCP viva (`host_port` → backends).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct IngressPortRoute {
+    pub host_port: u16,
+    /// Vazio = listener no ar, porém sem destino (conexão recusada).
+    pub backends: Vec<String>,
+}
+
+/// Foto da tabela de rotas do ingress (resposta de `Command::IngressRoutes`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct IngressSnapshot {
+    pub domains: Vec<IngressDomainRoute>,
+    pub ports: Vec<IngressPortRoute>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DockerContainerInfo {
     /// Full container id (for removal).
@@ -1217,5 +1267,64 @@ mod git_provider_tests {
         let back: ServiceStatus = serde_json::from_str("\"Queued\"").unwrap();
         assert_eq!(back, ServiceStatus::Queued);
         assert_eq!(ServiceStatus::Queued.to_string(), "Queued");
+    }
+}
+
+#[cfg(test)]
+mod ingress_tests {
+    use super::*;
+
+    fn spec_com(domains: Vec<DomainRoute>, port: u16, host_port: Option<u16>) -> ServiceSpec {
+        let mut spec = crate::wizard::compose_spec("svc".into(), "prj".into());
+        spec.domains = domains;
+        spec.port = port;
+        spec.host_port = host_port;
+        spec
+    }
+
+    /// As portas que o ingress precisa alcançar saem dos domínios, não da
+    /// `port` do serviço: é isto que faz um Supabase (serviço na 80, domínio
+    /// na 8000) rotear para o gateway e não para outro container da stack.
+    #[test]
+    fn porta_do_dominio_vence_a_porta_do_servico() {
+        let spec = spec_com(
+            vec![DomainRoute { domain: "db.exemplo.com".into(), port: Some(8000), tls: true }],
+            80,
+            None,
+        );
+        assert_eq!(spec.ingress_container_ports(), vec![8000]);
+    }
+
+    /// Domínio sem porta própria herda a `port` do serviço.
+    #[test]
+    fn dominio_sem_porta_usa_a_do_servico() {
+        let spec = spec_com(
+            vec![DomainRoute { domain: "a.exemplo.com".into(), port: None, tls: false }],
+            3000,
+            None,
+        );
+        assert_eq!(spec.ingress_container_ports(), vec![3000]);
+    }
+
+    #[test]
+    fn rota_de_porta_no_host_acrescenta_a_porta_do_servico() {
+        let spec = spec_com(
+            vec![DomainRoute { domain: "a.exemplo.com".into(), port: Some(8000), tls: false }],
+            5432,
+            Some(15432),
+        );
+        assert_eq!(spec.ingress_container_ports(), vec![5432, 8000]);
+    }
+
+    #[test]
+    fn sem_dominio_e_sem_host_port_nao_ha_porta_a_alcancar() {
+        assert!(spec_com(Vec::new(), 80, None).ingress_container_ports().is_empty());
+    }
+
+    /// Specs gravados antes do campo existir continuam desserializando.
+    #[test]
+    fn compose_source_sem_ingress_service_e_retrocompativel() {
+        let c: ComposeSource = serde_json::from_str(r#"{"content":"services: {}"}"#).unwrap();
+        assert_eq!(c.ingress_service, None);
     }
 }

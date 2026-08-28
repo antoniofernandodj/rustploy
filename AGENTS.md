@@ -97,6 +97,8 @@ Autenticação: `Authorization: Bearer <token do handoff>` em tudo, exceto
 | `POST /agent/deploys` | dispara um deploy e **espera** o resultado |
 | `GET /agent/deploys/<id>/logs?after=&limit=` | build log paginado por cursor |
 | `POST /agent/services/<id>/archive` | sobe um `.zip` local (por caminho) |
+| `GET /agent/ingress` | tabela de rotas **viva** do proxy — o diagnóstico de um 502 |
+| `POST /agent/ingress/reconcile` | recalcula as rotas sem redeploy |
 | `POST /agent/rpc` | passthrough: qualquer `Command` do protocolo |
 
 ### Janela (controlam a GUI em si)
@@ -209,7 +211,45 @@ Abrir janela-filha (novo projeto, wizard, logs) também é ação — ex.:
 Para ler chaves fora do resumo: `GET /agent/ui?keys=screen,view,docker_tab` ou
 `?all=1` para o contexto inteiro (resposta grande).
 
-### 6. Qualquer outra coisa
+### 6. Domínio respondendo 502
+
+O 502 do rustploy vem do proxy dele, não do seu app: quer dizer que a rota
+existe e o backend não respondeu. A tabela de rotas é o que decide isso, e ela
+vive **em memória** no daemon — não no banco:
+
+```bash
+rp $RP/agent/ingress
+```
+
+```json
+{
+  "domains": [
+    {"domain":"db.exemplo.com","backends":["172.23.0.9:8000"],"service_id":"svc_01M11Z0G…"}
+  ],
+  "ports": [{"host_port":8081,"backends":["172.23.0.4:8081"]}]
+}
+```
+
+Como ler:
+
+- **domínio ausente da lista** → nenhum deploy registrou rota. O serviço está
+  parado, ou o deploy falhou antes de promover.
+- **`backends` vazio** → rota registrada sem destino. É 502 garantido.
+- **`backends` apontando para a porta errada** → o caso clássico em stack
+  Compose (ver a armadilha do alvo de ingress, na Parte 3).
+
+Para consertar sem redeployar — o daemon relê os containers que existem de fato
+e reescreve as rotas:
+
+```bash
+rp $RP/agent/ingress/reconcile -d '{}'      # devolve a tabela já corrigida
+```
+
+É o mesmo caminho do reconcile de boot, disparado sob demanda. Não recria
+container nenhum: se a rota continua errada depois dele, o problema está no
+spec (alvo de ingress, porta do domínio), não na tabela.
+
+### 7. Qualquer outra coisa
 
 ```bash
 rp $RP/agent/rpc -d '{"DeployHistory":{"service_id":"svc_…","limit":3}}'
@@ -712,6 +752,51 @@ grosseira demais para minimizar a janela de swap. O poll inspeciona o container
 (se parou, aborta na hora) e então faz HTTP (resolvendo o IP do container **na
 rede do projeto**, não na default — container em várias redes tem vários IPs),
 TCP, ou lê `health.status` no modo DockerNative.
+
+## Ingress proxy: a tabela de rotas
+
+Containers rustploy **não publicam porta no host** — quem fica na porta é o
+proxy interno (`crates/daemon/src/ingress/`), e ele repassa para o IP do
+container na rede do projeto. É o que torna o swap zero-downtime possível: a
+troca é uma escrita atômica na tabela, não um rebind de porta. O desenho longo
+está em `docs/ingress-proxy.md`; o TLS automático, em `docs/tls-acme.md`.
+
+A tabela vive **em memória** (`ArcSwap`, lida sem lock pelo proxy), não no
+banco. Consequências que valem lembrar:
+
+- ela é escrita em três momentos: no fim de um deploy (`executor.rs`), no boot
+  (`recovery::restore_routes`) e no reconcile de 30 em 30 segundos
+  (`recovery::reconcile`);
+- reiniciar o daemon a reconstrói a partir do Docker — não do banco;
+- `GET /agent/ingress` mostra o que ela contém agora, e
+  `POST /agent/ingress/reconcile` (`Command::IngressReconcile`) a recalcula sob
+  demanda. Antes disso um 502 não tinha diagnóstico nem conserto sem redeploy.
+
+### Armadilha: qual container de uma stack Compose recebe o domínio
+
+Fonte **Git**/**Registry** tem um container por réplica, e a escolha é óbvia.
+Uma stack **Compose** tem N containers e só **um** atende o domínio — num
+Supabase self-hosted são nove, e quem serve a porta 8000 é o `kong`.
+
+Até 2026-08-28 essa escolha era `find_by_prefix`, que literalmente "pega o
+primeiro que encontrar" na ordem que o Docker devolveu. A rota do domínio caía
+num container arbitrário da stack e o domínio respondia **502** — com TLS
+válido, DNS certo e todos os containers no ar, que é o que tornava o sintoma
+difícil de ler. Pior: a ordem não é estável, então o alvo podia mudar sozinho
+entre dois boots.
+
+Hoje a escolha é `containers::find_compose_ingress_container`, nesta ordem:
+
+1. **`ingress_service` do `ComposeSource`** — o nome do serviço *dentro do
+   arquivo compose* (`kong`). No manifesto é `source.compose_ingress`;
+2. **quem expõe a porta que o domínio pede** (`spec.ingress_container_ports()`:
+   a porta de cada domínio, mais a `port` do serviço quando há `host_port`).
+   Resolve o caso comum sem configuração alguma;
+3. **o primeiro por nome**, ordenado — determinístico, com `warn` no log.
+
+Os três pontos que registram rota usam essa mesma função. Se o deploy e o
+reconcile escolhessem alvos diferentes, o domínio mudaria de destino sozinho 30
+segundos depois de subir.
 
 ## `rustploy-gui` (`crates/rustploy-gui/src/`)
 

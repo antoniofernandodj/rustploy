@@ -334,7 +334,7 @@ pub fn compose_spec(name: String, project_id: String) -> ServiceSpec {
     base_spec(
         name,
         project_id,
-        ServiceSource::Compose(ComposeSource { content: String::new() }),
+        ServiceSource::Compose(ComposeSource { content: String::new(), ingress_service: None }),
         80,
         vec![],
         None,
@@ -348,7 +348,7 @@ pub fn db_spec(db: DbKind, name: String, project_id: String, f: &DbFormInput) ->
     base_spec(
         name,
         project_id,
-        ServiceSource::Compose(ComposeSource { content: db_compose(db, &svc, &image, f) }),
+        ServiceSource::Compose(ComposeSource { content: db_compose(db, &svc, &image, f), ingress_service: None }),
         db.default_port(),
         db_env_vars(db, f),
         Some(db.kind_id().to_string()),
@@ -429,7 +429,7 @@ pub fn broker_spec(broker: BrokerKind, name: String, project_id: String, f: &DbF
     base_spec(
         name,
         project_id,
-        ServiceSource::Compose(ComposeSource { content: broker_compose(broker, &svc, &image, f) }),
+        ServiceSource::Compose(ComposeSource { content: broker_compose(broker, &svc, &image, f), ingress_service: None }),
         broker.default_port(),
         broker_env_vars(broker, f),
         Some(broker.kind_id().to_string()),
@@ -477,7 +477,7 @@ pub fn template_spec(t: &'static Template, name: String, project_id: String, val
     let mut spec = base_spec(
         name,
         project_id,
-        ServiceSource::Compose(ComposeSource { content: rendered.compose }),
+        ServiceSource::Compose(ComposeSource { content: rendered.compose, ingress_service: None }),
         rendered.port,
         env_vars,
         None,

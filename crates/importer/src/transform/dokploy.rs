@@ -135,7 +135,12 @@ pub fn transform(data: DokployData, gitea_url: Option<&str>) -> (TransformedData
             spec: ServiceSpec {
                 name: dc.name,
                 project_id: project_id.clone(),
-                source: ServiceSource::Compose(ComposeSource { content: cleaned_compose }),
+                source: ServiceSource::Compose(ComposeSource {
+                    content: cleaned_compose,
+                    // O Dokploy não declara qual serviço da stack atende o
+                    // domínio; o daemon descobre pela porta no deploy.
+                    ingress_service: None,
+                }),
                 port,
                 host_port: None,
                 domain,

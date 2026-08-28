@@ -1073,14 +1073,18 @@ impl DeployExecutor {
                 )
                 .await?;
 
-                // Compose ingress: busca qualquer container do projeto (prefix = "rp_<name>-")
-                // O nome interno do serviço no compose file pode diferir do nome rustploy,
-                // então usamos só o prefixo do projeto em vez de "rp_<name>-<name>".
-                let main_container = format!("{}-", project_name);
-                let live_container_id = containers::find_by_prefix(&self.docker.inner, &main_container)
-                    .await
-                    .ok()
-                    .flatten();
+                // Compose ingress: numa stack só UM container atende o domínio.
+                // Ver `find_compose_ingress_container` — escolhe pelo
+                // `ingress_service` do spec, senão por quem expõe a porta pedida.
+                let live_container_id = containers::find_compose_ingress_container(
+                    &self.docker.inner,
+                    &project_name,
+                    compose.ingress_service.as_deref(),
+                    &svc.spec.ingress_container_ports(),
+                )
+                .await
+                .ok()
+                .flatten();
 
                 if let Some(cid) = &live_container_id {
                     if let Ok(ip) = containers::get_container_ip(&self.docker.inner, cid, &network_name).await {

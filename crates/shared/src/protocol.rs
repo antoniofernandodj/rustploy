@@ -266,6 +266,20 @@ pub enum Command {
     /// touches unrelated containers on the same Docker host.
     StopAllManaged,
 
+    // Ingress proxy — a tabela de rotas viva do proxy reverso (em memória, não
+    // no banco). É ela que decide para onde uma requisição HTTP vai agora, e
+    // até aqui não havia como olhá-la nem corrigi-la sem um redeploy.
+    /// Lê a tabela de rotas do ingress (domínios + portas). Diagnóstico de
+    /// 502: a rota existe? para qual `ip:porta` ela aponta?
+    IngressRoutes,
+    /// Recalcula as rotas a partir dos containers que realmente existem no
+    /// Docker, sem redeployar. `service_id = None` varre todos os serviços.
+    /// É o mesmo caminho do reconcile de boot, exposto sob demanda.
+    IngressReconcile {
+        #[serde(default)]
+        service_id: Option<String>,
+    },
+
     // Env var backup / restore
     /// Lista os snapshots disponíveis (retorna Vec<String> com nomes de ficheiro).
     EnvBackupList,
@@ -535,6 +549,10 @@ pub enum Response {
     DockerContainers(Vec<DockerContainerInfo>),
     /// Count of rustploy-managed containers stopped (resposta de `StopAllManaged`).
     StopAllResult { count: u32 },
+
+    /// Tabela de rotas viva do ingress (resposta de `IngressRoutes` e de
+    /// `IngressReconcile` — o reconcile devolve a tabela já recalculada).
+    IngressRoutes(IngressSnapshot),
 
     /// Catálogos do wizard, prontos como JSON para o contexto (`ns_dbs`,
     /// `ns_brokers`, `ns_templates`). Resposta de `WizardCatalog`.

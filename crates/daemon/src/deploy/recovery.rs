@@ -222,15 +222,8 @@ pub async fn reconcile(
         }
 
         if ips.is_empty() {
-            let compose_prefix = format!("{}-", compose_project_name(&svc.id, &svc.spec.name));
-            if let Ok(Some(cid)) =
-                containers::find_by_prefix(&docker.inner, &compose_prefix).await
-            {
-                if let Ok(ip) =
-                    containers::get_container_ip(&docker.inner, &cid, &net).await
-                {
-                    ips.push(ip);
-                }
+            if let Some(ip) = compose_ingress_ip(docker, &svc, &net).await {
+                ips.push(ip);
             }
         }
 
@@ -270,6 +263,32 @@ pub async fn reconcile(
             (false, false) => {}
         }
     }
+}
+
+/// IP do container que atende o ingress numa stack Compose, ou `None` quando a
+/// stack não está no ar.
+///
+/// Os dois caminhos de restauração de rota (o reconcile periódico e o
+/// `restore_routes` do boot) precisam escolher o **mesmo** container que o
+/// deploy escolheu — senão reiniciar o daemon move o domínio para outro
+/// container da stack, e o serviço passa a responder 502 sem ninguém ter
+/// mexido em nada.
+async fn compose_ingress_ip(docker: &DockerClient, svc: &Service, net: &str) -> Option<String> {
+    let ingress_service = match &svc.spec.source {
+        shared::ServiceSource::Compose(c) => c.ingress_service.as_deref(),
+        _ => None,
+    };
+    let project = compose_project_name(&svc.id, &svc.spec.name);
+    let cid = containers::find_compose_ingress_container(
+        &docker.inner,
+        &project,
+        ingress_service,
+        &svc.spec.ingress_container_ports(),
+    )
+    .await
+    .ok()
+    .flatten()?;
+    containers::get_container_ip(&docker.inner, &cid, net).await.ok()
 }
 
 async fn reconcile_routes(
@@ -329,18 +348,10 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
             }
         }
 
-        // Fallback para Compose: encontra via prefixo do projeto.
-        // O nome interno do serviço no compose file pode diferir do nome rustploy.
+        // Fallback para Compose: o container da stack que atende o ingress.
         if ips.is_empty() {
-            let compose_prefix = format!("{}-", compose_project_name(&svc.id, &svc.spec.name));
-            if let Ok(Some(cid)) =
-                containers::find_by_prefix(&docker.inner, &compose_prefix).await
-            {
-                if let Ok(ip) =
-                    containers::get_container_ip(&docker.inner, &cid, &net).await
-                {
-                    ips.push(ip);
-                }
+            if let Some(ip) = compose_ingress_ip(docker, &svc, &net).await {
+                ips.push(ip);
             }
         }
 

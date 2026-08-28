@@ -9,10 +9,10 @@ use std::{
 
 #[derive(Debug, Clone)]
 pub struct RouteEntry {
-    pub _domain: String,
+    pub domain: String,
     pub backends: Vec<String>,
     pub cursor: Arc<AtomicUsize>,
-    pub _service_id: String,
+    pub service_id: String,
 }
 
 impl RouteEntry {
@@ -91,10 +91,10 @@ impl IngressController {
         new_table.routes.insert(
             domain.to_string(),
             RouteEntry {
-                _domain: domain.to_string(),
+                domain: domain.to_string(),
                 backends,
                 cursor,
-                _service_id: service_id.to_string(),
+                service_id: service_id.to_string(),
             },
         );
         self.table.store(Arc::new(new_table));
@@ -128,6 +128,42 @@ impl IngressController {
 
     pub fn _lookup(&self, domain: &str) -> Option<RouteEntry> {
         self.table.load().get(domain).cloned()
+    }
+
+    /// Foto da tabela de rotas viva, para `Command::IngressRoutes`.
+    ///
+    /// Ordenada (domínio, depois porta) porque isto é saída de diagnóstico
+    /// lida por gente: a ordem de um `HashMap` mudaria a cada chamada.
+    pub fn snapshot(&self) -> shared::IngressSnapshot {
+        let table = self.table.load();
+        let mut domains: Vec<shared::IngressDomainRoute> = table
+            .routes
+            .values()
+            .map(|e| shared::IngressDomainRoute {
+                domain: e.domain.clone(),
+                backends: e.backends.clone(),
+                service_id: e.service_id.clone(),
+            })
+            .collect();
+        domains.sort_by(|a, b| a.domain.cmp(&b.domain));
+
+        let mut ports: Vec<shared::IngressPortRoute> = self
+            .port_backends
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(port, backend)| shared::IngressPortRoute {
+                host_port: *port,
+                // `None` = listener no ar sem destino; vira lista vazia.
+                backends: (**backend.load())
+                    .as_ref()
+                    .map(|b| b.addrs.clone())
+                    .unwrap_or_default(),
+            })
+            .collect();
+        ports.sort_by_key(|p| p.host_port);
+
+        shared::IngressSnapshot { domains, ports }
     }
 
     pub fn table_handle(&self) -> RouteHandle {

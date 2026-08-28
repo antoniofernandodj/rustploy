@@ -200,6 +200,10 @@ pub struct SourceManifest {
     pub git: Option<GitManifest>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub compose: Option<String>,
+    /// Serviço, dentro do compose, que recebe o tráfego do ingress (ex.: `kong`).
+    /// Sem isto o daemon descobre o alvo pela porta do domínio.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compose_ingress: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -508,6 +512,7 @@ impl SourceManifest {
         } else if let Some(content) = &self.compose {
             ServiceSource::Compose(ComposeSource {
                 content: content.clone(),
+                ingress_service: self.compose_ingress.clone(),
             })
         } else {
             // Sem origem declarada: registry vazio (será rejeitado no deploy).
@@ -549,6 +554,7 @@ impl SourceManifest {
             },
             ServiceSource::Compose(c) => SourceManifest {
                 compose: Some(c.content.clone()),
+                compose_ingress: c.ingress_service.clone(),
                 ..Default::default()
             },
         }

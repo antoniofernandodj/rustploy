@@ -247,6 +247,8 @@ async fn handle(req: Request<Incoming>, ctx: Arc<Ctx>) -> Result<Response<Full<B
         (&Method::GET, "/agent/services") => services(&ctx).await,
         (&Method::GET, "/agent/deploys") => deploys(&ctx, &query).await,
         (&Method::POST, "/agent/deploys") => start_deploy(&ctx, req).await,
+        (&Method::GET, "/agent/ingress") => ingress_routes(&ctx).await,
+        (&Method::POST, "/agent/ingress/reconcile") => ingress_reconcile(&ctx, req).await,
         (&Method::POST, "/agent/rpc") => rpc_passthrough(&ctx, req).await,
 
         // ── controle da própria janela (ver `ui.rs`) ──────────────────────
@@ -691,6 +693,36 @@ async fn build_log_lines(ctx: &Ctx, deployment_id: &str) -> Result<Vec<String>, 
 /// A válvula de escape que mantém as rotas de conveniência honestas: elas
 /// existem para os caminhos frequentes, não para virarem a única porta. Tudo o
 /// que a GUI faz, um agente faz por aqui.
+/// `GET /agent/ingress` — a tabela de rotas viva do proxy reverso.
+///
+/// A pergunta que isto responde é a de um domínio que devolve 502: existe rota
+/// para ele, e para qual `ip:porta` ela aponta? Um `backends` vazio, ou
+/// apontando para a porta errada, é a resposta.
+async fn ingress_routes(ctx: &Ctx) -> Result<Response<Full<Bytes>>, ApiFail> {
+    let tabela = rpc_expect(ctx, json!("IngressRoutes"), "IngressRoutes").await?;
+    Ok(json_response(StatusCode::OK, &tabela))
+}
+
+/// `POST /agent/ingress/reconcile` — recalcula as rotas a partir dos containers
+/// que existem de fato, sem redeployar, e devolve a tabela já corrigida.
+///
+/// Corpo opcional: `{"service_id":"svc_…"}`.
+async fn ingress_reconcile(
+    ctx: &Ctx,
+    req: Request<Incoming>,
+) -> Result<Response<Full<Bytes>>, ApiFail> {
+    // Corpo vazio é válido: reconcilia tudo.
+    let corpo = read_json(req).await.unwrap_or(Value::Null);
+    let service_id = corpo.get("service_id").and_then(Value::as_str);
+    let tabela = rpc_expect(
+        ctx,
+        json!({ "IngressReconcile": { "service_id": service_id } }),
+        "IngressRoutes",
+    )
+    .await?;
+    Ok(json_response(StatusCode::OK, &tabela))
+}
+
 async fn rpc_passthrough(
     ctx: &Ctx,
     req: Request<Incoming>,

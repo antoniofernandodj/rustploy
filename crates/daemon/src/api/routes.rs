@@ -66,6 +66,8 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::RemoveVolume { .. } => "RemoveVolume",
         Command::RemoveNetwork { .. } => "RemoveNetwork",
         Command::StopAllManaged => "StopAllManaged",
+        Command::IngressRoutes => "IngressRoutes",
+        Command::IngressReconcile { .. } => "IngressReconcile",
         Command::EnvBackupList => "EnvBackupList",
         Command::EnvBackupRestore { .. } => "EnvBackupRestore",
         Command::GitProviderList => "GitProviderList",
@@ -115,6 +117,10 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::RemoveVolume { name } => handlers::docker_remove::remove_volume(state, name).await,
         Command::RemoveNetwork { id } => handlers::docker_remove::remove_network(state, id).await,
         Command::StopAllManaged => handlers::docker_inventory::stop_all_managed(state).await,
+        Command::IngressRoutes => handlers::ingress::routes(state).await,
+        Command::IngressReconcile { service_id } => {
+            handlers::ingress::reconcile(state, service_id).await
+        }
         Command::EnvBackupList => handlers::env_backup::list(state).await,
         Command::EnvBackupRestore { snapshot } => handlers::env_backup::restore(state, snapshot).await,
         Command::ProjectCreate { name, description } => {
