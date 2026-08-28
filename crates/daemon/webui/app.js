@@ -37,6 +37,7 @@ import {
   parseDotenv,
   dotenvFromVars,
   dockerCleanupLastRunSummary,
+  shortReason,
 } from "./fmt.js";
 
 window.Alpine = Alpine;
@@ -340,6 +341,29 @@ document.addEventListener("alpine:init", () => {
         this.sysMem = `${fmtBytes(s.mem_used_bytes)} / ${fmtBytes(s.mem_total_bytes)}`;
         this.sysDisk = `${fmtBytes(s.disk_used_bytes)} / ${fmtBytes(s.disk_total_bytes)}`;
         this.sysLoad = `${(s.load_avg_1 || 0).toFixed(2)} ${(s.load_avg_5 || 0).toFixed(2)} ${(s.load_avg_15 || 0).toFixed(2)}`;
+      } else if (ev.DeployStateChanged) {
+        // O evento sempre carregou `message` — o MOTIVO da falha (texto do
+        // docker build, healthcheck que não passou…) — e nenhum dos dois
+        // clientes o lia. Sem isto, a tela do serviço só via a linha do
+        // deployment virar `Failed` no snapshot de 2s, sem hipótese nenhuma
+        // do porquê. Ver docs/plano-erro-de-deploy-invisivel.md.
+        const d = ev.DeployStateChanged;
+        if (d.service_id && d.service_id === this.selectedServiceId) {
+          const terminal =
+            d.state === "Live" || d.state === "Failed" || d.state === "Stopped";
+          if (terminal) {
+            const motivo = shortReason(d.message);
+            this.serviceMsg =
+              d.state === "Live"
+                ? "deploy concluído"
+                : motivo
+                  ? `deploy falhou: ${motivo}`
+                  : `deploy: ${d.state}`;
+            this.fetchServiceDetail(d.service_id);
+          } else {
+            this.serviceMsg = `deploy · ${d.state}`;
+          }
+        }
       }
     },
 

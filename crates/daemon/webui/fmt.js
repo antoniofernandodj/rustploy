@@ -103,6 +103,21 @@ export function serviceStatusLabelKind(status) {
 }
 
 /** Tamanho de bytes legível ("—" para 0/ausente). */
+// Motivo de falha vindo do daemon (`DeployStateChanged.message`,
+// `ServiceStatus::Error(...)`) reduzido ao que cabe numa linha de status:
+// primeira linha não-vazia, aparada e truncada. O texto original costuma ser
+// multi-linha (a saída de erro do `docker build`) — o log completo continua na
+// aba de logs. Devolve "" quando não há motivo, para o chamador cair no texto
+// genérico. Espelha `fmt/util.luau::short_reason` na GUI iced.
+export function shortReason(msg, max = 140) {
+  if (typeof msg !== "string") return "";
+  for (const linha of msg.split(/\r?\n/)) {
+    const limpa = linha.trim();
+    if (limpa) return limpa.length > max ? limpa.slice(0, max - 1) + "…" : limpa;
+  }
+  return "";
+}
+
 export function fmtBytes(b) {
   const n = Number(b) || 0;
   if (n === 0) return "—";

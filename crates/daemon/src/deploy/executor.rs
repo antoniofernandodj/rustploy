@@ -66,6 +66,97 @@ fn is_embedded_registry_image(image: &str, port: u16, domain: Option<&str>) -> b
     false
 }
 
+/// Quebra a causa de um step falho nas linhas que vão para o `build_log`.
+///
+/// Multi-linha vira VÁRIAS entradas, e não um registro só com `\n` dentro: o
+/// renderizador de log do cliente (`fmt/service_detail.luau`) trata cada
+/// registro como uma linha, então um `\n` embutido sairia espremido numa linha
+/// só. Erro de `docker build` é multi-linha com frequência.
+///
+/// A primeira linha leva o marco `==>` (mesma convenção do resto do log) e cita
+/// o estado em que o deploy quebrou — que hoje também se perdia: o log dizia
+/// que falhou, nunca *em que etapa*. As continuações entram indentadas, para o
+/// olho separar uma causa de várias linhas de vários passos seguidos.
+fn failure_log_lines(state_label: &str, err: &str) -> Vec<String> {
+    let mut linhas = err.lines().map(str::trim_end).filter(|l| !l.trim().is_empty());
+
+    let Some(primeira) = linhas.next() else {
+        // `anyhow!("")` é improvável, mas uma linha dizendo que não há mensagem
+        // ainda é melhor que o log terminar mudo — que é o bug todo.
+        return vec![format!("==> Erro em [{state_label}]: falha sem mensagem")];
+    };
+
+    let mut out = vec![format!("==> Erro em [{state_label}]: {primeira}")];
+    out.extend(linhas.map(|l| format!("    {l}")));
+    out
+}
+
+/// Mensagem de "Dockerfile não encontrado", especializada por fonte.
+///
+/// No caso `Git` o erro mais comum não é "esqueci de criar o Dockerfile", é
+/// "criei mas não commitei/não fiz push" — por isso a mensagem cita o branch
+/// clonado: aponta para essa hipótese sem precisar afirmá-la. O `build_context`
+/// só aparece quando não é `.`, porque é ele que muda o significado do caminho
+/// (o Dockerfile é procurado DENTRO do contexto).
+fn missing_dockerfile_msg(source: &ServiceSource, dockerfile_path: &str) -> String {
+    let contexto = |ctx: &str| {
+        if ctx == "." || ctx.is_empty() {
+            String::new()
+        } else {
+            format!(" (build context: {ctx})")
+        }
+    };
+
+    match source {
+        ServiceSource::Git(git) => format!(
+            "Dockerfile não encontrado no repositório: {}{} — branch {}. \
+             Confira se ele foi commitado e enviado, e se o caminho configurado \
+             no serviço está certo.",
+            dockerfile_path,
+            contexto(&git.build_context),
+            git.branch,
+        ),
+        ServiceSource::Archive(archive) => format!(
+            "Dockerfile não encontrado no zip: {}{}",
+            dockerfile_path,
+            contexto(&archive.build_context),
+        ),
+        _ => format!("Dockerfile não encontrado: {dockerfile_path}"),
+    }
+}
+
+/// Texto que vai para `ServiceStatus::Error` quando um deploy cai em rollback.
+///
+/// Era a string fixa `"deploy failed"` — o mesmo problema do log mudo, num
+/// outro lugar: o chip de status do serviço afirmava que algo falhou sem nunca
+/// dizer o quê. A causa está no `states_log` do próprio deployment (a transição
+/// que ENTROU em `RollingBack` carrega a mensagem gravada pelo `execute()`), e
+/// aqui ela já foi persistida: o laço recarrega o deployment do banco a cada
+/// iteração, então o `dep` deste step é posterior à transição.
+///
+/// Só a primeira linha, e truncada: este campo é renderizado como chip/linha
+/// única na UI, não como log.
+fn rollback_cause(dep: &Deployment) -> String {
+    dep.states_log
+        .iter()
+        .rev()
+        .find(|t| t.to == DeployState::RollingBack)
+        .and_then(|t| t.message.as_deref())
+        .and_then(|m| m.lines().find(|l| !l.trim().is_empty()))
+        .map(|primeira| truncate_chars(primeira.trim(), 160))
+        .unwrap_or_else(|| "deploy failed".into())
+}
+
+/// Trunca por CARACTERE (não por byte): cortar um `&str` com índice de byte no
+/// meio de um multibyte entra em pânico, e as mensagens aqui são em português.
+fn truncate_chars(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        return s.to_string();
+    }
+    let cortado: String = s.chars().take(max.saturating_sub(1)).collect();
+    format!("{}…", cortado.trim_end())
+}
+
 impl DeployExecutor {
     pub async fn run(self: Arc<Self>, deployment_id: String) {
         info!(deployment_id = %deployment_id, "executor: iniciando");
@@ -138,6 +229,23 @@ impl DeployExecutor {
                         error = %e,
                         "executor: step falhou, iniciando rollback"
                     );
+                    // A causa REAL da falha vai para o `build_log` — o único
+                    // canal que a tela de log do serviço lê. Ela já era gravada
+                    // em outros três (o `warn!` acima, o `states_log` do
+                    // deployment e o `Event::DeployStateChanged` do SSE), e
+                    // nenhum deles chega ao painel de log: o usuário via o
+                    // deploy morrer num "==> Deploy falhou" mudo enquanto o
+                    // motivo ("Cannot locate specified Dockerfile", healthcheck
+                    // que não passou, pull negado…) existia no banco.
+                    //
+                    // ANTES do `transition` de propósito: assim a linha do
+                    // motivo cai imediatamente acima do
+                    // "==> Deploy falhou — iniciando rollback" que o
+                    // `step[RollingBack]` grava em seguida, e o log se lê na
+                    // ordem em que as coisas aconteceram.
+                    for line in failure_log_lines(deployment.state.label(), &e.to_string()) {
+                        self.log_step(deployment_id, &service.id, &line).await;
+                    }
                     self.transition(
                         deployment_id,
                         &deployment.state,
@@ -393,17 +501,28 @@ impl DeployExecutor {
                             let _ = std::fs::remove_dir_all(&dst);
                         }
                         copy_dir_all(&src, &dst)?;
-                        let dockerfile = dst.join(&archive.dockerfile_path);
-                        if !dockerfile.is_file() {
-                            return Err(anyhow!(
-                                "Dockerfile não encontrado no zip: {}",
-                                archive.dockerfile_path
-                            ));
-                        }
                         (dst.join(&archive.build_context), archive.dockerfile_path.clone())
                     }
                     _ => return Err(anyhow!("expected Git or Archive source")),
                 };
+
+                // Checagem ANTES de entregar ao Docker, para os dois ramos. Era
+                // só do `Archive`: uma fonte `Git` sem Dockerfile commitado ia
+                // direto para o `images::build` e voltava um lacônico
+                // "docker build error: Cannot locate specified Dockerfile" —
+                // que, até a correção acima, nem chegava ao log do usuário.
+                //
+                // O caminho é relativo ao CONTEXTO, não à raiz do clone/zip: é
+                // exatamente o que `create_tar_gz` usa como nome dentro do tar
+                // que manda pro Docker. A checagem antiga do `Archive` olhava a
+                // raiz, então errava quando o `build_context` não era ".".
+                if !context.join(&dockerfile_path).is_file() {
+                    return Err(anyhow!(
+                        "{}",
+                        missing_dockerfile_msg(&svc.spec.source, &dockerfile_path)
+                    ));
+                }
+
                 let tag = format!("rp_{}:{}", svc.spec.safe_name(), self.short(&dep.id));
                 info!(
                     deployment_id = %dep.id,
@@ -841,7 +960,7 @@ impl DeployExecutor {
                         &env_vars,
                     )
                     .await;
-                    let err_status = ServiceStatus::Error("deploy failed".into());
+                    let err_status = ServiceStatus::Error(rollback_cause(dep));
                     let _ =
                         crate::db::services::update_status(&self.db, &svc.id, &err_status, None)
                             .await;
@@ -910,7 +1029,7 @@ impl DeployExecutor {
                     }
                 }
 
-                let err_status = ServiceStatus::Error("deploy failed".into());
+                let err_status = ServiceStatus::Error(rollback_cause(dep));
                 info!(
                     deployment_id = %dep.id,
                     service_id = %svc.id,
@@ -1347,7 +1466,7 @@ mod pre_deploy_check_tests {
     use shared::{Healthcheck, ResourceLimits, ServiceSource, ServiceSpec};
     use ulid::Ulid;
 
-    async fn test_executor() -> DeployExecutor {
+    pub(super) async fn test_executor() -> DeployExecutor {
         let dir = std::env::temp_dir().join(format!("rustploy_test_predeploy_{}", Ulid::new()));
         let db = Arc::new(db::connect(&dir).await.unwrap());
         let docker = Arc::new(DockerClient::connect("/var/run/docker.sock").unwrap());
@@ -1372,7 +1491,7 @@ mod pre_deploy_check_tests {
         }
     }
 
-    fn spec(pre_deploy_job_ids: Vec<String>) -> ServiceSpec {
+    pub(super) fn spec(pre_deploy_job_ids: Vec<String>) -> ServiceSpec {
         ServiceSpec {
             name: format!("svc-{}", Ulid::new()),
             project_id: "proj-1".into(),
@@ -1463,5 +1582,209 @@ mod pre_deploy_check_tests {
 
         let err = executor.step(&dep, &svc).await.unwrap_err();
         assert!(err.to_string().contains("job_legado_nao_existe"));
+    }
+}
+
+/// Regressão do "erro de deploy invisível": a causa de um step falho tem que
+/// (a) virar linha(s) de `build_log` — o único canal que a tela de log lê — e
+/// (b) existir de verdade para o caso do Dockerfile ausente numa fonte `Git`,
+/// que antes só o ramo `Archive` checava. Ver
+/// `docs/plano-erro-de-deploy-invisivel.md`.
+#[cfg(test)]
+mod failure_log_tests {
+    use super::pre_deploy_check_tests::{spec, test_executor};
+    use super::*;
+    use crate::db;
+    use shared::{GitSource, ServiceSpec, StateTransition};
+
+    fn git_spec() -> ServiceSpec {
+        let mut s = spec(vec![]);
+        s.source = ServiceSource::Git(GitSource {
+            url: "https://github.com/exemplo/app".into(),
+            branch: "main".into(),
+            dockerfile_path: "Dockerfile".into(),
+            build_context: ".".into(),
+            ..GitSource::default()
+        });
+        s
+    }
+
+    // ── failure_log_lines ──────────────────────────────────────────────────
+
+    #[test]
+    fn causa_de_uma_linha_vira_um_marco_com_o_estado() {
+        let linhas = failure_log_lines(
+            "BuildingImage",
+            "docker build error: Cannot locate specified Dockerfile: Dockerfile",
+        );
+        assert_eq!(linhas.len(), 1);
+        assert_eq!(
+            linhas[0],
+            "==> Erro em [BuildingImage]: docker build error: \
+             Cannot locate specified Dockerfile: Dockerfile"
+        );
+    }
+
+    /// Erro de `docker build` costuma ser multi-linha: cada linha vira um
+    /// registro próprio (o renderizador do cliente trata registro = linha), e
+    /// as continuações vêm indentadas sob o marco.
+    #[test]
+    fn causa_multilinha_vira_varios_registros_indentados() {
+        let linhas = failure_log_lines("Staging", "falhou ao subir\n  porta 8080 ocupada\n\n");
+        assert_eq!(
+            linhas,
+            vec![
+                "==> Erro em [Staging]: falhou ao subir".to_string(),
+                "      porta 8080 ocupada".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn causa_vazia_ainda_produz_uma_linha() {
+        let linhas = failure_log_lines("Promoting", "   \n  ");
+        assert_eq!(linhas.len(), 1);
+        assert!(linhas[0].contains("falha sem mensagem"));
+    }
+
+    // ── missing_dockerfile_msg ─────────────────────────────────────────────
+
+    /// O erro mais comum não é "não criei o Dockerfile", é "criei mas não fiz
+    /// push" — por isso a mensagem do ramo Git cita o branch clonado.
+    #[test]
+    fn mensagem_do_git_cita_o_branch() {
+        let msg = missing_dockerfile_msg(
+            &ServiceSource::Git(GitSource {
+                branch: "producao".into(),
+                build_context: ".".into(),
+                ..GitSource::default()
+            }),
+            "Dockerfile",
+        );
+        assert!(msg.contains("repositório"));
+        assert!(msg.contains("producao"));
+        // `build_context` "." não polui a mensagem.
+        assert!(!msg.contains("build context"));
+    }
+
+    #[test]
+    fn mensagem_cita_o_build_context_quando_ele_nao_e_a_raiz() {
+        let msg = missing_dockerfile_msg(
+            &ServiceSource::Archive(shared::ArchiveSource {
+                build_context: "apps/web".into(),
+                ..Default::default()
+            }),
+            "Dockerfile",
+        );
+        assert!(msg.contains("zip"));
+        assert!(msg.contains("build context: apps/web"));
+    }
+
+    // ── rollback_cause ─────────────────────────────────────────────────────
+
+    #[test]
+    fn causa_do_rollback_vem_da_transicao_que_entrou_em_rollingback() {
+        let mut dep = Deployment {
+            id: "dep_1".into(),
+            service_id: "svc_1".into(),
+            image: "nginx".into(),
+            state: DeployState::RollingBack,
+            states_log: vec![],
+            started_at: Utc::now(),
+            finished_at: None,
+        };
+        dep.states_log.push(StateTransition {
+            from: DeployState::Pending,
+            to: DeployState::BuildingImage,
+            at: Utc::now(),
+            message: None,
+        });
+        dep.states_log.push(StateTransition {
+            from: DeployState::BuildingImage,
+            to: DeployState::RollingBack,
+            at: Utc::now(),
+            message: Some("docker build error: sem Dockerfile\ndetalhe ignorado".into()),
+        });
+
+        // Só a primeira linha, sem a continuação — este texto vira chip de
+        // status na UI, não log.
+        assert_eq!(rollback_cause(&dep), "docker build error: sem Dockerfile");
+    }
+
+    #[test]
+    fn causa_do_rollback_cai_no_texto_generico_quando_nao_ha_mensagem() {
+        let dep = Deployment {
+            id: "dep_1".into(),
+            service_id: "svc_1".into(),
+            image: "nginx".into(),
+            state: DeployState::RollingBack,
+            states_log: vec![],
+            started_at: Utc::now(),
+            finished_at: None,
+        };
+        assert_eq!(rollback_cause(&dep), "deploy failed");
+    }
+
+    #[test]
+    fn causa_longa_e_truncada_por_caractere() {
+        let longa = "ç".repeat(400);
+        let cortada = truncate_chars(&longa, 160);
+        // Truncar por índice de BYTE no meio de um multibyte entraria em pânico.
+        assert_eq!(cortada.chars().count(), 160);
+        assert!(cortada.ends_with('…'));
+    }
+
+    // ── o step de build falha ANTES do Docker quando falta o Dockerfile ─────
+
+    /// Fonte `Git` sem Dockerfile no contexto: o step tem que falhar sozinho,
+    /// com mensagem acionável, sem nunca chamar o `images::build` (este teste
+    /// roda sem Docker, e o diretório de clone nem existe).
+    #[tokio::test]
+    async fn step_building_image_falha_com_mensagem_util_sem_dockerfile() {
+        let executor = test_executor().await;
+        let svc = db::services::create(&executor.db, git_spec()).await.unwrap();
+        let mut dep = db::deployments::create(&executor.db, &svc.id, "rp_app:1")
+            .await
+            .unwrap();
+        dep.state = DeployState::BuildingImage;
+
+        let err = executor.step(&dep, &svc).await.unwrap_err().to_string();
+        assert!(err.contains("Dockerfile não encontrado no repositório"), "{err}");
+        assert!(err.contains("main"), "{err}");
+    }
+
+    /// A ponta que faltava: a causa persistida no `build_log`, que é de onde a
+    /// tela de log do serviço lê. Antes desta correção nada escrevia o erro ali
+    /// e o log terminava num "==> Deploy falhou" sem motivo.
+    #[tokio::test]
+    async fn causa_do_step_falho_e_persistida_no_build_log() {
+        let executor = test_executor().await;
+        let svc = db::services::create(&executor.db, git_spec()).await.unwrap();
+        let dep = db::deployments::create(&executor.db, &svc.id, "rp_app:1")
+            .await
+            .unwrap();
+
+        let erro = executor
+            .step(
+                &Deployment { state: DeployState::BuildingImage, ..dep.clone() },
+                &svc,
+            )
+            .await
+            .unwrap_err();
+
+        for linha in failure_log_lines(DeployState::BuildingImage.label(), &erro.to_string()) {
+            executor.log_step(&dep.id, &svc.id, &linha).await;
+        }
+
+        let log = db::build_logs::get_for_deployment(&executor.db, &dep.id)
+            .await
+            .unwrap();
+        assert!(!log.is_empty());
+        assert!(log[0].line.starts_with("==> Erro em [BuildingImage]:"), "{}", log[0].line);
+        assert!(
+            log.iter().any(|l| l.line.contains("Dockerfile não encontrado no repositório")),
+            "log: {:?}",
+            log.iter().map(|l| &l.line).collect::<Vec<_>>()
+        );
     }
 }

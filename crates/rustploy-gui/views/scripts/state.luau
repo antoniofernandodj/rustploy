@@ -20,7 +20,11 @@
 local Api = require("net/api")
 
 -- `name` é capturado ao armar o deploy (start_deploy) só para a notificação do
--- SO no desfecho — o evento DeployStateChanged carrega só o service_id.
+-- SO no desfecho: o evento DeployStateChanged identifica o serviço por
+-- `service_id`, não pelo nome. (O evento NÃO é magro como este comentário já
+-- afirmou: além de `deployment_id`/`service_id`/`state`/`timestamp`, ele traz
+-- `message` — o motivo da falha — que o handler de stream usa na notificação e
+-- no toast. Ver docs/plano-erro-de-deploy-invisivel.md.)
 export type DeployTrack = { service_id: string, deployment_id: string, running: boolean, name: string }
 
 export type State = {

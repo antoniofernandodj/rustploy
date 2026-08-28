@@ -361,6 +361,12 @@ local function apply_bus(ev: any): ()
                 if svc_name == "" then
                     svc_name = "serviço"
                 end
+                -- `d.message` é o MOTIVO da falha (o texto do Docker, o
+                -- healthcheck que não passou…). O evento sempre o carregou; era
+                -- este consumidor que o descartava, e a notificação dizia só
+                -- "Failed" — o usuário ficava sem hipótese nenhuma. Ver
+                -- docs/plano-erro-de-deploy-invisivel.md.
+                local motivo = fmt.short_reason(d.message)
                 if live then
                     notify{
                         title = "Deploy concluído",
@@ -371,15 +377,33 @@ local function apply_bus(ev: any): ()
                 else
                     notify{
                         title = "Deploy falhou",
-                        body = svc_name .. ": " .. tostring(d.state) .. ".",
+                        body = (
+                            motivo ~= ""
+                                and (svc_name .. ": " .. motivo)
+                                or (svc_name .. ": " .. tostring(d.state) .. ".")
+                        ),
                         app_name = "Rustploy",
                         icon = "rustploy-gui",
+                    }
+                    -- Toast além da notificação do SO: quem está com a janela
+                    -- aberta olhando o deploy não recebe notificação em alguns
+                    -- desktops, e é justamente quem mais quer ver o motivo.
+                    toast{
+                        message = svc_name .. ": " .. (
+                            motivo ~= "" and motivo or ("deploy " .. tostring(d.state))
+                        ),
+                        kind = "error",
                     }
                 end
                 if d.service_id == ctx.selected_service then
                     ctx.svc_deploy_running = "false"
                     ctx.svc_action_msg = (
-                        live and "deploy concluído" or ("deploy: " .. tostring(d.state))
+                        live and "deploy concluído"
+                            or (
+                                motivo ~= ""
+                                    and ("deploy falhou: " .. motivo)
+                                    or ("deploy: " .. tostring(d.state))
+                            )
                     )
                     ctx.svc_action_color = live and "#3FB950" or "#F85149"
                     Services.fetch_service_detail(d.service_id)

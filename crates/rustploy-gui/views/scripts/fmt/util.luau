@@ -38,6 +38,25 @@ function M.ellipsis(s: string?, max: number): string
     return str
 end
 
+-- Motivo de falha vindo do daemon (`DeployStateChanged.message`,
+-- `ServiceStatus::Error(...)`) reduzido ao que cabe numa notificação/toast:
+-- primeira linha não-vazia, aparada e truncada. O texto original é multi-linha
+-- com frequência (a saída de erro do `docker build`) — o log completo continua
+-- disponível na tela de log do serviço, que agora recebe a causa inteira.
+-- Devolve "" quando não há motivo, para o chamador cair no texto genérico.
+function M.short_reason(msg: any, max: number?): string
+    if type(msg) ~= "string" then
+        return ""
+    end
+    for linha in string.gmatch(msg, "[^\r\n]+") do
+        local limpa = string.match(linha, "^%s*(.-)%s*$") or ""
+        if limpa ~= "" then
+            return M.ellipsis(limpa, max or 140)
+        end
+    end
+    return ""
+end
+
 -- Orçamento de caracteres por coluna de tabela conforme a largura da janela,
 -- espelhando as larguras de .col_svc/.col_proj/.col_state/.col_img no app.gss
 -- (breakpoints 900/560; fonte mono size 13 ≈ 7,8 px/char, com 1 char de folga
