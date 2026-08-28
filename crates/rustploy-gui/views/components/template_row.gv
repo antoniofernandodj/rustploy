@@ -1,17 +1,12 @@
 <!--
+  Props: name, description, logo, logo_kind ("svg" | "img" | "none"), action
+
   Linha do catálogo de templates de aplicação: logo à esquerda (vetor ou
   raster conforme logo_kind), nome + descrição, e o botão "Escolher" à direita.
   Os logos vêm de crates/shared/templates/blueprints/<id>/<arquivo> (ver
   `templates_json` em app/wizard.rs).
 -->
 <component>
-    <props>
-        <prop name="name" />
-        <prop name="description" />
-        <prop name="logo" />
-        <prop name="logo_kind" />
-        <prop name="action" />
-    </props>
   <resources>
     <style>
     .tpl_row {

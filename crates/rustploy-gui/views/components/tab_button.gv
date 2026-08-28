@@ -1,16 +1,12 @@
-<!--
+<!-- 
+  Props: label, current, target, action
+
   Botão de aba genérico. "Ligado" (`tab_on`) quando o valor atual da aba
   ({current}, passado pelo chamador — ex.: "{docker_tab}") é igual ao `target`
   desta aba; caso contrário neutro (`tab`). `equals` é interpolado, então
   compara os dois valores dinâmicos.
 -->
 <component>
-    <props>
-        <prop name="label" />
-        <prop name="current" />
-        <prop name="target" />
-        <prop name="action" />
-    </props>
   <resources>
     <style>
     .tab_on {

@@ -1,16 +1,11 @@
-<!--
+<!-- 
+  Props: label, value, accent
+
   Tile de KPI do cabeçalho (STATUS/UPTIME/SERVICES/CPU/…). Com accent="1" o
   número usa o realce verde (`stat_num_g`); sem accent, o neutro (`stat_num`).
   Prop ausente vira string vazia (process_template), então != "1" → neutro.
 -->
 <component>
-    <!-- `accent` é opcional e o default é a string vazia — que é o que a prop
-      ausente já valia. O template compara com "1", então vazio → neutro. -->
-    <props>
-        <prop name="label" />
-        <prop name="value" />
-        <prop name="accent" default="" />
-    </props>
   <resources>
     <style>
     .stat_card  {

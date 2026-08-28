@@ -1,21 +1,11 @@
-<!--
+<!-- 
+  Props: id, name, service_count, running_count, description, can_delete, filler
+
   Template "fragment": dois nós de topo (o slot vazio e o card) — o glacier-ui
   (0.4.12+) embrulha múltiplas raízes num Fragment e aplica os filhos no pai,
   then o par if/else vira dois irmãos do grid, sem nó wrapper.
 -->
 <component>
-    <!-- Todas obrigatórias, inclusive no modo `filler`: quem chama passa o
-      conjunto inteiro e o próprio template decide o que renderizar pelo
-      `{filler}`. -->
-    <props>
-        <prop name="id" />
-        <prop name="name" />
-        <prop name="service_count" />
-        <prop name="running_count" />
-        <prop name="description" />
-        <prop name="can_delete" />
-        <prop name="filler" />
-    </props>
   <if cond="{filler}" equals="1">
       <column class="card_filler" />
   </if> <else>
