@@ -1,1190 +1,1194 @@
-<style>
-/* Cabeçalho + ações */
-.svc_head      { width: fill; align-y: start; }
-.svc_title_row { width: fill; spacing: 14; align-y: center; }
-/* O nome do serviço é o elemento FLEXÍVEL da linha do título (width: fill): ele
-   absorve a folga e quebra dentro da coluna quando aperta. Sem isso, o back-button,
-   o nome e o badge são todos `shrink` (largura natural) e, quando a soma passa da
-   largura da coluna, o iced NÃO encolhe — transborda para a direita e o nome/badge
-   invadem os botões de ação (o "Deploy/▶ por cima do nome"). Deixar o nome `fill`
-   garante que a linha nunca ultrapasse os próprios limites. */
-.svc_title     { width: fill; }
-/* Sub-linha de status (badge + timer) logo abaixo do nome. */
-.svc_substatus { spacing: 10; align-y: center; }
-/* Abas com scroll horizontal: a viewport ocupa a largura toda; a fileira interna
-   fica na largura natural (shrink) para poder transbordar e rolar. */
-.tabs_scroll   { width: fill; }
-.tabs_main     { width: shrink; spacing: 4; }
-.svc_actions   { spacing: 10; align-y: center; }
-/* .svc_actions_full / .svc_actions_compact e o swap por @media vivem em app.gss
-   (junto das outras regras responsivas — cruzar arquivo com o inline daqui
-   deixaria a precedência ambígua). */
-.btn_blue      { color: var(--blue); padding: 11 22; border-radius: 5 }
-/* Corpo: conteúdo da aba + painel lateral */
-.svc_body      { width: fill; height: fill; spacing: 20; }
-.svc_main      { width: fill; height: fill; spacing: 16; }
-.svc_aside     { width: 360; height: fill; spacing: 16; }
-.svc_err       { size: 13; color: var(--error); }
-/* Connection (pares chave/valor) */
-.kv_key        { width: fill; size: 13; color: var(--muted); }
-.kv_val        { size: 16; bold: true; color: var(--text); }
-/* Environment / General (editores) — .btn_export/.btn_export_on/.env_editor
-   agora vivem em app.gss (compartilhados com shell.gv). */
-.select        { width: fill; padding: 12 14; background: var(--raised); border-radius: 4; border-width: 1; border-color: #30363D; color: var(--text-2); }
-/* Deployments (lista + build log) */
-.col_dep_id    { width: 130; }
-.col_dep_start { width: fill; }
-.dep_image     { size: 11; color: var(--faint); padding: 2 0 0 0; }
-.dep_wrap      { width: fill; height: fill; spacing: 8; }
-.dep_list_scroll { width: fill; height: 240; }
-/* Ações da linha de deployment: 2 botões-ícone (ver build log / remover), com o
-   rótulo no tooltip. O padding era 7 15 — dimensionado para "Build log ↗" e
-   "Remover" escritos por extenso, que estouravam a coluna em janela estreita. */
-.dep_actions   { spacing: 8; align-y: center; }
-.dep_logs_btn  { color: var(--border); padding: 5 12; border-radius: 3 }
-.dep_del_btn   { color: var(--danger); padding: 5 12; border-radius: 3 }
-.label_cap_fill { width: fill; size: 11; bold: true; color: var(--faint); }
-/* Logs (aba Logs = launcher da janela isolada; painel usado só p/ layout) */
-.log_panel     { width: fill; height: fill; background: var(--surface); border-radius: 6; border-width: 1; border-color: var(--border); padding: 14 16; spacing: 8; }
-.log_body      { width: fill; spacing: 2; }
-.log_line      { width: fill; spacing: 12; }
-.log_time      { width: 76; size: 11; color: var(--faint); }
-.log_text      { width: fill; size: 12; color: #9DA7B3; }
-/* Painel lateral */
-.aside_panel   { width: fill; background: var(--surface); border-radius: 6; border-width: 1; border-color: var(--border); padding: 18; spacing: 8; }
-.aside_panel_fill { width: fill; height: fill; background: var(--surface); border-radius: 6; border-width: 1; border-color: var(--border); padding: 14 16; spacing: 8; }
-/* Responsivo: estreita o painel lateral e aperta o corpo (glacier-ui 0.9.0+). */
-@media (max-width: 900) {
-  .svc_aside { width: 240; }
-  .svc_body  { spacing: 12; }
-}
-@media (max-width: 560) {
-  .svc_aside { width: 170; }
-}
-</style>
+<component>
+  <resources>
+    <style>
+    /* Cabeçalho + ações */
+    .svc_head      { width: fill; align-y: start; }
+    .svc_title_row { width: fill; spacing: 14; align-y: center; }
+    /* O nome do serviço é o elemento FLEXÍVEL da linha do título (width: fill): ele
+       absorve a folga e quebra dentro da coluna quando aperta. Sem isso, o back-button,
+       o nome e o badge são todos `shrink` (largura natural) e, quando a soma passa da
+       largura da coluna, o iced NÃO encolhe — transborda para a direita e o nome/badge
+       invadem os botões de ação (o "Deploy/▶ por cima do nome"). Deixar o nome `fill`
+       garante que a linha nunca ultrapasse os próprios limites. */
+    .svc_title     { width: fill; }
+    /* Sub-linha de status (badge + timer) logo abaixo do nome. */
+    .svc_substatus { spacing: 10; align-y: center; }
+    /* Abas com scroll horizontal: a viewport ocupa a largura toda; a fileira interna
+       fica na largura natural (shrink) para poder transbordar e rolar. */
+    .tabs_scroll   { width: fill; }
+    .tabs_main     { width: shrink; spacing: 4; }
+    .svc_actions   { spacing: 10; align-y: center; }
+    /* .svc_actions_full / .svc_actions_compact e o swap por @media vivem em app.gss
+       (junto das outras regras responsivas — cruzar arquivo com o inline daqui
+       deixaria a precedência ambígua). */
+    .btn_blue      { color: var(--blue); padding: 11 22; border-radius: 5 }
+    /* Corpo: conteúdo da aba + painel lateral */
+    .svc_body      { width: fill; height: fill; spacing: 20; }
+    .svc_main      { width: fill; height: fill; spacing: 16; }
+    .svc_aside     { width: 360; height: fill; spacing: 16; }
+    .svc_err       { size: 13; color: var(--error); }
+    /* Connection (pares chave/valor) */
+    .kv_key        { width: fill; size: 13; color: var(--muted); }
+    .kv_val        { size: 16; bold: true; color: var(--text); }
+    /* Environment / General (editores) — .btn_export/.btn_export_on/.env_editor
+       agora vivem em app.gss (compartilhados com shell.gv). */
+    .select        { width: fill; padding: 12 14; background: var(--raised); border-radius: 4; border-width: 1; border-color: #30363D; color: var(--text-2); }
+    /* Deployments (lista + build log) */
+    .col_dep_id    { width: 130; }
+    .col_dep_start { width: fill; }
+    .dep_image     { size: 11; color: var(--faint); padding: 2 0 0 0; }
+    .dep_wrap      { width: fill; height: fill; spacing: 8; }
+    .dep_list_scroll { width: fill; height: 240; }
+    /* Ações da linha de deployment: 2 botões-ícone (ver build log / remover), com o
+       rótulo no tooltip. O padding era 7 15 — dimensionado para "Build log ↗" e
+       "Remover" escritos por extenso, que estouravam a coluna em janela estreita. */
+    .dep_actions   { spacing: 8; align-y: center; }
+    .dep_logs_btn  { color: var(--border); padding: 5 12; border-radius: 3 }
+    .dep_del_btn   { color: var(--danger); padding: 5 12; border-radius: 3 }
+    .label_cap_fill { width: fill; size: 11; bold: true; color: var(--faint); }
+    /* Logs (aba Logs = launcher da janela isolada; painel usado só p/ layout) */
+    .log_panel     { width: fill; height: fill; background: var(--surface); border-radius: 6; border-width: 1; border-color: var(--border); padding: 14 16; spacing: 8; }
+    .log_body      { width: fill; spacing: 2; }
+    .log_line      { width: fill; spacing: 12; }
+    .log_time      { width: 76; size: 11; color: var(--faint); }
+    .log_text      { width: fill; size: 12; color: #9DA7B3; }
+    /* Painel lateral */
+    .aside_panel   { width: fill; background: var(--surface); border-radius: 6; border-width: 1; border-color: var(--border); padding: 18; spacing: 8; }
+    .aside_panel_fill { width: fill; height: fill; background: var(--surface); border-radius: 6; border-width: 1; border-color: var(--border); padding: 14 16; spacing: 8; }
+    /* Responsivo: estreita o painel lateral e aperta o corpo (glacier-ui 0.9.0+). */
+    @media (max-width: 900) {
+      .svc_aside { width: 240; }
+      .svc_body  { spacing: 12; }
+    }
+    @media (max-width: 560) {
+      .svc_aside { width: 170; }
+    }
+    </style>
+  </resources>
 
-<column class="content">
+  <column class="content">
 
-  <!-- ── Header: nome + estado + ações ────────────────────────────────── -->
-  <row class="svc_head">
-    <column class="header_titles">
-      <row class="svc_title_row">
-        <button
-          class="btn_ghost"
-          on_click="open_project:{svc_project_id}"
-          text="‹ {svc_project}"
-        />
-        <text class="title svc_title">{svc_name}</text>
-      </row>
-      <!-- Status + timer numa SUB-LINHA abaixo do nome — nunca na mesma linha do
-           título. Antes o badge ficava inline no título e, quando o nome quebrava
-           em duas linhas, o "Running" era desenhado por cima da 2ª linha: um
-           elemento de texto do iced não corta ao ultrapassar sua caixa `fill`, e o
-           badge (posicionado logo após a caixa estreita) caía sobre o texto vazado.
-           Descê-lo elimina qualquer disputa horizontal com o nome. -->
-      <row class="svc_substatus">
-        <rp-badge color="{svc_status_color}" label="{svc_status_label}" />
-        <!-- Live "1s, 2s, 3s…" deploy timer: shown only while a deploy started
-             from this panel (Deploy/Rebuild) is in flight. Ticked once a second
-             by the poll subscription (see `net::poll_stream`'s `sec_tick`), and
-             hidden once the deploy finishes — the outcome (success/failure) and
-             its total elapsed time then show in `svc_action_msg` below instead. -->
-        <row class="badge" if="{svc_deploy_running}" equals="true">
-          <text class="state_dot" color="#58A6FF">⏱</text>
-          <text class="badge_lbl" color="#58A6FF">{svc_deploy_elapsed}</text>
+    <!-- ── Header: nome + estado + ações ────────────────────────────────── -->
+    <row class="svc_head">
+      <column class="header_titles">
+        <row class="svc_title_row">
+          <button
+            class="btn_ghost"
+            on_click="open_project:{svc_project_id}"
+            text="‹ {svc_project}"
+          />
+          <text class="title svc_title">{svc_name}</text>
         </row>
+        <!-- Status + timer numa SUB-LINHA abaixo do nome — nunca na mesma linha do
+             título. Antes o badge ficava inline no título e, quando o nome quebrava
+             em duas linhas, o "Running" era desenhado por cima da 2ª linha: um
+             elemento de texto do iced não corta ao ultrapassar sua caixa `fill`, e o
+             badge (posicionado logo após a caixa estreita) caía sobre o texto vazado.
+             Descê-lo elimina qualquer disputa horizontal com o nome. -->
+        <row class="svc_substatus">
+          <rp-badge color="{svc_status_color}" label="{svc_status_label}" />
+          <!-- Live "1s, 2s, 3s…" deploy timer: shown only while a deploy started
+               from this panel (Deploy/Rebuild) is in flight. Ticked once a second
+               by the poll subscription (see `net::poll_stream`'s `sec_tick`), and
+               hidden once the deploy finishes — the outcome (success/failure) and
+               its total elapsed time then show in `svc_action_msg` below instead. -->
+          <row class="badge" if="{svc_deploy_running}" equals="true">
+            <text class="state_dot" color="#58A6FF">⏱</text>
+            <text class="badge_lbl" color="#58A6FF">{svc_deploy_elapsed}</text>
+          </row>
+        </row>
+        <text if="{svc_action_msg}" not_equals="" class="muted" color="{svc_action_color}">
+          {svc_action_msg}
+        </text>
+        <!-- Ações compactas EMPILHADAS abaixo do título (só ≤1240px). Ficam dentro
+             da coluna do título de propósito: quando aperta, a fileira de rótulos à
+             direita some (@media) e header_titles passa a ocupar a largura toda,
+             então os ícones descem para cá — título e ações nunca dividem a mesma
+             linha em janela estreita, e por isso nada sobrepõe o nome. -->
+        <row class="svc_actions svc_actions_compact">
+          <button class="btn_primary" on_click="svc_deploy" text="▶" tooltip="Deploy" />
+          <button class="btn_blue" on_click="svc_reload" text="⟳" tooltip="Reload" />
+          <button class="btn_blue" on_click="svc_rebuild" text="⚙" tooltip="Rebuild" />
+          <button class="btn_danger" on_click="svc_stop" text="■" tooltip="Stop" />
+        </row>
+      </column>
+      <!-- Fileira de rótulos por extenso à DIREITA do título — só >1240px, onde há
+           espaço de sobra. Abaixo disso ela some (@media em app.gss) e entram os
+           ícones empilhados acima. -->
+      <row class="svc_actions svc_actions_full">
+        <button class="btn_primary" on_click="svc_deploy" text="Deploy" />
+        <button class="btn_blue" on_click="svc_reload" text="Reload" />
+        <button class="btn_blue" on_click="svc_rebuild" text="Rebuild" />
+        <button class="btn_danger" on_click="svc_stop" text="Stop" />
       </row>
-      <text if="{svc_action_msg}" not_equals="" class="muted" color="{svc_action_color}">
-        {svc_action_msg}
-      </text>
-      <!-- Ações compactas EMPILHADAS abaixo do título (só ≤1240px). Ficam dentro
-           da coluna do título de propósito: quando aperta, a fileira de rótulos à
-           direita some (@media) e header_titles passa a ocupar a largura toda,
-           então os ícones descem para cá — título e ações nunca dividem a mesma
-           linha em janela estreita, e por isso nada sobrepõe o nome. -->
-      <row class="svc_actions svc_actions_compact">
-        <button class="btn_primary" on_click="svc_deploy" text="▶" tooltip="Deploy" />
-        <button class="btn_blue" on_click="svc_reload" text="⟳" tooltip="Reload" />
-        <button class="btn_blue" on_click="svc_rebuild" text="⚙" tooltip="Rebuild" />
-        <button class="btn_danger" on_click="svc_stop" text="■" tooltip="Stop" />
-      </row>
-    </column>
-    <!-- Fileira de rótulos por extenso à DIREITA do título — só >1240px, onde há
-         espaço de sobra. Abaixo disso ela some (@media em app.gss) e entram os
-         ícones empilhados acima. -->
-    <row class="svc_actions svc_actions_full">
-      <button class="btn_primary" on_click="svc_deploy" text="Deploy" />
-      <button class="btn_blue" on_click="svc_reload" text="Reload" />
-      <button class="btn_blue" on_click="svc_rebuild" text="Rebuild" />
-      <button class="btn_danger" on_click="svc_stop" text="Stop" />
     </row>
-  </row>
 
-  <!-- ── Abas ─────────────────────────────────────────────────────────── -->
-  <!-- Scroll horizontal: são 8 abas e, em janela estreita, as últimas
-       ("Healthcheck"/"Logs"/"Advanced") saíam da tela sem como alcançá-las.
-       A viewport (`.tabs_scroll`) é `width: fill`; a fileira interna
-       (`.tabs_main`) é `width: shrink` (largura natural), então quando as abas
-       não cabem ela transborda a viewport e a barra de rolagem aparece. -->
-  <scroll class="tabs_scroll" direction="horizontal">
-  <row class="tabs_main">
-    <TabButton
-      label="General"
-      current="{tab}"
-      target="general"
-      action="tab:general"
-    />
-    <TabButton
-      label="Connection"
-      current="{tab}"
-      target="connection"
-      action="tab:connection"
-    />
-    <TabButton
-      label="Environment"
-      current="{tab}"
-      target="environment"
-      action="tab:environment"
-    />
-    <TabButton
-      label="Domains"
-      current="{tab}"
-      target="domains"
-      action="tab:domains"
-    />
-    <TabButton
-      label="Deployments"
-      current="{tab}"
-      target="deployments"
-      action="tab:deployments"
-    />
-    <TabButton
-      label="Healthcheck"
-      current="{tab}"
-      target="healthcheck"
-      action="tab:healthcheck"
-    />
-    <TabButton
-      label="Logs"
-      current="{tab}"
-      target="logs"
-      action="tab:logs"
-    />
-    <TabButton
-      label="Advanced"
-      current="{tab}"
-      target="advanced"
-      action="tab:advanced"
-    />
-  </row>
-  </scroll>
+    <!-- ── Abas ─────────────────────────────────────────────────────────── -->
+    <!-- Scroll horizontal: são 8 abas e, em janela estreita, as últimas
+         ("Healthcheck"/"Logs"/"Advanced") saíam da tela sem como alcançá-las.
+         A viewport (`.tabs_scroll`) é `width: fill`; a fileira interna
+         (`.tabs_main`) é `width: shrink` (largura natural), então quando as abas
+         não cabem ela transborda a viewport e a barra de rolagem aparece. -->
+    <scroll class="tabs_scroll" direction="horizontal">
+    <row class="tabs_main">
+      <TabButton
+        label="General"
+        current="{tab}"
+        target="general"
+        action="tab:general"
+      />
+      <TabButton
+        label="Connection"
+        current="{tab}"
+        target="connection"
+        action="tab:connection"
+      />
+      <TabButton
+        label="Environment"
+        current="{tab}"
+        target="environment"
+        action="tab:environment"
+      />
+      <TabButton
+        label="Domains"
+        current="{tab}"
+        target="domains"
+        action="tab:domains"
+      />
+      <TabButton
+        label="Deployments"
+        current="{tab}"
+        target="deployments"
+        action="tab:deployments"
+      />
+      <TabButton
+        label="Healthcheck"
+        current="{tab}"
+        target="healthcheck"
+        action="tab:healthcheck"
+      />
+      <TabButton
+        label="Logs"
+        current="{tab}"
+        target="logs"
+        action="tab:logs"
+      />
+      <TabButton
+        label="Advanced"
+        current="{tab}"
+        target="advanced"
+        action="tab:advanced"
+      />
+    </row>
+    </scroll>
 
-  <hr />
+    <hr />
 
-  <!-- ── Corpo: conteúdo da aba + painel lateral ──────────────────────── -->
-  <row class="svc_body">
-    <column class="svc_main">
-      <text if="{svc_error}" not_equals="" class="svc_err">
-        {svc_error}
-      </text>
+    <!-- ── Corpo: conteúdo da aba + painel lateral ──────────────────────── -->
+    <row class="svc_body">
+      <column class="svc_main">
+        <text if="{svc_error}" not_equals="" class="svc_err">
+          {svc_error}
+        </text>
 
-      <!-- General (source / build, editável) -->
-      <scrollable if="{tab}" equals="general" direction="vertical" class="scroll_fill">
+        <!-- General (source / build, editável) -->
+        <scrollable if="{tab}" equals="general" direction="vertical" class="scroll_fill">
 
-          <!-- Enquanto o fetch do detalhe (spec + listas conta/repo/branch do
-               Gitea) não completa, mostramos um loading — os Selects só aparecem
-               depois, já populados, em vez de piscarem vazios. -->
-          <column class="form_panel" if="{svc_loading}" equals="true">
-            <if cond="{svc_loading}" equals="true">
-              <LoadingRow note="Carregando dados do serviço…" />
-            </if>
-          </column>
-
-          <form
-            class="form_panel"
-            if="{svc_loading}"
-            not_equals="true"
-            name="general"
-            on_submit="gen_save"
-          >
-
-            <!-- Serviços Compose (bancos/brokers) editam o YAML direto; não têm
-                 provider Git/Registry. -->
-            <if cond="{svc_source_kind}" equals="Compose">
-              <text class="label_cap">DOCKER COMPOSE (YAML)</text>
-              <text class="muted">
-                Edite o compose do serviço.
-                Salvar aplica no próximo deploy.
-              </text>
-
-              <textarea
-                class="env_editor"
-                font="mono"
-                value="svc_compose"
-                placeholder="services:&#10;  app:&#10;    image: …"
-              />
-
-              <row class="env_add">
-                <button
-                  class="btn_primary"
-                  on_click="compose_save"
-                  text="Salvar compose"
-                />
-                <button
-                  class="btn_ghost"
-                  on_click="compose_cancel"
-                  text="Cancelar"
-                />
-                <text class="muted">{svc_action_msg}</text>
-              </row>
-            </if>
-
-            <!-- Provider Git/conta-conectada/Zip — apenas para serviços não-Compose. -->
-            <if cond="{svc_source_kind}" not_equals="Compose">
-
-            <text class="label_cap">PROVIDER</text>
-            <row class="tabs">
-              <TabButton
-                label="Git"
-                current="{prov_tab}"
-                target="git"
-                action="prov:git"
-              />
-              <if cond="{gitea_providers}" not_empty>
-                <!-- Vale para qualquer conta conectada em Settings → Git —
-                     Gitea *e* GitHub. O `target`/`action` seguem "gitea" por
-                     ser a chave de estado (prov_tab), não o nome do provedor. -->
-                <TabButton
-                  label="Gitea/GitHub"
-                  current="{prov_tab}"
-                  target="gitea"
-                  action="prov:gitea"
-                />
+            <!-- Enquanto o fetch do detalhe (spec + listas conta/repo/branch do
+                 Gitea) não completa, mostramos um loading — os Selects só aparecem
+                 depois, já populados, em vez de piscarem vazios. -->
+            <column class="form_panel" if="{svc_loading}" equals="true">
+              <if cond="{svc_loading}" equals="true">
+                <LoadingRow note="Carregando dados do serviço…" />
               </if>
-              <TabButton
-                label="Zip"
-                current="{prov_tab}"
-                target="zip"
-                action="prov:zip"
-              />
-            </row>
-            <hr />
+            </column>
 
-            <!-- ── Sub-aba Git: form de URL/imagem crua ─────────────── -->
-            <if cond="{prov_tab}" equals="git">
-              <text class="label_cap">
-                SOURCE — REPOSITORY URL / IMAGE
-              </text>
-              <input
-                class="field_input"
-                form_control="f_repo_url"
-                value="f_repo_url"
-                on_change="field:f_repo_url"
-                placeholder="github.com/user/repo  ou  nginx:latest"
-              />
+            <form
+              class="form_panel"
+              if="{svc_loading}"
+              not_equals="true"
+              name="general"
+              on_submit="gen_save"
+            >
 
-              <text class="muted">
-                URL de repositório vira Git;
-                caso contrário é imagem de registry.
-              </text>
-              <row class="hc_grid">
-                <column class="hc_field">
-                  <text class="label_cap">BRANCH</text>
-                  <input
-                    class="field_input"
-                    form_control="f_branch"
-                    value="f_branch"
-                    on_change="field:f_branch"
-                    placeholder="main"
+              <!-- Serviços Compose (bancos/brokers) editam o YAML direto; não têm
+                   provider Git/Registry. -->
+              <if cond="{svc_source_kind}" equals="Compose">
+                <text class="label_cap">DOCKER COMPOSE (YAML)</text>
+                <text class="muted">
+                  Edite o compose do serviço.
+                  Salvar aplica no próximo deploy.
+                </text>
+
+                <textarea
+                  class="env_editor"
+                  font="mono"
+                  value="svc_compose"
+                  placeholder="services:&#10;  app:&#10;    image: …"
+                />
+
+                <row class="env_add">
+                  <button
+                    class="btn_primary"
+                    on_click="compose_save"
+                    text="Salvar compose"
                   />
-                </column>
-                <column class="hc_field">
-                  <text class="label_cap">PORT</text>
-                  <input
-                    class="field_input"
-                    form_control="f_gen_port"
-                    value="f_gen_port"
-                    on_change="field:f_gen_port"
-                    placeholder="80"
+                  <button
+                    class="btn_ghost"
+                    on_click="compose_cancel"
+                    text="Cancelar"
                   />
-                  <text if="{erro_f_gen_port}" not_equals="" class="err">
-                    {erro_f_gen_port}
-                  </text>
-                </column>
-              </row>
-              <row class="hc_grid">
-                <column class="hc_field">
-                  <text class="label_cap">USERNAME</text>
-                  <input
-                    class="field_input"
-                    form_control="f_username"
-                    value="f_username"
-                    on_change="field:f_username"
-                    placeholder="(opcional)"
-                  />
-                </column>
-                <column class="hc_field">
-                  <text class="label_cap">CREDENTIALS (secret)</text>
-                  <input
-                    class="field_input"
-                    form_control="f_credentials"
-                    value="f_credentials"
-                    on_change="field:f_credentials"
-                    placeholder="(opcional)"
-                  />
-                  <text class="muted">
-                    Nome de um secret do projeto (aba Secrets), puro — sem
-                    &lt;secret:&gt;. Usado para clonar repositório Git privado
-                    via HTTPS; não tem efeito com URL SSH.
-                  </text>
-                </column>
-              </row>
-
-              <text class="label_cap">BUILD PATH (root)</text>
-              <input
-                class="field_input"
-                form_control="f_build_path"
-                value="f_build_path"
-                on_change="field:f_build_path"
-                placeholder="."
-              />
-
-              <text class="label_cap">
-                WATCH PATHS (separados por vírgula)
-              </text>
-
-              <input
-                class="field_input"
-                form_control="f_watch_paths"
-                value="f_watch_paths"
-                on_change="field:f_watch_paths"
-                placeholder="src, Cargo.toml"
-              />
-
-              <toggle
-                checked="f_submodules"
-                on_toggle="field:f_submodules"
-                label=" Enable submodules" />
-
-              <text class="label_cap">
-                BUILD ENGINE: DOCKERFILE
-              </text>
-              <row class="hc_grid">
-                <column class="hc_field">
-                  <text class="label_cap">DOCKERFILE</text>
-                  <input
-                    class="field_input"
-                    form_control="f_dockerfile"
-                    value="f_dockerfile"
-                    on_change="field:f_dockerfile"
-                    placeholder="Dockerfile"
-                  />
-                </column>
-                <column class="hc_field">
-                  <text class="label_cap">CONTEXT PATH</text>
-                  <input
-                    class="field_input"
-                    form_control="f_context_path"
-                    value="f_context_path"
-                    on_change="field:f_context_path"
-                    placeholder="."
-                  />
-                </column>
-              </row>
-
-              <text class="label_cap">BUILD STAGE (opcional)</text>
-
-              <input
-                class="field_input"
-                form_control="f_build_stage"
-                value="f_build_stage"
-                on_change="field:f_build_stage"
-                placeholder="(multi-stage target)"
-              />
-
-              <row class="env_add">
-                <button class="btn_primary" on_click="gen_save" text="Save" />
-                <text class="muted">{svc_action_msg}</text>
-              </row>
-            </if>
-
-            <!-- ── Sub-aba Zip: upload de arquivo local com Dockerfile na raiz ─ -->
-            <if cond="{prov_tab}" equals="zip">
-              <text class="label_cap">ZIP DOCKERFILE</text>
-              <input
-                class="field_input"
-                form_control="f_archive_path"
-                value="f_archive_path"
-                on_change="field:f_archive_path"
-                placeholder="/caminho/para/app.zip"
-              />
-              <text class="muted">
-                O zip deve conter um Dockerfile na raiz. Depois do envio,
-                o deploy normal usa os arquivos descompactados pelo daemon.
-              </text>
-              <row class="hc_grid">
-                <column class="hc_field">
-                  <text class="label_cap">PORT</text>
-                  <input
-                    class="field_input"
-                    form_control="f_gen_port"
-                    value="f_gen_port"
-                    on_change="field:f_gen_port"
-                    placeholder="80"
-                  />
-                </column>
-                <column class="hc_field">
-                  <text class="label_cap">STATUS</text>
                   <text class="muted">{svc_action_msg}</text>
-                </column>
-              </row>
-              <row class="env_add">
-                <button class="btn_primary" on_click="archive_upload" text="Enviar zip" />
-                <button class="btn_secondary" on_click="gen_save" text="Salvar porta" />
-              </row>
-            </if>
-
-            <!-- ── Sub-aba conta conectada (Gitea/GitHub): picker conta/repo/branch ─ -->
-            <if cond="{prov_tab}" equals="gitea">
-              <text class="muted">
-                Selecione a conta conectada,
-                o repositório e a branch a implantar.
-              </text>
-              <text if="{gitea_msg}" not_equals="" class="muted">
-                {gitea_msg}
-              </text>
-              <text class="label_cap">CONTA CONECTADA</text>
-              <select
-                class="select"
-                options="gitea_providers"
-                value="gitea_provider_id"
-                on_change="gitea_provider_pick"
-                placeholder="selecione a conta"
-                labelField="display"
-                valueField="id"
-              />
-
-              <text class="muted">
-                Conecte contas em Settings → Git.
-              </text>
-
-              <text class="label_cap">REPOSITÓRIO</text>
-              <select
-                class="select"
-                options="gitea_repos"
-                value="gitea_repo"
-                on_change="gitea_repo_pick"
-                placeholder="selecione o repositório"
-                labelField="full_name"
-                valueField="full_name"
-              />
-
-              <text class="label_cap">BRANCH</text>
-              <select class="select" options="gitea_branches"
-                value="f_branch"
-                on_change="field:f_branch"
-                placeholder="selecione a branch"
-                labelField="name"
-                valueField="name"
-              />
-
-              <text class="label_cap">SELEÇÃO ATUAL</text>
-              <row class="kv_row">
-                <text class="kv_key">Repo (clone URL)</text>
-                <text class="kv_val_fill">{f_repo_url}</text>
-              </row>
-
-              <text class="label_cap">BUILD</text>
-              <row class="hc_grid">
-                <column class="hc_field">
-                  <text class="label_cap">BUILD PATH (root)</text>
-                  <input
-                    class="field_input"
-                    form_control="f_build_path"
-                    value="f_build_path"
-                    on_change="field:f_build_path"
-                    placeholder="."
-                  />
-                </column>
-                <column class="hc_field">
-                  <text class="label_cap">PORT</text>
-                  <input class="field_input"
-                    form_control="f_gen_port"
-                    value="f_gen_port"
-                    on_change="field:f_gen_port"
-                    placeholder="80"
-                  />
-                  <text if="{erro_f_gen_port}" not_equals="" class="err">
-                    {erro_f_gen_port}
-                  </text>
-                </column>
-              </row>
-              <row class="hc_grid">
-                <column class="hc_field">
-                  <text class="label_cap">DOCKERFILE</text>
-                  <input
-                    class="field_input"
-                    form_control="f_dockerfile"
-                    value="f_dockerfile"
-                    on_change="field:f_dockerfile"
-                    placeholder="Dockerfile"
-                  />
-                </column>
-                <column class="hc_field">
-                  <text class="label_cap">CONTEXT PATH</text>
-                  <input
-                    class="field_input"
-                    form_control="f_context_path"
-                    value="f_context_path"
-                    on_change="field:f_context_path"
-                    placeholder="."
-                  />
-                </column>
-              </row>
-              <text class="label_cap">
-                WATCH PATHS (separados por vírgula)
-              </text>
-              <input
-                class="field_input"
-                form_control="f_watch_paths"
-                value="f_watch_paths"
-                on_change="field:f_watch_paths"
-                placeholder="src, Cargo.toml"
-              />
-
-              <toggle
-                checked="f_submodules"
-                on_toggle="field:f_submodules"
-                label="  Enable submodules"
-              />
-
-              <row class="env_add">
-                <button class="btn_primary" on_click="gen_save" text="Save" />
-                <text class="muted">{svc_action_msg}</text>
-              </row>
-            </if>
-            </if>
-          </form>
-      </scrollable>
-
-      <!-- Connection (valores copiáveis) -->
-      <column if="{tab}" equals="connection" class="kv_list">
-        <row class="kv_row">
-          <text class="kv_key">Container port</text>
-          <text class="kv_val_fill">{svc_port}</text>
-          <text>&nbsp;</text>
-          <button class="copy_btn" on_click="clipboard:svc_port" text="Copiar" />
-        </row>
-        <row class="kv_row">
-          <text class="kv_key">Host port</text>
-          <text class="kv_val_fill">{svc_host_port}</text>
-          <text>&nbsp;</text>
-          <button class="copy_btn" on_click="clipboard:svc_host_port" text="Copiar" />
-        </row>
-        <row class="kv_row">
-          <text class="kv_key">Domain</text>
-          <text class="kv_val_fill">{svc_domain}</text>
-          <text>&nbsp;</text>
-          <button class="copy_btn" on_click="clipboard:svc_domain" text="Copiar" />
-        </row>
-        <row class="kv_row">
-          <text class="kv_key">TLS</text>
-          <text class="kv_val_fill">{svc_tls}</text>
-        </row>
-        <row class="kv_row">
-          <text class="kv_key">External URL</text>
-          <text class="kv_val_fill">{svc_external_url_short}</text>
-          <text>&nbsp;</text>
-          <button class="copy_btn" on_click="clipboard:svc_external_url" text="Copiar" />
-        </row>
-        <row class="kv_row">
-          <text class="kv_key">Internal URL</text>
-          <text class="kv_val_fill">{svc_internal_url_short}</text>
-          <text>&nbsp;</text>
-          <button class="copy_btn" on_click="clipboard:svc_internal_url" text="Copiar" />
-        </row>
-        <row class="kv_row" if="{svc_db_kind}" not_equals="—">
-          <text class="kv_key">Tipo</text>
-          <text class="kv_val_fill">{svc_db_kind}</text>
-        </row>
-
-        <!-- Containers reais em execução para este serviço (id + nome + estado). -->
-        <hr />
-        <text class="label_cap">CONTAINERS ({svc_containers_count})</text>
-        <text class="muted" if="{svc_containers}" empty>
-          Nenhum container em execução.
-        </text>
-        <row class="kv_row" for-each="svc_containers" var="c">
-          <rp-badge color="{c.state_color}" label="{c.state}" />
-          <text class="kv_val_fill">&nbsp;&nbsp;</text>
-          <text class="kv_val_fill">{c.name}</text>
-          <text class="kv_val_fill">&nbsp;&nbsp;</text>
-          <text class="muted">{c.id_short}</text>
-        </row>
-      </column>
-
-      <!-- Environment -->
-      <column if="{tab}" equals="environment" class="env_wrap">
-        <row class="env_head">
-          <text class="muted_fill">
-            {svc_env_count} variável(eis)
-          </text>
-          <button class="btn_export" on_click="env_export" text="Exportar" />
-          <text>&nbsp;</text>
-          <if cond="{env_text_open}" equals="true">
-            <button class="btn_export_on" on_click="env_text_toggle" text="Fechar" />
-          </if>
-
-          <else>
-            <button class="tab" on_click="env_text_toggle" text=".env" />
-          </else>
-        </row>
-        <form name="env_add" on_submit="env_add" width="fill" spacing="8">
-          <row class="env_add">
-            <input
-              class="env_in_key"
-              form_control="env_new_key"
-              placeholder="KEY"
-            />
-          </row>
-          <row class="env_add">
-            <input
-              class="env_in_val"
-              form_control="env_new_val" placeholder="value"
-            />
-          </row>
-          <row class="env_add">
-            <button class="btn_primary" on_click="env_add" text="Adicionar" />
-          </row>
-        </form>
-        <text class="muted_fill">
-          Para um valor sensível, use um secret do projeto: escreva
-          &lt;secret:NOME&gt; ou secret:NOME como valor aqui ou no editor .env —
-          as duas formas valem. O secret é criado na aba Secrets do projeto, só é
-          decifrado no deploy, e na lista aparece com 🔒.
-        </text>
-        <text if="{erro_env_new_key}" not_equals="" class="err">
-          {erro_env_new_key}
-        </text>
-        <!-- scrollable só renderiza o PRIMEIRO filho (glacier-ui
-             widget.rs: NodeType::Scrollable usa node.children.first()) —
-             por isso a lista e o editor .env vivem dentro de UM único
-             <column>, nunca como irmãos diretos do <scrollable>. -->
-        <scrollable direction="vertical" class="env_list_scroll">
-          <column class="kv_list">
-            <template for-each="svc_env" var="e" on_reorder="env_reorder" reorder_key="key">
-              <!-- Comentários (# ...) do .env: arrastáveis como as vars (ao
-                   soltar, reancoram na var seguinte da nova ordem), mas sem
-                   delete — removem-se editando o .env. A classe da linha muda
-                   para `kv_row_drag` no item agarrado ({e.__dragging} vem do
-                   glacier-ui durante o arrasto). -->
-              <if cond="{e.__dragging}" equals="true">
-                <row class="kv_row_drag" if="{e.kind}" equals="comment">
-                  <text class="env_drag_handle env_dragging" dragHandle="true">
-                    ⋮ 
-                  </text>
-                  <text class="muted">{e.value}</text>
-                </row>
-                <row class="kv_row_drag" else>
-                  <text class="env_drag_handle env_dragging" dragHandle="true">
-                    ⋮ 
-                  </text>
-                  <button class="env_del" on_click="env_del:{e.key}" text="✕" />
-                  <text class="env_sep"> </text>
-                  <text class="env_key">{e.key_display}</text>
-                  <text class="kv_val_fill">{e.value}</text>
                 </row>
               </if>
 
-              <else>
-                <row class="kv_row" if="{e.kind}" equals="comment">
-                  <text class="env_drag_handle" dragHandle="true">
-                    ⋮ 
-                  </text>
-                  <text class="muted">{e.value}</text>
-                </row>
-                <row class="kv_row" else>
-                  <text class="env_drag_handle" dragHandle="true">⋮ </text>
-                  <button class="env_del" on_click="env_del:{e.key}" text="✕" />
-                  <text class="env_sep"> </text>
-                  <text class="env_key">{e.key_display}</text>
-                  <text class="kv_val_fill">{e.value}</text>
-                </row>
-              </else>
-            </template>
+              <!-- Provider Git/conta-conectada/Zip — apenas para serviços não-Compose. -->
+              <if cond="{svc_source_kind}" not_equals="Compose">
 
-            <!-- Editor .env: vários filhos condicionais → TAG if (o atributo
-                 if= só esconderia o Text, deixando TextArea/botões sempre
-                 visíveis). Vive dentro do mesmo <column> da lista (e não
-                 como irmão dela) para que os botões Salvar/Cancelar nunca
-                 fiquem fora da área visível da janela (antes eram irmãos
-                 fixos após um scrollable height:fill, e podiam ser
-                 cortados/escondidos em janelas mais baixas). -->
-            <if cond="{env_text_open}" equals="true">
-              <text class="muted">
-                Cole/edite no formato KEY=VALUE (# comentário).
-              </text>
-
-              <textarea
-                class="env_editor"
-                font="mono"
-                value="svc_env_text"
-                placeholder="KEY=VALUE   (# comentário)"
-              />
-
-              <row class="env_add">
-                <button
-                  class="btn_primary"
-                  on_click="env_import"
-                  text="Salvar"
+              <text class="label_cap">PROVIDER</text>
+              <row class="tabs">
+                <TabButton
+                  label="Git"
+                  current="{prov_tab}"
+                  target="git"
+                  action="prov:git"
                 />
-                <button
-                  class="btn_ghost"
-                  on_click="env_text_cancel"
-                  text="Cancelar"
+                <if cond="{gitea_providers}" not_empty>
+                  <!-- Vale para qualquer conta conectada em Settings → Git —
+                       Gitea *e* GitHub. O `target`/`action` seguem "gitea" por
+                       ser a chave de estado (prov_tab), não o nome do provedor. -->
+                  <TabButton
+                    label="Gitea/GitHub"
+                    current="{prov_tab}"
+                    target="gitea"
+                    action="prov:gitea"
+                  />
+                </if>
+                <TabButton
+                  label="Zip"
+                  current="{prov_tab}"
+                  target="zip"
+                  action="prov:zip"
                 />
               </row>
-            </if>
-          </column>
+              <hr />
+
+              <!-- ── Sub-aba Git: form de URL/imagem crua ─────────────── -->
+              <if cond="{prov_tab}" equals="git">
+                <text class="label_cap">
+                  SOURCE — REPOSITORY URL / IMAGE
+                </text>
+                <input
+                  class="field_input"
+                  form_control="f_repo_url"
+                  value="f_repo_url"
+                  on_change="field:f_repo_url"
+                  placeholder="github.com/user/repo  ou  nginx:latest"
+                />
+
+                <text class="muted">
+                  URL de repositório vira Git;
+                  caso contrário é imagem de registry.
+                </text>
+                <row class="hc_grid">
+                  <column class="hc_field">
+                    <text class="label_cap">BRANCH</text>
+                    <input
+                      class="field_input"
+                      form_control="f_branch"
+                      value="f_branch"
+                      on_change="field:f_branch"
+                      placeholder="main"
+                    />
+                  </column>
+                  <column class="hc_field">
+                    <text class="label_cap">PORT</text>
+                    <input
+                      class="field_input"
+                      form_control="f_gen_port"
+                      value="f_gen_port"
+                      on_change="field:f_gen_port"
+                      placeholder="80"
+                    />
+                    <text if="{erro_f_gen_port}" not_equals="" class="err">
+                      {erro_f_gen_port}
+                    </text>
+                  </column>
+                </row>
+                <row class="hc_grid">
+                  <column class="hc_field">
+                    <text class="label_cap">USERNAME</text>
+                    <input
+                      class="field_input"
+                      form_control="f_username"
+                      value="f_username"
+                      on_change="field:f_username"
+                      placeholder="(opcional)"
+                    />
+                  </column>
+                  <column class="hc_field">
+                    <text class="label_cap">CREDENTIALS (secret)</text>
+                    <input
+                      class="field_input"
+                      form_control="f_credentials"
+                      value="f_credentials"
+                      on_change="field:f_credentials"
+                      placeholder="(opcional)"
+                    />
+                    <text class="muted">
+                      Nome de um secret do projeto (aba Secrets), puro — sem
+                      &lt;secret:&gt;. Usado para clonar repositório Git privado
+                      via HTTPS; não tem efeito com URL SSH.
+                    </text>
+                  </column>
+                </row>
+
+                <text class="label_cap">BUILD PATH (root)</text>
+                <input
+                  class="field_input"
+                  form_control="f_build_path"
+                  value="f_build_path"
+                  on_change="field:f_build_path"
+                  placeholder="."
+                />
+
+                <text class="label_cap">
+                  WATCH PATHS (separados por vírgula)
+                </text>
+
+                <input
+                  class="field_input"
+                  form_control="f_watch_paths"
+                  value="f_watch_paths"
+                  on_change="field:f_watch_paths"
+                  placeholder="src, Cargo.toml"
+                />
+
+                <toggle
+                  checked="f_submodules"
+                  on_toggle="field:f_submodules"
+                  label=" Enable submodules" />
+
+                <text class="label_cap">
+                  BUILD ENGINE: DOCKERFILE
+                </text>
+                <row class="hc_grid">
+                  <column class="hc_field">
+                    <text class="label_cap">DOCKERFILE</text>
+                    <input
+                      class="field_input"
+                      form_control="f_dockerfile"
+                      value="f_dockerfile"
+                      on_change="field:f_dockerfile"
+                      placeholder="Dockerfile"
+                    />
+                  </column>
+                  <column class="hc_field">
+                    <text class="label_cap">CONTEXT PATH</text>
+                    <input
+                      class="field_input"
+                      form_control="f_context_path"
+                      value="f_context_path"
+                      on_change="field:f_context_path"
+                      placeholder="."
+                    />
+                  </column>
+                </row>
+
+                <text class="label_cap">BUILD STAGE (opcional)</text>
+
+                <input
+                  class="field_input"
+                  form_control="f_build_stage"
+                  value="f_build_stage"
+                  on_change="field:f_build_stage"
+                  placeholder="(multi-stage target)"
+                />
+
+                <row class="env_add">
+                  <button class="btn_primary" on_click="gen_save" text="Save" />
+                  <text class="muted">{svc_action_msg}</text>
+                </row>
+              </if>
+
+              <!-- ── Sub-aba Zip: upload de arquivo local com Dockerfile na raiz ─ -->
+              <if cond="{prov_tab}" equals="zip">
+                <text class="label_cap">ZIP DOCKERFILE</text>
+                <input
+                  class="field_input"
+                  form_control="f_archive_path"
+                  value="f_archive_path"
+                  on_change="field:f_archive_path"
+                  placeholder="/caminho/para/app.zip"
+                />
+                <text class="muted">
+                  O zip deve conter um Dockerfile na raiz. Depois do envio,
+                  o deploy normal usa os arquivos descompactados pelo daemon.
+                </text>
+                <row class="hc_grid">
+                  <column class="hc_field">
+                    <text class="label_cap">PORT</text>
+                    <input
+                      class="field_input"
+                      form_control="f_gen_port"
+                      value="f_gen_port"
+                      on_change="field:f_gen_port"
+                      placeholder="80"
+                    />
+                  </column>
+                  <column class="hc_field">
+                    <text class="label_cap">STATUS</text>
+                    <text class="muted">{svc_action_msg}</text>
+                  </column>
+                </row>
+                <row class="env_add">
+                  <button class="btn_primary" on_click="archive_upload" text="Enviar zip" />
+                  <button class="btn_secondary" on_click="gen_save" text="Salvar porta" />
+                </row>
+              </if>
+
+              <!-- ── Sub-aba conta conectada (Gitea/GitHub): picker conta/repo/branch ─ -->
+              <if cond="{prov_tab}" equals="gitea">
+                <text class="muted">
+                  Selecione a conta conectada,
+                  o repositório e a branch a implantar.
+                </text>
+                <text if="{gitea_msg}" not_equals="" class="muted">
+                  {gitea_msg}
+                </text>
+                <text class="label_cap">CONTA CONECTADA</text>
+                <select
+                  class="select"
+                  options="gitea_providers"
+                  value="gitea_provider_id"
+                  on_change="gitea_provider_pick"
+                  placeholder="selecione a conta"
+                  labelField="display"
+                  valueField="id"
+                />
+
+                <text class="muted">
+                  Conecte contas em Settings → Git.
+                </text>
+
+                <text class="label_cap">REPOSITÓRIO</text>
+                <select
+                  class="select"
+                  options="gitea_repos"
+                  value="gitea_repo"
+                  on_change="gitea_repo_pick"
+                  placeholder="selecione o repositório"
+                  labelField="full_name"
+                  valueField="full_name"
+                />
+
+                <text class="label_cap">BRANCH</text>
+                <select class="select" options="gitea_branches"
+                  value="f_branch"
+                  on_change="field:f_branch"
+                  placeholder="selecione a branch"
+                  labelField="name"
+                  valueField="name"
+                />
+
+                <text class="label_cap">SELEÇÃO ATUAL</text>
+                <row class="kv_row">
+                  <text class="kv_key">Repo (clone URL)</text>
+                  <text class="kv_val_fill">{f_repo_url}</text>
+                </row>
+
+                <text class="label_cap">BUILD</text>
+                <row class="hc_grid">
+                  <column class="hc_field">
+                    <text class="label_cap">BUILD PATH (root)</text>
+                    <input
+                      class="field_input"
+                      form_control="f_build_path"
+                      value="f_build_path"
+                      on_change="field:f_build_path"
+                      placeholder="."
+                    />
+                  </column>
+                  <column class="hc_field">
+                    <text class="label_cap">PORT</text>
+                    <input class="field_input"
+                      form_control="f_gen_port"
+                      value="f_gen_port"
+                      on_change="field:f_gen_port"
+                      placeholder="80"
+                    />
+                    <text if="{erro_f_gen_port}" not_equals="" class="err">
+                      {erro_f_gen_port}
+                    </text>
+                  </column>
+                </row>
+                <row class="hc_grid">
+                  <column class="hc_field">
+                    <text class="label_cap">DOCKERFILE</text>
+                    <input
+                      class="field_input"
+                      form_control="f_dockerfile"
+                      value="f_dockerfile"
+                      on_change="field:f_dockerfile"
+                      placeholder="Dockerfile"
+                    />
+                  </column>
+                  <column class="hc_field">
+                    <text class="label_cap">CONTEXT PATH</text>
+                    <input
+                      class="field_input"
+                      form_control="f_context_path"
+                      value="f_context_path"
+                      on_change="field:f_context_path"
+                      placeholder="."
+                    />
+                  </column>
+                </row>
+                <text class="label_cap">
+                  WATCH PATHS (separados por vírgula)
+                </text>
+                <input
+                  class="field_input"
+                  form_control="f_watch_paths"
+                  value="f_watch_paths"
+                  on_change="field:f_watch_paths"
+                  placeholder="src, Cargo.toml"
+                />
+
+                <toggle
+                  checked="f_submodules"
+                  on_toggle="field:f_submodules"
+                  label="  Enable submodules"
+                />
+
+                <row class="env_add">
+                  <button class="btn_primary" on_click="gen_save" text="Save" />
+                  <text class="muted">{svc_action_msg}</text>
+                </row>
+              </if>
+              </if>
+            </form>
         </scrollable>
-      </column>
 
-      <!-- Domains (editável): lista de rotas HTTP (domínio → porta de container,
-           TLS por rota), mais o form de adição e a porta TCP crua do host. -->
-      <column if="{tab}" equals="domains" class="form_panel">
-        <text class="label_cap">
-          DOMÍNIOS ({svc_domains_count})
-        </text>
-        <text class="muted">
-         Cada domínio pode apontar para uma porta de container diferente.
-        </text>
+        <!-- Connection (valores copiáveis) -->
+        <column if="{tab}" equals="connection" class="kv_list">
+          <row class="kv_row">
+            <text class="kv_key">Container port</text>
+            <text class="kv_val_fill">{svc_port}</text>
+            <text>&nbsp;</text>
+            <button class="copy_btn" on_click="clipboard:svc_port" text="Copiar" />
+          </row>
+          <row class="kv_row">
+            <text class="kv_key">Host port</text>
+            <text class="kv_val_fill">{svc_host_port}</text>
+            <text>&nbsp;</text>
+            <button class="copy_btn" on_click="clipboard:svc_host_port" text="Copiar" />
+          </row>
+          <row class="kv_row">
+            <text class="kv_key">Domain</text>
+            <text class="kv_val_fill">{svc_domain}</text>
+            <text>&nbsp;</text>
+            <button class="copy_btn" on_click="clipboard:svc_domain" text="Copiar" />
+          </row>
+          <row class="kv_row">
+            <text class="kv_key">TLS</text>
+            <text class="kv_val_fill">{svc_tls}</text>
+          </row>
+          <row class="kv_row">
+            <text class="kv_key">External URL</text>
+            <text class="kv_val_fill">{svc_external_url_short}</text>
+            <text>&nbsp;</text>
+            <button class="copy_btn" on_click="clipboard:svc_external_url" text="Copiar" />
+          </row>
+          <row class="kv_row">
+            <text class="kv_key">Internal URL</text>
+            <text class="kv_val_fill">{svc_internal_url_short}</text>
+            <text>&nbsp;</text>
+            <button class="copy_btn" on_click="clipboard:svc_internal_url" text="Copiar" />
+          </row>
+          <row class="kv_row" if="{svc_db_kind}" not_equals="—">
+            <text class="kv_key">Tipo</text>
+            <text class="kv_val_fill">{svc_db_kind}</text>
+          </row>
 
-        <scrollable direction="vertical" class="env_list_scroll">
-          <column class="kv_list">
-            <row class="kv_row" for-each="svc_domains" var="d">
-              <button class="env_del" on_click="dom_del:{d.domain}" text="✕" />
-              <text class="env_sep"> </text>
-              <text class="env_key">{d.domain}</text>
-              <text class="kv_val_fill">→ {d.port}</text>
-              <text class="muted">{d.tls_label}</text>
-            </row>
-          </column>
-        </scrollable>
-
-        <text class="label_cap">
-          ADICIONAR DOMÍNIO
-        </text>
-        <input
-          class="field_input"
-          form_control="f_domain"
-          value="f_domain"
-          on_change="field:f_domain"
-          placeholder="app.exemplo.com"
-        />
-        <text if="{erro_f_domain}" not_equals="" class="err">
-          {erro_f_domain}
-        </text>
-
-        <text class="label_cap">
-          PORTA DO CONTAINER (opcional)
-        </text>
-        <input
-          class="field_input"
-          form_control="f_port"
-          value="f_port"
-          on_change="field:f_port"
-          placeholder="(padrão do serviço)"
-        />
-        <text if="{erro_f_port}" not_equals="" class="err">
-          {erro_f_port}
-        </text>
-
-        <toggle checked="f_tls" on_toggle="field:f_tls" label="  HTTPS / TLS" />
-        <row class="env_add">
-          <button class="btn_primary" on_click="dom_add" text="Adicionar domínio" />
-          <text class="muted">
-            {svc_action_msg}
+          <!-- Containers reais em execução para este serviço (id + nome + estado). -->
+          <hr />
+          <text class="label_cap">CONTAINERS ({svc_containers_count})</text>
+          <text class="muted" if="{svc_containers}" empty>
+            Nenhum container em execução.
           </text>
-        </row>
+          <row class="kv_row" for-each="svc_containers" var="c">
+            <rp-badge color="{c.state_color}" label="{c.state}" />
+            <text class="kv_val_fill">&nbsp;&nbsp;</text>
+            <text class="kv_val_fill">{c.name}</text>
+            <text class="kv_val_fill">&nbsp;&nbsp;</text>
+            <text class="muted">{c.id_short}</text>
+          </row>
+        </column>
 
-        <text class="label_cap">
-          PORTA TCP DO HOST (passthrough, opcional)
-        </text>
-        <input
-          class="field_input"
-          form_control="f_host_port"
-          value="f_host_port"
-          on_change="field:f_host_port"
-          placeholder="(padrão do serviço)"
-        />
-        <text if="{erro_f_host_port}" not_equals="" class="err">
-          {erro_f_host_port}
-        </text>
-        <row class="env_add">
-          <button class="btn_ghost"
-            on_click="dom_hostport_save"
-            text="Salvar porta"
-          />
-          <button class="btn_ghost"
-            on_click="dom_hostport_auto"
-            text="Automática"
-          />
-        </row>
-        <text class="muted">
-          "Automática" aloca uma porta livre e a libera no firewall do host.
-        </text>
-      </column>
-
-      <!-- Deployments -->
-      <column if="{tab}" equals="deployments" class="dep_wrap">
-        <!-- Webhook de deploy: servido pelo MESMO listener da API (base
-             derivada de [api] domain/port). Compose não tem webhook. -->
-        <column if="{svc_webhook_supported}" equals="true" class="form_panel">
-          <text class="label_cap">WEBHOOK DE DEPLOY</text>
-          <!-- URL e botões em LINHAS separadas: a URL é longa (~100 chars) e,
-               com width fill, empurraria os botões para fora do painel. Exibida
-               TRUNCADA (svc_webhook_url_short) — inteira, ela estoura o card em
-               janelas estreitas; o valor completo vai no tooltip e no clipboard. -->
-          <column if="{svc_webhook_url}" not_equals="" class="wh_block">
-            <text class="wh_url" tooltip="{svc_webhook_url}">
-              {svc_webhook_url_short}
+        <!-- Environment -->
+        <column if="{tab}" equals="environment" class="env_wrap">
+          <row class="env_head">
+            <text class="muted_fill">
+              {svc_env_count} variável(eis)
             </text>
-            <row class="wh_actions">
-              <button
-                class="copy_btn"
-                on_click="clipboard:svc_webhook_url"
-                text="Copiar"
-              />
-              <button
-                class="dep_del_btn"
-                on_click="regen_webhook"
-                text="Regenerar"
+            <button class="btn_export" on_click="env_export" text="Exportar" />
+            <text>&nbsp;</text>
+            <if cond="{env_text_open}" equals="true">
+              <button class="btn_export_on" on_click="env_text_toggle" text="Fechar" />
+            </if>
+
+            <else>
+              <button class="tab" on_click="env_text_toggle" text=".env" />
+            </else>
+          </row>
+          <form name="env_add" on_submit="env_add" width="fill" spacing="8">
+            <row class="env_add">
+              <input
+                class="env_in_key"
+                form_control="env_new_key"
+                placeholder="KEY"
               />
             </row>
-          </column>
-          <text if="{svc_webhook_url}" equals="" class="muted">
-            O token nasce no primeiro deploy deste serviço — rode um deploy
-            para a URL aparecer.
+            <row class="env_add">
+              <input
+                class="env_in_val"
+                form_control="env_new_val" placeholder="value"
+              />
+            </row>
+            <row class="env_add">
+              <button class="btn_primary" on_click="env_add" text="Adicionar" />
+            </row>
+          </form>
+          <text class="muted_fill">
+            Para um valor sensível, use um secret do projeto: escreva
+            &lt;secret:NOME&gt; ou secret:NOME como valor aqui ou no editor .env —
+            as duas formas valem. O secret é criado na aba Secrets do projeto, só é
+            decifrado no deploy, e na lista aparece com 🔒.
+          </text>
+          <text if="{erro_env_new_key}" not_equals="" class="err">
+            {erro_env_new_key}
+          </text>
+          <!-- scrollable só renderiza o PRIMEIRO filho (glacier-ui
+               widget.rs: NodeType::Scrollable usa node.children.first()) —
+               por isso a lista e o editor .env vivem dentro de UM único
+               <column>, nunca como irmãos diretos do <scrollable>. -->
+          <scrollable direction="vertical" class="env_list_scroll">
+            <column class="kv_list">
+              <template for-each="svc_env" var="e" on_reorder="env_reorder" reorder_key="key">
+                <!-- Comentários (# ...) do .env: arrastáveis como as vars (ao
+                     soltar, reancoram na var seguinte da nova ordem), mas sem
+                     delete — removem-se editando o .env. A classe da linha muda
+                     para `kv_row_drag` no item agarrado ({e.__dragging} vem do
+                     glacier-ui durante o arrasto). -->
+                <if cond="{e.__dragging}" equals="true">
+                  <row class="kv_row_drag" if="{e.kind}" equals="comment">
+                    <text class="env_drag_handle env_dragging" dragHandle="true">
+                      ⋮ 
+                    </text>
+                    <text class="muted">{e.value}</text>
+                  </row>
+                  <row class="kv_row_drag" else>
+                    <text class="env_drag_handle env_dragging" dragHandle="true">
+                      ⋮ 
+                    </text>
+                    <button class="env_del" on_click="env_del:{e.key}" text="✕" />
+                    <text class="env_sep"> </text>
+                    <text class="env_key">{e.key_display}</text>
+                    <text class="kv_val_fill">{e.value}</text>
+                  </row>
+                </if>
+
+                <else>
+                  <row class="kv_row" if="{e.kind}" equals="comment">
+                    <text class="env_drag_handle" dragHandle="true">
+                      ⋮ 
+                    </text>
+                    <text class="muted">{e.value}</text>
+                  </row>
+                  <row class="kv_row" else>
+                    <text class="env_drag_handle" dragHandle="true">⋮ </text>
+                    <button class="env_del" on_click="env_del:{e.key}" text="✕" />
+                    <text class="env_sep"> </text>
+                    <text class="env_key">{e.key_display}</text>
+                    <text class="kv_val_fill">{e.value}</text>
+                  </row>
+                </else>
+              </template>
+
+              <!-- Editor .env: vários filhos condicionais → TAG if (o atributo
+                   if= só esconderia o Text, deixando TextArea/botões sempre
+                   visíveis). Vive dentro do mesmo <column> da lista (e não
+                   como irmão dela) para que os botões Salvar/Cancelar nunca
+                   fiquem fora da área visível da janela (antes eram irmãos
+                   fixos após um scrollable height:fill, e podiam ser
+                   cortados/escondidos em janelas mais baixas). -->
+              <if cond="{env_text_open}" equals="true">
+                <text class="muted">
+                  Cole/edite no formato KEY=VALUE (# comentário).
+                </text>
+
+                <textarea
+                  class="env_editor"
+                  font="mono"
+                  value="svc_env_text"
+                  placeholder="KEY=VALUE   (# comentário)"
+                />
+
+                <row class="env_add">
+                  <button
+                    class="btn_primary"
+                    on_click="env_import"
+                    text="Salvar"
+                  />
+                  <button
+                    class="btn_ghost"
+                    on_click="env_text_cancel"
+                    text="Cancelar"
+                  />
+                </row>
+              </if>
+            </column>
+          </scrollable>
+        </column>
+
+        <!-- Domains (editável): lista de rotas HTTP (domínio → porta de container,
+             TLS por rota), mais o form de adição e a porta TCP crua do host. -->
+        <column if="{tab}" equals="domains" class="form_panel">
+          <text class="label_cap">
+            DOMÍNIOS ({svc_domains_count})
           </text>
           <text class="muted">
-            Um POST nesta URL dispara um deploy. O corpo é ignorado: o token na
-            própria URL é a autenticação. Regenerar invalida a URL anterior.
+           Cada domínio pode apontar para uma porta de container diferente.
+          </text>
+
+          <scrollable direction="vertical" class="env_list_scroll">
+            <column class="kv_list">
+              <row class="kv_row" for-each="svc_domains" var="d">
+                <button class="env_del" on_click="dom_del:{d.domain}" text="✕" />
+                <text class="env_sep"> </text>
+                <text class="env_key">{d.domain}</text>
+                <text class="kv_val_fill">→ {d.port}</text>
+                <text class="muted">{d.tls_label}</text>
+              </row>
+            </column>
+          </scrollable>
+
+          <text class="label_cap">
+            ADICIONAR DOMÍNIO
+          </text>
+          <input
+            class="field_input"
+            form_control="f_domain"
+            value="f_domain"
+            on_change="field:f_domain"
+            placeholder="app.exemplo.com"
+          />
+          <text if="{erro_f_domain}" not_equals="" class="err">
+            {erro_f_domain}
+          </text>
+
+          <text class="label_cap">
+            PORTA DO CONTAINER (opcional)
+          </text>
+          <input
+            class="field_input"
+            form_control="f_port"
+            value="f_port"
+            on_change="field:f_port"
+            placeholder="(padrão do serviço)"
+          />
+          <text if="{erro_f_port}" not_equals="" class="err">
+            {erro_f_port}
+          </text>
+
+          <toggle checked="f_tls" on_toggle="field:f_tls" label="  HTTPS / TLS" />
+          <row class="env_add">
+            <button class="btn_primary" on_click="dom_add" text="Adicionar domínio" />
+            <text class="muted">
+              {svc_action_msg}
+            </text>
+          </row>
+
+          <text class="label_cap">
+            PORTA TCP DO HOST (passthrough, opcional)
+          </text>
+          <input
+            class="field_input"
+            form_control="f_host_port"
+            value="f_host_port"
+            on_change="field:f_host_port"
+            placeholder="(padrão do serviço)"
+          />
+          <text if="{erro_f_host_port}" not_equals="" class="err">
+            {erro_f_host_port}
+          </text>
+          <row class="env_add">
+            <button class="btn_ghost"
+              on_click="dom_hostport_save"
+              text="Salvar porta"
+            />
+            <button class="btn_ghost"
+              on_click="dom_hostport_auto"
+              text="Automática"
+            />
+          </row>
+          <text class="muted">
+            "Automática" aloca uma porta livre e a libera no firewall do host.
           </text>
         </column>
 
-        <text class="muted">
-          {svc_deployments_count} deployments
-        </text>
-        <scrollable direction="vertical" class="dep_list_scroll">
-          <column class="table_body">
-            <column class="row_wrap" for-each="svc_deployments" var="d">
-              <row class="trow">
-                <text class="td_key col_dep_id">{d.id}</text>
-                <StateCell kind="{d.state_kind}" label="{d.state_label}" />
-                <text class="td col_dur">{d.duration}</text>
-                <text class="muted col_dep_start">{d.start}</text>
-                <!-- Ícone + tooltip (eram "Build log ↗" e "Remover" por
-                     extenso): os rótulos quebravam em duas linhas e estouravam a
-                     coluna quando a janela estreitava. Mesmo padrão das linhas de
-                     job e de repo do Registry (home.gv). -->
-                <row class="dep_actions">
-                  <button
-                    class="dep_logs_btn"
-                    on_click="dep_logs:{d.id_full}"
-                    text="≡"
-                    tooltip="Ver build log"
-                  />
-                  <button
-                    if="{d.can_delete}"
-                    equals="1"
-                    class="dep_del_btn"
-                    on_click="delete_deployment:{d.id_full}"
-                    text="✕"
-                    tooltip="Remover deployment"
-                  />
-                </row>
-              </row>
-              <text class="dep_image">
-                {d.image}
+        <!-- Deployments -->
+        <column if="{tab}" equals="deployments" class="dep_wrap">
+          <!-- Webhook de deploy: servido pelo MESMO listener da API (base
+               derivada de [api] domain/port). Compose não tem webhook. -->
+          <column if="{svc_webhook_supported}" equals="true" class="form_panel">
+            <text class="label_cap">WEBHOOK DE DEPLOY</text>
+            <!-- URL e botões em LINHAS separadas: a URL é longa (~100 chars) e,
+                 com width fill, empurraria os botões para fora do painel. Exibida
+                 TRUNCADA (svc_webhook_url_short) — inteira, ela estoura o card em
+                 janelas estreitas; o valor completo vai no tooltip e no clipboard. -->
+            <column if="{svc_webhook_url}" not_equals="" class="wh_block">
+              <text class="wh_url" tooltip="{svc_webhook_url}">
+                {svc_webhook_url_short}
               </text>
-              <hr />
+              <row class="wh_actions">
+                <button
+                  class="copy_btn"
+                  on_click="clipboard:svc_webhook_url"
+                  text="Copiar"
+                />
+                <button
+                  class="dep_del_btn"
+                  on_click="regen_webhook"
+                  text="Regenerar"
+                />
+              </row>
             </column>
+            <text if="{svc_webhook_url}" equals="" class="muted">
+              O token nasce no primeiro deploy deste serviço — rode um deploy
+              para a URL aparecer.
+            </text>
+            <text class="muted">
+              Um POST nesta URL dispara um deploy. O corpo é ignorado: o token na
+              própria URL é a autenticação. Regenerar invalida a URL anterior.
+            </text>
           </column>
-        </scrollable>
-        <!-- Build log abre em JANELA isolada (dep_logs → open_window), não inline:
-             render de milhares de linhas por reavaliação travava a principal. -->
-      </column>
 
-      <!-- Healthcheck (editável) -->
-      <form
-        if="{tab}"
-        equals="healthcheck"
-        class="form_panel"
-        name="healthcheck"
-        on_submit="hc_save"
-      >
-        <text class="label_cap">KIND</text>
-        <row class="tabs">
-          <TabButton
-            label="None"
-            current="{f_hc_kind}"
-            target="none"
-            action="hckind:none"
-          />
-          <TabButton
-            label="Tcp"
-            current="{f_hc_kind}"
-            target="tcp"
-            action="hckind:tcp"
-          />
-          <TabButton
-            label="Http"
-            current="{f_hc_kind}"
-            target="http"
-            action="hckind:http"
-          />
-          <TabButton
-            label="Docker"
-            current="{f_hc_kind}"
-            target="docker"
-            action="hckind:docker"
-          />
-        </row>
-        <if cond="{f_hc_kind}" equals="http">
-          <text class="label_cap">
-            HTTP PATH
-          </text>
-          <input
-            class="field_input"
-            form_control="f_hc_path"
-            value="f_hc_path"
-            on_change="field:f_hc_path"
-            placeholder="/health"
-          />
-          <text class="label_cap">EXPECTED STATUS</text>
-          <input
-            class="field_input"
-            form_control="f_hc_status"
-            value="f_hc_status"
-            on_change="field:f_hc_status"
-            placeholder="200"
-          />
-          <text if="{erro_f_hc_status}" not_equals="" class="err">
-            {erro_f_hc_status}
-          </text>
-        </if>
-        <row class="hc_grid">
-          <column class="hc_field">
-            <text class="label_cap">
-              INTERVAL (s)
-            </text>
-            <input
-              class="field_input"
-              form_control="f_hc_interval"
-              value="f_hc_interval"
-              on_change="field:f_hc_interval"
-              placeholder=""
-            />
-            <text if="{erro_f_hc_interval}" not_equals="" class="err">
-              {erro_f_hc_interval}
-            </text>
-          </column>
-          <column class="hc_field">
-            <text class="label_cap">
-              TIMEOUT (s)
-            </text>
-            <input
-              class="field_input"
-              form_control="f_hc_timeout"
-              value="f_hc_timeout"
-              on_change="field:f_hc_timeout"
-              placeholder=""
-            />
-            <text if="{erro_f_hc_timeout}" not_equals="" class="err">
-              {erro_f_hc_timeout}
-            </text>
-          </column>
-        </row>
-        <row class="hc_grid">
-          <column class="hc_field">
-            <text class="label_cap">
-              RETRIES
-            </text>
-            <input
-              class="field_input"
-              form_control="f_hc_retries"
-              value="f_hc_retries"
-              on_change="field:f_hc_retries"
-              placeholder=""
-            />
-            <text if="{erro_f_hc_retries}" not_equals="" class="err">
-              {erro_f_hc_retries}
-            </text>
-          </column>
-          <column class="hc_field">
-            <text class="label_cap">
-              START PERIOD (s)
-            </text>
-            <input
-              class="field_input"
-              form_control="f_hc_start"
-              value="f_hc_start"
-              on_change="field:f_hc_start"
-              placeholder=""
-            />
-            <text if="{erro_f_hc_start}" not_equals="" class="err">
-              {erro_f_hc_start}
-            </text>
-          </column>
-        </row>
-        <row class="env_add">
-          <button class="btn_primary" on_click="hc_save" text="Save" />
           <text class="muted">
-            {svc_action_msg}
+            {svc_deployments_count} deployments
           </text>
-        </row>
-      </form>
+          <scrollable direction="vertical" class="dep_list_scroll">
+            <column class="table_body">
+              <column class="row_wrap" for-each="svc_deployments" var="d">
+                <row class="trow">
+                  <text class="td_key col_dep_id">{d.id}</text>
+                  <StateCell kind="{d.state_kind}" label="{d.state_label}" />
+                  <text class="td col_dur">{d.duration}</text>
+                  <text class="muted col_dep_start">{d.start}</text>
+                  <!-- Ícone + tooltip (eram "Build log ↗" e "Remover" por
+                       extenso): os rótulos quebravam em duas linhas e estouravam a
+                       coluna quando a janela estreitava. Mesmo padrão das linhas de
+                       job e de repo do Registry (home.gv). -->
+                  <row class="dep_actions">
+                    <button
+                      class="dep_logs_btn"
+                      on_click="dep_logs:{d.id_full}"
+                      text="≡"
+                      tooltip="Ver build log"
+                    />
+                    <button
+                      if="{d.can_delete}"
+                      equals="1"
+                      class="dep_del_btn"
+                      on_click="delete_deployment:{d.id_full}"
+                      text="✕"
+                      tooltip="Remover deployment"
+                    />
+                  </row>
+                </row>
+                <text class="dep_image">
+                  {d.image}
+                </text>
+                <hr />
+              </column>
+            </column>
+          </scrollable>
+          <!-- Build log abre em JANELA isolada (dep_logs → open_window), não inline:
+               render de milhares de linhas por reavaliação travava a principal. -->
+        </column>
 
-      <!-- Logs de runtime: vivem numa JANELA isolada (motor leve), não inline —
-        renderizar o stream aqui reavaliaria a árvore inteira da janela principal
-        por linha e a travava. A aba é só o launcher. -->
-      <column if="{tab}" equals="logs" class="log_panel">
-        <text class="muted">
-          Os logs de runtime abrem numa janela própria, isolada do restante do
-          app (para não travar a interface sob alto volume de logs).
-        </text>
-        <row class="env_add">
-          <button
-            class="btn_primary"
-            on_click="open_logs_window"
-            text="Abrir logs em janela"
+        <!-- Healthcheck (editável) -->
+        <form
+          if="{tab}"
+          equals="healthcheck"
+          class="form_panel"
+          name="healthcheck"
+          on_submit="hc_save"
+        >
+          <text class="label_cap">KIND</text>
+          <row class="tabs">
+            <TabButton
+              label="None"
+              current="{f_hc_kind}"
+              target="none"
+              action="hckind:none"
+            />
+            <TabButton
+              label="Tcp"
+              current="{f_hc_kind}"
+              target="tcp"
+              action="hckind:tcp"
+            />
+            <TabButton
+              label="Http"
+              current="{f_hc_kind}"
+              target="http"
+              action="hckind:http"
+            />
+            <TabButton
+              label="Docker"
+              current="{f_hc_kind}"
+              target="docker"
+              action="hckind:docker"
+            />
+          </row>
+          <if cond="{f_hc_kind}" equals="http">
+            <text class="label_cap">
+              HTTP PATH
+            </text>
+            <input
+              class="field_input"
+              form_control="f_hc_path"
+              value="f_hc_path"
+              on_change="field:f_hc_path"
+              placeholder="/health"
+            />
+            <text class="label_cap">EXPECTED STATUS</text>
+            <input
+              class="field_input"
+              form_control="f_hc_status"
+              value="f_hc_status"
+              on_change="field:f_hc_status"
+              placeholder="200"
+            />
+            <text if="{erro_f_hc_status}" not_equals="" class="err">
+              {erro_f_hc_status}
+            </text>
+          </if>
+          <row class="hc_grid">
+            <column class="hc_field">
+              <text class="label_cap">
+                INTERVAL (s)
+              </text>
+              <input
+                class="field_input"
+                form_control="f_hc_interval"
+                value="f_hc_interval"
+                on_change="field:f_hc_interval"
+                placeholder=""
+              />
+              <text if="{erro_f_hc_interval}" not_equals="" class="err">
+                {erro_f_hc_interval}
+              </text>
+            </column>
+            <column class="hc_field">
+              <text class="label_cap">
+                TIMEOUT (s)
+              </text>
+              <input
+                class="field_input"
+                form_control="f_hc_timeout"
+                value="f_hc_timeout"
+                on_change="field:f_hc_timeout"
+                placeholder=""
+              />
+              <text if="{erro_f_hc_timeout}" not_equals="" class="err">
+                {erro_f_hc_timeout}
+              </text>
+            </column>
+          </row>
+          <row class="hc_grid">
+            <column class="hc_field">
+              <text class="label_cap">
+                RETRIES
+              </text>
+              <input
+                class="field_input"
+                form_control="f_hc_retries"
+                value="f_hc_retries"
+                on_change="field:f_hc_retries"
+                placeholder=""
+              />
+              <text if="{erro_f_hc_retries}" not_equals="" class="err">
+                {erro_f_hc_retries}
+              </text>
+            </column>
+            <column class="hc_field">
+              <text class="label_cap">
+                START PERIOD (s)
+              </text>
+              <input
+                class="field_input"
+                form_control="f_hc_start"
+                value="f_hc_start"
+                on_change="field:f_hc_start"
+                placeholder=""
+              />
+              <text if="{erro_f_hc_start}" not_equals="" class="err">
+                {erro_f_hc_start}
+              </text>
+            </column>
+          </row>
+          <row class="env_add">
+            <button class="btn_primary" on_click="hc_save" text="Save" />
+            <text class="muted">
+              {svc_action_msg}
+            </text>
+          </row>
+        </form>
+
+        <!-- Logs de runtime: vivem numa JANELA isolada (motor leve), não inline —
+          renderizar o stream aqui reavaliaria a árvore inteira da janela principal
+          por linha e a travava. A aba é só o launcher. -->
+        <column if="{tab}" equals="logs" class="log_panel">
+          <text class="muted">
+            Os logs de runtime abrem numa janela própria, isolada do restante do
+            app (para não travar a interface sob alto volume de logs).
+          </text>
+          <row class="env_add">
+            <button
+              class="btn_primary"
+              on_click="open_logs_window"
+              text="Abrir logs em janela"
+            />
+          </row>
+        </column>
+
+        <!-- Advanced (editável) -->
+        <form
+          if="{tab}"
+          equals="advanced"
+          class="form_panel"
+          name="advanced"
+          on_submit="adv_save"
+        >
+          <text class="label_cap">
+            REPLICAS
+          </text>
+          <input
+            class="field_input"
+            form_control="f_replicas"
+            value="f_replicas"
+            on_change="field:f_replicas"
+            placeholder="1"
           />
-        </row>
+
+          <text if="{erro_f_replicas}" not_equals="" class="err">
+            {erro_f_replicas}
+          </text>
+          <text class="label_cap">
+            RUN COMMAND
+          </text>
+          <input
+            class="field_input"
+            form_control="f_run_command"
+            value="f_run_command"
+            on_change="field:f_run_command"
+            placeholder="(padrão da imagem)"
+          />
+
+          <text class="muted">
+            Run args atuais: {svc_run_args}
+          </text>
+
+          <row class="env_add">
+            <button class="btn_primary" on_click="adv_save" text="Save" />
+            <text class="muted">{svc_action_msg}</text>
+          </row>
+        </form>
+
+        <!-- Fila de pré-deploy (editável, efeito imediato — como Domains, não
+             passa pelo Save do form acima): cada item roda em ORDEM antes do
+             deploy; a primeira falha para a fila inteira. -->
+        <column if="{tab}" equals="advanced" class="form_panel">
+          <text class="label_cap">
+            FILA DE PRÉ-DEPLOY ({pre_deploy_checks_count})
+          </text>
+          <text class="muted">
+            Roda esses Jobs em ORDEM antes do deploy (manual ou webhook), um de
+            cada vez. Se o exit code de algum for diferente de 0, a fila para e
+            o deploy não acontece — os checks seguintes não rodam. Arraste
+            pelo ⋮ para reordenar. Cadastre jobs em Schedules.
+          </text>
+
+          <scrollable direction="vertical" class="env_list_scroll">
+            <column class="kv_list">
+              <template for-each="pre_deploy_checks" var="c" on_reorder="pdc_reorder" reorder_key="id">
+                <if cond="{c.__dragging}" equals="true">
+                  <row class="kv_row_drag">
+                    <text class="env_drag_handle env_dragging" dragHandle="true">
+                      ⋮
+                    </text>
+                    <button class="env_del" on_click="pdc_del:{c.id}" text="✕" />
+                    <text class="env_sep"> </text>
+                    <text class="env_key">{c.index}.</text>
+                    <text class="kv_val_fill">{c.name}</text>
+                  </row>
+                </if>
+                <else>
+                  <row class="kv_row">
+                    <text class="env_drag_handle" dragHandle="true">⋮ </text>
+                    <button class="env_del" on_click="pdc_del:{c.id}" text="✕" />
+                    <text class="env_sep"> </text>
+                    <text class="env_key">{c.index}.</text>
+                    <text class="kv_val_fill">{c.name}</text>
+                  </row>
+                </else>
+              </template>
+            </column>
+          </scrollable>
+
+          <text class="label_cap">
+            ADICIONAR À FILA
+          </text>
+          <select
+            class="select"
+            options="pre_deploy_available_jobs"
+            value="f_pdc_add_job_id"
+            on_change="field:f_pdc_add_job_id"
+            placeholder="escolher job..."
+            labelField="name"
+            valueField="id"
+          />
+          <row class="env_add">
+            <button class="btn_primary" on_click="pdc_add" text="Adicionar à fila" />
+          </row>
+        </column>
       </column>
 
-      <!-- Advanced (editável) -->
-      <form
-        if="{tab}"
-        equals="advanced"
-        class="form_panel"
-        name="advanced"
-        on_submit="adv_save"
-      >
-        <text class="label_cap">
-          REPLICAS
-        </text>
-        <input
-          class="field_input"
-          form_control="f_replicas"
-          value="f_replicas"
-          on_change="field:f_replicas"
-          placeholder="1"
-        />
+      <!-- Painel lateral: status. O log ao vivo saiu daqui (era um for-each sempre
+        renderizado que a reavaliação processava a cada tick) — agora é janela. -->
+      <column class="svc_aside">
+        <column class="aside_panel">
+          <text class="label_cap">STATUS</text>
+          <rp-badge color="{svc_status_color}" label="{svc_status_label}" />
+          <text class="label_cap">UPTIME</text>
+          <text class="kv_val">{daemon_uptime}</text>
+          <text class="label_cap">SERVICES</text>
+          <text class="kv_val">{services_label}</text>
+        </column>
 
-        <text if="{erro_f_replicas}" not_equals="" class="err">
-          {erro_f_replicas}
-        </text>
-        <text class="label_cap">
-          RUN COMMAND
-        </text>
-        <input
-          class="field_input"
-          form_control="f_run_command"
-          value="f_run_command"
-          on_change="field:f_run_command"
-          placeholder="(padrão da imagem)"
-        />
-
-        <text class="muted">
-          Run args atuais: {svc_run_args}
-        </text>
-
-        <row class="env_add">
-          <button class="btn_primary" on_click="adv_save" text="Save" />
-          <text class="muted">{svc_action_msg}</text>
-        </row>
-      </form>
-
-      <!-- Fila de pré-deploy (editável, efeito imediato — como Domains, não
-           passa pelo Save do form acima): cada item roda em ORDEM antes do
-           deploy; a primeira falha para a fila inteira. -->
-      <column if="{tab}" equals="advanced" class="form_panel">
-        <text class="label_cap">
-          FILA DE PRÉ-DEPLOY ({pre_deploy_checks_count})
-        </text>
-        <text class="muted">
-          Roda esses Jobs em ORDEM antes do deploy (manual ou webhook), um de
-          cada vez. Se o exit code de algum for diferente de 0, a fila para e
-          o deploy não acontece — os checks seguintes não rodam. Arraste
-          pelo ⋮ para reordenar. Cadastre jobs em Schedules.
-        </text>
-
-        <scrollable direction="vertical" class="env_list_scroll">
-          <column class="kv_list">
-            <template for-each="pre_deploy_checks" var="c" on_reorder="pdc_reorder" reorder_key="id">
-              <if cond="{c.__dragging}" equals="true">
-                <row class="kv_row_drag">
-                  <text class="env_drag_handle env_dragging" dragHandle="true">
-                    ⋮
-                  </text>
-                  <button class="env_del" on_click="pdc_del:{c.id}" text="✕" />
-                  <text class="env_sep"> </text>
-                  <text class="env_key">{c.index}.</text>
-                  <text class="kv_val_fill">{c.name}</text>
-                </row>
-              </if>
-              <else>
-                <row class="kv_row">
-                  <text class="env_drag_handle" dragHandle="true">⋮ </text>
-                  <button class="env_del" on_click="pdc_del:{c.id}" text="✕" />
-                  <text class="env_sep"> </text>
-                  <text class="env_key">{c.index}.</text>
-                  <text class="kv_val_fill">{c.name}</text>
-                </row>
-              </else>
-            </template>
-          </column>
-        </scrollable>
-
-        <text class="label_cap">
-          ADICIONAR À FILA
-        </text>
-        <select
-          class="select"
-          options="pre_deploy_available_jobs"
-          value="f_pdc_add_job_id"
-          on_change="field:f_pdc_add_job_id"
-          placeholder="escolher job..."
-          labelField="name"
-          valueField="id"
-        />
-        <row class="env_add">
-          <button class="btn_primary" on_click="pdc_add" text="Adicionar à fila" />
-        </row>
+        <column class="aside_panel_fill">
+          <text class="label_cap">LOGS</text>
+          <text class="muted">
+            Runtime e build logs abrem em janelas próprias (isoladas).
+          </text>
+          <row class="env_add">
+            <button class="tab" on_click="open_logs_window" text="Logs de runtime" />
+          </row>
+        </column>
       </column>
-    </column>
-
-    <!-- Painel lateral: status. O log ao vivo saiu daqui (era um for-each sempre
-      renderizado que a reavaliação processava a cada tick) — agora é janela. -->
-    <column class="svc_aside">
-      <column class="aside_panel">
-        <text class="label_cap">STATUS</text>
-        <rp-badge color="{svc_status_color}" label="{svc_status_label}" />
-        <text class="label_cap">UPTIME</text>
-        <text class="kv_val">{daemon_uptime}</text>
-        <text class="label_cap">SERVICES</text>
-        <text class="kv_val">{services_label}</text>
-      </column>
-
-      <column class="aside_panel_fill">
-        <text class="label_cap">LOGS</text>
-        <text class="muted">
-          Runtime e build logs abrem em janelas próprias (isoladas).
-        </text>
-        <row class="env_add">
-          <button class="tab" on_click="open_logs_window" text="Logs de runtime" />
-        </row>
-      </column>
-    </column>
-  </row>
-</column>
+    </row>
+  </column>
+</component>

@@ -1,683 +1,687 @@
 
-<!-- ── Imports ──────────────────────────────────────────────────────── -->
-<link rel="import" href="service.gv" as="ServiceDetail" />
-<link rel="import" href="home.gv" as="HomeViews" />
-<link rel="import" href="components/project_card.gv" as="ProjectCard" />
-<link rel="import" href="components/service_card.gv" as="ServiceCard" />
-<link rel="import" href="components/stat_card.gv" as="StatCard" />
-<link rel="import" href="components/state_cell.gv" as="StateCell" />
-<link rel="import" href="components/badge.gv" as="rp-badge" />
-<link rel="import" href="components/nav_item.gv" as="NavItem" />
-<link rel="import" href="components/tab_button.gv" as="TabButton" />
-<link rel="import" href="components/loading_row.gv" as="LoadingRow" />
-<link rel="import" href="components/picker_row.gv" as="PickerRow" />
-<link rel="import" href="components/template_row.gv" as="TemplateRow" />
+<component>
+  <resources>
+    <!-- ── Imports ──────────────────────────────────────────────────── -->
+    <link rel="import" href="service.gv" as="ServiceDetail" />
+    <link rel="import" href="home.gv" as="HomeViews" />
+    <link rel="import" href="components/project_card.gv" as="ProjectCard" />
+    <link rel="import" href="components/service_card.gv" as="ServiceCard" />
+    <link rel="import" href="components/stat_card.gv" as="StatCard" />
+    <link rel="import" href="components/state_cell.gv" as="StateCell" />
+    <link rel="import" href="components/badge.gv" as="rp-badge" />
+    <link rel="import" href="components/nav_item.gv" as="NavItem" />
+    <link rel="import" href="components/tab_button.gv" as="TabButton" />
+    <link rel="import" href="components/loading_row.gv" as="LoadingRow" />
+    <link rel="import" href="components/picker_row.gv" as="PickerRow" />
+    <link rel="import" href="components/template_row.gv" as="TemplateRow" />
 
-<style>
-.sidebar { width: 264; height: fill; background: var(--surface); padding: 28 20; spacing: 6; }
-.brand_box      { spacing: 2; padding: 0 8 18 8; }
-.brand          { size: 21; bold: true; color: var(--text); }
-.brand_sub      { size: 11; color: var(--faint); }
-.nav_section    { size: 11; bold: true; color: var(--faint); padding: 16 8 6 8; }
-.nav_spacer     { height: fill; }
-.main_col       { width: fill; height: fill; }
-/* Top bar */
-.topbar     { width: fill; padding: 18 28; spacing: 18; align-y: center; }
-.search     { width: fill; padding: 11 14; }
-/* Ações do cabeçalho do projeto (variantes compactas, à direita) */
-.btn_sm_primary { color: var(--green); padding: 7 13; border-radius: 4; size: 12 }
-.btn_sm_ghost   { color: var(--border); padding: 7 12; border-radius: 4; size: 12 }
-.btn_sm_danger  { color: var(--danger); padding: 7 13; border-radius: 4; size: 12 }
-.proj_topbar    { width: fill; align-y: center; }
-.proj_actions   { spacing: 8; align-y: center; }
-.hspacer        { width: fill; }
-/* Grid de cards (projetos / serviços) */
-.grid           { width: fill; spacing: 16; }
-.card_row       { width: fill; spacing: 16; }
-/* Responsivo: encolhe sidebar/topbar em janelas estreitas (glacier-ui 0.9.0+).
-   Abaixo de 900px vira um trilho só de ícones (ver nav_item.gv, que esconde
-   o rótulo no mesmo breakpoint) — rótulos como "Deploy Engine"/"Projects (2)"
-   não cabiam mais na sidebar encolhida e, sem espaço pra quebrar (ou sendo
-   uma palavra só), estouravam a coluna e bagunçavam o layout inteiro. */
-@media (max-width: 900) {
-  .sidebar     { width: 76; padding: 18 8; align-x: center; }
-  .topbar      { padding: 12 16; spacing: 10; }
-  .brand       { size: 16; }
-  /* "PRODUCTION CLUSTER" — não cabe nem quebrando; some, o ícone+cor já
-     comunica estado o bastante num trilho estreito. */
-  .brand_sub   { hidden: true; }
-  /* "DEPLOYMENT OPS"/"MANAGEMENT" idem — sem espaço, e redundante quando os
-     itens já são só ícones. */
-  .nav_section { hidden: true; }
-}
+    <style>
+    .sidebar { width: 264; height: fill; background: var(--surface); padding: 28 20; spacing: 6; }
+    .brand_box      { spacing: 2; padding: 0 8 18 8; }
+    .brand          { size: 21; bold: true; color: var(--text); }
+    .brand_sub      { size: 11; color: var(--faint); }
+    .nav_section    { size: 11; bold: true; color: var(--faint); padding: 16 8 6 8; }
+    .nav_spacer     { height: fill; }
+    .main_col       { width: fill; height: fill; }
+    /* Top bar */
+    .topbar     { width: fill; padding: 18 28; spacing: 18; align-y: center; }
+    .search     { width: fill; padding: 11 14; }
+    /* Ações do cabeçalho do projeto (variantes compactas, à direita) */
+    .btn_sm_primary { color: var(--green); padding: 7 13; border-radius: 4; size: 12 }
+    .btn_sm_ghost   { color: var(--border); padding: 7 12; border-radius: 4; size: 12 }
+    .btn_sm_danger  { color: var(--danger); padding: 7 13; border-radius: 4; size: 12 }
+    .proj_topbar    { width: fill; align-y: center; }
+    .proj_actions   { spacing: 8; align-y: center; }
+    .hspacer        { width: fill; }
+    /* Grid de cards (projetos / serviços) */
+    .grid           { width: fill; spacing: 16; }
+    .card_row       { width: fill; spacing: 16; }
+    /* Responsivo: encolhe sidebar/topbar em janelas estreitas (glacier-ui 0.9.0+).
+       Abaixo de 900px vira um trilho só de ícones (ver nav_item.gv, que esconde
+       o rótulo no mesmo breakpoint) — rótulos como "Deploy Engine"/"Projects (2)"
+       não cabiam mais na sidebar encolhida e, sem espaço pra quebrar (ou sendo
+       uma palavra só), estouravam a coluna e bagunçavam o layout inteiro. */
+    @media (max-width: 900) {
+      .sidebar     { width: 76; padding: 18 8; align-x: center; }
+      .topbar      { padding: 12 16; spacing: 10; }
+      .brand       { size: 16; }
+      /* "PRODUCTION CLUSTER" — não cabe nem quebrando; some, o ícone+cor já
+         comunica estado o bastante num trilho estreito. */
+      .brand_sub   { hidden: true; }
+      /* "DEPLOYMENT OPS"/"MANAGEMENT" idem — sem espaço, e redundante quando os
+         itens já são só ícones. */
+      .nav_section { hidden: true; }
+    }
 
-@media (max-width: 560) {
-  .sidebar { width: 64; padding: 14 6; spacing: 4; }
-  .brand   { size: 12; }
-  .topbar  { padding: 10 10; spacing: 8; }
-  /* Sem largura pra tudo na topbar: some com a busca e o status do daemon
-     (baixa prioridade) pra Stop All / Disconnect não serem cortados
-     (glacier-ui 0.10.0: `hidden`). */
-  .search        { hidden: true; }
-  .topbar_status { hidden: true; }
-}
-</style>
+    @media (max-width: 560) {
+      .sidebar { width: 64; padding: 14 6; spacing: 4; }
+      .brand   { size: 12; }
+      .topbar  { padding: 10 10; spacing: 8; }
+      /* Sem largura pra tudo na topbar: some com a busca e o status do daemon
+         (baixa prioridade) pra Stop All / Disconnect não serem cortados
+         (glacier-ui 0.10.0: `hidden`). */
+      .search        { hidden: true; }
+      .topbar_status { hidden: true; }
+    }
+    </style>
+  </resources>
 
-<row class="screen">
-  <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
-  <column class="sidebar">
-    <column class="brand_box">
-      <text class="brand">Rustploy</text>
-      <text class="brand_sub">PRODUCTION CLUSTER</text>
-    </column>
-    <text class="nav_section">DEPLOYMENT OPS</text>
-    <NavItem
-      label="Deployments"
-      icon="▶"
-      target="deployments"
-      action="nav_deployments"
-    />
-    <NavItem
-      label="Deploy Engine"
-      icon="⚡"
-      target="deploy_engine"
-      action="nav_deploy_engine"
-    />
-    <NavItem
-      label="Monitoring"
-      icon="◔"
-      target="monitoring"
-      action="nav_monitoring"
-    />
-    <NavItem
-      label="Schedules"
-      icon="◫"
-      target="schedules"
-      action="nav_schedules"
-    />
-    <NavItem
-      label="Ingress"
-      icon="↦"
-      target="ingress"
-      action="nav_ingress"
-    />
-    <NavItem
-      label="Docker"
-      icon="◉"
-      target="docker"
-      action="nav_docker"
-    />
-    <text class="nav_section">MANAGEMENT</text>
-    <NavItem
-      label="Projects ({projects_count})"
-      icon="◧"
-      target="projects project_services service"
-      action="nav_projects"
-    />
-    <column class="nav_spacer" />
-    <hr />
-    <NavItem
-      label="Settings"
-      icon="⌥"
-      target="settings"
-      action="nav_settings"
-    />
-    <NavItem
-      label="Support"
-      icon="◊"
-      target="support"
-      action="nav_support"
-    />
-  </column>
-  <!-- ── Main column ──────────────────────────────────────────────────── -->
-  <column class="main_col">
-    <!-- Top bar -->
-    <row class="topbar">
-      <input
-        class="search"
-        value="search"
-        on_change="search_changed"
-        placeholder="Search deployments, nodes…"
+  <row class="screen">
+    <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+    <column class="sidebar">
+      <column class="brand_box">
+        <text class="brand">Rustploy</text>
+        <text class="brand_sub">PRODUCTION CLUSTER</text>
+      </column>
+      <text class="nav_section">DEPLOYMENT OPS</text>
+      <NavItem
+        label="Deployments"
+        icon="▶"
+        target="deployments"
+        action="nav_deployments"
       />
-      <text class="muted topbar_status">
-        ● daemon v{daemon_version}
-      </text>
-      <button class="btn_danger" on_click="stop_all" text="Stop All" />
-      <button class="btn_ghost" on_click="disconnect" text="Disconnect" />
-    </row>
-    <hr />
-    <!-- Content -->
-    <if cond="{view}" equals="deployments">
-      <column class="content">
-        <row class="header_row">
-          <column class="header_titles">
-            <text class="title">Deployments</text>
-            <text class="subtitle">
-              Real-time status of services in the cluster.
-            </text>
-          </column>
-          <row class="stats_row stats_hide_lg">
-            <StatCard label="STATUS" value="{services_label}" accent="1" />
-            <StatCard label="UPTIME" value="{daemon_uptime}" />
+      <NavItem
+        label="Deploy Engine"
+        icon="⚡"
+        target="deploy_engine"
+        action="nav_deploy_engine"
+      />
+      <NavItem
+        label="Monitoring"
+        icon="◔"
+        target="monitoring"
+        action="nav_monitoring"
+      />
+      <NavItem
+        label="Schedules"
+        icon="◫"
+        target="schedules"
+        action="nav_schedules"
+      />
+      <NavItem
+        label="Ingress"
+        icon="↦"
+        target="ingress"
+        action="nav_ingress"
+      />
+      <NavItem
+        label="Docker"
+        icon="◉"
+        target="docker"
+        action="nav_docker"
+      />
+      <text class="nav_section">MANAGEMENT</text>
+      <NavItem
+        label="Projects ({projects_count})"
+        icon="◧"
+        target="projects project_services service"
+        action="nav_projects"
+      />
+      <column class="nav_spacer" />
+      <hr />
+      <NavItem
+        label="Settings"
+        icon="⌥"
+        target="settings"
+        action="nav_settings"
+      />
+      <NavItem
+        label="Support"
+        icon="◊"
+        target="support"
+        action="nav_support"
+      />
+    </column>
+    <!-- ── Main column ──────────────────────────────────────────────────── -->
+    <column class="main_col">
+      <!-- Top bar -->
+      <row class="topbar">
+        <input
+          class="search"
+          value="search"
+          on_change="search_changed"
+          placeholder="Search deployments, nodes…"
+        />
+        <text class="muted topbar_status">
+          ● daemon v{daemon_version}
+        </text>
+        <button class="btn_danger" on_click="stop_all" text="Stop All" />
+        <button class="btn_ghost" on_click="disconnect" text="Disconnect" />
+      </row>
+      <hr />
+      <!-- Content -->
+      <if cond="{view}" equals="deployments">
+        <column class="content">
+          <row class="header_row">
+            <column class="header_titles">
+              <text class="title">Deployments</text>
+              <text class="subtitle">
+                Real-time status of services in the cluster.
+              </text>
+            </column>
+            <row class="stats_row stats_hide_lg">
+              <StatCard label="STATUS" value="{services_label}" accent="1" />
+              <StatCard label="UPTIME" value="{daemon_uptime}" />
+            </row>
+            <button
+              class="btn_danger"
+              on_click="deployments_clear_finished"
+              text="Limpar parados/falhos"
+            />
           </row>
-          <button
-            class="btn_danger"
-            on_click="deployments_clear_finished"
-            text="Limpar parados/falhos"
-          />
-        </row>
-        <text if="{deployments_msg}" not_equals="" class="muted">{deployments_msg}</text>
-        <column class="panel_fill">
-          <row class="thead">
-            <text class="th col_svc">SERVIÇO</text>
-            <text class="th col_proj">PROJETO</text>
-            <text class="th col_state">ESTADO</text>
-            <text class="th col_dur">DURAÇÃO</text>
-            <text class="th col_start">INÍCIO</text>
-          </row>
+          <text if="{deployments_msg}" not_equals="" class="muted">{deployments_msg}</text>
+          <column class="panel_fill">
+            <row class="thead">
+              <text class="th col_svc">SERVIÇO</text>
+              <text class="th col_proj">PROJETO</text>
+              <text class="th col_state">ESTADO</text>
+              <text class="th col_dur">DURAÇÃO</text>
+              <text class="th col_start">INÍCIO</text>
+            </row>
 
+            <if cond="{data_loading}" equals="true">
+              <LoadingRow />
+            </if>
+
+            <scrollable
+              if="{data_loading}"
+              not_equals="true"
+              direction="vertical"
+              class="scroll_fill"
+            >
+              <column class="table_body">
+                <column class="row_wrap" for-each="deployments" var="d">
+                  <row class="trow">
+                    <text class="td_key col_svc">{d.service}</text>
+                    <text class="td col_proj">{d.project}</text>
+                    <StateCell kind="{d.state_kind}" label="{d.state_label}" />
+                    <text class="td col_dur">{d.duration}</text>
+                    <text class="muted col_start">{d.start}</text>
+                  </row>
+                  <hr />
+                </column>
+              </column>
+            </scrollable>
+          </column>
+        </column>
+      </if>
+
+      <!-- ── Projects (lista de projetos) ────────────────────────────── -->
+      <ElseIf cond="{view}" equals="projects">
+        <column class="content">
+          <row class="header_row">
+            <column class="header_titles">
+              <text class="title">Projects</text>
+              <text class="subtitle">
+                Projetos do cluster e a contagem de serviços de cada um.
+              </text>
+            </column>
+            <row class="stats_row">
+              <StatCard label="SERVICES" value="{services_count}" />
+              <StatCard label="PROJECTS" value="{projects_count}" accent="1" />
+            </row>
+          </row>
+          <!-- Criar projeto agora abre uma JANELA à parte (new_project_form.gv,
+            motor Glacier próprio); ao concluir, ela envia um broadcast
+            "project_created" que `on_broadcast` (handlers/projects.luau) recebe
+            para atualizar a grade. Ver open_new_project_window. -->
+          <row class="env_add">
+            <button
+              class="btn_primary"
+              on_click="open_new_project_window"
+              text="+ Novo projeto"
+            />
+          </row>
           <if cond="{data_loading}" equals="true">
             <LoadingRow />
           </if>
-          
+
           <scrollable
             if="{data_loading}"
             not_equals="true"
             direction="vertical"
             class="scroll_fill"
           >
-            <column class="table_body">
-              <column class="row_wrap" for-each="deployments" var="d">
-                <row class="trow">
-                  <text class="td_key col_svc">{d.service}</text>
-                  <text class="td col_proj">{d.project}</text>
-                  <StateCell kind="{d.state_kind}" label="{d.state_label}" />
-                  <text class="td col_dur">{d.duration}</text>
-                  <text class="muted col_start">{d.start}</text>
+            <column class="grid">
+              <template for-each="project_rows" var="r">
+                <row class="card_row">
+                  <template for-each="r.cards" var="c">
+                    <ProjectCard
+                      id="{c.id}"
+                      filler="{c.filler}"
+                      name="{c.name}"
+                      service_count="{c.service_count}"
+                      running_count="{c.running_count}"
+                      description="{c.description}"
+                      can_delete="{c.can_delete}"
+                    />
+                  </template>
                 </row>
-                <hr />
-              </column>
+              </template>
             </column>
           </scrollable>
         </column>
-      </column>
-    </if>
-    
-    <!-- ── Projects (lista de projetos) ────────────────────────────── -->
-    <ElseIf cond="{view}" equals="projects">
-      <column class="content">
-        <row class="header_row">
-          <column class="header_titles">
-            <text class="title">Projects</text>
-            <text class="subtitle">
-              Projetos do cluster e a contagem de serviços de cada um.
-            </text>
-          </column>
-          <row class="stats_row">
-            <StatCard label="SERVICES" value="{services_count}" />
-            <StatCard label="PROJECTS" value="{projects_count}" accent="1" />
-          </row>
-        </row>
-        <!-- Criar projeto agora abre uma JANELA à parte (new_project_form.gv,
-          motor Glacier próprio); ao concluir, ela envia um broadcast
-          "project_created" que `on_broadcast` (handlers/projects.luau) recebe
-          para atualizar a grade. Ver open_new_project_window. -->
-        <row class="env_add">
-          <button
-            class="btn_primary"
-            on_click="open_new_project_window"
-            text="+ Novo projeto"
-          />
-        </row>
-        <if cond="{data_loading}" equals="true">
-          <LoadingRow />
-        </if>
-        
-        <scrollable
-          if="{data_loading}"
-          not_equals="true"
-          direction="vertical"
-          class="scroll_fill"
-        >
-          <column class="grid">
-            <template for-each="project_rows" var="r">
-              <row class="card_row">
-                <template for-each="r.cards" var="c">
-                  <ProjectCard
-                    id="{c.id}"
-                    filler="{c.filler}"
-                    name="{c.name}"
-                    service_count="{c.service_count}"
-                    running_count="{c.running_count}"
-                    description="{c.description}"
-                    can_delete="{c.can_delete}"
-                  />
-                </template>
-              </row>
-            </template>
-          </column>
-        </scrollable>
-      </column>
-    </ElseIf>
-    <!-- ── Projeto: serviços de um projeto ────────────────────────── -->
-    <ElseIf cond="{view}" equals="project_services">
-      <column class="content">
-        <row class="header_row">
-          <column class="header_titles">
-            <!-- Barra superior: voltar à esquerda, ações do projeto
-                 empurradas para a extremidade direita (hspacer = width:fill).
-                 Em modo de edição as ações somem (o form tem Salvar/Cancelar). -->
-            <row class="proj_topbar">
-              <button
-                class="btn_ghost"
-                on_click="nav_projects"
-                text="‹ Projetos"
-              />
-              <column class="hspacer" />
-              <if cond="{editing_project}" not_equals="true">
-                <row class="proj_actions">
-                  <button
-                    class="btn_sm_primary"
-                    on_click="open_new_service_window"
-                    text="+ Novo serviço"
-                  />
-                  <button
-                    class="btn_sm_ghost"
-                    on_click="edit_project_toggle"
-                    text="Editar projeto"
-                  />
-                  <if cond="{proj_can_delete}" equals="1">
-                    <button
-                      class="btn_sm_danger"
-                      on_click="delete_project:{selected_project_id}"
-                      text="Remover projeto"
-                    />
-                  </if>
-                </row>
-              </if>
-            </row>
-            <if cond="{editing_project}" equals="true">
-              <form
-                name="edit_project"
-                on_submit="save_project_edit"
-                spacing="6"
-                width="fill"
-              >
-                <input
-                  class="field_input"
-                  form_control="edit_proj_name"
-                  placeholder="Nome do projeto"
+      </ElseIf>
+      <!-- ── Projeto: serviços de um projeto ────────────────────────── -->
+      <ElseIf cond="{view}" equals="project_services">
+        <column class="content">
+          <row class="header_row">
+            <column class="header_titles">
+              <!-- Barra superior: voltar à esquerda, ações do projeto
+                   empurradas para a extremidade direita (hspacer = width:fill).
+                   Em modo de edição as ações somem (o form tem Salvar/Cancelar). -->
+              <row class="proj_topbar">
+                <button
+                  class="btn_ghost"
+                  on_click="nav_projects"
+                  text="‹ Projetos"
                 />
-                <if cond="{erro_edit_proj_name}" not_equals="">
-                  <text class="err">{erro_edit_proj_name}</text>
+                <column class="hspacer" />
+                <if cond="{editing_project}" not_equals="true">
+                  <row class="proj_actions">
+                    <button
+                      class="btn_sm_primary"
+                      on_click="open_new_service_window"
+                      text="+ Novo serviço"
+                    />
+                    <button
+                      class="btn_sm_ghost"
+                      on_click="edit_project_toggle"
+                      text="Editar projeto"
+                    />
+                    <if cond="{proj_can_delete}" equals="1">
+                      <button
+                        class="btn_sm_danger"
+                        on_click="delete_project:{selected_project_id}"
+                        text="Remover projeto"
+                      />
+                    </if>
+                  </row>
                 </if>
-                <input
-                  class="field_input"
-                  form_control="edit_proj_desc"
-                  placeholder="Descrição (opcional)"
+              </row>
+              <if cond="{editing_project}" equals="true">
+                <form
+                  name="edit_project"
+                  on_submit="save_project_edit"
+                  spacing="6"
+                  width="fill"
+                >
+                  <input
+                    class="field_input"
+                    form_control="edit_proj_name"
+                    placeholder="Nome do projeto"
+                  />
+                  <if cond="{erro_edit_proj_name}" not_equals="">
+                    <text class="err">{erro_edit_proj_name}</text>
+                  </if>
+                  <input
+                    class="field_input"
+                    form_control="edit_proj_desc"
+                    placeholder="Descrição (opcional)"
+                  />
+                  <row class="env_add">
+                    <button
+                      class="btn_primary"
+                      on_click="save_project_edit"
+                      text="Salvar"
+                    />
+                    <button
+                      class="btn_ghost"
+                      on_click="cancel_project_edit"
+                      text="Cancelar"
+                    />
+                    <text class="muted">{proj_action_msg}</text>
+                  </row>
+                </form>
+              </if>
+              <else>
+                <text class="title">{proj_name}</text>
+                <text class="subtitle">{proj_description}</text>
+                <text if="{proj_action_msg}" not_equals="" class="muted">
+                  {proj_action_msg}
+                </text>
+              </else>
+            </column>
+          </row>
+          <!-- Sub-abas do projeto -->
+          <row class="tabs">
+            <TabButton
+              label="Serviços"
+              current="{proj_tab}"
+              target="services"
+              action="proj_tab:services"
+            />
+            <TabButton
+              label="Variáveis ({proj_env_count})"
+              current="{proj_tab}"
+              target="env"
+              action="proj_tab:env"
+            />
+            <TabButton
+              label="Secrets ({proj_secrets_count})"
+              current="{proj_tab}"
+              target="secrets"
+              action="proj_tab:secrets"
+            />
+            <TabButton
+              label="Jobs ({proj_jobs_count})"
+              current="{proj_tab}"
+              target="jobs"
+              action="proj_tab:jobs"
+            />
+          </row>
+          <hr />
+          <if cond="{proj_loading}" equals="true">
+            <LoadingRow />
+          </if>
+          <if cond="{proj_tab}" equals="env">
+            <!-- ── Variáveis de ambiente do projeto ────────────────────── -->
+            <column class="env_wrap" if="{proj_loading}" not_equals="true">
+              <row class="env_head">
+                <text class="muted_fill">
+                  Herdadas por todos os serviços deste projeto no deploy —
+                  as do serviço têm precedência.
+                </text>
+                <button
+                  class="btn_export"
+                  on_click="penv_export"
+                  text="Exportar"
+                />
+                <text>&nbsp;</text>
+                <if cond="{penv_text_open}" equals="true">
+                  <button
+                    class="btn_export_on"
+                    on_click="penv_text_toggle"
+                    text="Fechar"
+                  />
+                </if>
+                <else>
+                  <button
+                    class="tab"
+                    on_click="penv_text_toggle"
+                    text=".env"
+                  />
+                </else>
+              </row>
+              <form name="penv_add" on_submit="penv_add" width="fill" spacing="8">
+                <row class="env_add">
+                  <input
+                    class="env_in_key"
+                    form_control="penv_new_key"
+                    placeholder="KEY"
+                  />
+                </row>
+                <!-- Modo secret: o campo valor passa a receber o NOME de um
+                     secret do projeto (a referência, não o conteúdo), que o
+                     daemon decifra no deploy. Vários filhos condicionais →
+                     tag if, não atributo. -->
+                <if cond="{penv_new_is_secret}" equals="true">
+                  <row class="env_add">
+                    <input
+                      class="env_in_val"
+                      form_control="penv_new_val"
+                      placeholder="nome do secret"
+                    />
+                    <button
+                      class="btn_export_on"
+                      on_click="penv_secret_toggle"
+                      text="usar secret"
+                    />
+                  </row>
+                  <text if="{proj_secrets}" empty class="muted">
+                    Nenhum secret cadastrado — crie um na aba Secrets.
+                  </text>
+                  <row class="env_add" if="{proj_secrets}" not_empty>
+                    <text class="muted">Secrets do projeto:&nbsp;</text>
+                    <button
+                      class="copy_btn"
+                      for-each="proj_secrets"
+                      var="s"
+                      on_click="secret_use:{s.name}"
+                      text="{s.name_display}"
+                    />
+                  </row>
+                </if>
+                <else>
+                  <row class="env_add">
+                    <input
+                      class="env_in_val"
+                      form_control="penv_new_val"
+                      placeholder="value"
+                    />
+                    <button
+                      class="tab"
+                      on_click="penv_secret_toggle"
+                      text="usar secret"
+                    />
+                  </row>
+                </else>
+                <row>
+                  <button
+                    class="btn_primary"
+                    on_click="penv_add"
+                    text="Adicionar"
+                  />
+                </row>
+              </form>
+              <if cond="{erro_penv_new_key}" not_equals="">
+                <text class="err">{erro_penv_new_key}</text>
+              </if>
+              <scrollable direction="vertical" class="env_list_scroll">
+                <column class="kv_list">
+                  <template
+                    for-each="proj_env"
+                    var="e"
+                    on_reorder="penv_reorder"
+                    reorder_key="key"
+                  >
+                    <!-- Comentários (# ...) do .env: arrastáveis como as vars
+                         (reancoram na var seguinte da nova ordem), mas sem
+                         delete — removem-se editando o .env. -->
+                    <if cond="{e.__dragging}" equals="true">
+                      <row class="kv_row_drag" if="{e.kind}" equals="comment">
+                        <text class="env_drag_handle env_dragging" dragHandle="true">
+                          ⋮&nbsp;
+                        </text>
+                        <text class="muted">{e.value}</text>
+                      </row>
+                      <row class="kv_row_drag" else>
+                        <text class="env_drag_handle env_dragging" dragHandle="true">
+                          ⋮&nbsp;
+                        </text>
+                        <button
+                          class="env_del"
+                          on_click="penv_del:{e.key}"
+                          text="✕"
+                        />
+                        <text class="env_sep"></text>
+                        <text class="env_key">{e.key_display}</text>
+                        <text class="kv_val_fill">{e.value}</text>
+                      </row>
+                    </if>
+                    <else>
+                      <row class="kv_row" if="{e.kind}" equals="comment">
+                        <text class="env_drag_handle" dragHandle="true">⋮&nbsp;</text>
+                        <text class="muted">{e.value}</text>
+                      </row>
+                      <row class="kv_row" else>
+                        <text class="env_drag_handle" dragHandle="true">⋮&nbsp;</text>
+                        <button
+                          class="env_del"
+                          on_click="penv_del:{e.key}"
+                          text="✕"
+                        />
+                        <text class="env_sep"></text>
+                        <text class="env_key">{e.key_display}</text>
+                        <text class="kv_val_fill">{e.value}</text>
+                      </row>
+                    </else>
+                  </template>
+                </column>
+              </scrollable>
+              <!-- Editor .env: vários filhos condicionais → TAG if (o atributo
+                   if= só esconderia o Text, deixando TextArea/botões sempre
+                   visíveis). -->
+              <if cond="{penv_text_open}" equals="true">
+                <text class="muted">
+                  Cole/edite no formato KEY=VALUE (# comentário).
+                </text>
+                <textarea
+                  class="env_editor"
+                  font="mono"
+                  value="proj_env_text"
+                  placeholder="KEY=VALUE   (# comentário)"
                 />
                 <row class="env_add">
                   <button
                     class="btn_primary"
-                    on_click="save_project_edit"
+                    on_click="penv_import"
                     text="Salvar"
                   />
                   <button
                     class="btn_ghost"
-                    on_click="cancel_project_edit"
+                    on_click="penv_text_cancel"
                     text="Cancelar"
                   />
-                  <text class="muted">{proj_action_msg}</text>
+                </row>
+              </if>
+            </column>
+          </if>
+          <if cond="{proj_tab}" equals="secrets">
+            <!-- ── Secrets do projeto ──────────────────────────────────────
+                 Write-only: o daemon só devolve os nomes (o valor é cifrado
+                 com a chave mestre do servidor), então não há coluna de valor
+                 nem edição — sobrescrever é salvar de novo com o mesmo nome.
+                 Ver handlers/secrets.luau e docs/secrets.md. -->
+            <column class="env_wrap" if="{proj_loading}" not_equals="true">
+              <column class="wh_block">
+                <text class="muted_fill">
+                  Valores sensíveis (tokens, senhas, chaves de API) cifrados com
+                  a chave mestre do servidor. Depois de salvo, o valor nunca mais
+                  é exibido — para trocá-lo, salve um novo com o mesmo nome.
+                </text>
+                <text class="muted_fill">
+                  Para usar num serviço: na aba Variáveis, ligue "usar secret" e
+                  escolha o nome; ou escreva &lt;secret:NOME&gt; (ou secret:NOME)
+                  como valor, no editor .env do projeto ou do serviço. Para
+                  clonar um repositório Git privado, use o nome do secret puro,
+                  sem prefixo, no campo Credentials da aba General do serviço.
+                </text>
+                <text class="muted_fill">
+                  O valor real só é decifrado em memória, na hora do deploy.
+                </text>
+              </column>
+              <form name="secret_add" on_submit="secret_add" width="fill" spacing="8">
+                <row class="env_add">
+                  <input
+                    class="env_in_key"
+                    form_control="sec_new_name"
+                    placeholder="NOME"
+                  />
+                </row>
+                <row class="env_add">
+                  <input
+                    class="env_in_val"
+                    form_control="sec_new_val"
+                    placeholder="valor (cifrado ao salvar)"
+                  />
+                </row>
+                <row>
+                  <button
+                    class="btn_primary"
+                    on_click="secret_add"
+                    text="Salvar secret"
+                  />
                 </row>
               </form>
-            </if>
-            <else>
-              <text class="title">{proj_name}</text>
-              <text class="subtitle">{proj_description}</text>
-              <text if="{proj_action_msg}" not_equals="" class="muted">
-                {proj_action_msg}
-              </text>
-            </else>
-          </column>
-        </row>
-        <!-- Sub-abas do projeto -->
-        <row class="tabs">
-          <TabButton
-            label="Serviços"
-            current="{proj_tab}"
-            target="services"
-            action="proj_tab:services"
-          />
-          <TabButton
-            label="Variáveis ({proj_env_count})"
-            current="{proj_tab}"
-            target="env"
-            action="proj_tab:env"
-          />
-          <TabButton
-            label="Secrets ({proj_secrets_count})"
-            current="{proj_tab}"
-            target="secrets"
-            action="proj_tab:secrets"
-          />
-          <TabButton
-            label="Jobs ({proj_jobs_count})"
-            current="{proj_tab}"
-            target="jobs"
-            action="proj_tab:jobs"
-          />
-        </row>
-        <hr />
-        <if cond="{proj_loading}" equals="true">
-          <LoadingRow />
-        </if>
-        <if cond="{proj_tab}" equals="env">
-          <!-- ── Variáveis de ambiente do projeto ────────────────────── -->
-          <column class="env_wrap" if="{proj_loading}" not_equals="true">
-            <row class="env_head">
-              <text class="muted_fill">
-                Herdadas por todos os serviços deste projeto no deploy —
-                as do serviço têm precedência.
-              </text>
-              <button
-                class="btn_export"
-                on_click="penv_export"
-                text="Exportar"
-              />
-              <text>&nbsp;</text>
-              <if cond="{penv_text_open}" equals="true">
-                <button
-                  class="btn_export_on"
-                  on_click="penv_text_toggle"
-                  text="Fechar"
-                />
+              <if cond="{erro_sec_new_name}" not_equals="">
+                <text class="err">{erro_sec_new_name}</text>
               </if>
-              <else>
-                <button
-                  class="tab"
-                  on_click="penv_text_toggle"
-                  text=".env"
-                />
-              </else>
-            </row>
-            <form name="penv_add" on_submit="penv_add" width="fill" spacing="8">
-              <row class="env_add">
-                <input
-                  class="env_in_key"
-                  form_control="penv_new_key"
-                  placeholder="KEY"
-                />
-              </row>
-              <!-- Modo secret: o campo valor passa a receber o NOME de um
-                   secret do projeto (a referência, não o conteúdo), que o
-                   daemon decifra no deploy. Vários filhos condicionais →
-                   tag if, não atributo. -->
-              <if cond="{penv_new_is_secret}" equals="true">
-                <row class="env_add">
-                  <input
-                    class="env_in_val"
-                    form_control="penv_new_val"
-                    placeholder="nome do secret"
-                  />
-                  <button
-                    class="btn_export_on"
-                    on_click="penv_secret_toggle"
-                    text="usar secret"
-                  />
-                </row>
-                <text if="{proj_secrets}" empty class="muted">
-                  Nenhum secret cadastrado — crie um na aba Secrets.
-                </text>
-                <row class="env_add" if="{proj_secrets}" not_empty>
-                  <text class="muted">Secrets do projeto:&nbsp;</text>
-                  <button
-                    class="copy_btn"
-                    for-each="proj_secrets"
-                    var="s"
-                    on_click="secret_use:{s.name}"
-                    text="{s.name_display}"
-                  />
-                </row>
-              </if>
-              <else>
-                <row class="env_add">
-                  <input
-                    class="env_in_val"
-                    form_control="penv_new_val"
-                    placeholder="value"
-                  />
-                  <button
-                    class="tab"
-                    on_click="penv_secret_toggle"
-                    text="usar secret"
-                  />
-                </row>
-              </else>
-              <row>
-                <button
-                  class="btn_primary"
-                  on_click="penv_add"
-                  text="Adicionar"
-                />
-              </row>
-            </form>
-            <if cond="{erro_penv_new_key}" not_equals="">
-              <text class="err">{erro_penv_new_key}</text>
-            </if>
-            <scrollable direction="vertical" class="env_list_scroll">
-              <column class="kv_list">
-                <template
-                  for-each="proj_env"
-                  var="e"
-                  on_reorder="penv_reorder"
-                  reorder_key="key"
-                >
-                  <!-- Comentários (# ...) do .env: arrastáveis como as vars
-                       (reancoram na var seguinte da nova ordem), mas sem
-                       delete — removem-se editando o .env. -->
-                  <if cond="{e.__dragging}" equals="true">
-                    <row class="kv_row_drag" if="{e.kind}" equals="comment">
-                      <text class="env_drag_handle env_dragging" dragHandle="true">
-                        ⋮&nbsp;
-                      </text>
-                      <text class="muted">{e.value}</text>
-                    </row>
-                    <row class="kv_row_drag" else>
-                      <text class="env_drag_handle env_dragging" dragHandle="true">
-                        ⋮&nbsp;
-                      </text>
-                      <button
-                        class="env_del"
-                        on_click="penv_del:{e.key}"
-                        text="✕"
-                      />
-                      <text class="env_sep"></text>
-                      <text class="env_key">{e.key_display}</text>
-                      <text class="kv_val_fill">{e.value}</text>
-                    </row>
-                  </if>
-                  <else>
-                    <row class="kv_row" if="{e.kind}" equals="comment">
-                      <text class="env_drag_handle" dragHandle="true">⋮&nbsp;</text>
-                      <text class="muted">{e.value}</text>
-                    </row>
-                    <row class="kv_row" else>
-                      <text class="env_drag_handle" dragHandle="true">⋮&nbsp;</text>
-                      <button
-                        class="env_del"
-                        on_click="penv_del:{e.key}"
-                        text="✕"
-                      />
-                      <text class="env_sep"></text>
-                      <text class="env_key">{e.key_display}</text>
-                      <text class="kv_val_fill">{e.value}</text>
-                    </row>
-                  </else>
-                </template>
-              </column>
-            </scrollable>
-            <!-- Editor .env: vários filhos condicionais → TAG if (o atributo
-                 if= só esconderia o Text, deixando TextArea/botões sempre
-                 visíveis). -->
-            <if cond="{penv_text_open}" equals="true">
-              <text class="muted">
-                Cole/edite no formato KEY=VALUE (# comentário).
+              <hr />
+              <text if="{proj_secrets}" empty class="muted">
+                Nenhum secret neste projeto ainda.
               </text>
-              <textarea
-                class="env_editor"
-                font="mono"
-                value="proj_env_text"
-                placeholder="KEY=VALUE   (# comentário)"
-              />
-              <row class="env_add">
-                <button
-                  class="btn_primary"
-                  on_click="penv_import"
-                  text="Salvar"
-                />
-                <button
-                  class="btn_ghost"
-                  on_click="penv_text_cancel"
-                  text="Cancelar"
-                />
-              </row>
-            </if>
-          </column>
-        </if>
-        <if cond="{proj_tab}" equals="secrets">
-          <!-- ── Secrets do projeto ──────────────────────────────────────
-               Write-only: o daemon só devolve os nomes (o valor é cifrado
-               com a chave mestre do servidor), então não há coluna de valor
-               nem edição — sobrescrever é salvar de novo com o mesmo nome.
-               Ver handlers/secrets.luau e docs/secrets.md. -->
-          <column class="env_wrap" if="{proj_loading}" not_equals="true">
-            <column class="wh_block">
-              <text class="muted_fill">
-                Valores sensíveis (tokens, senhas, chaves de API) cifrados com
-                a chave mestre do servidor. Depois de salvo, o valor nunca mais
-                é exibido — para trocá-lo, salve um novo com o mesmo nome.
-              </text>
-              <text class="muted_fill">
-                Para usar num serviço: na aba Variáveis, ligue "usar secret" e
-                escolha o nome; ou escreva &lt;secret:NOME&gt; (ou secret:NOME)
-                como valor, no editor .env do projeto ou do serviço. Para
-                clonar um repositório Git privado, use o nome do secret puro,
-                sem prefixo, no campo Credentials da aba General do serviço.
-              </text>
-              <text class="muted_fill">
-                O valor real só é decifrado em memória, na hora do deploy.
-              </text>
+              <scrollable direction="vertical" class="env_list_scroll">
+                <column class="kv_list">
+                  <row class="kv_row" for-each="proj_secrets" var="s">
+                    <button
+                      class="env_del"
+                      on_click="secret_del:{s.name}"
+                      text="✕"
+                    />
+                    <text class="env_sep"></text>
+                    <text class="env_key">{s.name_display}</text>
+                    <text class="kv_val_fill">cifrado</text>
+                  </row>
+                </column>
+              </scrollable>
             </column>
-            <form name="secret_add" on_submit="secret_add" width="fill" spacing="8">
-              <row class="env_add">
-                <input
-                  class="env_in_key"
-                  form_control="sec_new_name"
-                  placeholder="NOME"
-                />
-              </row>
-              <row class="env_add">
-                <input
-                  class="env_in_val"
-                  form_control="sec_new_val"
-                  placeholder="valor (cifrado ao salvar)"
-                />
-              </row>
-              <row>
-                <button
-                  class="btn_primary"
-                  on_click="secret_add"
-                  text="Salvar secret"
-                />
-              </row>
-            </form>
-            <if cond="{erro_sec_new_name}" not_equals="">
-              <text class="err">{erro_sec_new_name}</text>
-            </if>
-            <hr />
-            <text if="{proj_secrets}" empty class="muted">
-              Nenhum secret neste projeto ainda.
+          </if>
+          <if cond="{proj_tab}" equals="jobs">
+            <row class="env_head">
+              <text class="muted_fill">{proj_jobs_count} job(s)</text>
+              <button class="btn_sm_primary" on_click="open_new_job_window" text="+ Novo job" />
+            </row>
+            <text if="{proj_jobs}" empty class="muted">
+              Nenhum job cadastrado ainda.
             </text>
             <scrollable direction="vertical" class="env_list_scroll">
               <column class="kv_list">
-                <row class="kv_row" for-each="proj_secrets" var="s">
-                  <button
-                    class="env_del"
-                    on_click="secret_del:{s.name}"
-                    text="✕"
-                  />
-                  <text class="env_sep"></text>
-                  <text class="env_key">{s.name_display}</text>
-                  <text class="kv_val_fill">cifrado</text>
+                <row class="kv_row" for-each="proj_jobs" var="j">
+                  <text class="env_key">{j.name}</text>
+                  <text class="muted col_dur">{j.recurrence}</text>
+                  <StateCell kind="{j.last_run_kind}" label="{j.last_run_label}" />
+                  <text class="muted kv_val_fill">→ {j.next_run_at}</text>
+                  <button class="copy_btn" if="{j.running}" not_equals="true"
+                    on_click="job_run_now:{j.id}" text="Rodar agora" />
+                  <button class="env_del" if="{j.running}" equals="true"
+                    on_click="job_run_cancel:{j.last_run_id}" text="Cancelar" />
+                  <button class="copy_btn" if="{j.last_run_id}" not_equals=""
+                    on_click="open_job_logs_window:{j.last_run_id}" text="Ver logs" />
+                  <button class="copy_btn" on_click="job_toggle:{j.id}" text="{j.enabled_label}" />
+                  <button class="copy_btn" on_click="open_edit_job_window:{j.id}" text="Editar" />
+                  <button class="env_del" on_click="job_del:{j.id}" text="✕" />
                 </row>
               </column>
             </scrollable>
-          </column>
-        </if>
-        <if cond="{proj_tab}" equals="jobs">
-          <row class="env_head">
-            <text class="muted_fill">{proj_jobs_count} job(s)</text>
-            <button class="btn_sm_primary" on_click="open_new_job_window" text="+ Novo job" />
-          </row>
-          <text if="{proj_jobs}" empty class="muted">
-            Nenhum job cadastrado ainda.
-          </text>
-          <scrollable direction="vertical" class="env_list_scroll">
-            <column class="kv_list">
-              <row class="kv_row" for-each="proj_jobs" var="j">
-                <text class="env_key">{j.name}</text>
-                <text class="muted col_dur">{j.recurrence}</text>
-                <StateCell kind="{j.last_run_kind}" label="{j.last_run_label}" />
-                <text class="muted kv_val_fill">→ {j.next_run_at}</text>
-                <button class="copy_btn" if="{j.running}" not_equals="true"
-                  on_click="job_run_now:{j.id}" text="Rodar agora" />
-                <button class="env_del" if="{j.running}" equals="true"
-                  on_click="job_run_cancel:{j.last_run_id}" text="Cancelar" />
-                <button class="copy_btn" if="{j.last_run_id}" not_equals=""
-                  on_click="open_job_logs_window:{j.last_run_id}" text="Ver logs" />
-                <button class="copy_btn" on_click="job_toggle:{j.id}" text="{j.enabled_label}" />
-                <button class="copy_btn" on_click="open_edit_job_window:{j.id}" text="Editar" />
-                <button class="env_del" on_click="job_del:{j.id}" text="✕" />
-              </row>
-            </column>
-          </scrollable>
-        </if>
-        <if cond="{proj_tab}" equals="services">
-          <scrollable
-            if="{proj_loading}"
-            not_equals="true"
-            direction="vertical"
-            class="scroll_fill"
-          >
-            <column class="grid">
-              <row class="card_row" for-each="project_services" var="r">
-                <ServiceCard for-each="r.cards" var="c"
-                  id="{c.id}"
-                  filler="{c.filler}"
-                  name="{c.name}"
-                  port="{c.port}"
-                  status_color="{c.status_color}"
-                  status_label="{c.status_label}"
-                  cpu="{c.cpu}"
-                  mem="{c.mem}"
-                  container_name="{c.container_name}"
-                  container_id="{c.container_id}"
-                  container_extra="{c.container_extra}" />
-              </row>
-            </column>
-          </scrollable>
-        </if>
-      </column>
-    </ElseIf>
-    <!-- ── Service detail / demais views ────────────────────────────
-      O wizard "Novo serviço" saiu daqui (view=new_service): agora abre
-      numa JANELA à parte (new_service_window.gv), disparada por
-      open_new_service_window. -->
-    <ElseIf cond="{view}" equals="service">
-      <ServiceDetail />
-    </ElseIf>
-    <else>
-      <HomeViews />
-    </else>
-  </column>
-</row>
+          </if>
+          <if cond="{proj_tab}" equals="services">
+            <scrollable
+              if="{proj_loading}"
+              not_equals="true"
+              direction="vertical"
+              class="scroll_fill"
+            >
+              <column class="grid">
+                <row class="card_row" for-each="project_services" var="r">
+                  <ServiceCard for-each="r.cards" var="c"
+                    id="{c.id}"
+                    filler="{c.filler}"
+                    name="{c.name}"
+                    port="{c.port}"
+                    status_color="{c.status_color}"
+                    status_label="{c.status_label}"
+                    cpu="{c.cpu}"
+                    mem="{c.mem}"
+                    container_name="{c.container_name}"
+                    container_id="{c.container_id}"
+                    container_extra="{c.container_extra}" />
+                </row>
+              </column>
+            </scrollable>
+          </if>
+        </column>
+      </ElseIf>
+      <!-- ── Service detail / demais views ────────────────────────────
+        O wizard "Novo serviço" saiu daqui (view=new_service): agora abre
+        numa JANELA à parte (new_service_window.gv), disparada por
+        open_new_service_window. -->
+      <ElseIf cond="{view}" equals="service">
+        <ServiceDetail />
+      </ElseIf>
+      <else>
+        <HomeViews />
+      </else>
+    </column>
+  </row>
+</component>

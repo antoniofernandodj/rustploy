@@ -1,722 +1,63 @@
-<style>
-.col_icon       { width: 28; }
-.content_center { width: fill; height: fill; align-x: center; align-y: center; }
-/* Botão "Remover" compacto por-linha nas sub-abas Docker. */
-.dk_rm    { color: var(--danger); padding: 5 12; border-radius: 3; }
-/* align-x só afeta como um container de linha/coluna posiciona seus FILHOS —
-   não alinha o texto de um elemento de texto dentro da própria caixa (isso é
-   text-align). Como a classe é reaproveitada tanto no texto do cabeçalho
-   quanto no container dos botões, sem text-align o rótulo "AÇÃO" ficava
-   colado à esquerda enquanto os botões (align-x: end) ficavam colados à
-   direita — desalinhados entre si mesmo depois de não sobreporem mais. */
-.col_act  { width: 120; align-x: end; text-align: end; }
-/* Linha de repo do Registry: 2 ícones (ver tags/remover) + tooltip — largura
-   bem menor que antes, quando ambos eram texto por extenso. */
-.col_act_2 { width: 90; align-x: end; text-align: end; spacing: 8; }
-/* Linha de job em Schedules: 4 controles (rodar/logs/pausar-ativar/remover).
-   Viraram ícone + tooltip (eram texto: "Rodar agora"/"Ver logs"/"Pausar") —
-   uma linha de 360px pensada pra rótulos por extenso empurrava o botão de
-   remover pra fora da largura visível da janela (sem scroll horizontal);
-   4 ícones cabem em bem menos espaço. */
-.col_act_4 { width: 170; align-x: end; text-align: end; spacing: 8; }
-/* Mesma linha de job acima, +1 controle (editar). */
-.col_act_5 { width: 210; align-x: end; text-align: end; spacing: 8; }
-</style>
+<component>
+  <resources>
+    <style>
+    .col_icon       { width: 28; }
+    .content_center { width: fill; height: fill; align-x: center; align-y: center; }
+    /* Botão "Remover" compacto por-linha nas sub-abas Docker. */
+    .dk_rm    { color: var(--danger); padding: 5 12; border-radius: 3; }
+    /* align-x só afeta como um container de linha/coluna posiciona seus FILHOS —
+       não alinha o texto de um elemento de texto dentro da própria caixa (isso é
+       text-align). Como a classe é reaproveitada tanto no texto do cabeçalho
+       quanto no container dos botões, sem text-align o rótulo "AÇÃO" ficava
+       colado à esquerda enquanto os botões (align-x: end) ficavam colados à
+       direita — desalinhados entre si mesmo depois de não sobreporem mais. */
+    .col_act  { width: 120; align-x: end; text-align: end; }
+    /* Linha de repo do Registry: 2 ícones (ver tags/remover) + tooltip — largura
+       bem menor que antes, quando ambos eram texto por extenso. */
+    .col_act_2 { width: 90; align-x: end; text-align: end; spacing: 8; }
+    /* Linha de job em Schedules: 4 controles (rodar/logs/pausar-ativar/remover).
+       Viraram ícone + tooltip (eram texto: "Rodar agora"/"Ver logs"/"Pausar") —
+       uma linha de 360px pensada pra rótulos por extenso empurrava o botão de
+       remover pra fora da largura visível da janela (sem scroll horizontal);
+       4 ícones cabem em bem menos espaço. */
+    .col_act_4 { width: 170; align-x: end; text-align: end; spacing: 8; }
+    /* Mesma linha de job acima, +1 controle (editar). */
+    .col_act_5 { width: 210; align-x: end; text-align: end; spacing: 8; }
+    </style>
+  </resources>
 
-<column class="content">
+  <column class="content">
 
-  <!-- ── Monitoring ───────────────────────────────────────────────────── -->
-  <!-- Bloco com múltiplos filhos condicionais: precisa da TAG if, não do
-       atributo if= (que só condiciona o próprio elemento). -->
-  <if cond="{view}" equals="monitoring">
-    <row class="header_row">
-      <column class="header_titles">
-        <text class="title">Monitoring</text>
-        <text class="subtitle">
-          Host and per-container resource usage.
-        </text>
-      </column>
-    </row>
-    <row class="stats_row stats_hide_md">
-      <StatCard label="CPU" value="{sys_cpu}" />
-      <StatCard label="MEMORY" value="{sys_mem}" accent="1" />
-      <StatCard label="DISK" value="{sys_disk}" />
-      <StatCard label="LOAD" value="{sys_load}" />
-    </row>
-    <column class="panel_fill">
-      <row class="thead">
-        <text class="th col_svc">CONTAINER</text>
-        <text class="th col_proj">PROJETO</text>
-        <text class="th col_dur">CPU</text>
-        <text class="th col_dur">MEM</text>
-        <text class="th col_dur">RX</text>
-        <text class="th col_start">TX</text>
-      </row>
-      <if cond="{data_loading}" equals="true">
-        <LoadingRow />
-      </if>
-      <scrollable
-        if="{data_loading}"
-        not_equals="true"
-        direction="vertical"
-        class="scroll_fill"
-      >
-        <column class="table_body">
-          <column class="row_wrap" for-each="monitoring" var="m">
-            <row class="trow">
-              <text class="td_key col_svc">{m.name}</text>
-              <text class="td col_proj">{m.project}</text>
-              <text class="td col_dur">{m.cpu}</text>
-              <text class="td col_dur">{m.mem}</text>
-              <text class="muted col_dur">{m.rx}</text>
-              <text class="muted col_start">{m.tx}</text>
-            </row>
-            <hr />
-          </column>
-        </column>
-      </scrollable>
-    </column>
-  </if>
-
-  <!-- ── Ingress ──────────────────────────────────────────────────────── -->
-  <if cond="{view}" equals="ingress">
-    <row class="header_row">
-      <column class="header_titles">
-        <text class="title">Ingress</text>
-        <text class="subtitle">
-          Active routes in the reverse proxy.
-        </text>
-      </column>
-      <row class="stats_row">
-        <StatCard label="ROUTES" value="{ingress_count}" />
-        <StatCard label="PORTAS DE HOST" value="{host_ports_count}" />
-      </row>
-    </row>
-    <column class="panel_fill">
-      <row class="thead">
-        <text class="th col_svc">DOMÍNIO</text>
-        <text class="th col_proj">SERVIÇO</text>
-        <text class="th col_dur">UPSTREAM</text>
-        <text class="th col_start">TLS</text>
-      </row>
-      <if cond="{data_loading}" equals="true">
-        <LoadingRow />
-      </if>
-      <scrollable
-        if="{data_loading}"
-        not_equals="true"
-        direction="vertical"
-        class="scroll_fill"
-      >
-        <column class="table_body">
-          <template for-each="ingress" var="i">
-            <column class="row_wrap">
-              <row class="trow">
-                <text class="td_key col_svc">{i.domain}</text>
-                <text class="td col_proj">{i.service}</text>
-                <text class="td col_dur">{i.upstream}</text>
-                <text class="muted col_start">{i.tls}</text>
-              </row>
-              <hr />
-            </column>
-          </template>
-        </column>
-      </scrollable>
-
-      <!-- Portas TCP de host: exposição direta de porta (fora do proxy HTTP
-           por domínio acima) — um serviço pode ter as duas, só uma, ou nenhuma. -->
-      <text class="label_cap">
-        PORTAS TCP DE HOST ({host_ports_count})
-      </text>
-      <row class="thead">
-        <text class="th col_svc">SERVIÇO</text>
-        <text class="th col_proj">PROJETO</text>
-        <text class="th col_dur">PORTA HOST</text>
-        <text class="th col_start">PORTA CONTAINER</text>
-      </row>
-      <text if="{host_ports}" empty class="muted">
-        Nenhum serviço com porta de host configurada.
-      </text>
-      <column class="table_body">
-        <template for-each="host_ports" var="hp">
-          <column class="row_wrap">
-            <row class="trow">
-              <text class="td_key col_svc">{hp.service}</text>
-              <text class="td col_proj">{hp.project}</text>
-              <text class="td col_dur">{hp.host_port}</text>
-              <text class="muted col_start">{hp.container_port}</text>
-            </row>
-            <hr />
-          </column>
-        </template>
-      </column>
-    </column>
-  </if>
-
-  <!-- ── Deploy Engine ────────────────────────────────────────────────── -->
-  <!-- KPIs + deploys em andamento + histórico das últimas 24h. Tudo vem do
-       Command::DeployEngineStatus (ver eng_* em app/net.rs); sem backend novo. -->
-  <if cond="{view}" equals="deploy_engine">
-    <row class="header_row">
-      <column class="header_titles">
-        <text class="title">Deploy Engine</text>
-        <text class="subtitle">
-          Pipeline de deploy: em andamento e histórico recente.
-        </text>
-      </column>
-      <!-- 5 cards + valor largo (UPTIME) ao lado do título: deixa de caber
-           bem antes dos breakpoints gerais — some mais cedo (xl). -->
-      <row class="stats_row stats_hide_xl">
-        <StatCard label="ATIVOS" value="{eng_active_count}" accent="1" />
-        <StatCard label="SUCESSO 24H" value="{eng_success_24h}" />
-        <StatCard label="FALHAS 24H" value="{eng_failed_24h}" />
-        <StatCard label="TOTAL 24H" value="{eng_total_24h}" />
-        <StatCard label="UPTIME" value="{eng_uptime}" />
-      </row>
-    </row>
-
-    <!-- Na fila: fila GLOBAL de deploys (um por vez). O primeiro é o próximo a
-         rodar. Arraste pela alça (⋮) para reordenar; ↑ fura fila; ✕ cancela.
-         Pausar/retomar interrompe o worker de puxar o próximo (o que já está
-         rodando segue). Tudo em handlers/deploy_queue.luau. -->
-    <column class="panel_fill">
-      <row class="env_head">
-        <text class="label_cap">NA FILA ({eng_queued_count})</text>
-        <button
-          if="{eng_paused}"
-          equals="true"
-          class="copy_btn"
-          on_click="queue_toggle_pause"
-          text="▶ Retomar fila"
-        />
-        <button
-          if="{eng_paused}"
-          not_equals="true"
-          class="copy_btn"
-          on_click="queue_toggle_pause"
-          text="⏸ Pausar fila"
-        />
-      </row>
-      <text if="{eng_paused}" equals="true" class="muted">
-        Fila pausada — deploys esperam até você retomar.
-      </text>
-      <text if="{eng_queued}" empty class="muted">
-        Nenhum deploy na fila.
-      </text>
-      <column class="table_body">
-        <template
-          for-each="eng_queued"
-          var="q"
-          on_reorder="queue_reorder"
-          reorder_key="deployment_id"
-        >
-          <row class="trow">
-            <text class="env_drag_handle" dragHandle="true">⋮ </text>
-            <text class="td_key col_svc">{q.pos}. {q.service}</text>
-            <text class="td col_proj">{q.project}</text>
-            <button
-              class="copy_btn"
-              on_click="queue_promote:{q.deployment_id}"
-              text="↑ topo"
-            />
-            <button
-              class="env_del"
-              on_click="queue_cancel:{q.deployment_id}"
-              text="✕"
-            />
-          </row>
-          <hr />
-        </template>
-      </column>
-    </column>
-
-    <!-- Executando agora -->
-    <column class="panel_fill">
-      <text class="label_cap">
-        EXECUTANDO AGORA ({eng_active_count})
-      </text>
-      <row class="thead">
-        <text class="th col_svc">SERVIÇO</text>
-        <text class="th col_proj">PROJETO</text>
-        <text class="th col_state">ESTADO</text>
-        <text class="th col_dur">PROGRESSO</text>
-        <text class="th col_dur">TOTAL</text>
-        <text class="th col_start">FASE</text>
-      </row>
-      <if cond="{data_loading}" equals="true">
-        <LoadingRow />
-      </if>
-      <scrollable
-        if="{data_loading}"
-        not_equals="true"
-        direction="vertical"
-        class="scroll_fill"
-      >
-        <column class="table_body">
-          <text if="{eng_active}" empty class="muted">
-            Nenhum deploy em andamento.
+    <!-- ── Monitoring ───────────────────────────────────────────────────── -->
+    <!-- Bloco com múltiplos filhos condicionais: precisa da TAG if, não do
+         atributo if= (que só condiciona o próprio elemento). -->
+    <if cond="{view}" equals="monitoring">
+      <row class="header_row">
+        <column class="header_titles">
+          <text class="title">Monitoring</text>
+          <text class="subtitle">
+            Host and per-container resource usage.
           </text>
-
-          <column class="row_wrap" for-each="eng_active" var="a">
-            <row class="trow">
-              <text class="td_key col_svc">{a.service}</text>
-              <text class="td col_proj">{a.project}</text>
-              <StateCell kind="{a.state_kind}" label="{a.state_label}" />
-              <text class="td col_dur">{a.bar} {a.percent}</text>
-              <text class="muted col_dur">{a.total}</text>
-              <text class="muted col_start">{a.phase}</text>
-            </row>
-            <hr />
-          </column>
-
         </column>
-      </scrollable>
-
-      <!-- Histórico 24h -->
-      <text class="label_cap">
-        HISTÓRICO 24H ({eng_recent_count})
-      </text>
-      <row class="thead">
-        <text class="th col_icon"></text>
-        <text class="th col_svc">SERVIÇO</text>
-        <text class="th col_proj">PROJETO</text>
-        <text class="th col_state">ESTADO</text>
-        <text class="th col_dur">DURAÇÃO</text>
-        <text class="th col_start">INÍCIO</text>
       </row>
-      <scrollable
-        if="{data_loading}"
-        not_equals="true"
-        direction="vertical"
-        class="scroll_fill"
-      >
-        <column class="table_body">
-          <text if="{eng_recent}" empty class="muted">
-            Nenhum deploy concluído nas últimas 24h.
-          </text>
-          <column class="row_wrap" for-each="eng_recent" var="r">
-            <row class="trow">
-              <text class="td col_icon">{r.icon}</text>
-              <text class="td_key col_svc">{r.service}</text>
-              <text class="td col_proj">{r.project}</text>
-              <StateCell kind="{r.state_kind}" label="{r.state_label}" />
-              <text class="muted col_dur">{r.duration}</text>
-              <text class="muted col_start">{r.start}</text>
-            </row>
-            <hr />
-          </column>
-        </column>
-      </scrollable>
-    </column>
-  </if>
-
-  <!-- ── Docker ───────────────────────────────────────────────────────── -->
-  <!-- Sub-abas Containers / Images / Volumes / Networks. As três últimas
-       listam TODO o host Docker (não só recursos geridos pelo Rustploy — ver
-       `docker_inventory` no daemon), com indicação de uso e botão de limpar
-       as que estão sem uso. -->
-  <if cond="{view}" equals="docker">
-    <row class="header_row">
-      <column class="header_titles">
-        <text class="title">Docker</text>
-        <text class="subtitle">Containers, imagens, volumes e networks do host.</text>
-      </column>
       <row class="stats_row stats_hide_md">
-        <StatCard label="CONTAINERS" value="{docker_containers_count}" />
-        <StatCard label="IMAGENS" value="{docker_images_count}" />
-        <StatCard label="VOLUMES" value="{docker_volumes_count}" />
-        <StatCard label="NETWORKS" value="{docker_networks_count}" accent="1" />
+        <StatCard label="CPU" value="{sys_cpu}" />
+        <StatCard label="MEMORY" value="{sys_mem}" accent="1" />
+        <StatCard label="DISK" value="{sys_disk}" />
+        <StatCard label="LOAD" value="{sys_load}" />
       </row>
-    </row>
-
-    <row class="tabs">
-      <TabButton
-        label="Containers"
-        current="{docker_tab}"
-        target="containers"
-        action="docker_tab:containers"
-      />
-      <TabButton
-        label="Images"
-        current="{docker_tab}"
-        target="images"
-        action="docker_tab:images"
-      />
-      <TabButton
-        label="Volumes"
-        current="{docker_tab}"
-        target="volumes"
-        action="docker_tab:volumes"
-      />
-      <TabButton
-        label="Networks"
-        current="{docker_tab}"
-        target="networks"
-        action="docker_tab:networks"
-      />
-      <TabButton
-        label="Registry"
-        current="{docker_tab}"
-        target="registry"
-        action="docker_tab:registry"
-      />
-    </row>
-    <hr />
-
-    <!-- Containers — um por serviço gerido pelo Rustploy (ligação com
-         projeto/serviço é direta, já que o container nasce de um Service). -->
-    <!-- Containers — todos do host (rodando + parados). Remover é oferecido só
-         nos PARADOS (o Docker recusa `rm` de um rodando sem force). -->
-    <column class="panel_fill" if="{docker_tab}" equals="containers">
-      <row class="env_head">
-        <text class="muted_fill">{docker_containers_count} container(s)</text>
-        <button
-          class="btn_danger"
-          on_click="docker_prune_containers"
-          text="Limpar parados"
-        />
-      </row>
-      <text if="{docker_msg}" not_equals="" class="muted">{docker_msg}</text>
-      <row class="thead">
-        <text class="th col_svc">NOME</text>
-        <text class="th col_img">IMAGEM</text>
-        <text class="th col_state">DONO</text>
-        <text class="th col_dur">ESTADO</text>
-        <text class="th col_act">AÇÃO</text>
-      </row>
-      <if cond="{data_loading}" equals="true">
-        <LoadingRow />
-      </if>
-      <scrollable
-        if="{data_loading}"
-        not_equals="true"
-        direction="vertical"
-        class="scroll_fill"
-      >
-        <column class="table_body">
-          <column class="row_wrap" for-each="docker_containers" var="c">
-            <row class="trow">
-              <text class="td_key col_svc">{c.name}</text>
-              <text class="td col_img">{c.image}</text>
-              <text class="muted col_state">{c.owner}</text>
-              <StateCell kind="{c.state_kind}" label="{c.state_label}" />
-              <row class="col_act">
-                <button
-                  if="{c.can_remove}"
-                  equals="1"
-                  class="dk_rm"
-                  on_click="docker_rm_container:{c.id_full}"
-                  text="Remover"
-                />
-              </row>
-            </row>
-            <hr />
-          </column>
-        </column>
-      </scrollable>
-    </column>
-
-    <!-- Images — projeto/serviço é melhor esforço (inferido pela tag; imagens
-         manuais/de terceiros ficam com "—"). -->
-    <column class="panel_fill" if="{docker_tab}" equals="images">
-      <row class="env_head">
-        <text class="muted_fill">
-          {docker_images_count} imagem(ns)
-        </text>
-        <checkbox
-          checked="docker_images_only_used"
-          on_toggle="field:docker_images_only_used"
-          label="Somente em uso"
-        />
-        <checkbox
-          checked="docker_prune_all_images"
-          on_toggle="field:docker_prune_all_images"
-          label="-a (limpar tudo, não só dangling)"
-        />
-        <button
-          class="btn_danger"
-          on_click="docker_prune_images"
-          text="Limpar sem uso"
-        />
-      </row>
-      <text if="{docker_msg}" not_equals="" class="muted">
-        {docker_msg}
-      </text>
-      <row class="thead">
-        <text class="th col_svc">TAGS</text>
-        <text class="th col_proj">PROJETO / SERVIÇO</text>
-        <text class="th col_dur">TAMANHO</text>
-        <text class="th col_dur">CRIADA</text>
-        <text class="th col_state">USO</text>
-        <text class="th col_act">AÇÃO</text>
-      </row>
-      <if cond="{data_loading}" equals="true">
-        <LoadingRow />
-      </if>
-      <scrollable
-        if="{data_loading}"
-        not_equals="true"
-        direction="vertical"
-        class="scroll_fill"
-      >
-        <column class="table_body">
-          <!-- Sub-aba já vem ordenada por tag (docker_images_json); o checkbox
-               "Somente em uso" só esconde as linhas SEM USO, sem round-trip. -->
-          <if cond="{docker_images_only_used}" equals="true">
-            <column
-              class="row_wrap"
-              for-each="docker_images"
-              var="i"
-              if="{i.in_use_label}"
-              equals="EM USO"
-            >
-              <row class="trow">
-                <text class="td_key col_svc">{i.tags}</text>
-                <text class="td col_proj">{i.owner}</text>
-                <text class="muted col_dur">{i.size}</text>
-                <text class="muted col_dur">{i.created}</text>
-                <StateCell kind="{i.in_use_kind}" label="{i.in_use_label}" />
-                <row class="col_act">
-                  <button
-                    if="{i.in_use_label}"
-                    equals="SEM USO"
-                    class="dk_rm"
-                    on_click="docker_rm_image:{i.id_full}"
-                    text="Remover"
-                  />
-                </row>
-              </row>
-              <hr />
-            </column>
-          </if> <else>
-            <column class="row_wrap" for-each="docker_images" var="i">
-              <row class="trow">
-                <text class="td_key col_svc">{i.tags}</text>
-                <text class="td col_proj">{i.owner}</text>
-                <text class="muted col_dur">{i.size}</text>
-                <text class="muted col_dur">{i.created}</text>
-                <StateCell kind="{i.in_use_kind}" label="{i.in_use_label}" />
-                <row class="col_act">
-                  <button
-                    if="{i.in_use_label}"
-                    equals="SEM USO"
-                    class="dk_rm"
-                    on_click="docker_rm_image:{i.id_full}"
-                    text="Remover"
-                  />
-                </row>
-              </row>
-              <hr />
-            </column>
-          </else>
-        </column>
-      </scrollable>
-    </column>
-
-    <!-- Volumes — Rustploy só usa bind mounts, então volumes nomeados aqui são
-         sempre externos ao Rustploy (criados manualmente ou por VOLUME da imagem). -->
-    <column class="panel_fill" if="{docker_tab}" equals="volumes">
-      <row class="env_head">
-        <text class="muted_fill">{docker_volumes_count} volume(s)</text>
-        <checkbox
-          checked="docker_volumes_only_used"
-          on_toggle="field:docker_volumes_only_used"
-          label="Somente em uso"
-        />
-        <checkbox
-          checked="docker_prune_all_volumes"
-          on_toggle="field:docker_prune_all_volumes"
-          label="-a (limpar tudo, não só anônimos)"
-        />
-        <button
-          class="btn_danger"
-          on_click="docker_prune_volumes"
-          text="Limpar sem uso"
-        />
-      </row>
-      <text if="{docker_msg}" not_equals="" class="muted">{docker_msg}</text>
-      <row class="thead">
-        <text class="th col_svc">NOME</text>
-        <text class="th col_proj">DRIVER</text>
-        <text class="th col_dur">TAMANHO</text>
-        <text class="th col_state">USO</text>
-        <text class="th col_act">AÇÃO</text>
-      </row>
-      <if cond="{data_loading}" equals="true">
-        <LoadingRow />
-      </if>
-      <scrollable
-        if="{data_loading}"
-        not_equals="true"
-        direction="vertical"
-        class="scroll_fill"
-      >
-        <column class="table_body">
-          <if cond="{docker_volumes_only_used}" equals="true">
-            <template for-each="docker_volumes" var="v">
-              <column class="row_wrap" if="{v.in_use_label}" equals="EM USO">
-                <row class="trow">
-                  <text class="td_key col_svc">{v.name}</text>
-                  <text class="td col_proj">{v.driver}</text>
-                  <text class="muted col_dur">{v.size}</text>
-                  <StateCell kind="{v.in_use_kind}" label="{v.in_use_label}" />
-                  <row class="col_act" />
-                </row>
-                <hr />
-              </column>
-            </template>
-          </if> <else>
-            <column for-each="docker_volumes" var="v" class="row_wrap">
-              <row class="trow">
-                <text class="td_key col_svc">{v.name}</text>
-                <text class="td col_proj">{v.driver}</text>
-                <text class="muted col_dur">{v.size}</text>
-                <StateCell kind="{v.in_use_kind}" label="{v.in_use_label}" />
-                <row class="col_act">
-                  <button
-                    if="{v.in_use_label}"
-                    equals="SEM USO"
-                    class="dk_rm"
-                    on_click="docker_rm_volume:{v.name_full}"
-                    text="Remover"
-                  />
-                </row>
-              </row>
-              <hr />
-            </column>
-          </else>
-        </column>
-      </scrollable>
-    </column>
-
-    <!-- Networks — projeto reconhecido pela convenção rp_net_&lt;id curto&gt;. -->
-    <column class="panel_fill" if="{docker_tab}" equals="networks">
-      <row class="env_head">
-        <text class="muted_fill">
-          {docker_networks_count} network(s)
-        </text>
-        <checkbox
-          checked="docker_networks_only_used"
-          on_toggle="field:docker_networks_only_used"
-          label="Somente em uso"
-        />
-        <button
-          class="btn_danger"
-          on_click="docker_prune_networks"
-          text="Limpar sem uso"
-        />
-      </row>
-      <text if="{docker_msg}" not_equals="" class="muted">
-        {docker_msg}
-      </text>
-      <row class="thead">
-        <text class="th col_svc">NOME</text>
-        <text class="th col_proj">PROJETO</text>
-        <text class="th col_dur">DRIVER</text>
-        <text class="th col_dur">CONTAINERS</text>
-        <text class="th col_state">USO</text>
-        <text class="th col_act">AÇÃO</text>
-      </row>
-      <if cond="{data_loading}" equals="true">
-        <LoadingRow />
-      </if>
-      <scrollable
-        if="{data_loading}"
-        not_equals="true"
-        direction="vertical"
-        class="scroll_fill"
-      >
-        <column class="table_body">
-          <if cond="{docker_networks_only_used}" equals="true">
-            <template for-each="docker_networks" var="n">
-              <column class="row_wrap" if="{n.in_use_label}" equals="EM USO">
-                <row class="trow">
-                  <text class="td_key col_svc">{n.name}</text>
-                  <text class="td col_proj">{n.project}</text>
-                  <text class="muted col_dur">{n.driver}</text>
-                  <text class="muted col_dur">{n.containers}</text>
-                  <StateCell kind="{n.in_use_kind}" label="{n.in_use_label}" />
-                  <row class="col_act">
-                    <button
-                      if="{n.in_use_label}"
-                      equals="SEM USO"
-                      class="dk_rm"
-                      on_click="docker_rm_network:{n.id_full}"
-                      text="Remover"
-                    />
-                  </row>
-                </row>
-                <hr />
-              </column>
-            </template>
-          </if> <else>
-            <template for-each="docker_networks" var="n">
-              <column class="row_wrap">
-                <row class="trow">
-                  <text class="td_key col_svc">{n.name}</text>
-                  <text class="td col_proj">{n.project}</text>
-                  <text class="muted col_dur">{n.driver}</text>
-                  <text class="muted col_dur">{n.containers}</text>
-                  <StateCell kind="{n.in_use_kind}" label="{n.in_use_label}" />
-                  <row class="col_act">
-                    <button
-                      if="{n.in_use_label}"
-                      equals="SEM USO"
-                      class="dk_rm"
-                      on_click="docker_rm_network:{n.id_full}"
-                      text="Remover"
-                    />
-                  </row>
-                </row>
-                <hr />
-              </column>
-            </template>
-          </else>
-        </column>
-      </scrollable>
-    </column>
-
-    <!-- Registry — repositórios/tags do registry OCI embutido (Fase 1: só
-         push/pull via docker CLI; sem auth ainda). Leitura + delete
-         (metadados) + GC (libera do disco blobs/manifests órfãos). Tags de um
-         repositório são buscadas sob demanda ao clicar "Ver tags" — não
-         vêm no snapshot periódico, diferente das outras sub-abas Docker. -->
-    <column class="panel_fill" if="{docker_tab}" equals="registry">
-      <row class="env_head">
-        <text class="muted_fill">
-          Registry {registry_status_label} · {registry_repos_count} repositório(s) · {registry_storage_human}
-        </text>
-        <button
-          class="btn_danger"
-          if="{registry_status_enabled}"
-          equals="true"
-          on_click="registry_gc"
-          text="Executar GC"
-        />
-      </row>
-      <text if="{registry_msg}" not_equals="" class="muted">{registry_msg}</text>
-
-      <column class="panel_fill" if="{registry_selected_repo}" equals="">
+      <column class="panel_fill">
         <row class="thead">
-          <text class="th col_svc">REPOSITÓRIO</text>
-          <text class="th col_proj">TAGS</text>
-          <text class="th col_dur">TAMANHO</text>
-          <text class="th col_dur">CRIADO</text>
-          <text class="th col_act_2">AÇÃO</text>
+          <text class="th col_svc">CONTAINER</text>
+          <text class="th col_proj">PROJETO</text>
+          <text class="th col_dur">CPU</text>
+          <text class="th col_dur">MEM</text>
+          <text class="th col_dur">RX</text>
+          <text class="th col_start">TX</text>
         </row>
         <if cond="{data_loading}" equals="true">
           <LoadingRow />
         </if>
-        <!-- Fica com `registry_repos_count` (não vira `empty` em
-             `registry_repos` como os outros pares lista/count deste plano de
-             convergência): `registry_repos` é FILTRADO pela busca
-             (fmt.registry_repos(snap.registry_repos, term) em stream.luau),
-             enquanto o count é da lista crua. Trocar faria essa mensagem
-             ("Faça docker push...") aparecer quando a busca só não achou
-             nada, não quando o registry está genuinamente vazio. -->
-        <text if="{registry_repos_count}" equals="0" class="muted">
-          Nenhum repositório ainda. Faça `docker push` para o registry embutido.
-        </text>
         <scrollable
           if="{data_loading}"
           not_equals="true"
@@ -724,85 +65,352 @@
           class="scroll_fill"
         >
           <column class="table_body">
-            <column class="row_wrap" for-each="registry_repos" var="r">
+            <column class="row_wrap" for-each="monitoring" var="m">
               <row class="trow">
-                <text class="td_key col_svc">{r.name}</text>
-                <text class="td col_proj">{r.tag_count}</text>
-                <text class="muted col_dur">{r.size}</text>
-                <text class="muted col_dur">{r.created}</text>
-                <row class="col_act_2">
-                  <button class="copy_btn" on_click="registry_open_repo:{r.name}" text="≡" tooltip="Ver tags" />
-                  <button class="env_del" on_click="registry_rm_repo:{r.name}" text="✕" tooltip="Remover" />
-                </row>
+                <text class="td_key col_svc">{m.name}</text>
+                <text class="td col_proj">{m.project}</text>
+                <text class="td col_dur">{m.cpu}</text>
+                <text class="td col_dur">{m.mem}</text>
+                <text class="muted col_dur">{m.rx}</text>
+                <text class="muted col_start">{m.tx}</text>
               </row>
               <hr />
             </column>
           </column>
         </scrollable>
-
-        <text class="label_cap">
-          TOKENS DE ACESSO ({registry_tokens_count})
-        </text>
-        <row class="env_head">
-          <text class="muted_fill">
-            Basic auth (docker login) — o segredo só aparece uma vez, na criação.
-          </text>
-          <button class="btn_primary" on_click="registry_open_token_window" text="+ Novo token" />
-        </row>
-        <text if="{registry_tokens}" empty class="muted">
-          Nenhum token ainda. Sem token nenhum push/pull é autenticado — crie um antes de usar o registry.
-        </text>
-        <row class="thead" if="{registry_tokens}" not_empty>
-          <text class="th col_svc">NOME</text>
-          <text class="th col_proj">ESCOPO</text>
-          <text class="th col_dur">CRIADO</text>
-          <text class="th col_dur">ÚLTIMO USO</text>
-          <text class="th col_act">AÇÃO</text>
-        </row>
-        <column class="table_body" for-each="registry_tokens" var="tk">
-          <row class="trow">
-            <text class="td_key col_svc">{tk.name}</text>
-            <text class="td col_proj">{tk.scope}</text>
-            <text class="muted col_dur">{tk.created}</text>
-            <text class="muted col_dur">{tk.last_used}</text>
-            <row class="col_act">
-              <button class="env_del" on_click="registry_rm_token:{tk.name}" text="✕" tooltip="Revogar" />
-            </row>
-          </row>
-          <hr />
-        </column>
       </column>
+    </if>
 
-      <column class="panel_fill" if="{registry_selected_repo}" not_equals="">
-        <row class="env_head">
-          <text class="muted_fill">{registry_selected_repo} — {registry_tags_count} tag(s)</text>
-          <button class="btn_ghost" on_click="registry_close_repo" text="← Voltar" />
+    <!-- ── Ingress ──────────────────────────────────────────────────────── -->
+    <if cond="{view}" equals="ingress">
+      <row class="header_row">
+        <column class="header_titles">
+          <text class="title">Ingress</text>
+          <text class="subtitle">
+            Active routes in the reverse proxy.
+          </text>
+        </column>
+        <row class="stats_row">
+          <StatCard label="ROUTES" value="{ingress_count}" />
+          <StatCard label="PORTAS DE HOST" value="{host_ports_count}" />
         </row>
+      </row>
+      <column class="panel_fill">
         <row class="thead">
-          <text class="th col_svc">TAG</text>
-          <text class="th col_proj">DIGEST</text>
-          <text class="th col_dur">TAMANHO</text>
-          <text class="th col_dur">ATUALIZADA</text>
-          <text class="th col_act">AÇÃO</text>
+          <text class="th col_svc">DOMÍNIO</text>
+          <text class="th col_proj">SERVIÇO</text>
+          <text class="th col_dur">UPSTREAM</text>
+          <text class="th col_start">TLS</text>
         </row>
-        <if cond="{registry_tags_loading}" equals="true">
+        <if cond="{data_loading}" equals="true">
           <LoadingRow />
         </if>
         <scrollable
-          if="{registry_tags_loading}"
+          if="{data_loading}"
           not_equals="true"
           direction="vertical"
           class="scroll_fill"
         >
           <column class="table_body">
-            <column class="row_wrap" for-each="registry_tags" var="t">
+            <template for-each="ingress" var="i">
+              <column class="row_wrap">
+                <row class="trow">
+                  <text class="td_key col_svc">{i.domain}</text>
+                  <text class="td col_proj">{i.service}</text>
+                  <text class="td col_dur">{i.upstream}</text>
+                  <text class="muted col_start">{i.tls}</text>
+                </row>
+                <hr />
+              </column>
+            </template>
+          </column>
+        </scrollable>
+
+        <!-- Portas TCP de host: exposição direta de porta (fora do proxy HTTP
+             por domínio acima) — um serviço pode ter as duas, só uma, ou nenhuma. -->
+        <text class="label_cap">
+          PORTAS TCP DE HOST ({host_ports_count})
+        </text>
+        <row class="thead">
+          <text class="th col_svc">SERVIÇO</text>
+          <text class="th col_proj">PROJETO</text>
+          <text class="th col_dur">PORTA HOST</text>
+          <text class="th col_start">PORTA CONTAINER</text>
+        </row>
+        <text if="{host_ports}" empty class="muted">
+          Nenhum serviço com porta de host configurada.
+        </text>
+        <column class="table_body">
+          <template for-each="host_ports" var="hp">
+            <column class="row_wrap">
               <row class="trow">
-                <text class="td_key col_svc">{t.tag}</text>
-                <text class="muted col_proj">{t.digest}</text>
-                <text class="muted col_dur">{t.size}</text>
-                <text class="muted col_dur">{t.updated}</text>
+                <text class="td_key col_svc">{hp.service}</text>
+                <text class="td col_proj">{hp.project}</text>
+                <text class="td col_dur">{hp.host_port}</text>
+                <text class="muted col_start">{hp.container_port}</text>
+              </row>
+              <hr />
+            </column>
+          </template>
+        </column>
+      </column>
+    </if>
+
+    <!-- ── Deploy Engine ────────────────────────────────────────────────── -->
+    <!-- KPIs + deploys em andamento + histórico das últimas 24h. Tudo vem do
+         Command::DeployEngineStatus (ver eng_* em app/net.rs); sem backend novo. -->
+    <if cond="{view}" equals="deploy_engine">
+      <row class="header_row">
+        <column class="header_titles">
+          <text class="title">Deploy Engine</text>
+          <text class="subtitle">
+            Pipeline de deploy: em andamento e histórico recente.
+          </text>
+        </column>
+        <!-- 5 cards + valor largo (UPTIME) ao lado do título: deixa de caber
+             bem antes dos breakpoints gerais — some mais cedo (xl). -->
+        <row class="stats_row stats_hide_xl">
+          <StatCard label="ATIVOS" value="{eng_active_count}" accent="1" />
+          <StatCard label="SUCESSO 24H" value="{eng_success_24h}" />
+          <StatCard label="FALHAS 24H" value="{eng_failed_24h}" />
+          <StatCard label="TOTAL 24H" value="{eng_total_24h}" />
+          <StatCard label="UPTIME" value="{eng_uptime}" />
+        </row>
+      </row>
+
+      <!-- Na fila: fila GLOBAL de deploys (um por vez). O primeiro é o próximo a
+           rodar. Arraste pela alça (⋮) para reordenar; ↑ fura fila; ✕ cancela.
+           Pausar/retomar interrompe o worker de puxar o próximo (o que já está
+           rodando segue). Tudo em handlers/deploy_queue.luau. -->
+      <column class="panel_fill">
+        <row class="env_head">
+          <text class="label_cap">NA FILA ({eng_queued_count})</text>
+          <button
+            if="{eng_paused}"
+            equals="true"
+            class="copy_btn"
+            on_click="queue_toggle_pause"
+            text="▶ Retomar fila"
+          />
+          <button
+            if="{eng_paused}"
+            not_equals="true"
+            class="copy_btn"
+            on_click="queue_toggle_pause"
+            text="⏸ Pausar fila"
+          />
+        </row>
+        <text if="{eng_paused}" equals="true" class="muted">
+          Fila pausada — deploys esperam até você retomar.
+        </text>
+        <text if="{eng_queued}" empty class="muted">
+          Nenhum deploy na fila.
+        </text>
+        <column class="table_body">
+          <template
+            for-each="eng_queued"
+            var="q"
+            on_reorder="queue_reorder"
+            reorder_key="deployment_id"
+          >
+            <row class="trow">
+              <text class="env_drag_handle" dragHandle="true">⋮ </text>
+              <text class="td_key col_svc">{q.pos}. {q.service}</text>
+              <text class="td col_proj">{q.project}</text>
+              <button
+                class="copy_btn"
+                on_click="queue_promote:{q.deployment_id}"
+                text="↑ topo"
+              />
+              <button
+                class="env_del"
+                on_click="queue_cancel:{q.deployment_id}"
+                text="✕"
+              />
+            </row>
+            <hr />
+          </template>
+        </column>
+      </column>
+
+      <!-- Executando agora -->
+      <column class="panel_fill">
+        <text class="label_cap">
+          EXECUTANDO AGORA ({eng_active_count})
+        </text>
+        <row class="thead">
+          <text class="th col_svc">SERVIÇO</text>
+          <text class="th col_proj">PROJETO</text>
+          <text class="th col_state">ESTADO</text>
+          <text class="th col_dur">PROGRESSO</text>
+          <text class="th col_dur">TOTAL</text>
+          <text class="th col_start">FASE</text>
+        </row>
+        <if cond="{data_loading}" equals="true">
+          <LoadingRow />
+        </if>
+        <scrollable
+          if="{data_loading}"
+          not_equals="true"
+          direction="vertical"
+          class="scroll_fill"
+        >
+          <column class="table_body">
+            <text if="{eng_active}" empty class="muted">
+              Nenhum deploy em andamento.
+            </text>
+
+            <column class="row_wrap" for-each="eng_active" var="a">
+              <row class="trow">
+                <text class="td_key col_svc">{a.service}</text>
+                <text class="td col_proj">{a.project}</text>
+                <StateCell kind="{a.state_kind}" label="{a.state_label}" />
+                <text class="td col_dur">{a.bar} {a.percent}</text>
+                <text class="muted col_dur">{a.total}</text>
+                <text class="muted col_start">{a.phase}</text>
+              </row>
+              <hr />
+            </column>
+
+          </column>
+        </scrollable>
+
+        <!-- Histórico 24h -->
+        <text class="label_cap">
+          HISTÓRICO 24H ({eng_recent_count})
+        </text>
+        <row class="thead">
+          <text class="th col_icon"></text>
+          <text class="th col_svc">SERVIÇO</text>
+          <text class="th col_proj">PROJETO</text>
+          <text class="th col_state">ESTADO</text>
+          <text class="th col_dur">DURAÇÃO</text>
+          <text class="th col_start">INÍCIO</text>
+        </row>
+        <scrollable
+          if="{data_loading}"
+          not_equals="true"
+          direction="vertical"
+          class="scroll_fill"
+        >
+          <column class="table_body">
+            <text if="{eng_recent}" empty class="muted">
+              Nenhum deploy concluído nas últimas 24h.
+            </text>
+            <column class="row_wrap" for-each="eng_recent" var="r">
+              <row class="trow">
+                <text class="td col_icon">{r.icon}</text>
+                <text class="td_key col_svc">{r.service}</text>
+                <text class="td col_proj">{r.project}</text>
+                <StateCell kind="{r.state_kind}" label="{r.state_label}" />
+                <text class="muted col_dur">{r.duration}</text>
+                <text class="muted col_start">{r.start}</text>
+              </row>
+              <hr />
+            </column>
+          </column>
+        </scrollable>
+      </column>
+    </if>
+
+    <!-- ── Docker ───────────────────────────────────────────────────────── -->
+    <!-- Sub-abas Containers / Images / Volumes / Networks. As três últimas
+         listam TODO o host Docker (não só recursos geridos pelo Rustploy — ver
+         `docker_inventory` no daemon), com indicação de uso e botão de limpar
+         as que estão sem uso. -->
+    <if cond="{view}" equals="docker">
+      <row class="header_row">
+        <column class="header_titles">
+          <text class="title">Docker</text>
+          <text class="subtitle">Containers, imagens, volumes e networks do host.</text>
+        </column>
+        <row class="stats_row stats_hide_md">
+          <StatCard label="CONTAINERS" value="{docker_containers_count}" />
+          <StatCard label="IMAGENS" value="{docker_images_count}" />
+          <StatCard label="VOLUMES" value="{docker_volumes_count}" />
+          <StatCard label="NETWORKS" value="{docker_networks_count}" accent="1" />
+        </row>
+      </row>
+
+      <row class="tabs">
+        <TabButton
+          label="Containers"
+          current="{docker_tab}"
+          target="containers"
+          action="docker_tab:containers"
+        />
+        <TabButton
+          label="Images"
+          current="{docker_tab}"
+          target="images"
+          action="docker_tab:images"
+        />
+        <TabButton
+          label="Volumes"
+          current="{docker_tab}"
+          target="volumes"
+          action="docker_tab:volumes"
+        />
+        <TabButton
+          label="Networks"
+          current="{docker_tab}"
+          target="networks"
+          action="docker_tab:networks"
+        />
+        <TabButton
+          label="Registry"
+          current="{docker_tab}"
+          target="registry"
+          action="docker_tab:registry"
+        />
+      </row>
+      <hr />
+
+      <!-- Containers — um por serviço gerido pelo Rustploy (ligação com
+           projeto/serviço é direta, já que o container nasce de um Service). -->
+      <!-- Containers — todos do host (rodando + parados). Remover é oferecido só
+           nos PARADOS (o Docker recusa `rm` de um rodando sem force). -->
+      <column class="panel_fill" if="{docker_tab}" equals="containers">
+        <row class="env_head">
+          <text class="muted_fill">{docker_containers_count} container(s)</text>
+          <button
+            class="btn_danger"
+            on_click="docker_prune_containers"
+            text="Limpar parados"
+          />
+        </row>
+        <text if="{docker_msg}" not_equals="" class="muted">{docker_msg}</text>
+        <row class="thead">
+          <text class="th col_svc">NOME</text>
+          <text class="th col_img">IMAGEM</text>
+          <text class="th col_state">DONO</text>
+          <text class="th col_dur">ESTADO</text>
+          <text class="th col_act">AÇÃO</text>
+        </row>
+        <if cond="{data_loading}" equals="true">
+          <LoadingRow />
+        </if>
+        <scrollable
+          if="{data_loading}"
+          not_equals="true"
+          direction="vertical"
+          class="scroll_fill"
+        >
+          <column class="table_body">
+            <column class="row_wrap" for-each="docker_containers" var="c">
+              <row class="trow">
+                <text class="td_key col_svc">{c.name}</text>
+                <text class="td col_img">{c.image}</text>
+                <text class="muted col_state">{c.owner}</text>
+                <StateCell kind="{c.state_kind}" label="{c.state_label}" />
                 <row class="col_act">
-                  <button class="dk_rm" on_click="registry_rm_tag:{t.tag}" text="Remover" />
+                  <button
+                    if="{c.can_remove}"
+                    equals="1"
+                    class="dk_rm"
+                    on_click="docker_rm_container:{c.id_full}"
+                    text="Remover"
+                  />
                 </row>
               </row>
               <hr />
@@ -810,578 +418,974 @@
           </column>
         </scrollable>
       </column>
-    </column>
-  </if>
 
-  <!-- ── Settings: sub-abas Web Server | Git ──────────────────────────── -->
-  <if cond="{view}" equals="settings">
-    <row class="header_row">
-      <column class="header_titles">
-        <text class="title">Settings</text>
-        <text class="subtitle">Daemon web server, HTTPS e contas Git.</text>
+      <!-- Images — projeto/serviço é melhor esforço (inferido pela tag; imagens
+           manuais/de terceiros ficam com "—"). -->
+      <column class="panel_fill" if="{docker_tab}" equals="images">
+        <row class="env_head">
+          <text class="muted_fill">
+            {docker_images_count} imagem(ns)
+          </text>
+          <checkbox
+            checked="docker_images_only_used"
+            on_toggle="field:docker_images_only_used"
+            label="Somente em uso"
+          />
+          <checkbox
+            checked="docker_prune_all_images"
+            on_toggle="field:docker_prune_all_images"
+            label="-a (limpar tudo, não só dangling)"
+          />
+          <button
+            class="btn_danger"
+            on_click="docker_prune_images"
+            text="Limpar sem uso"
+          />
+        </row>
+        <text if="{docker_msg}" not_equals="" class="muted">
+          {docker_msg}
+        </text>
+        <row class="thead">
+          <text class="th col_svc">TAGS</text>
+          <text class="th col_proj">PROJETO / SERVIÇO</text>
+          <text class="th col_dur">TAMANHO</text>
+          <text class="th col_dur">CRIADA</text>
+          <text class="th col_state">USO</text>
+          <text class="th col_act">AÇÃO</text>
+        </row>
+        <if cond="{data_loading}" equals="true">
+          <LoadingRow />
+        </if>
+        <scrollable
+          if="{data_loading}"
+          not_equals="true"
+          direction="vertical"
+          class="scroll_fill"
+        >
+          <column class="table_body">
+            <!-- Sub-aba já vem ordenada por tag (docker_images_json); o checkbox
+                 "Somente em uso" só esconde as linhas SEM USO, sem round-trip. -->
+            <if cond="{docker_images_only_used}" equals="true">
+              <column
+                class="row_wrap"
+                for-each="docker_images"
+                var="i"
+                if="{i.in_use_label}"
+                equals="EM USO"
+              >
+                <row class="trow">
+                  <text class="td_key col_svc">{i.tags}</text>
+                  <text class="td col_proj">{i.owner}</text>
+                  <text class="muted col_dur">{i.size}</text>
+                  <text class="muted col_dur">{i.created}</text>
+                  <StateCell kind="{i.in_use_kind}" label="{i.in_use_label}" />
+                  <row class="col_act">
+                    <button
+                      if="{i.in_use_label}"
+                      equals="SEM USO"
+                      class="dk_rm"
+                      on_click="docker_rm_image:{i.id_full}"
+                      text="Remover"
+                    />
+                  </row>
+                </row>
+                <hr />
+              </column>
+            </if> <else>
+              <column class="row_wrap" for-each="docker_images" var="i">
+                <row class="trow">
+                  <text class="td_key col_svc">{i.tags}</text>
+                  <text class="td col_proj">{i.owner}</text>
+                  <text class="muted col_dur">{i.size}</text>
+                  <text class="muted col_dur">{i.created}</text>
+                  <StateCell kind="{i.in_use_kind}" label="{i.in_use_label}" />
+                  <row class="col_act">
+                    <button
+                      if="{i.in_use_label}"
+                      equals="SEM USO"
+                      class="dk_rm"
+                      on_click="docker_rm_image:{i.id_full}"
+                      text="Remover"
+                    />
+                  </row>
+                </row>
+                <hr />
+              </column>
+            </else>
+          </column>
+        </scrollable>
       </column>
-    </row>
-    <row class="tabs">
-      <TabButton
-        label="Web Server"
-        current="{settings_tab}"
-        target="web"
-        action="settings_tab:web"
-      />
-      <TabButton
-        label="Git"
-        current="{settings_tab}"
-        target="git"
-        action="settings_tab:git"
-      />
-      <TabButton
-        label="Infra as Code"
-        current="{settings_tab}"
-        target="iac"
-        action="settings_tab:iac"
-      />
-      <TabButton
-        label="Manutenção"
-        current="{settings_tab}"
-        target="maintenance"
-        action="settings_tab:maintenance"
-      />
-    </row>
-    <hr />
 
-    <!-- Web Server (default) -->
-    <if cond="{settings_tab}" equals="web">
-      <form name="settings" on_submit="settings_save" width="fill">
-        <column class="form_panel">
-          <text class="label_cap">URL PÚBLICA DA API</text>
-          <row class="kv_row">
-            <text class="kv_val_fill">{ss_public_base}</text>
-            <button
-              class="copy_btn"
-              on_click="clipboard:ss_public_base"
-              text="Copiar"
-            />
-          </row>
-          <text class="muted">
-            Derivada de [api] domain/port no daemon — é a base das URLs de
-            webhook dos serviços e do callback OAuth (mesma porta da API).
-            Para mudá-la, configure api.domain e reinicie o daemon.
+      <!-- Volumes — Rustploy só usa bind mounts, então volumes nomeados aqui são
+           sempre externos ao Rustploy (criados manualmente ou por VOLUME da imagem). -->
+      <column class="panel_fill" if="{docker_tab}" equals="volumes">
+        <row class="env_head">
+          <text class="muted_fill">{docker_volumes_count} volume(s)</text>
+          <checkbox
+            checked="docker_volumes_only_used"
+            on_toggle="field:docker_volumes_only_used"
+            label="Somente em uso"
+          />
+          <checkbox
+            checked="docker_prune_all_volumes"
+            on_toggle="field:docker_prune_all_volumes"
+            label="-a (limpar tudo, não só anônimos)"
+          />
+          <button
+            class="btn_danger"
+            on_click="docker_prune_volumes"
+            text="Limpar sem uso"
+          />
+        </row>
+        <text if="{docker_msg}" not_equals="" class="muted">{docker_msg}</text>
+        <row class="thead">
+          <text class="th col_svc">NOME</text>
+          <text class="th col_proj">DRIVER</text>
+          <text class="th col_dur">TAMANHO</text>
+          <text class="th col_state">USO</text>
+          <text class="th col_act">AÇÃO</text>
+        </row>
+        <if cond="{data_loading}" equals="true">
+          <LoadingRow />
+        </if>
+        <scrollable
+          if="{data_loading}"
+          not_equals="true"
+          direction="vertical"
+          class="scroll_fill"
+        >
+          <column class="table_body">
+            <if cond="{docker_volumes_only_used}" equals="true">
+              <template for-each="docker_volumes" var="v">
+                <column class="row_wrap" if="{v.in_use_label}" equals="EM USO">
+                  <row class="trow">
+                    <text class="td_key col_svc">{v.name}</text>
+                    <text class="td col_proj">{v.driver}</text>
+                    <text class="muted col_dur">{v.size}</text>
+                    <StateCell kind="{v.in_use_kind}" label="{v.in_use_label}" />
+                    <row class="col_act" />
+                  </row>
+                  <hr />
+                </column>
+              </template>
+            </if> <else>
+              <column for-each="docker_volumes" var="v" class="row_wrap">
+                <row class="trow">
+                  <text class="td_key col_svc">{v.name}</text>
+                  <text class="td col_proj">{v.driver}</text>
+                  <text class="muted col_dur">{v.size}</text>
+                  <StateCell kind="{v.in_use_kind}" label="{v.in_use_label}" />
+                  <row class="col_act">
+                    <button
+                      if="{v.in_use_label}"
+                      equals="SEM USO"
+                      class="dk_rm"
+                      on_click="docker_rm_volume:{v.name_full}"
+                      text="Remover"
+                    />
+                  </row>
+                </row>
+                <hr />
+              </column>
+            </else>
+          </column>
+        </scrollable>
+      </column>
+
+      <!-- Networks — projeto reconhecido pela convenção rp_net_&lt;id curto&gt;. -->
+      <column class="panel_fill" if="{docker_tab}" equals="networks">
+        <row class="env_head">
+          <text class="muted_fill">
+            {docker_networks_count} network(s)
           </text>
+          <checkbox
+            checked="docker_networks_only_used"
+            on_toggle="field:docker_networks_only_used"
+            label="Somente em uso"
+          />
+          <button
+            class="btn_danger"
+            on_click="docker_prune_networks"
+            text="Limpar sem uso"
+          />
+        </row>
+        <text if="{docker_msg}" not_equals="" class="muted">
+          {docker_msg}
+        </text>
+        <row class="thead">
+          <text class="th col_svc">NOME</text>
+          <text class="th col_proj">PROJETO</text>
+          <text class="th col_dur">DRIVER</text>
+          <text class="th col_dur">CONTAINERS</text>
+          <text class="th col_state">USO</text>
+          <text class="th col_act">AÇÃO</text>
+        </row>
+        <if cond="{data_loading}" equals="true">
+          <LoadingRow />
+        </if>
+        <scrollable
+          if="{data_loading}"
+          not_equals="true"
+          direction="vertical"
+          class="scroll_fill"
+        >
+          <column class="table_body">
+            <if cond="{docker_networks_only_used}" equals="true">
+              <template for-each="docker_networks" var="n">
+                <column class="row_wrap" if="{n.in_use_label}" equals="EM USO">
+                  <row class="trow">
+                    <text class="td_key col_svc">{n.name}</text>
+                    <text class="td col_proj">{n.project}</text>
+                    <text class="muted col_dur">{n.driver}</text>
+                    <text class="muted col_dur">{n.containers}</text>
+                    <StateCell kind="{n.in_use_kind}" label="{n.in_use_label}" />
+                    <row class="col_act">
+                      <button
+                        if="{n.in_use_label}"
+                        equals="SEM USO"
+                        class="dk_rm"
+                        on_click="docker_rm_network:{n.id_full}"
+                        text="Remover"
+                      />
+                    </row>
+                  </row>
+                  <hr />
+                </column>
+              </template>
+            </if> <else>
+              <template for-each="docker_networks" var="n">
+                <column class="row_wrap">
+                  <row class="trow">
+                    <text class="td_key col_svc">{n.name}</text>
+                    <text class="td col_proj">{n.project}</text>
+                    <text class="muted col_dur">{n.driver}</text>
+                    <text class="muted col_dur">{n.containers}</text>
+                    <StateCell kind="{n.in_use_kind}" label="{n.in_use_label}" />
+                    <row class="col_act">
+                      <button
+                        if="{n.in_use_label}"
+                        equals="SEM USO"
+                        class="dk_rm"
+                        on_click="docker_rm_network:{n.id_full}"
+                        text="Remover"
+                      />
+                    </row>
+                  </row>
+                  <hr />
+                </column>
+              </template>
+            </else>
+          </column>
+        </scrollable>
+      </column>
+
+      <!-- Registry — repositórios/tags do registry OCI embutido (Fase 1: só
+           push/pull via docker CLI; sem auth ainda). Leitura + delete
+           (metadados) + GC (libera do disco blobs/manifests órfãos). Tags de um
+           repositório são buscadas sob demanda ao clicar "Ver tags" — não
+           vêm no snapshot periódico, diferente das outras sub-abas Docker. -->
+      <column class="panel_fill" if="{docker_tab}" equals="registry">
+        <row class="env_head">
+          <text class="muted_fill">
+            Registry {registry_status_label} · {registry_repos_count} repositório(s) · {registry_storage_human}
+          </text>
+          <button
+            class="btn_danger"
+            if="{registry_status_enabled}"
+            equals="true"
+            on_click="registry_gc"
+            text="Executar GC"
+          />
+        </row>
+        <text if="{registry_msg}" not_equals="" class="muted">{registry_msg}</text>
+
+        <column class="panel_fill" if="{registry_selected_repo}" equals="">
+          <row class="thead">
+            <text class="th col_svc">REPOSITÓRIO</text>
+            <text class="th col_proj">TAGS</text>
+            <text class="th col_dur">TAMANHO</text>
+            <text class="th col_dur">CRIADO</text>
+            <text class="th col_act_2">AÇÃO</text>
+          </row>
+          <if cond="{data_loading}" equals="true">
+            <LoadingRow />
+          </if>
+          <!-- Fica com `registry_repos_count` (não vira `empty` em
+               `registry_repos` como os outros pares lista/count deste plano de
+               convergência): `registry_repos` é FILTRADO pela busca
+               (fmt.registry_repos(snap.registry_repos, term) em stream.luau),
+               enquanto o count é da lista crua. Trocar faria essa mensagem
+               ("Faça docker push...") aparecer quando a busca só não achou
+               nada, não quando o registry está genuinamente vazio. -->
+          <text if="{registry_repos_count}" equals="0" class="muted">
+            Nenhum repositório ainda. Faça `docker push` para o registry embutido.
+          </text>
+          <scrollable
+            if="{data_loading}"
+            not_equals="true"
+            direction="vertical"
+            class="scroll_fill"
+          >
+            <column class="table_body">
+              <column class="row_wrap" for-each="registry_repos" var="r">
+                <row class="trow">
+                  <text class="td_key col_svc">{r.name}</text>
+                  <text class="td col_proj">{r.tag_count}</text>
+                  <text class="muted col_dur">{r.size}</text>
+                  <text class="muted col_dur">{r.created}</text>
+                  <row class="col_act_2">
+                    <button class="copy_btn" on_click="registry_open_repo:{r.name}" text="≡" tooltip="Ver tags" />
+                    <button class="env_del" on_click="registry_rm_repo:{r.name}" text="✕" tooltip="Remover" />
+                  </row>
+                </row>
+                <hr />
+              </column>
+            </column>
+          </scrollable>
 
           <text class="label_cap">
-            E-MAIL LET'S ENCRYPT (HTTPS AUTOMÁTICO)
+            TOKENS DE ACESSO ({registry_tokens_count})
           </text>
-          <TextInput
-            placeholder="voce@exemplo.com"
-            class="field_input"
-            formControl="ss_email"
-          />
-
-          <text if="{erro_ss_email}" not_equals="" class="err">
-            {erro_ss_email}
-          </text>
-          <text class="muted">
-            Certificados TLS emitidos automaticamente.
-            Requer restart do daemon.
-          </text>
-
-          <text class="label_cap">
-            DOMÍNIO DO REGISTRY (EXPOSIÇÃO PÚBLICA)
-          </text>
-          <TextInput
-            placeholder="registry.meusite.com"
-            class="field_input"
-            formControl="ss_registry_domain"
-          />
-          <text class="muted">
-            Expõe o registry Docker embutido via ingress + certificado automático.
-            Requer [registry] enabled = true na config. Vazio = só acessível em 127.0.0.1.
-          </text>
-
-          <row class="env_add">
-            <button class="btn_primary" on_click="settings_save" text="Save" />
-            <text class="muted">{settings_msg}</text>
+          <row class="env_head">
+            <text class="muted_fill">
+              Basic auth (docker login) — o segredo só aparece uma vez, na criação.
+            </text>
+            <button class="btn_primary" on_click="registry_open_token_window" text="+ Novo token" />
           </row>
+          <text if="{registry_tokens}" empty class="muted">
+            Nenhum token ainda. Sem token nenhum push/pull é autenticado — crie um antes de usar o registry.
+          </text>
+          <row class="thead" if="{registry_tokens}" not_empty>
+            <text class="th col_svc">NOME</text>
+            <text class="th col_proj">ESCOPO</text>
+            <text class="th col_dur">CRIADO</text>
+            <text class="th col_dur">ÚLTIMO USO</text>
+            <text class="th col_act">AÇÃO</text>
+          </row>
+          <column class="table_body" for-each="registry_tokens" var="tk">
+            <row class="trow">
+              <text class="td_key col_svc">{tk.name}</text>
+              <text class="td col_proj">{tk.scope}</text>
+              <text class="muted col_dur">{tk.created}</text>
+              <text class="muted col_dur">{tk.last_used}</text>
+              <row class="col_act">
+                <button class="env_del" on_click="registry_rm_token:{tk.name}" text="✕" tooltip="Revogar" />
+              </row>
+            </row>
+            <hr />
+          </column>
         </column>
-      </form>
+
+        <column class="panel_fill" if="{registry_selected_repo}" not_equals="">
+          <row class="env_head">
+            <text class="muted_fill">{registry_selected_repo} — {registry_tags_count} tag(s)</text>
+            <button class="btn_ghost" on_click="registry_close_repo" text="← Voltar" />
+          </row>
+          <row class="thead">
+            <text class="th col_svc">TAG</text>
+            <text class="th col_proj">DIGEST</text>
+            <text class="th col_dur">TAMANHO</text>
+            <text class="th col_dur">ATUALIZADA</text>
+            <text class="th col_act">AÇÃO</text>
+          </row>
+          <if cond="{registry_tags_loading}" equals="true">
+            <LoadingRow />
+          </if>
+          <scrollable
+            if="{registry_tags_loading}"
+            not_equals="true"
+            direction="vertical"
+            class="scroll_fill"
+          >
+            <column class="table_body">
+              <column class="row_wrap" for-each="registry_tags" var="t">
+                <row class="trow">
+                  <text class="td_key col_svc">{t.tag}</text>
+                  <text class="muted col_proj">{t.digest}</text>
+                  <text class="muted col_dur">{t.size}</text>
+                  <text class="muted col_dur">{t.updated}</text>
+                  <row class="col_act">
+                    <button class="dk_rm" on_click="registry_rm_tag:{t.tag}" text="Remover" />
+                  </row>
+                </row>
+                <hr />
+              </column>
+            </column>
+          </scrollable>
+        </column>
+      </column>
     </if>
 
-    <!-- Git: contas conectadas + formulário de conexão -->
-    <if cond="{settings_tab}" equals="git">
-      <scrollable direction="vertical" class="scroll_fill">
-        <column class="form_panel">
-          <text class="label_cap">
-            CONTAS CONECTADAS ({gitea_count})
-          </text>
-          <text if="{gitea_providers}" empty class="muted">
-            Nenhuma conta Git conectada ainda.
-          </text>
+    <!-- ── Settings: sub-abas Web Server | Git ──────────────────────────── -->
+    <if cond="{view}" equals="settings">
+      <row class="header_row">
+        <column class="header_titles">
+          <text class="title">Settings</text>
+          <text class="subtitle">Daemon web server, HTTPS e contas Git.</text>
+        </column>
+      </row>
+      <row class="tabs">
+        <TabButton
+          label="Web Server"
+          current="{settings_tab}"
+          target="web"
+          action="settings_tab:web"
+        />
+        <TabButton
+          label="Git"
+          current="{settings_tab}"
+          target="git"
+          action="settings_tab:git"
+        />
+        <TabButton
+          label="Infra as Code"
+          current="{settings_tab}"
+          target="iac"
+          action="settings_tab:iac"
+        />
+        <TabButton
+          label="Manutenção"
+          current="{settings_tab}"
+          target="maintenance"
+          action="settings_tab:maintenance"
+        />
+      </row>
+      <hr />
 
-          <column class="kv_list">
-            <template for-each="gitea_providers" var="p">
-              <row class="kv_row">
-                <column class="header_titles">
-                  <text class="env_key">{p.name}</text>
-                  <text class="muted">
-                    {p.kind}  ·  {p.base_url}  ·  {p.auth_mode}  ·  {p.account}
-                  </text>
-                </column>
-                <button class="btn_danger" on_click="gp_delete:{p.id}" text="Remover" />
-              </row>
-            </template>
-          </column>
-
-          <hr />
-          <text class="label_cap">CONECTAR CONTA GIT</text>
-
-          <!-- Tipo de provedor: Gitea ou GitHub. Troca a redirect URI (path por
-               provedor) e os textos de ajuda abaixo. -->
-          <row class="tabs">
-            <TabButton
-              label="Gitea"
-              current="{gp_kind}"
-              target="gitea"
-              action="gp_kind:gitea"
-            />
-            <TabButton
-              label="GitHub"
-              current="{gp_kind}"
-              target="github"
-              action="gp_kind:github"
-            />
-          </row>
-
-          <text if="{gp_msg}" not_equals="" class="muted">
-            {gp_msg}
-          </text>
-          <!-- OAuth: o Luau não abre o navegador; guarda a URL em gp_oauth_url e
-               o built-in open:<chave> do glacier abre no navegador padrão. -->
-          <button
-            if="{gp_oauth_url}"
-            not_equals=""
-            class="btn_primary"
-            on_click="open:gp_oauth_url"
-            text="Abrir autorização no navegador"
-          />
-
-          <form
-            name="git_provider"
-            on_submit="gp_connect"
-            spacing="10"
-            width="fill"
-          >
-            <row class="hc_grid">
-              <column class="hc_field">
-                <text class="label_cap">NOME</text>
-                <TextInput
-                  placeholder="Meu Gitea"
-                  class="field_input"
-                  formControl="gp_name"
-                  value="gp_name"
-                  on_change="field:gp_name"
-                />
-                <text if="{erro_gp_name}" not_equals="" class="err">
-                  {erro_gp_name}
-                </text>
-              </column>
-              <column class="hc_field">
-                <text class="label_cap">BASE URL</text>
-                <TextInput
-                  placeholder="https://gitea.exemplo.com"
-                  class="field_input"
-                  formControl="gp_base_url"
-                  value="gp_base_url"
-                  on_change="field:gp_base_url"
-                />
-                <text if="{gp_kind}" equals="github" class="muted">
-                  Deixe vazio para github.com. Só preencha para GitHub
-                  Enterprise Server (ex.: https://ghe.suaempresa.com).
-                </text>
-              </column>
-            </row>
-
-            <text class="label_cap">MÉTODO</text>
-            <row class="tabs">
-              <TabButton
-                label="OAuth2"
-                current="{gp_mode}"
-                target="oauth"
-                action="gp_mode:oauth"
-              />
-              <TabButton
-                label="Token (PAT)"
-                current="{gp_mode}"
-                target="pat"
-                action="gp_mode:pat"
+      <!-- Web Server (default) -->
+      <if cond="{settings_tab}" equals="web">
+        <form name="settings" on_submit="settings_save" width="fill">
+          <column class="form_panel">
+            <text class="label_cap">URL PÚBLICA DA API</text>
+            <row class="kv_row">
+              <text class="kv_val_fill">{ss_public_base}</text>
+              <button
+                class="copy_btn"
+                on_click="clipboard:ss_public_base"
+                text="Copiar"
               />
             </row>
+            <text class="muted">
+              Derivada de [api] domain/port no daemon — é a base das URLs de
+              webhook dos serviços e do callback OAuth (mesma porta da API).
+              Para mudá-la, configure api.domain e reinicie o daemon.
+            </text>
 
-            <!-- OAuth2 -->
-            <if cond="{gp_mode}" not_equals="pat">
-              <text class="label_cap">CLIENT ID</text>
-              <TextInput
-                placeholder=""
-                class="field_input"
-                formControl="gp_client_id"
-                value="gp_client_id"
-                on_change="field:gp_client_id"
-              />
+            <text class="label_cap">
+              E-MAIL LET'S ENCRYPT (HTTPS AUTOMÁTICO)
+            </text>
+            <TextInput
+              placeholder="voce@exemplo.com"
+              class="field_input"
+              formControl="ss_email"
+            />
 
-              <text class="label_cap">CLIENT SECRET</text>
-              <TextInput
-                placeholder=""
-                secure="true"
-                class="field_input"
-                formControl="gp_client_secret"
-                value="gp_client_secret"
-                on_change="field:gp_client_secret"
-              />
+            <text if="{erro_ss_email}" not_equals="" class="err">
+              {erro_ss_email}
+            </text>
+            <text class="muted">
+              Certificados TLS emitidos automaticamente.
+              Requer restart do daemon.
+            </text>
 
-              <text class="label_cap">
-                REDIRECT URI (cole no app OAuth do provedor)
-              </text>
-              <row class="kv_row">
-                <text class="kv_val_fill">{gp_redirect}</text>
-                <button
-                  class="copy_btn"
-                  on_click="clipboard:gp_redirect"
-                  text="Copiar"
-                />
-              </row>
-              <text if="{gp_kind}" not_equals="github" class="muted">
-                No Gitea: Settings → Applications → crie um OAuth2
-                app e cole a Redirect URI acima.
-              </text>
-              <text if="{gp_kind}" equals="github" class="muted">
-                No GitHub: Settings → Developer settings → OAuth Apps →
-                New OAuth App e cole a Redirect URI acima em "Authorization
-                callback URL".
-              </text>
-            </if>
-
-            <!-- PAT -->
-            <if cond="{gp_mode}" equals="pat">
-              <text class="label_cap">
-                PERSONAL ACCESS TOKEN
-              </text>
-              <TextInput
-                placeholder=""
-                secure="true"
-                class="field_input"
-                formControl="gp_pat"
-                value="gp_pat"
-                on_change="field:gp_pat"
-              />
-
-              <text if="{gp_kind}" not_equals="github" class="muted">
-                No Gitea: Settings → Applications → Generate New Token (escopo: repo).
-              </text>
-              <text if="{gp_kind}" equals="github" class="muted">
-                No GitHub: Settings → Developer settings → Personal access
-                tokens → gere um token com escopo "repo".
-              </text>
-            </if>
+            <text class="label_cap">
+              DOMÍNIO DO REGISTRY (EXPOSIÇÃO PÚBLICA)
+            </text>
+            <TextInput
+              placeholder="registry.meusite.com"
+              class="field_input"
+              formControl="ss_registry_domain"
+            />
+            <text class="muted">
+              Expõe o registry Docker embutido via ingress + certificado automático.
+              Requer [registry] enabled = true na config. Vazio = só acessível em 127.0.0.1.
+            </text>
 
             <row class="env_add">
-              <button
-                class="btn_primary"
-                on_click="gp_connect"
-                text="Conectar conta"
-              />
-              <button
-                class="tab"
-                on_click="gp_refresh"
-                text="Atualizar lista"
-              />
+              <button class="btn_primary" on_click="settings_save" text="Save" />
+              <text class="muted">{settings_msg}</text>
             </row>
-          </form>
-        </column>
-      </scrollable>
-    </if>
+          </column>
+        </form>
+      </if>
 
-    <!-- Infra as Code: exporta todos os projetos/serviços como YAML (env vars
-         sempre redigidas para ${VAR}) + o TOML de variáveis complementar
-         (aninhado por projeto → serviço, sem colisão de nomes) com os valores
-         reais; importa colando os dois de volta (cruza e valida faltantes). -->
-    <if cond="{settings_tab}" equals="iac">
-      <scrollable direction="vertical" class="scroll_fill">
-        <column class="form_panel">
-          <text class="label_cap">EXPORTAR</text>
-          <text class="muted">
-            Gera um YAML com todos os projetos e serviços — valores de env var
-            nunca aparecem no YAML, só o nome entre cifrão-chaves. Os valores
-            reais das vars (exceto secrets, que nunca saem do daemon) vão no
-            TOML ao lado, aninhado por projeto → serviço (vars homônimas de
-            escopos diferentes não colidem).
-          </text>
-          <row class="env_add">
-            <button class="btn_primary" on_click="iac_export" text="Exportar tudo" />
-            <text class="muted">{iac_export_msg}</text>
-          </row>
-
-          <if cond="{iac_has_export}" equals="true">
-            <row class="env_head">
-              <text class="label_cap">rustploy.yml</text>
-              <button class="copy_btn" on_click="clipboard:iac_yaml" text="Copiar" />
-            </row>
-            <textarea class="env_editor" font="mono" value="iac_yaml" readonly="true" />
-
-            <row class="env_head">
-              <text class="label_cap">variáveis.toml</text>
-              <button class="copy_btn" on_click="clipboard:iac_dotenv" text="Copiar" />
-            </row>
-            <textarea class="env_editor" font="mono" value="iac_dotenv" readonly="true" />
-          </if>
-
-          <hr />
-
-          <text class="label_cap">IMPORTAR</text>
-          <text class="muted">
-            Cole o YAML e o TOML de variáveis correspondente. Falta o valor de
-            alguma variável usada no YAML? O import é cancelado antes de aplicar
-            qualquer coisa (a faltante vem rotulada com o escopo, ex.
-            "Chiquitos/api: APP_PORT").
-          </text>
-
-          <text class="label_cap">rustploy.yml</text>
-          <textarea
-            class="env_editor"
-            font="mono"
-            value="iac_import_yaml"
-            placeholder="Cole aqui o YAML exportado (ou escrito à mão)"
-          />
-
-          <text class="label_cap">variáveis.toml</text>
-          <textarea
-            class="env_editor"
-            font="mono"
-            value="iac_import_dotenv"
-            placeholder='Cole aqui o TOML de variáveis ([project.&quot;App&quot;.env] com DB_PASS = "s3cr3t")'
-          />
-
-          <row class="env_add">
-            <checkbox
-              checked="iac_prune"
-              on_toggle="field:iac_prune"
-              label="Remover serviços ausentes do manifesto (prune)"
-            />
-          </row>
-          <row class="env_add">
-            <checkbox
-              checked="iac_deploy"
-              on_toggle="field:iac_deploy"
-              label="Disparar deploy dos serviços criados/alterados"
-            />
-          </row>
-
-          <row class="env_add">
-            <button class="btn_primary" on_click="iac_import" text="Importar" />
-            <text class="muted">{iac_import_msg}</text>
-          </row>
-
-          <if cond="{iac_has_missing}" equals="true">
-            <text class="err">
-              Variáveis sem valor no TOML: {iac_missing_vars}
+      <!-- Git: contas conectadas + formulário de conexão -->
+      <if cond="{settings_tab}" equals="git">
+        <scrollable direction="vertical" class="scroll_fill">
+          <column class="form_panel">
+            <text class="label_cap">
+              CONTAS CONECTADAS ({gitea_count})
             </text>
-          </if>
+            <text if="{gitea_providers}" empty class="muted">
+              Nenhuma conta Git conectada ainda.
+            </text>
 
-          <if cond="{iac_has_report}" equals="true">
-            <text class="label_cap">RESULTADO</text>
             <column class="kv_list">
-              <row class="kv_row" for-each="iac_report_lines" var="l">
-                <text class="muted">{l}</text>
-              </row>
-            </column>
-          </if>
-        </column>
-      </scrollable>
-    </if>
-
-    <!-- Manutenção: limpeza automática de recursos Docker sem uso (ver
-         docs/plano-limpeza-automatica-docker.md) — mesmas funções dos botões
-         manuais da aba Docker, disparadas por agendamento em vez de clique. -->
-    <if cond="{settings_tab}" equals="maintenance">
-      <scrollable direction="vertical" class="scroll_fill">
-        <column class="form_panel">
-          <text class="label_cap">LIMPEZA AUTOMÁTICA</text>
-          <toggle
-            checked="dc_enabled"
-            on_toggle="field:dc_enabled"
-            label="  Ativar limpeza automática"
-          />
-          <text class="muted">
-            Roda sozinha, no horário abaixo, os recursos marcados nesta tela.
-            Desligada por padrão — nada é removido até você marcar pelo menos
-            um recurso e ativar.
-          </text>
-
-          <text class="label_cap">FREQUÊNCIA</text>
-          <row class="tabs">
-            <TabButton label="A cada N horas" current="{dc_kind}" target="interval" action="dc_kind:interval" />
-            <TabButton label="Todo dia" current="{dc_kind}" target="daily" action="dc_kind:daily" />
-            <TabButton label="Toda semana" current="{dc_kind}" target="weekly" action="dc_kind:weekly" />
-          </row>
-
-          <row class="hc_grid" if="{dc_kind}" equals="interval">
-            <column class="hc_field">
-              <text class="label_cap">A CADA (HORAS)</text>
-              <TextInput
-                class="field_input"
-                formControl="dc_hours"
-                value="dc_hours"
-                on_change="field:dc_hours"
-                placeholder="6"
-              />
-            </column>
-          </row>
-
-          <row class="tabs" if="{dc_kind}" equals="weekly">
-            <TabButton label="Seg" current="{dc_weekday}" target="0" action="dc_weekday:0" />
-            <TabButton label="Ter" current="{dc_weekday}" target="1" action="dc_weekday:1" />
-            <TabButton label="Qua" current="{dc_weekday}" target="2" action="dc_weekday:2" />
-            <TabButton label="Qui" current="{dc_weekday}" target="3" action="dc_weekday:3" />
-            <TabButton label="Sex" current="{dc_weekday}" target="4" action="dc_weekday:4" />
-            <TabButton label="Sáb" current="{dc_weekday}" target="5" action="dc_weekday:5" />
-            <TabButton label="Dom" current="{dc_weekday}" target="6" action="dc_weekday:6" />
-          </row>
-
-          <row class="hc_grid" if="{dc_kind}" not_equals="interval">
-            <column class="hc_field">
-              <text class="label_cap">HORA (0-23)</text>
-              <TextInput
-                class="field_input"
-                formControl="dc_hour"
-                value="dc_hour"
-                on_change="field:dc_hour"
-                placeholder="3"
-              />
-            </column>
-            <column class="hc_field">
-              <text class="label_cap">MINUTO (0-59)</text>
-              <TextInput
-                class="field_input"
-                formControl="dc_minute"
-                value="dc_minute"
-                on_change="field:dc_minute"
-                placeholder="0"
-              />
-            </column>
-          </row>
-
-          <text class="muted">Próxima execução agendada: {dc_next_run_label}</text>
-
-          <hr />
-          <text class="label_cap">O QUE LIMPAR</text>
-
-          <checkbox checked="dc_containers" on_toggle="field:dc_containers" label="Containers parados" />
-
-          <checkbox checked="dc_images" on_toggle="field:dc_images" label="Imagens sem uso" />
-          <checkbox
-            if="{dc_images}"
-            equals="true"
-            checked="dc_images_all"
-            on_toggle="field:dc_images_all"
-            label="   incluir todas as não usadas (não só as sem tag)"
-          />
-
-          <checkbox checked="dc_networks" on_toggle="field:dc_networks" label="Redes sem uso" />
-
-          <checkbox checked="dc_build_cache" on_toggle="field:dc_build_cache" label="Cache de build" />
-
-          <hr />
-          <text class="label_cap err">VOLUMES — CUIDADO</text>
-          <text class="muted">
-            Volumes sem uso criados por fora do rustploy (não pelos seus
-            serviços, que só usam bind mount) podem conter dado que ninguém
-            recriaria sozinho. Confirme que sabe o que existe no host antes de
-            ativar.
-          </text>
-          <checkbox checked="dc_volumes" on_toggle="field:dc_volumes" label="Volumes sem uso" />
-          <checkbox
-            if="{dc_volumes}"
-            equals="true"
-            checked="dc_volumes_all"
-            on_toggle="field:dc_volumes_all"
-            label="   incluir todos os sem uso (não só os anônimos)"
-          />
-
-          <row class="env_add">
-            <button class="btn_primary" on_click="dc_save" text="Salvar" />
-            <button class="tab" if="{dc_running}" not_equals="true" on_click="dc_run_now" text="Executar agora" />
-            <button class="tab" if="{dc_running}" equals="true" text="Executando…" />
-            <text class="muted">{dc_msg}</text>
-          </row>
-
-          <hr />
-          <text class="label_cap">ÚLTIMA EXECUÇÃO</text>
-          <text class="muted">{dc_last_run_text}</text>
-        </column>
-      </scrollable>
-    </if>
-  </if>
-
-  <!-- ── Schedules: jobs one-shot via docker-compose, de todos os projetos ── -->
-  <if cond="{view}" equals="schedules">
-    <row class="header_row">
-      <column class="header_titles">
-        <text class="title">Schedules</text>
-        <text class="subtitle">
-          Tarefas one-shot (docker-compose) agendadas ou manuais, de todos os projetos.
-        </text>
-      </column>
-      <row class="stats_row stats_hide_md">
-        <StatCard label="JOBS" value="{jobs_count}" />
-      </row>
-      <button class="btn_primary" on_click="open_new_job_window" text="+ Novo job" />
-    </row>
-    <column class="panel_fill">
-      <row class="thead">
-        <text class="th col_svc">NOME</text>
-        <text class="th col_proj">PROJETO / GATILHO</text>
-        <text class="th col_state">ÚLTIMA EXECUÇÃO</text>
-        <text class="th col_dur">RECORRÊNCIA</text>
-        <text class="th col_dur">PRÓXIMA EXECUÇÃO</text>
-        <text class="th col_act_5">AÇÕES</text>
-      </row>
-      <text if="{jobs_summary}" empty class="muted">
-        Nenhum job cadastrado ainda.
-      </text>
-      <scrollable direction="vertical" class="scroll_fill">
-        <column class="table_body">
-          <template for-each="jobs_summary" var="j">
-            <column class="row_wrap">
-              <row class="trow">
-                <text class="td_key col_svc">{j.name}</text>
-                <text class="td col_proj">{j.owner}</text>
-                <StateCell kind="{j.last_run_kind}" label="{j.last_run_label}" />
-                <text class="muted col_dur">{j.recurrence}</text>
-                <text class="muted col_dur">{j.next_run_at}</text>
-                <row class="col_act_5">
-                  <button class="copy_btn" if="{j.running}" not_equals="true"
-                    on_click="job_run_now:{j.id}" text="▶" tooltip="Rodar agora" />
-                  <button class="env_del" if="{j.running}" equals="true"
-                    on_click="job_run_cancel:{j.last_run_id}" text="■" tooltip="Cancelar" />
-                  <button class="copy_btn" if="{j.last_run_id}" not_equals=""
-                    on_click="open_job_logs_window:{j.last_run_id}" text="≡" tooltip="Ver logs" />
-                  <button class="copy_btn" if="{j.enabled}" equals="true"
-                    on_click="job_toggle:{j.id}" text="‖" tooltip="Pausar" />
-                  <button class="copy_btn" if="{j.enabled}" not_equals="true"
-                    on_click="job_toggle:{j.id}" text="▶" tooltip="Ativar" />
-                  <button class="copy_btn" on_click="open_edit_job_window:{j.id}" text="✎" tooltip="Editar" />
-                  <button class="env_del" on_click="job_del:{j.id}" text="✕" tooltip="Remover" />
+              <template for-each="gitea_providers" var="p">
+                <row class="kv_row">
+                  <column class="header_titles">
+                    <text class="env_key">{p.name}</text>
+                    <text class="muted">
+                      {p.kind}  ·  {p.base_url}  ·  {p.auth_mode}  ·  {p.account}
+                    </text>
+                  </column>
+                  <button class="btn_danger" on_click="gp_delete:{p.id}" text="Remover" />
                 </row>
-              </row>
-              <hr />
+              </template>
             </column>
-          </template>
+
+            <hr />
+            <text class="label_cap">CONECTAR CONTA GIT</text>
+
+            <!-- Tipo de provedor: Gitea ou GitHub. Troca a redirect URI (path por
+                 provedor) e os textos de ajuda abaixo. -->
+            <row class="tabs">
+              <TabButton
+                label="Gitea"
+                current="{gp_kind}"
+                target="gitea"
+                action="gp_kind:gitea"
+              />
+              <TabButton
+                label="GitHub"
+                current="{gp_kind}"
+                target="github"
+                action="gp_kind:github"
+              />
+            </row>
+
+            <text if="{gp_msg}" not_equals="" class="muted">
+              {gp_msg}
+            </text>
+            <!-- OAuth: o Luau não abre o navegador; guarda a URL em gp_oauth_url e
+                 o built-in open:<chave> do glacier abre no navegador padrão. -->
+            <button
+              if="{gp_oauth_url}"
+              not_equals=""
+              class="btn_primary"
+              on_click="open:gp_oauth_url"
+              text="Abrir autorização no navegador"
+            />
+
+            <form
+              name="git_provider"
+              on_submit="gp_connect"
+              spacing="10"
+              width="fill"
+            >
+              <row class="hc_grid">
+                <column class="hc_field">
+                  <text class="label_cap">NOME</text>
+                  <TextInput
+                    placeholder="Meu Gitea"
+                    class="field_input"
+                    formControl="gp_name"
+                    value="gp_name"
+                    on_change="field:gp_name"
+                  />
+                  <text if="{erro_gp_name}" not_equals="" class="err">
+                    {erro_gp_name}
+                  </text>
+                </column>
+                <column class="hc_field">
+                  <text class="label_cap">BASE URL</text>
+                  <TextInput
+                    placeholder="https://gitea.exemplo.com"
+                    class="field_input"
+                    formControl="gp_base_url"
+                    value="gp_base_url"
+                    on_change="field:gp_base_url"
+                  />
+                  <text if="{gp_kind}" equals="github" class="muted">
+                    Deixe vazio para github.com. Só preencha para GitHub
+                    Enterprise Server (ex.: https://ghe.suaempresa.com).
+                  </text>
+                </column>
+              </row>
+
+              <text class="label_cap">MÉTODO</text>
+              <row class="tabs">
+                <TabButton
+                  label="OAuth2"
+                  current="{gp_mode}"
+                  target="oauth"
+                  action="gp_mode:oauth"
+                />
+                <TabButton
+                  label="Token (PAT)"
+                  current="{gp_mode}"
+                  target="pat"
+                  action="gp_mode:pat"
+                />
+              </row>
+
+              <!-- OAuth2 -->
+              <if cond="{gp_mode}" not_equals="pat">
+                <text class="label_cap">CLIENT ID</text>
+                <TextInput
+                  placeholder=""
+                  class="field_input"
+                  formControl="gp_client_id"
+                  value="gp_client_id"
+                  on_change="field:gp_client_id"
+                />
+
+                <text class="label_cap">CLIENT SECRET</text>
+                <TextInput
+                  placeholder=""
+                  secure="true"
+                  class="field_input"
+                  formControl="gp_client_secret"
+                  value="gp_client_secret"
+                  on_change="field:gp_client_secret"
+                />
+
+                <text class="label_cap">
+                  REDIRECT URI (cole no app OAuth do provedor)
+                </text>
+                <row class="kv_row">
+                  <text class="kv_val_fill">{gp_redirect}</text>
+                  <button
+                    class="copy_btn"
+                    on_click="clipboard:gp_redirect"
+                    text="Copiar"
+                  />
+                </row>
+                <text if="{gp_kind}" not_equals="github" class="muted">
+                  No Gitea: Settings → Applications → crie um OAuth2
+                  app e cole a Redirect URI acima.
+                </text>
+                <text if="{gp_kind}" equals="github" class="muted">
+                  No GitHub: Settings → Developer settings → OAuth Apps →
+                  New OAuth App e cole a Redirect URI acima em "Authorization
+                  callback URL".
+                </text>
+              </if>
+
+              <!-- PAT -->
+              <if cond="{gp_mode}" equals="pat">
+                <text class="label_cap">
+                  PERSONAL ACCESS TOKEN
+                </text>
+                <TextInput
+                  placeholder=""
+                  secure="true"
+                  class="field_input"
+                  formControl="gp_pat"
+                  value="gp_pat"
+                  on_change="field:gp_pat"
+                />
+
+                <text if="{gp_kind}" not_equals="github" class="muted">
+                  No Gitea: Settings → Applications → Generate New Token (escopo: repo).
+                </text>
+                <text if="{gp_kind}" equals="github" class="muted">
+                  No GitHub: Settings → Developer settings → Personal access
+                  tokens → gere um token com escopo "repo".
+                </text>
+              </if>
+
+              <row class="env_add">
+                <button
+                  class="btn_primary"
+                  on_click="gp_connect"
+                  text="Conectar conta"
+                />
+                <button
+                  class="tab"
+                  on_click="gp_refresh"
+                  text="Atualizar lista"
+                />
+              </row>
+            </form>
+          </column>
+        </scrollable>
+      </if>
+
+      <!-- Infra as Code: exporta todos os projetos/serviços como YAML (env vars
+           sempre redigidas para ${VAR}) + o TOML de variáveis complementar
+           (aninhado por projeto → serviço, sem colisão de nomes) com os valores
+           reais; importa colando os dois de volta (cruza e valida faltantes). -->
+      <if cond="{settings_tab}" equals="iac">
+        <scrollable direction="vertical" class="scroll_fill">
+          <column class="form_panel">
+            <text class="label_cap">EXPORTAR</text>
+            <text class="muted">
+              Gera um YAML com todos os projetos e serviços — valores de env var
+              nunca aparecem no YAML, só o nome entre cifrão-chaves. Os valores
+              reais das vars (exceto secrets, que nunca saem do daemon) vão no
+              TOML ao lado, aninhado por projeto → serviço (vars homônimas de
+              escopos diferentes não colidem).
+            </text>
+            <row class="env_add">
+              <button class="btn_primary" on_click="iac_export" text="Exportar tudo" />
+              <text class="muted">{iac_export_msg}</text>
+            </row>
+
+            <if cond="{iac_has_export}" equals="true">
+              <row class="env_head">
+                <text class="label_cap">rustploy.yml</text>
+                <button class="copy_btn" on_click="clipboard:iac_yaml" text="Copiar" />
+              </row>
+              <textarea class="env_editor" font="mono" value="iac_yaml" readonly="true" />
+
+              <row class="env_head">
+                <text class="label_cap">variáveis.toml</text>
+                <button class="copy_btn" on_click="clipboard:iac_dotenv" text="Copiar" />
+              </row>
+              <textarea class="env_editor" font="mono" value="iac_dotenv" readonly="true" />
+            </if>
+
+            <hr />
+
+            <text class="label_cap">IMPORTAR</text>
+            <text class="muted">
+              Cole o YAML e o TOML de variáveis correspondente. Falta o valor de
+              alguma variável usada no YAML? O import é cancelado antes de aplicar
+              qualquer coisa (a faltante vem rotulada com o escopo, ex.
+              "Chiquitos/api: APP_PORT").
+            </text>
+
+            <text class="label_cap">rustploy.yml</text>
+            <textarea
+              class="env_editor"
+              font="mono"
+              value="iac_import_yaml"
+              placeholder="Cole aqui o YAML exportado (ou escrito à mão)"
+            />
+
+            <text class="label_cap">variáveis.toml</text>
+            <textarea
+              class="env_editor"
+              font="mono"
+              value="iac_import_dotenv"
+              placeholder='Cole aqui o TOML de variáveis ([project.&quot;App&quot;.env] com DB_PASS = "s3cr3t")'
+            />
+
+            <row class="env_add">
+              <checkbox
+                checked="iac_prune"
+                on_toggle="field:iac_prune"
+                label="Remover serviços ausentes do manifesto (prune)"
+              />
+            </row>
+            <row class="env_add">
+              <checkbox
+                checked="iac_deploy"
+                on_toggle="field:iac_deploy"
+                label="Disparar deploy dos serviços criados/alterados"
+              />
+            </row>
+
+            <row class="env_add">
+              <button class="btn_primary" on_click="iac_import" text="Importar" />
+              <text class="muted">{iac_import_msg}</text>
+            </row>
+
+            <if cond="{iac_has_missing}" equals="true">
+              <text class="err">
+                Variáveis sem valor no TOML: {iac_missing_vars}
+              </text>
+            </if>
+
+            <if cond="{iac_has_report}" equals="true">
+              <text class="label_cap">RESULTADO</text>
+              <column class="kv_list">
+                <row class="kv_row" for-each="iac_report_lines" var="l">
+                  <text class="muted">{l}</text>
+                </row>
+              </column>
+            </if>
+          </column>
+        </scrollable>
+      </if>
+
+      <!-- Manutenção: limpeza automática de recursos Docker sem uso (ver
+           docs/plano-limpeza-automatica-docker.md) — mesmas funções dos botões
+           manuais da aba Docker, disparadas por agendamento em vez de clique. -->
+      <if cond="{settings_tab}" equals="maintenance">
+        <scrollable direction="vertical" class="scroll_fill">
+          <column class="form_panel">
+            <text class="label_cap">LIMPEZA AUTOMÁTICA</text>
+            <toggle
+              checked="dc_enabled"
+              on_toggle="field:dc_enabled"
+              label="  Ativar limpeza automática"
+            />
+            <text class="muted">
+              Roda sozinha, no horário abaixo, os recursos marcados nesta tela.
+              Desligada por padrão — nada é removido até você marcar pelo menos
+              um recurso e ativar.
+            </text>
+
+            <text class="label_cap">FREQUÊNCIA</text>
+            <row class="tabs">
+              <TabButton label="A cada N horas" current="{dc_kind}" target="interval" action="dc_kind:interval" />
+              <TabButton label="Todo dia" current="{dc_kind}" target="daily" action="dc_kind:daily" />
+              <TabButton label="Toda semana" current="{dc_kind}" target="weekly" action="dc_kind:weekly" />
+            </row>
+
+            <row class="hc_grid" if="{dc_kind}" equals="interval">
+              <column class="hc_field">
+                <text class="label_cap">A CADA (HORAS)</text>
+                <TextInput
+                  class="field_input"
+                  formControl="dc_hours"
+                  value="dc_hours"
+                  on_change="field:dc_hours"
+                  placeholder="6"
+                />
+              </column>
+            </row>
+
+            <row class="tabs" if="{dc_kind}" equals="weekly">
+              <TabButton label="Seg" current="{dc_weekday}" target="0" action="dc_weekday:0" />
+              <TabButton label="Ter" current="{dc_weekday}" target="1" action="dc_weekday:1" />
+              <TabButton label="Qua" current="{dc_weekday}" target="2" action="dc_weekday:2" />
+              <TabButton label="Qui" current="{dc_weekday}" target="3" action="dc_weekday:3" />
+              <TabButton label="Sex" current="{dc_weekday}" target="4" action="dc_weekday:4" />
+              <TabButton label="Sáb" current="{dc_weekday}" target="5" action="dc_weekday:5" />
+              <TabButton label="Dom" current="{dc_weekday}" target="6" action="dc_weekday:6" />
+            </row>
+
+            <row class="hc_grid" if="{dc_kind}" not_equals="interval">
+              <column class="hc_field">
+                <text class="label_cap">HORA (0-23)</text>
+                <TextInput
+                  class="field_input"
+                  formControl="dc_hour"
+                  value="dc_hour"
+                  on_change="field:dc_hour"
+                  placeholder="3"
+                />
+              </column>
+              <column class="hc_field">
+                <text class="label_cap">MINUTO (0-59)</text>
+                <TextInput
+                  class="field_input"
+                  formControl="dc_minute"
+                  value="dc_minute"
+                  on_change="field:dc_minute"
+                  placeholder="0"
+                />
+              </column>
+            </row>
+
+            <text class="muted">Próxima execução agendada: {dc_next_run_label}</text>
+
+            <hr />
+            <text class="label_cap">O QUE LIMPAR</text>
+
+            <checkbox checked="dc_containers" on_toggle="field:dc_containers" label="Containers parados" />
+
+            <checkbox checked="dc_images" on_toggle="field:dc_images" label="Imagens sem uso" />
+            <checkbox
+              if="{dc_images}"
+              equals="true"
+              checked="dc_images_all"
+              on_toggle="field:dc_images_all"
+              label="   incluir todas as não usadas (não só as sem tag)"
+            />
+
+            <checkbox checked="dc_networks" on_toggle="field:dc_networks" label="Redes sem uso" />
+
+            <checkbox checked="dc_build_cache" on_toggle="field:dc_build_cache" label="Cache de build" />
+
+            <hr />
+            <text class="label_cap err">VOLUMES — CUIDADO</text>
+            <text class="muted">
+              Volumes sem uso criados por fora do rustploy (não pelos seus
+              serviços, que só usam bind mount) podem conter dado que ninguém
+              recriaria sozinho. Confirme que sabe o que existe no host antes de
+              ativar.
+            </text>
+            <checkbox checked="dc_volumes" on_toggle="field:dc_volumes" label="Volumes sem uso" />
+            <checkbox
+              if="{dc_volumes}"
+              equals="true"
+              checked="dc_volumes_all"
+              on_toggle="field:dc_volumes_all"
+              label="   incluir todos os sem uso (não só os anônimos)"
+            />
+
+            <row class="env_add">
+              <button class="btn_primary" on_click="dc_save" text="Salvar" />
+              <button class="tab" if="{dc_running}" not_equals="true" on_click="dc_run_now" text="Executar agora" />
+              <button class="tab" if="{dc_running}" equals="true" text="Executando…" />
+              <text class="muted">{dc_msg}</text>
+            </row>
+
+            <hr />
+            <text class="label_cap">ÚLTIMA EXECUÇÃO</text>
+            <text class="muted">{dc_last_run_text}</text>
+          </column>
+        </scrollable>
+      </if>
+    </if>
+
+    <!-- ── Schedules: jobs one-shot via docker-compose, de todos os projetos ── -->
+    <if cond="{view}" equals="schedules">
+      <row class="header_row">
+        <column class="header_titles">
+          <text class="title">Schedules</text>
+          <text class="subtitle">
+            Tarefas one-shot (docker-compose) agendadas ou manuais, de todos os projetos.
+          </text>
         </column>
-      </scrollable>
+        <row class="stats_row stats_hide_md">
+          <StatCard label="JOBS" value="{jobs_count}" />
+        </row>
+        <button class="btn_primary" on_click="open_new_job_window" text="+ Novo job" />
+      </row>
+      <column class="panel_fill">
+        <row class="thead">
+          <text class="th col_svc">NOME</text>
+          <text class="th col_proj">PROJETO / GATILHO</text>
+          <text class="th col_state">ÚLTIMA EXECUÇÃO</text>
+          <text class="th col_dur">RECORRÊNCIA</text>
+          <text class="th col_dur">PRÓXIMA EXECUÇÃO</text>
+          <text class="th col_act_5">AÇÕES</text>
+        </row>
+        <text if="{jobs_summary}" empty class="muted">
+          Nenhum job cadastrado ainda.
+        </text>
+        <scrollable direction="vertical" class="scroll_fill">
+          <column class="table_body">
+            <template for-each="jobs_summary" var="j">
+              <column class="row_wrap">
+                <row class="trow">
+                  <text class="td_key col_svc">{j.name}</text>
+                  <text class="td col_proj">{j.owner}</text>
+                  <StateCell kind="{j.last_run_kind}" label="{j.last_run_label}" />
+                  <text class="muted col_dur">{j.recurrence}</text>
+                  <text class="muted col_dur">{j.next_run_at}</text>
+                  <row class="col_act_5">
+                    <button class="copy_btn" if="{j.running}" not_equals="true"
+                      on_click="job_run_now:{j.id}" text="▶" tooltip="Rodar agora" />
+                    <button class="env_del" if="{j.running}" equals="true"
+                      on_click="job_run_cancel:{j.last_run_id}" text="■" tooltip="Cancelar" />
+                    <button class="copy_btn" if="{j.last_run_id}" not_equals=""
+                      on_click="open_job_logs_window:{j.last_run_id}" text="≡" tooltip="Ver logs" />
+                    <button class="copy_btn" if="{j.enabled}" equals="true"
+                      on_click="job_toggle:{j.id}" text="‖" tooltip="Pausar" />
+                    <button class="copy_btn" if="{j.enabled}" not_equals="true"
+                      on_click="job_toggle:{j.id}" text="▶" tooltip="Ativar" />
+                    <button class="copy_btn" on_click="open_edit_job_window:{j.id}" text="✎" tooltip="Editar" />
+                    <button class="env_del" on_click="job_del:{j.id}" text="✕" tooltip="Remover" />
+                  </row>
+                </row>
+                <hr />
+              </column>
+            </template>
+          </column>
+        </scrollable>
+      </column>
+    </if>
+
+    <column class="content_center" if="{view}" equals="support">
+      <text class="title">Support</text>
+      <text class="subtitle">github.com/antoniofernandodj/rustploy</text>
     </column>
-  </if>
 
-  <column class="content_center" if="{view}" equals="support">
-    <text class="title">Support</text>
-    <text class="subtitle">github.com/antoniofernandodj/rustploy</text>
   </column>
-
-</column>
+</component>

@@ -6,61 +6,65 @@
   Os logos vêm de crates/shared/templates/blueprints/<id>/<arquivo> (ver
   `templates_json` em app/wizard.rs).
 -->
-<style>
-.tpl_row {
-  width: fill;
-  padding: 12 0;
-  align-y: center;
-  spacing: 14;
-}
+<component>
+  <resources>
+    <style>
+    .tpl_row {
+      width: fill;
+      padding: 12 0;
+      align-y: center;
+      spacing: 14;
+    }
 
-.tpl_logo_box {
-  width: 34;
-  height: 34;
-  align-x: center;
-  align-y: center;
-}
+    .tpl_logo_box {
+      width: 34;
+      height: 34;
+      align-x: center;
+      align-y: center;
+    }
 
-.tpl_logo {
-  width: 30;
-  height: 30;
-}
-</style>
+    .tpl_logo {
+      width: 30;
+      height: 30;
+    }
+    </style>
+  </resources>
 
-<row class="tpl_row">
-  <!--
-    Caixa quadrada fixa e centralizada: os logos têm proporções diferentes
-    (quadrado, largo, estreito), então reservamos sempre o mesmo espaço e
-    centralizamos o logo dentro dele — mantém a coluna de texto alinhada.
-  -->
-  <column class="tpl_logo_box">
+  <row class="tpl_row">
     <!--
-      A origem da imagem vem no atributo `src` (interpolado do `{logo}`) — o
-      parser lê o source de `<svg>`/`<image>` só de atributo, nunca do conteúdo
-      entre as tags. Ver o `<svg src="…"/>` do login.gv.
+      Caixa quadrada fixa e centralizada: os logos têm proporções diferentes
+      (quadrado, largo, estreito), então reservamos sempre o mesmo espaço e
+      centralizamos o logo dentro dele — mantém a coluna de texto alinhada.
     -->
-    <svg
-      class="tpl_logo"
-      src="{logo}"
-      if="{logo_kind}"
-      equals="svg" />
-    <image
-      class="tpl_logo"
-      src="{logo}"
-      if="{logo_kind}"
-      equals="img" />
-  </column>
-  <column class="header_titles">
-    <text class="env_key">{name}</text>
-    <!-- 
-      Só renderiza a descrição quando existe — uma linha vazia empurraria o
-      nome pra cima e o desalinharia do logo (align-y center da linha).
-    -->
-    <text class="muted" if="{description}" not_equals="">{description}</text>
-  </column>
-  <button
-    class="btn_primary"
-    on_click="{action}"
-    text="Escolher ›"
-  />
-</row>
+    <column class="tpl_logo_box">
+      <!--
+        A origem da imagem vem no atributo `src` (interpolado do `{logo}`) — o
+        parser lê o source de `<svg>`/`<image>` só de atributo, nunca do conteúdo
+        entre as tags. Ver o `<svg src="…"/>` do login.gv.
+      -->
+      <svg
+        class="tpl_logo"
+        src="{logo}"
+        if="{logo_kind}"
+        equals="svg" />
+      <image
+        class="tpl_logo"
+        src="{logo}"
+        if="{logo_kind}"
+        equals="img" />
+    </column>
+    <column class="header_titles">
+      <text class="env_key">{name}</text>
+      <!-- 
+        Só renderiza a descrição quando existe — uma linha vazia empurraria o
+        nome pra cima e o desalinharia do logo (align-y center da linha).
+      -->
+      <text class="muted" if="{description}" not_equals="">{description}</text>
+    </column>
+    <button
+      class="btn_primary"
+      on_click="{action}"
+      text="Escolher ›"
+    />
+  </row>
+</component>

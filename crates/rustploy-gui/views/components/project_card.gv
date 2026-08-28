@@ -5,45 +5,46 @@
   (0.4.12+) embrulha múltiplas raízes num Fragment e aplica os filhos no pai,
   then o par if/else vira dois irmãos do grid, sem nó wrapper.
 -->
-
-<if cond="{filler}" equals="1">
-    <column class="card_filler" />
-</if> <else>
-  <column class="card">
-    <row class="card_head">
-      <text class="card_name">{name}</text>
-    </row>
-    <text
-      class="muted"
-      size="11"
-    >{service_count} serviço(s) · {running_count} rodando</text>
-    <!-- 
-      Sempre renderizado (mesmo vazio) para reservar a linha da
-      descrição, mantendo os cards da fileira mais próximos em
-      altura mesmo quando só um tem descrição.
-    -->
-    <text class="muted">{description}</text>
-    <hr />
-    <!-- 
-      Ações empilhadas: um botão fill disputando a linha com
-      texto/botão fica torto quando o card está estreito.
-    -->
-    <button
-      class="card_open"
-      on_click="open_project:{id}"
-      text="Abrir  ›"
-    />
-    <button
-      class="card_remove"
-      if="{can_delete}"
-      equals="1"
-      on_click="delete_project:{id}"
-      text="Remover"
-    />
-    <text
-      class="muted"
-      if="{can_delete}"
-      not_equals="1"
-    >Não removível: tem serviços</text>
-  </column>
-</else>
+<component>
+  <if cond="{filler}" equals="1">
+      <column class="card_filler" />
+  </if> <else>
+    <column class="card">
+      <row class="card_head">
+        <text class="card_name">{name}</text>
+      </row>
+      <text
+        class="muted"
+        size="11"
+      >{service_count} serviço(s) · {running_count} rodando</text>
+      <!-- 
+        Sempre renderizado (mesmo vazio) para reservar a linha da
+        descrição, mantendo os cards da fileira mais próximos em
+        altura mesmo quando só um tem descrição.
+      -->
+      <text class="muted">{description}</text>
+      <hr />
+      <!-- 
+        Ações empilhadas: um botão fill disputando a linha com
+        texto/botão fica torto quando o card está estreito.
+      -->
+      <button
+        class="card_open"
+        on_click="open_project:{id}"
+        text="Abrir  ›"
+      />
+      <button
+        class="card_remove"
+        if="{can_delete}"
+        equals="1"
+        on_click="delete_project:{id}"
+        text="Remover"
+      />
+      <text
+        class="muted"
+        if="{can_delete}"
+        not_equals="1"
+      >Não removível: tem serviços</text>
+    </column>
+  </else>
+</component>

@@ -5,14 +5,16 @@
   botão de ação à direita. Usada nos passos de escolha de tipo, de banco e de
   template.
 -->
-<row class="kv_row">
-  <column class="header_titles">
-    <text class="env_key">{title}</text>
-    <text class="muted">{subtitle}</text>
-  </column>
-  <button
-    class="btn_primary"
-    on_click="{action}"
-    text="{button_label}"
-  />
-</row>
+<component>
+  <row class="kv_row">
+    <column class="header_titles">
+      <text class="env_key">{title}</text>
+      <text class="muted">{subtitle}</text>
+    </column>
+    <button
+      class="btn_primary"
+      on_click="{action}"
+      text="{button_label}"
+    />
+  </row>
+</component>

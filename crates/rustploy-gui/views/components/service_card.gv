@@ -7,113 +7,117 @@
   a fileira do grid; caso contrário, o card real. O crachá de estado reaproveita
   o componente `rp-badge`.
 -->
-<style>
-.card_stats    {
-  width: fill;
-  spacing: 12;
-}
+<component>
+  <resources>
+    <style>
+    .card_stats    {
+      width: fill;
+      spacing: 12;
+    }
 
-.card_stat     {
-  width: fill;
-  spacing: 4;
-}
+    .card_stat     {
+      width: fill;
+      spacing: 4;
+    }
 
-.card_stat_num {
-  size: 18;
-  bold: true;
-  color: var(--text-2);
-}
+    .card_stat_num {
+      size: 18;
+      bold: true;
+      color: var(--text-2);
+    }
 
-.card_ctr {
-  width: fill;
-  spacing: 6;
-}
+    .card_ctr {
+      width: fill;
+      spacing: 6;
+    }
 
-/*
-.card_ctr_id {
-  color: var(--text-3);
-}
+    /*
+    .card_ctr_id {
+      color: var(--text-3);
+    }
 
-.card_ctr_extra {
-  color: var(--text-3);
-}
-*/
+    .card_ctr_extra {
+      color: var(--text-3);
+    }
+    */
 
-.card_actions  {
-  width: fill;
-  spacing: 8;
-}
+    .card_actions  {
+      width: fill;
+      spacing: 8;
+    }
 
-.card_stop     {
-  width: fill;
-  color: var(--border);
-  padding: 9 10;
-  text-align: center;
-  border-radius: 5
-}
+    .card_stop     {
+      width: fill;
+      color: var(--border);
+      padding: 9 10;
+      text-align: center;
+      border-radius: 5
+    }
 
-.c_name {
-  size: 16;
-  bold: true;
-  color: var(--text);
-}
+    .c_name {
+      size: 16;
+      bold: true;
+      color: var(--text);
+    }
 
-.c_port {
-  size: 12; color: var(--muted);
-}
+    .c_port {
+      size: 12; color: var(--muted);
+    }
 
-.fill {
-  width: fill;
-}
+    .fill {
+      width: fill;
+    }
 
-.align-y-center {
-  alignY: end;
-}
+    .align-y-center {
+      alignY: end;
+    }
 
-</style>
+    </style>
+  </resources>
 
-<column if="{filler}" equals="1" class="card_filler" />
-<column else class="card">
-  <row class="card_head">
-    <row class="fill align-y-center">
-      <text class="c_name">{name}</text>
-      <text class="c_port">:{port}</text>
+  <column if="{filler}" equals="1" class="card_filler" />
+  <column else class="card">
+    <row class="card_head">
+      <row class="fill align-y-center">
+        <text class="c_name">{name}</text>
+        <text class="c_port">:{port}</text>
+      </row>
+      <rp-badge color="{status_color}" label="{status_label}" />
     </row>
-    <rp-badge color="{status_color}" label="{status_label}" />
-  </row>
-  <row class="card_ctr">
-    <text class="muted">name: {container_name}</text>
-  </row>
-  <row>
-    <text class="muted">id: {container_id}</text>
-    <text class="muted" if="{container_extra}" not_equals="">extra: {container_extra}</text>
-  </row>
-  <hr />
-  <row class="card_stats">
-    <column class="card_stat">
-      <text class="label_cap">CPU</text>
-      <text class="card_stat_num">{cpu}</text>
-    </column>
-    <column class="card_stat">
-      <text class="label_cap">MEM</text>
-      <text class="card_stat_num">{mem}</text>
-    </column>
-  </row>
-  <!-- 
-    Ações empilhadas: 3 botões numa linha só transbordam no tamanho mínimo
-    de janela (grade de 3 colunas).
-  -->
-  <button class="card_open" on_click="open_service:{id}" text="Abrir  ›" />
-  <row class="card_actions">
-    <button
-      class="card_stop"
-      on_click="svc_stop_id:{id}"
-      text="Parar"
-    />
-    <button
-      class="card_remove"
-      on_click="stop_delete_service:{id}"
-      text="Remover"
-    />
-  </row>
-</column>
+    <row class="card_ctr">
+      <text class="muted">name: {container_name}</text>
+    </row>
+    <row>
+      <text class="muted">id: {container_id}</text>
+      <text class="muted" if="{container_extra}" not_equals="">extra: {container_extra}</text>
+    </row>
+    <hr />
+    <row class="card_stats">
+      <column class="card_stat">
+        <text class="label_cap">CPU</text>
+        <text class="card_stat_num">{cpu}</text>
+      </column>
+      <column class="card_stat">
+        <text class="label_cap">MEM</text>
+        <text class="card_stat_num">{mem}</text>
+      </column>
+    </row>
+    <!-- 
+      Ações empilhadas: 3 botões numa linha só transbordam no tamanho mínimo
+      de janela (grade de 3 colunas).
+    -->
+    <button class="card_open" on_click="open_service:{id}" text="Abrir  ›" />
+    <row class="card_actions">
+      <button
+        class="card_stop"
+        on_click="svc_stop_id:{id}"
+        text="Parar"
+      />
+      <button
+        class="card_remove"
+        on_click="stop_delete_service:{id}"
+        text="Remover"
+      />
+    </row>
+  </column>
+</component>

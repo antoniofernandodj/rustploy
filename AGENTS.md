@@ -331,7 +331,7 @@ runtime `iced::daemon` inteiro reimplementado aqui (~250 linhas) porque o
 builder não expunha multi-janela; o buraco foi fechado na 0.38 e o runtime
 local, removido.
 
-### Título e tamanho de janela moram no `.gv`, não no Rust
+### Todo template tem uma casca: `<screen>` ou `<component>`
 
 Desde o glacier-ui **0.59**, cada janela declara o que ela é no cabeçalho do
 próprio template — não procure isso no `main.rs`/`app/mod.rs`:
@@ -363,12 +363,24 @@ Onde cada coisa vive hoje:
 - A **geometria lembrada** (`remember_window_geometry`) continua ganhando do
   `size` declarado: ele é o tamanho de *primeira* abertura.
 
+Qual casca usar (glacier-ui 0.60+):
+
+- **`<screen>`** — só os arquivos abertos como **janela**: `views/app.gv` e as
+  cinco `*_window.gv`/`new_project_form.gv`. São os únicos que declaram
+  `title`/`size`.
+- **`<component>`** — todo o resto, e é a maioria: `shell.gv`, `home.gv`,
+  `service.gv`, `login.gv`, `new_service.gv` e os dez de `views/components/`.
+  Todos eles são importados por outro template (`<link rel="import">`), então
+  não há janela a que título ou tamanho se aplicariam — e o `<component>` não
+  aceita esses atributos, erra na cara explicando a diferença.
+
 O `<resources>` agrupa o que não desenha (`<style>`, `<script>`, `<link>`,
-`<import>`); é opcional, mas nos templates de janela daqui ele já está em uso.
-Um engano no cabeçalho é erro de parse (atributo desconhecido, tamanho que não
-seja par de números, widget dentro do `<resources>`) — não passa em silêncio.
-O teste `janelas_declaram_titulo_e_tamanho_no_proprio_template`
-(`tests/templates_render.rs`) trava esses valores.
+`<import>`) e vale nas duas cascas; é opcional (um componente sem declaração
+nenhuma leva só a casca). Um engano no cabeçalho é erro de parse — atributo
+desconhecido, tamanho que não seja par de números, widget dentro do
+`<resources>` — e não passa em silêncio. O teste
+`janelas_declaram_titulo_e_tamanho_no_proprio_template`
+(`tests/templates_render.rs`) trava os valores das janelas.
 
 ### Toda feature de UI vive em dois lugares
 

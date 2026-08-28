@@ -1,101 +1,105 @@
-<style>
-.login_wrap       { width: fill; height: fill; align-x: center; align-y: center; background: var(--bg); }
-.login_card       { width: fill; max-width: 460; align-x: start; background: var(--surface); border-radius: 4; border-width: 1; border-color: var(--border); padding: 32; spacing: 16; }
-.login_head       { width: fill; spacing: 14; align-y: center; }
-.login_brand      { width: fill; spacing: 6; align-x: start; }
-.field_group      { width: fill; spacing: 6; }
-.field_row        { width: fill; }
-.forget_row       { width: fill; align-x: end; padding: 2 0; }
-.forget_btn       { size: 11; color: var(--border); padding: 5 12; border-radius: 4; }
-.status_row       { spacing: 14; align-y: center; }
-.login_title      { size: 30; bold: true; color: #A9C7FF; }
-.field_label      { size: 11; bold: true; color: var(--muted); }
-.field_label_fill { size: 11; bold: true; color: var(--muted); width: fill; }
-.connect_btn      { width: fill; color: var(--spin); padding: 14; text-align: center; border-radius: 3; }
-.ok               { color: var(--ok); }
-</style>
+<component>
+  <resources>
+    <style>
+    .login_wrap       { width: fill; height: fill; align-x: center; align-y: center; background: var(--bg); }
+    .login_card       { width: fill; max-width: 460; align-x: start; background: var(--surface); border-radius: 4; border-width: 1; border-color: var(--border); padding: 32; spacing: 16; }
+    .login_head       { width: fill; spacing: 14; align-y: center; }
+    .login_brand      { width: fill; spacing: 6; align-x: start; }
+    .field_group      { width: fill; spacing: 6; }
+    .field_row        { width: fill; }
+    .forget_row       { width: fill; align-x: end; padding: 2 0; }
+    .forget_btn       { size: 11; color: var(--border); padding: 5 12; border-radius: 4; }
+    .status_row       { spacing: 14; align-y: center; }
+    .login_title      { size: 30; bold: true; color: #A9C7FF; }
+    .field_label      { size: 11; bold: true; color: var(--muted); }
+    .field_label_fill { size: 11; bold: true; color: var(--muted); width: fill; }
+    .connect_btn      { width: fill; color: var(--spin); padding: 14; text-align: center; border-radius: 3; }
+    .ok               { color: var(--ok); }
+    </style>
+  </resources>
 
-<container class="login_wrap">
-  <column class="login_card">
-    <row class="login_head">
+  <container class="login_wrap">
+    <column class="login_card">
+      <row class="login_head">
 
-      <svg
-        src="crates/rustploy-gui/assets/icons/terminal.svg"
-        color="#2F81F7"
-        width="34"
-        height="34"
-      />
-
-      <column class="login_brand">
-        <text class="login_title">Rustploy</text>
-        <text class="subtitle">
-          Infrastructure management for professional teams
-        </text>
-      </column>
-    </row>
-
-    <form name="login" on_submit="connect" spacing="16" width="fill">
-
-      <column class="field_group">
-
-        <row class="field_row">
-          <text class="field_label_fill">
-            SERVER URL
-          </text>
-          <text class="field_label">
-            ENDPOINT
-          </text>
-        </row>
-
-        <ComboEdit
-          options="saved_servers"
-          value="url"
-          placeholder="https://rustploy.domain.com"
-          class="field_input"
-          onChange="servidor_escolhido"
-          onSelect="servidor_escolhido"
-          width="fill"
+        <svg
+          src="crates/rustploy-gui/assets/icons/terminal.svg"
+          color="#2F81F7"
+          width="34"
+          height="34"
         />
 
-        <text
-          if="{erro_url}"
-          not_equals=""
-          class="err"
-        >{erro_url}</text>
-
-        <row class="forget_row">
-          <button class="forget_btn" on_click="esquecer_servidor" text="Esquecer este servidor" />
-        </row>
-      </column>
-
-      <column class="field_group">
-
-        <row class="field_row">
-          <text class="field_label_fill">
-            ACCESS TOKEN
+        <column class="login_brand">
+          <text class="login_title">Rustploy</text>
+          <text class="subtitle">
+            Infrastructure management for professional teams
           </text>
-          <text class="field_label">SECURE</text>
-        </row>
+        </column>
+      </row>
 
-        <input
-          placeholder="token de acesso"
-          class="field_input"
-          form_control="token"
-        />
+      <form name="login" on_submit="connect" spacing="16" width="fill">
 
-      </column>
+        <column class="field_group">
 
-      <button class="connect_btn" on_click="connect" text="Connect" />
-    </form>
-    <text if="{error}" not_equals="" class="err">
-      ⚠ {error}
-    </text>
+          <row class="field_row">
+            <text class="field_label_fill">
+              SERVER URL
+            </text>
+            <text class="field_label">
+              ENDPOINT
+            </text>
+          </row>
 
-    <hr />
+          <ComboEdit
+            options="saved_servers"
+            value="url"
+            placeholder="https://rustploy.domain.com"
+            class="field_input"
+            onChange="servidor_escolhido"
+            onSelect="servidor_escolhido"
+            width="fill"
+          />
 
-    <row class="status_row">
-      <text class="ok" size="10">●</text>
-      <text class="muted">{status_line}</text>
-    </row>
-  </column>
-</container>
+          <text
+            if="{erro_url}"
+            not_equals=""
+            class="err"
+          >{erro_url}</text>
+
+          <row class="forget_row">
+            <button class="forget_btn" on_click="esquecer_servidor" text="Esquecer este servidor" />
+          </row>
+        </column>
+
+        <column class="field_group">
+
+          <row class="field_row">
+            <text class="field_label_fill">
+              ACCESS TOKEN
+            </text>
+            <text class="field_label">SECURE</text>
+          </row>
+
+          <input
+            placeholder="token de acesso"
+            class="field_input"
+            form_control="token"
+          />
+
+        </column>
+
+        <button class="connect_btn" on_click="connect" text="Connect" />
+      </form>
+      <text if="{error}" not_equals="" class="err">
+        ⚠ {error}
+      </text>
+
+      <hr />
+
+      <row class="status_row">
+        <text class="ok" size="10">●</text>
+        <text class="muted">{status_line}</text>
+      </row>
+    </column>
+  </container>
+</component>

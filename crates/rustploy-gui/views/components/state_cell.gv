@@ -9,42 +9,46 @@
   e a classe `state_<kind>` define a cor (ver .state_* em app.gss). Assim a
   paleta fica centralizada no estilo, não espalhada em hex vindos do Rust.
 -->
-<style>
-/* Largura vem de .col_state (app.gss), junto com a coluna ESTADO do thead —
-   inclusive os ajustes de @media (170/130/110); antes era 170 fixo aqui e a
-   célula desalinhava do cabeçalho em janela estreita. */
-.state_cell {
-  spacing: 7;
-  align-y: center;
-}
+<component>
+  <resources>
+    <style>
+    /* Largura vem de .col_state (app.gss), junto com a coluna ESTADO do thead —
+       inclusive os ajustes de @media (170/130/110); antes era 170 fixo aqui e a
+       célula desalinhava do cabeçalho em janela estreita. */
+    .state_cell {
+      spacing: 7;
+      align-y: center;
+    }
 
-.state_lbl {
-  size: 12;
-}
+    .state_lbl {
+      size: 12;
+    }
 
-/* Paleta de estado — a 2ª classe (state_{kind}) pinta ponto + rótulo. */
-.state_ok {
-  color: var(--ok);
-}
+    /* Paleta de estado — a 2ª classe (state_{kind}) pinta ponto + rótulo. */
+    .state_ok {
+      color: var(--ok);
+    }
 
-.state_bad {
-  color: var(--error);
-}
+    .state_bad {
+      color: var(--error);
+    }
 
-.state_info {
-  color: var(--accent);
-}
+    .state_info {
+      color: var(--accent);
+    }
 
-.state_warn {
-  color: var(--warn);
-}
+    .state_warn {
+      color: var(--warn);
+    }
 
-.state_muted {
-  color: var(--muted);
-}
-</style>
+    .state_muted {
+      color: var(--muted);
+    }
+    </style>
+  </resources>
 
-<row class="state_cell col_state">
-  <text class="state_dot state_{kind}">●</text>
-  <text class="state_lbl state_{kind}">{label}</text>
-</row>
+  <row class="state_cell col_state">
+    <text class="state_dot state_{kind}">●</text>
+    <text class="state_lbl state_{kind}">{label}</text>
+  </row>
+</component>

@@ -9,30 +9,34 @@
   re-avaliado ao vivo (mesmo padrão do `if` que esconde/mostra a grid).
   `note` sobrescreve o spano padrão quando fornecido (prop ausente → vazio).
 -->
-<style>
-.loading_row  {
-  spacing: 9;
-  align-y: center;
-  padding: 8;
-}
+<component>
+  <resources>
+    <style>
+    .loading_row  {
+      spacing: 9;
+      align-y: center;
+      padding: 8;
+    }
 
-.loading_spin {
-  size: 16;
-  color: var(--spin);
-}
+    .loading_spin {
+      size: 16;
+      color: var(--spin);
+    }
 
-.loading_note {
-  size: 13;
-  color: var(--muted);
-}
-</style>
+    .loading_note {
+      size: 13;
+      color: var(--muted);
+    }
+    </style>
+  </resources>
 
-<row class="loading_row">
-  <text class="loading_spin">⟳</text>
-  <text class="loading_note" if="{note}" not_equals="">
-    {note}
-  </text>
-  <text class="loading_note" if="{note}" equals="">
-    Carregando dados…
-  </text>
-</row>
+  <row class="loading_row">
+    <text class="loading_spin">⟳</text>
+    <text class="loading_note" if="{note}" not_equals="">
+      {note}
+    </text>
+    <text class="loading_note" if="{note}" equals="">
+      Carregando dados…
+    </text>
+  </row>
+</component>

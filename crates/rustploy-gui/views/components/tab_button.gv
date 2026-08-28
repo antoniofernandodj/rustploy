@@ -6,24 +6,28 @@
   desta aba; caso contrário neutro (`tab`). `equals` é interpolado, então
   compara os dois valores dinâmicos.
 -->
-<style>
-.tab_on {
-  color: var(--blue);
-  padding: 9 16;
-  border-radius: 5
-}
-</style>
+<component>
+  <resources>
+    <style>
+    .tab_on {
+      color: var(--blue);
+      padding: 9 16;
+      border-radius: 5
+    }
+    </style>
+  </resources>
 
-<if cond="{current}" equals="{target}">
-  <button
-    class="tab_on"
-    on_click="{action}"
-    text="{label}"
-  />
-</if> <else>
-  <button
-    class="tab"
-    on_click="{action}"
-    text="{label}"
-  />
-</else>
+  <if cond="{current}" equals="{target}">
+    <button
+      class="tab_on"
+      on_click="{action}"
+      text="{label}"
+    />
+  </if> <else>
+    <button
+      class="tab"
+      on_click="{action}"
+      text="{label}"
+    />
+  </else>
+</component>
