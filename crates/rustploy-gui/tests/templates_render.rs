@@ -719,3 +719,91 @@ fn janelas_declaram_titulo_e_tamanho_no_proprio_template() {
         "o min-size da janela principal"
     );
 }
+
+/// Remove os blocos `<!-- … -->` para que "a primeira tag" seja a primeira tag
+/// de verdade: todo template daqui abre com um comentário de cabeçalho.
+fn comentarios_fora(src: &str) -> String {
+    let mut out = String::with_capacity(src.len());
+    let mut resto = src;
+    while let Some(i) = resto.find("<!--") {
+        out.push_str(&resto[..i]);
+        resto = match resto[i..].find("-->") {
+            Some(j) => &resto[i + j + 3..],
+            // Comentário não fechado: o parse do glacier reclamaria antes; aqui
+            // só paramos de copiar.
+            None => "",
+        };
+    }
+    out.push_str(resto);
+    out
+}
+
+/// Os 21 `.gv` estão 100% na forma com cabeçalho (`<screen>` nas janelas,
+/// `<component>` no resto) e é isto que este teste trava.
+///
+/// Ele precisa existir porque o glacier-ui aceita a forma antiga (declarações
+/// soltas na raiz, sem cabeçalho) **para sempre**, por compatibilidade — 33 dos
+/// 35 `.gv` dos exemplos do próprio motor ainda estão nela. Então nada no build
+/// reclamaria de um arquivo daqui que voltasse à forma antiga: as duas convergem
+/// na mesma árvore, e o que se perde é silencioso — numa janela, título e
+/// tamanho caem no default do iced; num componente, some a fronteira entre
+/// declaração e layout.
+///
+/// Por que TEXTUAL, e não mais um teste de metadado como
+/// `janelas_declaram_titulo_e_tamanho_no_proprio_template`: aquele pergunta ao
+/// motor o que a tela declarou, e um `<component>` não declara nada por desenho
+/// (o cabeçalho recusa atributos nele). Para 15 dos 21 arquivos não há metadado
+/// a inspecionar — só o texto diz em que forma o arquivo está.
+///
+/// Por que VARRE o diretório, em vez de listar arquivos: o alvo é o `.gv` que
+/// ainda não foi escrito. Uma lista à mão não cobre o arquivo novo, e quem
+/// esquece o cabeçalho nele é a mesma pessoa que esqueceria de atualizar a lista.
+#[test]
+fn todo_template_comeca_com_cabecalho() {
+    cd_ws_root();
+
+    let raiz = std::path::Path::new("crates/rustploy-gui/views");
+    let mut vistos = 0;
+
+    // `views/` mistura janelas (<screen>) e views internas (<component>); só
+    // `views/components/` é homogêneo — nada ali é janela.
+    for (dir, so_component) in [(raiz.to_path_buf(), false), (raiz.join("components"), true)] {
+        let mut arquivos: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap_or_else(|e| panic!("ler {}: {e}", dir.display()))
+            .map(|e| e.expect("entry").path())
+            .filter(|p| p.extension().is_some_and(|e| e == "gv"))
+            .collect();
+        arquivos.sort();
+
+        for caminho in arquivos {
+            let src = std::fs::read_to_string(&caminho)
+                .unwrap_or_else(|e| panic!("ler {}: {e}", caminho.display()));
+            let sem_comentarios = comentarios_fora(&src);
+            let primeira = sem_comentarios.split('<').nth(1).unwrap_or("").trim_start();
+
+            let e_screen = primeira.starts_with("screen");
+            let e_component = primeira.starts_with("component");
+            assert!(
+                e_screen || e_component,
+                "{}: todo .gv começa com <screen> (uma janela) ou <component> (o resto) — \
+                 o motor aceita a forma antiga sem cabeçalho, então ninguém além deste \
+                 teste avisaria",
+                caminho.display()
+            );
+            assert!(
+                !(so_component && e_screen),
+                "{}: um arquivo em views/components/ não é janela — <component>, não <screen>",
+                caminho.display()
+            );
+            vistos += 1;
+        }
+    }
+
+    // Guarda contra o teste passar vazio (um caminho errado torna tudo acima
+    // um no-op). Comparação frouxa de propósito: acrescentar um `.gv` não deve
+    // obrigar a editar este teste — é justamente o atrito que ele elimina.
+    assert!(
+        vistos >= 21,
+        "o teste não achou os templates: {vistos} arquivos varridos"
+    );
+}
