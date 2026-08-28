@@ -16,53 +16,53 @@
     <link rel="import" href="components/template_row.gv" as="TemplateRow" />
 
     <style>
-    .sidebar { width: 264; height: fill; background: var(--surface); padding: 28 20; spacing: 6; }
-    .brand_box      { spacing: 2; padding: 0 8 18 8; }
-    .brand          { size: 21; bold: true; color: var(--text); }
-    .brand_sub      { size: 11; color: var(--faint); }
-    .nav_section    { size: 11; bold: true; color: var(--faint); padding: 16 8 6 8; }
-    .nav_spacer     { height: fill; }
-    .main_col       { width: fill; height: fill; }
-    /* Top bar */
-    .topbar     { width: fill; padding: 18 28; spacing: 18; align-y: center; }
-    .search     { width: fill; padding: 11 14; }
-    /* Ações do cabeçalho do projeto (variantes compactas, à direita) */
-    .btn_sm_primary { color: var(--green); padding: 7 13; border-radius: 4; size: 12 }
-    .btn_sm_ghost   { color: var(--border); padding: 7 12; border-radius: 4; size: 12 }
-    .btn_sm_danger  { color: var(--danger); padding: 7 13; border-radius: 4; size: 12 }
-    .proj_topbar    { width: fill; align-y: center; }
-    .proj_actions   { spacing: 8; align-y: center; }
-    .hspacer        { width: fill; }
-    /* Grid de cards (projetos / serviços) */
-    .grid           { width: fill; spacing: 16; }
-    .card_row       { width: fill; spacing: 16; }
-    /* Responsivo: encolhe sidebar/topbar em janelas estreitas (glacier-ui 0.9.0+).
-       Abaixo de 900px vira um trilho só de ícones (ver nav_item.gv, que esconde
-       o rótulo no mesmo breakpoint) — rótulos como "Deploy Engine"/"Projects (2)"
-       não cabiam mais na sidebar encolhida e, sem espaço pra quebrar (ou sendo
-       uma palavra só), estouravam a coluna e bagunçavam o layout inteiro. */
-    @media (max-width: 900) {
-      .sidebar     { width: 76; padding: 18 8; align-x: center; }
-      .topbar      { padding: 12 16; spacing: 10; }
-      .brand       { size: 16; }
-      /* "PRODUCTION CLUSTER" — não cabe nem quebrando; some, o ícone+cor já
-         comunica estado o bastante num trilho estreito. */
-      .brand_sub   { hidden: true; }
-      /* "DEPLOYMENT OPS"/"MANAGEMENT" idem — sem espaço, e redundante quando os
-         itens já são só ícones. */
-      .nav_section { hidden: true; }
-    }
+      .sidebar { width: 264; height: fill; background: var(--surface); padding: 28 20; spacing: 6; }
+      .brand_box      { spacing: 2; padding: 0 8 18 8; }
+      .brand          { size: 21; bold: true; color: var(--text); }
+      .brand_sub      { size: 11; color: var(--faint); }
+      .nav_section    { size: 11; bold: true; color: var(--faint); padding: 16 8 6 8; }
+      .nav_spacer     { height: fill; }
+      .main_col       { width: fill; height: fill; }
+      /* Top bar */
+      .topbar     { width: fill; padding: 18 28; spacing: 18; align-y: center; }
+      .search     { width: fill; padding: 11 14; }
+      /* Ações do cabeçalho do projeto (variantes compactas, à direita) */
+      .btn_sm_primary { color: var(--green); padding: 7 13; border-radius: 4; size: 12 }
+      .btn_sm_ghost   { color: var(--border); padding: 7 12; border-radius: 4; size: 12 }
+      .btn_sm_danger  { color: var(--danger); padding: 7 13; border-radius: 4; size: 12 }
+      .proj_topbar    { width: fill; align-y: center; }
+      .proj_actions   { spacing: 8; align-y: center; }
+      .hspacer        { width: fill; }
+      /* Grid de cards (projetos / serviços) */
+      .grid           { width: fill; spacing: 16; }
+      .card_row       { width: fill; spacing: 16; }
+      /* Responsivo: encolhe sidebar/topbar em janelas estreitas (glacier-ui 0.9.0+).
+        Abaixo de 900px vira um trilho só de ícones (ver nav_item.gv, que esconde
+        o rótulo no mesmo breakpoint) — rótulos como "Deploy Engine"/"Projects (2)"
+        não cabiam mais na sidebar encolhida e, sem espaço pra quebrar (ou sendo
+        uma palavra só), estouravam a coluna e bagunçavam o layout inteiro. */
+      @media (max-width: 900) {
+        .sidebar     { width: 76; padding: 18 8; align-x: center; }
+        .topbar      { padding: 12 16; spacing: 10; }
+        .brand       { size: 16; }
+        /* "PRODUCTION CLUSTER" — não cabe nem quebrando; some, o ícone+cor já
+          comunica estado o bastante num trilho estreito. */
+        .brand_sub   { hidden: true; }
+        /* "DEPLOYMENT OPS"/"MANAGEMENT" idem — sem espaço, e redundante quando os
+          itens já são só ícones. */
+        .nav_section { hidden: true; }
+      }
 
-    @media (max-width: 560) {
-      .sidebar { width: 64; padding: 14 6; spacing: 4; }
-      .brand   { size: 12; }
-      .topbar  { padding: 10 10; spacing: 8; }
-      /* Sem largura pra tudo na topbar: some com a busca e o status do daemon
-         (baixa prioridade) pra Stop All / Disconnect não serem cortados
-         (glacier-ui 0.10.0: `hidden`). */
-      .search        { hidden: true; }
-      .topbar_status { hidden: true; }
-    }
+      @media (max-width: 560) {
+        .sidebar { width: 64; padding: 14 6; spacing: 4; }
+        .brand   { size: 12; }
+        .topbar  { padding: 10 10; spacing: 8; }
+        /* Sem largura pra tudo na topbar: some com a busca e o status do daemon
+          (baixa prioridade) pra Stop All / Disconnect não serem cortados
+          (glacier-ui 0.10.0: `hidden`). */
+        .search        { hidden: true; }
+        .topbar_status { hidden: true; }
+      }
     </style>
   </resources>
 
@@ -207,7 +207,7 @@
       </if>
 
       <!-- ── Projects (lista de projetos) ────────────────────────────── -->
-      <ElseIf cond="{view}" equals="projects">
+      <else-if cond="{view}" equals="projects">
         <column class="content">
           <row class="header_row">
             <column class="header_titles">
@@ -261,9 +261,9 @@
             </column>
           </scrollable>
         </column>
-      </ElseIf>
+      </else-if>
       <!-- ── Projeto: serviços de um projeto ────────────────────────── -->
-      <ElseIf cond="{view}" equals="project_services">
+      <else-if cond="{view}" equals="project_services">
         <column class="content">
           <row class="header_row">
             <column class="header_titles">
@@ -654,7 +654,9 @@
             >
               <column class="grid">
                 <row class="card_row" for-each="project_services" var="r">
-                  <ServiceCard for-each="r.cards" var="c"
+                  <ServiceCard
+                    for-each="r.cards"
+                    var="c"
                     id="{c.id}"
                     filler="{c.filler}"
                     name="{c.name}"
@@ -671,14 +673,14 @@
             </scrollable>
           </if>
         </column>
-      </ElseIf>
+      </else-if>
       <!-- ── Service detail / demais views ────────────────────────────
         O wizard "Novo serviço" saiu daqui (view=new_service): agora abre
         numa JANELA à parte (new_service_window.gv), disparada por
         open_new_service_window. -->
-      <ElseIf cond="{view}" equals="service">
+      <else-if cond="{view}" equals="service">
         <ServiceDetail />
-      </ElseIf>
+      </else-if>
       <else>
         <HomeViews />
       </else>

@@ -7,7 +7,7 @@
 <component>
   <resources>
     <style>
-    .warn { color: var(--warn); }
+      .warn { color: var(--warn); }
     </style>
   </resources>
 

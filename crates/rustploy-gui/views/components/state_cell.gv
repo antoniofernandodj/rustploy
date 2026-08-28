@@ -8,10 +8,10 @@
   paleta fica centralizada no estilo, não espalhada em hex vindos do Rust.
 -->
 <component>
-    <props>
-        <prop name="kind" />
-        <prop name="label" />
-    </props>
+  <props>
+    <prop name="kind" />
+    <prop name="label" />
+  </props>
   <resources>
     <style>
     /* Largura vem de .col_state (app.gss), junto com a coluna ESTADO do thead —

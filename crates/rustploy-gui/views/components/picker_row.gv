@@ -4,12 +4,12 @@
   template.
 -->
 <component>
-    <props>
-        <prop name="title" />
-        <prop name="subtitle" />
-        <prop name="button_label" />
-        <prop name="action" />
-    </props>
+  <props>
+    <prop name="title" />
+    <prop name="subtitle" />
+    <prop name="button_label" />
+    <prop name="action" />
+  </props>
   <row class="kv_row">
     <column class="header_titles">
       <text class="env_key">{title}</text>

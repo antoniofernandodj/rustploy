@@ -15,22 +15,22 @@
     <link rel="import"      href="components/tab_button.gv" as="TabButton" />
 
     <style>
-    /* Titlebar custom (mesma linguagem visual do app.gv) */
-    .titlebar       { width: fill; height: 32; background: var(--surface); align-y: center; }
-    .titlebar_drag  { width: fill; height: fill; align-y: center; padding: 0 0 0 16; spacing: 9; }
-    .titlebar_dot   { size: 10; color: var(--blue); }
-    .titlebar_title { size: 12; bold: true; color: var(--muted); }
-    .win_btn        { width: 48; padding: 5 0; color: var(--border); text-align: center; }
-    .win_close      { width: 48; padding: 5 0; color: var(--danger); text-align: center; }
+      /* Titlebar custom (mesma linguagem visual do app.gv) */
+      .titlebar       { width: fill; height: 32; background: var(--surface); align-y: center; }
+      .titlebar_drag  { width: fill; height: fill; align-y: center; padding: 0 0 0 16; spacing: 9; }
+      .titlebar_dot   { size: 10; color: var(--blue); }
+      .titlebar_title { size: 12; bold: true; color: var(--muted); }
+      .win_btn        { width: 48; padding: 5 0; color: var(--border); text-align: center; }
+      .win_close      { width: 48; padding: 5 0; color: var(--danger); text-align: center; }
 
-    .njob_screen { width: fill; height: fill; background: var(--bg); }
-    .njob_body   { width: fill; height: fill; }
+      .njob_screen { width: fill; height: fill; background: var(--bg); }
+      .njob_body   { width: fill; height: fill; }
 
-    .np_label   { size: 11; bold: true; color: var(--muted); }
-    .np_input   { width: fill; }
-    .np_group   { width: fill; spacing: 6; }
-    .np_actions { width: fill; spacing: 10; align-y: center; }
-    .np_spacer  { width: fill; }
+      .np_label   { size: 11; bold: true; color: var(--muted); }
+      .np_input   { width: fill; }
+      .np_group   { width: fill; spacing: 6; }
+      .np_actions { width: fill; spacing: 10; align-y: center; }
+      .np_spacer  { width: fill; }
     </style>
 
     <script src="scripts/new_job_window.luau"></script>

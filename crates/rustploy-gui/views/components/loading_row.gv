@@ -8,12 +8,12 @@
   `note` sobrescreve o spano padrão quando fornecido (prop ausente → vazio).
 -->
 <component>
-    <!-- `note` é a única prop, e é opcional: sem ela vale o texto padrão. O
-      `default=""` reproduz exatamente o comportamento antigo (prop ausente
-      resolvia para string vazia) — só que agora declarado. -->
-    <props>
-        <prop name="note" default="" />
-    </props>
+  <!-- `note` é a única prop, e é opcional: sem ela vale o texto padrão. O
+    `default=""` reproduz exatamente o comportamento antigo (prop ausente
+    resolvia para string vazia) — só que agora declarado. -->
+  <props>
+    <prop name="note" default="" />
+  </props>
   <resources>
     <style>
     .loading_row  {

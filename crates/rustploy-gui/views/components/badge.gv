@@ -4,12 +4,12 @@
   cabeçalho/aside do detalhe do serviço.
 -->
 <component>
-    <!-- Contrato do componente: o que era o comentário "
-      verificado. Prop passada e não declarada vira erro citando estas. -->
-    <props>
-        <prop name="color" />
-        <prop name="label" />
-    </props>
+  <!-- Contrato do componente: o que era o comentário "
+    verificado. Prop passada e não declarada vira erro citando estas. -->
+  <props>
+    <prop name="color" />
+    <prop name="label" />
+  </props>
   <row class="badge">
     <text
       class="state_dot"

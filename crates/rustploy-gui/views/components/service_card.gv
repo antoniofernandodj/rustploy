@@ -7,19 +7,19 @@
   o componente `rp-badge`.
 -->
 <component>
-    <props>
-        <prop name="id" />
-        <prop name="name" />
-        <prop name="port" />
-        <prop name="status_color" />
-        <prop name="status_label" />
-        <prop name="cpu" />
-        <prop name="mem" />
-        <prop name="filler" />
-        <prop name="container_name" />
-        <prop name="container_id" />
-        <prop name="container_extra" />
-    </props>
+  <props>
+    <prop name="id" />
+    <prop name="name" />
+    <prop name="port" />
+    <prop name="status_color" />
+    <prop name="status_label" />
+    <prop name="cpu" />
+    <prop name="mem" />
+    <prop name="filler" />
+    <prop name="container_name" />
+    <prop name="container_id" />
+    <prop name="container_extra" />
+  </props>
   <resources>
     <style>
     .card_stats    {

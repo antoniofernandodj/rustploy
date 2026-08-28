@@ -1,68 +1,68 @@
 <component>
   <resources>
     <style>
-    /* Cabeçalho + ações */
-    .svc_head      { width: fill; align-y: start; }
-    .svc_title_row { width: fill; spacing: 14; align-y: center; }
-    /* O nome do serviço é o elemento FLEXÍVEL da linha do título (width: fill): ele
-       absorve a folga e quebra dentro da coluna quando aperta. Sem isso, o back-button,
-       o nome e o badge são todos `shrink` (largura natural) e, quando a soma passa da
-       largura da coluna, o iced NÃO encolhe — transborda para a direita e o nome/badge
-       invadem os botões de ação (o "Deploy/▶ por cima do nome"). Deixar o nome `fill`
-       garante que a linha nunca ultrapasse os próprios limites. */
-    .svc_title     { width: fill; }
-    /* Sub-linha de status (badge + timer) logo abaixo do nome. */
-    .svc_substatus { spacing: 10; align-y: center; }
-    /* Abas com scroll horizontal: a viewport ocupa a largura toda; a fileira interna
-       fica na largura natural (shrink) para poder transbordar e rolar. */
-    .tabs_scroll   { width: fill; }
-    .tabs_main     { width: shrink; spacing: 4; }
-    .svc_actions   { spacing: 10; align-y: center; }
-    /* .svc_actions_full / .svc_actions_compact e o swap por @media vivem em app.gss
-       (junto das outras regras responsivas — cruzar arquivo com o inline daqui
-       deixaria a precedência ambígua). */
-    .btn_blue      { color: var(--blue); padding: 11 22; border-radius: 5 }
-    /* Corpo: conteúdo da aba + painel lateral */
-    .svc_body      { width: fill; height: fill; spacing: 20; }
-    .svc_main      { width: fill; height: fill; spacing: 16; }
-    .svc_aside     { width: 360; height: fill; spacing: 16; }
-    .svc_err       { size: 13; color: var(--error); }
-    /* Connection (pares chave/valor) */
-    .kv_key        { width: fill; size: 13; color: var(--muted); }
-    .kv_val        { size: 16; bold: true; color: var(--text); }
-    /* Environment / General (editores) — .btn_export/.btn_export_on/.env_editor
-       agora vivem em app.gss (compartilhados com shell.gv). */
-    .select        { width: fill; padding: 12 14; background: var(--raised); border-radius: 4; border-width: 1; border-color: #30363D; color: var(--text-2); }
-    /* Deployments (lista + build log) */
-    .col_dep_id    { width: 130; }
-    .col_dep_start { width: fill; }
-    .dep_image     { size: 11; color: var(--faint); padding: 2 0 0 0; }
-    .dep_wrap      { width: fill; height: fill; spacing: 8; }
-    .dep_list_scroll { width: fill; height: 240; }
-    /* Ações da linha de deployment: 2 botões-ícone (ver build log / remover), com o
-       rótulo no tooltip. O padding era 7 15 — dimensionado para "Build log ↗" e
-       "Remover" escritos por extenso, que estouravam a coluna em janela estreita. */
-    .dep_actions   { spacing: 8; align-y: center; }
-    .dep_logs_btn  { color: var(--border); padding: 5 12; border-radius: 3 }
-    .dep_del_btn   { color: var(--danger); padding: 5 12; border-radius: 3 }
-    .label_cap_fill { width: fill; size: 11; bold: true; color: var(--faint); }
-    /* Logs (aba Logs = launcher da janela isolada; painel usado só p/ layout) */
-    .log_panel     { width: fill; height: fill; background: var(--surface); border-radius: 6; border-width: 1; border-color: var(--border); padding: 14 16; spacing: 8; }
-    .log_body      { width: fill; spacing: 2; }
-    .log_line      { width: fill; spacing: 12; }
-    .log_time      { width: 76; size: 11; color: var(--faint); }
-    .log_text      { width: fill; size: 12; color: #9DA7B3; }
-    /* Painel lateral */
-    .aside_panel   { width: fill; background: var(--surface); border-radius: 6; border-width: 1; border-color: var(--border); padding: 18; spacing: 8; }
-    .aside_panel_fill { width: fill; height: fill; background: var(--surface); border-radius: 6; border-width: 1; border-color: var(--border); padding: 14 16; spacing: 8; }
-    /* Responsivo: estreita o painel lateral e aperta o corpo (glacier-ui 0.9.0+). */
-    @media (max-width: 900) {
-      .svc_aside { width: 240; }
-      .svc_body  { spacing: 12; }
-    }
-    @media (max-width: 560) {
-      .svc_aside { width: 170; }
-    }
+      /* Cabeçalho + ações */
+      .svc_head      { width: fill; align-y: start; }
+      .svc_title_row { width: fill; spacing: 14; align-y: center; }
+      /* O nome do serviço é o elemento FLEXÍVEL da linha do título (width: fill): ele
+        absorve a folga e quebra dentro da coluna quando aperta. Sem isso, o back-button,
+        o nome e o badge são todos `shrink` (largura natural) e, quando a soma passa da
+        largura da coluna, o iced NÃO encolhe — transborda para a direita e o nome/badge
+        invadem os botões de ação (o "Deploy/▶ por cima do nome"). Deixar o nome `fill`
+        garante que a linha nunca ultrapasse os próprios limites. */
+      .svc_title     { width: fill; }
+      /* Sub-linha de status (badge + timer) logo abaixo do nome. */
+      .svc_substatus { spacing: 10; align-y: center; }
+      /* Abas com scroll horizontal: a viewport ocupa a largura toda; a fileira interna
+        fica na largura natural (shrink) para poder transbordar e rolar. */
+      .tabs_scroll   { width: fill; }
+      .tabs_main     { width: shrink; spacing: 4; }
+      .svc_actions   { spacing: 10; align-y: center; }
+      /* .svc_actions_full / .svc_actions_compact e o swap por @media vivem em app.gss
+        (junto das outras regras responsivas — cruzar arquivo com o inline daqui
+        deixaria a precedência ambígua). */
+      .btn_blue      { color: var(--blue); padding: 11 22; border-radius: 5 }
+      /* Corpo: conteúdo da aba + painel lateral */
+      .svc_body      { width: fill; height: fill; spacing: 20; }
+      .svc_main      { width: fill; height: fill; spacing: 16; }
+      .svc_aside     { width: 360; height: fill; spacing: 16; }
+      .svc_err       { size: 13; color: var(--error); }
+      /* Connection (pares chave/valor) */
+      .kv_key        { width: fill; size: 13; color: var(--muted); }
+      .kv_val        { size: 16; bold: true; color: var(--text); }
+      /* Environment / General (editores) — .btn_export/.btn_export_on/.env_editor
+        agora vivem em app.gss (compartilhados com shell.gv). */
+      .select        { width: fill; padding: 12 14; background: var(--raised); border-radius: 4; border-width: 1; border-color: #30363D; color: var(--text-2); }
+      /* Deployments (lista + build log) */
+      .col_dep_id    { width: 130; }
+      .col_dep_start { width: fill; }
+      .dep_image     { size: 11; color: var(--faint); padding: 2 0 0 0; }
+      .dep_wrap      { width: fill; height: fill; spacing: 8; }
+      .dep_list_scroll { width: fill; height: 240; }
+      /* Ações da linha de deployment: 2 botões-ícone (ver build log / remover), com o
+        rótulo no tooltip. O padding era 7 15 — dimensionado para "Build log ↗" e
+        "Remover" escritos por extenso, que estouravam a coluna em janela estreita. */
+      .dep_actions   { spacing: 8; align-y: center; }
+      .dep_logs_btn  { color: var(--border); padding: 5 12; border-radius: 3 }
+      .dep_del_btn   { color: var(--danger); padding: 5 12; border-radius: 3 }
+      .label_cap_fill { width: fill; size: 11; bold: true; color: var(--faint); }
+      /* Logs (aba Logs = launcher da janela isolada; painel usado só p/ layout) */
+      .log_panel     { width: fill; height: fill; background: var(--surface); border-radius: 6; border-width: 1; border-color: var(--border); padding: 14 16; spacing: 8; }
+      .log_body      { width: fill; spacing: 2; }
+      .log_line      { width: fill; spacing: 12; }
+      .log_time      { width: 76; size: 11; color: var(--faint); }
+      .log_text      { width: fill; size: 12; color: #9DA7B3; }
+      /* Painel lateral */
+      .aside_panel   { width: fill; background: var(--surface); border-radius: 6; border-width: 1; border-color: var(--border); padding: 18; spacing: 8; }
+      .aside_panel_fill { width: fill; height: fill; background: var(--surface); border-radius: 6; border-width: 1; border-color: var(--border); padding: 14 16; spacing: 8; }
+      /* Responsivo: estreita o painel lateral e aperta o corpo (glacier-ui 0.9.0+). */
+      @media (max-width: 900) {
+        .svc_aside { width: 240; }
+        .svc_body  { spacing: 12; }
+      }
+      @media (max-width: 560) {
+        .svc_aside { width: 170; }
+      }
     </style>
   </resources>
 

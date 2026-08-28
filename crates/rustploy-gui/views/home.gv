@@ -1,28 +1,28 @@
 <component>
   <resources>
     <style>
-    .col_icon       { width: 28; }
-    .content_center { width: fill; height: fill; align-x: center; align-y: center; }
-    /* Botão "Remover" compacto por-linha nas sub-abas Docker. */
-    .dk_rm    { color: var(--danger); padding: 5 12; border-radius: 3; }
-    /* align-x só afeta como um container de linha/coluna posiciona seus FILHOS —
-       não alinha o texto de um elemento de texto dentro da própria caixa (isso é
-       text-align). Como a classe é reaproveitada tanto no texto do cabeçalho
-       quanto no container dos botões, sem text-align o rótulo "AÇÃO" ficava
-       colado à esquerda enquanto os botões (align-x: end) ficavam colados à
-       direita — desalinhados entre si mesmo depois de não sobreporem mais. */
-    .col_act  { width: 120; align-x: end; text-align: end; }
-    /* Linha de repo do Registry: 2 ícones (ver tags/remover) + tooltip — largura
-       bem menor que antes, quando ambos eram texto por extenso. */
-    .col_act_2 { width: 90; align-x: end; text-align: end; spacing: 8; }
-    /* Linha de job em Schedules: 4 controles (rodar/logs/pausar-ativar/remover).
-       Viraram ícone + tooltip (eram texto: "Rodar agora"/"Ver logs"/"Pausar") —
-       uma linha de 360px pensada pra rótulos por extenso empurrava o botão de
-       remover pra fora da largura visível da janela (sem scroll horizontal);
-       4 ícones cabem em bem menos espaço. */
-    .col_act_4 { width: 170; align-x: end; text-align: end; spacing: 8; }
-    /* Mesma linha de job acima, +1 controle (editar). */
-    .col_act_5 { width: 210; align-x: end; text-align: end; spacing: 8; }
+      .col_icon       { width: 28; }
+      .content_center { width: fill; height: fill; align-x: center; align-y: center; }
+      /* Botão "Remover" compacto por-linha nas sub-abas Docker. */
+      .dk_rm    { color: var(--danger); padding: 5 12; border-radius: 3; }
+      /* align-x só afeta como um container de linha/coluna posiciona seus FILHOS —
+        não alinha o texto de um elemento de texto dentro da própria caixa (isso é
+        text-align). Como a classe é reaproveitada tanto no texto do cabeçalho
+        quanto no container dos botões, sem text-align o rótulo "AÇÃO" ficava
+        colado à esquerda enquanto os botões (align-x: end) ficavam colados à
+        direita — desalinhados entre si mesmo depois de não sobreporem mais. */
+      .col_act  { width: 120; align-x: end; text-align: end; }
+      /* Linha de repo do Registry: 2 ícones (ver tags/remover) + tooltip — largura
+        bem menor que antes, quando ambos eram texto por extenso. */
+      .col_act_2 { width: 90; align-x: end; text-align: end; spacing: 8; }
+      /* Linha de job em Schedules: 4 controles (rodar/logs/pausar-ativar/remover).
+        Viraram ícone + tooltip (eram texto: "Rodar agora"/"Ver logs"/"Pausar") —
+        uma linha de 360px pensada pra rótulos por extenso empurrava o botão de
+        remover pra fora da largura visível da janela (sem scroll horizontal);
+        4 ícones cabem em bem menos espaço. */
+      .col_act_4 { width: 170; align-x: end; text-align: end; spacing: 8; }
+      /* Mesma linha de job acima, +1 controle (editar). */
+      .col_act_5 { width: 210; align-x: end; text-align: end; spacing: 8; }
     </style>
   </resources>
 
