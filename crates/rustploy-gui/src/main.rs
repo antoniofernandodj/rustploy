@@ -7,6 +7,7 @@
 // every other target and in debug builds (where a console is handy for logs).
 #![cfg_attr(all(target_os = "windows", not(debug_assertions)), windows_subsystem = "windows")]
 
+mod agent;
 mod app;
 // Em dev os assets são lidos do disco (com hot-reload) por caminho relativo ao
 // CWD → precisamos entrar na pasta-base. Em release eles são embutidos no

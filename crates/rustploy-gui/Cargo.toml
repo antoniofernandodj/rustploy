@@ -26,7 +26,10 @@ path = "src/main.rs"
 # o processo no locale do usuário depois do `gtk::init()`, e num locale de
 # vírgula decimal (pt_BR…) o lexer do Luau rejeitava todo literal decimal com
 # "Malformed number" — `require("fmt")` falhava e a janela de logs não abria.
-glacier-ui = { version = "0.58.1", features = ["tray"] }
+# 0.58.6+ é REQUISITO da API de agente (`src/agent/`): `external::sender()` é o
+# canal que deixa a thread do servidor HTTP injetar ações no motor da janela —
+# sem ele, conectar/navegar/abrir janela só aconteceria por clique humano.
+glacier-ui = { version = "0.58.6", features = ["tray"] }
 
 # Embute a árvore de assets (views/estilos/scripts/ícones/logos) no binário em
 # builds de release, para um executável standalone que não depende dos arquivos
@@ -42,6 +45,24 @@ iced = { version = "0.14", features = ["image", "svg", "tokio"] }
 tokio = { version = "1", features = ["net", "sync", "macros", "io-util", "rt", "time"] }
 rustls = { version = "0.23", features = ["ring"] }
 tokio-rustls = "0.26"
+
+# ── API de agente (src/agent/) ───────────────────────────────────────────────
+# Servidor HTTP local (loopback) que deixa um agente dirigir o rustploy REMOTO
+# ao qual esta janela está conectada, reaproveitando a sessão da GUI. hyper dos
+# dois lados — servidor e cliente — pelo mesmo motivo do daemon: é o que já
+# está no workspace, e não queremos um segundo framework HTTP aqui (nada de
+# axum) nem um segundo cliente (nada de reqwest). Ver src/agent/mod.rs.
+hyper = { version = "1", features = ["http1", "server", "client"] }
+hyper-util = { version = "0.1", features = ["tokio", "client", "client-legacy", "server", "http1"] }
+# TLS de saída: o daemon remoto normalmente está atrás de HTTPS. Raízes da
+# Mozilla embutidas (webpki-roots) em vez do keystore do sistema, para o app
+# empacotado não depender de como cada distro/Windows expõe os certificados.
+# `ring` para casar com o provider que o glacier-ui já instala no processo.
+hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "webpki-roots", "ring", "tls12"] }
+http-body-util = "0.1"
+bytes = "1"
+# Token do handoff local (32 bytes de CSPRNG).
+rand = "0.9"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }

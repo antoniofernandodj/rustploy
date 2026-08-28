@@ -43,6 +43,16 @@ const FONT_BOLD: &[u8] = include_bytes!("../../assets/fonts/JetBrainsMono-Bold.t
 /// Sobe o daemon multi-janela e roda o loop do iced até a última janela fechar.
 /// Chamado por `main` depois de `assets::locate_and_chdir()`.
 pub(crate) fn run() -> iced::Result {
+    // API de agente: servidor HTTP local (hyper) que empresta a sessão desta
+    // janela para um agente rodando na mesma máquina operar o rustploy REMOTO.
+    // Ver `src/agent/mod.rs` e `docs/api-agente-no-gui.md`.
+    let sessao_agente = crate::agent::SharedSession::default();
+    // Canal de mão contrária (glacier-ui 0.58.6+): deixa a thread do servidor
+    // injetar ações no motor desta janela — é o que torna login, navegação e
+    // qualquer botão alcançáveis por HTTP. Criado ANTES de `run()`, que é
+    // quando o daemon decide registrar a subscription que o drena.
+    let ui_agente = glacier_ui::external::sender();
+
     let daemon = GlacierDaemon::new()
         .title("Rustploy")
         .font(FONT_REGULAR)
@@ -71,6 +81,17 @@ pub(crate) fn run() -> iced::Result {
         // sai sem abrir janela; a instância já viva reabre/foca a principal
         // (mesmo `application_id` do `platform_specific` abaixo).
         .single_instance("rustploy-gui")
+        // Espelha a sessão da GUI (api_url/api_token/connected, escritos no
+        // contexto por `handlers/connection.luau`) para a API de agente. O
+        // gancho roda depois de CADA dispatch da janela principal, então cobre
+        // login, logout e troca de servidor sem precisar conhecer nenhum dos
+        // três — e a escrita só acontece quando algo de fato mudou.
+        .on_message({
+            let sessao = sessao_agente.clone();
+            move |_msg, motor| {
+                sessao.sync_from_context(motor.context());
+            }
+        })
         .main_window(main_window_settings())
         // Janelas-filhas (ex.: "Novo projeto") também são borderless: o template
         // delas traz a própria titlebar, e sem isto o SO desenharia a nativa por
@@ -79,7 +100,18 @@ pub(crate) fn run() -> iced::Result {
             settings.decorations = false;
             settings.platform_specific = platform_specific();
         })
-        .main(|motor| {
+        .main({
+            let sessao = sessao_agente.clone();
+            let ui = ui_agente.clone();
+            move |motor| {
+            // A API de agente sobe AQUI, e não antes de `run()`, porque o
+            // `.main()` só roda na instância PRIMÁRIA: o `single_instance`
+            // encerra a segunda antes disto. Subindo antes, um segundo
+            // lançamento reescreveria o handoff da instância viva com um token
+            // que morre em seguida. `spawn` é idempotente porque este gancho
+            // roda de novo ao reabrir a janela pela bandeja.
+            crate::agent::spawn(sessao.clone(), ui.clone());
+
             if let Err(e) = motor
                 .register_component(
                     "app",
@@ -90,6 +122,7 @@ pub(crate) fn run() -> iced::Result {
                     eprintln!("{e}");
                 }
             motor.set_initial_screen("app");
+            }
         })
         .toast_period(Duration::from_millis(250))
         // O MSAAx4 default do iced custa caro num fallback 100% por software
@@ -104,7 +137,13 @@ pub(crate) fn run() -> iced::Result {
     #[cfg(not(debug_assertions))]
     let daemon = daemon.assets(std::sync::Arc::new(crate::embedded::EmbeddedAssets));
 
-    daemon.run()
+    // `run` só volta quando o app encerra de verdade (fechar a janela apenas
+    // recolhe para a bandeja). É aqui que o handoff da API de agente deixa de
+    // valer: o token morre com o processo, então um arquivo sobrevivente só
+    // confundiria quem o lesse depois.
+    let resultado = daemon.run();
+    crate::agent::cleanup();
+    resultado
 }
 
 /// Menu da bandeja. Os ids (`open`/`notifications`/`quit`) são o que chega ao
