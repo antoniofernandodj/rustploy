@@ -34,6 +34,12 @@
     .win_close      { width: 48; padding: 5 0; color: var(--danger); text-align: center; }
     </style>
 
+    <!-- Toda a lógica de rede/estado (login, navegação, busca, stream SSE e ações)
+      vive em Luau, no script abaixo: sucessor de app/root.rs + app/net/*. É o
+      único script ativo; como o contexto do glacier é global, os templates
+      importados (login/shell/home/service) só têm markup e seus handlers resolvem
+      para as funções deste script. require("net/api") e require("fmt") resolvem em
+      scripts/ (relativo a este diretório). -->
     <script src="scripts/app.luau"></script>
   </resources>
 
@@ -94,10 +100,5 @@
     </row>
   </column>
 
-  <!-- Toda a lógica de rede/estado (login, navegação, busca, stream SSE e ações)
-    vive em Luau, no script abaixo: sucessor de app/root.rs + app/net/*. É o
-    único script ativo; como o contexto do glacier é global, os templates
-    importados (login/shell/home/service) só têm markup e seus handlers resolvem
-    para as funções deste script. require("net/api") e require("fmt") resolvem em
-    scripts/ (relativo a este diretório). -->
+
 </screen>
