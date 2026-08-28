@@ -1,832 +1,792 @@
-# Rustploy — Especificação Técnica Completa
+# Rustploy — guia do projeto
 
-> PaaS de baixo consumo escrito em Rust, sem orquestrador externo.  
-> Alternativa ao Dokploy/Coolify com footprint de memória de serviço < 50 MB.
+> PaaS de baixo consumo escrito em Rust, sem orquestrador externo. Alternativa
+> ao Dokploy/Coolify para VPS modestas: um binário só, sem Swarm nem
+> Kubernetes, proxy reverso embutido e footprint de serviço abaixo de 50 MB.
+
+**Este arquivo é a referência única do projeto.** O `CLAUDE.md` apenas aponta
+para cá — até 2026-08-28 os dois descreviam a arquitetura em paralelo, o que
+garantia que um dos dois estaria errado.
+
+Como este guia está organizado:
+
+| Parte | Para quem |
+|---|---|
+| [1 — Manual de Controle por Agente](#parte-1--manual-de-controle-por-agente) | quem vai **operar** um rustploy por HTTP |
+| [2 — Trabalhando no código](#parte-2--trabalhando-no-código) | quem vai **mexer** no repositório |
+| [3 — Arquitetura](#parte-3--arquitetura) | como o sistema funciona por dentro |
+| [4 — História](#parte-4--história) | o que já mudou e por quê |
 
 ---
 
-## 0. Convenções de Trabalho
+# Parte 1 — Manual de Controle por Agente
 
-### glacier-ui (dependência da crate `rustploy-gui`)
+> A API de agente foi implementada em 2026-08-28. As decisões de desenho por
+> trás dela estão em `docs/api-agente-no-gui.md`; a implementação, em
+> `crates/rustploy-gui/src/agent/`.
 
-A crate `rustploy-gui` consome `glacier-ui` **do crates.io** (versão fixada no `Cargo.toml`), não o código-fonte local em `~/Development/rust/glacier-ui`.
+## O modelo mental
 
-**Regra (sempre):** quando uma mudança no `glacier-ui` for necessária (renomear um item público, corrigir bug, adicionar recurso), o fluxo é **sempre publicar uma nova versão e subir a dependência** — nunca usar `[patch.crates-io]` ou dependência por `path` para contornar:
+Um agente **não fala com o daemon**. Fala com o **app GUI**, que já está logado
+no daemon e empresta a própria sessão:
 
+```
+  agente local ──HTTP──> 127.0.0.1:9800 ──HTTPS──> rustploy remoto
+                           (rustploy-gui)            POST /api/rpc
+                                 │
+                                 └─ sessão (url + token) da janela
+```
+
+Três consequências que são o motivo do desenho:
+
+1. **O agente nunca vê o token do daemon.** Usa um token local, próprio, que
+   morre com o processo.
+2. **O agente não precisa saber onde o daemon está.** Fala com `localhost`.
+3. **Trocar de servidor na GUI troca o alvo do agente junto.** Não há estado
+   paralelo para sair de sincronia.
+
+O alcance é exatamente o da janela — nem mais, nem menos.
+
+## Descoberta (comece aqui)
+
+Um arquivo, escrito quando o app sobe:
+
+```bash
+cat ~/.local/share/rustploy/agent-api.json
+```
+
+```json
+{
+  "version": 1,
+  "url": "http://127.0.0.1:9800",
+  "token": "…64 hex…",
+  "pid": 48213,
+  "remote_url": "https://rustploy.exemplo.com",
+  "connected": true,
+  "docs": "GET /agent/schema (Authorization: Bearer <token>)"
+}
+```
+
+É o passo de descoberta inteiro. `GET /agent/schema` conta o resto em JSON.
+
+```bash
+export RP=$(python3 -c "import json;print(json.load(open('$HOME/.local/share/rustploy/agent-api.json'))['url'])")
+export RPT=$(python3 -c "import json;print(json.load(open('$HOME/.local/share/rustploy/agent-api.json'))['token'])")
+alias rp='curl -s -H "Authorization: Bearer $RPT"'
+```
+
+O arquivo nasce `0600` — quem lê o token opera o rustploy remoto inteiro. O
+token é novo a cada execução, então um handoff velho no disco não vale nada
+(confira o `pid`, ou simplesmente chame `/agent/health`).
+
+## Todas as rotas
+
+Autenticação: `Authorization: Bearer <token do handoff>` em tudo, exceto
+`GET /agent/health`. Toda falha é JSON:
+`{"error":{"code":"…","message":"…"}}`.
+
+### Dados (encaminhados ao daemon)
+
+| Rota | Para quê |
+|---|---|
+| `GET /agent/health` | a ponte está no ar? a janela está conectada? (sem token) |
+| `GET /agent/schema` | o catálogo completo, legível por máquina |
+| `GET /agent/status` | versão/uptime do daemon + fila de deploys |
+| `GET /agent/services` | índice achatado projeto→serviço |
+| `GET /agent/deploys?limit=` | últimos deploys **com o desfecho resolvido** |
+| `POST /agent/deploys` | dispara um deploy e **espera** o resultado |
+| `GET /agent/deploys/<id>/logs?after=&limit=` | build log paginado por cursor |
+| `POST /agent/services/<id>/archive` | sobe um `.zip` local (por caminho) |
+| `POST /agent/rpc` | passthrough: qualquer `Command` do protocolo |
+
+### Janela (controlam a GUI em si)
+
+| Rota | Para quê |
+|---|---|
+| `GET /agent/servers` | servidores já usados nesta máquina |
+| `POST /agent/connect` | **entra na sessão** pela tela de login |
+| `POST /agent/disconnect` | sai da sessão |
+| `GET /agent/ui` | o que a janela está mostrando agora |
+| `GET /agent/ui/actions` | **todas** as ações que a GUI aceita |
+| `POST /agent/ui/action` | dispara qualquer ação, como um clique |
+| `POST /agent/ui/context` | escreve chaves no contexto da janela |
+
+Códigos: `400` pedido malformado ou comando recusado pelo daemon · `401` token
+desta API errado · `404` rota/serviço inexistente · `502` daemon inalcançável ou
+recusou · `503` a janela não está conectada a daemon nenhum.
+
+## Receitas
+
+### 1. Conectar sem ninguém na frente do app
+
+Era o único ponto que exigia um humano. Hoje:
+
+```bash
+rp $RP/agent/servers          # o que já foi usado aqui
+rp $RP/agent/connect -d '{"url":"https://rustploy.exemplo.com"}'
+# → {"connected":true,"remote_url":"https://rustploy.exemplo.com"}
+```
+
+Sem `token` no corpo, a ponte usa o **salvo** para aquela URL — o segredo não
+atravessa a rede em nenhum sentido. Com um servidor novo, mande
+`{"url":"…","token":"…"}`.
+
+A rota **espera o desfecho** (até 30 s) e a janela acompanha de verdade: valida
+com um `DaemonStatus`, abre o SSE, carrega as configurações e vai para a tela
+`shell`. Token errado → `502 connect_refused`.
+
+### 2. Deployar e saber se funcionou
+
+A rota que existe para responder as duas perguntas de uma vez:
+
+```bash
+rp $RP/agent/deploys -d '{"service":"stand-imob","wait":true}'
+```
+
+```json
+{
+  "deployment_id": "dep_01M11Z99…",
+  "state": "Failed",
+  "ok": false,
+  "error": "docker build error: Cannot locate specified Dockerfile: Dockerfile",
+  "log_tail": ["…", "==> Erro em [BuildingImage]: …", "==> Deploy falhou — iniciando rollback"],
+  "log_cursor": 6,
+  "waited": true,
+  "timed_out": false
+}
+```
+
+- `ok`: `true` = Live, `false` = Failed, `null` = ainda rodando, ou terminal sem
+  desfecho (`Stopped` = parado de propósito, `Pruning` = substituído por um
+  deploy mais novo). Chamar esses dois de falha seria mentira.
+- Aceita `"service"` (nome) ou `"service_id"`. Nome é único **por projeto**, não
+  globalmente: com ambiguidade a rota recusa e lista os candidatos.
+- `wait:false` devolve `202` na hora, e você acompanha por `GET /agent/deploys`.
+- `timeout_s` (padrão 900, teto 3600), `log_tail` (padrão 40, teto 500).
+
+### 3. Acompanhar um build longo sem rebaixar tudo
+
+```bash
+rp "$RP/agent/deploys/dep_…/logs?after=120"
+# → {"total":1402,"after":120,"next_after":620,"has_more":true,"lines":[…]}
+```
+
+Passe o `next_after` da resposta anterior. O `GetBuildLogs` do daemon só sabe
+devolver o log inteiro; a fatia acontece na ponte.
+
+### 4. Subir um zip
+
+```bash
+rp $RP/agent/services/svc_…/archive -d '{"path":"/home/user/app.zip"}'
+```
+
+Recebe o **caminho local**, não os bytes — a ponte é loopback, mandar dezenas de
+MB em base64 seria custo puro. No daemon isto é rota HTTP com corpo binário,
+**não** um `Command`: não dá para descobrir lendo `protocol.rs`.
+
+### 5. Dirigir a janela
+
+```bash
+rp $RP/agent/ui
+# → {"screen":"shell","view":"deployments","selected_service":"", …}
+
+rp $RP/agent/ui/actions          # o chaveiro: 144 ações, com o arquivo de origem
+rp $RP/agent/ui/action  -d '{"action":"nav_docker"}'                  # clique
+rp $RP/agent/ui/action  -d '{"action":"docker_tab","value":"images"}' # onChange
+rp $RP/agent/ui/context -d '{"search":"nginx"}'                       # campo
+```
+
+**A chave-mestra é `ui/action`.** Todo botão, aba e formulário da GUI é uma
+função global do Luau (`views/scripts/handlers/*.luau`), e essa rota chama
+qualquer uma delas pelo mesmo caminho de um clique. Cobre a superfície inteira
+por construção — inclusive telas que ainda não existem. `GET /agent/ui/actions`
+lista os nomes lidos da árvore em execução, então não há lista para envelhecer.
+
+Ações com valor (`value`) são o `onChange` de um campo; sem valor, um clique.
+Abrir janela-filha (novo projeto, wizard, logs) também é ação — ex.:
+`open_new_project_window`.
+
+Para ler chaves fora do resumo: `GET /agent/ui?keys=screen,view,docker_tab` ou
+`?all=1` para o contexto inteiro (resposta grande).
+
+### 6. Qualquer outra coisa
+
+```bash
+rp $RP/agent/rpc -d '{"DeployHistory":{"service_id":"svc_…","limit":3}}'
+```
+
+Aceita qualquer `Command`, esteja no catálogo ou não. É a válvula que mantém as
+rotas de conveniência honestas: elas existem para os caminhos frequentes, não
+para virarem a única porta.
+
+Codificação serde **externally-tagged**: variante com campos é objeto de uma
+chave (`{"ProjectCreate":{…}}`), variante sem campos é a string nua
+(`"ProjectList"`). Vale para `Command` **e** para `Response`. Fonte da verdade:
+`crates/shared/src/protocol.rs` e `models.rs`.
+
+## Armadilhas
+
+- **`202` não é `200`.** Ações de UI (`ui/action`, `ui/context`) são
+  *entregues*, não confirmadas — o efeito é assíncrono. Confirme em
+  `GET /agent/ui` ou na rota de dado correspondente. `POST /agent/connect` é a
+  exceção: essa espera o desfecho.
+- **Método errado dá `404`, não `405`.** `curl` sem `-d` manda GET; use
+  `-X POST` nas rotas sem corpo (`/agent/disconnect`).
+- **`ServiceUpdate` é substituição total, não patch.** Faça `ServiceGet`, mude o
+  campo, devolva o spec inteiro. Campo omitido é campo apagado.
+- **`api_token` e `token` saem sempre como `"<redigido>"`** em `/agent/ui` — o
+  desenho inteiro é o agente operar sem vê-los.
+- **A janela pode estar recolhida na bandeja.** O motor segue vivo e aceitando
+  ações; não é preciso abri-la para operar.
+- **Log de container não é persistido.** `LogsGet` lê do Docker ao vivo, e o
+  swap de deploy destrói o container antigo com o log junto. Build log
+  (`build_log`) esse sim é persistido.
+- **`503 not_connected`** quer dizer que a janela não está logada — use
+  `POST /agent/connect`, não é erro de rede.
+
+## Configuração e limites
+
+| Variável | Efeito |
+|---|---|
+| *(nada)* | liga em `127.0.0.1:9800` |
+| `RUSTPLOY_AGENT_API=off` | desliga a ponte |
+| `RUSTPLOY_AGENT_API=127.0.0.1:9910` | outra porta |
+
+Endereço não-loopback é **recusado** e cai no default: isto é uma ponte para
+processos da mesma máquina, não um segundo daemon. Porta ocupada → porta
+efêmera, e o handoff diz qual (por isso leia o arquivo, não assuma a porta).
+
+**Sem escopo.** Quem tem o token do handoff tem o alcance da janela, que é o
+bearer do daemon — hoje sem escopo nenhum. Não há modo somente-leitura.
+Enquanto o daemon não tiver tokens com escopo (read-only / deploy / admin),
+esta ponte não tem como inventar um. Ver a nota de segurança em
+`docs/plano-erro-de-deploy-invisivel.md`.
+
+## Como isto funciona por dentro
+
+Relevante quando algo não responde como esperado:
+
+- O servidor é **hyper** (não axum), numa thread com runtime tokio próprio — o
+  loop do iced é dono da thread principal. Vive em
+  `crates/rustploy-gui/src/agent/`.
+- A sessão é **observada**, não notificada: o gancho `on_message` do
+  `GlacierDaemon` roda depois de cada dispatch da janela principal, e a ponte
+  relê o contexto ali. Cobre login, logout e troca de servidor sem conhecer
+  nenhum dos três fluxos.
+- O caminho de volta (ponte → janela) é o canal `external` do **glacier-ui
+  0.58.6+**: `ExternalSender` injeta no motor o mesmo `EngineMessage` que um
+  clique produz. É o que tornou `connect`/`ui/action`/`ui/context` possíveis —
+  antes disso a GUI só se movia por evento do loop do iced.
+
+------
+
+# Parte 2 — Trabalhando no código
+
+## Convenções
+
+### glacier-ui: nunca `path`, nunca `[patch]`
+
+A crate `rustploy-gui` consome `glacier-ui` **do crates.io** (versão fixada no
+`Cargo.toml`), não o código-fonte local em `~/Development/rust/glacier-ui`.
+
+Quando uma mudança no `glacier-ui` for necessária — renomear um item público,
+corrigir bug, adicionar recurso — o fluxo é **sempre publicar uma nova versão e
+subir a dependência**. Nunca contorne com `[patch.crates-io]` ou dependência por
+`path`:
+
+0. **Antes de qualquer coisa, conferir se o tree local bate com o que está
+   publicado.** A `version` do `Cargo.toml` local não é prova: já aconteceu de o
+   repositório parar na `0.57.0` enquanto o crates.io seguia até a `0.57.4`
+   (versões publicadas de outra máquina, nunca commitadas nem enviadas ao
+   `origin`). Bumpar dali teria revertido quatro versões em silêncio. Comparar
+   com o pacote real:
+
+   ```bash
+   # a versão publicada fica em ~/.cargo/registry depois de qualquer build que a use
+   diff -rq ~/Development/rust/glacier-ui/src \
+            ~/.cargo/registry/src/*/glacier-ui-<versão-publicada>/src
+   ```
+
+   Conferir os **dois sentidos** — `git fetch` e comparar com o `origin`
+   também, não só com o crates.io. Se divergir, recuperar primeiro (o
+   `Cargo.toml.orig` do pacote preserva os comentários; o `Cargo.toml` é gerado
+   pelo cargo e os descarta) e commitar essa recuperação **separada** da
+   mudança nova.
 1. Aplicar a mudança em `~/Development/rust/glacier-ui`.
-2. Bump da versão em `glacier-ui/Cargo.toml` (ex.: `0.3.1` → `0.3.2`).
-3. `cargo publish` (validar antes com `cargo publish --dry-run`).
-4. Subir a versão de `glacier-ui` no `crates/rustploy-gui/Cargo.toml` para a recém-publicada.
-5. `cargo check -p rustploy-gui` para confirmar.
+2. Bump da versão em `glacier-ui/Cargo.toml` (ex.: `0.58.5` → `0.58.6`) e
+   entrada no `CHANGELOG.md`.
+3. **Rodar um exemplo de verdade** (`cargo run --example …`) — `cargo test`
+   verde não basta para uma feature de UI.
+4. Commit completo **antes** do publish, e `git push`.
+5. `cargo publish` (validar antes com `cargo publish --dry-run`).
+6. Subir a versão em `crates/rustploy-gui/Cargo.toml` para a recém-publicada.
+7. `cargo check -p rustploy-gui` para confirmar.
 
----
+O passo 4 é o que evita a divergência do passo 0 — foi justamente pulá-lo que a
+criou, duas vezes.
 
-## 1. Visão e Motivação
+**Se algo parecer faltar no glacier**, o lugar de consertar é o builder do
+`GlacierDaemon`, não um runtime paralelo dentro do `rustploy-gui`. Já houve um
+runtime `iced::daemon` inteiro reimplementado aqui (~250 linhas) porque o
+builder não expunha multi-janela; o buraco foi fechado na 0.38 e o runtime
+local, removido.
 
-### 1.1 O Problema
+### Toda feature de UI vive em dois lugares
 
-Plataformas PaaS auto-hospedadas existentes (Dokploy, Coolify, CapRover) compartilham um problema estrutural: são construídas sobre Node.js/PHP e dependem de Docker Swarm ou Kubernetes para orquestração. Para projetos de baixo tráfego em VPS modestas (1-2 vCPU, 1-4 GB RAM), o overhead do próprio PaaS consome uma fatia desproporcional dos recursos disponíveis antes de qualquer aplicação do usuário sequer subir.
+O daemon serve uma **webui própria** (`crates/daemon/webui/`, HTML + Alpine.js)
+além do cliente `rustploy-gui`. Os dois consomem a mesma API. Uma mudança de
+interface que só entre num dos dois vira divergência silenciosa — foi o que
+aconteceu com o motivo da falha de deploy, que a GUI passou a mostrar e a webui
+continuou ignorando por um tempo.
 
-### 1.2 A Solução
+Gotcha recorrente da webui: filhos de `.scroll_fill` (acima **ou** dentro, ex.
+`.grid`) sem `flex-shrink: 0` são espremidos até sumir. Checar em toda tela ou
+card novo.
 
-Rustploy é um daemon único que:
+A webui é servida com `Cache-Control: immutable` por um ano — testar na mesma
+porta reaproveita o JS velho do cache do navegador. Use ctrl+shift+r.
 
-- Compila para um binário estático < 15 MB
-- Consome < 30 MB de RAM em idle
-- Gerencia o ciclo completo de deploy sem processos externos além do `dockerd`
-- Expõe um proxy reverso embutido (hyper) que se atualiza em tempo real sem reload de arquivos
-- Persiste estado em SurrealDB embarcado (zero processo de banco separado)
+### Luau
 
-### 1.3 Posicionamento
+**Ferramental.** Type-check toda mudança antes de considerá-la pronta:
 
-| Dimensão           | Dokploy/Coolify        | Rustploy               |
-|--------------------|------------------------|------------------------|
-| Runtime            | Node.js / PHP          | Rust (binário nativo)  |
-| Orquestrador       | Docker Swarm / K8s     | Daemon próprio         |
-| Proxy              | Traefik (processo Go)  | hyper embutido         |
-| Banco              | PostgreSQL separado    | SurrealDB embarcado    |
-| RAM em idle        | 200–600 MB             | < 50 MB (alvo)         |
-| TLS                | Let's Encrypt via API  | rustls + ACME embutido |
-| Interface          | Web UI                 | TUI (Ratatui) — removido; ver §17 |
-
-### 1.4 Não-Objetivos (explícitos)
-
-- **Não é um substituto do Kubernetes** para workloads com centenas de containers
-- **Não gerencia clusters multi-host** — foco em single-node
-- **Não tem Web UI** — a interface primária era o TUI, hoje removido (ver §17); `rustploy-gui` é o cliente atual
-- **Não suporta build de imagens arbitrárias** — apenas repositórios Git com Dockerfile
-- **Não implementa service mesh** — isolamento de rede via bridge Docker é suficiente
-
----
-
-## 2. Arquitetura do Sistema
-
-### 2.1 Visão Geral de Componentes
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│  Host Linux                                                         │
-│                                                                     │
-│  ┌─────────────────────────────────────────────────────────────┐    │
-│  │  rustployd  (binário único)                                 │    │
-│  │                                                             │    │
-│  │  ┌──────────────┐   ┌──────────────┐   ┌──────────────────┐ │    │
-│  │  │    hyper     │   │    Daemon    │   │   SurrealDB      │ │    │
-│  │  │   Ingress    │◄─►│    Core      │◄─►│   (embarcado)    │ │    │
-│  │  │  :80 / :443  │   │              │   │   RocksDB/SpeeDB │ │    │
-│  │  └──────────────┘   └──────┬───────┘   └──────────────────┘ │    │
-│  │                            │                                │    │
-│  │              Unix Domain Socket                             │    │
-│  │              /run/rustploy/rustploy.sock                    │    │
-│  └────────────────────────────┼────────────────────────────────┘    │
-│                               │                                     │
-│  ┌────────────────────────────▼──────────────────────────────────┐  │
-│  │  rustploy (TUI client) — removido, ver §17                    │  │
-│  │  - Sidebar com Home / Projects / Settings / Account           │  │
-│  │  - CRUD de projetos e serviços                                │  │
-│  │  - Detalhe de serviço com abas (General, Env, Logs, ...)      │  │
-│  │  - Stream de logs em tempo real                               │  │
-│  │  - Gráficos de CPU/RAM por container                          │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│                                                                     │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  Docker Engine  /var/run/docker.sock                          │  │
-│  │  Containers gerenciados por projeto                           │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────┘
+```bash
+luau-lsp analyze --base-luaurc=.luaurc \
+  --definitions=crates/rustploy-gui/views/scripts/glacier.d.luau <arquivo(s)>
 ```
 
-### 2.2 Estrutura do Workspace Rust
+Não substitui `cargo test -p rustploy-gui --test templates_render` (o runtime
+`mlua` de verdade), mas pega erro de caminho de módulo e de tipo em segundos.
+Para o VS Code, a extensão `johnnymorganz.luau-lsp` (config já versionada em
+`.luaurc` + `.vscode/settings.json`). O `glacier.d.luau` **precisa** do
+tratamento `--definitions=` / `luau-lsp.types.definitionFiles`: sem isso o
+editor o interpreta como script comum e levanta ~40 erros falsos. Ver
+`docs/luau-modularizacao-pacotes.md`.
 
-```
-rustploy/
-├── Cargo.toml                  # workspace root
-├── crates/
-│   ├── shared/                 # tipos compartilhados, protocolo
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       ├── protocol.rs     # Command, Event, Response enums
-│   │       ├── models.rs       # Project, Service, Deployment, etc.
-│   │       └── config.rs       # RustployConfig struct
-│   │
-│   ├── daemon/                 # rustployd — processo principal
-│   │   └── src/
-│   │       ├── main.rs
-│   │       ├── api/            # handlers Axum (UDS)
-│   │       │   ├── mod.rs
-│   │       │   ├── projects.rs
-│   │       │   ├── services.rs
-│   │       │   ├── deployments.rs
-│   │       │   └── stream.rs   # SSE-over-UDS para eventos
-│   │       ├── db/             # camada SurrealDB
-│   │       │   ├── mod.rs
-│   │       │   ├── projects.rs
-│   │       │   ├── services.rs
-│   │       │   └── deployments.rs
-│   │       ├── docker/         # wrapper bollard
-│   │       │   ├── mod.rs
-│   │       │   ├── images.rs
-│   │       │   ├── containers.rs
-│   │       │   ├── networks.rs
-│   │       │   └── events.rs
-│   │       ├── deploy/         # máquina de estados de deploy
-│   │       │   ├── mod.rs
-│   │       │   ├── state.rs    # enum DeployState
-│   │       │   ├── executor.rs # lógica de transições
-│   │       │   └── recovery.rs # recuperação após crash do daemon
-│   │       ├── ingress/        # proxy reverso hyper (route table arc-swap)
-│   │       │   ├── mod.rs
-│   │       │   ├── router.rs   # tabela de rotas em memória
-│   │       │   ├── tls.rs      # gestão ACME / rustls
-│   │       │   └── proxy.rs    # ProxyHttp impl
-│   │       └── metrics.rs      # coleta CPU/RAM dos containers
-│   │
-│   └── (havia client/ — TUI Ratatui, removido; ver §17)
-```
+**Convenção de `require`** (glacier-ui 0.22+, resolução relativa ao arquivo que
+chama, como Node.js):
 
----
+- irmão no mesmo diretório → nome nu: `require("stream")`;
+- pacote pai a partir de dentro de `handlers/` ou `fmt/` → `require("../state")`;
+- do script de entrada (`app.luau`, na raiz) → caminho completo:
+  `require("handlers/connection")`.
 
-## 3. Crate `shared` — Protocolo e Modelos
+**Convenção de sintaxe.** Quando o **único** argumento de uma chamada é um table
+literal, use a forma sem parênteses — `f{ ... }`, não `f({ ... })` (idem
+`toast{...}`, `api:rpc_checked{...}`, `open_window{...}`, `json.array{}`,
+`os.time{...}`, `ipairs{...}`). Vale **só** para o único-argumento-table:
+chamadas com mais de um argumento (`prune({...}, "msg")`,
+`setmetatable({...}, mt)`) mantêm os parênteses. String literal única também
+poderia dispensar parênteses, mas **não** adotamos essa forma.
 
-### 3.1 Protocolo de Comunicação
+### Armadilhas de template (`.gv`)
 
-O canal de comunicação entre `client` e `daemon` é um Unix Domain Socket em `/run/rustploy/rustploy.sock`. Dois padrões de uso:
+- **Nunca escreva uma tag literal dentro de um comentário** (nem dentro de
+  `<style>`): o parser quebra e o erro aponta para a linha errada.
+- **O GSS não suporta seletor por vírgula** (`.a, .b { }`, nem dentro de
+  `@media`): vira uma chave só, errada, e falha em silêncio. Uma declaração por
+  seletor.
+- **`if=` como atributo** condiciona só o elemento; a **tag** `<if>` condiciona
+  todos os filhos e usa `cond=`, não `if=`.
 
-1. **Request/Response** — comandos imperativos, serializados em Bincode sobre HTTP/1.1 via Axum
-2. **Event Stream** — eventos push do daemon para o client, via chunked transfer encoding (um evento Bincode por chunk)
+### Descartar ≠ apagar
 
-#### Framing de eventos (stream)
+Código reutilizável que sai de uso vira comentário com `TODO` no lugar, não
+deleção — o histórico do git existe, mas o contexto de "por que isso estava
+aqui" se perde.
 
-```
-[4 bytes: tamanho do payload u32 LE][payload: Bincode<Event>]
+## Build & Run
+
+```bash
+# Tudo
+cargo build
+cargo build --release
+
+# Daemon (precisa do socket do Docker). `default-run = "rustployd"`, então o
+# `--bin` só é necessário para o outro binário (`rustployd-fw`).
+cargo run -p rustploy
+
+# GUI
+cargo run -p rustploy-gui
 ```
 
-O client lê o tamanho, aloca exatamente aquele buffer, desserializa. Isso evita parsing de linha e mantém CPU mínimo.
+**Testes.** Os diretórios são `crates/daemon` e `crates/shared`, mas os
+**pacotes** se chamam `rustploy` e `rustploy-shared` (renomeados para o
+`cargo install rustploy`) — `-p daemon` / `-p shared` não resolvem. O daemon não
+tem lib target, então seus testes ficam sob `--bins`.
 
-### 3.2 Comandos (client → daemon)
-
-Os comandos são agrupados por domínio:
-
-**Projetos:** `ProjectCreate` (nome + descrição opcional), `ProjectDelete` (por id), `ProjectList`.
-
-**Serviços:** `ServiceCreate` (recebe uma `ServiceSpec` completa), `ServiceUpdate` (id + nova spec), `ServiceDelete` (por id), `ServiceList` (filtrado por projeto).
-
-**Deployments:** `DeployStart` (por service_id), `DeployAbort` (por deployment_id), `DeployRollback` (por service_id, volta à versão anterior), `DeployHistory` (por service_id, com limite de resultados).
-
-**Observabilidade:** `LogsSubscribe`/`LogsUnsubscribe` (por service_id, com quantidade de linhas retroativas), `MetricsSubscribe`/`MetricsUnsubscribe` (por service_id).
-
-**Infraestrutura:** `Ping` (verifica se o daemon responde), `DaemonStatus` (informações gerais do daemon).
-
-### 3.3 Eventos (daemon → client, stream)
-
-**`DeployStateChanged`** — emitido a cada transição de estado; carrega o `deployment_id`, `service_id`, novo estado, timestamp e mensagem opcional.
-
-**`DeployProgress`** — granularidade fina dentro de estados longos (ex: progresso por camada durante `PullingImage`); carrega a fase, percentual (0–100) e descrição textual.
-
-**`LogLine`** — uma linha capturada do container (stdout ou stderr), com timestamp e identificação do serviço e container.
-
-**`ContainerMetrics`** — snapshot de CPU%, memória usada e limite, bytes de rede recebidos/transmitidos e timestamp; emitido a cada ciclo de coleta.
-
-**`ServiceStatusChanged`** — mudança de alto nível no status de um serviço (Stopped, Deploying, Running, Degraded, Error).
-
-**`DaemonReady`** — emitido após o daemon inicializar completamente, com a versão do binário.
-
-**`Error`** — erros assíncronos com código estruturado e mensagem descritiva.
-
-### 3.4 Respostas (daemon → client, request/response)
-
-As respostas são um tipo union que cobre todos os casos possíveis: `Ok` (confirmação sem dado), `Project`, `Projects`, `Service`, `Services`, `Deployment`, `Deployments`, `DaemonStatus` (informações gerais), `Pong` (uptime em segundos) e `Err` (erro estruturado com código e mensagem).
-
-### 3.5 Modelos de Dados
-
-Todos os identificadores são ULIDs — identificadores lexicograficamente ordenados que garantem unicidade sem coordenação central.
-
-**Project** — campos: `id`, `name` (único), `description` (opcional), `created_at`.
-
-**ServiceSpec** — especificação imutável de um serviço: `name`, `project_id`, `source` (origem da imagem — veja abaixo), `port` (porta interna do container), `domain` (domínio público), `env_vars`, `volumes`, `healthcheck`, `replicas` (fixo em 1 na v1), `resources`.
-
-**ServiceSource** — define como a imagem do serviço é obtida; duas variantes mutuamente exclusivas:
-
-- `Registry { image }` — imagem já publicada em um registry (ex: `ghcr.io/user/app:latest`); o daemon faz pull diretamente
-- `Git { url, branch, dockerfile_path, build_context, credentials }` — repositório Git com Dockerfile; o daemon clona o repositório, constrói a imagem localmente via API do Docker Engine e a usa para o deploy
-
-**GitSource** — campos de uma origem Git:
-- `url` (HTTPS ou SSH)
-- `branch` (ou commit SHA)
-- `root_path` (caminho raiz dentro do repo a usar, padrão `.`)
-- `watch_paths` (caminhos monitorados para auto-deploy, array de strings)
-- `submodules` (bool — inicializar submódulos Git)
-- `dockerfile_path` (caminho do Dockerfile dentro do repo, padrão `Dockerfile`)
-- `build_context` (caminho do contexto de build dentro do repo, padrão `.`)
-- `build_stage` (stage alvo para build multi-stage Docker, opcional)
-- `credentials` (referência a um secret do projeto com o token de acesso ou chave SSH, opcional para repositórios públicos)
-
-**Service** — agrega uma `ServiceSpec` com estado operacional: `id`, `spec`, `status`, `live_container_id` (ID do container ativo no Docker), `created_at`, `updated_at`.
-
-**ServiceStatus** — enum de estado: `Stopped`, `Deploying`, `Running`, `Degraded`, `Error(mensagem)`.
-
-**Deployment** — representa uma tentativa de deploy: `id`, `service_id`, `image`, `state` (estado atual na máquina de estados), `states_log` (histórico completo de transições com timestamps), `started_at`, `finished_at` (opcional).
-
-**StateTransition** — um registro no log: `from`, `to`, `at` (timestamp), `message` (opcional).
-
-**EnvVar** — par chave + valor, onde o valor pode ser `Plain(texto)` ou `Secret(nome_do_secret)` — neste caso, o daemon resolve e decriptografa na hora de criar o container.
-
-**VolumeMount** — `host_path`, `container_path`, `read_only`.
-
-**Healthcheck** — `kind` (HTTP, TCP ou DockerNative), `interval_secs`, `timeout_secs`, `retries`, `start_period_secs`.
-
-**HealthcheckKind** — `Http` (path + status HTTP esperado), `Tcp` (apenas verifica conexão na porta), `DockerNative` (delega ao HEALTHCHECK da imagem).
-
-**ResourceLimits** — `cpu_shares` (relativo; 1024 = 1 CPU inteiro), `mem_limit_bytes` (0 = sem limite).
-
----
-
-## 4. Máquina de Estados do Deploy
-
-### 4.1 Estados e Transições
-
-```
-                         ┌─────────┐
-                    ─────► Pending │
-                         └────┬────┘
-                              │ dependências OK
-                    ┌─────────▼──────────┐
-                    │   ResolvingDeps    │
-                    └──┬────────────┬────┘
-                       │            │ rede OK, secrets OK
-             source=Registry   source=Git
-                       │            │
-              ┌────────▼───┐  ┌──────▼──────────┐
-              │PullingImage│  │  CloningRepo    │◄── progresso via DeployProgress
-              └────────┬───┘  └──────┬──────────┘
-                       │             │ repo clonado
-                       │     ┌───────▼──────────┐
-                       │     │  BuildingImage   │◄── log de build via LogLine
-                       │     └───────┬──────────┘
-                       │             │ imagem construída
-                       └───────┬─────┘
-                               │ imagem disponível localmente
-                    ┌──────────▼─────────┐
-                    │     Staging        │  cria container N+1 (sem tráfego)
-                    └─────────┬──────────┘
-                              │ container criado e iniciado
-                    ┌─────────▼──────────────┐
-                    │ HealthcheckPolling     │  loop até pass ou timeout
-                    └────┬───────────────────┘
-                    pass │          │ fail / timeout
-               ┌─────────▼───┐   ┌──▼──────────┐
-               │ SwappingIn  │   │ RollingBack │
-               └─────────┬───┘   └──┬──────────┘
-                         │          │ tráfego devolvido ao container antigo
-               ┌─────────▼───┐   ┌──▼──────────┐
-               │  Draining   │   │   Failed    │◄── estado terminal
-               └─────────┬───┘   └─────────────┘
-                         │ drain_secs decorridos
-               ┌─────────▼───┐
-               │  Promoting  │  renomeia container, atualiza SurrealDB
-               └─────────┬───┘
-                         │
-               ┌─────────▼──┐
-               │    Live    │◄── estado terminal (sucesso)
-               └────────────┘
-                         │ próximo deploy iniciado
-               ┌─────────▼───┐
-               │   Pruning   │  remove container antigo e imagens órfãs
-               └─────────────┘
+```bash
+cargo test -p rustploy --bins <nome_do_teste>
+cargo test -p rustploy-shared
+cargo test -p rustploy-gui --bins            # inclui a API de agente
+cargo test -p rustploy-gui --test templates_render   # runtime mlua real
+cargo check --workspace
 ```
 
-### 4.2 Persistência de Estado
-
-Cada transição de estado é uma transação ACID no SurrealDB. Ao criar um deployment, o banco registra `id`, `service_id`, `image`, estado inicial `Pending`, log de transições vazio e `started_at`. A cada transição, o campo `state` é atualizado e um objeto com `{from, to, at, message}` é anexado ao array `states_log`.
-
-**Invariante de recuperação**: ao iniciar, o daemon executa uma query por todos os deployments cujo estado não seja `Live`, `Failed`, `Pruning`. Para cada um, a lógica de recovery é chamada e o deploy é retomado ou abortado com rollback, dependendo do estado encontrado.
-
-### 4.3 Lógica do Executor
-
-O executor de deploy opera em loop: lê o estado atual do deployment no banco, executa a ação correspondente ao estado, persiste a transição para o próximo estado e repete até atingir um estado terminal (`Live` ou `Failed`). Qualquer erro em qualquer step dispara automaticamente a transição para `RollingBack`.
-
-O mapeamento de estado para ação é:
-
-| Estado atual         | Ação executada                                                        |
-|----------------------|-----------------------------------------------------------------------|
-| `Pending`            | Verificar dependências (rede, secrets, credenciais Git se aplicável)  |
-| `ResolvingDeps`      | Ramificar: `PullingImage` (Registry) ou `CloningRepo` (Git)          |
-| `PullingImage`       | Criar e iniciar container de staging                                  |
-| `CloningRepo`        | Iniciar build da imagem (`BuildingImage`)                             |
-| `BuildingImage`      | Criar e iniciar container de staging                                  |
-| `Staging`            | Iniciar loop de healthcheck                                           |
-| `HealthcheckPolling` | Atualizar rota no IngressController para iniciar o swap               |
-| `SwappingIn`         | Aguardar `drain_secs` com container antigo sem tráfego                |
-| `Draining`           | Renomear container e atualizar banco                                  |
-| `Promoting`          | Marcar como `Live`                                                    |
-| `RollingBack`        | Reverter tráfego e destruir container de staging                      |
-
----
-
-## 5. Crate `daemon` — Subsistemas
-
-### 5.1 Subsistema Docker (`crates/daemon/src/docker/`)
-
-Wrapper sobre a biblioteca de acesso à API do Docker Engine que encapsula todas as interações com o `dockerd`:
-
-#### 5.1.1 Gestão de Imagens
-
-O gerenciador de imagens expõe operações para os dois caminhos de deploy:
-
-**Caminho Registry:**
-- **pull** — faz o download da imagem em streaming, emitindo um evento de progresso por camada recebida via EventBus; permite ao cliente mostrar progresso real de download
-- **exists** — verifica se a imagem já está disponível localmente antes de tentar o pull
-
-**Caminho Git:**
-- **clone_repo** — clona o repositório Git no diretório temporário de trabalho do daemon; suporta HTTPS (com token) e SSH (com chave privada referenciada via secret); emite eventos de progresso via EventBus; respeita `root_path`, `submodules` e `watch_paths` do `GitSource`
-- **build_image** — invoca a API de build do Docker Engine apontando para o diretório clonado, usando o `dockerfile_path`, `build_context` e `build_stage` configurados; a saída do build (stdout do `docker build`) é capturada linha a linha e emitida como eventos `LogLine` para o cliente em tempo real; ao terminar, a imagem é tagueada com `rp_{service_name}:{deployment_id_short}`
-
-**Compartilhadas:**
-- **prune_unused** — remove imagens que não são referenciadas por nenhum container gerenciado pelo Rustploy, respeitando a configuração de `image_cache` (número de versões antigas a manter)
-
-#### 5.1.2 Gestão de Containers
-
-Convenção de nomenclatura:
-- Container ativo: `rp_{service_name}`
-- Container em staging: `rp_{service_name}_staging_{deployment_id_short}`
-
-O gerenciador de containers expõe: `create_staging` (cria o container N+1 com configurações completas e retorna o container_id), `start`, `stop_graceful` (SIGTERM com timeout antes de SIGKILL), `rename`, `remove` e `inspect`.
-
-A criação do container de staging sempre inclui:
-- `network_mode`: a rede bridge do projeto (`rp_net_{project_id_short}`)
-- `labels`: `rustploy.managed=true`, `rustploy.service_id={id}`, `rustploy.deployment_id={id}`
-- `restart_policy`: `none` durante staging (o daemon controla o ciclo de vida)
-- `host_config.memory`: do `ResourceLimits`
-- `host_config.cpu_shares`: do `ResourceLimits`
-
-#### 5.1.3 Gestão de Redes
-
-Cada projeto tem uma rede bridge isolada. Containers do mesmo projeto se veem pelo nome (`rp_{service_name}`), mas o mundo externo só os acessa via o proxy hyper.
-
-O gerenciador de redes expõe: `ensure_project_network` (cria a rede se não existir e retorna o network_id), `remove_project_network`, `connect_container` e `disconnect_container`.
-
-#### 5.1.4 Healthcheck Polling
-
-O daemon implementa seu próprio healthcheck polling em vez de depender do healthcheck nativo do Docker, porque:
-
-1. O healthcheck do Docker tem resolução de intervalo grosseira
-2. Precisamos detectar o "ready" em tempo real para minimizar o downtime da janela de swap
-
-O polling opera em loop até o número máximo de tentativas configurado. A cada tentativa:
-
-1. Inspeciona o estado do container no Docker Engine — se o container tiver parado, aborta imediatamente com erro
-2. Executa a verificação conforme o modo configurado:
-   - **HTTP**: resolve o IP do container na rede do projeto, faz uma requisição GET ao path configurado e compara o status HTTP retornado com o esperado
-   - **TCP**: tenta estabelecer uma conexão TCP no IP e porta do container
-   - **DockerNative**: lê o campo `health.status` da inspeção do container e verifica se é `"healthy"`
-3. Se passou, retorna sucesso; caso contrário, aguarda `interval_secs` e tenta novamente
-
-### 5.2 Integração com Repositórios Git
-
-#### 5.2.1 Provedores Suportados
-
-O daemon suporta qualquer repositório Git acessível via HTTPS ou SSH, o que inclui nativamente:
-
-| Provedor | HTTPS | SSH | Autenticação               |
-|----------|-------|-----|----------------------------|
-| GitHub   | Sim   | Sim | Personal Access Token / Deploy Key |
-| GitLab   | Sim   | Sim | Project Access Token / Deploy Key  |
-| Gitea    | Sim   | Sim | API Token / Deploy Key             |
-| Git puro | Sim   | Sim | Credencial HTTP / Chave SSH        |
-
-Para repositórios **públicos**, nenhuma credencial é necessária. Para repositórios **privados**, o usuário cadastra o token ou a chave SSH como um secret do projeto, e a `GitSource` referencia esse secret pelo nome.
-
-#### 5.2.2 Fluxo de Clone e Build
-
-1. **Clone** — o daemon cria um diretório temporário em `{db_path}/builds/{deployment_id}`, executa o clone do `url` no `branch` configurado e, em seguida, faz checkout do commit exato para garantir reprodutibilidade. Se `submodules` for true, executa `git submodule update --init --recursive`. Progresso (contagem de objetos, compressão, recebimento) é emitido como `DeployProgress`.
-
-2. **Build** — o daemon chama a API de build do Docker Engine apontando para `{clone_dir}/{build_context}` como contexto e `{clone_dir}/{dockerfile_path}` como Dockerfile. Se `build_stage` estiver configurado, passa como `--target`. Cada linha de saída do build é emitida como evento `LogLine` para o cliente exibir em tempo real.
-
-3. **Tag** — ao concluir o build, a imagem recebe a tag `rp_{service_name}:{deployment_id_short}` para rastreamento. O caminho segue então para `Staging` identicamente ao fluxo de registry.
-
-4. **Limpeza** — o diretório temporário de clone é removido após o build (com ou sem sucesso).
-
-#### 5.2.3 Auto-deploy por Webhook (v2)
-
-Na v2, o daemon poderá expor endpoints de webhook por serviço para os paths em `watch_paths` configurados no `GitSource`. Ao receber um evento de push no branch configurado, o daemon dispara automaticamente um novo deploy. A verificação de assinatura HMAC do payload garante que apenas o provedor legítimo pode acionar o webhook. Na v1, re-deploy é sempre iniciado manualmente pelo cliente.
-
-### 5.3 Subsistema de Ingress — hyper (`crates/daemon/src/ingress/`)
-
-#### 5.3.1 Tabela de Rotas
-
-A tabela de rotas é um mapa de domínio para entrada de roteamento, mantida em memória com acesso de leitura lock-free via ponteiro atômico (`ArcSwap`). Isso garante que o hot path de cada requisição HTTP nunca bloqueia para adquirir um lock, independentemente da frequência de atualizações de deploy.
-
-Cada entrada de roteamento contém: `domain`, `backend_addr` (IP interno do container + porta, ex: `172.20.0.3:8080`), `service_id` e `tls_cert` (opcional).
-
-O `IngressController` expõe duas operações atômicas:
-- **upsert_route** — chamado pelo executor após o estado `Promoting`; substitui ou insere a entrada de roteamento para o domínio de forma imediatamente visível para novas requisições
-- **remove_route** — chamado ao remover um serviço
-
-#### 5.3.2 Lógica de Proxy
-
-A cada requisição recebida pelo proxy hyper, ele extrai o header `Host`, consulta a tabela de rotas pelo domínio e encaminha a requisição para o `backend_addr` correspondente via HTTP/1.1. Se não houver rota para o domínio, retorna HTTP 404. Toda essa lógica é executada sem locks, usando apenas a leitura atômica do ponteiro da tabela.
-
-#### 5.3.3 TLS e ACME
-
-O proxy usa `rustls` para TLS (integração pendente). O gerenciamento de certificados seguirá este fluxo:
-
-1. **Primeiro deploy de um domínio**: daemon inicia desafio ACME HTTP-01 via `instant-acme`
-2. O proxy expõe o endpoint `/.well-known/acme-challenge/` temporariamente via rota especial
-3. Após validação, o certificado é armazenado no SurrealDB (serializado como PEM)
-4. O `IngressController` carrega o certificado no `RouteEntry`
-5. Renovação automática via cron interno (verifica expiração a cada 12h, renova com > 30 dias de antecedência)
-
-### 5.4 EventBus — Canal de Eventos Internos
-
-O `EventBus` é o mecanismo de desacoplamento interno do daemon. Qualquer subsistema publica eventos sem saber quem os consumirá. Internamente usa um canal de broadcast: múltiplos subscribers (um por conexão de cliente) recebem todos os eventos e filtram pelo `service_id` relevante antes de encaminhar.
-
-As operações são: `publish` (envia um evento para todos os subscribers; se o canal estiver cheio, o evento é descartado silenciosamente — jamais bloqueia o produtor) e `subscribe` (retorna um receiver independente para um novo client).
-
-O handler de stream da API cria um subscriber por conexão, filtra eventos pelo `service_id` solicitado (ou encaminha todos se `service_id` for nulo) e serializa cada evento com o framing `[u32 LE tamanho][payload Bincode]` antes de escrever no socket.
-
-### 5.5 Coleta de Métricas
-
-Uma task assíncrona em background consulta a API de estatísticas do Docker Engine periodicamente (padrão: a cada 2 segundos) para cada container em estado `Running`. Para cada container, coleta:
-
-- **CPU%** — calculado a partir dos contadores de ciclos do cgroup delta entre duas leituras consecutivas
-- **Memória** — bytes usados e limite configurado
-- **Rede** — bytes recebidos e transmitidos acumulados na interface de rede do container
-
-Cada snapshot é publicado no EventBus como evento `ContainerMetrics` com o `service_id` e timestamp correspondentes.
-
----
-
-## 6. Banco de Dados — SurrealDB Embarcado
-
-### 6.1 Modo de Operação
-
-SurrealDB é iniciado em modo embarcado com backend RocksDB. Isso significa zero processo externo — o banco vive dentro do mesmo processo do daemon, acessado diretamente pela memória. O namespace é `rustploy` e o banco é `main`. Um sistema de migrations garante que o schema evolui de forma controlada entre versões do daemon.
-
-### 6.2 Schema Completo
-
-**Tabela `project`** — campos: `id` (string ULID), `name` (string, único), `description` (string opcional), `created_at` (datetime). Índice único em `name`.
-
-**Tabela `service`** — campos: `id`, `name`, `project_id`, `image`, `port` (inteiro), `domain` (string, único), `env_vars` (array), `volumes` (array), `healthcheck` (objeto), `resources` (objeto), `status` (string, default `'Stopped'`), `live_container_id` (string opcional), `created_at`, `updated_at`. Índice único em `domain`.
-
-**Tabela `deployment`** — campos: `id`, `service_id`, `image`, `state` (string com o nome do estado atual), `states_log` (array de objetos `{from, to, at, message}`), `started_at`, `finished_at` (datetime opcional).
-
-**Tabela `secret`** — campos: `id`, `project_id`, `key`, `value` (string criptografada com age). Índice único em `(project_id, key)`.
-
-**Tabela `tls_cert`** — campos: `id`, `domain` (único), `cert_pem`, `key_pem`, `expires_at`. Índice único em `domain`.
-
-**Relações de grafo:** `has` (Project → Service) e `deploys` (Service → Deployment).
-
-### 6.3 Queries Críticas
-
-- **Recovery ao iniciar** — selecionar todos os deployments cujo `state` não pertença ao conjunto de estados terminais `['Live', 'Failed', 'Pruning']`
-- **Serviços de um projeto** — navegar a relação de grafo `project → [has] → service` a partir do `project_id`
-- **Último deployment de cada serviço** — agrupar por `service_id`, ordenar por `started_at` decrescente, retornar o primeiro de cada grupo
-- **Rotas iniciais do ingress** — selecionar todos os serviços com `status = 'Running'` e `live_container_id` preenchido para reconstituir a tabela de rotas ao iniciar o daemon
-
----
-
-## 7. API do Daemon (Axum sobre UDS)
-
-### 7.1 Rotas HTTP
+Três testes de `web_ui::headless_tests` exigem `google-chrome` instalado e
+falham por ambiente onde ele não sobe — não são regressão.
+
+**Rodar a GUI sem monitor** (para screenshot): ver
+`docs/plano-convergencia-templates-gui-webui.md` e a receita de Xvfb. Dois
+detalhes que custam tempo: a tela do Xvfb precisa ser **maior** que a janela
+(1400x900; o default do glacier é 1024x768, e menor que isso a janela nunca
+mapeia, em silêncio), e `WAYLAND_DISPLAY` precisa ser removido do ambiente
+(`env -u WAYLAND_DISPLAY DISPLAY=:99 …`) ou o winit tenta Wayland e trava sem
+logar nada. A trava de instância única (`single_instance`) ocupa uma porta fixa
+derivada do app id — com o app instalado rodando, o build de dev **sai em
+silêncio**. Desde a API de agente, quase nada disso é necessário: para conferir
+*comportamento*, use as rotas da Parte 1; Xvfb só para conferir pixel.
+
+## Configuração
+
+Carregada de `$RUSTPLOY_CONFIG`, depois `/etc/rustploy/config.toml`, depois
+`~/.config/rustploy/config.toml`. Sem nenhum deles, valem os defaults.
+
+O parse é **tudo ou nada**: um `RUSTPLOY_CONFIG` só é aceito se der parse
+completo, sem merge parcial com os defaults. Um arquivo de teste precisa
+declarar **todas** as seções (`[daemon]`, `[ingress]` + `[ingress.acme]`,
+`[docker]`, `[deploy]`, `[metrics]`, `[secrets]`, `[api]`, `[env_backup]`,
+`[external_ports]`, `[registry]`).
+
+Overrides por env: `RUSTPLOY_DB_PATH`, `RUSTPLOY_LOG_LEVEL`,
+`RUSTPLOY_API_TOKEN`. O daemon loga JSON estruturado; a verbosidade sai de
+`RUST_LOG=<nível>` ou `RUSTPLOY_LOG_LEVEL`.
+
+Defaults que importam: banco em `/var/lib/rustploy/db`, chave mestra em
+`/etc/rustploy/master.key`, API em `127.0.0.1:9797`, ingress em `0.0.0.0:8080`
+e `:443`, registry desligado na porta `5100`, portas externas na faixa
+`20000–20999`.
+
+**Guarda de segurança**: a API se recusa a subir com bind não-loopback e sem
+`api.token` configurado. Com `api.domain` definido, a própria porta da API
+termina TLS com certificado ACME.
+
+
+# Parte 3 — Arquitetura
+
+## Visão geral
 
 ```
-POST   /projects              → Command::ProjectCreate
-GET    /projects              → Command::ProjectList
-DELETE /projects/:id          → Command::ProjectDelete
-
-POST   /services              → Command::ServiceCreate
-GET    /services?project=:id  → Command::ServiceList
-GET    /services/:id          → (retorna Service completo)
-PUT    /services/:id          → Command::ServiceUpdate
-DELETE /services/:id          → Command::ServiceDelete
-
-POST   /deployments                  → Command::DeployStart { service_id }
-DELETE /deployments/:id              → Command::DeployAbort
-POST   /deployments/:id/rollback     → Command::DeployRollback
-
-GET    /stream?service=:id    → Event stream (chunked Bincode)
-GET    /health                → { "ok": true, "version": "..." }
+┌──────────────────────────────────────────────────────────────┐
+│ Host Linux                                                   │
+│                                                              │
+│  rustployd (binário único)                                   │
+│   ├── ingress hyper  :80/:443   proxy reverso + ACME         │
+│   ├── API HTTP/JSON + SSE  :9797                             │
+│   ├── deploy executor          máquina de estados            │
+│   ├── SQLite (sqlx)            projetos/serviços/deployments │
+│   ├── registry OCI embutido    :5100 (opcional)              │
+│   └── webui estática           servida na mesma porta da API │
+│                                                              │
+│  rustployd-fw  (root, socket activation)  allow/deny no ufw  │
+│  dockerd       /var/run/docker.sock                          │
+└──────────────────────────────────────────────────────────────┘
+             ▲                                ▲
+             │ HTTP/JSON + SSE                │ HTTP/JSON + SSE
+      rustploy-gui (desktop)            navegador (webui)
+             │
+             └── API de agente em 127.0.0.1:9800 (Parte 1)
 ```
 
-### 7.2 Autenticação
+## Crates
 
-Na v1, a autenticação é baseada em **socket permissions**: apenas processos rodando como o mesmo usuário (ou root) podem conectar ao UDS. O daemon verifica o peer UID via `SO_PEERCRED` ao aceitar cada conexão.
+| Crate | Binário | Papel |
+|---|---|---|
+| `shared` | — | Modelos, tipos do protocolo e structs de config, usados pelo daemon e pela GUI |
+| `daemon` | `rustployd` | Servidor: API, banco, Docker, ingress, motor de deploy, registry |
+| `rustploy-gui` | `rustploy-gui` | Cliente desktop glacier-ui (XML→iced). Toda a rede e lógica de negócio vive em **Luau** (`views/scripts/`), falando com o daemon pela API HTTP/JSON + SSE |
+| `fw-helper` | `rustployd-fw` | Helper privilegiado de firewall (root, socket activation em `/run/rustploy/fw.sock`). O daemon pede allow/deny de portas externas (`daemon/src/firewall.rs`); o helper só aceita portas dentro da faixa `[external_ports]` e só fala com o ufw. **Sem dependência da crate `shared`, de propósito.** Ver `docs/relatorio-porta-externa-automatica.md` |
 
-Para deploys remotos futuros (v2), o plano é expor uma API HTTPS com autenticação via API token armazenado no SurrealDB (hash bcrypt).
+Os identificadores são ULIDs, com prefixo por tipo (`prj_`, `svc_`, `dep_`,
+`arc_`).
 
----
+## Protocolo da API
 
-## 9. Configuração
+O daemon tem **um** protocolo voltado a cliente: HTTP/JSON + SSE
+(`crates/daemon/src/api/http_api.rs`).
 
-### 9.1 Arquivo de Configuração
+| Rota | O que faz |
+|---|---|
+| `POST /api/rpc` | um `Command` por requisição — a superfície inteira do protocolo |
+| `GET /api/events` | SSE: snapshot completo a cada 2s + eventos do bus |
+| `GET /api/health` | liveness |
+| `GET /api/services/<id>/logs` | SSE dedicado do log de runtime |
+| `POST /api/services/<id>/archive` | upload de zip (corpo binário — **não** é um `Command`) |
+| `/webhook/…`, `/oauth/…` | rotas públicas, autenticação própria, fora do gate de bearer |
 
-Localização padrão: `/etc/rustploy/config.toml` (ou `~/.config/rustploy/config.toml` para instalação de usuário).
+`Command`, `Response` e `Event` vivem em `crates/shared/src/protocol.rs` e são
+despachados por `dispatch()` (`api/routes.rs`, um handler por variante em
+`api/handlers/`).
 
-| Seção            | Chave              | Padrão                                     | Descrição                                              |
-|------------------|--------------------|--------------------------------------------|--------------------------------------------------------|
-| `[daemon]`       | `socket_path`      | `/run/rustploy/rustploy.sock`              | Caminho do Unix Domain Socket                          |
-| `[daemon]`       | `db_path`          | `/var/lib/rustploy/db`                     | Diretório dos dados do SurrealDB                       |
-| `[daemon]`       | `log_level`        | `info`                                     | Verbosidade dos logs (trace/debug/info/warn/error)     |
-| `[ingress]`      | `http_port`        | `80`                                       | Porta HTTP do proxy hyper                              |
-| `[ingress]`      | `https_port`       | `443`                                      | Porta HTTPS do proxy hyper                             |
-| `[ingress]`      | `bind_address`     | `0.0.0.0`                                  | Interface de rede para bind                            |
-| `[ingress.acme]` | `enabled`          | `true`                                     | Ativar/desativar ACME automático                       |
-| `[ingress.acme]` | `email`            | —                                          | E-mail para registro na autoridade certificadora       |
-| `[ingress.acme]` | `directory`        | URL de produção do Let's Encrypt           | URL do diretório ACME (trocar por staging para testes) |
-| `[docker]`       | `socket_path`      | `/var/run/docker.sock`                     | Caminho do socket do Docker Engine                     |
-| `[deploy]`       | `drain_secs`       | `10`                                       | Segundos de drenagem antes de destruir container antigo|
-| `[deploy]`       | `image_cache`      | `2`                                        | Versões de imagem antigas a manter por serviço         |
-| `[metrics]`      | `interval_secs`    | `2`                                        | Intervalo de coleta de métricas dos containers         |
-| `[metrics]`      | `history_points`   | `60`                                       | Pontos históricos em memória por serviço               |
-| `[secrets]`      | `master_key_path`  | `/etc/rustploy/master.key`                 | Caminho da chave mestra de criptografia                |
+**Codificação serde externally-tagged**: variante com campos é objeto de uma
+chave (`{"ProjectCreate":{…}}`); variante sem campos é a string nua
+(`"ProjectList"`). Vale para `Command` **e** para `Response` — esquecer o
+segundo caso é o erro clássico de quem escreve cliente. JSON é
+auto-descritivo, então um campo renomeado vira `nil` do lado Luau em vez de
+decodificar como lixo silenciosamente.
 
-### 9.2 Variáveis de Ambiente
+As respostas do `POST /api/rpc` são **comprimidas com gzip** quando o cliente
+manda `Accept-Encoding: gzip` (o `fetch` do glacier-ui 0.51+ manda por padrão e
+descomprime transparente) e o corpo passa de 1 KB — ganho em conexão remota,
+no-op prático em localhost. O SSE **não** é comprimido, de propósito: stream de
+vida longa. Ver `docs/compressao-gzip-api.md`.
 
-Todas as configurações podem ser sobrescritas via env com prefixo `RUSTPLOY_`:
-- `RUSTPLOY_DB_PATH`
-- `RUSTPLOY_SOCKET_PATH`
-- `RUSTPLOY_LOG_LEVEL`
-- `RUSTPLOY_MASTER_KEY`
+Cada registro do SSE é **auto-descritivo**: o `data` JSON carrega um campo
+`kind` (`"snapshot"` / `"bus"`), porque o cliente SSE do glacier-ui descarta a
+linha `event:` e só enxerga o `data:`.
 
----
+## Daemon (`crates/daemon/src/`)
 
-## 10. Segurança
+- **`api/routes.rs`** — `dispatch()` casa cada variante de `Command` com seu
+  módulo handler.
+- **`api/handlers/`** — um arquivo por comando (`deploy_start.rs`,
+  `project_create.rs`, …).
+- **`db/`** — wrappers SQLite (via `sqlx`) para projetos, serviços,
+  deployments, jobs, secrets, certificados. Tabelas de log persistidas:
+  `build_log` e `job_log`. **Não existe tabela de log de runtime de container** —
+  `LogsGet` e o SSE de logs leem do Docker ao vivo, então o swap de deploy leva
+  o log do container antigo junto.
+- **`deploy/executor.rs`** — `DeployExecutor` roda a máquina de estados num
+  `tokio::spawn`. Ver a seção abaixo.
+- **`docker/`** — wrappers bollard: `images` (pull/build), `containers`
+  (create/start/stop/rename/remove), `networks` (rede bridge por projeto,
+  `rp_net_<prefixo_do_projeto>`). Não há `volumes.rs`: o rustploy nunca cria
+  volume nomeado, só bind mount (`ServiceSpec.volumes`).
+- **`api/handlers/docker_inventory.rs`** — listagem do host inteiro para a aba
+  Docker (`DockerImages`/`Volumes`/`Networks`/`Containers`), não só o que é do
+  rustploy. Imagens e volumes vêm de **uma** chamada `docker system df` — o
+  único endpoint do Docker Engine que já calcula contagem de uso de graça;
+  networks são cruzadas à mão com `list_containers(all: true)`, porque o
+  endpoint de listagem de networks nunca preenche o próprio campo `Containers`.
+  Atribuição de projeto/serviço é melhor esforço: imagens por tag
+  (`rp_<safe_name>:…` para builds Git, string exata para imagens de registry),
+  networks pela convenção `rp_net_<id_curto>`; volumes não têm atribuição
+  nenhuma (não há label para correlacionar). Também tem o `stop_all_managed`
+  (`Command::StopAllManaged`), que para todo serviço do rustploy replicando o
+  `service_stop::handle`, **independente do que a coluna de status diz** — assim
+  drift de estado não deixa container rodando.
+- **`api/handlers/docker_prune.rs`** — remove imagens/volumes/networks/
+  containers/cache de build sem uso (`Prune*`, todos por `Response::PruneResult`).
+- **`ingress/proxy.rs`** — proxy reverso hyper, HTTP/1.1. A tabela de rotas é um
+  `HashMap<domínio, upstream>` protegido por `arc-swap`: leitura lock-free no
+  hot path de cada requisição, escrita por swap atômico do ponteiro quando o
+  executor promove um deploy.
+- **`ingress/tls.rs`** — ACME via `instant-acme` + `rustls`, com renovação
+  automática em background.
+- **`event_bus.rs`** — canal de broadcast em processo. Os módulos publicam
+  `Event`; o handler do SSE cria um subscriber por conexão. Se o canal encher, o
+  evento é descartado em silêncio — **jamais bloqueia o produtor**.
+- **`secrets.rs`** — criptografia `age`. Secrets guardados por nome,
+  referenciados em `ServiceSpec.env_vars` como `EnvVarValue::Secret(nome)`,
+  decifrados em memória só na hora de criar o container.
+- **`metrics.rs`** — laço de fundo que consulta as estatísticas do Docker e
+  publica `ContainerMetrics`.
+- **`registry/`** — registry OCI embutido (auth Basic por token, ingress, GC).
+- **`firewall.rs`** — cliente do `rustployd-fw`.
 
-### 10.1 Isolamento de Containers
-
-- Cada projeto tem uma rede Docker bridge dedicada (`rp_net_{project_id_short}`)
-- Containers de projetos diferentes não se enxergam pela rede
-- O proxy hyper é o único ponto de entrada externo
-- Containers não têm `--privileged` nem capabilities extras por padrão
-
-### 10.2 Gestão de Secrets
-
-Secrets são criptografados em repouso usando `age`:
-
-1. O daemon gera uma chave mestra `age` no primeiro start (ou lê de arquivo configurado)
-2. Ao criar um secret, o daemon criptografa o valor e armazena o ciphertext no SurrealDB
-3. Ao criar o container, os secrets são decriptografados em memória e injetados como variáveis de ambiente
-4. O valor plaintext **nunca** é gravado em disco nem transmitido via UDS
-
-### 10.3 Permissões do Socket
-
-```
-/run/rustploy/rustploy.sock → owner: rustploy:rustploy, mode: 0660
-```
-
-Apenas membros do grupo `rustploy` podem conectar. Root sempre tem acesso.
-
----
-
-## 11. Tratamento de Erros e Resiliência
-
-### 11.1 Categorias de Erro
-
-**Erros do cliente (input inválido):**
-- `NotFound` — recurso não encontrado
-- `InvalidSpec` — especificação de serviço inválida
-- `DomainConflict` — outro serviço já usa o mesmo domínio
-- `ServiceAlreadyDeploying` — deploy já em andamento para este serviço
-
-**Erros do servidor (falha interna):**
-- `DockerUnreachable` — não foi possível conectar ao Docker Engine
-- `DatabaseError` — falha de leitura ou escrita no SurrealDB
-- `HealthcheckFailed` — container não passou no healthcheck após esgotar tentativas
-- `ImagePullFailed` — falha no download da imagem do registry
-- `GitCloneFailed` — falha ao clonar o repositório (credenciais inválidas, repo não encontrado, timeout)
-- `ImageBuildFailed` — falha durante o `docker build` (erro no Dockerfile, dependência indisponível, etc.)
-- `IngressError` — erro ao atualizar rotas no IngressController
-
-### 11.2 Estratégia de Retry
-
-| Operação          | Retry? | Backoff            | Max tentativas |
-|-------------------|--------|--------------------|----------------|
-| Docker pull       | Sim    | Exponencial 1s→30s | 3              |
-| Healthcheck poll  | Sim    | Fixo (configurável)| Configurável   |
-| ACME challenge    | Sim    | Exponencial 5s→60s | 5              |
-| DB write          | Sim    | Exponencial 50ms   | 5              |
-| Ping container    | Não    | —                  | 1              |
-
-### 11.3 Recovery ao Reiniciar o Daemon
-
-Ao iniciar, o daemon consulta o banco por todos os deployments em estados não-terminais e os processa conforme o estado encontrado:
-
-- **Estados pré-swap** (`Pending`, `ResolvingDeps`, `PullingImage`, `CloningRepo`, `BuildingImage`, `Staging`, `HealthcheckPolling`) — o container antigo ainda está vivo; rollback seguro: container de staging e diretório de clone são destruídos e deployment é marcado como `Failed`
-- **Swap em curso** (`SwappingIn`, `Draining`) — inspecionar quais containers existem no Docker Engine e decidir se promove ou reverte baseado no que está vivo
-- **`Promoting`** — concluir a renomeação do container e atualizar o banco
-- **`RollingBack`** — concluir o rollback e marcar como `Failed`
-
----
-
-## 12. Observabilidade
-
-### 12.1 Logs Estruturados
-
-O daemon emite logs em formato JSON estruturado em produção. Cada entrada inclui `timestamp`, `level`, `target` (módulo de origem) e campos contextuais como `service_id` e `deployment_id` quando aplicável. Exemplo de entrada:
+## Máquina de estados do deploy
 
 ```
-{"timestamp":"2025-05-14T22:14:01Z","level":"INFO","target":"daemon::deploy","service_id":"01HZ...","deployment_id":"01HZ...","message":"transitioning state","from":"Staging","to":"HealthcheckPolling"}
+Pending → PreDeployCheck → ResolvingDeps
+                              ├─ PullingImage ──┐   (fonte Registry)
+                              ├─ CloningRepo → BuildingImage ─┤ (Git / Archive)
+                              └─ ComposingUp ───┤   (fonte Compose)
+                                                ▼
+                    Staging → HealthcheckPolling → SwappingIn
+                                    │ falha              ▼
+                                    ▼                 Draining
+                              RollingBack               ▼
+                                    ▼                Promoting
+                                 Failed                  ▼
+                                                       Live → (Pruning)
 ```
 
-Isso permite filtrar e agregar logs com qualquer ferramenta de análise (jq, Loki, etc.) sem parsing ad-hoc.
+Terminais: `Live`, `Stopped`, `Failed`, `Pruning`. Qualquer erro em qualquer
+step dispara `RollingBack`. Cada transição é persistida no `states_log` do
+deployment (`{from, to, at, message}`) e publicada como
+`Event::DeployStateChanged`.
 
-### 12.2 Métricas (v2: Prometheus)
+**`PreDeployCheck`** roda a fila `ServiceSpec.pre_deploy_checks()` em ordem e só
+avança se todos passarem (exit code 0) — a primeira falha interrompe a fila e o
+deploy. Fila vazia passa direto. A fila inteira roda dentro deste **único**
+step, sem sub-estado por índice: o laço de `execute()` não impõe timeout por
+step, e manter tudo num `PreDeployCheck` evita ter de persistir o índice. Ver
+`docs/plano-pre-deploy-gate.md`.
 
-Na v1, métricas vão apenas ao cliente via event stream. Na v2, endpoint `/metrics` em formato Prometheus:
+**Recovery ao reiniciar**: o daemon busca todo deployment em estado não-terminal
+e decide pelo estado — pré-swap (o container antigo ainda vive) é rollback
+seguro; swap em curso exige inspecionar o que existe no Docker; `Promoting`
+conclui; `RollingBack` conclui e marca `Failed`.
 
-```
-rustploy_service_cpu_percent{service="api",project="my-app"} 12.3
-rustploy_service_memory_bytes{service="api",project="my-app"} 536870912
-rustploy_deployments_total{service="api",result="success"} 14
-rustploy_deploy_duration_seconds{service="api"} 47.2
-```
+### Falha de deploy: onde a causa aparece
 
----
+Ponto que já foi um bug e vale conhecer. Quando um step falha, a causa vai para
+**quatro** canais:
 
-## 13. Dependências Principais
+1. o `build_log` (`==> Erro em [<Estado>]: …`, multi-linha quebrada em
+   registros), **antes** da transição para `RollingBack` — é o único canal que a
+   tela de log lê;
+2. o `states_log` do deployment, na transição que entra em `RollingBack`;
+3. o `Event::DeployStateChanged`, com `message` — consumido pela GUI e pela
+   webui no toast e na notificação do SO;
+4. o `ServiceStatus::Error(<causa>)` do serviço (primeira linha, truncada em 160
+   caracteres).
 
-| Crate                | Versão | Finalidade                                                 |
-|----------------------|--------|------------------------------------------------------------|
-| `tokio`              | 1      | Runtime assíncrono                                         |
-| `axum`               | 0.7    | Framework HTTP para a API sobre UDS                        |
-| `hyper-util`         | 0.1    | Utilitários HTTP/1.1 para UDS                              |
-| `serde` + `postcard` | 1      | Serialização binária compacta do protocolo (varint)        |
-| `surrealdb`          | 2      | Banco de dados embarcado (feature `kv-rocksdb`)            |
-| `bollard`            | 0.17   | Cliente da API do Docker Engine                            |
-| `hyper` + `arc-swap` | 1 / 1  | Proxy reverso HTTP/1.1 embutido com route table lock-free  |
-| `ratatui`            | 0.28   | Framework de TUI (crate `client`, removida — ver §17)       |
-| `crossterm`          | 0.28   | Backend de terminal e stream de eventos de teclado (idem)  |
-| `instant-acme`       | 0.7    | Protocolo ACME para obtenção de certificados TLS           |
-| `rustls`             | 0.23   | TLS puro em Rust (sem OpenSSL)                             |
-| `age`                | 0.10   | Criptografia de secrets em repouso                         |
-| `ulid`               | 1      | Geração de IDs ordenáveis                                  |
-| `arc-swap`           | 1      | Ponteiro atômico para leitura lock-free da tabela de rotas |
-| `anyhow`             | 1      | Gestão de erros contextuais                                |
-| `thiserror`          | 2      | Derivação de tipos de erro estruturados                    |
-| `tracing`            | 0.1    | Instrumentação e logs estruturados                         |
-| `chrono`             | 0.4    | Timestamps e manipulação de datas                          |
-| `reqwest`            | 0.12   | Requisições HTTP para healthcheck (feature `rustls-tls`)   |
-| `git2`               | 0.19   | Clone e checkout de repositórios Git (bindings libgit2)    |
-| `async-stream`       | 0.3    | Macro para criar streams assíncronos (event stream)        |
+Até 2026-08-27 só existiam (2), (3) e o log de tracing — nenhum deles chega ao
+painel de log, e o usuário via o deploy morrer num `==> Deploy falhou` mudo. Ver
+`docs/plano-erro-de-deploy-invisivel.md`.
 
----
+## Pipeline de deploy, em detalhe
 
-## 14. Desafios Técnicos Conhecidos
+Deploy com fonte **Git**: clona o repo (`git2` dentro de `spawn_blocking`,
+porque é `!Send`) → constrói a imagem Docker (contexto em tar, saída em
+streaming como eventos `BuildLog`) → cria o container de staging → poll de
+healthcheck (TCP/HTTP/DockerNative) → troca a rota no ingress → drena o
+container antigo → renomeia o staging → `Live`.
 
-### 14.1 Volumes e Persistência
+Fonte **Registry** pula clone e build, indo direto ao pull. **Archive** (zip
+enviado pelo cliente) entra no mesmo caminho do build. **Compose** sobe uma
+stack inteira via `docker compose`.
 
-O maior desafio de zero-downtime com volumes é a janela de escrita dupla: durante o Draining, o container antigo ainda pode escrever no volume enquanto o novo já leu o estado. Estratégia:
+O `Dockerfile` é conferido em `context.join(dockerfile_path)` — relativo ao
+**contexto**, que é o nome dentro do tar mandado ao Docker, e não à raiz do
+clone/zip — para as duas fontes que constroem imagem, antes de chamar o Docker.
 
-- Para bancos de dados: o healthcheck deve confirmar que a aplicação está pronta *após* aplicar migrations
-- Para volumes de arquivo: documentar que é responsabilidade da aplicação tolerar acesso concorrente
-- Na v2: suporte opcional a snapshots de volume via LVM ou Btrfs antes de cada deploy
+Containers: `rp_<nome_do_serviço>_live` em produção,
+`rp_<nome>_<deploy_id[:8]>_staging` em voo. Artefatos de build ficam em
+`<db_path>/builds/<deployment_id>/` e somem na promoção ou no rollback.
 
-### 14.2 Proxy hyper Embutido
+**Healthcheck próprio, não o do Docker**: o do Docker tem resolução de intervalo
+grosseira demais para minimizar a janela de swap. O poll inspeciona o container
+(se parou, aborta na hora) e então faz HTTP (resolvendo o IP do container **na
+rede do projeto**, não na default — container em várias redes tem vários IPs),
+TCP, ou lê `health.status` no modo DockerNative.
 
-O proxy reverso é implementado diretamente com hyper HTTP/1.1 sobre TCP. Características:
+## `rustploy-gui` (`crates/rustploy-gui/src/`)
 
-- Route table protegida por `arc-swap`: reads lock-free, writes fazem swap atômico do ponteiro
-- Proxy roda em task tokio normal, sem thread separada nem signal handling próprio
+UI declarada em templates de sintaxe XML (`views/*.gv` — tags XML, extensão
+`.gv`, **não** `.xml`), renderizados pela crate publicada `glacier-ui`. Toda
+responsabilidade de rede e de negócio (login, consumidor SSE, navegação, cada
+mutação) vive em **Luau** (`views/scripts/`), **não** neste Rust — o `src/` daqui
+é o runtime `iced::daemon`, a moldura da janela, a persistência local e a **API
+de agente** (`src/agent/`, a única parte do Rust daqui que fala rede).
 
-### 14.3 Detecção de IP do Container na Rede Correta
+Rode da raiz do workspace (`cargo run -p rustploy-gui`) ou de um layout
+empacotado: caminhos de template/script são relativos ao CWD que o glacier
+resolve, não necessariamente ao diretório de lançamento.
 
-Containers conectados a múltiplas redes têm múltiplos IPs. O healthcheck HTTP deve usar sempre o IP do container na rede isolada do projeto — não na rede padrão do Docker Engine. A lógica de lookup filtra explicitamente pelo `network_id` da rede do projeto na estrutura de inspeção do container retornada pelo Docker Engine.
+- **`main.rs`** — entrada fina: `assets::locate_and_chdir()`, depois
+  `app::run()`. Desde o glacier 0.36 o app roda sobre **`iced::daemon`**
+  (multi-janela), não `iced::application`.
+- **`assets.rs`** — localiza a base dos assets no boot e faz `chdir` para lá,
+  para toda referência relativa resolver igual independente de como o app foi
+  lançado. Ordem: `$RUSTPLOY_UI_ASSETS` → diretório do próprio executável
+  (layout portátil/Windows) → `/usr/share/rustploy` (pacote Debian) → diretório
+  atual (dev). Confirma a base sondando `crates/rustploy-gui/views/app.gv`. Só
+  existe em debug: em release os assets são embutidos no binário
+  (`embedded.rs`, `include_dir`) e o executável é standalone.
+- **`app/mod.rs`** — desde o glacier **0.38**, apenas **configuração do
+  `GlacierDaemon`**. O runner da lib cuida do loop `iced::daemon`, do
+  motor-por-janela, das janelas-filhas, dos broadcasts entre elas, dos listeners
+  globais e das ações `window:*` da titlebar borderless (tratadas contra o `Id`
+  da janela em roteamento, **não** via `window::latest()` — no Wayland o
+  round-trip perde o serial do pointer-grab e `window:drag` vira no-op
+  silencioso). O que é específico do rustploy entra por ganchos:
+  `.font()`/`.default_font()` (JetBrains Mono embutida), `.main_window()`
+  (borderless, ícone, `min_size`, tamanho de primeiro lançamento,
+  `exit_on_close_request: false`), `.child_window()` (filhas também borderless),
+  `.main()` (registra `app.gv`, sobe a API de agente, define a tela),
+  `.on_message()` (espelha sessão e contexto para a API de agente),
+  `.remember_window_geometry(true)` e `.tray()`/`.on_tray()`.
+- **Bandeja e ciclo de vida** (glacier **0.47+**, feature `tray`): fechar a
+  última janela **recolhe para a bandeja** em vez de encerrar. Desde a **0.48**
+  o motor da principal é **recolhido headless**, não descartado — SSE e login
+  ficam vivos, então as notificações de deploy chegam com a janela fechada, e
+  "Open Rustploy" religa a mesma sessão. Linux via libappindicator+GTK, Windows
+  via message-loop Win32, macOS não suportado. Ver
+  `docs/plano-tray-bandeja-e-ciclo-de-vida.md`.
+- **Geometria da janela** (glacier **0.49+**, nativa): gravada **consultando o
+  tamanho na hora** de fechar, não rastreada de eventos `Resized`/`Moved` — no
+  handshake do xdg-shell no Wayland chega um `Resized` espúrio com o `min_size`,
+  e um valor rastreado nasce envenenado com o mínimo. `window::position` é
+  sempre `None` no Wayland (o protocolo não a expõe ao cliente; não é
+  contornável), então só o tamanho volta lá. Ver
+  `docs/plano-file-io-luau-e-geometria.md`.
+- **`src/agent/`** — a API de agente da Parte 1. Servidor hyper em loopback numa
+  thread com runtime tokio próprio; `on_message` é o caminho de ida (espelha
+  sessão e contexto), o canal `external` do glacier **0.58.6+** é o de volta
+  (`ExternalSender` injeta no motor o mesmo `EngineMessage` de um clique).
+  hyper dos dois lados de propósito — nada de axum, nada de reqwest. Desenho em
+  `docs/api-agente-no-gui.md`.
+- **`views/`** (todos `.gv`) — `app.gv` (titlebar + handles de resize, chaveia
+  em `screen`), `login.gv`, `shell.gv` (sidebar + topbar, chaveia em `view`),
+  `home.gv` (Deployments/Projects/Monitoring/Ingress/Docker/Settings), 
+  `service.gv` (detalhe do serviço, com suas sub-abas), `new_service.gv`
+  (wizard), janelas separadas (`new_project_form.gv`, `log_window.gv`,
+  `new_job_window.gv`, `new_registry_token_window.gv`) e `components/*.gv`.
+  Estilizados por `views/styles/app.gss`, linkado globalmente do `app.gv` —
+  janelas separadas precisam **relinká-lo**, porque cada janela é um motor
+  isolado.
+- **Multi-janela** (glacier 0.37+): `open_window{ file = …, data = {…} }` abre um
+  motor Glacier próprio, que recebe a conexão via `data`; ele responde com
+  `broadcast(evento, payload)` + `close_window()`, e o runner entrega o
+  broadcast à principal, cujo `on_broadcast` atualiza a tela. É como o "Novo
+  projeto" funciona.
 
-### 14.4 SurrealDB Embarcado com RocksDB
+## webui (`crates/daemon/webui/`)
 
-O RocksDB em modo embarcado pode apresentar write amplification elevada sob escrita contínua. Mitigações:
+Segundo cliente, servido pelo próprio daemon desde 2026-08-03: HTML + Alpine.js,
+sem build step. `app.js` orquestra o boot do Alpine à mão (a ordem dos
+`import` garante que os `Alpine.data`/`Alpine.store` estejam registrados antes
+do `alpine:init`), `net/api.js` fala `POST /api/rpc`, `net/sse.js` consome os
+streams — sem `EventSource`, que não permite mandar o header `Authorization`.
+`screens/*.js` são as telas.
 
-- Ajustar parâmetros de compaction conforme o padrão de escrita do daemon
-- Alternativa de fallback: SpeeDB (fork mais leve do RocksDB, também suportado pelo SurrealDB)
-- Implementar endpoint de backup que dispara um export do SurrealDB para arquivo
+## Segurança
 
----
+- Cada projeto tem uma rede bridge dedicada; containers de projetos diferentes
+  não se enxergam. O proxy é o único ponto de entrada externo. Nada de
+  `--privileged` nem capabilities extras por padrão.
+- Secrets são cifrados em repouso com `age`; o plaintext nunca vai ao disco.
+- `api.token` é um **bearer único, sem escopo**. Quem o tem cria projeto, lê
+  secret decifrado (`resolve_env` devolve texto puro), sobe container e derruba
+  stack. A API de agente herda exatamente esse alcance e não tem como inventar
+  um escopo que o daemon não tem — se um agente vai operar isso de forma
+  autônoma, o token com escopo (read-only / deploy / admin) precisa vir antes de
+  ampliar o alcance, não depois. O gate de bearer é um `if` só, em
+  `api/http_api.rs`: é o ponto único onde escopo entraria.
 
-## 15. Roteiro de Implementação
+# Parte 4 — História
 
-### Fase 0 — Infraestrutura (concluída)
-- [x] Workspace Cargo com crates `daemon`, `client` (removida depois — ver §17), `shared`
-- [x] UDS + Axum + Bincode funcionando (echo server)
-- [x] TUI Ratatui com input e display de respostas (crate removida depois)
+Decisões já tomadas e revertidas. Estão aqui porque cada uma delas parece uma
+boa ideia para quem chega agora, e todas já foram tentadas.
 
-### Fase 1 — Core do Daemon (concluída)
-- [x] Definir todos os tipos em `shared`: Command, Event, Response, modelos de domínio
-- [x] Integrar SurrealDB embarcado com schema inicial e sistema de migrations
-- [x] CRUD de projetos e serviços via API UDS
-- [x] Integração com Docker Engine: pull de imagem, criação de container, gestão de redes
-- [x] EventBus funcional com broadcast para múltiplos subscribers
+| Foi | É | Por quê |
+|---|---|---|
+| SurrealDB embarcado (RocksDB) | **SQLite via `sqlx`** | write amplification e peso desproporcional para um daemon que mira < 50 MB |
+| API Axum sobre Unix Domain Socket, corpo Bincode/Postcard | **HTTP/JSON + SSE**, um `POST /api/rpc` | o cliente deixou de ser local; JSON é auto-descritivo, então campo renomeado vira `nil` em vez de lixo decodificado |
+| Rotas REST por recurso (`POST /projects`, `GET /services/:id`…) | um endpoint com o enum `Command` | um lugar só para autenticar, logar e versionar |
+| TUI Ratatui como interface primária | **removido**; `rustploy-gui` (glacier-ui) | o TUI levou junto o CLI `apply`/`export`, que não tem substituto — `ManifestApply`/`ManifestExport` ficaram acessíveis só por API |
+| "Não tem Web UI" | o daemon **serve uma webui** | toda feature de UI agora precisa entrar nos dois clientes |
+| UI declarada em KDL | **XML + Luau** | — |
+| `crates/rustploy-gui/src/app/` reimplementando o runtime `iced::daemon` (~250 linhas) | ganchos do builder do `GlacierDaemon` | o buraco era de API do glacier; foi fechado na 0.38 |
+| Login lembrado e geometria da janela persistidos à mão em `app/store.rs` | `storage` do Luau + `remember_window_geometry` nativos | — |
+| Auto-deploy por webhook marcado como "v2" | **implementado** | — |
 
-### Fase 2 — Máquina de Estados de Deploy (concluída)
-- [x] Enum de estados completo com todos os dados por estado
-- [x] Executor com lógica de transição para cada estado
-- [x] Healthcheck polling nos três modos (HTTP, TCP, DockerNative)
-- [x] Persistência de cada transição no SurrealDB
-- [x] Recovery ao reiniciar o daemon
+Planos escritos e ainda **não** implementados vivem em `docs/plano-*.md` — o
+cabeçalho de cada um diz o status. Notáveis: dependências entre serviços +
+autostart no boot, e a integração do registry embutido com o executor de deploy.
 
-### Fase 3 — Ingress (concluída)
-- [x] IngressController com tabela de rotas em leitura lock-free
-- [x] Roteamento por Host header com lookup de domínio
-- [x] Carregamento das rotas existentes do banco ao iniciar o daemon
+Buracos conhecidos, todos com o porquê registrado em
+`docs/plano-erro-de-deploy-invisivel.md`:
 
-### Fase 4 — TUI Completo (concluída, depois removida — ver §17)
-- [x] Dashboard com lista de projetos/serviços e métricas inline
-- [x] Tela de progresso de deploy com barra por camada de imagem
-- [x] Streaming de logs em tempo real com buffer circular
-- [x] Gráficos sparkline de CPU e memória
-- [ ] Sidebar com seções Home / Projects / Settings / Account
-- [ ] CRUD de projetos com formulário inline
-- [ ] Lista de serviços com filtro por projeto
-- [ ] Detalhe do serviço com abas (General, Environment, Domains, Deployments, Logs, Patches)
-- [ ] Aba General com botões de ação e formulários de Provider/Build Type
-- [ ] Formulário completo de criação de serviço
-
-### Fase 5 — ACME e Secrets
-- [ ] Integração com protocolo ACME para obtenção automática de certificados Let's Encrypt
-- [ ] Renovação automática em background
-- [ ] Gestão de secrets com criptografia em repouso
-
-### Fase 6 — Produção
-- [ ] Testes de integração com Docker Engine real
-- [ ] Systemd unit file e script de instalação
-- [ ] Documentação de usuário
-- [ ] Benchmark de footprint de memória com alvo de menos de 50 MB em idle
-
----
-
-## 17. `rustploy-gui` — cliente GUI (glacier-ui) e funcionalidades recentes
-
-> **Nota de desatualização:** este documento (§1–15) descreve a especificação original,
-> anterior à implementação real — o banco embarcado hoje é **SQLite via `sqlx`**, não
-> SurrealDB; o TUI (`crates/client`, antigas §8 e §16) foi implementado e depois
-> **removido** do projeto; `rustploy-gui` fala **HTTP/JSON + SSE** com o daemon (não o
-> protocolo RWP/UDS mencionado abaixo, que era do TUI); a camada de UI do `rustploy-gui`
-> migrou de KDL para **XML + Luau**. `CLAUDE.md` é a referência atualmente mantida —
-> consulte-o para a arquitetura real. Esta seção (§17) documenta apenas o que foi
-> implementado de fato no `rustploy-gui`.
-
-`rustploy-gui` é o único cliente do daemon, construído com o framework próprio
-**glacier-ui** (UI declarativa em XML → iced, lógica em Luau). Conecta ao daemon via
-**HTTP/JSON + SSE**, não precisa rodar na mesma máquina do daemon.
-
-### 17.1 Timer de deploy ao vivo
-
-Ao clicar Deploy/Rebuild no detalhe de um serviço, um badge "⏱ Ns" ao lado do status
-atualiza a cada segundo (1s, 2s, 3s, …) enquanto o deploy roda. Ao concluir ou falhar, o
-badge some e a mensagem de resultado mostra o tempo total ("deploy concluído em Xs" em
-verde, ou "deploy falhou após Xs · ESTADO" em vermelho). Implementado com um tick de 1Hz
-local (sem RPC — só recalcula `agora - started_at`) mais um tick de 2s que detecta quando
-o deploy chega a um estado terminal. Timer não dispara em Reload (não passa pelo pipeline
-de deploy, é só stop/start de container).
-
-### 17.2 Lembrar tamanho/posição da janela
-
-A janela reabre no último tamanho salvo. Persistido em
-`~/.local/share/rustploy/rustploy-gui-window.json`, lido uma vez antes de a janela ser
-criada e salvo consultando o tamanho/posição **reais** no momento exato do fechamento
-(não um valor cacheado de eventos anteriores — essa abordagem inicial mostrou-se não
-confiável neste ambiente Wayland/GNOME: um evento `Resized` espúrio durante a negociação
-inicial da janela reportava o tamanho mínimo em vez do real). **Posição nunca é
-restaurada no Wayland** — o protocolo não expõe posição de janela ao cliente, por design
-(isolamento entre apps); não há solução possível do lado da aplicação.
-
-### 17.3 Aba Docker — inventário e limpeza
-
-A aba Docker ganhou sub-abas: **Containers** (como já era — um por serviço gerido pelo
-Rustploy) mais **Images**, **Volumes** e **Networks**, novas, listando **tudo o que
-existe no host Docker** (não só recursos do Rustploy), com indicador "EM USO"/"SEM USO"
-por linha e um botão "Limpar sem uso" em cada uma das três novas sub-abas.
-
-- **Fonte dos dados**: `docker system df` (`Command::DockerImages`/`DockerVolumes`) — o
-  único endpoint do Docker Engine que já calcula quantos containers referenciam cada
-  imagem/volume, sem custo extra. Networks são cruzadas manualmente com a lista de
-  containers (`Command::DockerNetworks`), já que o endpoint de listagem de networks não
-  preenche esse dado sozinho.
-- **Atribuição de projeto/serviço** (melhor esforço, nem sempre possível):
-  - Imagens: por tag — `rp_<nome_normalizado>:...` para builds Git, correspondência
-    exata de string para imagens de registry.
-  - Networks: pela convenção de nome `rp_net_<id_curto_do_projeto>`.
-  - Volumes: **sem atribuição** — o Rustploy só usa bind mount (nunca cria volume
-    nomeado), então não há label ou convenção pra correlacionar.
-- **Limpar sem uso**: botões chamam `Command::PruneImages`/`PruneVolumes`/`PruneNetworks`
-  — o próprio Docker só remove o que estiver sem uso (comportamento nativo do
-  `docker prune`), então não há risco de apagar algo em uso por engano.
-
-### 17.4 Busca do topbar
-
-A caixa "Search deployments, nodes…" agora filtra de verdade (antes só capturava o
-texto sem nenhum efeito): Deployments, o grid de Projects/Services e as 4 tabelas da
-aba Docker, todos em tempo real, por substring case-insensitive.
-
-### 17.5 Topbar — Stop All e remoção do Deploy
-
-O botão "Deploy" do topbar foi removido (não fazia deploy nenhum, só navegava para
-Projects — redundante com abrir um serviço e clicar Deploy lá). Restam **Stop All** e
-**Disconnect**.
-
-`Stop All` deixou de ser um loop client-side por projeto/serviço (que só considerava
-serviços com status `Running`/`Degraded` no banco) e virou um único comando
-(`Command::StopAllManaged`): o daemon reaplica a lógica real de `service_stop` em
-**todo** serviço do Rustploy, independente do status atual no banco — cobre o caso de
-um container que está de fato rodando mas cujo status ficou desatualizado. **Escopo
-deliberadamente restrito**: só containers com label `rustploy.managed=true`; nunca
-mexe em containers do mesmo host Docker que não pertençam ao Rustploy.
+- **Log de runtime de container não é persistido.** O swap de deploy destrói o
+  container antigo e o log dele morre junto — justamente o caso em que se quer
+  o log é aquele em que ele já não existe. É o item de maior valor e maior
+  esforço em aberto.
+- **`ServiceUpdate` é substituição total, não patch.** Um round-trip mal feito
+  apaga configuração sem aviso.
+- **Não há schema do protocolo.** O catálogo em `GET /agent/schema` é curado à
+  mão; gerar de verdade exigiria `schemars` sobre a crate `shared`.
+- **Não há CLI.** O binário `rustploy` na raiz é um shell script de uma linha
+  apontando para um alvo que não é mais construído.

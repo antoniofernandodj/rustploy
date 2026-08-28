@@ -1,117 +1,26 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working in this repository.
+**A referência deste projeto é o [`AGENTS.md`](AGENTS.md).** Leia-o.
 
-## Build & Run
+Este arquivo existia em paralelo com o `AGENTS.md`, os dois descrevendo a
+arquitetura por conta própria — o que garantia que um dos dois estaria
+desatualizado, e por um bom tempo estiveram os dois, cada um de um jeito. Em
+2026-08-28 o conteúdo foi fundido no `AGENTS.md` e este virou um ponteiro.
+Não volte a documentar arquitetura aqui.
 
-```bash
-# Build everything
-cargo build
+O que procurar lá:
 
-# Build release
-cargo build --release
+| Assunto | Onde |
+|---|---|
+| Operar um rustploy por HTTP (a API de agente) | Parte 1 — Manual de Controle por Agente |
+| Regra do `glacier-ui` (nunca `path`/`[patch]`, sempre publicar) | Parte 2 — Convenções |
+| GUI e webui são **dois** clientes; feature de UI entra nos dois | Parte 2 — Convenções |
+| Ferramental e convenções de Luau, armadilhas de `.gv`/GSS | Parte 2 — Convenções |
+| Comandos de build e de teste (os pacotes **não** se chamam `daemon`/`shared`) | Parte 2 — Build & Run |
+| Config (o parse é tudo-ou-nada) | Parte 2 — Configuração |
+| Crates, protocolo, internos do daemon e da GUI | Parte 3 — Arquitetura |
+| Máquina de estados do deploy e onde a causa de uma falha aparece | Parte 3 — Arquitetura |
+| Decisões já revertidas (SurrealDB, UDS, TUI…) e buracos conhecidos | Parte 4 — História |
 
-# Run the daemon (requires Docker socket). `default-run = "rustployd"`, so the
-# `--bin` is only needed for the other binary (`rustployd-fw`).
-cargo run -p rustploy
-
-# Run tests. NB: the crate directories are `crates/daemon` and `crates/shared`,
-# but the packages are named `rustploy` and `rustploy-shared` (renamed for
-# `cargo install rustploy`) — `-p daemon`/`-p shared` do not resolve.
-# The daemon has no lib target, so its tests live under --bins.
-cargo test -p rustploy --bins test_name
-cargo test -p rustploy-shared
-
-# Check all crates without linking
-cargo check --workspace
-```
-
-The daemon binary is `rustployd`.
-
-## glacier-ui (dependência da crate rustploy-gui)
-
-A crate `rustploy-gui` consome `glacier-ui` **do crates.io** (versão fixada no `Cargo.toml`), não o código-fonte local em `~/Desenvolvimento/glacier-ui`.
-
-**Regra (sempre):** quando uma mudança no `glacier-ui` for necessária (renomear um item público, corrigir bug, adicionar recurso), o fluxo é **sempre publicar uma nova versão e subir a dependência** — nunca usar `[patch.crates-io]` ou dependência por `path` para contornar:
-
-0. **Antes de qualquer coisa, conferir se o tree local bate com a última versão publicada.** A `version` do `Cargo.toml` local não é prova: já aconteceu de o repositório parar na `0.57.0` enquanto o crates.io seguia até a `0.57.4` (versões publicadas de outra máquina, nunca commitadas nem enviadas ao `origin`). Bumpar a partir dali teria revertido quatro versões silenciosamente. Comparar com o pacote real:
-
-   ```bash
-   # a versão publicada fica em ~/.cargo/registry depois de qualquer build que a use
-   diff -rq ~/Desenvolvimento/glacier-ui/src \
-            ~/.cargo/registry/src/*/glacier-ui-<versão-publicada>/src
-   ```
-
-   Se diferir, recuperar primeiro (o `Cargo.toml.orig` do pacote preserva os comentários; o `Cargo.toml` é gerado pelo cargo e os descarta) e commitar essa recuperação **separada** da mudança nova.
-1. Aplicar a mudança em `~/Desenvolvimento/glacier-ui`.
-2. Bump da versão em `glacier-ui/Cargo.toml` (ex.: `0.3.1` → `0.3.2`).
-3. `cargo publish` (validar antes com `cargo publish --dry-run`).
-4. Subir a versão de `glacier-ui` no `crates/rustploy-gui/Cargo.toml` para a recém-publicada.
-5. `cargo check -p rustploy-gui` para confirmar.
-6. Enviar o commit ao `origin` — é justamente o passo pulado que criou a divergência acima.
-
-## Configuration
-
-Config is loaded from `$RUSTPLOY_CONFIG`, then `/etc/rustploy/config.toml`, then `~/.config/rustploy/config.toml`. If none exist, defaults are used.
-
-Key env-var overrides: `RUSTPLOY_DB_PATH`, `RUSTPLOY_LOG_LEVEL`.  
-Daemon logs structured JSON; control verbosity with `RUST_LOG=<level>` or `RUSTPLOY_LOG_LEVEL`.
-
-Default DB path: `/var/lib/rustploy/db`  
-Default master key: `/etc/rustploy/master.key`
-
-## Architecture
-
-### Crate layout
-
-| Crate | Binary | Role |
-|-------|--------|------|
-| `shared` | — | Models, protocol types, config structs used by the daemon and the GUI |
-| `daemon` | `rustployd` | Long-running server: API, DB, Docker, ingress, deploy engine |
-| `rustploy-gui` | `rustploy-gui` | glacier-ui (XML→iced) desktop client — the only client, since the TUI (`crates/client`) was removed. Toda a rede/lógica de negócio vive em Luau (`views/scripts/`, pacotes `fmt/`/`handlers/`/`net/` — ver `docs/luau-modularizacao-pacotes.md`), falando com o daemon pela **API HTTP/JSON + SSE** (`crates/daemon/src/api/http_api.rs`). |
-| `fw-helper` | `rustployd-fw` | Helper privilegiado de firewall (roda como root via socket activation em `/run/rustploy/fw.sock`). O daemon pede allow/deny de portas externas (`daemon/src/firewall.rs`); o helper só aceita portas dentro da faixa `[external_ports]` da config e só fala com o ufw. Sem dependência da crate `shared`, de propósito. Ver `docs/relatorio-porta-externa-automatica.md`. |
-
-### API protocol
-
-`rustploy-gui` is the only client, and speaks plain **HTTP/JSON + SSE** (`crates/daemon/src/api/http_api.rs`: `POST /api/rpc`, `GET /api/events`, `GET /api/health`) — its logic runs in Luau (`fetch`/`sse`). `Command`/`Response`/`Event` are defined in `crates/shared/src/protocol.rs` and dispatched via `dispatch()`. This is the daemon's only client-facing protocol; JSON is self-describing, so a renamed field surfaces as a `nil` on the Luau side instead of silently decoding as garbage.
-
-As respostas JSON do `POST /api/rpc` são **comprimidas com gzip** quando o cliente manda `Accept-Encoding: gzip` (o `fetch` do glacier-ui 0.51+ manda por padrão e descomprime transparente) e o corpo passa de 1 KB — ganho em conexão remota, no-op prático em localhost. O SSE **não** é comprimido de propósito (stream de vida longa). Ver `docs/compressao-gzip-api.md`.
-
-### Daemon internals (`crates/daemon/src/`)
-
-- **`api/routes.rs`** — `dispatch()` matches every `Command` variant to a handler module.
-- **`api/handlers/`** — one file per command (e.g. `deploy_start.rs`, `project_create.rs`).
-- **`db/`** — SQLite (via `sqlx`) wrappers for projects, services, deployments.
-- **`deploy/executor.rs`** — `DeployExecutor` drives the deploy state machine in a `tokio::spawn`. States: `Pending → ResolvingDeps → PullingImage | CloningRepo → BuildingImage → Staging → HealthcheckPolling → SwappingIn → Draining → Promoting → Live`. Rollback lands at `Failed`.
-- **`docker/`** — bollard wrappers: `images` (pull/build), `containers` (create/start/stop/rename/remove), `networks` (per-project bridge networks named `rp_<project_id_prefix>`). No `volumes.rs` — rustploy never creates named volumes, only bind mounts (`ServiceSpec.volumes`).
-- **`api/handlers/docker_inventory.rs`** — host-wide Docker listing for the Docker tab (`Command::DockerImages/Volumes/Networks`), not just rustploy-managed resources. Images/volumes come from a single `docker system df` call (the only Docker Engine endpoint that computes in-use/reference counts for free); networks are cross-referenced against `list_containers(all: true)` by hand (list-networks never populates its own `Containers` field). Project/service attribution is best-effort: images by tag (`rp_<safe_name>:...` for Git builds, exact string match for registry images), networks by the `rp_net_<project_id_short>` naming convention; volumes get none (no label to key off). Also has `stop_all_managed` (`Command::StopAllManaged`) — stops every rustploy service by replaying `service_stop::handle` for each one regardless of what the DB's status column currently says, so state drift can't leave a container running.
-- **`api/handlers/docker_prune.rs`** — removes unused images/volumes/networks/containers/build cache (`Command::PruneImages/Volumes/Networks/Containers/BuildCache`, all through `Response::PruneResult`).
-- **`ingress/proxy.rs`** — hyper-based reverse proxy; route table is an `arc-swap`-protected `HashMap<domain, upstream>` updated live by the deploy executor.
-- **`event_bus.rs`** — in-process broadcast channel; daemon modules publish `Event` values; `/stream` handler fans them out to connected clients.
-- **`secrets.rs`** — `age`-based encryption; secrets stored by name, referenced in `ServiceSpec.env_vars` as `EnvVarValue::Secret(name)`.
-- **`metrics.rs`** — background loop that polls Docker stats and publishes `ContainerMetrics` events.
-
-### rustploy-gui internals (`crates/rustploy-gui/src/`)
-
-UI declared in XML-syntax templates (`views/*.gv` — the files use XML tags but carry a `.gv` extension, *not* `.xml`) and rendered by the published `glacier-ui` crate (see the rule above — never a local `path`/`[patch]` dependency). Every network/business-logic responsibility (login, the SSE consumer, navigation, every mutation) lives in Luau (`views/scripts/`), **not** in this Rust source — `src/` here is only the `iced::daemon` runtime, window chrome, and local persistence (on disk, not the rustploy backend daemon). Run from the workspace root (`cargo run -p rustploy-gui`) or from a packaged layout (see `assets.rs`) — template/script paths are relative to the CWD `glacier-ui` resolves them against, not necessarily the launch directory.
-
-- **`main.rs`** — thin entry point: calls `assets::locate_and_chdir()`, then `app::run()` (the `iced::daemon` runtime). Since glacier-ui 0.36 the app runs on **`iced::daemon`** (multi-window), not `iced::application`.
-- **`assets.rs`** — locates the asset base directory at startup and `chdir`s into it, so every CWD-relative reference (Rust-side and inside the XML/Luau themselves) resolves the same way regardless of how the app was launched. Resolution order: `$RUSTPLOY_UI_ASSETS` override → the executable's own directory (portable/Windows `.zip` layout) → `/usr/share/rustploy` (Debian package layout) → current directory as-is (dev run from the workspace root). Probes for `crates/rustploy-gui/views/app.gv` to confirm a candidate base is valid.
-- **`app/mod.rs`** — desde glacier-ui **0.38**, apenas **configuração do `GlacierDaemon`**. O runner da lib cuida do loop `iced::daemon`, do motor-por-janela, das janelas-filhas (`open_window(...)` na Luau), dos broadcasts entre elas, dos listeners globais (drag-end, Tab, `@media`) e das ações `window:*` da titlebar borderless (tratadas contra o `Id` da janela em roteamento, e não via `window::latest()` — no Wayland o round-trip perde o pointer-grab serial e `window:drag` vira no-op silencioso). O que é específico do rustploy entra por ganchos do builder: `.font()`/`.default_font()` (JetBrains Mono embutida), `.main_window()` (borderless, ícone, `min_size`, tamanho default do primeiro lançamento, `exit_on_close_request: false`), `.child_window()` (as filhas também são borderless), `.main()` (registra `app.gv`, semeia as `Prefs`, define a tela), `.on_message()` (persiste o login lembrado — a camada Luau grava no contexto e o Rust lê o contexto e escreve no disco), `.remember_window_geometry(true)` (glacier **0.49+**: persistência **nativa** da geometria da principal — grava tamanho/posição ao fechar e restaura ao abrir, sob o `storage_dir`; substituiu o antigo `.on_close()` + `src/app/store.rs`) e `.tray()`/`.on_tray()` (glacier-ui **0.47+**, feature `tray`: **ícone de bandeja** + app que **sobrevive à última janela** — fechar a última janela recolhe para a bandeja em vez de encerrar; menu Open/Disable-Enable notifications/Quit em `tray_config()`+`handle_tray()`; as notificações do SO passam por um interruptor global `set_notifications_enabled`. Linux via libappindicator+GTK, Windows via message-loop Win32, macOS não suportado. **glacier 0.48+**: fechar a principal **recolhe o motor headless** (não descarta) — SSE + login ficam vivos, então as notificações de deploy chegam mesmo com a janela fechada, e "Open Rustploy" religa a mesma sessão. Ver `docs/plano-tray-bandeja-e-ciclo-de-vida.md`). A geometria é gravada pelo runner do glacier **consultada na hora** ao fechar, não rastreada de eventos `Resized`/`Moved`: no handshake do xdg-shell no Wayland chega um `Resized` espúrio com o `min_size`, e um valor rastreado nasce envenenado com o mínimo. `window::position` é sempre `None` no Wayland (o protocolo não a expõe ao cliente — não é contornável), então só o tamanho é restaurado lá. Ver `docs/plano-file-io-luau-e-geometria.md`.
-
-  **Histórico:** até a 0.37 este arquivo era um runtime `iced::daemon` **inteiro reimplementado à mão** (~250 linhas duplicando roteamento por janela, listeners globais e abertura de filhas), porque o builder do `GlacierDaemon` não expunha nada disso. Esse buraco de API foi fechado no glacier 0.38 e o runtime local foi removido; se algo aqui parecer faltar, o lugar de consertar é o builder do glacier, não um runtime paralelo aqui.
-- **`app/store.rs`** — **removido** (glacier 0.49). A persistência local em JSON que ele fazia à mão foi toda absorvida: o login lembrado (`Prefs`) migrou para o `storage` do Luau via `.on_message()`, e a geometria da janela virou nativa do glacier via `.remember_window_geometry(true)` (grava em `window-geometry.json` sob o `storage_dir`). Não sobrou I/O de arquivo local no Rust do `rustploy-gui`.
-- **`views/`** (todos `.gv`) — `app.gv` (titlebar + resize handles, switches on `screen`), `login.gv`, `shell.gv` (sidebar + topbar, switches on `view`; topbar keeps only the search box, daemon status, Stop All and Disconnect), `home.gv` (Deployments/Projects/Monitoring/Ingress/Docker/Settings views — Docker has Containers/Images/Volumes/Networks sub-tabs, the last three with a "clear unused" button each), `service.gv` (service detail, its own sub-tabs), `new_service.gv` (wizard), `new_project_form.gv` (janela **separada** de "Novo projeto" — ver abaixo), `components/*.gv` (reusable fragments). Styled by `views/styles/app.gss` (linked globally from `app.gv` via `<link rel="stylesheet">` — global by design since glacier-ui 0.23, since it holds the classes shared across templates; janelas separadas como `new_project_form.gv` precisam relinká-lo, pois cada janela é um motor isolado).
-
-  **Fluxo multi-janela "Novo projeto"** (glacier-ui 0.37+ IPC entre janelas): o botão "+ Novo projeto" (`shell.gv`, view projects) chama `open_new_project_window` (`handlers/projects.luau`), que faz `open_window({ file = "…/new_project_form.gv", data = { api_url, api_token } })` — a janela nova é um motor Glacier próprio, que recebe a conexão via `data`. Seu script (`views/scripts/new_project_window.luau`) chama `ProjectCreate` e, no sucesso, `broadcast("project_created", {…})` + `close_window()`. O runner do glacier (`GlacierDaemon`) entrega o broadcast à janela principal, cujo `on_broadcast` (`handlers/projects.luau`) faz `Stream.refresh_now()` (o card novo aparece na hora) e um toast. O antigo formulário inline foi removido; `create_project` continua no handler (reutilizável), sem call-site na UI.
-
-**Luau tooling (`luau-lsp`)**: the reactive network/logic layer lives in `views/scripts/*.luau` (packages `fmt/`, `handlers/`, `net/` — see `docs/luau-modularizacao-pacotes.md` for the full module-organization writeup, the `require`-resolution investigation that shaped it, and troubleshooting). Type-check any change with `luau-lsp analyze --base-luaurc=.luaurc --definitions=crates/rustploy-gui/views/scripts/glacier.d.luau <file(s)>` before considering it done — it's not a substitute for `cargo test -p rustploy-gui --test templates_render` (the real `mlua` runtime), but catches module-path/type mistakes in seconds. Install the CLI binary and, for VS Code, the `johnnymorganz.luau-lsp` extension (config already checked in via `.luaurc` + `.vscode/settings.json`) — see `docs/luau-modularizacao-pacotes.md` for exact commands and for why `glacier.d.luau` needs the `--definitions=`/`luau-lsp.types.definitionFiles` treatment (skipping it makes the editor misparse the file as a plain script and raise ~40 false errors).
-
-**Convenção de sintaxe (Luau)**: quando o **único** argumento de uma chamada é um table literal, use a forma sem parênteses — `f{ ... }`, não `f({ ... })` (idem `toast{...}`, `api:rpc_checked{...}`, `open_window{...}`, `json.array{}`, `os.time{...}`, `ipairs{...}`). Isso vale **só** para o único-argumento-table: chamadas com mais de um argumento (`prune({...}, "msg")`, `setmetatable({...}, mt)`) mantêm os parênteses. String literal única também poderia dispensar parênteses, mas **não** adotamos essa forma — só a de table.
-
-### Deploy pipeline detail
-
-Git-sourced deploys: clone repo (`git2` in `spawn_blocking` because `!Send`) → build Docker image (tar build context, stream output as `LogLine` events) → create staging container → healthcheck poll (TCP/HTTP/DockerNative) → swap ingress route → drain old container → rename staging → `Live`.  
-Registry-sourced deploys skip clone/build and go straight to pull → staging.
-
-Containers are named `rp_<service_name>_live` (production) and `rp_<service_name>_<deploy_id[:8]>_staging` (in-flight). Build artifacts live at `<db_path>/builds/<deployment_id>/` and are deleted on promotion or rollback.
+Planos e relatórios por assunto ficam em `docs/`; o cabeçalho de cada um diz se
+já foi implementado.
