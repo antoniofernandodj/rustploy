@@ -643,3 +643,79 @@ fn nav_item_projects_fica_aceso_nas_sub_telas() {
         );
     }
 }
+
+/// Título e tamanho das janelas passaram a morar no `<screen>` do próprio
+/// template (glacier-ui 0.59): saíram do builder Rust, no caso da principal, e
+/// das chamadas `open_window{…}` do Luau, no caso das filhas. Este teste é o que
+/// garante que eles não sumiram no caminho — um cabeçalho apagado por engano não
+/// quebra nenhum render, só faz a janela nascer com o default do iced.
+#[test]
+fn janelas_declaram_titulo_e_tamanho_no_proprio_template() {
+    cd_ws_root();
+
+    // (arquivo, componente, título esperado, tamanho esperado)
+    let janelas = [
+        (
+            "crates/rustploy-gui/views/app.gv",
+            "app",
+            Some("Rustploy"),
+            (1280.0, 820.0),
+        ),
+        (
+            "crates/rustploy-gui/views/new_project_form.gv",
+            "new_project_form",
+            Some("Novo projeto — Rustploy"),
+            (460.0, 340.0),
+        ),
+        (
+            "crates/rustploy-gui/views/new_job_window.gv",
+            "new_job_window",
+            Some("Novo job — Rustploy"),
+            (560.0, 700.0),
+        ),
+        (
+            "crates/rustploy-gui/views/new_service_window.gv",
+            "new_service_window",
+            Some("Novo serviço — Rustploy"),
+            (560.0, 700.0),
+        ),
+        (
+            "crates/rustploy-gui/views/new_registry_token_window.gv",
+            "new_registry_token_window",
+            Some("Novo token — Rustploy"),
+            (480.0, 420.0),
+        ),
+        // A janela de logs é a exceção proposital: o título é dinâmico ("Logs —
+        // nginx", "Build — abc123") e continua vindo de quem a abre; só o
+        // tamanho é do arquivo.
+        (
+            "crates/rustploy-gui/views/log_window.gv",
+            "log_window",
+            None,
+            (900.0, 560.0),
+        ),
+    ];
+
+    for (arquivo, nome, titulo, tamanho) in janelas {
+        let mut m = GlacierUI::new();
+        m.register_component(nome, arquivo)
+            .unwrap_or_else(|e| panic!("{arquivo} deve registrar: {e}"));
+        m.set_initial_screen(nome);
+        let meta = m
+            .current_screen_meta()
+            .unwrap_or_else(|| panic!("{arquivo} deve declarar um <screen>"));
+        assert_eq!(meta.title.as_deref(), titulo, "título de {arquivo}");
+        assert_eq!(meta.size, Some(tamanho), "tamanho de {arquivo}");
+    }
+
+    // A principal também fixa um mínimo — era o `min_size` do `main_window()`.
+    let mut m = GlacierUI::new();
+    m.register_component("app", "crates/rustploy-gui/views/app.gv")
+        .expect("app.gv deve registrar");
+    m.set_initial_screen("app");
+    assert_eq!(
+        m.current_screen_meta().and_then(|s| s.min_size),
+        Some((480.0, 680.0)),
+        "o min-size da janela principal"
+    );
+}

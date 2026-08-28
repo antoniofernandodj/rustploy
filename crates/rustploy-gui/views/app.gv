@@ -1,98 +1,103 @@
-<link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />
-<link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />
-<link rel="import"      href="login.gv" as="Login" />
-<link rel="import"      href="shell.gv" as="Shell" />
+<screen title="Rustploy" size="1280 820" min-size="480 680">
+  <resources>
+    <link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />
+    <link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />
+    <link rel="import"      href="login.gv" as="Login" />
+    <link rel="import"      href="shell.gv" as="Shell" />
 
-<!-- Borderless window (decorations=false): a 6px frame of resize handles wraps
-  the content. Each handle sets its hover cursor and starts an interactive
-  resize on press (window:resize:<dir>), handled in main.rs against the cached
-  window id. glacier has no overlay/z-stack, so the frame is laid out as
-  top row / middle band / bottom row. -->
+    <!-- Borderless window (decorations=false): a 6px frame of resize handles wraps
+      the content. Each handle sets its hover cursor and starts an interactive
+      resize on press (window:resize:<dir>), handled in main.rs against the cached
+      window id. glacier has no overlay/z-stack, so the frame is laid out as
+      top row / middle band / bottom row. -->
 
-<style>
-/* ── Resize handles (6px frame around the borderless window) ───────────── */
-.rz_top    { width: fill; height: 6; }
-.rz_bottom { width: fill; height: 6; }
-.rz_mid    { width: fill; height: fill; }
-.rz_body   { width: fill; height: fill; }
-.rz_corner { width: 6; height: fill; }
-.rz_h      { width: fill; height: fill; cursor: resize-v; }
-.rz_v      { width: 6; height: fill; cursor: resize-h; }
-/* Cursores diagonais dos cantos (2ª classe sobre .rz_corner) */
-.rz_nw     { cursor: resize-nw; }
-.rz_ne     { cursor: resize-ne; }
-.rz_sw     { cursor: resize-sw; }
-.rz_se     { cursor: resize-se; }
-/* ── Custom titlebar (borderless window) ──────────────────────────────── */
-.titlebar       { width: fill; height: 32; background: var(--surface); align-y: center; }
-.titlebar_drag  { width: fill; height: fill; align-y: center; padding: 0 0 0 16; spacing: 9; }
-.titlebar_dot   { size: 10; color: var(--blue); }
-.titlebar_title { size: 12; bold: true; color: var(--muted); }
-.win_btn        { width: 48; padding: 5 0; color: var(--border); text-align: center; }
-.win_close      { width: 48; padding: 5 0; color: var(--danger); text-align: center; }
-</style>
+    <style>
+    /* ── Resize handles (6px frame around the borderless window) ───────────── */
+    .rz_top    { width: fill; height: 6; }
+    .rz_bottom { width: fill; height: 6; }
+    .rz_mid    { width: fill; height: fill; }
+    .rz_body   { width: fill; height: fill; }
+    .rz_corner { width: 6; height: fill; }
+    .rz_h      { width: fill; height: fill; cursor: resize-v; }
+    .rz_v      { width: 6; height: fill; cursor: resize-h; }
+    /* Cursores diagonais dos cantos (2ª classe sobre .rz_corner) */
+    .rz_nw     { cursor: resize-nw; }
+    .rz_ne     { cursor: resize-ne; }
+    .rz_sw     { cursor: resize-sw; }
+    .rz_se     { cursor: resize-se; }
+    /* ── Custom titlebar (borderless window) ──────────────────────────────── */
+    .titlebar       { width: fill; height: 32; background: var(--surface); align-y: center; }
+    .titlebar_drag  { width: fill; height: fill; align-y: center; padding: 0 0 0 16; spacing: 9; }
+    .titlebar_dot   { size: 10; color: var(--blue); }
+    .titlebar_title { size: 12; bold: true; color: var(--muted); }
+    .win_btn        { width: 48; padding: 5 0; color: var(--border); text-align: center; }
+    .win_close      { width: 48; padding: 5 0; color: var(--danger); text-align: center; }
+    </style>
 
-<column class="screen">
+    <script src="scripts/app.luau"></script>
+  </resources>
 
-  <!-- ── Top edge + top corners (north / nw / ne) ─────────────────────────── -->
-  <row class="rz_top">
-    <column class="rz_corner rz_nw" on_press="window:resize:nw" />
-    <column class="rz_h" on_press="window:resize:n" />
-    <column class="rz_corner rz_ne" on_press="window:resize:ne" />
-  </row>
+  <column class="screen">
 
-  <!-- ── Middle band: left edge | body | right edge (west / east) ──────────── -->
-  <row class="rz_mid">
-    <column class="rz_v" on_press="window:resize:w" />
-    <column class="rz_body">
-      <!-- ── Custom titlebar ───────────────────────────────────────────
-        titlebar_drag (width:fill) is the drag handle and pushes the
-        controls to the right edge. on_press/on_click window:* actions are
-        handled in main.rs against the cached window id. -->
-      <row class="titlebar">
-        <row
-          class="titlebar_drag"
-          on_press="window:drag"
-          on_double_click="window:maximize"
-        >
-          <text class="titlebar_dot">●</text>
-          <text class="titlebar_title">Rustploy</text>
+    <!-- ── Top edge + top corners (north / nw / ne) ─────────────────────────── -->
+    <row class="rz_top">
+      <column class="rz_corner rz_nw" on_press="window:resize:nw" />
+      <column class="rz_h" on_press="window:resize:n" />
+      <column class="rz_corner rz_ne" on_press="window:resize:ne" />
+    </row>
+
+    <!-- ── Middle band: left edge | body | right edge (west / east) ──────────── -->
+    <row class="rz_mid">
+      <column class="rz_v" on_press="window:resize:w" />
+      <column class="rz_body">
+        <!-- ── Custom titlebar ───────────────────────────────────────────
+          titlebar_drag (width:fill) is the drag handle and pushes the
+          controls to the right edge. on_press/on_click window:* actions are
+          handled in main.rs against the cached window id. -->
+        <row class="titlebar">
+          <row
+            class="titlebar_drag"
+            on_press="window:drag"
+            on_double_click="window:maximize"
+          >
+            <text class="titlebar_dot">●</text>
+            <text class="titlebar_title">Rustploy</text>
+          </row>
+          <button 
+            class="win_btn" 
+            on_click="window:minimize" 
+            text="—"
+          />
+          <button 
+            class="win_btn" 
+            on_click="window:maximize" 
+            text="▢"
+          />
+          <button 
+            class="win_close" 
+            on_click="window:close" 
+            text="✕"
+          />
         </row>
-        <button 
-          class="win_btn" 
-          on_click="window:minimize" 
-          text="—"
-        />
-        <button 
-          class="win_btn" 
-          on_click="window:maximize" 
-          text="▢"
-        />
-        <button 
-          class="win_close" 
-          on_click="window:close" 
-          text="✕"
-        />
-      </row>
 
-      <if cond="{screen}" equals="login"> <Login /> </if>
-      <else> <Shell /> </else>
-    </column>
-    <column class="rz_v" on_press="window:resize:e" />
-  </row>
+        <if cond="{screen}" equals="login"> <Login /> </if>
+        <else> <Shell /> </else>
+      </column>
+      <column class="rz_v" on_press="window:resize:e" />
+    </row>
 
-  <!-- ── Bottom edge + bottom corners (south / sw / se) ────────────────────── -->
-  <row class="rz_bottom">
-    <column class="rz_corner rz_sw" on_press="window:resize:sw" />
-    <column class="rz_h" on_press="window:resize:s" />
-    <column class="rz_corner rz_se" on_press="window:resize:se"/>
-  </row>
-</column>
+    <!-- ── Bottom edge + bottom corners (south / sw / se) ────────────────────── -->
+    <row class="rz_bottom">
+      <column class="rz_corner rz_sw" on_press="window:resize:sw" />
+      <column class="rz_h" on_press="window:resize:s" />
+      <column class="rz_corner rz_se" on_press="window:resize:se"/>
+    </row>
+  </column>
 
-<!-- Toda a lógica de rede/estado (login, navegação, busca, stream SSE e ações)
-  vive em Luau, no script abaixo: sucessor de app/root.rs + app/net/*. É o
-  único script ativo; como o contexto do glacier é global, os templates
-  importados (login/shell/home/service) só têm markup e seus handlers resolvem
-  para as funções deste script. require("net/api") e require("fmt") resolvem em
-  scripts/ (relativo a este diretório). -->
-<script src="scripts/app.luau"></script>
+  <!-- Toda a lógica de rede/estado (login, navegação, busca, stream SSE e ações)
+    vive em Luau, no script abaixo: sucessor de app/root.rs + app/net/*. É o
+    único script ativo; como o contexto do glacier é global, os templates
+    importados (login/shell/home/service) só têm markup e seus handlers resolvem
+    para as funções deste script. require("net/api") e require("fmt") resolvem em
+    scripts/ (relativo a este diretório). -->
+</screen>

@@ -32,9 +32,6 @@ end
 function open_new_project_window(): ()
     open_window{
         file = "crates/rustploy-gui/views/new_project_form.gv",
-        title = "Novo projeto — Rustploy",
-        width = 460,
-        height = 340,
         resizable = false,  -- diálogo fixo (borderless, sem alças de resize)
         data = {
             api_url = ctx.api_url or "",

@@ -47,9 +47,6 @@ function open_new_service_window(): ()
     end
     open_window{
         file = "crates/rustploy-gui/views/new_service_window.gv",
-        title = "Novo serviço — Rustploy",
-        width = 560,
-        height = 700,
         resizable = false,
         data = {
             api_url = ctx.api_url or "",

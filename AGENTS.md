@@ -331,6 +331,45 @@ runtime `iced::daemon` inteiro reimplementado aqui (~250 linhas) porque o
 builder não expunha multi-janela; o buraco foi fechado na 0.38 e o runtime
 local, removido.
 
+### Título e tamanho de janela moram no `.gv`, não no Rust
+
+Desde o glacier-ui **0.59**, cada janela declara o que ela é no cabeçalho do
+próprio template — não procure isso no `main.rs`/`app/mod.rs`:
+
+```xml
+<screen title="Novo job — Rustploy" size="560 700">
+    <resources>
+        <link rel="theme" href="…" />
+        <style> … </style>
+        <script src="scripts/new_job_window.luau"></script>
+    </resources>
+
+    <column class="…"> … </column>
+</screen>
+```
+
+Onde cada coisa vive hoje:
+
+- **`views/app.gv`** declara `title`, `size` e `min-size` da janela principal.
+  O `main_window_settings()` em `app/mod.rs` ficou só com o chrome que o
+  template não descreve (borderless, ícone, `application_id`,
+  `exit_on_close_request`), e o builder não chama mais `.title()`/`.main_size()`.
+- **As janelas-filhas** (`new_*_window.gv`, `new_project_form.gv`,
+  `log_window.gv`) declaram as suas, e as chamadas `open_window{…}` dos
+  handlers Luau passam só o `file` (mais `data`). Duas exceções propositais, em
+  que só quem abre sabe o título: `log_window.gv` (título dinâmico — "Logs —
+  nginx", "Build — abc123") e a edição de job, que sobrepõe o "Novo job" do
+  arquivo.
+- A **geometria lembrada** (`remember_window_geometry`) continua ganhando do
+  `size` declarado: ele é o tamanho de *primeira* abertura.
+
+O `<resources>` agrupa o que não desenha (`<style>`, `<script>`, `<link>`,
+`<import>`); é opcional, mas nos templates de janela daqui ele já está em uso.
+Um engano no cabeçalho é erro de parse (atributo desconhecido, tamanho que não
+seja par de números, widget dentro do `<resources>`) — não passa em silêncio.
+O teste `janelas_declaram_titulo_e_tamanho_no_proprio_template`
+(`tests/templates_render.rs`) trava esses valores.
+
 ### Toda feature de UI vive em dois lugares
 
 O daemon serve uma **webui própria** (`crates/daemon/webui/`, HTML + Alpine.js)

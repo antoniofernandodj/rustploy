@@ -22,7 +22,6 @@ use glacier_ui::{
     window,
     Font,
     GlacierDaemon,
-    Size,
     TrayActions,
     TrayConfig,
     TrayItem,
@@ -54,7 +53,11 @@ pub(crate) fn run() -> iced::Result {
     let ui_agente = glacier_ui::external::sender();
 
     let daemon = GlacierDaemon::new()
-        .title("Rustploy")
+        // Sem `.title()`/`.main_size()`: desde o glacier-ui 0.59 quem declara
+        // título e tamanho é o `<screen>` do `views/app.gv`, junto da tela que
+        // eles descrevem — e o título recarrega a quente, sem recompilar. O que
+        // sobra aqui (`main_window` abaixo) é o chrome que o template não
+        // descreve: borderless, ícone, id de aplicação.
         .font(FONT_REGULAR)
         .font(FONT_BOLD)
         .default_font(Font::with_name("JetBrains Mono"))
@@ -187,20 +190,19 @@ fn handle_tray(id: &str, tray: &mut TrayActions) {
 }
 
 
-/// Builds the main window's settings. Size/position are **not** restored here:
-/// since glacier-ui 0.49 that's handled natively by `remember_window_geometry`
-/// (see `run`), which overrides these with the saved geometry at boot. So this
-/// just sets the first-launch default size and the static chrome.
+/// Builds the main window's static chrome. Nem tamanho nem posição saem daqui:
+/// o tamanho de primeira abertura e o mínimo são declarados no `<screen>` de
+/// `views/app.gv` (glacier-ui 0.59+), e a geometria lembrada
+/// (`remember_window_geometry`, glacier-ui 0.49+) ganha dos dois no boot.
 /// Borderless (`decorations: false`) — the OS titlebar is replaced by a custom
 /// one in `views/app.gv`, whose `window:*` actions the daemon drives against
 /// this window's own id. `exit_on_close_request: false` routes the WM's own close
 /// through the daemon so the geometry is saved before the window actually closes.
 fn main_window_settings() -> window::Settings {
-    let min = Size::new(480.0, 680.0);
     window::Settings {
-        size: Size::new(1280.0, 820.0),
+        // `size`/`min_size` vêm do `<screen>` de `views/app.gv` (glacier-ui
+        // 0.59+); a geometria lembrada ainda ganha dos dois no boot.
         position: window::Position::Default,
-        min_size: Some(min),
         // Taskbar / dock icon while the app runs (Windows taskbar, X11 dock).
         // Embedded so it works regardless of CWD; on Wayland the dock icon
         // instead comes from the `.desktop` file matched by app id, see the

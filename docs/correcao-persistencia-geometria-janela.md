@@ -1,5 +1,12 @@
 # Correção: a janela não reabria no último tamanho (glacier 0.49.0 → 0.49.1)
 
+> **Nota (2026-08-28, glacier-ui 0.59.0):** o tamanho default citado abaixo
+> (1280×820) não vem mais do `main_window_settings()` em Rust — é declarado no
+> `<screen size="1280 820">` de `views/app.gv`. A ordem de precedência não
+> mudou para o usuário: a geometria salva continua ganhando do default, seja ele
+> do builder ou do template. Ver AGENTS.md, "Título e tamanho de janela moram no
+> `.gv`".
+
 ## Sintoma
 
 Depois de migrar a persistência da geometria da janela para o recurso **nativo**

@@ -681,8 +681,6 @@ function dep_logs(id: string): ()
     open_window{
         file = "crates/rustploy-gui/views/log_window.gv",
         title = "Build — " .. string.sub(id, 1, 12),
-        width = 900,
-        height = 560,
         resizable = true,
         data = {
             api_url = ctx.api_url or "",
@@ -932,8 +930,6 @@ function open_logs_window(): ()
     open_window{
         file = "crates/rustploy-gui/views/log_window.gv",
         title = "Logs — " .. (ctx.svc_name or sid),
-        width = 900,
-        height = 560,
         resizable = true,
         data = {
             api_url = ctx.api_url or "",

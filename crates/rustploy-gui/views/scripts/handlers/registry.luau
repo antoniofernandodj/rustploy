@@ -162,9 +162,6 @@ M.refresh_tokens = registry_refresh_tokens
 function registry_open_token_window(): ()
     open_window{
         file = "crates/rustploy-gui/views/new_registry_token_window.gv",
-        title = "Novo token — Rustploy",
-        width = 480,
-        height = 420,
         resizable = false,
         data = {
             api_url = ctx.api_url or "",
