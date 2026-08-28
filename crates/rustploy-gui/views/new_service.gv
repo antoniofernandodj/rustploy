@@ -329,10 +329,7 @@
             <TemplateRow
               for-each="ns_templates"
               var="t"
-              name="{t.name}"
-              description="{t.description}"
-              logo="{t.logo}"
-              logo_kind="{t.logo_kind}"
+              spread="{t}"
               action="ns_pick_template:{t.id}"
             />
           </column>

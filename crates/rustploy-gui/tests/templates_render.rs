@@ -807,3 +807,61 @@ fn todo_template_comeca_com_cabecalho() {
         "o teste não achou os templates: {vistos} arquivos varridos"
     );
 }
+
+/// As grades de cards (projetos e serviços) passam o item INTEIRO ao componente
+/// via `spread="{c}"` (glacier-ui 0.62). Isso troca um atributo por campo por um
+/// só — e move a checagem do contrato para o **dado**: um campo que o
+/// `fmt/dashboard.luau` não emitir vira `MissingProp` e derruba a tela inteira,
+/// não um `{placeholder}` vazio como antes.
+///
+/// O caso perigoso é o **filler** (o card vazio que completa a fileira do grid):
+/// ele nasce de um único `FILLER` compartilhado pelas duas grades, e em Lua um
+/// campo `= nil` simplesmente não existe. Por isso ele carrega a união dos dois
+/// contratos como string vazia — e é isto que este teste tranca.
+#[test]
+fn grades_de_cards_renderizam_com_spread() {
+    let mut m = boot();
+    m.define_data("screen", "shell");
+    // connection.luau semeia data_loading="true" no init, e o <scrollable> da
+    // grade fica escondido atrás dele — sem isto o for-each nunca roda e o
+    // teste passa sem ter avaliado um card sequer.
+    m.define_data("data_loading", "false");
+
+    // Uma fileira com um card real + um filler, exatamente a forma que
+    // `M.project_rows` produz quando há 1 projeto numa grade de 2 colunas.
+    m.define_data("view", "projects");
+    m.define_data(
+        "project_rows",
+        r##"[{"cards":[
+            {"filler":"0","id":"prj_1","name":"acme","description":"loja",
+             "service_count":"3","running_count":"2","can_delete":"0"},
+            {"filler":"1","id":"","name":"","description":"","service_count":"",
+             "running_count":"","can_delete":"","port":"","status_label":"",
+             "status_color":"","cpu":"","mem":"","container_name":"",
+             "container_id":"","container_extra":"","project":""}
+        ]}]"##,
+    );
+    m.reevaluate_all()
+        .unwrap_or_else(|e| panic!("eval grade de projetos: {e}"));
+    assert!(m.render("app").is_ok(), "render grade de projetos");
+    let arv = format!("{:?}", m.evaluated("app").unwrap());
+    assert!(arv.contains("acme"), "a grade tem que ter renderizado o card");
+
+    m.define_data("view", "project_services");
+    m.define_data("proj_loading", "false");
+    m.define_data(
+        "project_services",
+        r##"[{"cards":[
+            {"filler":"0","id":"svc_1","name":"api","project":"acme","port":"8080",
+             "status_label":"Rodando","status_color":"#A6E3A1","cpu":"1.2%","mem":"64 MB",
+             "container_name":"acme-api","container_id":"abc123","container_extra":"+1"},
+            {"filler":"1","id":"","name":"","description":"","service_count":"",
+             "running_count":"","can_delete":"","port":"","status_label":"",
+             "status_color":"","cpu":"","mem":"","container_name":"",
+             "container_id":"","container_extra":"","project":""}
+        ]}]"##,
+    );
+    m.reevaluate_all()
+        .unwrap_or_else(|e| panic!("eval grade de serviços: {e}"));
+    assert!(m.render("app").is_ok(), "render grade de serviços");
+}

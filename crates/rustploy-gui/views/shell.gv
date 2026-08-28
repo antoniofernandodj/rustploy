@@ -246,15 +246,7 @@
               <template for-each="project_rows" var="r">
                 <row class="card_row">
                   <template for-each="r.cards" var="c">
-                    <ProjectCard
-                      id="{c.id}"
-                      filler="{c.filler}"
-                      name="{c.name}"
-                      service_count="{c.service_count}"
-                      running_count="{c.running_count}"
-                      description="{c.description}"
-                      can_delete="{c.can_delete}"
-                    />
+                    <ProjectCard spread="{c}" />
                   </template>
                 </row>
               </template>
@@ -654,20 +646,7 @@
             >
               <column class="grid">
                 <row class="card_row" for-each="project_services" var="r">
-                  <ServiceCard
-                    for-each="r.cards"
-                    var="c"
-                    id="{c.id}"
-                    filler="{c.filler}"
-                    name="{c.name}"
-                    port="{c.port}"
-                    status_color="{c.status_color}"
-                    status_label="{c.status_label}"
-                    cpu="{c.cpu}"
-                    mem="{c.mem}"
-                    container_name="{c.container_name}"
-                    container_id="{c.container_id}"
-                    container_extra="{c.container_extra}" />
+                  <ServiceCard for-each="r.cards" var="c" spread="{c}" />
                 </row>
               </column>
             </scrollable>

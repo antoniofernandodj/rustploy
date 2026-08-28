@@ -28,16 +28,30 @@ local function grid_cols(): number
     return 3
 end
 
+-- Um card VAZIO que preenche a fileira do grid. Os campos vão como string
+-- vazia, não `nil`: em Lua um campo `nil` não existe, e o card recebe o item
+-- inteiro por `spread` — um campo ausente é uma prop obrigatória faltando, o
+-- que o motor recusa. Como um filler serve às DUAS grades (serviços e
+-- projetos), ele carrega a união dos dois contratos.
 local FILLER: GridCard = {
     filler = "1",
-    id = nil,
-    name = nil,
-    project = nil,
-    port = nil,
-    status_label = nil,
-    status_color = nil,
-    cpu = nil,
-    mem = nil,
+    id = "",
+    name = "",
+    project = "",
+    -- service_card.gv
+    port = "",
+    status_label = "",
+    status_color = "",
+    cpu = "",
+    mem = "",
+    container_name = "",
+    container_id = "",
+    container_extra = "",
+    -- project_card.gv
+    description = "",
+    service_count = "",
+    running_count = "",
+    can_delete = "",
 }
 
 -- Deployments (aba Deployments). `list` = Vec<DeploymentSummary>.
