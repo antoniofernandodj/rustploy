@@ -419,8 +419,10 @@ end
 
 -- Abre a conexão SSE (chamado por connect(), em handlers/connection.luau,
 -- após a autenticação inicial dar certo). Os callbacks vão inline: cada um é
--- usado num lugar só, e a anotação `StreamOptions` verifica a assinatura dos
--- três contra o que o motor entrega.
+-- usado num lugar só, e a assinatura dos três continua conferida contra o que o
+-- motor entrega sem precisar anotar variável nenhuma — `glacier.d.luau` declara
+-- `sse(url, opts: StreamOptions?)`, então é a própria chamada que checa a
+-- tabela literal contra `StreamOptions`.
 
 local function get_headers(ctx: any): any
     local headers = { }
