@@ -20,7 +20,7 @@
 -- sse() no init() FUNCIONA (o motor liga as streams abertas no init); já
 -- `append_textarea` NÃO (efeitos de init são descartados, como `fetch`), por isso
 -- o histórico inicial vai por um SET completo (ctx.lw_logs_text) no init, e só as
--- linhas VIVAS (em lw_on_state, ação despachada) usam append_textarea.
+-- linhas VIVAS (no on_message da sse, ação despachada) usam append_textarea.
 --
 -- require resolve relativo a ESTE arquivo (scripts/): "fmt" (fachada de fmt/*).
 
@@ -72,42 +72,42 @@ local function to_row(ev: any): any?
     return ev.LogLine or ev.BuildLog or ev.JobLogLine
 end
 
--- Callback do sse(): cada `data:` é um JSON auto-descritivo (kind). O endpoint
--- dedicado manda lotes `bus_batch`; tratamos `bus` avulso por robustez.
-function lw_on_state(data: string): ()
-    local ok, msg = pcall(json.decode, data)
-    if not ok or type(msg) ~= "table" then
-        return
-    end
-    if msg.kind == "bus" then
-        local row = to_row(msg.event)
-        if row then
-            push_batch{ row }
-        end
-    elseif msg.kind == "bus_batch" then
-        local rows = {}
-        for _, e in ipairs(msg.events or {}) do
-            local row = to_row(e)
-            if row then
-                table.insert(rows, row)
-            end
-        end
-        push_batch(rows)
-    end
-end
-
 function init(): ()
     ctx.lw_title = ctx.lw_title or "Logs"
 
     -- Histórico inicial semeado pelo pai (SET completo — append_textarea de init
-    -- seria descartado). Daí em diante, só appends vivos em lw_on_state.
+    -- seria descartado). Daí em diante, só appends vivos no on_message abaixo.
     local oks, seed = pcall(json.decode, ctx.lw_seed or "[]")
     buf = (oks and type(seed) == "table") and seed or {}
     set_full()
 
     -- SSE própria desta janela no endpoint dedicado (o motor liga streams
     -- abertas no init; o handle não precisa ser guardado — vive com a janela).
-    local opts: any = { on_message = "lw_on_state" }
+    -- Cada `data:` é um JSON auto-descritivo (kind). O endpoint dedicado manda
+    -- lotes `bus_batch`; tratamos `bus` avulso por robustez.
+    local opts: StreamOptions = {
+        on_message = function(data: string): ()
+            local ok, msg = pcall(json.decode, data)
+            if not ok or type(msg) ~= "table" then
+                return
+            end
+            if msg.kind == "bus" then
+                local row = to_row(msg.event)
+                if row then
+                    push_batch{ row }
+                end
+            elseif msg.kind == "bus_batch" then
+                local rows = {}
+                for _, e in ipairs(msg.events or {}) do
+                    local row = to_row(e)
+                    if row then
+                        table.insert(rows, row)
+                    end
+                end
+                push_batch(rows)
+            end
+        end,
+    }
     if ctx.api_token and ctx.api_token ~= "" then
         opts.headers = { Authorization = "Bearer " .. ctx.api_token }
     end

@@ -36,8 +36,20 @@ declare function fetch(url: string, opts: any?): FetchResult
 -- Escrita de arquivo local (glacier-ui 0.49+), contraparte do `fetch("file://…")`.
 -- Devolve `true` no sucesso, ou `false, mensagem` na falha.
 declare function write_file(path: string, contents: string): (boolean, string?)
-declare function sse(url: string, opts: any?): StreamHandle
-declare function websocket(url: string, opts: any?): StreamHandle
+-- Streams de vida longa. NÃO suspendem: registram o stream e devolvem o handle
+-- na hora. Cada callback é uma FUNÇÃO (closure e upvalue funcionam) — o motor
+-- também aceita o nome de uma função global, como atalho, mas o tipo abaixo
+-- guia para a forma boa: o nome obriga o handler a ser global, não fecha sobre
+-- nada, e falha em silêncio quando está errado.
+export type StreamOptions = {
+    headers: { [string]: string }?,
+    on_open: (() -> ())?,
+    on_message: ((data: string) -> ())?,
+    on_error: ((message: string) -> ())?,
+    on_close: (() -> ())?,
+}
+declare function sse(url: string, opts: StreamOptions?): StreamHandle
+declare function websocket(url: string, opts: StreamOptions?): StreamHandle
 declare function toast(opts: any): ()
 -- Notificação nativa do SO (glacier-ui 0.42+): `notify({ title?, body? })` ou
 -- `notify("mensagem")`. Diferente de `toast` (efêmero, dentro da janela).

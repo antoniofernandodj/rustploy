@@ -417,45 +417,43 @@ local function apply_bus(ev: any): ()
     end
 end
 
--- Cada evento SSE traz um `data:` JSON auto-descritivo com `kind`.
-function on_state(data: string): ()
-    local ok, msg = pcall(json.decode, data)
-    if not ok or type(msg) ~= "table" then
-        return
-    end
-    if msg.kind == "snapshot" then
-        apply_snapshot(msg)
-    elseif msg.kind == "bus" then
-        apply_bus(msg.event)
-    end
-    -- Nota: o firehose /api/events não manda mais `bus_batch` (era só p/ logs, que
-    -- saíram daqui — ver apply_bus). Os lotes de log vivem no endpoint dedicado
-    -- consumido pela janela isolada (log_window.luau).
-end
-
-function on_stream_error(e: string): ()
-    ctx.status_line = "stream: " .. tostring(e)
-end
-
-function on_stream_close(): ()
-    State.state_conn = nil
-    if ctx.connected == "true" then
-        ctx.status_line = "conexão encerrada"
-        ctx.connected = "false"
-        ctx.screen = "login"
-    end
-end
-
 -- Abre a conexão SSE (chamado por connect(), em handlers/connection.luau,
--- após a autenticação inicial dar certo).
+-- após a autenticação inicial dar certo). Os callbacks vão inline: cada um é
+-- usado num lugar só, e a anotação `StreamOptions` verifica a assinatura dos
+-- três contra o que o motor entrega.
 function M.open_stream(): ()
     if State.state_conn then
         return
     end
-    local opts = {
-        on_message = "on_state",
-        on_error = "on_stream_error",
-        on_close = "on_stream_close"
+    local opts: StreamOptions = {
+        -- Cada evento SSE traz um `data:` JSON auto-descritivo com `kind`.
+        -- Nota: o firehose /api/events não manda mais `bus_batch` (era só p/
+        -- logs, que saíram daqui — ver apply_bus). Os lotes de log vivem no
+        -- endpoint dedicado consumido pela janela isolada (log_window.luau).
+        on_message = function(data: string): ()
+            local ok, msg = pcall(json.decode, data)
+            if not ok or type(msg) ~= "table" then
+                return
+            end
+            if msg.kind == "snapshot" then
+                apply_snapshot(msg)
+            elseif msg.kind == "bus" then
+                apply_bus(msg.event)
+            end
+        end,
+
+        on_error = function(e: string): ()
+            ctx.status_line = "stream: " .. tostring(e)
+        end,
+
+        on_close = function(): ()
+            State.state_conn = nil
+            if ctx.connected == "true" then
+                ctx.status_line = "conexão encerrada"
+                ctx.connected = "false"
+                ctx.screen = "login"
+            end
+        end,
     }
     if ctx.api_token and ctx.api_token ~= "" then
         opts.headers = {
