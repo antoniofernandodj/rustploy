@@ -7,6 +7,7 @@
 
 local State = require("../state")
 local fmt = require("../fmt")
+local Api = require("../net/api")
 local Services = require("services")
 
 local M = {}
@@ -424,17 +425,6 @@ end
 -- `sse(url, opts: StreamOptions?)`, então é a própria chamada que checa a
 -- tabela literal contra `StreamOptions`.
 
-local function get_headers(ctx: any): any
-    local headers = { }
-    if ctx.api_token and ctx.api_token ~= "" then
-        headers = {
-            Authorization = "Bearer " .. ctx.api_token
-        }
-    end
-
-    return headers
-end
-
 function M.open_stream(): ()
     if State.state_conn then
         return
@@ -447,7 +437,7 @@ function M.open_stream(): ()
         -- Nota: o firehose /api/events não manda mais `bus_batch` (era só p/
         -- logs, que saíram daqui — ver apply_bus). Os lotes de log vivem no
         -- endpoint dedicado consumido pela janela isolada (log_window.luau).
-        headers = get_headers(ctx),
+        headers = Api.auth_headers(ctx.api_token),
 
         on_message = function(data: string): ()
             local ok, msg = pcall(json.decode, data)

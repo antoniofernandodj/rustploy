@@ -22,9 +22,11 @@
 -- o histórico inicial vai por um SET completo (ctx.lw_logs_text) no init, e só as
 -- linhas VIVAS (no on_message da sse, ação despachada) usam append_textarea.
 --
--- require resolve relativo a ESTE arquivo (scripts/): "fmt" (fachada de fmt/*).
+-- require resolve relativo a ESTE arquivo (scripts/): "fmt" (fachada de fmt/*)
+-- e "net/api" (daqui só sai `auth_headers`, o mesmo Authorization do app).
 
 local fmt = require("fmt")
+local Api = require("net/api")
 
 -- Buffer de eventos {stream?,line,timestamp} p/ reconstrução em corte (trim). O
 -- <textarea> cresce por append; para não crescer sem limite numa sessão longa,
@@ -72,16 +74,6 @@ local function to_row(ev: any): any?
     return ev.LogLine or ev.BuildLog or ev.JobLogLine
 end
 
-local function get_headers(ctx: any): any
-
-    local headers = { }
-    if ctx.api_token and ctx.api_token ~= "" then
-        headers = { Authorization = "Bearer " .. ctx.api_token }
-    end
-
-    return headers
-end
-
 function init(): ()
     ctx.lw_title = ctx.lw_title or "Logs"
 
@@ -98,7 +90,7 @@ function init(): ()
 
     local sse_url = (ctx.api_url or "") .. (ctx.lw_stream_url or "")
     sse(sse_url, {
-        headers = get_headers(ctx),
+        headers = Api.auth_headers(ctx.api_token),
         on_message = function(data: string): ()
             local ok, msg = pcall(json.decode, data)
             if not ok or type(msg) ~= "table" then

@@ -15,14 +15,22 @@
 local M = {}
 M.__index = M
 
-function M:headers(): { [string]: string }
-    local h = {
-        ["Content-Type"] = "application/json",
-    }
-
-    if self.token then
-        h["Authorization"] = "Bearer " .. self.token
+--- Só o header `Authorization` (tabela vazia quando não há token). Função de
+--- MÓDULO (ponto, não dois-pontos) de propósito: também serve quem NÃO tem um
+--- Client nas mãos — as chamadas cruas de `sse` em `handlers/stream.luau` e
+--- `log_window.luau`, que falam com o daemon sem passar por `rpc`. Assim o
+--- formato "Bearer <token>" tem uma definição só, aqui.
+function M.auth_headers(token: string?): { [string]: string }
+    if token == nil or token == "" then
+        return {}
     end
+
+    return { Authorization = "Bearer " .. token }
+end
+
+function M:headers(): { [string]: string }
+    local h = M.auth_headers(self.token)
+    h["Content-Type"] = "application/json"
 
     return h
 end
