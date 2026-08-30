@@ -72,6 +72,16 @@ local function to_row(ev: any): any?
     return ev.LogLine or ev.BuildLog or ev.JobLogLine
 end
 
+local function get_headers(ctx: any): any
+
+    local headers = { }
+    if ctx.api_token and ctx.api_token ~= "" then
+        headers = { Authorization = "Bearer " .. ctx.api_token }
+    end
+
+    return headers
+end
+
 function init(): ()
     ctx.lw_title = ctx.lw_title or "Logs"
 
@@ -85,7 +95,10 @@ function init(): ()
     -- abertas no init; o handle não precisa ser guardado — vive com a janela).
     -- Cada `data:` é um JSON auto-descritivo (kind). O endpoint dedicado manda
     -- lotes `bus_batch`; tratamos `bus` avulso por robustez.
-    local opts: StreamOptions = {
+
+    local sse_url = (ctx.api_url or "") .. (ctx.lw_stream_url or "")
+    sse(sse_url, {
+        headers = get_headers(ctx),
         on_message = function(data: string): ()
             local ok, msg = pcall(json.decode, data)
             if not ok or type(msg) ~= "table" then
@@ -107,9 +120,6 @@ function init(): ()
                 push_batch(rows)
             end
         end,
-    }
-    if ctx.api_token and ctx.api_token ~= "" then
-        opts.headers = { Authorization = "Bearer " .. ctx.api_token }
-    end
-    sse((ctx.api_url or "") .. (ctx.lw_stream_url or ""), opts)
+    })
+
 end

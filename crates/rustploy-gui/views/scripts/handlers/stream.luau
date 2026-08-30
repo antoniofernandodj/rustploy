@@ -421,15 +421,32 @@ end
 -- após a autenticação inicial dar certo). Os callbacks vão inline: cada um é
 -- usado num lugar só, e a anotação `StreamOptions` verifica a assinatura dos
 -- três contra o que o motor entrega.
+
+local function get_headers(ctx: any): any
+    local headers = { }
+    if ctx.api_token and ctx.api_token ~= "" then
+        headers = {
+            Authorization = "Bearer " .. ctx.api_token
+        }
+    end
+
+    return headers
+end
+
 function M.open_stream(): ()
     if State.state_conn then
         return
     end
-    local opts: StreamOptions = {
+
+    local sse_url = ctx.api_url .. "/api/events"
+
+    State.state_conn = sse(sse_url, {
         -- Cada evento SSE traz um `data:` JSON auto-descritivo com `kind`.
         -- Nota: o firehose /api/events não manda mais `bus_batch` (era só p/
         -- logs, que saíram daqui — ver apply_bus). Os lotes de log vivem no
         -- endpoint dedicado consumido pela janela isolada (log_window.luau).
+        headers = get_headers(ctx),
+
         on_message = function(data: string): ()
             local ok, msg = pcall(json.decode, data)
             if not ok or type(msg) ~= "table" then
@@ -454,13 +471,7 @@ function M.open_stream(): ()
                 ctx.screen = "login"
             end
         end,
-    }
-    if ctx.api_token and ctx.api_token ~= "" then
-        opts.headers = {
-            Authorization = "Bearer " .. ctx.api_token
-        }
-    end
-    State.state_conn = sse(ctx.api_url .. "/api/events", opts)
+    })
 end
 
 return M
