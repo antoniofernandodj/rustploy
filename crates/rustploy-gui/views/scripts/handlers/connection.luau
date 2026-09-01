@@ -6,6 +6,7 @@
 local State = require("../state")
 local Helpers = require("../helpers")
 local Api = require("../net/api")
+local fmt = require("../fmt")
 local Stream = require("stream")
 local Settings = require("settings")
 
@@ -92,6 +93,10 @@ function init(): ()
     ctx.error = ctx.error or ""
     ctx.search = ctx.search or ""
     ctx.data_loading = "true"
+    -- Coleção fixa do <radiogroup> de dia da semana (aba Manutenção). Semeada
+    -- aqui, e não no dc_apply_config, porque não depende da config carregada:
+    -- se o load falhasse, a lista sumiria e o grupo ficaria vazio.
+    ctx.weekdays = fmt.WEEKDAYS_JSON
     -- Listas vazias como "[]" (não nil) para os ForEach não verem literal.
     for _, k in ipairs{
         "deployments",

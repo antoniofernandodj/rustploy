@@ -83,6 +83,14 @@ fn new_job_window_renders() {
 
     m.define_data("njob_step", "form");
     m.define_data("njob_service_name", "web");
+    // Chave única "HH:MM" do <timeedit> e a coleção do <radiogroup> de dia da
+    // semana — as duas semeadas pelo init() de new_job_window.luau na janela
+    // real; aqui o teste faz o papel dele.
+    m.define_data("njob_time", "03:00");
+    m.define_data(
+        "weekdays",
+        r#"[{"id":"0","label":"Seg"},{"id":"1","label":"Ter"},{"id":"2","label":"Qua"},{"id":"3","label":"Qui"},{"id":"4","label":"Sex"},{"id":"5","label":"Sáb"},{"id":"6","label":"Dom"}]"#,
+    );
     for kind in ["manual", "interval", "daily", "weekly"] {
         m.define_data("njob_kind", kind);
         m.reevaluate_all().unwrap_or_else(|e| panic!("eval new_job_window/form {kind}: {e}"));
@@ -336,15 +344,21 @@ fn all_screens_and_service_tabs_render() {
     assert!(m.render("app").is_ok(), "render settings/iac");
 
     // Settings → Manutenção (limpeza automática de Docker): as 3 recorrências
-    // (cada uma mostra campos diferentes: HOURS pra interval, HOUR/MINUTE pra
+    // (cada uma mostra campos diferentes: HOURS pra interval, HORÁRIO pra
     // daily, +WEEKDAY pra weekly) e o toggle geral + os 6 sub-toggles do que
     // limpar.
     m.define_data("settings_tab", "maintenance");
     m.define_data("dc_enabled", "true");
     m.define_data("dc_hours", "6");
-    m.define_data("dc_hour", "3");
-    m.define_data("dc_minute", "0");
+    // Chave única "HH:MM" do <timeedit> — antes eram dc_hour + dc_minute.
+    m.define_data("dc_time", "03:00");
     m.define_data("dc_weekday", "0");
+    // Coleção de opções do <radiogroup> de dia da semana; sem ela o grupo
+    // renderiza vazio (é o mesmo contrato do for-each: lê chave, não texto).
+    m.define_data(
+        "weekdays",
+        r#"[{"id":"0","label":"Seg"},{"id":"1","label":"Ter"},{"id":"2","label":"Qua"},{"id":"3","label":"Qui"},{"id":"4","label":"Sex"},{"id":"5","label":"Sáb"},{"id":"6","label":"Dom"}]"#,
+    );
     m.define_data("dc_containers", "true");
     m.define_data("dc_images", "true");
     m.define_data("dc_images_all", "false");

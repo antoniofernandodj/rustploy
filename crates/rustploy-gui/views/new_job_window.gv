@@ -214,46 +214,34 @@
 
             <if cond="{njob_kind}" equals="interval">
               <text class="np_label">A CADA QUANTAS HORAS</text>
-              <input class="np_input" form_control="njob_hours" value="njob_hours"
-                on_change="field:njob_hours" placeholder="6" />
+              <!-- Teto de 168 = uma semana, igual ao da limpeza automática em
+                home.gv. Acima disso existe a recorrência "Semanal". -->
+              <spinbox field_class="np_input" form_control="njob_hours" value="njob_hours" min="1" max="168" width="90" placeholder="6" />
             </if>
 
+            <!-- Os pares HORA/MINUTO de texto livre viraram um <timeedit> só
+              (chave `njob_time`, "HH:MM") — mesma troca e mesmo motivo da
+              limpeza automática em home.gv. -->
             <if cond="{njob_kind}" equals="daily">
               <row class="env_add">
                 <column class="np_group">
-                  <text class="np_label">HORA (0-23)</text>
-                  <input class="np_input" form_control="njob_hour" value="njob_hour"
-                    on_change="field:njob_hour" placeholder="3" />
-                </column>
-                <column class="np_group">
-                  <text class="np_label">MINUTO (0-59)</text>
-                  <input class="np_input" form_control="njob_minute" value="njob_minute"
-                    on_change="field:njob_minute" placeholder="0" />
+                  <text class="np_label">HORÁRIO</text>
+                  <timeedit value="njob_time" />
                 </column>
               </row>
             </if>
 
             <if cond="{njob_kind}" equals="weekly">
               <text class="np_label">DIA DA SEMANA</text>
+              <!-- Mesma troca de home.gv: sete <TabButton> + handler viraram um
+                <radiogroup>, que grava `njob_weekday` sozinho. -->
               <row class="tabs">
-                <TabButton label="Seg" current="{njob_weekday}" target="0" action="njob_weekday:0" />
-                <TabButton label="Ter" current="{njob_weekday}" target="1" action="njob_weekday:1" />
-                <TabButton label="Qua" current="{njob_weekday}" target="2" action="njob_weekday:2" />
-                <TabButton label="Qui" current="{njob_weekday}" target="3" action="njob_weekday:3" />
-                <TabButton label="Sex" current="{njob_weekday}" target="4" action="njob_weekday:4" />
-                <TabButton label="Sáb" current="{njob_weekday}" target="5" action="njob_weekday:5" />
-                <TabButton label="Dom" current="{njob_weekday}" target="6" action="njob_weekday:6" />
+                <radiogroup value="njob_weekday" items="weekdays" layout="row" />
               </row>
               <row class="env_add">
                 <column class="np_group">
-                  <text class="np_label">HORA (0-23)</text>
-                  <input class="np_input" form_control="njob_hour" value="njob_hour"
-                    on_change="field:njob_hour" placeholder="3" />
-                </column>
-                <column class="np_group">
-                  <text class="np_label">MINUTO (0-59)</text>
-                  <input class="np_input" form_control="njob_minute" value="njob_minute"
-                    on_change="field:njob_minute" placeholder="0" />
+                  <text class="np_label">HORÁRIO</text>
+                  <timeedit value="njob_time" />
                 </column>
               </row>
             </if>

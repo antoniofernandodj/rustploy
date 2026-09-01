@@ -1228,46 +1228,36 @@
             <row class="hc_grid" if="{dc_kind}" equals="interval">
               <column class="hc_field">
                 <text class="label_cap">A CADA (HORAS)</text>
-                <TextInput
-                  class="field_input"
-                  formControl="dc_hours"
-                  value="dc_hours"
-                  on_change="field:dc_hours"
-                  placeholder="6"
-                />
+                <!-- Teto de 168 = uma semana. Acima disso o usuário quer a
+                  frequência "semanal", que é a aba ao lado. -->
+                <spinbox field_class="field_input" form_control="dc_hours" value="dc_hours" min="1" max="168" width="90" placeholder="6" />
               </column>
             </row>
 
+            <!-- Eram sete <TabButton> escritos à mão mais o handler
+              `dc_weekday` só pra gravar a escolha. O <radiogroup> (glacier-ui
+              0.66) grava a chave sozinho, no update dele em Rust, então o
+              handler foi embora junto. As opções vêm de `weekdays`, semeada em
+              handlers/connection.luau a partir de fmt.WEEKDAYS_JSON.
+              Aparência: são radio buttons redondos, não a fileira de pílulas
+              que o TabButton desenhava. -->
             <row class="tabs" if="{dc_kind}" equals="weekly">
-              <TabButton label="Seg" current="{dc_weekday}" target="0" action="dc_weekday:0" />
-              <TabButton label="Ter" current="{dc_weekday}" target="1" action="dc_weekday:1" />
-              <TabButton label="Qua" current="{dc_weekday}" target="2" action="dc_weekday:2" />
-              <TabButton label="Qui" current="{dc_weekday}" target="3" action="dc_weekday:3" />
-              <TabButton label="Sex" current="{dc_weekday}" target="4" action="dc_weekday:4" />
-              <TabButton label="Sáb" current="{dc_weekday}" target="5" action="dc_weekday:5" />
-              <TabButton label="Dom" current="{dc_weekday}" target="6" action="dc_weekday:6" />
+              <radiogroup value="dc_weekday" items="weekdays" layout="row" />
             </row>
 
+            <!-- Era um par de campos de texto livre — "HORA (0-23)" e
+              "MINUTO (0-59)" —, e a faixa no próprio rótulo era a confissão de
+              que nada impedia digitar 99: o handler fazia `tonumber(...) or 0`
+              e agendava a limpeza pra meia-noite sem avisar ninguém. O
+              <timeedit> (glacier-ui 0.68) é um campo só, editado por seções
+              (clique na hora, setas ▴▾ mexem nela), onde não dá pra digitar e
+              portanto não dá pra digitar errado. A chave `dc_time` é "HH:MM";
+              fmt.hm_join/hm_split fazem a ponte com o `{hour, minute}` que o
+              daemon espera — o contrato HTTP não mudou. -->
             <row class="hc_grid" if="{dc_kind}" not_equals="interval">
               <column class="hc_field">
-                <text class="label_cap">HORA (0-23)</text>
-                <TextInput
-                  class="field_input"
-                  formControl="dc_hour"
-                  value="dc_hour"
-                  on_change="field:dc_hour"
-                  placeholder="3"
-                />
-              </column>
-              <column class="hc_field">
-                <text class="label_cap">MINUTO (0-59)</text>
-                <TextInput
-                  class="field_input"
-                  formControl="dc_minute"
-                  value="dc_minute"
-                  on_change="field:dc_minute"
-                  placeholder="0"
-                />
+                <text class="label_cap">HORÁRIO</text>
+                <timeedit value="dc_time" />
               </column>
             </row>
 

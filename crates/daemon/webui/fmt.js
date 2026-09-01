@@ -43,6 +43,33 @@ function matchesTerm(term, fields) {
   return fields.some((f) => typeof f === "string" && f.toLowerCase().includes(term));
 }
 
+/* ── Ponte entre o <input type="time"> e o protocolo ────────────────────────
+ * Porta de fmt/time.luau::hm_join/hm_split. O input nativo guarda o horário
+ * numa string única "HH:MM"; o daemon sempre falou em `{hour, minute}`
+ * separados (Recurrence::Daily/Weekly, DockerCleanupConfig). A tradução mora
+ * aqui para que o contrato HTTP não mude por causa de uma troca de widget. */
+
+/** (hour, minute) -> "HH:MM", saturando na faixa válida. */
+export function hmJoin(hour, minute) {
+  let h = Math.floor(Number(hour) || 0);
+  let m = Math.floor(Number(minute) || 0);
+  if (h < 0) h = 0; else if (h > 23) h = 23;
+  if (m < 0) m = 0; else if (m > 59) m = 59;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/** "HH:MM" -> [hour, minute]. Vazio ou malformado vira 0h00, o mesmo default
+ * que o `Number(...) || 0` dos handlers já usava. */
+export function hmSplit(hm) {
+  const match = /^(\d{1,2}):(\d{1,2})$/.exec(String(hm ?? ""));
+  if (!match) return [0, 0];
+  let h = Math.floor(Number(match[1]));
+  let m = Math.floor(Number(match[2]));
+  if (h < 0 || h > 23) h = 0;
+  if (m < 0 || m > 59) m = 0;
+  return [h, m];
+}
+
 /** Ns ou Mm Ns. */
 export function fmtSecs(secs) {
   const n = Math.floor(Number(secs) || 0);

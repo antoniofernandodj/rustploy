@@ -23,6 +23,9 @@ M.fmt_secs = Time.fmt_secs
 M.fmt_uptime = Time.fmt_uptime
 M.fmt_bytes = Time.fmt_bytes
 M.progress_bar = Time.progress_bar
+M.hm_join = Time.hm_join
+M.hm_split = Time.hm_split
+M.WEEKDAYS_JSON = Time.WEEKDAYS_JSON
 
 -- Busca / codificação / estado (fmt/util.luau)
 M.matches = Util.matches

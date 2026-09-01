@@ -965,47 +965,36 @@
               placeholder="/health"
             />
             <text class="label_cap">EXPECTED STATUS</text>
-            <input
-              class="field_input"
-              form_control="f_hc_status"
-              value="f_hc_status"
-              on_change="field:f_hc_status"
-              placeholder="200"
-            />
-            <text if="{erro_f_hc_status}" not_equals="" class="err">
-              {erro_f_hc_status}
-            </text>
+            <spinbox field_class="field_input" form_control="f_hc_status" value="f_hc_status" min="100" max="599" width="90" placeholder="200" />
+            <!-- Era um <input> de texto livre com esta linha de erro abaixo:
+
+              <text if="{erro_f_hc_status}" not_equals="" class="err">
+                {erro_f_hc_status}
+              </text>
+
+              `erro_f_hc_status` nunca foi escrita por ninguém (nem Luau nem
+              Rust) — a validação que ela anunciava não existia, e o handler
+              engolia lixo em silêncio (`tonumber(...) or 200`). Quem valida
+              agora é o próprio widget, que satura em min/max. Mesma história
+              nos outros cinco campos numéricos desta tela. -->
           </if>
+          <!-- Os quatro números do health check. A faixa de cada um sai do que
+            o daemon aceita: intervalo/timeout/start em segundos (1h de teto é
+            folgado para qualquer check razoável), retries na faixa do Docker.
+            As linhas `erro_f_hc_*` que ficavam sob cada campo saíram junto —
+            ver o comentário do EXPECTED STATUS acima. -->
           <row class="hc_grid">
             <column class="hc_field">
               <text class="label_cap">
                 INTERVAL (s)
               </text>
-              <input
-                class="field_input"
-                form_control="f_hc_interval"
-                value="f_hc_interval"
-                on_change="field:f_hc_interval"
-                placeholder=""
-              />
-              <text if="{erro_f_hc_interval}" not_equals="" class="err">
-                {erro_f_hc_interval}
-              </text>
+              <spinbox field_class="field_input" form_control="f_hc_interval" value="f_hc_interval" min="1" max="3600" width="90" />
             </column>
             <column class="hc_field">
               <text class="label_cap">
                 TIMEOUT (s)
               </text>
-              <input
-                class="field_input"
-                form_control="f_hc_timeout"
-                value="f_hc_timeout"
-                on_change="field:f_hc_timeout"
-                placeholder=""
-              />
-              <text if="{erro_f_hc_timeout}" not_equals="" class="err">
-                {erro_f_hc_timeout}
-              </text>
+              <spinbox field_class="field_input" form_control="f_hc_timeout" value="f_hc_timeout" min="1" max="3600" width="90" />
             </column>
           </row>
           <row class="hc_grid">
@@ -1013,31 +1002,13 @@
               <text class="label_cap">
                 RETRIES
               </text>
-              <input
-                class="field_input"
-                form_control="f_hc_retries"
-                value="f_hc_retries"
-                on_change="field:f_hc_retries"
-                placeholder=""
-              />
-              <text if="{erro_f_hc_retries}" not_equals="" class="err">
-                {erro_f_hc_retries}
-              </text>
+              <spinbox field_class="field_input" form_control="f_hc_retries" value="f_hc_retries" min="1" max="10" width="90" />
             </column>
             <column class="hc_field">
               <text class="label_cap">
                 START PERIOD (s)
               </text>
-              <input
-                class="field_input"
-                form_control="f_hc_start"
-                value="f_hc_start"
-                on_change="field:f_hc_start"
-                placeholder=""
-              />
-              <text if="{erro_f_hc_start}" not_equals="" class="err">
-                {erro_f_hc_start}
-              </text>
+              <spinbox field_class="field_input" form_control="f_hc_start" value="f_hc_start" min="0" max="3600" width="90" />
             </column>
           </row>
           <row class="env_add">
@@ -1076,17 +1047,11 @@
           <text class="label_cap">
             REPLICAS
           </text>
-          <input
-            class="field_input"
-            form_control="f_replicas"
-            value="f_replicas"
-            on_change="field:f_replicas"
-            placeholder="1"
-          />
-
-          <text if="{erro_f_replicas}" not_equals="" class="err">
-            {erro_f_replicas}
-          </text>
+          <!-- O teto de 20 é arbitrário mas deliberado: um número acima disso
+            num single-node é quase sempre engano de digitação, e o widget não
+            deixa mais chegar lá. O piso de 1 substitui o `if r < 1 then r = 1`
+            do adv_save, que fica como rede redundante. -->
+          <spinbox field_class="field_input" form_control="f_replicas" value="f_replicas" min="1" max="20" width="90" placeholder="1" />
           <text class="label_cap">
             RUN COMMAND
           </text>

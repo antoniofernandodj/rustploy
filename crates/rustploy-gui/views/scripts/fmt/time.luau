@@ -95,6 +95,48 @@ function M.fmt_duration(dep: any): string
     return M.fmt_secs(secs)
 end
 
+-- Dias da semana no formato que o <radiogroup> do glacier-ui pede: uma coleção
+-- de `{id, label}` no contexto, e não uma lista literal no atributo (o for-each
+-- do motor lê chave, não texto). O `id` é o índice que `Recurrence::Weekly`
+-- usa no daemon — 0 = segunda —, então ele viaja para o payload sem conversão.
+-- Mora aqui, e não em cada tela, porque as duas janelas que agendam por semana
+-- (limpeza automática e jobs) precisam da mesma lista.
+-- Delimitador `[=[ ]=]` (e não `[[ ]]`) porque o conteúdo é um array JSON:
+-- ele começa com `[` e termina com `]`, e as duas pontas encostariam nos
+-- colchetes do próprio literal.
+M.WEEKDAYS_JSON = [=[[{"id":"0","label":"Seg"},{"id":"1","label":"Ter"},{"id":"2","label":"Qua"},{"id":"3","label":"Qui"},{"id":"4","label":"Sex"},{"id":"5","label":"Sáb"},{"id":"6","label":"Dom"}]]=]
+
+-- ── Ponte entre o <timeedit> e o protocolo ──────────────────────────────────
+-- O <timeedit> do glacier-ui (0.68) guarda o horário numa chave ÚNICA, em ISO
+-- ("HH:MM"). O daemon, do outro lado, sempre falou em dois campos separados
+-- (`{hour, minute}`, em Recurrence::Daily/Weekly e em DockerCleanupConfig).
+-- Estas duas funções são a tradução, e existem para que o contrato HTTP não
+-- precise mudar por causa de uma troca de widget.
+
+-- (hour, minute) -> "HH:MM". Aceita número ou string (o unpack das recurrences
+-- devolve string) e satura na faixa válida, para que um valor corrompido vindo
+-- do servidor não produza uma chave que o widget não consegue parsear.
+function M.hm_join(hour: any, minute: any): string
+    local h = math.floor(tonumber(hour) or 0)
+    local m = math.floor(tonumber(minute) or 0)
+    if h < 0 then h = 0 elseif h > 23 then h = 23 end
+    if m < 0 then m = 0 elseif m > 59 then m = 59 end
+    return string.format("%02d:%02d", h, m)
+end
+
+-- "HH:MM" -> hour, minute (números). Uma chave vazia ou malformada vira 0h00,
+-- que é o mesmo default que o `tonumber(...) or 0` dos handlers já usava.
+function M.hm_split(hm: any): (number, number)
+    local texto = tostring(hm or "")
+    local h, m = string.match(texto, "^(%d+):(%d+)$")
+    if not h then return 0, 0 end
+    local hora = math.floor(tonumber(h) or 0)
+    local minuto = math.floor(tonumber(m) or 0)
+    if hora < 0 or hora > 23 then hora = 0 end
+    if minuto < 0 or minuto > 59 then minuto = 0 end
+    return hora, minuto
+end
+
 -- Barra de progresso em blocos.
 function M.progress_bar(percent: any, width: number?): string
     local p = tonumber(percent) or 0

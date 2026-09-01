@@ -1008,21 +1008,32 @@
               <row class="hc_grid" style="margin-top:8px" x-show="$store.app.njobKind === 'interval'">
                 <column class="hc_field">
                   <text class="label_cap">A CADA (HORAS)</text>
-                  <input class="field_input" type="text" x-model="$store.app.njobHours" />
+                  <input class="field_input" type="number" min="1" max="168" x-model="$store.app.njobHours" />
                 </column>
               </row>
               <row class="hc_grid" style="margin-top:8px" x-show="$store.app.njobKind === 'daily' || $store.app.njobKind === 'weekly'">
+                <!-- O dia era um campo de texto livre cujo rótulo explicava a
+                     codificação ("0=seg…6=dom") — pior que o da GUI, que ao menos
+                     tinha os sete botões. Virou <select>, o equivalente HTML do
+                     <radiogroup> que a GUI passou a usar. -->
                 <column class="hc_field" x-show="$store.app.njobKind === 'weekly'">
-                  <text class="label_cap">DIA (0=seg…6=dom)</text>
-                  <input class="field_input" type="text" x-model="$store.app.njobWeekday" />
+                  <text class="label_cap">DIA DA SEMANA</text>
+                  <select class="field_input" x-model="$store.app.njobWeekday">
+                    <option value="0">Seg</option>
+                    <option value="1">Ter</option>
+                    <option value="2">Qua</option>
+                    <option value="3">Qui</option>
+                    <option value="4">Sex</option>
+                    <option value="5">Sáb</option>
+                    <option value="6">Dom</option>
+                  </select>
                 </column>
+                <!-- HORA e MINUTO eram dois campos de texto livre; `type="time"`
+                     é a contraparte nativa do <timeedit> que a GUI passou a usar,
+                     e guarda a mesma chave única "HH:MM" (njobTime). -->
                 <column class="hc_field">
-                  <text class="label_cap">HORA</text>
-                  <input class="field_input" type="text" x-model="$store.app.njobHour" />
-                </column>
-                <column class="hc_field">
-                  <text class="label_cap">MINUTO</text>
-                  <input class="field_input" type="text" x-model="$store.app.njobMinute" />
+                  <text class="label_cap">HORÁRIO</text>
+                  <input class="field_input" type="time" x-model="$store.app.njobTime" />
                 </column>
               </row>
 
@@ -1303,7 +1314,7 @@
             <row class="hc_grid" x-show="store.dcKind === 'interval'" style="margin-top:8px">
               <column class="hc_field">
                 <text class="label_cap">A CADA (HORAS)</text>
-                <input class="field_input" type="text" x-model="store.dcHours" placeholder="6" />
+                <input class="field_input" type="number" min="1" max="168" x-model="store.dcHours" placeholder="6" />
               </column>
             </row>
 
@@ -1317,14 +1328,12 @@
               <button type="button" :class="store.dcWeekday === '6' ? 'tab_on' : 'tab_off'" @click="store.dcWeekday = '6'">Dom</button>
             </row>
 
+            <!-- Mesma troca da tela de jobs: os dois campos de texto livre
+                 viraram um <input type="time">, com a chave única "HH:MM". -->
             <row class="hc_grid" x-show="store.dcKind !== 'interval'" style="margin-top:8px">
               <column class="hc_field">
-                <text class="label_cap">HORA (0-23)</text>
-                <input class="field_input" type="text" x-model="store.dcHour" placeholder="3" />
-              </column>
-              <column class="hc_field">
-                <text class="label_cap">MINUTO (0-59)</text>
-                <input class="field_input" type="text" x-model="store.dcMinute" placeholder="0" />
+                <text class="label_cap">HORÁRIO</text>
+                <input class="field_input" type="time" x-model="store.dcTime" />
               </column>
             </row>
 
@@ -2229,27 +2238,27 @@
                   <text class="label_cap">HTTP PATH</text>
                   <input class="field_input" type="text" x-model="hcPath" placeholder="/health" />
                   <text class="label_cap">EXPECTED STATUS</text>
-                  <input class="field_input" type="text" x-model="hcStatus" placeholder="200" />
+                  <input class="field_input" type="number" min="100" max="599" x-model="hcStatus" placeholder="200" />
                 </column>
               </template>
               <row class="hc_grid" style="margin-top:14px">
                 <column class="hc_field">
                   <text class="label_cap">INTERVAL (s)</text>
-                  <input class="field_input" type="text" x-model="hcInterval" />
+                  <input class="field_input" type="number" min="1" max="3600" x-model="hcInterval" />
                 </column>
                 <column class="hc_field">
                   <text class="label_cap">TIMEOUT (s)</text>
-                  <input class="field_input" type="text" x-model="hcTimeout" />
+                  <input class="field_input" type="number" min="1" max="3600" x-model="hcTimeout" />
                 </column>
               </row>
               <row class="hc_grid">
                 <column class="hc_field">
                   <text class="label_cap">RETRIES</text>
-                  <input class="field_input" type="text" x-model="hcRetries" />
+                  <input class="field_input" type="number" min="1" max="10" x-model="hcRetries" />
                 </column>
                 <column class="hc_field">
                   <text class="label_cap">START PERIOD (s)</text>
-                  <input class="field_input" type="text" x-model="hcStart" />
+                  <input class="field_input" type="number" min="0" max="3600" x-model="hcStart" />
                 </column>
               </row>
               <row class="env_add" style="margin-top:14px">

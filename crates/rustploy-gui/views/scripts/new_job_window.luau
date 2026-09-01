@@ -86,9 +86,13 @@ function init(): ()
 
     ctx.njob_kind = "manual"
     ctx.njob_hours = "6"
-    ctx.njob_hour = "3"
-    ctx.njob_minute = "0"
+    -- Uma chave só, "HH:MM": quem edita o horário agora é o <timeedit> do
+    -- .gv. `unpack_recurrence` segue devolvendo hora/minuto separados (é o
+    -- formato do daemon) e fmt.hm_join/hm_split fazem a ponte.
+    ctx.njob_time = "03:00"
     ctx.njob_weekday = "0"
+    -- Coleção fixa do <radiogroup> de dia da semana (recorrência Semanal).
+    ctx.weekdays = fmt.WEEKDAYS_JSON
     ctx.njob_err = ""
     ctx.njob_msg = ""
 
@@ -122,8 +126,7 @@ function init(): ()
             local kind, hours, hour, minute, weekday = unpack_recurrence(job.recurrence)
             ctx.njob_kind = kind
             ctx.njob_hours = hours
-            ctx.njob_hour = hour
-            ctx.njob_minute = minute
+            ctx.njob_time = fmt.hm_join(hour, minute)
             ctx.njob_weekday = weekday
         end
     end
@@ -265,9 +268,11 @@ function njob_kind(k: string): ()
     ctx.njob_kind = k
 end
 
-function njob_weekday(w: string): ()
-    ctx.njob_weekday = w
-end
+-- Órfão desde que o seletor de dia da semana virou um <radiogroup> — mesma
+-- história do `dc_weekday` em handlers/settings.luau.
+-- function njob_weekday(w: string): ()
+--     ctx.njob_weekday = w
+-- end
 
 function njob_create(): ()
     local api = client()
@@ -331,22 +336,25 @@ function njob_create(): ()
     end
     ctx.njob_err = ""
 
+    -- O caminho de volta do <timeedit>: a chave única "HH:MM" vira os dois
+    -- campos que Recurrence::Daily/Weekly declaram no daemon.
+    local hora, minuto = fmt.hm_split(ctx.njob_time)
     local recurrence: any = nil
     if ctx.njob_kind == "interval" then
         recurrence = { IntervalHours = math.max(1, tonumber(ctx.njob_hours) or 1) }
     elseif ctx.njob_kind == "daily" then
         recurrence = {
             Daily = {
-                hour = tonumber(ctx.njob_hour) or 0,
-                minute = tonumber(ctx.njob_minute) or 0,
+                hour = hora,
+                minute = minuto,
             },
         }
     elseif ctx.njob_kind == "weekly" then
         recurrence = {
             Weekly = {
                 weekday = tonumber(ctx.njob_weekday) or 0,
-                hour = tonumber(ctx.njob_hour) or 0,
-                minute = tonumber(ctx.njob_minute) or 0,
+                hour = hora,
+                minute = minuto,
             },
         }
     end

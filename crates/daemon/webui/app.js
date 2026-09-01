@@ -38,6 +38,8 @@ import {
   dotenvFromVars,
   dockerCleanupLastRunSummary,
   shortReason,
+  hmJoin,
+  hmSplit,
 } from "./fmt.js";
 
 window.Alpine = Alpine;
@@ -157,8 +159,9 @@ document.addEventListener("alpine:init", () => {
     njobEnvText: "",
     njobKind: "manual", // "manual" | "interval" | "daily" | "weekly"
     njobHours: "6",
-    njobHour: "3",
-    njobMinute: "0",
+    // Uma chave só, "HH:MM": quem edita agora é o <input type="time">.
+    // hmJoin/hmSplit fazem a ponte com o {hour, minute} do daemon.
+    njobTime: "03:00",
     njobWeekday: "0",
     njobErr: "",
     njobSubmitting: false,
@@ -205,8 +208,7 @@ document.addEventListener("alpine:init", () => {
     dcEnabled: false,
     dcKind: "daily", // "interval" | "daily" | "weekly"
     dcHours: "6",
-    dcHour: "3",
-    dcMinute: "0",
+    dcTime: "03:00",
     dcWeekday: "0",
     dcContainers: false,
     dcImages: false,
@@ -960,8 +962,7 @@ document.addEventListener("alpine:init", () => {
       this.njobEnvText = "";
       this.njobKind = "manual";
       this.njobHours = "6";
-      this.njobHour = "3";
-      this.njobMinute = "0";
+      this.njobTime = "03:00";
       this.njobWeekday = "0";
       this.njobErr = "";
     },
@@ -1051,15 +1052,16 @@ document.addEventListener("alpine:init", () => {
       if (this.njobKind === "interval") {
         return { IntervalHours: Math.max(1, Number(this.njobHours) || 1) };
       }
+      const [hora, minuto] = hmSplit(this.njobTime);
       if (this.njobKind === "daily") {
-        return { Daily: { hour: Number(this.njobHour) || 0, minute: Number(this.njobMinute) || 0 } };
+        return { Daily: { hour: hora, minute: minuto } };
       }
       if (this.njobKind === "weekly") {
         return {
           Weekly: {
             weekday: Number(this.njobWeekday) || 0,
-            hour: Number(this.njobHour) || 0,
-            minute: Number(this.njobMinute) || 0,
+            hour: hora,
+            minute: minuto,
           },
         };
       }
@@ -1166,13 +1168,11 @@ document.addEventListener("alpine:init", () => {
         this.njobHours = String(rec.IntervalHours);
       } else if (rec?.Daily) {
         this.njobKind = "daily";
-        this.njobHour = String(rec.Daily.hour);
-        this.njobMinute = String(rec.Daily.minute);
+        this.njobTime = hmJoin(rec.Daily.hour, rec.Daily.minute);
       } else if (rec?.Weekly) {
         this.njobKind = "weekly";
         this.njobWeekday = String(rec.Weekly.weekday);
-        this.njobHour = String(rec.Weekly.hour);
-        this.njobMinute = String(rec.Weekly.minute);
+        this.njobTime = hmJoin(rec.Weekly.hour, rec.Weekly.minute);
       } else {
         this.njobKind = "manual";
       }
@@ -1471,13 +1471,11 @@ document.addEventListener("alpine:init", () => {
         this.dcHours = String(r.IntervalHours);
       } else if (r && r.Weekly) {
         this.dcKind = "weekly";
-        this.dcHour = String(r.Weekly.hour);
-        this.dcMinute = String(r.Weekly.minute);
+        this.dcTime = hmJoin(r.Weekly.hour, r.Weekly.minute);
         this.dcWeekday = String(r.Weekly.weekday);
       } else if (r && r.Daily) {
         this.dcKind = "daily";
-        this.dcHour = String(r.Daily.hour);
-        this.dcMinute = String(r.Daily.minute);
+        this.dcTime = hmJoin(r.Daily.hour, r.Daily.minute);
       } else {
         this.dcKind = "daily";
       }
@@ -1497,19 +1495,20 @@ document.addEventListener("alpine:init", () => {
       if (this.dcKind === "interval") {
         return { IntervalHours: Math.max(1, parseInt(this.dcHours, 10) || 1) };
       }
+      const [hora, minuto] = hmSplit(this.dcTime);
       if (this.dcKind === "weekly") {
         return {
           Weekly: {
             weekday: parseInt(this.dcWeekday, 10) || 0,
-            hour: parseInt(this.dcHour, 10) || 0,
-            minute: parseInt(this.dcMinute, 10) || 0,
+            hour: hora,
+            minute: minuto,
           },
         };
       }
       return {
         Daily: {
-          hour: parseInt(this.dcHour, 10) || 0,
-          minute: parseInt(this.dcMinute, 10) || 0,
+          hour: hora,
+          minute: minuto,
         },
       };
     },

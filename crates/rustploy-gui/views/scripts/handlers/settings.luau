@@ -288,8 +288,10 @@ local function dc_apply_config(cfg: any): ()
     local kind, hours, hour, minute, weekday = dc_unpack_recurrence(cfg.recurrence)
     ctx.dc_kind = kind
     ctx.dc_hours = hours
-    ctx.dc_hour = hour
-    ctx.dc_minute = minute
+    -- Uma chave só, "HH:MM", porque quem edita agora é o <timeedit> em home.gv.
+    -- `dc_unpack_recurrence` continua devolvendo hora e minuto separados (é o
+    -- formato do daemon); a junção acontece aqui, na fronteira.
+    ctx.dc_time = fmt.hm_join(hour, minute)
     ctx.dc_weekday = weekday
     ctx.dc_next_run_label = cfg.next_run_at and fmt.date_dm_hm(cfg.next_run_at) or "—"
     State.dc_last_run_at_raw = cfg.last_run_at
@@ -315,26 +317,34 @@ function dc_kind(k: string): ()
     ctx.dc_kind = k
 end
 
-function dc_weekday(w: string): ()
-    ctx.dc_weekday = w
-end
+-- Órfão desde que o seletor de dia da semana virou um <radiogroup> em home.gv:
+-- o builtin grava `dc_weekday` sozinho, no update dele em Rust, e ninguém mais
+-- dispara esta ação. Fica comentado porque volta a ser necessário se algum dia
+-- o grupo voltar a ser markup à mão (ex.: para recuperar a fileira de pílulas).
+-- function dc_weekday(w: string): ()
+--     ctx.dc_weekday = w
+-- end
 
 local function dc_build_recurrence(): any
     if ctx.dc_kind == "interval" then
         return { IntervalHours = math.max(1, tonumber(ctx.dc_hours) or 1) }
-    elseif ctx.dc_kind == "weekly" then
+    end
+    -- O caminho de volta do <timeedit>: a chave única vira os dois campos que
+    -- Recurrence::Daily/Weekly declaram no daemon.
+    local hora, minuto = fmt.hm_split(ctx.dc_time)
+    if ctx.dc_kind == "weekly" then
         return {
             Weekly = {
                 weekday = tonumber(ctx.dc_weekday) or 0,
-                hour = tonumber(ctx.dc_hour) or 0,
-                minute = tonumber(ctx.dc_minute) or 0,
+                hour = hora,
+                minute = minuto,
             },
         }
     end
     return {
         Daily = {
-            hour = tonumber(ctx.dc_hour) or 0,
-            minute = tonumber(ctx.dc_minute) or 0,
+            hour = hora,
+            minute = minuto,
         },
     }
 end
