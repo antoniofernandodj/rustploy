@@ -644,7 +644,12 @@
               direction="vertical"
               class="scroll_fill"
             >
-              <column class="grid">
+              <!-- `virtualize` = altura de UMA fileira de cartões: só as
+                   fileiras visíveis são montadas, e as de fora viram um vão do
+                   tamanho exato (glacier-ui 0.77, ver PRIMITIVAS.md). O valor é
+                   a altura do card; o `spacing: 10` da .grid o motor soma
+                   sozinho. Errar desalinha a barra de rolagem, não quebra. -->
+              <column class="grid" virtualize="273">
                 <row class="card_row" for-each="project_services" var="r">
                   <ServiceCard for-each="r.cards" var="c" spread="{c}" />
                 </row>
