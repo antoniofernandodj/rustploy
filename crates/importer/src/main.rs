@@ -2,9 +2,9 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+mod sink;
 mod source;
 mod transform;
-mod sink;
 mod warnings;
 
 #[derive(Parser)]
@@ -19,7 +19,10 @@ struct Cli {
 enum Commands {
     /// Import data from a Dokploy instance
     Dokploy {
-        #[arg(long, default_value = "postgresql://dokploy:dokploy@localhost:5432/dokploy")]
+        #[arg(
+            long,
+            default_value = "postgresql://dokploy:dokploy@localhost:5432/dokploy"
+        )]
         pg_url: String,
 
         #[arg(long)]
@@ -66,11 +69,11 @@ async fn main() -> Result<()> {
             }
 
             println!("🚀 Iniciando migração do Dokploy...");
-            
+
             // 1. Source
             let source = source::dokploy::DokploySource::new(&final_pg_url).await?;
             let data = source.fetch_all().await?;
-            
+
             println!("✅ Dados extraídos do Dokploy:");
             println!("   - Projetos: {}", data.projects.len());
             println!("   - Aplicações: {}", data.applications.len());
@@ -78,10 +81,10 @@ async fn main() -> Result<()> {
 
             // 2. Transform
             let (transformed, report) = transform::dokploy::transform(data, gitea_url.as_deref());
-            
+
             // 3. Warnings
             report.print();
-            
+
             if report.has_blocking() {
                 println!("\n❌ Migração interrompida devido a erros bloqueantes.");
                 std::process::exit(1);

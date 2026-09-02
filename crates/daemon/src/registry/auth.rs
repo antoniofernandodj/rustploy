@@ -4,13 +4,13 @@
 //! confiável por construção. Ver `docs/plano-registry-embutido.md`.
 
 use base64::Engine;
-use hyper::body::Incoming;
 use hyper::Request;
+use hyper::body::Incoming;
 use sha2::{Digest, Sha256};
 
 use super::error::RegistryError;
-use crate::db::registry_tokens;
 use crate::db::Db;
+use crate::db::registry_tokens;
 
 /// Nível de acesso exigido por uma rota — `Push` satisfaz também exigência de
 /// `Pull` (um token de escrita pode ler).
@@ -32,7 +32,8 @@ fn scope_satisfies(token_scope: &str, required: Scope) -> bool {
 /// comparada, hasheada com SHA-256; o `user` só existe porque o esquema Basic
 /// exige um par usuário/senha (o `docker login` sempre manda os dois).
 pub async fn check(req: &Request<Incoming>, db: &Db, required: Scope) -> Result<(), RegistryError> {
-    let unauthorized = || RegistryError::Unauthorized("credenciais ausentes ou inválidas".to_string());
+    let unauthorized =
+        || RegistryError::Unauthorized("credenciais ausentes ou inválidas".to_string());
 
     let header = req
         .headers()

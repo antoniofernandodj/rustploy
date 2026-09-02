@@ -3,12 +3,12 @@ use anyhow::{Result, anyhow};
 use bollard::{Docker, volume::CreateVolumeOptions};
 use chrono::Utc;
 use shared::{Event, RustployConfig};
+use std::path::Path;
 use std::sync::Arc;
 use tokio::fs::{File, remove_file};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tracing::info;
-use std::path::Path;
 
 const PROJECT_NET_ALIAS: &str = "rp_project_net";
 
@@ -22,7 +22,13 @@ const PROJECT_NET_ALIAS: &str = "rp_project_net";
 async fn registry_login(token: &str) -> Result<()> {
     let port = RustployConfig::global().registry.port;
     let mut child = Command::new("docker")
-        .args(["login", &format!("127.0.0.1:{port}"), "-u", "rp-internal", "--password-stdin"])
+        .args([
+            "login",
+            &format!("127.0.0.1:{port}"),
+            "-u",
+            "rp-internal",
+            "--password-stdin",
+        ])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::piped())
@@ -63,18 +69,16 @@ async fn registry_logout() -> Result<()> {
     Ok(())
 }
 
-pub fn inject_project_network(
-    content: &str,
-    network_name: &str
-) -> Result<String> {
+pub fn inject_project_network(content: &str, network_name: &str) -> Result<String> {
     use serde_yaml::Value;
-    let mut doc: Value = serde_yaml::from_str(content)
-        .map_err(|e| anyhow!("compose YAML inválido: {e}"))?;
+    let mut doc: Value =
+        serde_yaml::from_str(content).map_err(|e| anyhow!("compose YAML inválido: {e}"))?;
 
     if doc.is_null() {
         doc = Value::Mapping(serde_yaml::Mapping::new());
     }
-    let root = doc.as_mapping_mut()
+    let root = doc
+        .as_mapping_mut()
         .ok_or_else(|| anyhow!("compose YAML não é um mapping no nível raiz"))?;
 
     let alias_key = Value::String(PROJECT_NET_ALIAS.to_string());
@@ -82,37 +86,28 @@ pub fn inject_project_network(
     if !root.contains_key(&networks_key) {
         root.insert(
             networks_key.clone(),
-            Value::Mapping(serde_yaml::Mapping::new())
+            Value::Mapping(serde_yaml::Mapping::new()),
         );
     }
-    let networks = root.get_mut(&networks_key)
+    let networks = root
+        .get_mut(&networks_key)
         .and_then(Value::as_mapping_mut)
         .ok_or_else(|| anyhow!("`networks:` no compose não é um mapping"))?;
 
-    let already_present = networks
-        .contains_key(&alias_key) ||
-            networks.values()
-                .any(
-                    |v| v.as_mapping()
-                        .and_then(
-                            |m| m.get(
-                                Value::String("name".to_string())
-                            )
-                        )
-                        .and_then(Value::as_str) == Some(network_name)
-                );
+    let already_present = networks.contains_key(&alias_key)
+        || networks.values().any(|v| {
+            v.as_mapping()
+                .and_then(|m| m.get(Value::String("name".to_string())))
+                .and_then(Value::as_str)
+                == Some(network_name)
+        });
 
     if !already_present {
         let mut entry = serde_yaml::Mapping::new();
-        entry.insert(
-            Value::String(
-                "external".to_string()
-            ),
-            Value::Bool(true)
-        );
+        entry.insert(Value::String("external".to_string()), Value::Bool(true));
         entry.insert(
             Value::String("name".to_string()),
-            Value::String(network_name.to_string())
+            Value::String(network_name.to_string()),
         );
         networks.insert(alias_key.clone(), Value::Mapping(entry));
     }
@@ -120,49 +115,41 @@ pub fn inject_project_network(
     if let Some(services_val) = root.get_mut(&services_key) {
         let services = services_val
             .as_mapping_mut()
-            .ok_or_else(
-                || anyhow!("`services:` no compose não é um mapping")
-            )?;
+            .ok_or_else(|| anyhow!("`services:` no compose não é um mapping"))?;
 
         let svc_net_key = Value::String("networks".to_string());
         for (_, svc) in services.iter_mut() {
-            let Some(svc_map) = svc.as_mapping_mut() else { continue; };
+            let Some(svc_map) = svc.as_mapping_mut() else {
+                continue;
+            };
             match svc_map.get_mut(&svc_net_key) {
                 Some(Value::Sequence(seq)) => {
-                    if !seq.iter().any(
-                        |v| v.as_str() == Some(PROJECT_NET_ALIAS)) {
-                            seq.push(Value::String(PROJECT_NET_ALIAS.to_string()));
+                    if !seq.iter().any(|v| v.as_str() == Some(PROJECT_NET_ALIAS)) {
+                        seq.push(Value::String(PROJECT_NET_ALIAS.to_string()));
                     }
                 }
                 Some(Value::Mapping(map)) => {
                     if !map.contains_key(&alias_key) {
                         map.insert(
                             alias_key.clone(),
-                            Value::Mapping(serde_yaml::Mapping::new())
+                            Value::Mapping(serde_yaml::Mapping::new()),
                         );
                     }
                 }
                 Some(other) if other.is_null() => {
-                    *other = Value::Sequence(
-                        vec![Value::String(PROJECT_NET_ALIAS.to_string())]
-                    );
+                    *other = Value::Sequence(vec![Value::String(PROJECT_NET_ALIAS.to_string())]);
                 }
                 Some(_) => {}
                 None => {
                     svc_map.insert(
                         svc_net_key.clone(),
-                        Value::Sequence(
-                            vec![Value::String(PROJECT_NET_ALIAS.to_string())]
-                        )
+                        Value::Sequence(vec![Value::String(PROJECT_NET_ALIAS.to_string())]),
                     );
                 }
             }
         }
     }
-    serde_yaml::to_string(&doc)
-        .map_err(
-            |e| anyhow!("falha ao serializar compose YAML: {e}")
-        )
+    serde_yaml::to_string(&doc).map_err(|e| anyhow!("falha ao serializar compose YAML: {e}"))
 }
 
 /// Garante que todo volume declarado `external: true` no compose já exista no
@@ -174,15 +161,17 @@ pub fn inject_project_network(
 pub async fn ensure_external_volumes(docker: &Docker, content: &str) -> Result<()> {
     use serde_yaml::Value;
 
-    let doc: Value = serde_yaml::from_str(content)
-        .map_err(|e| anyhow!("compose YAML inválido: {e}"))?;
+    let doc: Value =
+        serde_yaml::from_str(content).map_err(|e| anyhow!("compose YAML inválido: {e}"))?;
 
     let Some(volumes) = doc.get("volumes").and_then(Value::as_mapping) else {
         return Ok(());
     };
 
     for (key, def) in volumes {
-        let Some(map) = def.as_mapping() else { continue; };
+        let Some(map) = def.as_mapping() else {
+            continue;
+        };
 
         let is_external = map
             .get(Value::String("external".to_string()))
@@ -197,7 +186,9 @@ pub async fn ensure_external_volumes(docker: &Docker, content: &str) -> Result<(
             .and_then(Value::as_str)
             .map(str::to_string)
             .or_else(|| key.as_str().map(str::to_string));
-        let Some(name) = name else { continue; };
+        let Some(name) = name else {
+            continue;
+        };
 
         if docker.inspect_volume(&name).await.is_ok() {
             info!(volume = %name, "compose::ensure_external_volumes: volume já existe");
@@ -240,11 +231,13 @@ pub async fn up(
     // Criar arquivos .env e docker-compose.yml
     let env_file_path = build_dir.join(".env");
     let compose_file_path = build_dir.join("docker-compose.yml");
-    
+
     {
         let mut env_file = File::create(&env_file_path).await?;
         for (k, v) in env_vars {
-            env_file.write_all(format!("{}={}\n", k, v).as_bytes()).await?;
+            env_file
+                .write_all(format!("{}={}\n", k, v).as_bytes())
+                .await?;
         }
         env_file.flush().await?;
     } // Aqui o arquivo é fechado
@@ -282,7 +275,7 @@ pub async fn up(
 
     let stdout = BufReader::new(child.stdout.take().unwrap());
     let stderr = BufReader::new(child.stderr.take().unwrap());
-    
+
     let bus_s = bus.clone();
     let db_s = db.clone();
     let sid = service_id.to_string();
@@ -290,19 +283,17 @@ pub async fn up(
     let read_stdout = async move {
         let mut lines = stdout.lines();
         while let Ok(Some(line)) = lines.next_line().await {
-            if line.trim().is_empty() { continue; }
+            if line.trim().is_empty() {
+                continue;
+            }
             let ts = Utc::now();
-            bus_s.publish(
-                Event::BuildLog {
-                    deployment_id: did.clone(),
-                    service_id: sid.clone(),
-                    line: line.clone(),
-                    timestamp: ts
-                }
-            );
-            let _ = crate::db::build_logs::append(
-                &db_s, &did, &line, ts
-            ).await;
+            bus_s.publish(Event::BuildLog {
+                deployment_id: did.clone(),
+                service_id: sid.clone(),
+                line: line.clone(),
+                timestamp: ts,
+            });
+            let _ = crate::db::build_logs::append(&db_s, &did, &line, ts).await;
         }
     };
     let bus_e = bus.clone();
@@ -312,31 +303,25 @@ pub async fn up(
     let read_stderr = async move {
         let mut lines = stderr.lines();
         while let Ok(Some(line)) = lines.next_line().await {
-            if line.trim().is_empty() { continue; }
+            if line.trim().is_empty() {
+                continue;
+            }
             let ts = Utc::now();
-            bus_e.publish(
-                Event::BuildLog {
-                    deployment_id: did_e.clone(),
-                    service_id: sid_e.clone(),
-                    line: line.clone(),
-                    timestamp: ts
-                }
-            );
-            let _ = crate::db::build_logs::append(
-                &db_e,
-                &did_e,
-                &line,
-                ts
-            ).await;
+            bus_e.publish(Event::BuildLog {
+                deployment_id: did_e.clone(),
+                service_id: sid_e.clone(),
+                line: line.clone(),
+                timestamp: ts,
+            });
+            let _ = crate::db::build_logs::append(&db_e, &did_e, &line, ts).await;
         }
     };
 
     tokio::join!(read_stdout, read_stderr);
-    let status = child.wait()
+    let status = child
+        .wait()
         .await
-        .map_err(
-            |e| anyhow!("falha ao aguardar: {e}")
-        )?;
+        .map_err(|e| anyhow!("falha ao aguardar: {e}"))?;
 
     if registry_internal_token.is_some() {
         if let Err(e) = registry_logout().await {
@@ -373,7 +358,9 @@ pub enum JobBuildSource<'a> {
     Compose(&'a str),
     /// Caminho relativo a `build_dir` de um `docker-compose.yml` já presente
     /// no clone (ex.: `"docker-compose.yml"` ou `"ci/docker-compose.yml"`).
-    Git { compose_rel_path: &'a str },
+    Git {
+        compose_rel_path: &'a str,
+    },
 }
 
 /// Exit code sentinel pra "job_run cancelado pelo usuário" (`JobRunCancel`)
@@ -443,7 +430,9 @@ pub async fn run_once(
     {
         let mut env_file = File::create(&env_file_path).await?;
         for (k, v) in env_vars {
-            env_file.write_all(format!("{}={}\n", k, v).as_bytes()).await?;
+            env_file
+                .write_all(format!("{}={}\n", k, v).as_bytes())
+                .await?;
         }
         env_file.flush().await?;
     }
@@ -570,7 +559,14 @@ async fn run_once_up(
                 timestamp: ts,
                 stream: shared::protocol::LogStream::Stdout,
             });
-            let _ = crate::db::job_log::append(&db_s, &rid, &shared::protocol::LogStream::Stdout, &line, ts).await;
+            let _ = crate::db::job_log::append(
+                &db_s,
+                &rid,
+                &shared::protocol::LogStream::Stdout,
+                &line,
+                ts,
+            )
+            .await;
             if let Some((deployment_id, service_id)) = &mirror_s {
                 let _ = crate::db::build_logs::append(&db_s, deployment_id, &line, ts).await;
                 bus_s.publish(Event::BuildLog {
@@ -606,7 +602,14 @@ async fn run_once_up(
                 timestamp: ts,
                 stream: shared::protocol::LogStream::Stderr,
             });
-            let _ = crate::db::job_log::append(&db_e, &rid_e, &shared::protocol::LogStream::Stderr, &line, ts).await;
+            let _ = crate::db::job_log::append(
+                &db_e,
+                &rid_e,
+                &shared::protocol::LogStream::Stderr,
+                &line,
+                ts,
+            )
+            .await;
             if let Some((deployment_id, service_id)) = &mirror_e {
                 let _ = crate::db::build_logs::append(&db_e, deployment_id, &line, ts).await;
                 bus_e.publish(Event::BuildLog {
@@ -661,7 +664,7 @@ pub async fn down(
     content: &str,
     project_name: &str,
     _network_name: &str,
-    env_vars: &[(String, String)]
+    env_vars: &[(String, String)],
 ) -> Result<()> {
     info!(project = %project_name, "compose_down: iniciando");
     let mut child = Command::new("docker")
@@ -687,9 +690,7 @@ pub async fn down(
     let output = child
         .wait_with_output()
         .await
-        .map_err(
-            |e| anyhow!("falha ao aguardar compose down: {e}")
-        )?;
+        .map_err(|e| anyhow!("falha ao aguardar compose down: {e}"))?;
 
     if !output.status.success() {
         return Err(anyhow!("docker compose down falhou"));
@@ -712,7 +713,10 @@ mod tests {
 
     #[test]
     fn drops_other_service_lines() {
-        assert_eq!(filter_main_service_line("side-1  | hello world", "main"), None);
+        assert_eq!(
+            filter_main_service_line("side-1  | hello world", "main"),
+            None
+        );
     }
 
     #[test]
@@ -725,8 +729,14 @@ mod tests {
 
     #[test]
     fn drops_compose_control_lines_without_pipe() {
-        assert_eq!(filter_main_service_line(" Container rp-main-1 Started ", "main"), None);
-        assert_eq!(filter_main_service_line("main-1 exited with code 0", "main"), None);
+        assert_eq!(
+            filter_main_service_line(" Container rp-main-1 Started ", "main"),
+            None
+        );
+        assert_eq!(
+            filter_main_service_line("main-1 exited with code 0", "main"),
+            None
+        );
     }
 
     #[test]
@@ -741,9 +751,12 @@ mod tests {
         // chamada começar, `changed()` não perde o sinal.
         let (tx, mut rx) = tokio::sync::watch::channel(false);
         tx.send(true).unwrap();
-        tokio::time::timeout(std::time::Duration::from_millis(200), wait_for_cancel(&mut rx))
-            .await
-            .expect("wait_for_cancel não deveria bloquear quando já está true");
+        tokio::time::timeout(
+            std::time::Duration::from_millis(200),
+            wait_for_cancel(&mut rx),
+        )
+        .await
+        .expect("wait_for_cancel não deveria bloquear quando já está true");
     }
 
     #[tokio::test]
@@ -766,8 +779,11 @@ mod tests {
         // pode travar pra sempre.
         let (tx, mut rx) = tokio::sync::watch::channel(false);
         drop(tx);
-        tokio::time::timeout(std::time::Duration::from_millis(200), wait_for_cancel(&mut rx))
-            .await
-            .expect("wait_for_cancel não deveria travar com o sender derrubado");
+        tokio::time::timeout(
+            std::time::Duration::from_millis(200),
+            wait_for_cancel(&mut rx),
+        )
+        .await
+        .expect("wait_for_cancel não deveria travar com o sender derrubado");
     }
 }

@@ -27,7 +27,13 @@ impl Report {
         self.push(Severity::Blocking, scope, code, msg, None);
     }
 
-    pub fn warn(&mut self, scope: impl Into<String>, code: &str, msg: impl Into<String>, hint: impl Into<String>) {
+    pub fn warn(
+        &mut self,
+        scope: impl Into<String>,
+        code: &str,
+        msg: impl Into<String>,
+        hint: impl Into<String>,
+    ) {
         self.push(Severity::Warning, scope, code, msg, Some(hint.into()));
     }
 
@@ -53,15 +59,32 @@ impl Report {
     }
 
     pub fn print(&self) {
-        let blocking: Vec<_> = self.issues.iter().filter(|i| i.severity == Severity::Blocking).collect();
-        let warnings: Vec<_> = self.issues.iter().filter(|i| i.severity == Severity::Warning).collect();
-        let infos: Vec<_> = self.issues.iter().filter(|i| i.severity == Severity::Info).collect();
+        let blocking: Vec<_> = self
+            .issues
+            .iter()
+            .filter(|i| i.severity == Severity::Blocking)
+            .collect();
+        let warnings: Vec<_> = self
+            .issues
+            .iter()
+            .filter(|i| i.severity == Severity::Warning)
+            .collect();
+        let infos: Vec<_> = self
+            .issues
+            .iter()
+            .filter(|i| i.severity == Severity::Info)
+            .collect();
 
         if !blocking.is_empty() {
-            eprintln!("\n\x1b[31m=== ERROS BLOQUEANTES ({}) ===\x1b[0m", blocking.len());
+            eprintln!(
+                "\n\x1b[31m=== ERROS BLOQUEANTES ({}) ===\x1b[0m",
+                blocking.len()
+            );
             for i in &blocking {
                 eprintln!("  \x1b[31m[{}]\x1b[0m [{}] {}", i.code, i.scope, i.message);
-                if let Some(h) = &i.hint { eprintln!("        → {h}"); }
+                if let Some(h) = &i.hint {
+                    eprintln!("        → {h}");
+                }
             }
         }
 
@@ -69,7 +92,9 @@ impl Report {
             eprintln!("\n\x1b[33m=== WARNINGS ({}) ===\x1b[0m", warnings.len());
             for i in &warnings {
                 eprintln!("  \x1b[33m[{}]\x1b[0m [{}] {}", i.code, i.scope, i.message);
-                if let Some(h) = &i.hint { eprintln!("        → {h}"); }
+                if let Some(h) = &i.hint {
+                    eprintln!("        → {h}");
+                }
             }
         }
 

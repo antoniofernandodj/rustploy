@@ -88,8 +88,7 @@ async fn main() -> Result<()> {
     };
     let certs_dir = resolve_data_path(&config.daemon.db_path).join("certs");
     let tls = Arc::new(
-        TlsManager::new(certs_dir, acme_config.clone())
-            .expect("failed to initialize TLS manager"),
+        TlsManager::new(certs_dir, acme_config.clone()).expect("failed to initialize TLS manager"),
     );
 
     // Token interno usado pelo deploy executor pra puxar imagens do próprio
@@ -307,8 +306,7 @@ async fn main() -> Result<()> {
     {
         let tls_renew = tls.clone();
         tokio::spawn(async move {
-            let mut interval =
-                tokio::time::interval(std::time::Duration::from_secs(12 * 3600));
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(12 * 3600));
             loop {
                 interval.tick().await;
                 match tls_renew.renew_expiring().await {

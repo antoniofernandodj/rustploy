@@ -5,20 +5,20 @@ use shared::{EnvComment, EnvVar, Job, JobGitSource, Recurrence};
 use ulid::Ulid;
 
 type JobRow = (
-    String,         // id
-    String,         // project_id
-    String,         // trigger_service_id
-    String,         // name
-    String,         // compose
-    String,         // main_service
-    bool,           // enabled
-    Option<String>, // recurrence (JSON)
+    String,                // id
+    String,                // project_id
+    String,                // trigger_service_id
+    String,                // name
+    String,                // compose
+    String,                // main_service
+    bool,                  // enabled
+    Option<String>,        // recurrence (JSON)
     Option<DateTime<Utc>>, // last_run_at
     Option<DateTime<Utc>>, // next_run_at
-    DateTime<Utc>,  // created_at
-    Option<String>, // git_source (JSON)
-    String,         // env_vars (JSON)
-    String,         // env_comments (JSON)
+    DateTime<Utc>,         // created_at
+    Option<String>,        // git_source (JSON)
+    String,                // env_vars (JSON)
+    String,                // env_comments (JSON)
 );
 
 const SELECT_COLS: &str = "id, project_id, trigger_service_id, name, compose, main_service, \
@@ -268,11 +268,10 @@ pub async fn count_by_project(db: &Db, project_id: &str) -> Result<i64> {
 /// `service_delete` — a GUI avisa no confirm antes). Cada job leva o próprio
 /// histórico junto via `delete`. Retorna quantos jobs foram removidos.
 pub async fn delete_by_trigger_service(db: &Db, service_id: &str) -> Result<u64> {
-    let ids: Vec<(String,)> =
-        sqlx::query_as("SELECT id FROM job WHERE trigger_service_id = ?")
-            .bind(service_id)
-            .fetch_all(db)
-            .await?;
+    let ids: Vec<(String,)> = sqlx::query_as("SELECT id FROM job WHERE trigger_service_id = ?")
+        .bind(service_id)
+        .fetch_all(db)
+        .await?;
     let mut removed = 0u64;
     for (id,) in ids {
         if delete(db, &id).await? {
@@ -315,7 +314,16 @@ mod tests {
         assert_eq!(got.recurrence, Some(Recurrence::IntervalHours(6)));
 
         let updated = update(
-            &db, &job.id, "backup2", &job.compose, None, "backup", &[], &[], false, None,
+            &db,
+            &job.id,
+            "backup2",
+            &job.compose,
+            None,
+            "backup",
+            &[],
+            &[],
+            false,
+            None,
         )
         .await
         .unwrap()
@@ -336,24 +344,48 @@ mod tests {
             .await
             .unwrap();
         let run = super::super::job_run::create(&db, &job.id).await.unwrap();
-        super::super::job_log::append(&db, &run.id, &shared::protocol::LogStream::Stdout, "oi", Utc::now())
-            .await
-            .unwrap();
+        super::super::job_log::append(
+            &db,
+            &run.id,
+            &shared::protocol::LogStream::Stdout,
+            "oi",
+            Utc::now(),
+        )
+        .await
+        .unwrap();
 
         assert!(delete(&db, &job.id).await.unwrap());
-        assert!(super::super::job_run::get(&db, &run.id).await.unwrap().is_none());
-        assert!(super::super::job_log::get_for_run(&db, &run.id)
-            .await
-            .unwrap()
-            .is_empty());
+        assert!(
+            super::super::job_run::get(&db, &run.id)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            super::super::job_log::get_for_run(&db, &run.id)
+                .await
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[tokio::test]
     async fn contagem_por_projeto_e_cascade_por_gatilho() {
         let db = mem_db().await;
-        let gatilhado = create(&db, "prj_1", Some("svc_1"), "a", "c", None, "m", &[], &[], None)
-            .await
-            .unwrap();
+        let gatilhado = create(
+            &db,
+            "prj_1",
+            Some("svc_1"),
+            "a",
+            "c",
+            None,
+            "m",
+            &[],
+            &[],
+            None,
+        )
+        .await
+        .unwrap();
         let autonomo = create(&db, "prj_1", None, "b", "c", None, "m", &[], &[], None)
             .await
             .unwrap();
@@ -371,9 +403,20 @@ mod tests {
     #[tokio::test]
     async fn job_sem_servico_gatilho_ida_e_volta_none() {
         let db = mem_db().await;
-        let job = create(&db, "prj_1", None, "autonomo", "c", None, "m", &[], &[], None)
-            .await
-            .unwrap();
+        let job = create(
+            &db,
+            "prj_1",
+            None,
+            "autonomo",
+            "c",
+            None,
+            "m",
+            &[],
+            &[],
+            None,
+        )
+        .await
+        .unwrap();
         assert_eq!(job.trigger_service_id, None);
 
         let got = get(&db, &job.id).await.unwrap().unwrap();
@@ -419,9 +462,20 @@ mod tests {
         )
         .await
         .unwrap();
-        let _manual = create(&db, "p", Some("s"), "manual", "c", None, "m", &[], &[], None)
-            .await
-            .unwrap();
+        let _manual = create(
+            &db,
+            "p",
+            Some("s"),
+            "manual",
+            "c",
+            None,
+            "m",
+            &[],
+            &[],
+            None,
+        )
+        .await
+        .unwrap();
 
         let due = list_due(&db, Utc::now()).await.unwrap();
         assert_eq!(due.len(), 1);

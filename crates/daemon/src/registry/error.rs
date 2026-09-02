@@ -6,7 +6,7 @@
 use std::convert::Infallible;
 
 use bytes::Bytes;
-use http_body_util::{combinators::BoxBody, BodyExt, Full};
+use http_body_util::{BodyExt, Full, combinators::BoxBody};
 use hyper::{Response, StatusCode};
 
 /// Body unificado das respostas do registry — mesmo padrão de `ApiBody` em

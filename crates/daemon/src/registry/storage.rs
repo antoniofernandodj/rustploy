@@ -319,7 +319,10 @@ mod tests {
         assert_eq!(info.digest, expected);
         assert_eq!(info.size, full.len() as u64);
         assert!(storage.blob_exists(&expected).await);
-        assert_eq!(storage.blob_len(&expected).await.unwrap(), full.len() as u64);
+        assert_eq!(
+            storage.blob_len(&expected).await.unwrap(),
+            full.len() as u64
+        );
     }
 
     #[tokio::test]

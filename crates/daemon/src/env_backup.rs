@@ -130,7 +130,11 @@ pub async fn list_snapshots(backup_dir: &PathBuf) -> anyhow::Result<Vec<String>>
 
 // ── Restaurar snapshot ────────────────────────────────────────────────────────
 
-pub async fn restore_snapshot(db: &Db, backup_dir: &PathBuf, snapshot: &str) -> anyhow::Result<usize> {
+pub async fn restore_snapshot(
+    db: &Db,
+    backup_dir: &PathBuf,
+    snapshot: &str,
+) -> anyhow::Result<usize> {
     // Valida que o nome não contém traversal
     anyhow::ensure!(
         !snapshot.contains('/') && !snapshot.contains('\\'),

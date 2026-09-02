@@ -25,7 +25,7 @@ use std::convert::Infallible;
 use std::sync::Arc;
 
 use bytes::Bytes;
-use http_body_util::{combinators::BoxBody, BodyExt, Full, StreamBody};
+use http_body_util::{BodyExt, Full, StreamBody, combinators::BoxBody};
 use hyper::body::{Frame, Incoming};
 use hyper::service::service_fn;
 use hyper::{Method, Request, Response, StatusCode};
@@ -33,10 +33,10 @@ use hyper_util::rt::TokioIo;
 use shared::{ApiConfig, Command, Event, Response as RpResponse};
 use tracing::{error, info, warn};
 
+use super::AppState;
 use super::public_routes;
 use super::routes::dispatch;
 use super::web_ui;
-use super::AppState;
 use crate::ingress::TlsManager;
 
 /// Unified response body: both the buffered (`Full`) replies and the streaming
@@ -51,11 +51,7 @@ type ApiBody = BoxBody<Bytes, Infallible>;
 /// same port** using a Let's Encrypt certificate provisioned through `tls`
 /// (auto-renewed by the ingress' ACME loop). Otherwise it serves plain HTTP,
 /// as before. The port is always taken from `cfg.port` (config.toml `[api].port`).
-pub async fn run(
-    state: AppState,
-    cfg: ApiConfig,
-    tls: Option<Arc<TlsManager>>
-) {
+pub async fn run(state: AppState, cfg: ApiConfig, tls: Option<Arc<TlsManager>>) {
     // Trim: um token vindo de `EnvironmentFile` ou de um TOML copiado à mão
     // chega com frequência com espaço/`\n` em volta. O header HTTP já perde
     // esses bytes na borda (OWS), então SEM o trim aqui o cliente manda o token
@@ -149,9 +145,9 @@ pub async fn run(
         tokio::spawn(async move {
             match acceptor {
                 Some(acc) => match acc.accept(stream).await {
-                    Ok(tls_stream) => serve_conn(
-                        TokioIo::new(tls_stream), state, token, peer
-                    ).await,
+                    Ok(tls_stream) => {
+                        serve_conn(TokioIo::new(tls_stream), state, token, peer).await
+                    }
                     Err(e) => tracing::debug!(
                         peer = %peer, error = %e, "API: TLS handshake falhou"
                     ),
@@ -167,9 +163,8 @@ async fn serve_conn<I>(
     io: I,
     state: AppState,
     token: Arc<Option<String>>,
-    peer: std::net::SocketAddr
-)
-where
+    peer: std::net::SocketAddr,
+) where
     I: hyper::rt::Read + hyper::rt::Write + Unpin + 'static,
 {
     let svc = service_fn(move |req| handle(req, state.clone(), token.clone(), peer));
@@ -265,9 +260,7 @@ async fn handle(
             }
         }
         // SSE dedicado de build logs de um deployment: `/api/deployments/<id>/build-logs`.
-        (&Method::GET, p)
-            if p.starts_with("/api/deployments/") && p.ends_with("/build-logs") =>
-        {
+        (&Method::GET, p) if p.starts_with("/api/deployments/") && p.ends_with("/build-logs") => {
             let id = p
                 .strip_prefix("/api/deployments/")
                 .and_then(|s| s.strip_suffix("/build-logs"))
@@ -279,9 +272,7 @@ async fn handle(
             }
         }
         // SSE dedicado de logs de UMA execução de job: `/api/jobs/runs/<id>/logs`.
-        (&Method::GET, p)
-            if p.starts_with("/api/jobs/runs/") && p.ends_with("/logs") =>
-        {
+        (&Method::GET, p) if p.starts_with("/api/jobs/runs/") && p.ends_with("/logs") => {
             let id = p
                 .strip_prefix("/api/jobs/runs/")
                 .and_then(|s| s.strip_suffix("/logs"))
@@ -328,23 +319,16 @@ async fn service_archive_upload(
 
 /// `POST /api/rpc`: decode a `Command`, run it through `dispatch`, encode the
 /// `Response` back as JSON.
-async fn rpc(
-    req: Request<Incoming>,
-    state: AppState
-) -> Response<ApiBody> {
+async fn rpc(req: Request<Incoming>, state: AppState) -> Response<ApiBody> {
     // Lê o Accept-Encoding ANTES de consumir o corpo com `into_body`.
     let accept_gzip = accepts_gzip(&req);
     let body = match req.into_body().collect().await {
         Ok(c) => c.to_bytes(),
-        Err(_) => return text(
-            StatusCode::BAD_REQUEST, "erro ao ler o corpo"
-        ),
+        Err(_) => return text(StatusCode::BAD_REQUEST, "erro ao ler o corpo"),
     };
     let cmd: Command = match serde_json::from_slice(&body) {
         Ok(c) => c,
-        Err(e) => return text(
-            StatusCode::BAD_REQUEST, format!("comando inválido: {e}")
-        ),
+        Err(e) => return text(StatusCode::BAD_REQUEST, format!("comando inválido: {e}")),
     };
     let resp = dispatch(state, cmd).await;
     match serde_json::to_vec(&resp) {
@@ -365,13 +349,15 @@ fn events(state: AppState) -> Response<ApiBody> {
     tokio::spawn(async move {
         use tokio::sync::broadcast::error::RecvError;
         let mut bus_rx = state.bus.subscribe();
-        let mut ticker = tokio::time::interval(
-            std::time::Duration::from_secs(2)
-        );
+        let mut ticker = tokio::time::interval(std::time::Duration::from_secs(2));
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
         // Snapshot inicial imediato, para o cliente pintar sem esperar o 1º tick.
-        if tx.send(sse_frame("snapshot", &snapshot(&state).await)).await.is_err() {
+        if tx
+            .send(sse_frame("snapshot", &snapshot(&state).await))
+            .await
+            .is_err()
+        {
             return;
         }
 
@@ -438,9 +424,7 @@ fn service_logs(state: AppState, service_id: String) -> Response<ApiBody> {
         let mut bus_rx = state.bus.subscribe();
         const LOG_BATCH_MAX: usize = 400;
         let mut batch: Vec<Event> = Vec::new();
-        let mut batch_flush = tokio::time::interval(
-            std::time::Duration::from_millis(80)
-        );
+        let mut batch_flush = tokio::time::interval(std::time::Duration::from_millis(80));
         batch_flush.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
         loop {
@@ -490,9 +474,7 @@ fn deployment_build_logs(state: AppState, deployment_id: String) -> Response<Api
         let mut bus_rx = state.bus.subscribe();
         const LOG_BATCH_MAX: usize = 400;
         let mut batch: Vec<Event> = Vec::new();
-        let mut batch_flush = tokio::time::interval(
-            std::time::Duration::from_millis(80)
-        );
+        let mut batch_flush = tokio::time::interval(std::time::Duration::from_millis(80));
         batch_flush.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
         loop {
@@ -541,9 +523,7 @@ fn job_run_logs(state: AppState, job_run_id: String) -> Response<ApiBody> {
         let mut bus_rx = state.bus.subscribe();
         const LOG_BATCH_MAX: usize = 400;
         let mut batch: Vec<Event> = Vec::new();
-        let mut batch_flush = tokio::time::interval(
-            std::time::Duration::from_millis(80)
-        );
+        let mut batch_flush = tokio::time::interval(std::time::Duration::from_millis(80));
         batch_flush.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
         loop {
@@ -605,46 +585,32 @@ fn sse_response(mut rx: tokio::sync::mpsc::Receiver<Bytes>) -> Response<ApiBody>
 /// client (Luau) reshapes/filters it. `services` fans out one `ServiceList` per
 /// project, tagging each service with its project name.
 pub(crate) async fn snapshot(state: &AppState) -> String {
-    use serde_json::{json, Map, Value};
+    use serde_json::{Map, Value, json};
     let mut obj = Map::new();
     // Self-describing record (see module docs): the SSE client only sees the
     // `data:` payload, so the `snapshot`/`bus` discriminator lives here.
     obj.insert("kind".into(), Value::String("snapshot".into()));
 
-    if let RpResponse::DaemonStatus(d) =
-        dispatch(
-            state.clone(),
-            Command::DaemonStatus
-        ).await {
-            obj.insert(
-                "status".into(),
-                serde_json::to_value(d).unwrap_or(Value::Null)
-            );
+    if let RpResponse::DaemonStatus(d) = dispatch(state.clone(), Command::DaemonStatus).await {
+        obj.insert(
+            "status".into(),
+            serde_json::to_value(d).unwrap_or(Value::Null),
+        );
     }
     if let RpResponse::DeploymentSummaries(list) =
-        dispatch(
-            state.clone(),
-            Command::RecentDeployments { limit: 40 }
-        ).await
+        dispatch(state.clone(), Command::RecentDeployments { limit: 40 }).await
     {
         obj.insert(
             "deployments".into(),
-            serde_json::to_value(list)
-                .unwrap_or(Value::Null)
+            serde_json::to_value(list).unwrap_or(Value::Null),
         );
     }
-    if let RpResponse::Projects(projects) =
-        dispatch(
-            state.clone(),
-            Command::ProjectList
-        ).await {
+    if let RpResponse::Projects(projects) = dispatch(state.clone(), Command::ProjectList).await {
         // Uma única listagem do Docker indexa todos os containers por service_id
         // e por projeto Compose, para anexar a cada serviço os containers reais
         // em execução (id + nome + estado) — cobre réplicas, staging e Compose.
         let container_index =
-            crate::docker::containers::index_containers(
-                &state.docker.inner
-            ).await;
+            crate::docker::containers::index_containers(&state.docker.inner).await;
         let mut services = Vec::new();
         let mut projects_json = Vec::new();
         for p in &projects {
@@ -655,7 +621,9 @@ pub(crate) async fn snapshot(state: &AppState) -> String {
             let mut pv = serde_json::to_value(p).unwrap_or(Value::Null);
             if let RpResponse::SecretNames(names) = dispatch(
                 state.clone(),
-                Command::SecretList { project_id: p.id.clone() },
+                Command::SecretList {
+                    project_id: p.id.clone(),
+                },
             )
             .await
             {
@@ -668,85 +636,87 @@ pub(crate) async fn snapshot(state: &AppState) -> String {
             }
             projects_json.push(pv);
 
-            if let RpResponse::Services(svcs) =
-                dispatch(
-                    state.clone(),
-                    Command::ServiceList { project_id: p.id.clone() }
-                ).await
+            if let RpResponse::Services(svcs) = dispatch(
+                state.clone(),
+                Command::ServiceList {
+                    project_id: p.id.clone(),
+                },
+            )
+            .await
             {
                 for s in svcs {
                     let conts = container_index.for_service(&s.id, &s.spec.name);
-                    let mut sv = serde_json::to_value(&s)
-                        .unwrap_or(Value::Null);
+                    let mut sv = serde_json::to_value(&s).unwrap_or(Value::Null);
                     if let Value::Object(m) = &mut sv {
                         m.insert(
                             "containers".into(),
-                            serde_json::to_value(conts)
-                                .unwrap_or(Value::Null),
+                            serde_json::to_value(conts).unwrap_or(Value::Null),
                         );
                     }
-                    services.push(
-                        json!({ "project_name": p.name, "service": sv })
-                    );
+                    services.push(json!({ "project_name": p.name, "service": sv }));
                 }
             }
         }
 
-        obj.insert(
-            "projects".into(),
-            Value::Array(projects_json)
-        );
+        obj.insert("projects".into(), Value::Array(projects_json));
 
+        obj.insert("services".into(), Value::Array(services));
+    }
+    if let RpResponse::DockerImages(list) = dispatch(state.clone(), Command::DockerImages).await {
         obj.insert(
-            "services".into(),
-            Value::Array(services)
-        );
-
-    }
-    if let RpResponse::DockerImages(list) =
-        dispatch(state.clone(), Command::DockerImages).await {
-            obj.insert("docker_images".into(),
-            serde_json::to_value(list).unwrap_or(Value::Null)
+            "docker_images".into(),
+            serde_json::to_value(list).unwrap_or(Value::Null),
         );
     }
-    if let RpResponse::DockerVolumes(list) =
-        dispatch(state.clone(), Command::DockerVolumes).await {
-            obj.insert("docker_volumes".into(),
-            serde_json::to_value(list).unwrap_or(Value::Null)
+    if let RpResponse::DockerVolumes(list) = dispatch(state.clone(), Command::DockerVolumes).await {
+        obj.insert(
+            "docker_volumes".into(),
+            serde_json::to_value(list).unwrap_or(Value::Null),
         );
     }
-    if let RpResponse::DockerNetworks(list) =
-        dispatch(state.clone(), Command::DockerNetworks).await {
-            obj.insert("docker_networks".into(),
-            serde_json::to_value(list).unwrap_or(Value::Null)
+    if let RpResponse::DockerNetworks(list) = dispatch(state.clone(), Command::DockerNetworks).await
+    {
+        obj.insert(
+            "docker_networks".into(),
+            serde_json::to_value(list).unwrap_or(Value::Null),
         );
     }
     if let RpResponse::DockerContainers(list) =
-        dispatch(state.clone(), Command::DockerContainers).await {
-            obj.insert("docker_containers".into(),
-            serde_json::to_value(list).unwrap_or(Value::Null)
+        dispatch(state.clone(), Command::DockerContainers).await
+    {
+        obj.insert(
+            "docker_containers".into(),
+            serde_json::to_value(list).unwrap_or(Value::Null),
         );
     }
-    if let RpResponse::JobSummaries(list) =
-        dispatch(state.clone(), Command::JobListAll).await {
-            obj.insert("jobs".into(),
-            serde_json::to_value(list).unwrap_or(Value::Null)
+    if let RpResponse::JobSummaries(list) = dispatch(state.clone(), Command::JobListAll).await {
+        obj.insert(
+            "jobs".into(),
+            serde_json::to_value(list).unwrap_or(Value::Null),
         );
     }
     if let RpResponse::DeployEngineStatus(eng) =
         dispatch(state.clone(), Command::DeployEngineStatus).await
     {
-        obj.insert("engine".into(), serde_json::to_value(eng).unwrap_or(Value::Null));
+        obj.insert(
+            "engine".into(),
+            serde_json::to_value(eng).unwrap_or(Value::Null),
+        );
     }
-    if let RpResponse::RegistryStatus(info) =
-        dispatch(state.clone(), Command::RegistryStatus).await
+    if let RpResponse::RegistryStatus(info) = dispatch(state.clone(), Command::RegistryStatus).await
     {
-        obj.insert("registry_status".into(), serde_json::to_value(info).unwrap_or(Value::Null));
+        obj.insert(
+            "registry_status".into(),
+            serde_json::to_value(info).unwrap_or(Value::Null),
+        );
     }
     if let RpResponse::RegistryRepos(list) =
         dispatch(state.clone(), Command::RegistryRepoList).await
     {
-        obj.insert("registry_repos".into(), serde_json::to_value(list).unwrap_or(Value::Null));
+        obj.insert(
+            "registry_repos".into(),
+            serde_json::to_value(list).unwrap_or(Value::Null),
+        );
     }
 
     Value::Object(obj).to_string()
@@ -919,7 +889,10 @@ mod tests {
         // motivo cita os dois tamanhos (nunca o token).
         let e = auth_check(&req_com_auth(Some("Bearer s3cr3t")), esperado).unwrap_err();
         assert!(e.contains("6 bytes") && e.contains("12 bytes"), "{e}");
-        assert!(!e.contains("s3cr3t"), "o motivo não pode vazar o token: {e}");
+        assert!(
+            !e.contains("s3cr3t"),
+            "o motivo não pode vazar o token: {e}"
+        );
 
         // Mesmo comprimento, conteúdo diferente = token de outra instalação.
         let e = auth_check(&req_com_auth(Some("Bearer 0000000token")), esperado).unwrap_err();

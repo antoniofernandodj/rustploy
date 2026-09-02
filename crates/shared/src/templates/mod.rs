@@ -162,7 +162,11 @@ pub fn render(t: &Template, user: &[(String, String)]) -> Rendered {
 }
 
 /// Resolve o mapa `variable -> valor`, semeando com os valores do usuário.
-fn resolve_vars(t: &Template, user: &[(String, String)], rng: &mut Rng) -> BTreeMap<String, String> {
+fn resolve_vars(
+    t: &Template,
+    user: &[(String, String)],
+    rng: &mut Rng,
+) -> BTreeMap<String, String> {
     let mut resolved: BTreeMap<String, String> = BTreeMap::new();
     for (k, v) in user {
         if !v.trim().is_empty() {
@@ -337,7 +341,10 @@ enum Gen<'a> {
     /// `${jwt:<var_segredo>:<var_payload>}` — JWT HS256 de verdade: assina o
     /// JSON de `var_payload` com o segredo de `var_segredo` (as duas são
     /// variáveis do template, resolvidas antes).
-    JwtSigned { secret: &'a str, payload: &'a str },
+    JwtSigned {
+        secret: &'a str,
+        payload: &'a str,
+    },
 }
 
 /// Interpreta um miolo de token (`"password:32"`, `"domain"`, …) como gerador.
@@ -417,13 +424,19 @@ fn jwt_hs256(secret: &str, payload_json: &str) -> String {
     use sha2::Sha256;
 
     const HEADER: &str = r#"{"alg":"HS256","typ":"JWT"}"#;
-    let signing_input =
-        format!("{}.{}", base64_url(HEADER.as_bytes()), base64_url(payload_json.trim().as_bytes()));
+    let signing_input = format!(
+        "{}.{}",
+        base64_url(HEADER.as_bytes()),
+        base64_url(payload_json.trim().as_bytes())
+    );
 
     let mut mac = <Hmac<Sha256>>::new_from_slice(secret.as_bytes())
         .expect("HMAC aceita chave de qualquer tamanho");
     mac.update(signing_input.as_bytes());
-    format!("{signing_input}.{}", base64_url(&mac.finalize().into_bytes()))
+    format!(
+        "{signing_input}.{}",
+        base64_url(&mac.finalize().into_bytes())
+    )
 }
 
 // ── PRNG (splitmix64, semeado no relógio) ─────────────────────────────────────
@@ -476,8 +489,7 @@ impl Rng {
     }
 
     fn password(&mut self, n: usize) -> String {
-        const ALPHABET: &[u8] =
-            b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         (0..n)
             .map(|_| ALPHABET[(self.next_u64() % ALPHABET.len() as u64) as usize] as char)
             .collect()
@@ -490,7 +502,10 @@ mod tests {
 
     #[test]
     fn catalog_nonempty_and_unique() {
-        assert!(all().len() > 100, "catálogo deveria ter centenas de templates");
+        assert!(
+            all().len() > 100,
+            "catálogo deveria ter centenas de templates"
+        );
         let mut ids: Vec<_> = all().iter().map(|t| t.id).collect();
         ids.sort();
         let before = ids.len();
@@ -545,7 +560,10 @@ mod tests {
             let parts: Vec<&str> = token.split('.').collect();
             assert_eq!(parts.len(), 3, "{key} não é um JWS compacto: {token}");
             // Assinatura confere?
-            let expected = jwt_hs256(&secret, &String::from_utf8(b64url_decode(parts[1])).unwrap());
+            let expected = jwt_hs256(
+                &secret,
+                &String::from_utf8(b64url_decode(parts[1])).unwrap(),
+            );
             assert_eq!(token, expected, "assinatura de {key} não confere");
             // Payload traz o role certo e um `exp` numérico (do `${timestamps:…}`).
             let payload = String::from_utf8(b64url_decode(parts[1])).unwrap();
@@ -562,7 +580,11 @@ mod tests {
         let tenant = get("POOLER_TENANT_ID");
         assert_eq!(tenant.len(), 36, "tenant id não é um uuid: {tenant}");
         assert_eq!(tenant.chars().filter(|c| *c == '-').count(), 4);
-        assert_eq!(&tenant[14..15], "4", "versão do uuid deveria ser 4: {tenant}");
+        assert_eq!(
+            &tenant[14..15],
+            "4",
+            "versão do uuid deveria ser 4: {tenant}"
+        );
 
         // O realtime exige exatamente 16 caracteres nesta chave.
         assert_eq!(get("REALTIME_DB_ENC_KEY").len(), 16);
@@ -605,7 +627,10 @@ mod tests {
             .iter()
             .find(|(p, _)| p == "/volumes/logs/vector.yml")
             .expect("vector.yml nos mounts");
-        assert!(vector.contains("${LOGFLARE_PUBLIC_ACCESS_TOKEN?"), "token do vector perdido");
+        assert!(
+            vector.contains("${LOGFLARE_PUBLIC_ACCESS_TOKEN?"),
+            "token do vector perdido"
+        );
     }
 
     /// Decodifica base64url sem padding (só para os testes).
@@ -649,7 +674,11 @@ fn base64_url(data: &[u8]) -> String {
 fn base64_with(data: &[u8], table: &[u8], pad: bool) -> String {
     let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
     for chunk in data.chunks(3) {
-        let b = [chunk[0], *chunk.get(1).unwrap_or(&0), *chunk.get(2).unwrap_or(&0)];
+        let b = [
+            chunk[0],
+            *chunk.get(1).unwrap_or(&0),
+            *chunk.get(2).unwrap_or(&0),
+        ];
         let n = ((b[0] as u32) << 16) | ((b[1] as u32) << 8) | b[2] as u32;
         out.push(table[(n >> 18 & 63) as usize] as char);
         out.push(table[(n >> 12 & 63) as usize] as char);

@@ -133,10 +133,7 @@ pub async fn list_repos(base_url: &str, token: &str) -> Result<Vec<GitRepo>> {
     let c = client()?;
     let mut out = Vec::new();
     for page in 1..=20 {
-        let url = format!(
-            "{}/api/v1/user/repos?limit=50&page={page}",
-            base(base_url)
-        );
+        let url = format!("{}/api/v1/user/repos?limit=50&page={page}", base(base_url));
         let resp = c
             .get(&url)
             .header("Authorization", format!("token {token}"))
@@ -176,8 +173,7 @@ pub async fn list_branches(
         .await
         .context("falha ao listar branches no Gitea")?;
     let resp = error_for_status(resp).await?;
-    let branches: Vec<BranchResponse> =
-        resp.json().await.context("branches response inválido")?;
+    let branches: Vec<BranchResponse> = resp.json().await.context("branches response inválido")?;
     Ok(branches
         .into_iter()
         .map(|b| GitBranch { name: b.name })
@@ -223,7 +219,11 @@ pub async fn ensure_redirect_uri(
     let mut new_uris = app.redirect_uris;
     new_uris.push(redirect_uri.to_string());
 
-    let patch_url = format!("{}/api/v1/user/applications/oauth2/{}", base(base_url), app.id);
+    let patch_url = format!(
+        "{}/api/v1/user/applications/oauth2/{}",
+        base(base_url),
+        app.id
+    );
     let resp = client()?
         .patch(&patch_url)
         .header("Authorization", format!("token {token}"))

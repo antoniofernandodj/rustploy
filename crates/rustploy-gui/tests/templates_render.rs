@@ -44,11 +44,17 @@ fn new_project_form_window_renders() {
     let mut m = GlacierUI::new();
     m.define_data("api_url", "http://localhost");
     m.define_data("api_token", "t");
-    m.register_component("new_project_form", "crates/rustploy-gui/views/new_project_form.gv")
-        .expect("new_project_form.gv must register");
+    m.register_component(
+        "new_project_form",
+        "crates/rustploy-gui/views/new_project_form.gv",
+    )
+    .expect("new_project_form.gv must register");
     m.set_initial_screen("new_project_form");
     m.reevaluate_all().expect("eval new_project_form");
-    assert!(m.render("new_project_form").is_ok(), "render new_project_form");
+    assert!(
+        m.render("new_project_form").is_ok(),
+        "render new_project_form"
+    );
 }
 
 /// A janela "Novo job" (`new_job_window.gv` + `new_job_window.luau`) é um
@@ -67,19 +73,33 @@ fn new_job_window_renders() {
         "njob_services",
         r#"[{"id":"svc_1","name":"web","project_id":"prj_1"}]"#,
     );
-    m.register_component("new_job_window", "crates/rustploy-gui/views/new_job_window.gv")
-        .expect("new_job_window.gv must register");
+    m.register_component(
+        "new_job_window",
+        "crates/rustploy-gui/views/new_job_window.gv",
+    )
+    .expect("new_job_window.gv must register");
     m.set_initial_screen("new_job_window");
 
     m.define_data("njob_step", "pick_project");
-    m.reevaluate_all().expect("eval new_job_window/pick_project");
-    assert!(m.render("new_job_window").is_ok(), "render new_job_window/pick_project");
+    m.reevaluate_all()
+        .expect("eval new_job_window/pick_project");
+    assert!(
+        m.render("new_job_window").is_ok(),
+        "render new_job_window/pick_project"
+    );
 
     m.define_data("njob_step", "pick_service");
     m.define_data("njob_project_name", "acme");
-    m.define_data("njob_services_filtered", r#"[{"id":"svc_1","name":"web","project_id":"prj_1"}]"#);
-    m.reevaluate_all().expect("eval new_job_window/pick_service");
-    assert!(m.render("new_job_window").is_ok(), "render new_job_window/pick_service");
+    m.define_data(
+        "njob_services_filtered",
+        r#"[{"id":"svc_1","name":"web","project_id":"prj_1"}]"#,
+    );
+    m.reevaluate_all()
+        .expect("eval new_job_window/pick_service");
+    assert!(
+        m.render("new_job_window").is_ok(),
+        "render new_job_window/pick_service"
+    );
 
     m.define_data("njob_step", "form");
     m.define_data("njob_service_name", "web");
@@ -93,8 +113,12 @@ fn new_job_window_renders() {
     );
     for kind in ["manual", "interval", "daily", "weekly"] {
         m.define_data("njob_kind", kind);
-        m.reevaluate_all().unwrap_or_else(|e| panic!("eval new_job_window/form {kind}: {e}"));
-        assert!(m.render("new_job_window").is_ok(), "render new_job_window/form {kind}");
+        m.reevaluate_all()
+            .unwrap_or_else(|e| panic!("eval new_job_window/form {kind}: {e}"));
+        assert!(
+            m.render("new_job_window").is_ok(),
+            "render new_job_window/form {kind}"
+        );
     }
 }
 
@@ -132,8 +156,11 @@ fn new_service_wizard_window_renders() {
     m.define_data("api_token", "t");
     m.define_data("selected_project_id", "p1");
     m.define_data("proj_name", "demo");
-    m.register_component("new_service_window", "crates/rustploy-gui/views/new_service_window.gv")
-        .expect("new_service_window.gv must register");
+    m.register_component(
+        "new_service_window",
+        "crates/rustploy-gui/views/new_service_window.gv",
+    )
+    .expect("new_service_window.gv must register");
     m.set_initial_screen("new_service_window");
 
     // Dados que os passos de banco/template esperam (o init do script tenta o
@@ -142,20 +169,35 @@ fn new_service_wizard_window_renders() {
     m.define_data("ns_db_has_user", "true");
     m.define_data("ns_db_has_rootpw", "true");
     m.define_data("ns_db_has_replica", "true");
-    m.define_data("ns_dbs", r#"[{"id":"postgres","label":"PostgreSQL","image":"postgres:18"}]"#);
+    m.define_data(
+        "ns_dbs",
+        r#"[{"id":"postgres","label":"PostgreSQL","image":"postgres:18"}]"#,
+    );
     m.define_data(
         "ns_templates",
         r#"[{"id":"forgejo","name":"Forgejo","description":"git","logo":"crates/shared/templates/blueprints/forgejo/forgejo.svg","logo_kind":"svg"},{"id":"wordpress","name":"WordPress","description":"cms","logo":"crates/shared/templates/blueprints/wordpress/wordpress.png","logo_kind":"img"}]"#,
     );
-    m.define_data("ns_template_vars", r#"[{"idx":"0","label":"Domínio","placeholder":"x"}]"#);
+    m.define_data(
+        "ns_template_vars",
+        r#"[{"idx":"0","label":"Domínio","placeholder":"x"}]"#,
+    );
 
     for step in [
-        "pick_type", "pick_db", "app_form", "db_form", "compose_form",
-        "pick_template", "template_form",
+        "pick_type",
+        "pick_db",
+        "app_form",
+        "db_form",
+        "compose_form",
+        "pick_template",
+        "template_form",
     ] {
         m.define_data("ns_step", step);
-        m.reevaluate_all().unwrap_or_else(|e| panic!("eval new_service/{step}: {e}"));
-        assert!(m.render("new_service_window").is_ok(), "render new_service/{step}");
+        m.reevaluate_all()
+            .unwrap_or_else(|e| panic!("eval new_service/{step}: {e}"));
+        assert!(
+            m.render("new_service_window").is_ok(),
+            "render new_service/{step}"
+        );
     }
 }
 
@@ -169,12 +211,20 @@ fn all_screens_and_service_tabs_render() {
 
     // Shell views.
     for view in [
-        "deployments", "projects", "service", "monitoring", "ingress", "docker",
-        "settings", "schedules", "support",
+        "deployments",
+        "projects",
+        "service",
+        "monitoring",
+        "ingress",
+        "docker",
+        "settings",
+        "schedules",
+        "support",
     ] {
         m.define_data("screen", "shell");
         m.define_data("view", view);
-        m.reevaluate_all().unwrap_or_else(|e| panic!("eval view {view}: {e}"));
+        m.reevaluate_all()
+            .unwrap_or_else(|e| panic!("eval view {view}: {e}"));
         assert!(m.render("app").is_ok(), "render view {view}");
     }
 
@@ -187,7 +237,8 @@ fn all_screens_and_service_tabs_render() {
         "eng_queued",
         r#"[{"deployment_id":"dep_1","pos":"1","service":"api","project":"acme"},{"deployment_id":"dep_2","pos":"2","service":"worker","project":"acme"}]"#,
     );
-    m.reevaluate_all().unwrap_or_else(|e| panic!("eval deploy_engine: {e}"));
+    m.reevaluate_all()
+        .unwrap_or_else(|e| panic!("eval deploy_engine: {e}"));
     assert!(m.render("app").is_ok(), "render deploy_engine com fila");
 
     // Ingress → tabela de portas TCP de host (separada das rotas de domínio).
@@ -197,7 +248,8 @@ fn all_screens_and_service_tabs_render() {
         "host_ports",
         r#"[{"service":"web","project":"acme","host_port":"8081","container_port":"80"}]"#,
     );
-    m.reevaluate_all().unwrap_or_else(|e| panic!("eval ingress/host_ports: {e}"));
+    m.reevaluate_all()
+        .unwrap_or_else(|e| panic!("eval ingress/host_ports: {e}"));
     assert!(m.render("app").is_ok(), "render ingress/host_ports");
 
     // Docker → as 5 sub-abas (o loop de views acima só renderiza o default
@@ -243,7 +295,8 @@ fn all_screens_and_service_tabs_render() {
     m.define_data("registry_tags", "[]");
     for tab in ["containers", "images", "volumes", "networks", "registry"] {
         m.define_data("docker_tab", tab);
-        m.reevaluate_all().unwrap_or_else(|e| panic!("eval docker/{tab}: {e}"));
+        m.reevaluate_all()
+            .unwrap_or_else(|e| panic!("eval docker/{tab}: {e}"));
         assert!(m.render("app").is_ok(), "render docker/{tab}");
     }
     // Registry: também o branch "repo selecionado" (lista de tags), não só a
@@ -254,8 +307,12 @@ fn all_screens_and_service_tabs_render() {
         "registry_tags",
         r#"[{"tag":"latest","size":"120 MB","created":"12/07","digest_short":"sha256:abcd1234"}]"#,
     );
-    m.reevaluate_all().unwrap_or_else(|e| panic!("eval docker/registry com repo selecionado: {e}"));
-    assert!(m.render("app").is_ok(), "render docker/registry com repo selecionado");
+    m.reevaluate_all()
+        .unwrap_or_else(|e| panic!("eval docker/registry com repo selecionado: {e}"));
+    assert!(
+        m.render("app").is_ok(),
+        "render docker/registry com repo selecionado"
+    );
 
     // Schedules → tabela global de jobs one-shot (todos os projetos).
     m.define_data("view", "schedules");
@@ -264,7 +321,8 @@ fn all_screens_and_service_tabs_render() {
         "jobs_summary",
         r#"[{"id":"job_1","name":"backup-db","owner":"acme / postgres","recurrence":"a cada 6h","enabled":true,"enabled_label":"Pausar","last_run_label":"ok","last_run_kind":"ok","last_run_id":"jrun_1","next_run_at":"12/07 03:00"}]"#,
     );
-    m.reevaluate_all().unwrap_or_else(|e| panic!("eval schedules: {e}"));
+    m.reevaluate_all()
+        .unwrap_or_else(|e| panic!("eval schedules: {e}"));
     assert!(m.render("app").is_ok(), "render schedules com dados");
 
     // Projeto aberto (project_services): grid de serviços e a aba de
@@ -290,21 +348,30 @@ fn all_screens_and_service_tabs_render() {
         m.define_data("view", "project_services");
         m.define_data("proj_tab", proj_tab);
         m.define_data("proj_loading", "false");
-        m.reevaluate_all().unwrap_or_else(|e| panic!("eval project_services/{proj_tab}: {e}"));
-        assert!(m.render("app").is_ok(), "render project_services/{proj_tab}");
+        m.reevaluate_all()
+            .unwrap_or_else(|e| panic!("eval project_services/{proj_tab}: {e}"));
+        assert!(
+            m.render("app").is_ok(),
+            "render project_services/{proj_tab}"
+        );
     }
 
     // Aba Variáveis no modo "usar secret" (o form troca o campo valor pelo nome
     // do secret e lista os chips) e a lista de secrets vazia (estado inicial).
     m.define_data("proj_tab", "env");
     m.define_data("penv_new_is_secret", "true");
-    m.reevaluate_all().unwrap_or_else(|e| panic!("eval project_services/env secret: {e}"));
-    assert!(m.render("app").is_ok(), "render project_services/env modo secret");
+    m.reevaluate_all()
+        .unwrap_or_else(|e| panic!("eval project_services/env secret: {e}"));
+    assert!(
+        m.render("app").is_ok(),
+        "render project_services/env modo secret"
+    );
     m.define_data("proj_secrets_count", "0");
     m.define_data("proj_secrets", "[]");
     for proj_tab in ["env", "secrets"] {
         m.define_data("proj_tab", proj_tab);
-        m.reevaluate_all().unwrap_or_else(|e| panic!("eval {proj_tab} sem secrets: {e}"));
+        m.reevaluate_all()
+            .unwrap_or_else(|e| panic!("eval {proj_tab} sem secrets: {e}"));
         assert!(m.render("app").is_ok(), "render {proj_tab} sem secrets");
     }
     m.define_data("penv_new_is_secret", "false");
@@ -315,7 +382,8 @@ fn all_screens_and_service_tabs_render() {
     for mode in ["oauth", "pat"] {
         m.define_data("settings_tab", "git");
         m.define_data("gp_mode", mode);
-        m.reevaluate_all().unwrap_or_else(|e| panic!("eval settings/git {mode}: {e}"));
+        m.reevaluate_all()
+            .unwrap_or_else(|e| panic!("eval settings/git {mode}: {e}"));
         assert!(m.render("app").is_ok(), "render settings/git {mode}");
     }
 
@@ -324,7 +392,8 @@ fn all_screens_and_service_tabs_render() {
     // de domínio editável aqui.
     m.define_data("settings_tab", "web");
     m.define_data("ss_public_base", "https://rustploy.meusite.com");
-    m.reevaluate_all().unwrap_or_else(|e| panic!("eval settings/web: {e}"));
+    m.reevaluate_all()
+        .unwrap_or_else(|e| panic!("eval settings/web: {e}"));
     assert!(m.render("app").is_ok(), "render settings/web");
 
     // Settings → Infra as Code: export panel (yaml+dotenv textareas), the
@@ -340,7 +409,8 @@ fn all_screens_and_service_tabs_render() {
         "iac_report_lines",
         r#"["[created] project acme","[updated] service acme/web"]"#,
     );
-    m.reevaluate_all().unwrap_or_else(|e| panic!("eval settings/iac: {e}"));
+    m.reevaluate_all()
+        .unwrap_or_else(|e| panic!("eval settings/iac: {e}"));
     assert!(m.render("app").is_ok(), "render settings/iac");
 
     // Settings → Manutenção (limpeza automática de Docker): as 3 recorrências
@@ -367,19 +437,32 @@ fn all_screens_and_service_tabs_render() {
     m.define_data("dc_networks", "true");
     m.define_data("dc_build_cache", "true");
     m.define_data("dc_next_run_label", "hoje às 03:00");
-    m.define_data("dc_last_run_text", "12/07 03:00 · 3 removidos · 120 MB liberados");
+    m.define_data(
+        "dc_last_run_text",
+        "12/07 03:00 · 3 removidos · 120 MB liberados",
+    );
     m.define_data("dc_running", "false");
     m.define_data("dc_msg", "");
     for kind in ["interval", "daily", "weekly"] {
         m.define_data("dc_kind", kind);
-        m.reevaluate_all().unwrap_or_else(|e| panic!("eval settings/maintenance {kind}: {e}"));
-        assert!(m.render("app").is_ok(), "render settings/maintenance {kind}");
+        m.reevaluate_all()
+            .unwrap_or_else(|e| panic!("eval settings/maintenance {kind}: {e}"));
+        assert!(
+            m.render("app").is_ok(),
+            "render settings/maintenance {kind}"
+        );
     }
 
     // Service detail tabs (the editable forms + log views).
     for tab in [
-        "general", "connection", "environment", "domains", "deployments",
-        "healthcheck", "logs", "advanced",
+        "general",
+        "connection",
+        "environment",
+        "domains",
+        "deployments",
+        "healthcheck",
+        "logs",
+        "advanced",
     ] {
         m.define_data("screen", "shell");
         m.define_data("view", "service");
@@ -407,7 +490,8 @@ fn all_screens_and_service_tabs_render() {
         // Show the Gitea sub-tab and render its picker body.
         m.define_data("gitea_count", "1");
         m.define_data("prov_tab", "gitea");
-        m.reevaluate_all().unwrap_or_else(|e| panic!("eval tab {tab}: {e}"));
+        m.reevaluate_all()
+            .unwrap_or_else(|e| panic!("eval tab {tab}: {e}"));
         assert!(m.render("app").is_ok(), "render tab {tab}");
     }
 
@@ -419,7 +503,8 @@ fn all_screens_and_service_tabs_render() {
     m.define_data("erro_f_gen_port", "");
     for prov in ["git", "zip"] {
         m.define_data("prov_tab", prov);
-        m.reevaluate_all().unwrap_or_else(|e| panic!("eval general/prov_tab={prov}: {e}"));
+        m.reevaluate_all()
+            .unwrap_or_else(|e| panic!("eval general/prov_tab={prov}: {e}"));
         assert!(m.render("app").is_ok(), "render general/prov_tab={prov}");
     }
     m.define_data("svc_source_kind", "Compose");
@@ -432,12 +517,20 @@ fn all_screens_and_service_tabs_render() {
     // mostra o aviso em vez da URL) e serviço Compose (sem webhook nenhum).
     m.define_data("tab", "deployments");
     m.define_data("svc_webhook_url", "");
-    m.reevaluate_all().expect("eval deployments/webhook sem token");
-    assert!(m.render("app").is_ok(), "render deployments/webhook sem token");
+    m.reevaluate_all()
+        .expect("eval deployments/webhook sem token");
+    assert!(
+        m.render("app").is_ok(),
+        "render deployments/webhook sem token"
+    );
 
     m.define_data("svc_webhook_supported", "false");
-    m.reevaluate_all().expect("eval deployments/webhook compose");
-    assert!(m.render("app").is_ok(), "render deployments/webhook compose");
+    m.reevaluate_all()
+        .expect("eval deployments/webhook compose");
+    assert!(
+        m.render("app").is_ok(),
+        "render deployments/webhook compose"
+    );
 }
 
 /// Regressão: abaixo de 900px de largura a sidebar vira um trilho de ícones —
@@ -459,9 +552,15 @@ fn sidebar_nav_label_hidden_below_900px() {
     m.reevaluate_all().expect("eval shell");
     // Mesma largura que reproduziu o bug (persistida em
     // rustploy-gui-window.json de uma sessão real).
-    let _ = m.dispatch(&EngineMessage::Viewport { width: 731.0, height: 680.0 });
+    let _ = m.dispatch(&EngineMessage::Viewport {
+        width: 731.0,
+        height: 680.0,
+    });
 
-    fn find_texts<'a>(node: &'a glacier_ui::parser::UiNode, out: &mut Vec<&'a glacier_ui::parser::UiNode>) {
+    fn find_texts<'a>(
+        node: &'a glacier_ui::parser::UiNode,
+        out: &mut Vec<&'a glacier_ui::parser::UiNode>,
+    ) {
         if let glacier_ui::parser::NodeType::Text { content, .. } = &node.kind {
             if content == "Deploy Engine" || content.starts_with("Projects (") {
                 out.push(node);
@@ -475,9 +574,18 @@ fn sidebar_nav_label_hidden_below_900px() {
     let ast = m.evaluated("app").expect("app evaluated");
     let mut found = Vec::new();
     find_texts(ast, &mut found);
-    assert_eq!(found.len(), 2, "esperava achar os rótulos \"Deploy Engine\" e \"Projects (N)\"");
+    assert_eq!(
+        found.len(),
+        2,
+        "esperava achar os rótulos \"Deploy Engine\" e \"Projects (N)\""
+    );
     for n in &found {
-        assert_eq!(n.hidden, Some(true), "rótulo {:?} deveria estar hidden abaixo de 900px", n.kind);
+        assert_eq!(
+            n.hidden,
+            Some(true),
+            "rótulo {:?} deveria estar hidden abaixo de 900px",
+            n.kind
+        );
     }
 }
 
@@ -494,12 +602,21 @@ fn service_actions_collapse_to_icons_when_narrow() {
     // botões de ação visíveis por fileira: (n_full, n_compact). Só as 4 ações
     // (svc_deploy/reload/rebuild/stop) usam esses textos, então não há colisão
     // com ícones da sidebar (que são nós <text>, não botões).
-    fn count_visible(node: &glacier_ui::parser::UiNode, full: &mut u32, compact: &mut u32, ancestor_hidden: bool) {
+    fn count_visible(
+        node: &glacier_ui::parser::UiNode,
+        full: &mut u32,
+        compact: &mut u32,
+        ancestor_hidden: bool,
+    ) {
         let hidden = ancestor_hidden || node.hidden == Some(true);
         if let glacier_ui::parser::NodeType::Button { text, .. } = &node.kind {
             if !hidden {
-                if matches!(text.as_str(), "Deploy" | "Reload" | "Rebuild" | "Stop") { *full += 1; }
-                if matches!(text.as_str(), "▶" | "⟳" | "⚙" | "■") { *compact += 1; }
+                if matches!(text.as_str(), "Deploy" | "Reload" | "Rebuild" | "Stop") {
+                    *full += 1;
+                }
+                if matches!(text.as_str(), "▶" | "⟳" | "⚙" | "■") {
+                    *compact += 1;
+                }
             }
         }
         for child in &node.children {
@@ -514,16 +631,40 @@ fn service_actions_collapse_to_icons_when_narrow() {
     m.reevaluate_all().expect("eval service");
 
     // Largo: fileira de texto visível, compacta oculta.
-    let _ = m.dispatch(&EngineMessage::Viewport { width: 1400.0, height: 820.0 });
+    let _ = m.dispatch(&EngineMessage::Viewport {
+        width: 1400.0,
+        height: 820.0,
+    });
     let (mut full, mut compact) = (0, 0);
-    count_visible(m.evaluated("app").expect("app"), &mut full, &mut compact, false);
-    assert_eq!((full, compact), (4, 0), "em 1400px espera 4 botões de texto e 0 ícones");
+    count_visible(
+        m.evaluated("app").expect("app"),
+        &mut full,
+        &mut compact,
+        false,
+    );
+    assert_eq!(
+        (full, compact),
+        (4, 0),
+        "em 1400px espera 4 botões de texto e 0 ícones"
+    );
 
     // Estreito: inverte.
-    let _ = m.dispatch(&EngineMessage::Viewport { width: 980.0, height: 820.0 });
+    let _ = m.dispatch(&EngineMessage::Viewport {
+        width: 980.0,
+        height: 820.0,
+    });
     let (mut full, mut compact) = (0, 0);
-    count_visible(m.evaluated("app").expect("app"), &mut full, &mut compact, false);
-    assert_eq!((full, compact), (0, 4), "em 980px espera 0 botões de texto e 4 ícones");
+    count_visible(
+        m.evaluated("app").expect("app"),
+        &mut full,
+        &mut compact,
+        false,
+    );
+    assert_eq!(
+        (full, compact),
+        (0, 4),
+        "em 980px espera 0 botões de texto e 4 ícones"
+    );
 }
 
 /// A avaliação do glacier é **escopada** (0.38+): só a tela ativa é construída,
@@ -550,7 +691,10 @@ fn so_a_tela_ativa_e_avaliada() {
     // ...mas só a tela ativa está avaliada (as demais são inlinadas dentro dela).
     assert!(m.render("app").is_ok(), "a tela ativa renderiza");
     assert!(
-        matches!(m.render("Login"), Err(glacier_ui::GlacierError::NotEvaluated(_))),
+        matches!(
+            m.render("Login"),
+            Err(glacier_ui::GlacierError::NotEvaluated(_))
+        ),
         "uma view importada não deve ficar avaliada como raiz por conta própria"
     );
 }
@@ -573,8 +717,14 @@ fn disconnect_limpa_o_contexto_da_sessao() {
         ("api_token", "token-secreto"),
         ("projects_count", "7"),
         ("proj_name", "acme"),
-        ("proj_secrets", r#"[{"name":"GITHUB_TOKEN","name_display":"GITHUB_TOKEN"}]"#),
-        ("svc_env", r#"[{"key":"API_KEY","value":"secret:API_KEY","kind":"secret"}]"#),
+        (
+            "proj_secrets",
+            r#"[{"name":"GITHUB_TOKEN","name_display":"GITHUB_TOKEN"}]"#,
+        ),
+        (
+            "svc_env",
+            r#"[{"key":"API_KEY","value":"secret:API_KEY","kind":"secret"}]"#,
+        ),
         ("selected_project_id", "prj_1"),
     ] {
         m.define_data(k, v);
@@ -629,7 +779,9 @@ fn nav_item_projects_fica_aceso_nas_sub_telas() {
     // dentro do template do componente `NavItem`, então o dispatch final é
     // "NavItem::nav_projects".
     fn projects_nav_button_lit<'a>(node: &'a glacier_ui::parser::UiNode) -> Option<bool> {
-        if let NodeType::Button { on_click, color, .. } = &node.kind
+        if let NodeType::Button {
+            on_click, color, ..
+        } = &node.kind
             && on_click.as_deref() == Some("NavItem::nav_projects")
         {
             return Some(color.as_deref() == Some("#1F6FEB"));
@@ -647,11 +799,13 @@ fn nav_item_projects_fica_aceso_nas_sub_telas() {
     ] {
         m.define_data("screen", "shell");
         m.define_data("view", view);
-        m.reevaluate_all().unwrap_or_else(|e| panic!("eval view {view}: {e}"));
+        m.reevaluate_all()
+            .unwrap_or_else(|e| panic!("eval view {view}: {e}"));
         let ast = m.evaluated("app").expect("app evaluated");
         let aceso = projects_nav_button_lit(ast).expect("item Projects deveria existir na sidebar");
         assert_eq!(
-            aceso, esperado_aceso,
+            aceso,
+            esperado_aceso,
             "view={view}: item Projects deveria estar {} ",
             if esperado_aceso { "aceso" } else { "apagado" }
         );
@@ -859,7 +1013,10 @@ fn grades_de_cards_renderizam_com_spread() {
         .unwrap_or_else(|e| panic!("eval grade de projetos: {e}"));
     assert!(m.render("app").is_ok(), "render grade de projetos");
     let arv = format!("{:?}", m.evaluated("app").unwrap());
-    assert!(arv.contains("acme"), "a grade tem que ter renderizado o card");
+    assert!(
+        arv.contains("acme"),
+        "a grade tem que ter renderizado o card"
+    );
 
     m.define_data("view", "project_services");
     m.define_data("proj_loading", "false");

@@ -11,7 +11,11 @@ use std::collections::BTreeMap;
 /// Manifesto raiz (agregador): vários projetos, inline ou via `include:`.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ServerManifest {
-    #[serde(rename = "apiVersion", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "apiVersion",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub api_version: Option<String>,
     #[serde(default)]
     pub projects: Vec<ProjectEntry>,
@@ -142,7 +146,11 @@ pub enum ProjectEntry {
 /// Manifesto de um único projeto (`project:` + `services:`).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ProjectManifest {
-    #[serde(rename = "apiVersion", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "apiVersion",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub api_version: Option<String>,
     pub project: ProjectMeta,
     #[serde(default)]
@@ -431,7 +439,11 @@ impl ProjectManifest {
 }
 
 impl ServiceManifest {
-    pub fn to_spec(&self, project_id: &str, provider_ids: &BTreeMap<String, String>) -> ServiceSpec {
+    pub fn to_spec(
+        &self,
+        project_id: &str,
+        provider_ids: &BTreeMap<String, String>,
+    ) -> ServiceSpec {
         ServiceSpec {
             name: self.name.clone(),
             project_id: project_id.to_string(),
@@ -442,7 +454,11 @@ impl ServiceManifest {
             tls_enabled: self.tls,
             env_vars: env_map_to_vars(&self.env),
             env_comments: Vec::new(),
-            volumes: self.volumes.iter().filter_map(|v| parse_volume(v)).collect(),
+            volumes: self
+                .volumes
+                .iter()
+                .filter_map(|v| parse_volume(v))
+                .collect(),
             healthcheck: self
                 .healthcheck
                 .as_ref()
@@ -507,7 +523,11 @@ impl SourceManifest {
                 build_stage: g.build_stage.clone(),
                 credentials: g.credentials.clone(),
                 username: g.username.clone(),
-                provider_id: g.provider.as_ref().and_then(|name| provider_ids.get(name)).cloned(),
+                provider_id: g
+                    .provider
+                    .as_ref()
+                    .and_then(|name| provider_ids.get(name))
+                    .cloned(),
             })
         } else if let Some(content) = &self.compose {
             ServiceSource::Compose(ComposeSource {
@@ -907,17 +927,16 @@ services:
         assert!(web.volumes[0].read_only);
         assert!(matches!(
             &web.healthcheck.kind,
-            HealthcheckKind::Http { expected_status: 200, .. }
+            HealthcheckKind::Http {
+                expected_status: 200,
+                ..
+            }
         ));
         assert_eq!(web.resources.cpu_shares, 512);
         assert_eq!(web.resources.mem_limit_bytes, 256 * 1024 * 1024);
 
         // env: secret ref vira EnvVarValue::Secret
-        let token = web
-            .env_vars
-            .iter()
-            .find(|e| e.key == "API_TOKEN")
-            .unwrap();
+        let token = web.env_vars.iter().find(|e| e.key == "API_TOKEN").unwrap();
         assert!(matches!(&token.value, EnvVarValue::Secret(n) if n == "api-token"));
     }
 
@@ -1074,15 +1093,27 @@ services:
 
         // Plain vira placeholder no YAML; valor real só aparece no TOML, na
         // tabela do projeto.
-        assert_eq!(manifest.project.env.get("LOG_LEVEL"), Some(&"${LOG_LEVEL}".to_string()));
-        assert_eq!(doc.project["acme"].env.get("LOG_LEVEL"), Some(&"info".to_string()));
+        assert_eq!(
+            manifest.project.env.get("LOG_LEVEL"),
+            Some(&"${LOG_LEVEL}".to_string())
+        );
+        assert_eq!(
+            doc.project["acme"].env.get("LOG_LEVEL"),
+            Some(&"info".to_string())
+        );
 
         // Secret nunca é decifrada: permanece como referência e não entra no TOML.
-        assert_eq!(manifest.project.env.get("DB_PASS"), Some(&"secret:db-pass".to_string()));
+        assert_eq!(
+            manifest.project.env.get("DB_PASS"),
+            Some(&"secret:db-pass".to_string())
+        );
         assert!(!doc.project["acme"].env.contains_key("DB_PASS"));
 
         let yaml = serde_yaml::to_string(&manifest).unwrap();
-        assert!(!yaml.contains("info"), "valor real de Plain vazou pro YAML: {yaml}");
+        assert!(
+            !yaml.contains("info"),
+            "valor real de Plain vazou pro YAML: {yaml}"
+        );
     }
 
     #[test]
@@ -1097,8 +1128,14 @@ services:
         let (server, doc) =
             ServerManifest::from_existing_redacted(&[(p1, vec![]), (p2, vec![])], &BTreeMap::new());
         assert_eq!(server.projects.len(), 2);
-        assert_eq!(doc.project["acme"].env.get("LOG_LEVEL"), Some(&"info".to_string()));
-        assert_eq!(doc.project["beta"].env.get("LOG_LEVEL"), Some(&"debug".to_string()));
+        assert_eq!(
+            doc.project["acme"].env.get("LOG_LEVEL"),
+            Some(&"info".to_string())
+        );
+        assert_eq!(
+            doc.project["beta"].env.get("LOG_LEVEL"),
+            Some(&"debug".to_string())
+        );
         assert!(!doc.project["acme"].env.contains_key("DB_PASS"));
     }
 
@@ -1122,11 +1159,16 @@ services:
         let text = format_env_doc(&doc);
         // Nome com espaço fica entre aspas (nomes simples ficam crus); var com
         // `__` é só uma folha, sem mangling.
-        assert!(text.contains(r#"[project.Chiquitos.service."Landing page".env]"#), "{text}");
+        assert!(
+            text.contains(r#"[project.Chiquitos.service."Landing page".env]"#),
+            "{text}"
+        );
         assert!(text.contains("MY__WEIRD__VAR = \"ok\""), "{text}");
         let back = parse_env_doc(&text).unwrap();
         assert_eq!(
-            back.project["Chiquitos"].service["Landing page"].env.get("MY__WEIRD__VAR"),
+            back.project["Chiquitos"].service["Landing page"]
+                .env
+                .get("MY__WEIRD__VAR"),
             Some(&"ok".to_string())
         );
     }
@@ -1140,7 +1182,10 @@ services:
             base_url: "https://git.example.com".into(),
             auth_mode: GitAuthMode::Pat,
             oauth_client_id: None,
-            account: Some(GitAccount { login: "alice".into(), avatar_url: None }),
+            account: Some(GitAccount {
+                login: "alice".into(),
+                avatar_url: None,
+            }),
             created_at: chrono::Utc::now(),
         };
         let providers = BTreeMap::from([(provider.id.clone(), provider.clone())]);
@@ -1181,7 +1226,8 @@ services:
 
         let project = sample_project();
         let mut doc = EnvDoc::default();
-        let manifest = ProjectManifest::from_existing_redacted(&project, &[svc], &providers, &mut doc);
+        let manifest =
+            ProjectManifest::from_existing_redacted(&project, &[svc], &providers, &mut doc);
 
         // YAML só carrega o NOME do provider, nunca o ID interno nem segredos.
         let git = manifest.services[0].source.git.as_ref().unwrap();
@@ -1193,7 +1239,10 @@ services:
         assert_eq!(pdoc.base_url, "https://git.example.com");
         assert_eq!(pdoc.auth_mode, "pat");
         let toml_text = format_env_doc(&doc);
-        assert!(!toml_text.contains("alice"), "conta/segredo vazou pro TOML: {toml_text}");
+        assert!(
+            !toml_text.contains("alice"),
+            "conta/segredo vazou pro TOML: {toml_text}"
+        );
 
         // Import: nome -> ID resolve de volta ao mesmo provider.
         let provider_ids = BTreeMap::from([("meu-gitea".to_string(), provider.id.clone())]);

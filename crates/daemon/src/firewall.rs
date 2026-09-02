@@ -93,11 +93,19 @@ async fn do_request(op: &str, port: u16) -> Result<String, String> {
         .read_line(&mut line)
         .await
         .map_err(|e| format!("falha ao ler resposta do helper: {e}"))?;
-    let resp: FwResponse =
-        serde_json::from_str(line.trim()).map_err(|e| format!("resposta inválida do helper: {e}"))?;
+    let resp: FwResponse = serde_json::from_str(line.trim())
+        .map_err(|e| format!("resposta inválida do helper: {e}"))?;
     if resp.ok {
-        Ok(if resp.backend.is_empty() { "?".into() } else { resp.backend })
+        Ok(if resp.backend.is_empty() {
+            "?".into()
+        } else {
+            resp.backend
+        })
     } else {
-        Err(if resp.error.is_empty() { "erro não informado".into() } else { resp.error })
+        Err(if resp.error.is_empty() {
+            "erro não informado".into()
+        } else {
+            resp.error
+        })
     }
 }

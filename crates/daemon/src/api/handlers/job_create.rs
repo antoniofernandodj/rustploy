@@ -23,14 +23,22 @@ pub async fn handle(
     };
 
     if let Some(sid) = &trigger_service_id {
-        if crate::db::services::get(&state.db, sid).await.ok().flatten().is_none() {
+        if crate::db::services::get(&state.db, sid)
+            .await
+            .ok()
+            .flatten()
+            .is_none()
+        {
             return RpResponse::err("NotFound", "serviço gatilho não encontrado");
         }
     }
 
     if let Some(git) = &git_source {
         if git.url.trim().is_empty() || git.branch.trim().is_empty() {
-            return RpResponse::err("InvalidInput", "URL e branch do repositório são obrigatórios");
+            return RpResponse::err(
+                "InvalidInput",
+                "URL e branch do repositório são obrigatórios",
+            );
         }
     }
 

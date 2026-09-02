@@ -16,7 +16,7 @@
 //! `on_click`/`onChange`/`on_submit`. Funções `local` são auxiliares do módulo
 //! e ficam de fora, como devem.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Uma ação e onde ela mora.
 struct Acao {

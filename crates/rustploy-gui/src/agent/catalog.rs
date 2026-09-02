@@ -11,7 +11,7 @@
 //! passthrough (`POST /agent/rpc`) aceita qualquer comando, esteja ele listado
 //! aqui ou não — inclusive os que forem adicionados depois deste arquivo.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 pub(super) fn schema() -> Value {
     json!({

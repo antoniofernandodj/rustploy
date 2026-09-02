@@ -51,7 +51,12 @@ pub async fn handle(
         let git_refs: Vec<(String, Option<String>)> = m
             .services
             .iter()
-            .filter_map(|s| s.source.git.as_ref().map(|g| (s.name.clone(), g.provider.clone())))
+            .filter_map(|s| {
+                s.source
+                    .git
+                    .as_ref()
+                    .map(|g| (s.name.clone(), g.provider.clone()))
+            })
             .collect();
         info!(
             project = %m.project.name,
@@ -92,12 +97,18 @@ pub async fn handle(
     }
 
     if let Err(resp) = reconcile_git_providers(&state.db, &env.git_provider).await {
-        warn!(?resp, "manifest_import: reconcile_git_providers falhou, abortando sem aplicar");
+        warn!(
+            ?resp,
+            "manifest_import: reconcile_git_providers falhou, abortando sem aplicar"
+        );
         return resp;
     }
 
     if let Err(resp) = check_git_provider_refs(&state.db, &projects).await {
-        warn!(?resp, "manifest_import: check_git_provider_refs falhou, abortando sem aplicar");
+        warn!(
+            ?resp,
+            "manifest_import: check_git_provider_refs falhou, abortando sem aplicar"
+        );
         return resp;
     }
 
@@ -115,7 +126,12 @@ pub async fn handle(
         let git_refs: Vec<(String, Option<String>)> = m
             .services
             .iter()
-            .filter_map(|s| s.source.git.as_ref().map(|g| (s.name.clone(), g.provider.clone())))
+            .filter_map(|s| {
+                s.source
+                    .git
+                    .as_ref()
+                    .map(|g| (s.name.clone(), g.provider.clone()))
+            })
             .collect();
         info!(
             project = %m.project.name,
@@ -170,7 +186,10 @@ async fn reconcile_git_providers(
             warn!(%name, auth_mode = %doc.auth_mode, "reconcile_git_providers: auth_mode desconhecido no TOML, abortando");
             return Err(RpResponse::err(
                 "InvalidGitProvider",
-                format!("git provider '{name}': auth_mode desconhecido '{}'", doc.auth_mode),
+                format!(
+                    "git provider '{name}': auth_mode desconhecido '{}'",
+                    doc.auth_mode
+                ),
             ));
         };
         let new_id = format!("gp_{}", Ulid::new());
@@ -405,7 +424,10 @@ mod git_provider_iac_tests {
         let yaml = serde_yaml::to_string(&manifest).unwrap();
         let toml_text = shared::format_env_doc(&env_doc);
 
-        assert!(yaml.contains("provider: Gitea"), "provider ref ausente no YAML");
+        assert!(
+            yaml.contains("provider: Gitea"),
+            "provider ref ausente no YAML"
+        );
         assert!(
             env_doc.git_provider.contains_key("Gitea"),
             "provider doc ausente no EnvDoc"
@@ -421,7 +443,9 @@ mod git_provider_iac_tests {
         }
         assert!(missing.is_empty(), "missing: {missing:?}");
 
-        reconcile_git_providers(&db, &env.git_provider).await.unwrap();
+        reconcile_git_providers(&db, &env.git_provider)
+            .await
+            .unwrap();
         check_git_provider_refs(&db, &projects).await.unwrap();
 
         let provider_ids: BTreeMap<String, String> = git_providers::list(&db)
@@ -533,7 +557,9 @@ mod git_provider_iac_tests {
         }
         assert!(missing.is_empty(), "missing: {missing:?}");
 
-        reconcile_git_providers(&dst_db, &env.git_provider).await.unwrap();
+        reconcile_git_providers(&dst_db, &env.git_provider)
+            .await
+            .unwrap();
         check_git_provider_refs(&dst_db, &projects).await.unwrap();
 
         let provider_ids: BTreeMap<String, String> = git_providers::list(&dst_db)
@@ -550,7 +576,10 @@ mod git_provider_iac_tests {
         let ServiceSource::Git(g) = &specs[0].source else {
             panic!("esperava git")
         };
-        assert!(g.provider_id.is_some(), "provider não resolvido no daemon fresco");
+        assert!(
+            g.provider_id.is_some(),
+            "provider não resolvido no daemon fresco"
+        );
 
         // Cria (caminho `None => create` do apply_one) e refaz a leitura.
         let created = crate::db::services::create(&dst_db, specs[0].clone())
@@ -655,8 +684,14 @@ services:
         let RpResponse::ManifestBundle { yaml, dotenv } = export else {
             panic!("esperava ManifestBundle, veio {export:?}");
         };
-        assert!(yaml.contains("provider: Gitea"), "YAML sem a referência: {yaml}");
-        assert!(dotenv.contains("[git_provider.Gitea]"), "TOML sem a tabela: {dotenv}");
+        assert!(
+            yaml.contains("provider: Gitea"),
+            "YAML sem a referência: {yaml}"
+        );
+        assert!(
+            dotenv.contains("[git_provider.Gitea]"),
+            "TOML sem a tabela: {dotenv}"
+        );
 
         let import = handle(state.clone(), yaml, dotenv, false, false).await;
         let RpResponse::ManifestReport(report) = import else {
@@ -667,7 +702,9 @@ services:
             "serviço api não apareceu no report: {report:?}"
         );
 
-        let services = crate::db::services::list(&state.db, &project.id).await.unwrap();
+        let services = crate::db::services::list(&state.db, &project.id)
+            .await
+            .unwrap();
         let api = services.iter().find(|s| s.spec.name == "api").unwrap();
         let ServiceSource::Git(g) = &api.spec.source else {
             panic!("esperava git")

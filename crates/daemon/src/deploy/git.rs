@@ -1,11 +1,11 @@
 use crate::db::Db;
 use crate::secrets::SecretsManager;
 use anyhow::{Result, anyhow};
+use fs_extra::dir::{CopyOptions, copy};
 use std::path::Path;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tracing::{debug, info};
-use fs_extra::dir::{copy, CopyOptions};
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -42,7 +42,10 @@ pub async fn clone(
     if let Some(local_path_str) = opts.url.strip_prefix("file://") {
         let source_path = Path::new(local_path_str);
         if !source_path.exists() {
-            return Err(anyhow!("repositório local não encontrado: {}", local_path_str));
+            return Err(anyhow!(
+                "repositório local não encontrado: {}",
+                local_path_str
+            ));
         }
 
         info!(
@@ -73,15 +76,18 @@ pub async fn clone(
         "git::clone: iniciando"
     );
 
-    let msg = format!("{:?}", [
-        "clone",
-        "--branch",
-        opts.branch,
-        "--progress",
-        "--",
-        &effective_url,
-        ".",
-    ]);
+    let msg = format!(
+        "{:?}",
+        [
+            "clone",
+            "--branch",
+            opts.branch,
+            "--progress",
+            "--",
+            &effective_url,
+            ".",
+        ]
+    );
 
     info!(args = %msg);
 

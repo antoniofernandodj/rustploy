@@ -255,10 +255,18 @@ pub enum Command {
 
     // Remoção INDIVIDUAL de um recurso Docker (o par por-item dos `Prune*`).
     // O Docker recusa remover recursos em uso (sem force) — o erro é propagado.
-    RemoveContainer { id: String },
-    RemoveImage { id: String },
-    RemoveVolume { name: String },
-    RemoveNetwork { id: String },
+    RemoveContainer {
+        id: String,
+    },
+    RemoveImage {
+        id: String,
+    },
+    RemoveVolume {
+        name: String,
+    },
+    RemoveNetwork {
+        id: String,
+    },
     /// Stops every container labeled `rustploy.managed=true`, regardless of
     /// what the DB's service status currently says (more robust than
     /// looping over `Service` rows one `ServiceStop` at a time — see
@@ -336,12 +344,19 @@ pub enum Command {
     // delete; criar conteúdo só acontece via `docker push` externo).
     RegistryStatus,
     RegistryRepoList,
-    RegistryTagList { repo: String },
+    RegistryTagList {
+        repo: String,
+    },
     /// Remove a tag; se outra tag apontar pro mesmo digest (mesmo manifest),
     /// ela também é removida — mesma semântica do DELETE da OCI spec (por
     /// digest, não por tag).
-    RegistryTagDelete { repo: String, tag: String },
-    RegistryRepoDelete { repo: String },
+    RegistryTagDelete {
+        repo: String,
+        tag: String,
+    },
+    RegistryRepoDelete {
+        repo: String,
+    },
     /// Garbage collection do registry: remove manifests pendurados (sem tag e
     /// não referenciados por nenhum index), blobs órfãos (metadados + arquivos
     /// do CAS) e uploads abandonados há mais de 24 h. Resposta:
@@ -349,22 +364,33 @@ pub enum Command {
     RegistryGc,
     /// Cria um token de acesso (Basic auth) — `scope` é `"pull"` ou `"push"`.
     /// Resposta traz o segredo em texto plano UMA ÚNICA VEZ.
-    RegistryTokenCreate { name: String, scope: String },
+    RegistryTokenCreate {
+        name: String,
+        scope: String,
+    },
     RegistryTokenList,
-    RegistryTokenRevoke { name: String },
+    RegistryTokenRevoke {
+        name: String,
+    },
     /// Move um deploy enfileirado para o início da fila ("furar fila"). Sem
     /// efeito se o id não estiver na fila (ex.: já rodando/terminado).
     /// Resposta: `Ok`.
-    DeployQueuePromote { deployment_id: String },
+    DeployQueuePromote {
+        deployment_id: String,
+    },
     /// Reordena a fila para exatamente a ordem dada (ids de deployment). Ids
     /// ausentes/desconhecidos são ignorados; enfileirados omitidos ficam ao fim
     /// preservando a ordem relativa. Usado pelo drag-and-drop da GUI.
     /// Resposta: `Ok`.
-    DeployQueueReorder { order: Vec<String> },
+    DeployQueueReorder {
+        order: Vec<String>,
+    },
     /// Pausa (`true`) ou retoma (`false`) a fila global. Pausada, o worker não
     /// puxa o próximo deploy; o que já estiver rodando segue até o fim.
     /// Resposta: `Ok`.
-    DeployQueuePause { paused: bool },
+    DeployQueuePause {
+        paused: bool,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -504,7 +530,9 @@ pub enum Response {
     DeploymentSummaries(Vec<DeploymentSummary>),
     DaemonStatus(DaemonStatus),
     DeployEngineStatus(DeployEngineSummary),
-    Pong { uptime_secs: u64 },
+    Pong {
+        uptime_secs: u64,
+    },
     WebhookUrl(Option<String>),
     DaemonSettings {
         /// URL pública da API, **derivada** de `[api] domain`/`port` — base das
@@ -519,7 +547,10 @@ pub enum Response {
     /// Manifesto YAML serializado (resposta de `ManifestExport`).
     Manifest(String),
     /// YAML + `.env` complementar (resposta de `ManifestExportAll`).
-    ManifestBundle { yaml: String, dotenv: String },
+    ManifestBundle {
+        yaml: String,
+        dotenv: String,
+    },
     /// `${VAR}` sem valor correspondente no `.env` (resposta de
     /// `ManifestImport` quando faltam variáveis) — nada foi aplicado.
     MissingEnvVars(Vec<String>),
@@ -532,7 +563,10 @@ pub enum Response {
     GitRepos(Vec<GitRepo>),
     GitBranches(Vec<GitBranch>),
 
-    PruneResult { count: u32, reclaimed_bytes: u64 },
+    PruneResult {
+        count: u32,
+        reclaimed_bytes: u64,
+    },
     /// Resposta de `DockerCleanupConfigGet`/`Set` — `last_run` é `None`
     /// enquanto a limpeza automática nunca rodou.
     DockerCleanupConfig {
@@ -548,7 +582,9 @@ pub enum Response {
     /// Todo container do host (rodando + parado), resposta de `DockerContainers`.
     DockerContainers(Vec<DockerContainerInfo>),
     /// Count of rustploy-managed containers stopped (resposta de `StopAllManaged`).
-    StopAllResult { count: u32 },
+    StopAllResult {
+        count: u32,
+    },
 
     /// Tabela de rotas viva do ingress (resposta de `IngressRoutes` e de
     /// `IngressReconcile` — o reconcile devolve a tabela já recalculada).
@@ -556,7 +592,11 @@ pub enum Response {
 
     /// Catálogos do wizard, prontos como JSON para o contexto (`ns_dbs`,
     /// `ns_brokers`, `ns_templates`). Resposta de `WizardCatalog`.
-    WizardCatalog { dbs: String, brokers: String, templates: String },
+    WizardCatalog {
+        dbs: String,
+        brokers: String,
+        templates: String,
+    },
 
     /// Snapshot do dashboard como JSON (resposta de `Snapshot`).
     Snapshot(String),
@@ -577,12 +617,21 @@ pub enum Response {
     RegistryTags(Vec<RegistryTagInfo>),
     /// Resultado do `RegistryGc`: arquivos removidos do CAS/uploads e bytes
     /// liberados no disco.
-    RegistryGcResult { blobs_removed: u64, bytes_freed: u64 },
+    RegistryGcResult {
+        blobs_removed: u64,
+        bytes_freed: u64,
+    },
     /// Resposta de `RegistryTokenCreate` — `secret` só aparece aqui, uma vez.
-    RegistryTokenCreated { name: String, secret: String },
+    RegistryTokenCreated {
+        name: String,
+        secret: String,
+    },
     RegistryTokens(Vec<RegistryTokenInfo>),
 
-    Err { code: String, message: String },
+    Err {
+        code: String,
+        message: String,
+    },
 }
 
 impl Response {

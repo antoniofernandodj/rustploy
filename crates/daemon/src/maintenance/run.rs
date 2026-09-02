@@ -4,8 +4,8 @@
 //! `Event::DockerCleanupCompleted` e persiste `last_run_at`/`next_run_at` +
 //! um resumo, pra tela mostrar "última limpeza" sem depender do SSE.
 
-use crate::api::handlers::docker_prune::{self, PruneStat};
 use crate::api::AppState;
+use crate::api::handlers::docker_prune::{self, PruneStat};
 use crate::db::daemon_settings;
 use chrono::Utc;
 use shared::{DockerCleanupConfig, DockerCleanupLastRun, DockerCleanupResourceResult, Event};
@@ -17,7 +17,10 @@ pub async fn run(state: &AppState, mut config: DockerCleanupConfig) -> DockerCle
     let mut results = Vec::new();
 
     if config.containers {
-        results.push(record("containers", docker_prune::prune_containers_core(state).await));
+        results.push(record(
+            "containers",
+            docker_prune::prune_containers_core(state).await,
+        ));
     }
     if config.images {
         results.push(record(
@@ -32,10 +35,16 @@ pub async fn run(state: &AppState, mut config: DockerCleanupConfig) -> DockerCle
         ));
     }
     if config.networks {
-        results.push(record("networks", docker_prune::prune_networks_core(state).await));
+        results.push(record(
+            "networks",
+            docker_prune::prune_networks_core(state).await,
+        ));
     }
     if config.build_cache {
-        results.push(record("build_cache", docker_prune::prune_build_cache_core().await));
+        results.push(record(
+            "build_cache",
+            docker_prune::prune_build_cache_core().await,
+        ));
     }
 
     let now = Utc::now();
@@ -46,17 +55,26 @@ pub async fn run(state: &AppState, mut config: DockerCleanupConfig) -> DockerCle
         warn!(error = %e, "maintenance: falha ao persistir config após execução");
     }
 
-    let last_run = DockerCleanupLastRun { at: now, results: results.clone() };
+    let last_run = DockerCleanupLastRun {
+        at: now,
+        results: results.clone(),
+    };
     if let Ok(json) = serde_json::to_string(&last_run) {
-        if let Err(e) =
-            daemon_settings::set(&state.db, daemon_settings::KEY_DOCKER_CLEANUP_LAST_RUN, &json).await
+        if let Err(e) = daemon_settings::set(
+            &state.db,
+            daemon_settings::KEY_DOCKER_CLEANUP_LAST_RUN,
+            &json,
+        )
+        .await
         {
             warn!(error = %e, "maintenance: falha ao persistir resumo da execução");
         }
     }
 
     info!(count = results.len(), "maintenance: limpeza concluída");
-    state.bus.publish(Event::DockerCleanupCompleted { at: now, results });
+    state
+        .bus
+        .publish(Event::DockerCleanupCompleted { at: now, results });
 
     config
 }
@@ -81,7 +99,10 @@ fn record(resource: &str, result: Result<PruneStat, String>) -> DockerCleanupRes
     }
 }
 
-pub(crate) async fn save_config(state: &AppState, config: &DockerCleanupConfig) -> anyhow::Result<()> {
+pub(crate) async fn save_config(
+    state: &AppState,
+    config: &DockerCleanupConfig,
+) -> anyhow::Result<()> {
     let json = serde_json::to_string(config)?;
     daemon_settings::set(&state.db, daemon_settings::KEY_DOCKER_CLEANUP_CONFIG, &json).await
 }

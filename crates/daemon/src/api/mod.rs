@@ -1,11 +1,14 @@
 pub mod handlers;
 pub mod http_api;
-pub mod routes;
 pub mod public_routes;
+pub mod routes;
 pub mod web_ui;
 
 use crate::{
-    db::Db, docker::DockerClient, event_bus::EventBus, ingress::{IngressController, TlsManager},
+    db::Db,
+    docker::DockerClient,
+    event_bus::EventBus,
+    ingress::{IngressController, TlsManager},
     secrets::SecretsManager,
 };
 use shared::{DockerImageInfo, DockerNetworkInfo, DockerVolumeInfo};
@@ -55,7 +58,10 @@ pub struct TtlCache<T> {
 
 impl<T: Clone> TtlCache<T> {
     fn new(ttl: Duration) -> Self {
-        Self { ttl, slot: AsyncMutex::new(None) }
+        Self {
+            ttl,
+            slot: AsyncMutex::new(None),
+        }
     }
 
     /// Returns the cached value if still within the TTL, otherwise runs

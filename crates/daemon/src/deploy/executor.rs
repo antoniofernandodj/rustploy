@@ -10,9 +10,8 @@ use anyhow::{Result, anyhow};
 use bollard::models::HealthStatusEnum;
 use chrono::Utc;
 use shared::{
-    compose_project_name,
     DeployState, Deployment, Event, HealthcheckKind, RustployConfig, Service, ServiceSource,
-    ServiceStatus,
+    ServiceStatus, compose_project_name,
 };
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tokio::time::sleep;
@@ -78,7 +77,10 @@ fn is_embedded_registry_image(image: &str, port: u16, domain: Option<&str>) -> b
 /// que falhou, nunca *em que etapa*. As continuações entram indentadas, para o
 /// olho separar uma causa de várias linhas de vários passos seguidos.
 fn failure_log_lines(state_label: &str, err: &str) -> Vec<String> {
-    let mut linhas = err.lines().map(str::trim_end).filter(|l| !l.trim().is_empty());
+    let mut linhas = err
+        .lines()
+        .map(str::trim_end)
+        .filter(|l| !l.trim().is_empty());
 
     let Some(primeira) = linhas.next() else {
         // `anyhow!("")` é improvável, mas uma linha dizendo que não há mensagem
@@ -166,13 +168,13 @@ impl DeployExecutor {
             // ex.: falha ao ler do banco — distintos das falhas de step que já fazem rollback)
             self.bus.publish(Event::Error {
                 code: "ExecutorFatal".into(),
-                message: format!(
-                    "Falha crítica no deploy {}: {e}",
-                    {
-                        let s = deployment_id.find('_').map(|i| &deployment_id[i + 1..]).unwrap_or(&deployment_id);
-                        &s[..8.min(s.len())]
-                    }
-                ),
+                message: format!("Falha crítica no deploy {}: {e}", {
+                    let s = deployment_id
+                        .find('_')
+                        .map(|i| &deployment_id[i + 1..])
+                        .unwrap_or(&deployment_id);
+                    &s[..8.min(s.len())]
+                }),
             });
         }
         info!(deployment_id = %deployment_id, "executor: encerrado");
@@ -267,7 +269,8 @@ impl DeployExecutor {
                     project_id = %svc.spec.project_id,
                     "step[Pending]: garantindo rede Docker do projeto"
                 );
-                self.log_step(&dep.id, &svc.id, "==> Iniciando deploy").await;
+                self.log_step(&dep.id, &svc.id, "==> Iniciando deploy")
+                    .await;
                 let net = self.ensure_network(&svc.spec.project_id).await?;
                 info!(
                     deployment_id = %dep.id,
@@ -291,7 +294,9 @@ impl DeployExecutor {
                 for (idx, job_id) in checks.iter().enumerate() {
                     let job = crate::db::job::get(&self.db, job_id)
                         .await?
-                        .ok_or_else(|| anyhow!("job de pré-deploy check não encontrado: {job_id}"))?;
+                        .ok_or_else(|| {
+                            anyhow!("job de pré-deploy check não encontrado: {job_id}")
+                        })?;
 
                     info!(
                         deployment_id = %dep.id,
@@ -325,7 +330,12 @@ impl DeployExecutor {
                         registry_internal_token: self.registry_internal_token.clone(),
                     };
                     let result = runner
-                        .run_inner_mirrored(&job, &run.id, Some((dep.id.clone(), svc.id.clone())), None)
+                        .run_inner_mirrored(
+                            &job,
+                            &run.id,
+                            Some((dep.id.clone(), svc.id.clone())),
+                            None,
+                        )
                         .await;
 
                     let (exit_code, success) = match &result {
@@ -378,7 +388,8 @@ impl DeployExecutor {
                             image = %image,
                             "step[ResolvingDeps]: fonte é Registry → irá para PullingImage"
                         );
-                        self.log_step(&dep.id, &svc.id, &format!("--> Pulling image: {image}")).await;
+                        self.log_step(&dep.id, &svc.id, &format!("--> Pulling image: {image}"))
+                            .await;
                         DeployState::PullingImage
                     }
                     ServiceSource::Git(g) => {
@@ -388,7 +399,12 @@ impl DeployExecutor {
                             branch = %g.branch,
                             "step[ResolvingDeps]: fonte é Git → irá para CloningRepo"
                         );
-                        self.log_step(&dep.id, &svc.id, &format!("--> Clonando repositório: {} ({})", g.url, g.branch)).await;
+                        self.log_step(
+                            &dep.id,
+                            &svc.id,
+                            &format!("--> Clonando repositório: {} ({})", g.url, g.branch),
+                        )
+                        .await;
                         DeployState::CloningRepo
                     }
                     ServiceSource::Archive(a) => {
@@ -397,7 +413,8 @@ impl DeployExecutor {
                             archive_id = %a.archive_id,
                             "step[ResolvingDeps]: fonte é Archive → irá para BuildingImage"
                         );
-                        self.log_step(&dep.id, &svc.id, "--> Preparando zip enviado").await;
+                        self.log_step(&dep.id, &svc.id, "--> Preparando zip enviado")
+                            .await;
                         DeployState::BuildingImage
                     }
                     ServiceSource::Compose(c) => {
@@ -406,7 +423,8 @@ impl DeployExecutor {
                             compose_file = %c.content,
                             "step[ResolvingDeps]: fonte é Compose → irá para ComposingUp"
                         );
-                        self.log_step(&dep.id, &svc.id, "--> Executando docker compose up").await;
+                        self.log_step(&dep.id, &svc.id, "--> Executando docker compose up")
+                            .await;
                         DeployState::ComposingUp
                     }
                 };
@@ -421,8 +439,18 @@ impl DeployExecutor {
                     "step[PullingImage]: iniciando pull"
                 );
                 let creds = self.registry_credentials_for(&image).await;
-                images::pull(&self.docker.inner, &image, &svc.id, &dep.id, &self.bus, &self.db, creds).await?;
-                self.log_step(&dep.id, &svc.id, &format!("--> Pull concluído: {image}")).await;
+                images::pull(
+                    &self.docker.inner,
+                    &image,
+                    &svc.id,
+                    &dep.id,
+                    &self.bus,
+                    &self.db,
+                    creds,
+                )
+                .await?;
+                self.log_step(&dep.id, &svc.id, &format!("--> Pull concluído: {image}"))
+                    .await;
                 info!(
                     deployment_id = %dep.id,
                     image = %image,
@@ -455,7 +483,7 @@ impl DeployExecutor {
                 let bus = self.bus.clone();
                 let sid = svc.id.clone();
                 let did = dep.id.clone();
-                
+
                 info!(
                     deployment_id = %dep.id,
                     dir = %dir.display(),
@@ -492,7 +520,10 @@ impl DeployExecutor {
                 let (context, dockerfile_path) = match &svc.spec.source {
                     ServiceSource::Git(git) => {
                         let clone_dir = self.clone_dir(&dep.id);
-                        (clone_dir.join(&git.build_context), git.dockerfile_path.clone())
+                        (
+                            clone_dir.join(&git.build_context),
+                            git.dockerfile_path.clone(),
+                        )
                     }
                     ServiceSource::Archive(archive) => {
                         let src = self.archive_dir(&svc.id, &archive.archive_id);
@@ -501,7 +532,10 @@ impl DeployExecutor {
                             let _ = std::fs::remove_dir_all(&dst);
                         }
                         copy_dir_all(&src, &dst)?;
-                        (dst.join(&archive.build_context), archive.dockerfile_path.clone())
+                        (
+                            dst.join(&archive.build_context),
+                            archive.dockerfile_path.clone(),
+                        )
                     }
                     _ => return Err(anyhow!("expected Git or Archive source")),
                 };
@@ -531,7 +565,12 @@ impl DeployExecutor {
                     context = %context.display(),
                     "step[BuildingImage]: iniciando build Docker"
                 );
-                self.log_step(&dep.id, &svc.id, &format!("--> Build Docker: {} ({})", tag, dockerfile_path)).await;
+                self.log_step(
+                    &dep.id,
+                    &svc.id,
+                    &format!("--> Build Docker: {} ({})", tag, dockerfile_path),
+                )
+                .await;
                 images::build(
                     &self.docker.inner,
                     &self.db,
@@ -561,9 +600,9 @@ impl DeployExecutor {
 
                 if replicas == 1 {
                     // Single replica: caminho existente, healthcheck e swap tratados nos próximos estados
-                    let cname =
-                        containers::replica_staging_name(&svc.spec.name, &dep_short, 0);
-                    self.log_step(&dep.id, &svc.id, "--> Criando container de staging").await;
+                    let cname = containers::replica_staging_name(&svc.spec.name, &dep_short, 0);
+                    self.log_step(&dep.id, &svc.id, "--> Criando container de staging")
+                        .await;
                     info!(deployment_id = %dep.id, container_name = %cname, "step[Staging]: criando réplica única");
                     let id = containers::create_staging(
                         &self.docker.inner,
@@ -598,12 +637,10 @@ impl DeployExecutor {
                 let mut ips: Vec<Option<String>> = vec![None; replicas as usize];
                 for i in 0..replicas {
                     let live = containers::replica_live_name(&svc.spec.name, i);
-                    if let Ok(Some(cid)) =
-                        containers::find_by_name(&self.docker.inner, &live).await
+                    if let Ok(Some(cid)) = containers::find_by_name(&self.docker.inner, &live).await
                     {
                         if let Ok(ip) =
-                            containers::get_container_ip(&self.docker.inner, &cid, &network)
-                                .await
+                            containers::get_container_ip(&self.docker.inner, &cid, &network).await
                         {
                             ips[i as usize] = Some(ip);
                         }
@@ -611,8 +648,7 @@ impl DeployExecutor {
                 }
 
                 for i in 0..replicas {
-                    let staging =
-                        containers::replica_staging_name(&svc.spec.name, &dep_short, i);
+                    let staging = containers::replica_staging_name(&svc.spec.name, &dep_short, i);
                     info!(
                         deployment_id = %dep.id,
                         replica = i,
@@ -633,12 +669,9 @@ impl DeployExecutor {
                     .await?;
                     containers::start(&self.docker.inner, &staging_id).await?;
 
-                    let ip = containers::get_container_ip(
-                        &self.docker.inner,
-                        &staging_id,
-                        &network,
-                    )
-                    .await?;
+                    let ip =
+                        containers::get_container_ip(&self.docker.inner, &staging_id, &network)
+                            .await?;
                     info!(
                         deployment_id = %dep.id,
                         replica = i,
@@ -659,8 +692,7 @@ impl DeployExecutor {
                             old_container = %old_cid,
                             "step[Staging/Rolling]: parando réplica anterior"
                         );
-                        let _ = containers::stop_graceful(&self.docker.inner, &old_cid, 30)
-                            .await;
+                        let _ = containers::stop_graceful(&self.docker.inner, &old_cid, 30).await;
                         let _ = containers::remove(&self.docker.inner, &old_cid).await;
                     }
 
@@ -678,8 +710,10 @@ impl DeployExecutor {
                     let active: Vec<String> = ips.iter().flatten().cloned().collect();
                     self.ingress.register_domains(&svc.spec, &active, &svc.id);
                     if let Some(host_port) = svc.spec.host_port {
-                        let backends: Vec<String> =
-                            active.iter().map(|ip| format!("{ip}:{}", svc.spec.port)).collect();
+                        let backends: Vec<String> = active
+                            .iter()
+                            .map(|ip| format!("{ip}:{}", svc.spec.port))
+                            .collect();
                         self.ingress.upsert_port_route(host_port, backends);
                     }
 
@@ -722,7 +756,12 @@ impl DeployExecutor {
                     healthcheck = ?svc.spec.healthcheck.kind,
                     "step[HealthcheckPolling]: iniciando polling de healthcheck"
                 );
-                self.log_step(&dep.id, &svc.id, &format!("--> Healthcheck: aguardando {ip}:{}", svc.spec.port)).await;
+                self.log_step(
+                    &dep.id,
+                    &svc.id,
+                    &format!("--> Healthcheck: aguardando {ip}:{}", svc.spec.port),
+                )
+                .await;
                 self.poll_healthcheck(&ip, &cid, svc, dep).await?;
                 self.log_step(&dep.id, &svc.id, "--> Healthcheck OK").await;
                 info!(
@@ -742,8 +781,7 @@ impl DeployExecutor {
                 // depois compõe `ip:porta` com a sua própria porta de container.
                 let mut ips: Vec<String> = Vec::with_capacity(replicas as usize);
                 for i in 0..replicas {
-                    let staging =
-                        containers::replica_staging_name(&svc.spec.name, &dep_short, i);
+                    let staging = containers::replica_staging_name(&svc.spec.name, &dep_short, i);
                     info!(
                         deployment_id = %dep.id,
                         replica = i,
@@ -754,8 +792,7 @@ impl DeployExecutor {
                         .await?
                         .ok_or_else(|| anyhow!("staging container not found: {staging}"))?;
                     let ip =
-                        containers::get_container_ip(&self.docker.inner, &staging_id, &net)
-                            .await?;
+                        containers::get_container_ip(&self.docker.inner, &staging_id, &net).await?;
                     ips.push(ip);
                 }
 
@@ -769,8 +806,10 @@ impl DeployExecutor {
                     self.ingress.register_domains(&svc.spec, &ips, &svc.id);
                 }
                 if let Some(host_port) = svc.spec.host_port {
-                    let backends: Vec<String> =
-                        ips.iter().map(|ip| format!("{ip}:{}", svc.spec.port)).collect();
+                    let backends: Vec<String> = ips
+                        .iter()
+                        .map(|ip| format!("{ip}:{}", svc.spec.port))
+                        .collect();
                     info!(
                         deployment_id = %dep.id,
                         host_port,
@@ -880,14 +919,19 @@ impl DeployExecutor {
                     &self.db,
                     &svc.id,
                     &ServiceStatus::Running,
-                    if primary_id.is_empty() { None } else { Some(primary_id.as_str()) },
+                    if primary_id.is_empty() {
+                        None
+                    } else {
+                        Some(primary_id.as_str())
+                    },
                 )
                 .await?;
                 self.bus.publish(Event::ServiceStatusChanged {
                     service_id: svc.id.clone(),
                     status: ServiceStatus::Running,
                 });
-                self.log_step(&dep.id, &svc.id, "==> Deploy concluído — serviço Running ✓").await;
+                self.log_step(&dep.id, &svc.id, "==> Deploy concluído — serviço Running ✓")
+                    .await;
                 info!(
                     deployment_id = %dep.id,
                     service_id = %svc.id,
@@ -943,7 +987,8 @@ impl DeployExecutor {
             }
 
             DeployState::RollingBack => {
-                self.log_step(&dep.id, &svc.id, "==> Deploy falhou — iniciando rollback").await;
+                self.log_step(&dep.id, &svc.id, "==> Deploy falhou — iniciando rollback")
+                    .await;
                 if let ServiceSource::Compose(compose) = &svc.spec.source {
                     let project_name = compose_project_name(&svc.id, &svc.spec.name);
                     info!(
@@ -981,7 +1026,9 @@ impl DeployExecutor {
                 );
                 for i in 0..replicas {
                     let staging = containers::replica_staging_name(&svc.spec.name, &dep_short, i);
-                    if let Ok(Some(id)) = containers::find_by_name(&self.docker.inner, &staging).await {
+                    if let Ok(Some(id)) =
+                        containers::find_by_name(&self.docker.inner, &staging).await
+                    {
                         let _ = containers::remove(&self.docker.inner, &id).await;
                         info!(deployment_id = %dep.id, replica = i, container_id = %id, "step[RollingBack]: staging removido");
                     }
@@ -993,8 +1040,7 @@ impl DeployExecutor {
                 let mut live_ips: Vec<String> = Vec::new();
                 for i in 0..live_replicas {
                     let live = containers::replica_live_name(&svc.spec.name, i);
-                    if let Ok(Some(cid)) =
-                        containers::find_by_name(&self.docker.inner, &live).await
+                    if let Ok(Some(cid)) = containers::find_by_name(&self.docker.inner, &live).await
                     {
                         if let Ok(ip) =
                             containers::get_container_ip(&self.docker.inner, &cid, &net).await
@@ -1018,8 +1064,10 @@ impl DeployExecutor {
                             host_port,
                             "step[RollingBack]: restaurando rota de porta para lives anteriores"
                         );
-                        let backends: Vec<String> =
-                            live_ips.iter().map(|ip| format!("{ip}:{}", svc.spec.port)).collect();
+                        let backends: Vec<String> = live_ips
+                            .iter()
+                            .map(|ip| format!("{ip}:{}", svc.spec.port))
+                            .collect();
                         self.ingress.upsert_port_route(host_port, backends);
                     }
                 } else {
@@ -1087,7 +1135,9 @@ impl DeployExecutor {
                 .flatten();
 
                 if let Some(cid) = &live_container_id {
-                    if let Ok(ip) = containers::get_container_ip(&self.docker.inner, cid, &network_name).await {
+                    if let Ok(ip) =
+                        containers::get_container_ip(&self.docker.inner, cid, &network_name).await
+                    {
                         let ips = vec![ip];
                         if !svc.spec.domain_routes().is_empty() {
                             info!(deployment_id = %dep.id, ?ips, "ComposingUp: registrando rotas de domínio");
@@ -1102,7 +1152,12 @@ impl DeployExecutor {
                     }
                 }
 
-                self.log_step(&dep.id, &svc.id, "==> Compose up concluído — serviço Running ✓").await;
+                self.log_step(
+                    &dep.id,
+                    &svc.id,
+                    "==> Compose up concluído — serviço Running ✓",
+                )
+                .await;
                 info!(
                     deployment_id = %dep.id,
                     project = %project_name,
@@ -1185,15 +1240,19 @@ impl DeployExecutor {
                     "healthcheck: container parou inesperadamente"
                 );
                 // Captura as últimas linhas do container antes do rollback removê-lo
-                let crash_logs = containers::get_container_logs(&self.docker.inner, &container_id, 50).await;
+                let crash_logs =
+                    containers::get_container_logs(&self.docker.inner, &container_id, 50).await;
                 if crash_logs.is_empty() {
-                    self.log_step(&dep.id, &svc.id, "  [sem output do container]").await;
+                    self.log_step(&dep.id, &svc.id, "  [sem output do container]")
+                        .await;
                 } else {
-                    self.log_step(&dep.id, &svc.id, "--- output do container ---").await;
+                    self.log_step(&dep.id, &svc.id, "--- output do container ---")
+                        .await;
                     for line in &crash_logs {
                         self.log_step(&dep.id, &svc.id, line).await;
                     }
-                    self.log_step(&dep.id, &svc.id, "--------------------------").await;
+                    self.log_step(&dep.id, &svc.id, "--------------------------")
+                        .await;
                 }
                 return Err(anyhow!("container stopped during healthcheck"));
             }
@@ -1282,10 +1341,12 @@ impl DeployExecutor {
     /// Falha nunca aborta o deploy (pior caso = porta bloqueada, como antes).
     async fn ensure_firewall(&self, deployment_id: &str, service_id: &str, host_port: u16) {
         let line = match crate::firewall::ensure_allowed(host_port).await {
-            Ok(backend) if backend == "none" => format!(
-                "--> Porta externa {host_port} exposta (nenhum firewall ativo no host)"
-            ),
-            Ok(backend) => format!("--> Porta externa {host_port} liberada no firewall ({backend})"),
+            Ok(backend) if backend == "none" => {
+                format!("--> Porta externa {host_port} exposta (nenhum firewall ativo no host)")
+            }
+            Ok(backend) => {
+                format!("--> Porta externa {host_port} liberada no firewall ({backend})")
+            }
             Err(e) => format!(
                 "--> Aviso: não foi possível liberar a porta {host_port} no firewall: {e}. \
                  Se a conexão externa falhar, libere-a manualmente."
@@ -1310,7 +1371,10 @@ impl DeployExecutor {
     /// `crate::registry::internal_token`) pra que o Docker Engine do host
     /// consiga se autenticar no pull — necessário desde que a Fase 2 do
     /// registry passou a exigir Basic auth em toda rota, inclusive loopback.
-    async fn registry_credentials_for(&self, image: &str) -> Option<bollard::auth::DockerCredentials> {
+    async fn registry_credentials_for(
+        &self,
+        image: &str,
+    ) -> Option<bollard::auth::DockerCredentials> {
         let token = self.registry_internal_token.as_ref()?;
         let port = RustployConfig::global().registry.port;
 
@@ -1318,7 +1382,9 @@ impl DeployExecutor {
         if let Ok(Some(d)) = crate::db::daemon_settings::get(
             &self.db,
             crate::db::daemon_settings::KEY_REGISTRY_DOMAIN,
-        ).await {
+        )
+        .await
+        {
             if !d.trim().is_empty() {
                 domain = Some(d);
             }
@@ -1339,7 +1405,9 @@ impl DeployExecutor {
         match &svc.spec.source {
             ServiceSource::Registry { image } => image.clone(),
             ServiceSource::Git(_) => format!("rp_{}:{}", svc.spec.safe_name(), self.short(&dep.id)),
-            ServiceSource::Archive(_) => format!("rp_{}:{}", svc.spec.safe_name(), self.short(&dep.id)),
+            ServiceSource::Archive(_) => {
+                format!("rp_{}:{}", svc.spec.safe_name(), self.short(&dep.id))
+            }
             ServiceSource::Compose(c) => format!("compose:{}", c.content),
         }
     }
@@ -1422,23 +1490,37 @@ mod tests {
 
     #[test]
     fn reconhece_loopback_com_porta_certa() {
-        assert!(is_embedded_registry_image("127.0.0.1:5100/app:v1", 5100, None));
+        assert!(is_embedded_registry_image(
+            "127.0.0.1:5100/app:v1",
+            5100,
+            None
+        ));
     }
 
     #[test]
     fn nao_reconhece_porta_errada() {
-        assert!(!is_embedded_registry_image("127.0.0.1:9999/app:v1", 5100, None));
+        assert!(!is_embedded_registry_image(
+            "127.0.0.1:9999/app:v1",
+            5100,
+            None
+        ));
     }
 
     #[test]
     fn reconhece_localhost() {
-        assert!(is_embedded_registry_image("localhost:5100/app:v1", 5100, None));
+        assert!(is_embedded_registry_image(
+            "localhost:5100/app:v1",
+            5100,
+            None
+        ));
     }
 
     #[test]
     fn reconhece_dominio_configurado_sem_porta() {
         assert!(is_embedded_registry_image(
-            "registry.exemplo.com/app:v1", 5100, Some("registry.exemplo.com")
+            "registry.exemplo.com/app:v1",
+            5100,
+            Some("registry.exemplo.com")
         ));
     }
 
@@ -1447,14 +1529,20 @@ mod tests {
         // domínio:porta NUNCA é a forma certa (porta só existe em loopback) —
         // garantir que esse caso não bate por acidente com o prefixo do domínio.
         assert!(!is_embedded_registry_image(
-            "registry.exemplo.com:5100/app:v1", 5100, Some("registry.exemplo.com")
+            "registry.exemplo.com:5100/app:v1",
+            5100,
+            Some("registry.exemplo.com")
         ));
     }
 
     #[test]
     fn imagem_externa_nao_bate() {
         assert!(!is_embedded_registry_image("nginx:latest", 5100, None));
-        assert!(!is_embedded_registry_image("ghcr.io/user/app:v1", 5100, Some("registry.exemplo.com")));
+        assert!(!is_embedded_registry_image(
+            "ghcr.io/user/app:v1",
+            5100,
+            Some("registry.exemplo.com")
+        ));
     }
 }
 
@@ -1465,7 +1553,13 @@ mod tests {
 #[cfg(test)]
 mod pre_deploy_check_tests {
     use super::*;
-    use crate::{db, docker::DockerClient, event_bus::EventBus, ingress::{IngressController, TlsManager}, secrets::SecretsManager};
+    use crate::{
+        db,
+        docker::DockerClient,
+        event_bus::EventBus,
+        ingress::{IngressController, TlsManager},
+        secrets::SecretsManager,
+    };
     use shared::config::AcmeConfig;
     use shared::{Healthcheck, ResourceLimits, ServiceSource, ServiceSpec};
     use ulid::Ulid;
@@ -1478,7 +1572,11 @@ mod pre_deploy_check_tests {
         let tls = Arc::new(
             TlsManager::new(
                 dir.join("certs"),
-                AcmeConfig { enabled: false, email: None, directory: String::new() },
+                AcmeConfig {
+                    enabled: false,
+                    email: None,
+                    directory: String::new(),
+                },
             )
             .unwrap(),
         );
@@ -1499,7 +1597,9 @@ mod pre_deploy_check_tests {
         ServiceSpec {
             name: format!("svc-{}", Ulid::new()),
             project_id: "proj-1".into(),
-            source: ServiceSource::Registry { image: "nginx:latest".into() },
+            source: ServiceSource::Registry {
+                image: "nginx:latest".into(),
+            },
             port: 8080,
             host_port: None,
             domain: None,
@@ -1522,7 +1622,9 @@ mod pre_deploy_check_tests {
     #[tokio::test]
     async fn fila_vazia_e_no_op() {
         let executor = test_executor().await;
-        let svc = db::services::create(&executor.db, spec(vec![])).await.unwrap();
+        let svc = db::services::create(&executor.db, spec(vec![]))
+            .await
+            .unwrap();
         let mut dep = db::deployments::create(&executor.db, &svc.id, "nginx:latest")
             .await
             .unwrap();
@@ -1746,14 +1848,19 @@ mod failure_log_tests {
     #[tokio::test]
     async fn step_building_image_falha_com_mensagem_util_sem_dockerfile() {
         let executor = test_executor().await;
-        let svc = db::services::create(&executor.db, git_spec()).await.unwrap();
+        let svc = db::services::create(&executor.db, git_spec())
+            .await
+            .unwrap();
         let mut dep = db::deployments::create(&executor.db, &svc.id, "rp_app:1")
             .await
             .unwrap();
         dep.state = DeployState::BuildingImage;
 
         let err = executor.step(&dep, &svc).await.unwrap_err().to_string();
-        assert!(err.contains("Dockerfile não encontrado no repositório"), "{err}");
+        assert!(
+            err.contains("Dockerfile não encontrado no repositório"),
+            "{err}"
+        );
         assert!(err.contains("main"), "{err}");
     }
 
@@ -1763,14 +1870,19 @@ mod failure_log_tests {
     #[tokio::test]
     async fn causa_do_step_falho_e_persistida_no_build_log() {
         let executor = test_executor().await;
-        let svc = db::services::create(&executor.db, git_spec()).await.unwrap();
+        let svc = db::services::create(&executor.db, git_spec())
+            .await
+            .unwrap();
         let dep = db::deployments::create(&executor.db, &svc.id, "rp_app:1")
             .await
             .unwrap();
 
         let erro = executor
             .step(
-                &Deployment { state: DeployState::BuildingImage, ..dep.clone() },
+                &Deployment {
+                    state: DeployState::BuildingImage,
+                    ..dep.clone()
+                },
                 &svc,
             )
             .await
@@ -1784,9 +1896,14 @@ mod failure_log_tests {
             .await
             .unwrap();
         assert!(!log.is_empty());
-        assert!(log[0].line.starts_with("==> Erro em [BuildingImage]:"), "{}", log[0].line);
         assert!(
-            log.iter().any(|l| l.line.contains("Dockerfile não encontrado no repositório")),
+            log[0].line.starts_with("==> Erro em [BuildingImage]:"),
+            "{}",
+            log[0].line
+        );
+        assert!(
+            log.iter()
+                .any(|l| l.line.contains("Dockerfile não encontrado no repositório")),
             "log: {:?}",
             log.iter().map(|l| &l.line).collect::<Vec<_>>()
         );

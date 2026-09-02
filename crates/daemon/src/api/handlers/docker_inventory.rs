@@ -27,15 +27,26 @@ struct ServiceIndex {
 
 impl ServiceIndex {
     async fn build(state: &AppState) -> Self {
-        let projects = crate::db::projects::list(&state.db).await.unwrap_or_default();
-        let project_names: HashMap<String, String> =
-            projects.iter().map(|p| (p.id.clone(), p.name.clone())).collect();
+        let projects = crate::db::projects::list(&state.db)
+            .await
+            .unwrap_or_default();
+        let project_names: HashMap<String, String> = projects
+            .iter()
+            .map(|p| (p.id.clone(), p.name.clone()))
+            .collect();
         let by_project_short = projects
             .iter()
-            .map(|p| (docker::networks::id_short(&p.id).to_string(), p.name.clone()))
+            .map(|p| {
+                (
+                    docker::networks::id_short(&p.id).to_string(),
+                    p.name.clone(),
+                )
+            })
             .collect();
 
-        let services = crate::db::services::list_all(&state.db).await.unwrap_or_default();
+        let services = crate::db::services::list_all(&state.db)
+            .await
+            .unwrap_or_default();
         let mut by_safe_name = HashMap::new();
         let mut by_registry_image = HashMap::new();
         let mut by_service_id = HashMap::new();
@@ -55,7 +66,12 @@ impl ServiceIndex {
                 ServiceSource::Compose(_) => {}
             }
         }
-        Self { by_safe_name, by_registry_image, by_project_short, by_service_id }
+        Self {
+            by_safe_name,
+            by_registry_image,
+            by_project_short,
+            by_service_id,
+        }
     }
 
     /// Resolves an image's owner from its tags: exact match for registry
@@ -65,7 +81,10 @@ impl ServiceIndex {
             if let Some((proj, svc)) = self.by_registry_image.get(tag) {
                 return (Some(proj.clone()), Some(svc.clone()));
             }
-            if let Some(safe) = tag.split(':').next().and_then(|repo| repo.strip_prefix("rp_"))
+            if let Some(safe) = tag
+                .split(':')
+                .next()
+                .and_then(|repo| repo.strip_prefix("rp_"))
                 && let Some((proj, svc)) = self.by_safe_name.get(safe)
             {
                 return (Some(proj.clone()), Some(svc.clone()));
@@ -88,7 +107,12 @@ impl ServiceIndex {
 /// Served from the TTL cache (`state.docker_cache.df`) so the 2s status poll
 /// doesn't re-run `docker system df` every tick.
 pub async fn list_images(state: AppState) -> RpResponse {
-    match state.docker_cache.df.get_or_refresh(|| compute_df_inventory(&state)).await {
+    match state
+        .docker_cache
+        .df
+        .get_or_refresh(|| compute_df_inventory(&state))
+        .await
+    {
         Ok((images, _)) => RpResponse::DockerImages(images),
         Err(e) => RpResponse::err("DockerError", e),
     }
@@ -99,7 +123,12 @@ pub async fn list_images(state: AppState) -> RpResponse {
 /// that determines whether a volume is "in use". Shares the cached `df` snapshot
 /// with [`list_images`].
 pub async fn list_volumes(state: AppState) -> RpResponse {
-    match state.docker_cache.df.get_or_refresh(|| compute_df_inventory(&state)).await {
+    match state
+        .docker_cache
+        .df
+        .get_or_refresh(|| compute_df_inventory(&state))
+        .await
+    {
         Ok((_, volumes)) => RpResponse::DockerVolumes(volumes),
         Err(e) => RpResponse::err("DockerError", e),
     }
@@ -155,7 +184,12 @@ async fn compute_df_inventory(
 /// inspect` does, and doing that per-network would be an N+1 round trip).
 /// Served from the TTL cache (`state.docker_cache.networks`).
 pub async fn list_networks(state: AppState) -> RpResponse {
-    match state.docker_cache.networks.get_or_refresh(|| compute_networks(&state)).await {
+    match state
+        .docker_cache
+        .networks
+        .get_or_refresh(|| compute_networks(&state))
+        .await
+    {
         Ok(infos) => RpResponse::DockerNetworks(infos),
         Err(e) => RpResponse::err("DockerError", e),
     }
@@ -176,12 +210,19 @@ async fn compute_networks(state: &AppState) -> Result<Vec<DockerNetworkInfo>, St
     let containers = state
         .docker
         .inner
-        .list_containers(Some(ListContainersOptions::<String> { all: true, ..Default::default() }))
+        .list_containers(Some(ListContainersOptions::<String> {
+            all: true,
+            ..Default::default()
+        }))
         .await
         .unwrap_or_default();
     let mut attached: HashMap<String, usize> = HashMap::new();
     for c in &containers {
-        if let Some(nets) = c.network_settings.as_ref().and_then(|ns| ns.networks.as_ref()) {
+        if let Some(nets) = c
+            .network_settings
+            .as_ref()
+            .and_then(|ns| ns.networks.as_ref())
+        {
             for name in nets.keys() {
                 *attached.entry(name.clone()).or_insert(0) += 1;
             }
@@ -216,7 +257,10 @@ pub async fn list_containers(state: AppState) -> RpResponse {
     let containers = match state
         .docker
         .inner
-        .list_containers(Some(ListContainersOptions::<String> { all: true, ..Default::default() }))
+        .list_containers(Some(ListContainersOptions::<String> {
+            all: true,
+            ..Default::default()
+        }))
         .await
     {
         Ok(c) => c,
@@ -233,7 +277,10 @@ pub async fn list_containers(state: AppState) -> RpResponse {
                 .map(|n| n.trim_start_matches('/').to_string())
                 .unwrap_or_default();
             let labels = c.labels.unwrap_or_default();
-            let managed = labels.get("rustploy.managed").map(|v| v == "true").unwrap_or(false);
+            let managed = labels
+                .get("rustploy.managed")
+                .map(|v| v == "true")
+                .unwrap_or(false);
             let (project, service) = labels
                 .get("rustploy.service_id")
                 .and_then(|sid| idx.by_service_id.get(sid))

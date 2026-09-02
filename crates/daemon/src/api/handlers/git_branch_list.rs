@@ -11,13 +11,24 @@ pub async fn handle(state: AppState, provider_id: String, repo_full_name: String
         Ok(t) => t,
         Err(e) => return Response::err("NotConnected", e.to_string()),
     };
-    let kind = shared::GitProviderKind::from_str(&provider.kind)
-        .unwrap_or(shared::GitProviderKind::Gitea);
-    match crate::git_providers::list_branches(kind, &provider.base_url, &token, &repo_full_name).await {
+    let kind =
+        shared::GitProviderKind::from_str(&provider.kind).unwrap_or(shared::GitProviderKind::Gitea);
+    match crate::git_providers::list_branches(kind, &provider.base_url, &token, &repo_full_name)
+        .await
+    {
         Ok(branches) => Response::GitBranches(branches),
         Err(first) => {
-            match crate::git_providers::refresh_access_token(&state.db, &state.secrets, &provider).await {
-                Some(fresh) => match crate::git_providers::list_branches(kind, &provider.base_url, &fresh, &repo_full_name).await {
+            match crate::git_providers::refresh_access_token(&state.db, &state.secrets, &provider)
+                .await
+            {
+                Some(fresh) => match crate::git_providers::list_branches(
+                    kind,
+                    &provider.base_url,
+                    &fresh,
+                    &repo_full_name,
+                )
+                .await
+                {
                     Ok(branches) => Response::GitBranches(branches),
                     Err(e) => Response::err("GitApiError", e.to_string()),
                 },

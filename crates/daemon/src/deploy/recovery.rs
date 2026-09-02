@@ -69,13 +69,9 @@ pub async fn recover(
             // preservando a fila entre restarts. Mantém o serviço em Queued.
             DeployState::Pending => {
                 info!(deployment_id = dep.id, "re-enfileirando deploy pendente");
-                let _ = crate::db::services::update_status(
-                    &db,
-                    &svc.id,
-                    &ServiceStatus::Queued,
-                    None,
-                )
-                .await;
+                let _ =
+                    crate::db::services::update_status(&db, &svc.id, &ServiceStatus::Queued, None)
+                        .await;
                 to_requeue.push(dep.id.clone());
             }
 
@@ -213,9 +209,7 @@ pub async fn reconcile(
         for i in 0..replicas {
             let live_name = containers::replica_live_name(&svc.spec.name, i);
             if let Ok(Some(cid)) = containers::find_by_name(&docker.inner, &live_name).await {
-                if let Ok(ip) =
-                    containers::get_container_ip(&docker.inner, &cid, &net).await
-                {
+                if let Ok(ip) = containers::get_container_ip(&docker.inner, &cid, &net).await {
                     ips.push(ip);
                 }
             }
@@ -232,25 +226,23 @@ pub async fn reconcile(
 
         match (is_running, was_running) {
             (true, false) => {
-                info!(service = svc.spec.name, "reconcile: container encontrado, marcando Running");
-                let _ = crate::db::services::update_status(
-                    db,
-                    &svc.id,
-                    &ServiceStatus::Running,
-                    None,
-                )
-                .await;
+                info!(
+                    service = svc.spec.name,
+                    "reconcile: container encontrado, marcando Running"
+                );
+                let _ =
+                    crate::db::services::update_status(db, &svc.id, &ServiceStatus::Running, None)
+                        .await;
                 reconcile_routes(&svc, ips, ingress, tls).await;
             }
             (false, true) => {
-                info!(service = svc.spec.name, "reconcile: container ausente, marcando Stopped");
-                let _ = crate::db::services::update_status(
-                    db,
-                    &svc.id,
-                    &ServiceStatus::Stopped,
-                    None,
-                )
-                .await;
+                info!(
+                    service = svc.spec.name,
+                    "reconcile: container ausente, marcando Stopped"
+                );
+                let _ =
+                    crate::db::services::update_status(db, &svc.id, &ServiceStatus::Stopped, None)
+                        .await;
                 ingress.remove_domains(&svc.spec);
                 if let Some(host_port) = svc.spec.host_port {
                     ingress.remove_port_route(host_port);
@@ -288,7 +280,9 @@ async fn compose_ingress_ip(docker: &DockerClient, svc: &Service, net: &str) -> 
     .await
     .ok()
     .flatten()?;
-    containers::get_container_ip(&docker.inner, &cid, net).await.ok()
+    containers::get_container_ip(&docker.inner, &cid, net)
+        .await
+        .ok()
 }
 
 async fn reconcile_routes(
@@ -308,13 +302,20 @@ async fn reconcile_routes(
         });
     }
     if let Some(host_port) = svc.spec.host_port {
-        let backends: Vec<String> =
-            ips.iter().map(|ip| format!("{ip}:{}", svc.spec.port)).collect();
+        let backends: Vec<String> = ips
+            .iter()
+            .map(|ip| format!("{ip}:{}", svc.spec.port))
+            .collect();
         ingress.upsert_port_route(host_port, backends);
     }
 }
 
-async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressController, tls: &Arc<TlsManager>) {
+async fn restore_routes(
+    db: &Db,
+    docker: &DockerClient,
+    ingress: &IngressController,
+    tls: &Arc<TlsManager>,
+) {
     let services = match crate::db::services::get_running(db).await {
         Ok(v) => v,
         Err(e) => {
@@ -340,9 +341,7 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
         for i in 0..replicas {
             let live_name = containers::replica_live_name(&svc.spec.name, i);
             if let Ok(Some(cid)) = containers::find_by_name(&docker.inner, &live_name).await {
-                if let Ok(ip) =
-                    containers::get_container_ip(&docker.inner, &cid, &net).await
-                {
+                if let Ok(ip) = containers::get_container_ip(&docker.inner, &cid, &net).await {
                     ips.push(ip);
                 }
             }
@@ -356,7 +355,10 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
         }
 
         if ips.is_empty() {
-            warn!(service = svc.spec.name, "no live containers found, skipping route restore");
+            warn!(
+                service = svc.spec.name,
+                "no live containers found, skipping route restore"
+            );
             continue;
         }
 
@@ -377,10 +379,17 @@ async fn restore_routes(db: &Db, docker: &DockerClient, ingress: &IngressControl
         }
 
         if let Some(host_port) = svc.spec.host_port {
-            let backends: Vec<String> =
-                ips.iter().map(|ip| format!("{ip}:{}", svc.spec.port)).collect();
+            let backends: Vec<String> = ips
+                .iter()
+                .map(|ip| format!("{ip}:{}", svc.spec.port))
+                .collect();
             ingress.upsert_port_route(host_port, backends.clone());
-            info!(service = svc.spec.name, host_port, ?backends, "port routes restored");
+            info!(
+                service = svc.spec.name,
+                host_port,
+                ?backends,
+                "port routes restored"
+            );
             // Auto-cura: se o admin resetou o ufw (ou o SO foi reinstalado), a
             // regra da porta volta sozinha junto com a rota.
             crate::firewall::ensure_allowed_bg(host_port);

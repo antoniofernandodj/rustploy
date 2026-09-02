@@ -6,8 +6,8 @@
 //! passam por validação de duplicata contra os demais serviços.
 
 use crate::db::Db;
-use shared::config::RustployConfig;
 use shared::ServiceSpec;
+use shared::config::RustployConfig;
 
 /// Sentinela em `ServiceSpec.host_port` que pede alocação automática.
 pub const AUTO_PORT: u16 = 0;

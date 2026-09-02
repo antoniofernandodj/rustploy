@@ -6,8 +6,8 @@
 pub mod gitea;
 pub mod github;
 
-use crate::db::git_providers::{self, StoredProvider};
 use crate::db::Db;
+use crate::db::git_providers::{self, StoredProvider};
 use crate::secrets::SecretsManager;
 use anyhow::{Context, Result};
 use shared::{GitAccount, GitBranch, GitProviderKind, GitRepo};
@@ -26,14 +26,22 @@ pub struct OAuthTokens {
 
 // ── Provider-agnostic dispatch ────────────────────────────────────────────
 
-pub async fn current_user(kind: GitProviderKind, base_url: &str, token: &str) -> Result<GitAccount> {
+pub async fn current_user(
+    kind: GitProviderKind,
+    base_url: &str,
+    token: &str,
+) -> Result<GitAccount> {
     match kind {
         GitProviderKind::Gitea => gitea::current_user(base_url, token).await,
         GitProviderKind::Github => github::current_user(base_url, token).await,
     }
 }
 
-pub async fn list_repos(kind: GitProviderKind, base_url: &str, token: &str) -> Result<Vec<GitRepo>> {
+pub async fn list_repos(
+    kind: GitProviderKind,
+    base_url: &str,
+    token: &str,
+) -> Result<Vec<GitRepo>> {
     match kind {
         GitProviderKind::Gitea => gitea::list_repos(base_url, token).await,
         GitProviderKind::Github => github::list_repos(base_url, token).await,
@@ -62,12 +70,20 @@ pub async fn exchange_code(
 ) -> Result<OAuthTokens> {
     match kind {
         GitProviderKind::Gitea => {
-            let t = gitea::exchange_code(base_url, client_id, client_secret, code, redirect_uri).await?;
-            Ok(OAuthTokens { access_token: t.access_token, refresh_token: t.refresh_token })
+            let t = gitea::exchange_code(base_url, client_id, client_secret, code, redirect_uri)
+                .await?;
+            Ok(OAuthTokens {
+                access_token: t.access_token,
+                refresh_token: t.refresh_token,
+            })
         }
         GitProviderKind::Github => {
-            let t = github::exchange_code(base_url, client_id, client_secret, code, redirect_uri).await?;
-            Ok(OAuthTokens { access_token: t.access_token, refresh_token: t.refresh_token })
+            let t = github::exchange_code(base_url, client_id, client_secret, code, redirect_uri)
+                .await?;
+            Ok(OAuthTokens {
+                access_token: t.access_token,
+                refresh_token: t.refresh_token,
+            })
         }
     }
 }
@@ -83,8 +99,12 @@ pub async fn ensure_redirect_uri(
     redirect_uri: &str,
 ) -> Result<()> {
     match kind {
-        GitProviderKind::Gitea => gitea::ensure_redirect_uri(base_url, token, client_id, redirect_uri).await,
-        GitProviderKind::Github => github::ensure_redirect_uri(base_url, token, client_id, redirect_uri).await,
+        GitProviderKind::Gitea => {
+            gitea::ensure_redirect_uri(base_url, token, client_id, redirect_uri).await
+        }
+        GitProviderKind::Github => {
+            github::ensure_redirect_uri(base_url, token, client_id, redirect_uri).await
+        }
     }
 }
 
@@ -139,17 +159,29 @@ pub async fn refresh_access_token(
         return None;
     }
     let client_id = p.oauth_client_id.as_deref()?;
-    let client_secret = secrets.decrypt(p.oauth_client_secret_enc.as_deref()?).ok()?;
+    let client_secret = secrets
+        .decrypt(p.oauth_client_secret_enc.as_deref()?)
+        .ok()?;
     let refresh = secrets.decrypt(p.refresh_token_enc.as_deref()?).ok()?;
 
     let tokens = match kind_of(p) {
         GitProviderKind::Gitea => {
-            let t = gitea::refresh(&p.base_url, client_id, &client_secret, &refresh).await.ok()?;
-            OAuthTokens { access_token: t.access_token, refresh_token: t.refresh_token }
+            let t = gitea::refresh(&p.base_url, client_id, &client_secret, &refresh)
+                .await
+                .ok()?;
+            OAuthTokens {
+                access_token: t.access_token,
+                refresh_token: t.refresh_token,
+            }
         }
         GitProviderKind::Github => {
-            let t = github::refresh(&p.base_url, client_id, &client_secret, &refresh).await.ok()?;
-            OAuthTokens { access_token: t.access_token, refresh_token: t.refresh_token }
+            let t = github::refresh(&p.base_url, client_id, &client_secret, &refresh)
+                .await
+                .ok()?;
+            OAuthTokens {
+                access_token: t.access_token,
+                refresh_token: t.refresh_token,
+            }
         }
     };
 

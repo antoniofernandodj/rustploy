@@ -145,21 +145,31 @@ pub async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response
         }
     }
     let (Some(code), Some(csrf)) = (code, csrf) else {
-        return html(StatusCode::BAD_REQUEST, "Erro", "Parâmetros OAuth ausentes.");
+        return html(
+            StatusCode::BAD_REQUEST,
+            "Erro",
+            "Parâmetros OAuth ausentes.",
+        );
     };
 
     // Consome o state (CSRF) e recupera o provider associado.
     let provider_id = match state.oauth_states.lock().unwrap().remove(&csrf) {
         Some(id) => id,
-        None => return html(StatusCode::BAD_REQUEST, "Erro", "State OAuth inválido ou expirado."),
+        None => {
+            return html(
+                StatusCode::BAD_REQUEST,
+                "Erro",
+                "State OAuth inválido ou expirado.",
+            );
+        }
     };
 
     let provider = match git_providers::get(&state.db, &provider_id).await {
         Ok(Some(p)) => p,
         _ => return html(StatusCode::NOT_FOUND, "Erro", "Provider não encontrado."),
     };
-    let kind = shared::GitProviderKind::from_str(&provider.kind)
-        .unwrap_or(shared::GitProviderKind::Gitea);
+    let kind =
+        shared::GitProviderKind::from_str(&provider.kind).unwrap_or(shared::GitProviderKind::Gitea);
 
     let client_id = provider.oauth_client_id.clone().unwrap_or_default();
     let client_secret = match &provider.oauth_client_secret_enc {
@@ -167,10 +177,20 @@ pub async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response
             Ok(s) => s,
             Err(e) => {
                 error!(error = %e, "oauth: falha ao decifrar client_secret");
-                return html(StatusCode::INTERNAL_SERVER_ERROR, "Erro", "Falha ao ler client secret.");
+                return html(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Erro",
+                    "Falha ao ler client secret.",
+                );
             }
         },
-        None => return html(StatusCode::BAD_REQUEST, "Erro", "Provider sem client secret."),
+        None => {
+            return html(
+                StatusCode::BAD_REQUEST,
+                "Erro",
+                "Provider sem client secret.",
+            );
+        }
     };
 
     let redirect_uri = match callback_redirect_uri(&state, kind) {
@@ -197,7 +217,11 @@ pub async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response
         Ok(t) => t,
         Err(e) => {
             error!(error = %e, "oauth: troca de code falhou");
-            return html(StatusCode::BAD_GATEWAY, "Erro", "Falha ao trocar o código por token.");
+            return html(
+                StatusCode::BAD_GATEWAY,
+                "Erro",
+                "Falha ao trocar o código por token.",
+            );
         }
     };
 
@@ -210,23 +234,28 @@ pub async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response
         let cid = client_id.clone();
         let ru = redirect_uri.clone();
         tokio::spawn(async move {
-            if let Err(e) = crate::git_providers::ensure_redirect_uri(
-                kind, &base_url, &token, &cid, &ru,
-            )
-            .await
+            if let Err(e) =
+                crate::git_providers::ensure_redirect_uri(kind, &base_url, &token, &cid, &ru).await
             {
                 warn!(error = %e, "oauth: falha ao sincronizar redirect URI no provider (não crítico)");
             }
         });
     }
 
-    let account = match crate::git_providers::current_user(kind, &provider.base_url, &tokens.access_token).await {
-        Ok(a) => a,
-        Err(e) => {
-            error!(error = %e, "oauth: current_user falhou");
-            return html(StatusCode::BAD_GATEWAY, "Erro", "Token obtido, mas falha ao ler a conta.");
-        }
-    };
+    let account =
+        match crate::git_providers::current_user(kind, &provider.base_url, &tokens.access_token)
+            .await
+        {
+            Ok(a) => a,
+            Err(e) => {
+                error!(error = %e, "oauth: current_user falhou");
+                return html(
+                    StatusCode::BAD_GATEWAY,
+                    "Erro",
+                    "Token obtido, mas falha ao ler a conta.",
+                );
+            }
+        };
 
     let access_enc = state.secrets.encrypt(&tokens.access_token).ok();
     let refresh_enc = tokens
@@ -245,7 +274,11 @@ pub async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response
     .await
     {
         error!(error = %e, "oauth: falha ao persistir tokens");
-        return html(StatusCode::INTERNAL_SERVER_ERROR, "Erro", "Falha ao salvar a conexão.");
+        return html(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Erro",
+            "Falha ao salvar a conexão.",
+        );
     }
 
     let provider_label = match kind {
@@ -256,7 +289,10 @@ pub async fn oauth_callback(req: Request<Incoming>, state: AppState) -> Response
     html(
         StatusCode::OK,
         "Conta conectada",
-        &format!("{} @{} conectado. Você já pode fechar esta aba.", provider_label, account.login),
+        &format!(
+            "{} @{} conectado. Você já pode fechar esta aba.",
+            provider_label, account.login
+        ),
     )
 }
 

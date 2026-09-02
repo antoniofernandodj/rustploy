@@ -21,14 +21,14 @@ use hyper::header::{AUTHORIZATION, CONTENT_TYPE};
 use hyper::service::service_fn;
 use hyper::{Method, Request, Response, StatusCode};
 use hyper_util::rt::TokioIo;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use glacier_ui::ExternalSender;
 
-use super::client::{response_error, response_kind, response_payload, Remote, RemoteError};
+use super::client::{Remote, RemoteError, response_error, response_kind, response_payload};
 use super::session::Session;
 use super::ui::ConnectOutcome;
-use super::{actions, catalog, handoff, servers, ui, SharedSession};
+use super::{SharedSession, actions, catalog, handoff, servers, ui};
 
 /// Teto do corpo de uma requisição. Generoso porque um `ManifestApply` ou um
 /// `ServiceUpdate` de fonte Compose carrega YAML de verdade (dezenas de KB), e
@@ -62,7 +62,11 @@ struct ApiFail {
 
 impl ApiFail {
     fn new(status: StatusCode, code: &'static str, message: impl Into<String>) -> Self {
-        Self { status, code, message: message.into() }
+        Self {
+            status,
+            code,
+            message: message.into(),
+        }
     }
 
     /// A janela não está conectada a daemon nenhum. Vale um status próprio
@@ -128,7 +132,13 @@ pub(super) async fn serve(
     let remote = Remote::new().map_err(|e| format!("cliente HTTP: {e}"))?;
     let token = handoff::generate_token();
 
-    let ctx = Arc::new(Ctx { session, remote, ui, token, addr });
+    let ctx = Arc::new(Ctx {
+        session,
+        remote,
+        ui,
+        token,
+        addr,
+    });
 
     if let Err(e) = handoff::write(addr, &ctx.token, remote_url(&ctx).as_deref()) {
         // Sem handoff a API sobe do mesmo jeito, mas ninguém a descobre — vale
@@ -218,7 +228,10 @@ async fn watch_session(ctx: Arc<Ctx>) {
 
 // ── roteamento ──────────────────────────────────────────────────────────────
 
-async fn handle(req: Request<Incoming>, ctx: Arc<Ctx>) -> Result<Response<Full<Bytes>>, Infallible> {
+async fn handle(
+    req: Request<Incoming>,
+    ctx: Arc<Ctx>,
+) -> Result<Response<Full<Bytes>>, Infallible> {
     let metodo = req.method().clone();
     let caminho = req.uri().path().to_owned();
     let query = req.uri().query().unwrap_or_default().to_owned();
@@ -256,9 +269,7 @@ async fn handle(req: Request<Incoming>, ctx: Arc<Ctx>) -> Result<Response<Full<B
         (&Method::POST, "/agent/connect") => connect(&ctx, req).await,
         (&Method::POST, "/agent/disconnect") => disconnect(&ctx),
         (&Method::GET, "/agent/ui") => Ok(ui_state(&ctx, &query)),
-        (&Method::GET, "/agent/ui/actions") => {
-            Ok(json_response(StatusCode::OK, &actions::index()))
-        }
+        (&Method::GET, "/agent/ui/actions") => Ok(json_response(StatusCode::OK, &actions::index())),
         (&Method::POST, "/agent/ui/action") => ui_action(&ctx, req).await,
         (&Method::POST, "/agent/ui/context") => ui_context(&ctx, req).await,
 
@@ -298,7 +309,9 @@ fn build_log_path(p: &str) -> Option<String> {
 
 /// `/agent/services/<id>/archive` → `<id>`.
 fn archive_path(p: &str) -> Option<String> {
-    let resto = p.strip_prefix("/agent/services/")?.strip_suffix("/archive")?;
+    let resto = p
+        .strip_prefix("/agent/services/")?
+        .strip_suffix("/archive")?;
     if resto.is_empty() || resto.contains('/') {
         return None;
     }
@@ -502,11 +515,12 @@ async fn start_deploy(ctx: &Ctx, req: Request<Incoming>) -> Result<Response<Full
         ));
     }
 
-    let (final_dep, expirou) =
-        wait_for_outcome(ctx, &service_id, &deployment_id, limite).await?;
+    let (final_dep, expirou) = wait_for_outcome(ctx, &service_id, &deployment_id, limite).await?;
 
     let (log, total) = if log_tail > 0 {
-        let linhas = build_log_lines(ctx, &deployment_id).await.unwrap_or_default();
+        let linhas = build_log_lines(ctx, &deployment_id)
+            .await
+            .unwrap_or_default();
         let total = linhas.len();
         let inicio = total.saturating_sub(log_tail);
         (linhas[inicio..].to_vec(), total)
@@ -626,9 +640,9 @@ async fn wait_for_outcome(
             // Expirou: devolve o último estado conhecido em vez de erro seco —
             // "ainda em BuildingImage depois de 15 min" é informação útil, e o
             // agente decide se espera mais ou investiga.
-            let dep = ultimo.unwrap_or_else(|| {
-                json!({ "id": deployment_id, "service_id": service_id, "state": "Unknown" })
-            });
+            let dep = ultimo.unwrap_or_else(
+                || json!({ "id": deployment_id, "service_id": service_id, "state": "Unknown" }),
+            );
             return Ok((dep, true));
         }
 
@@ -750,7 +764,9 @@ async fn connect(ctx: &Ctx, req: Request<Incoming>) -> Result<Response<Full<Byte
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|u| !u.is_empty())
-        .ok_or_else(|| ApiFail::bad_request("informe \"url\" (ex.: https://rustploy.exemplo.com)"))?;
+        .ok_or_else(|| {
+            ApiFail::bad_request("informe \"url\" (ex.: https://rustploy.exemplo.com)")
+        })?;
 
     let token = corpo
         .get("token")
@@ -962,7 +978,10 @@ fn compact_summary(sum: &Value) -> Value {
 
 /// `Deployment` → o que interessa a quem só quer saber como acabou.
 fn compact_deployment(dep: &Value) -> Value {
-    let estado = dep.get("state").and_then(Value::as_str).unwrap_or("Unknown");
+    let estado = dep
+        .get("state")
+        .and_then(Value::as_str)
+        .unwrap_or("Unknown");
 
     json!({
         "deployment_id": dep.get("id").cloned().unwrap_or(Value::Null),
@@ -1164,7 +1183,10 @@ mod tests {
 
     #[test]
     fn parametro_textual_da_query() {
-        assert_eq!(str_param("keys=screen,view", "keys").as_deref(), Some("screen,view"));
+        assert_eq!(
+            str_param("keys=screen,view", "keys").as_deref(),
+            Some("screen,view")
+        );
         assert_eq!(str_param("all=1", "all").as_deref(), Some("1"));
         assert_eq!(str_param("keys=x", "all"), None);
     }
@@ -1244,7 +1266,9 @@ mod tests {
     fn status_de_servico_com_erro_traz_a_causa() {
         assert_eq!(status_label(Some(&json!("Running"))), json!("Running"));
         assert_eq!(
-            status_label(Some(&json!({ "Error": "docker build error: sem Dockerfile" }))),
+            status_label(Some(
+                &json!({ "Error": "docker build error: sem Dockerfile" })
+            )),
             json!("Error: docker build error: sem Dockerfile")
         );
     }
@@ -1260,7 +1284,9 @@ mod tests {
         // Credencial não vaza para uma listagem.
         assert!(git.get("credentials").is_none());
 
-        let compose = source_label(Some(&json!({ "Compose": { "content": "x".repeat(40_000) } })));
+        let compose = source_label(Some(
+            &json!({ "Compose": { "content": "x".repeat(40_000) } }),
+        ));
         assert_eq!(compose, json!({ "kind": "Compose" }));
     }
 
@@ -1406,7 +1432,9 @@ mod e2e_tests {
 
         tokio::spawn(async move {
             loop {
-                let Ok((stream, _)) = l.accept().await else { continue };
+                let Ok((stream, _)) = l.accept().await else {
+                    continue;
+                };
                 tokio::spawn(async move {
                     let svc = service_fn(|req: Request<Incoming>| async move {
                         let bytes = req.into_body().collect().await.unwrap().to_bytes();
@@ -1429,7 +1457,7 @@ mod e2e_tests {
     async fn spawn_bridge(remote_base: Option<&str>) -> (String, String) {
         let session = SharedSession::default();
         if let Some(base) = remote_base {
-            let ctx: std::collections::HashMap<String, String> = [
+            let ctx: glacier_ui::ContextMap = [
                 ("connected", "true"),
                 ("api_url", base),
                 ("api_token", "token-do-daemon"),
@@ -1486,7 +1514,9 @@ mod e2e_tests {
         }
         let req = req
             .body(Full::new(HBytes::from(
-                corpo.map(|c| serde_json::to_vec(&c).unwrap()).unwrap_or_default(),
+                corpo
+                    .map(|c| serde_json::to_vec(&c).unwrap())
+                    .unwrap_or_default(),
             )))
             .unwrap();
 
@@ -1515,14 +1545,12 @@ mod e2e_tests {
         assert_eq!(sem, StatusCode::UNAUTHORIZED);
         assert_eq!(body.pointer("/error/code").unwrap(), "unauthorized");
 
-        let (errado, _) =
-            call(&bridge, Method::GET, "/agent/deploys", Some("outro"), None).await;
+        let (errado, _) = call(&bridge, Method::GET, "/agent/deploys", Some("outro"), None).await;
         assert_eq!(errado, StatusCode::UNAUTHORIZED);
 
         // Com o token certo, o que barra agora é a falta de sessão — prova que
         // passou do gate.
-        let (certo, body) =
-            call(&bridge, Method::GET, "/agent/deploys", Some(&token), None).await;
+        let (certo, body) = call(&bridge, Method::GET, "/agent/deploys", Some(&token), None).await;
         assert_eq!(certo, StatusCode::SERVICE_UNAVAILABLE);
         assert_eq!(body.pointer("/error/code").unwrap(), "not_connected");
     }
@@ -1533,11 +1561,12 @@ mod e2e_tests {
         let (status, body) = call(&bridge, Method::GET, "/agent/nada", Some(&token), None).await;
 
         assert_eq!(status, StatusCode::NOT_FOUND);
-        assert!(body
-            .pointer("/error/message")
-            .and_then(Value::as_str)
-            .unwrap()
-            .contains("/agent/schema"));
+        assert!(
+            body.pointer("/error/message")
+                .and_then(Value::as_str)
+                .unwrap()
+                .contains("/agent/schema")
+        );
     }
 
     /// O caso do plano, ponta a ponta: dispara o deploy, espera, e a resposta
@@ -1630,10 +1659,7 @@ mod e2e_tests {
         assert_eq!(body.get("total").unwrap(), &json!(5));
         assert_eq!(body.get("next_after").unwrap(), &json!(5));
         assert_eq!(body.get("has_more").unwrap(), &json!(false));
-        assert_eq!(
-            body.get("lines").unwrap(),
-            &json!(["linha 3", "linha 4"])
-        );
+        assert_eq!(body.get("lines").unwrap(), &json!(["linha 3", "linha 4"]));
     }
 
     /// O passthrough encaminha comando cru e devolve a Response verbatim.

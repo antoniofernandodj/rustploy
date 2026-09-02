@@ -49,9 +49,8 @@ fn main() {
     let assets_bin_dir = out_dir.join("webui");
     fs::create_dir_all(&assets_bin_dir).unwrap();
 
-    let mut code = String::from(
-        "// Gerado por build.rs a partir de webui/ — não editar à mão.\n&[\n",
-    );
+    let mut code =
+        String::from("// Gerado por build.rs a partir de webui/ — não editar à mão.\n&[\n");
 
     for (i, rel) in rel_paths.iter().enumerate() {
         let raw = fs::read(webui_dir.join(rel)).unwrap();
@@ -59,7 +58,8 @@ fn main() {
         let content_type = content_type_for(rel);
         let is_html = rel.ends_with(".html");
         let is_js = rel.ends_with(".js");
-        let is_text_asset = is_html || is_js || rel.ends_with(".css") || rel.ends_with(".webmanifest");
+        let is_text_asset =
+            is_html || is_js || rel.ends_with(".css") || rel.ends_with(".webmanifest");
 
         // Ícones (png/svg) são binários — passam direto pro gzip, sem tentar
         // decodificar como UTF-8 nem minificar.
@@ -105,7 +105,12 @@ fn collect_files(root: &Path, dir: &Path, out: &mut Vec<String>) {
         if path.is_dir() {
             collect_files(root, &path, out);
         } else {
-            let rel = path.strip_prefix(root).unwrap().to_str().unwrap().replace('\\', "/");
+            let rel = path
+                .strip_prefix(root)
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .replace('\\', "/");
             out.push(rel);
         }
     }

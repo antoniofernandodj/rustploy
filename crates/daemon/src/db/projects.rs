@@ -72,15 +72,58 @@ pub async fn update_env_vars(
 }
 
 pub async fn list(db: &Db) -> Result<Vec<Project>> {
-    let rows =
-        sqlx::query_as::<_, (String, String, Option<String>, String, String, DateTime<Utc>)>(
-            "SELECT id, name, description, env_vars, env_comments, created_at
+    let rows = sqlx::query_as::<
+        _,
+        (
+            String,
+            String,
+            Option<String>,
+            String,
+            String,
+            DateTime<Utc>,
+        ),
+    >(
+        "SELECT id, name, description, env_vars, env_comments, created_at
              FROM project ORDER BY created_at ASC",
-        )
-        .fetch_all(db)
-        .await?;
+    )
+    .fetch_all(db)
+    .await?;
     rows.into_iter()
-        .map(|(id, name, description, env_vars, env_comments, created_at)| {
+        .map(
+            |(id, name, description, env_vars, env_comments, created_at)| {
+                row_to_project(ProjectRow {
+                    id,
+                    name,
+                    description,
+                    env_vars,
+                    env_comments,
+                    created_at,
+                })
+            },
+        )
+        .collect()
+}
+
+pub async fn get(db: &Db, id: &str) -> Result<Option<Project>> {
+    let row = sqlx::query_as::<
+        _,
+        (
+            String,
+            String,
+            Option<String>,
+            String,
+            String,
+            DateTime<Utc>,
+        ),
+    >(
+        "SELECT id, name, description, env_vars, env_comments, created_at
+             FROM project WHERE id = ?",
+    )
+    .bind(id)
+    .fetch_optional(db)
+    .await?;
+    row.map(
+        |(id, name, description, env_vars, env_comments, created_at)| {
             row_to_project(ProjectRow {
                 id,
                 name,
@@ -89,29 +132,8 @@ pub async fn list(db: &Db) -> Result<Vec<Project>> {
                 env_comments,
                 created_at,
             })
-        })
-        .collect()
-}
-
-pub async fn get(db: &Db, id: &str) -> Result<Option<Project>> {
-    let row =
-        sqlx::query_as::<_, (String, String, Option<String>, String, String, DateTime<Utc>)>(
-            "SELECT id, name, description, env_vars, env_comments, created_at
-             FROM project WHERE id = ?",
-        )
-        .bind(id)
-        .fetch_optional(db)
-        .await?;
-    row.map(|(id, name, description, env_vars, env_comments, created_at)| {
-        row_to_project(ProjectRow {
-            id,
-            name,
-            description,
-            env_vars,
-            env_comments,
-            created_at,
-        })
-    })
+        },
+    )
     .transpose()
 }
 
@@ -121,14 +143,13 @@ pub async fn update(
     name: String,
     description: Option<String>,
 ) -> Result<Option<Project>> {
-    let rows_affected =
-        sqlx::query("UPDATE project SET name = ?, description = ? WHERE id = ?")
-            .bind(&name)
-            .bind(&description)
-            .bind(id)
-            .execute(db)
-            .await?
-            .rows_affected();
+    let rows_affected = sqlx::query("UPDATE project SET name = ?, description = ? WHERE id = ?")
+        .bind(&name)
+        .bind(&description)
+        .bind(id)
+        .execute(db)
+        .await?
+        .rows_affected();
     if rows_affected == 0 {
         return Ok(None);
     }
@@ -174,6 +195,9 @@ mod tests {
 
         let got = get(&db, &proj.id).await.unwrap().unwrap();
         assert_eq!(got.env_vars, env_vars);
-        assert_eq!(got.env_comments, env_comments, "comentário do .env não persistiu");
+        assert_eq!(
+            got.env_comments, env_comments,
+            "comentário do .env não persistiu"
+        );
     }
 }

@@ -5,7 +5,10 @@
 // On Windows release builds, run under the "windows" subsystem so launching the
 // GUI does not pop up (and keep open) a console window behind it. Ignored on
 // every other target and in debug builds (where a console is handy for logs).
-#![cfg_attr(all(target_os = "windows", not(debug_assertions)), windows_subsystem = "windows")]
+#![cfg_attr(
+    all(target_os = "windows", not(debug_assertions)),
+    windows_subsystem = "windows"
+)]
 
 mod agent;
 mod app;

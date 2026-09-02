@@ -4,8 +4,8 @@
 //! só ligamos aos handlers existentes.
 
 use crate::api::AppState;
-use shared::wizard::{self, WizardCreateReq};
 use shared::Response as RpResponse;
+use shared::wizard::{self, WizardCreateReq};
 
 /// Catálogos de bancos/brokers/templates prontos como JSON para o contexto do
 /// cliente (`ns_dbs`/`ns_brokers`/`ns_templates`). `search` filtra os templates.

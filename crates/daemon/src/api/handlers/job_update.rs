@@ -16,7 +16,10 @@ pub async fn handle(
 ) -> RpResponse {
     if let Some(git) = &git_source {
         if git.url.trim().is_empty() || git.branch.trim().is_empty() {
-            return RpResponse::err("InvalidInput", "URL e branch do repositório são obrigatórios");
+            return RpResponse::err(
+                "InvalidInput",
+                "URL e branch do repositório são obrigatórios",
+            );
         }
     }
 

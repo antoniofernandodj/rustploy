@@ -1,13 +1,8 @@
-use crate::{docker, api::AppState, docker::containers};
+use crate::{api::AppState, docker, docker::containers};
 use chrono::Utc;
 use shared::{
-    DeployState,
-    EnvVarValue,
-    Event,
-    Response as RpResponse,
-    ServiceSource,
-    ServiceStatus,
-    compose_project_name
+    DeployState, EnvVarValue, Event, Response as RpResponse, ServiceSource, ServiceStatus,
+    compose_project_name,
 };
 
 pub async fn handle(state: AppState, service_id: String) -> RpResponse {
@@ -39,7 +34,8 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
         let network_name = docker::networks::project_net_for(pid);
 
         // Build env map: project vars as base, service vars override (mirrors resolve_env in executor.rs).
-        let mut env_map: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        let mut env_map: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
 
         if let Ok(Some(project)) = crate::db::projects::get(&state.db, pid).await {
             for ev in &project.env_vars {
@@ -114,7 +110,10 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
         }
     }
 
-    let primary_id = ids_to_stop.first().map(|s| s.as_str()).or(svc.live_container_id.as_deref());
+    let primary_id = ids_to_stop
+        .first()
+        .map(|s| s.as_str())
+        .or(svc.live_container_id.as_deref());
     finish_stop(&state, &service_id, primary_id).await
 }
 
@@ -126,14 +125,13 @@ async fn stop_compose(
     network_name: &str,
     env_vars: &[(String, String)],
 ) -> RpResponse {
-    if let Err(e) =
-        docker::compose::down(
-            content,
-            &compose_project_name(service_id, service_name),
-            network_name,
-            env_vars
-        )
-        .await
+    if let Err(e) = docker::compose::down(
+        content,
+        &compose_project_name(service_id, service_name),
+        network_name,
+        env_vars,
+    )
+    .await
     {
         return RpResponse::err("DockerError", e.to_string());
     }
@@ -162,15 +160,13 @@ async fn finish_stop(state: &AppState, service_id: &str, container_id: Option<&s
                 None,
             )
             .await;
-            state.bus.publish(
-                Event::DeployStateChanged {
-                    deployment_id: dep.id,
-                    service_id: service_id.to_string(),
-                    state: DeployState::Stopped,
-                    timestamp: Utc::now(),
-                    message: None,
-                }
-            );
+            state.bus.publish(Event::DeployStateChanged {
+                deployment_id: dep.id,
+                service_id: service_id.to_string(),
+                state: DeployState::Stopped,
+                timestamp: Utc::now(),
+                message: None,
+            });
         }
     }
 

@@ -19,8 +19,8 @@ use tracing::{error, info, warn};
 use super::error::{RegistryBody, RegistryError};
 use super::name;
 use super::storage::{RegistryStorage, StorageError};
-use crate::db::registry as registry_db;
 use crate::db::Db;
+use crate::db::registry as registry_db;
 
 /// Bind (loopback only); retorna em caso de falha (log + listener
 /// desabilitado, daemon continua) — mesmo padrão de
@@ -36,7 +36,10 @@ pub async fn run(db: Arc<Db>, storage: Arc<RegistryStorage>, port: u16) {
             return;
         }
     };
-    info!(port, "registry: escutando (loopback, Basic auth obrigatória)");
+    info!(
+        port,
+        "registry: escutando (loopback, Basic auth obrigatória)"
+    );
     serve(listener, db, storage).await;
 }
 
@@ -68,7 +71,11 @@ pub async fn serve(listener: tokio::net::TcpListener, db: Arc<Db>, storage: Arc<
     }
 }
 
-async fn route(req: Request<Incoming>, db: Arc<Db>, storage: Arc<RegistryStorage>) -> Response<RegistryBody> {
+async fn route(
+    req: Request<Incoming>,
+    db: Arc<Db>,
+    storage: Arc<RegistryStorage>,
+) -> Response<RegistryBody> {
     let method = req.method().clone();
     let path = req.uri().path().to_string();
     let query = req.uri().query().unwrap_or("").to_string();
@@ -141,7 +148,10 @@ fn ping() -> Result<Response<RegistryBody>, RegistryError> {
 
 async fn catalog(db: &Db) -> Result<Response<RegistryBody>, RegistryError> {
     let names = registry_db::list_repo_names(db).await?;
-    json_response(StatusCode::OK, &serde_json::json!({ "repositories": names }))
+    json_response(
+        StatusCode::OK,
+        &serde_json::json!({ "repositories": names }),
+    )
 }
 
 async fn tags_list(db: &Db, repo_name: &str) -> Result<Response<RegistryBody>, RegistryError> {
@@ -233,7 +243,9 @@ async fn blob_upload(
         return Err(RegistryError::NameInvalid(repo_name.to_string()));
     }
     match method {
-        Method::POST if uuid.is_empty() => start_or_monolithic_upload(req, db, storage, repo_name, query).await,
+        Method::POST if uuid.is_empty() => {
+            start_or_monolithic_upload(req, db, storage, repo_name, query).await
+        }
         Method::PATCH => patch_upload(req, storage, repo_name, uuid).await,
         Method::PUT => put_upload(req, storage, db, repo_name, uuid, query).await,
         Method::DELETE => delete_upload(storage, uuid).await,
@@ -262,7 +274,10 @@ async fn start_or_monolithic_upload(
             .ok_or_else(|| RegistryError::DigestInvalid(digest_full.clone()))?;
         // Commit (escrita no CAS + insert): sob a trava compartilhada com o GC.
         let _commit = storage.lock_commit().await;
-        let info = storage.write_blob_direct(&body).await.map_err(storage_err)?;
+        let info = storage
+            .write_blob_direct(&body)
+            .await
+            .map_err(storage_err)?;
         if info.digest != expected_hex {
             return Err(RegistryError::DigestInvalid(digest_full.clone()));
         }
@@ -301,7 +316,7 @@ async fn patch_upload(
             Some(Err(e)) => {
                 return Err(RegistryError::Internal(anyhow::anyhow!(
                     "erro lendo corpo do PATCH: {e}"
-                )))
+                )));
             }
             None => break,
         }
@@ -317,8 +332,8 @@ async fn put_upload(
     uuid: &str,
     query: &str,
 ) -> Result<Response<RegistryBody>, RegistryError> {
-    let digest_param =
-        query_param(query, "digest").ok_or_else(|| RegistryError::DigestInvalid("digest ausente".to_string()))?;
+    let digest_param = query_param(query, "digest")
+        .ok_or_else(|| RegistryError::DigestInvalid("digest ausente".to_string()))?;
     let digest_hex = name::parse_digest(&digest_param)
         .ok_or_else(|| RegistryError::DigestInvalid(digest_param.clone()))?
         .to_string();
@@ -336,7 +351,7 @@ async fn put_upload(
             Some(Err(e)) => {
                 return Err(RegistryError::Internal(anyhow::anyhow!(
                     "erro lendo corpo do PUT: {e}"
-                )))
+                )));
             }
             None => break,
         }
@@ -353,7 +368,10 @@ async fn put_upload(
     Ok(created_blob_response(repo_name, &info.digest))
 }
 
-async fn delete_upload(storage: &RegistryStorage, uuid: &str) -> Result<Response<RegistryBody>, RegistryError> {
+async fn delete_upload(
+    storage: &RegistryStorage,
+    uuid: &str,
+) -> Result<Response<RegistryBody>, RegistryError> {
     storage.cancel_upload(uuid).await.map_err(storage_err)?;
     Ok(Response::builder()
         .status(StatusCode::NO_CONTENT)
@@ -363,7 +381,9 @@ async fn delete_upload(storage: &RegistryStorage, uuid: &str) -> Result<Response
 
 fn storage_err(e: StorageError) -> RegistryError {
     match e {
-        StorageError::UnknownUpload => RegistryError::BlobUploadUnknown("upload session not found".into()),
+        StorageError::UnknownUpload => {
+            RegistryError::BlobUploadUnknown("upload session not found".into())
+        }
         StorageError::DigestMismatch { expected, got } => {
             RegistryError::DigestInvalid(format!("expected {expected}, got {got}"))
         }
@@ -389,7 +409,10 @@ fn upload_accepted_response(repo_name: &str, uuid: &str, written: u64) -> Respon
 fn created_blob_response(repo_name: &str, digest_hex: &str) -> Response<RegistryBody> {
     Response::builder()
         .status(StatusCode::CREATED)
-        .header("Location", format!("/v2/{repo_name}/blobs/sha256:{digest_hex}"))
+        .header(
+            "Location",
+            format!("/v2/{repo_name}/blobs/sha256:{digest_hex}"),
+        )
         .header("Docker-Content-Digest", format!("sha256:{digest_hex}"))
         .body(empty_body())
         .expect("valid blob-created response")
@@ -489,11 +512,13 @@ async fn put_manifest(
 
     let body = collect_body(req).await?;
     if body.len() > MAX_MANIFEST_BYTES {
-        return Err(RegistryError::ManifestInvalid("manifest excede 4 MiB".to_string()));
+        return Err(RegistryError::ManifestInvalid(
+            "manifest excede 4 MiB".to_string(),
+        ));
     }
 
-    let value: serde_json::Value =
-        serde_json::from_slice(&body).map_err(|e| RegistryError::ManifestInvalid(format!("JSON inválido: {e}")))?;
+    let value: serde_json::Value = serde_json::from_slice(&body)
+        .map_err(|e| RegistryError::ManifestInvalid(format!("JSON inválido: {e}")))?;
     let refs = extract_refs(&value)?;
 
     // Da validação das refs até o insert do manifest, sob a trava
@@ -502,7 +527,8 @@ async fn put_manifest(
     let _commit = storage.lock_commit().await;
     let mut ref_hexes = Vec::with_capacity(refs.len());
     for r in &refs {
-        let digest_hex = name::parse_digest(r).ok_or_else(|| RegistryError::DigestInvalid(r.clone()))?;
+        let digest_hex =
+            name::parse_digest(r).ok_or_else(|| RegistryError::DigestInvalid(r.clone()))?;
         if !registry_db::ref_blob_or_manifest_exists(db, digest_hex).await? {
             return Err(RegistryError::ManifestBlobUnknown(r.clone()));
         }
@@ -510,7 +536,10 @@ async fn put_manifest(
     }
 
     // Digest = sha256 dos bytes CRUS recebidos, nunca re-serializados.
-    let info = storage.write_blob_direct(&body).await.map_err(storage_err)?;
+    let info = storage
+        .write_blob_direct(&body)
+        .await
+        .map_err(storage_err)?;
 
     let is_digest_ref = name::parse_digest(reference).is_some();
     if let Some(expected_hex) = name::parse_digest(reference) {
@@ -522,7 +551,15 @@ async fn put_manifest(
     }
 
     let repo = registry_db::get_or_create_repo(db, repo_name).await?;
-    registry_db::insert_manifest(db, &info.digest, &repo.id, &content_type, info.size as i64, &ref_hexes).await?;
+    registry_db::insert_manifest(
+        db,
+        &info.digest,
+        &repo.id,
+        &content_type,
+        info.size as i64,
+        &ref_hexes,
+    )
+    .await?;
 
     if !is_digest_ref {
         registry_db::upsert_tag(db, &repo.id, reference, &info.digest).await?;
@@ -530,7 +567,10 @@ async fn put_manifest(
 
     Ok(Response::builder()
         .status(StatusCode::CREATED)
-        .header("Location", format!("/v2/{repo_name}/manifests/sha256:{}", info.digest))
+        .header(
+            "Location",
+            format!("/v2/{repo_name}/manifests/sha256:{}", info.digest),
+        )
         .header("Docker-Content-Digest", format!("sha256:{}", info.digest))
         .body(empty_body())
         .expect("valid manifest-created response"))
@@ -543,15 +583,18 @@ fn extract_refs(value: &serde_json::Value) -> Result<Vec<String>, RegistryError>
     let mut refs = Vec::new();
     if let Some(manifests) = value.get("manifests").and_then(|v| v.as_array()) {
         for m in manifests {
-            let digest = m
-                .get("digest")
-                .and_then(|d| d.as_str())
-                .ok_or_else(|| RegistryError::ManifestInvalid("manifest index sem digest".to_string()))?;
+            let digest = m.get("digest").and_then(|d| d.as_str()).ok_or_else(|| {
+                RegistryError::ManifestInvalid("manifest index sem digest".to_string())
+            })?;
             refs.push(digest.to_string());
         }
         return Ok(refs);
     }
-    if let Some(digest) = value.get("config").and_then(|c| c.get("digest")).and_then(|d| d.as_str()) {
+    if let Some(digest) = value
+        .get("config")
+        .and_then(|c| c.get("digest"))
+        .and_then(|d| d.as_str())
+    {
         refs.push(digest.to_string());
     }
     if let Some(layers) = value.get("layers").and_then(|v| v.as_array()) {
@@ -571,8 +614,9 @@ async fn delete_manifest_route(
     repo_name: &str,
     reference: &str,
 ) -> Result<Response<RegistryBody>, RegistryError> {
-    let digest_hex = name::parse_digest(reference)
-        .ok_or_else(|| RegistryError::ManifestInvalid("DELETE exige digest, não tag".to_string()))?;
+    let digest_hex = name::parse_digest(reference).ok_or_else(|| {
+        RegistryError::ManifestInvalid("DELETE exige digest, não tag".to_string())
+    })?;
     let repo = registry_db::get_repo_by_name(db, repo_name)
         .await?
         .ok_or_else(|| RegistryError::NameUnknown(repo_name.to_string()))?;
@@ -600,7 +644,10 @@ fn empty_body() -> RegistryBody {
     Full::new(Bytes::new()).boxed()
 }
 
-fn json_response(status: StatusCode, value: &serde_json::Value) -> Result<Response<RegistryBody>, RegistryError> {
+fn json_response(
+    status: StatusCode,
+    value: &serde_json::Value,
+) -> Result<Response<RegistryBody>, RegistryError> {
     Ok(Response::builder()
         .status(status)
         .header("Content-Type", "application/json")
@@ -723,23 +770,42 @@ mod tests {
         let (addr, auth, _db) = spawn_test_registry().await;
 
         // 1. GET /v2/ autenticado — 200, sem desafio (credencial já válida).
-        let (status, headers, _) = send(addr, build_req(Method::GET, addr, "/v2/", None, vec![], &auth)).await;
+        let (status, headers, _) = send(
+            addr,
+            build_req(Method::GET, addr, "/v2/", None, vec![], &auth),
+        )
+        .await;
         assert_eq!(status, StatusCode::OK);
         assert!(headers.get("WWW-Authenticate").is_none());
 
         // 2. POST blobs/uploads/ — inicia sessão.
         let (status, headers, _) = send(
             addr,
-            build_req(Method::POST, addr, "/v2/hello/blobs/uploads/", None, vec![], &auth),
+            build_req(
+                Method::POST,
+                addr,
+                "/v2/hello/blobs/uploads/",
+                None,
+                vec![],
+                &auth,
+            ),
         )
         .await;
         assert_eq!(status, StatusCode::ACCEPTED);
-        let location = headers.get("Location").unwrap().to_str().unwrap().to_string();
+        let location = headers
+            .get("Location")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
 
         // 3. PATCH — envia o chunk (blob inteiro, num chunk só).
         let chunk = b"hello world blob content".to_vec();
-        let (status, headers, _) =
-            send(addr, build_req(Method::PATCH, addr, &location, None, chunk.clone(), &auth)).await;
+        let (status, headers, _) = send(
+            addr,
+            build_req(Method::PATCH, addr, &location, None, chunk.clone(), &auth),
+        )
+        .await;
         assert_eq!(status, StatusCode::ACCEPTED);
         let range = headers.get("Range").unwrap().to_str().unwrap().to_string();
         assert_eq!(range, format!("0-{}", chunk.len() - 1));
@@ -747,10 +813,18 @@ mod tests {
         // 4. PUT ?digest= — finaliza.
         let blob_digest = hex::encode(Sha256::digest(&chunk));
         let put_path = format!("{location}?digest=sha256:{blob_digest}");
-        let (status, headers, _) = send(addr, build_req(Method::PUT, addr, &put_path, None, vec![], &auth)).await;
+        let (status, headers, _) = send(
+            addr,
+            build_req(Method::PUT, addr, &put_path, None, vec![], &auth),
+        )
+        .await;
         assert_eq!(status, StatusCode::CREATED);
         assert_eq!(
-            headers.get("Docker-Content-Digest").unwrap().to_str().unwrap(),
+            headers
+                .get("Docker-Content-Digest")
+                .unwrap()
+                .to_str()
+                .unwrap(),
             format!("sha256:{blob_digest}")
         );
 
@@ -787,13 +861,27 @@ mod tests {
         .await;
         assert_eq!(status, StatusCode::CREATED);
         assert_eq!(
-            headers.get("Docker-Content-Digest").unwrap().to_str().unwrap(),
+            headers
+                .get("Docker-Content-Digest")
+                .unwrap()
+                .to_str()
+                .unwrap(),
             format!("sha256:{manifest_digest}")
         );
 
         // 7. GET manifests/v1 (por tag) — corpo idêntico byte-a-byte.
-        let (status, headers, body) =
-            send(addr, build_req(Method::GET, addr, "/v2/hello/manifests/v1", None, vec![], &auth)).await;
+        let (status, headers, body) = send(
+            addr,
+            build_req(
+                Method::GET,
+                addr,
+                "/v2/hello/manifests/v1",
+                None,
+                vec![],
+                &auth,
+            ),
+        )
+        .await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(
             headers.get("Content-Type").unwrap().to_str().unwrap(),
@@ -803,14 +891,25 @@ mod tests {
 
         // 8. GET manifests/sha256:... (por digest) — mesmo corpo.
         let by_digest = format!("/v2/hello/manifests/sha256:{manifest_digest}");
-        let (status, _, body) = send(addr, build_req(Method::GET, addr, &by_digest, None, vec![], &auth)).await;
+        let (status, _, body) = send(
+            addr,
+            build_req(Method::GET, addr, &by_digest, None, vec![], &auth),
+        )
+        .await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body.as_ref(), manifest_bytes.as_slice());
 
         // 9. tags/list
         let (status, _, body) = send(
             addr,
-            build_req(Method::GET, addr, "/v2/hello/tags/list", None, vec![], &auth),
+            build_req(
+                Method::GET,
+                addr,
+                "/v2/hello/tags/list",
+                None,
+                vec![],
+                &auth,
+            ),
         )
         .await;
         assert_eq!(status, StatusCode::OK);
@@ -819,7 +918,11 @@ mod tests {
         assert_eq!(v["tags"], serde_json::json!(["v1"]));
 
         // 10. _catalog
-        let (status, _, body) = send(addr, build_req(Method::GET, addr, "/v2/_catalog", None, vec![], &auth)).await;
+        let (status, _, body) = send(
+            addr,
+            build_req(Method::GET, addr, "/v2/_catalog", None, vec![], &auth),
+        )
+        .await;
         assert_eq!(status, StatusCode::OK);
         let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(v["repositories"], serde_json::json!(["hello"]));
@@ -830,7 +933,14 @@ mod tests {
         let (addr, auth, _db) = spawn_test_registry().await;
         let (status, _, body) = send(
             addr,
-            build_req(Method::GET, addr, "/v2/nope/manifests/v1", None, vec![], &auth),
+            build_req(
+                Method::GET,
+                addr,
+                "/v2/nope/manifests/v1",
+                None,
+                vec![],
+                &auth,
+            ),
         )
         .await;
         assert_eq!(status, StatusCode::NOT_FOUND);
@@ -843,7 +953,11 @@ mod tests {
         let (addr, auth, _db) = spawn_test_registry().await;
         let fake_digest = "0".repeat(64);
         let path = format!("/v2/hello/blobs/uploads/does-not-exist?digest=sha256:{fake_digest}");
-        let (status, _, body) = send(addr, build_req(Method::PUT, addr, &path, None, vec![], &auth)).await;
+        let (status, _, body) = send(
+            addr,
+            build_req(Method::PUT, addr, &path, None, vec![], &auth),
+        )
+        .await;
         assert_eq!(status, StatusCode::NOT_FOUND);
         let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(v["errors"][0]["code"], "BLOB_UPLOAD_UNKNOWN");
@@ -905,9 +1019,17 @@ mod tests {
     #[tokio::test]
     async fn credencial_malformada_e_401() {
         let (addr, _auth, _db) = spawn_test_registry().await;
-        for bad in ["Bearer sometoken", "Basic not-valid-base64!!", "Basic bm9jb2xvbg=="] {
+        for bad in [
+            "Bearer sometoken",
+            "Basic not-valid-base64!!",
+            "Basic bm9jb2xvbg==",
+        ] {
             // "nocolon" em base64, sem ':' — falha o split_once(':').
-            let (status, _, _) = send(addr, build_req(Method::GET, addr, "/v2/", None, vec![], bad)).await;
+            let (status, _, _) = send(
+                addr,
+                build_req(Method::GET, addr, "/v2/", None, vec![], bad),
+            )
+            .await;
             assert_eq!(status, StatusCode::UNAUTHORIZED, "deveria rejeitar: {bad}");
         }
     }
@@ -916,7 +1038,11 @@ mod tests {
     async fn token_errado_e_401() {
         let (addr, _auth, _db) = spawn_test_registry().await;
         let wrong = basic_auth_header("test-push", "segredo-errado");
-        let (status, _, _) = send(addr, build_req(Method::GET, addr, "/v2/", None, vec![], &wrong)).await;
+        let (status, _, _) = send(
+            addr,
+            build_req(Method::GET, addr, "/v2/", None, vec![], &wrong),
+        )
+        .await;
         assert_eq!(status, StatusCode::UNAUTHORIZED);
     }
 
@@ -932,17 +1058,32 @@ mod tests {
         let pull_auth = basic_auth_header("test-pull", pull_secret);
 
         // Token push satisfaz GET (pull).
-        let (status, _, _) = send(addr, build_req(Method::GET, addr, "/v2/", None, vec![], &push_auth)).await;
+        let (status, _, _) = send(
+            addr,
+            build_req(Method::GET, addr, "/v2/", None, vec![], &push_auth),
+        )
+        .await;
         assert_eq!(status, StatusCode::OK);
 
         // Token pull satisfaz GET...
-        let (status, _, _) = send(addr, build_req(Method::GET, addr, "/v2/", None, vec![], &pull_auth)).await;
+        let (status, _, _) = send(
+            addr,
+            build_req(Method::GET, addr, "/v2/", None, vec![], &pull_auth),
+        )
+        .await;
         assert_eq!(status, StatusCode::OK);
 
         // ...mas NÃO satisfaz uma rota que exige push (POST de upload).
         let (status, _, _) = send(
             addr,
-            build_req(Method::POST, addr, "/v2/hello/blobs/uploads/", None, vec![], &pull_auth),
+            build_req(
+                Method::POST,
+                addr,
+                "/v2/hello/blobs/uploads/",
+                None,
+                vec![],
+                &pull_auth,
+            ),
         )
         .await;
         assert_eq!(status, StatusCode::UNAUTHORIZED);

@@ -67,7 +67,11 @@ pub(crate) fn write(addr: SocketAddr, token: &str, remote: Option<&str>) -> std:
     {
         let mut f = std::fs::File::create(&temporario)?;
         restrict_permissions(&f)?;
-        f.write_all(serde_json::to_string_pretty(&doc).unwrap_or_default().as_bytes())?;
+        f.write_all(
+            serde_json::to_string_pretty(&doc)
+                .unwrap_or_default()
+                .as_bytes(),
+        )?;
         f.flush()?;
     }
     std::fs::rename(&temporario, &destino)?;

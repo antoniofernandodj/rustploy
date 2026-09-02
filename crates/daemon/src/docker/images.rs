@@ -18,7 +18,6 @@ pub async fn pull(
     db: &Arc<Db>,
     credentials: Option<bollard::auth::DockerCredentials>,
 ) -> Result<()> {
-
     info!(
         image = %image,
         deployment_id = %deployment_id,
@@ -38,9 +37,7 @@ pub async fn pull(
             Ok(info) => {
                 if let Some(status) = &info.status {
                     let layer_id = info.id.as_deref().unwrap_or("-");
-                    if status.contains("Pull complete") ||
-                        status.contains("Already exists") {
-
+                    if status.contains("Pull complete") || status.contains("Already exists") {
                         layers_done += 1;
                         debug!(
                             image = %image,
@@ -77,12 +74,7 @@ pub async fn pull(
                         percent,
                         description: line.clone(),
                     });
-                    let _ = crate::db::build_logs::append(
-                        db,
-                        deployment_id,
-                        &line,
-                        ts
-                    ).await;
+                    let _ = crate::db::build_logs::append(db, deployment_id, &line, ts).await;
                 }
             }
             Err(e) => {
@@ -90,9 +82,7 @@ pub async fn pull(
                     image = %image,
                     error = %e, "images::pull: falhou"
                 );
-                return Err(
-                    anyhow!("image pull failed: {e}")
-                );
+                return Err(anyhow!("image pull failed: {e}"));
             }
         }
     }
@@ -148,12 +138,7 @@ pub async fn build(
                             timestamp: now,
                         });
                         if let Err(e) =
-                            crate::db::build_logs::append(
-                                db,
-                                deployment_id,
-                                line,
-                                now
-                            ).await
+                            crate::db::build_logs::append(db, deployment_id, line, now).await
                         {
                             warn!(
                                 deployment_id,
@@ -181,9 +166,7 @@ pub async fn build(
 fn create_tar_gz(context_path: &Path, _dockerfile: &str) -> Result<Vec<u8>> {
     let mut tar_data = Vec::new();
     {
-        let enc = flate2::write::GzEncoder::new(
-            &mut tar_data, flate2::Compression::default()
-        );
+        let enc = flate2::write::GzEncoder::new(&mut tar_data, flate2::Compression::default());
         let mut tar = tar::Builder::new(enc);
         // Adiciona recursivamente excluindo .git (que pode ser muito grande
         // e não é necessário para o build da imagem Docker)
@@ -214,10 +197,7 @@ fn append_dir_filtered(
         } else if path.is_file() {
             tar.append_path_with_name(&path, &archive_path)
                 .map_err(|e| {
-                    anyhow::anyhow!(
-                        "tar: falha ao adicionar '{}': {e}",
-                        path.display()
-                    )
+                    anyhow::anyhow!("tar: falha ao adicionar '{}': {e}", path.display())
                 })?;
         }
         // symlinks são ignorados (seguro para contexto Docker)

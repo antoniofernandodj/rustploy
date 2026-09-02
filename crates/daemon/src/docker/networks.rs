@@ -1,11 +1,7 @@
 use anyhow::Result;
 use bollard::{
     Docker,
-    network::{
-        ConnectNetworkOptions,
-        CreateNetworkOptions,
-        DisconnectNetworkOptions
-    },
+    network::{ConnectNetworkOptions, CreateNetworkOptions, DisconnectNetworkOptions},
 };
 use tracing::info;
 
@@ -14,10 +10,7 @@ pub fn project_network_name(project_id_short: &str) -> String {
 }
 
 pub fn id_short(id: &str) -> &str {
-    let s = id
-        .find('_')
-        .map(|i| &id[i + 1..])
-        .unwrap_or(id);
+    let s = id.find('_').map(|i| &id[i + 1..]).unwrap_or(id);
 
     &s[..8.min(s.len())]
 }
@@ -26,31 +19,24 @@ pub fn project_net_for(project_id: &str) -> String {
     project_network_name(id_short(project_id))
 }
 
-pub async fn ensure_project_network(
-    docker: &Docker,
-    project_id: &str
-) -> Result<String> {
-    let pid = project_id.find('_')
+pub async fn ensure_project_network(docker: &Docker, project_id: &str) -> Result<String> {
+    let pid = project_id
+        .find('_')
         .map(|i| &project_id[i + 1..])
         .unwrap_or(project_id);
     let short = &pid[..8.min(pid.len())];
     let name = project_network_name(short);
 
-    if let Ok(info) = docker
-        .inspect_network::<String>(&name, None)
-        .await {
-            let id = info
-                .id
-                .clone()
-                .unwrap_or_else(|| name.clone());
+    if let Ok(info) = docker.inspect_network::<String>(&name, None).await {
+        let id = info.id.clone().unwrap_or_else(|| name.clone());
 
-            info!(
-                network = %name,
-                id = %id,
-                "networks::ensure: rede já existe"
-            );
-            return Ok(id);
-        }
+        info!(
+            network = %name,
+            id = %id,
+            "networks::ensure: rede já existe"
+        );
+        return Ok(id);
+    }
 
     info!(
         network = %name,
@@ -74,10 +60,7 @@ pub async fn ensure_project_network(
     Ok(id)
 }
 
-pub async fn _remove_project_network(
-    docker: &Docker,
-    project_id: &str
-) -> Result<()> {
+pub async fn _remove_project_network(docker: &Docker, project_id: &str) -> Result<()> {
     let pid = project_id
         .find('_')
         .map(|i| &project_id[i + 1..])
@@ -141,9 +124,7 @@ pub async fn _disconnect_container(
         force: true,
     };
 
-    docker
-        .disconnect_network(network_name, opts)
-        .await?;
+    docker.disconnect_network(network_name, opts).await?;
 
     info!(
         network = %network_name,

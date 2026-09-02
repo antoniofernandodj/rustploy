@@ -101,7 +101,12 @@ fn api_base(base_url: &str) -> String {
 /// Builds the authorization URL the client opens in a browser. `scope=repo`
 /// grants read/write to private repos (needed to clone them at deploy time).
 /// `redirect_uri`/`state` must arrive already percent-encoded.
-pub fn authorize_url(base_url: &str, client_id_enc: &str, redirect_uri_enc: &str, state_enc: &str) -> String {
+pub fn authorize_url(
+    base_url: &str,
+    client_id_enc: &str,
+    redirect_uri_enc: &str,
+    state_enc: &str,
+) -> String {
     format!(
         "{}/login/oauth/authorize?client_id={}&redirect_uri={}&scope=repo&state={}",
         web_base(base_url),
@@ -173,9 +178,7 @@ fn tokens_or_error(t: TokenResponse) -> Result<OAuthTokens> {
         let desc = t.error_description.unwrap_or_default();
         anyhow::bail!("GitHub OAuth error {err}: {desc}");
     }
-    let access_token = t
-        .access_token
-        .context("token response sem access_token")?;
+    let access_token = t.access_token.context("token response sem access_token")?;
     Ok(OAuthTokens {
         access_token,
         refresh_token: t.refresh_token,
@@ -237,8 +240,7 @@ pub async fn list_branches(
         .await
         .context("falha ao listar branches no GitHub")?;
     let resp = error_for_status(resp).await?;
-    let branches: Vec<BranchResponse> =
-        resp.json().await.context("branches response inválido")?;
+    let branches: Vec<BranchResponse> = resp.json().await.context("branches response inválido")?;
     Ok(branches
         .into_iter()
         .map(|b| GitBranch { name: b.name })

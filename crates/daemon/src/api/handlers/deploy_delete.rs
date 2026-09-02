@@ -6,7 +6,10 @@ pub async fn handle(state: AppState, deployment_id: String) -> RpResponse {
     // Recusa apagar um deployment activo (não terminal)
     match crate::db::deployments::get(&state.db, &deployment_id).await {
         Ok(Some(dep)) if !dep.state.is_terminal() => {
-            return RpResponse::err("DEPLOY_ACTIVE", "Não é possível apagar um deployment em andamento.");
+            return RpResponse::err(
+                "DEPLOY_ACTIVE",
+                "Não é possível apagar um deployment em andamento.",
+            );
         }
         Err(e) => return RpResponse::err("DatabaseError", e.to_string()),
         _ => {}

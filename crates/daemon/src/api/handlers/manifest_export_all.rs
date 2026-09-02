@@ -33,13 +33,17 @@ pub async fn handle(state: AppState) -> RpResponse {
         items.push((project, services));
     }
 
-    let providers: BTreeMap<String, shared::GitProvider> = match crate::db::git_providers::list(&state.db).await {
-        Ok(list) => list.into_iter().map(|p| (p.id.clone(), p.to_public())).collect(),
-        Err(e) => {
-            tracing::error!(error = %e, "manifest_export_all: erro ao listar git providers");
-            return RpResponse::err("DatabaseError", e.to_string());
-        }
-    };
+    let providers: BTreeMap<String, shared::GitProvider> =
+        match crate::db::git_providers::list(&state.db).await {
+            Ok(list) => list
+                .into_iter()
+                .map(|p| (p.id.clone(), p.to_public()))
+                .collect(),
+            Err(e) => {
+                tracing::error!(error = %e, "manifest_export_all: erro ao listar git providers");
+                return RpResponse::err("DatabaseError", e.to_string());
+            }
+        };
     info!(
         provider_count = providers.len(),
         providers = ?providers.values().map(|p| format!("{}={}", p.id, p.name)).collect::<Vec<_>>(),
@@ -55,7 +59,9 @@ pub async fn handle(state: AppState) -> RpResponse {
     // único jeito de flagrar isso sem instrumentar a crate `shared`.
     for (project, services) in &items {
         for s in services {
-            let ServiceSource::Git(g) = &s.spec.source else { continue };
+            let ServiceSource::Git(g) = &s.spec.source else {
+                continue;
+            };
             let Some(pid) = &g.provider_id else { continue };
             match providers.get(pid) {
                 Some(p) => debug!(

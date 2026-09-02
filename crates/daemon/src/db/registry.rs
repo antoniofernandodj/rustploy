@@ -74,10 +74,9 @@ pub async fn get_repo_by_name(db: &Db, name: &str) -> Result<Option<Repo>> {
 
 /// `GET /v2/_catalog` — nomes ordenados. Sem paginação nesta fase.
 pub async fn list_repo_names(db: &Db) -> Result<Vec<String>> {
-    let rows: Vec<(String,)> =
-        sqlx::query_as("SELECT name FROM registry_repos ORDER BY name ASC")
-            .fetch_all(db)
-            .await?;
+    let rows: Vec<(String,)> = sqlx::query_as("SELECT name FROM registry_repos ORDER BY name ASC")
+        .fetch_all(db)
+        .await?;
     Ok(rows.into_iter().map(|(n,)| n).collect())
 }
 
@@ -120,13 +119,15 @@ pub async fn list_tags_detailed(db: &Db, repo_id: &str) -> Result<Vec<TagDetail>
     .await?;
     Ok(rows
         .into_iter()
-        .map(|(tag, digest, media_type, size_bytes, updated_at)| TagDetail {
-            tag,
-            digest,
-            media_type,
-            size_bytes,
-            updated_at,
-        })
+        .map(
+            |(tag, digest, media_type, size_bytes, updated_at)| TagDetail {
+                tag,
+                digest,
+                media_type,
+                size_bytes,
+                updated_at,
+            },
+        )
         .collect())
 }
 
@@ -297,13 +298,12 @@ pub async fn upsert_tag(db: &Db, repo_id: &str, tag: &str, manifest_digest: &str
 }
 
 pub async fn get_tag_digest(db: &Db, repo_id: &str, tag: &str) -> Result<Option<String>> {
-    let row: Option<(String,)> = sqlx::query_as(
-        "SELECT manifest_digest FROM registry_tags WHERE repo_id = ? AND tag = ?",
-    )
-    .bind(repo_id)
-    .bind(tag)
-    .fetch_optional(db)
-    .await?;
+    let row: Option<(String,)> =
+        sqlx::query_as("SELECT manifest_digest FROM registry_tags WHERE repo_id = ? AND tag = ?")
+            .bind(repo_id)
+            .bind(tag)
+            .fetch_optional(db)
+            .await?;
     Ok(row.map(|(d,)| d))
 }
 
@@ -435,9 +435,16 @@ mod tests {
         insert_blob(&db, "blob1", 10).await.unwrap();
         insert_blob(&db, "blob2", 20).await.unwrap();
 
-        insert_manifest(&db, "manifest1", &repo.id, "application/json", 5, &["blob1".into()])
-            .await
-            .unwrap();
+        insert_manifest(
+            &db,
+            "manifest1",
+            &repo.id,
+            "application/json",
+            5,
+            &["blob1".into()],
+        )
+        .await
+        .unwrap();
         upsert_tag(&db, &repo.id, "v1", "manifest1").await.unwrap();
         assert_eq!(
             get_tag_digest(&db, &repo.id, "v1").await.unwrap(),
@@ -445,9 +452,16 @@ mod tests {
         );
 
         // Republica a mesma tag apontando pra outro manifest com refs diferentes.
-        insert_manifest(&db, "manifest2", &repo.id, "application/json", 6, &["blob2".into()])
-            .await
-            .unwrap();
+        insert_manifest(
+            &db,
+            "manifest2",
+            &repo.id,
+            "application/json",
+            6,
+            &["blob2".into()],
+        )
+        .await
+        .unwrap();
         upsert_tag(&db, &repo.id, "v1", "manifest2").await.unwrap();
         assert_eq!(
             get_tag_digest(&db, &repo.id, "v1").await.unwrap(),
@@ -465,14 +479,18 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(get_manifest(&db, &repo_a.id, "shared_digest")
-            .await
-            .unwrap()
-            .is_some());
-        assert!(get_manifest(&db, &repo_b.id, "shared_digest")
-            .await
-            .unwrap()
-            .is_none());
+        assert!(
+            get_manifest(&db, &repo_a.id, "shared_digest")
+                .await
+                .unwrap()
+                .is_some()
+        );
+        assert!(
+            get_manifest(&db, &repo_b.id, "shared_digest")
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[tokio::test]
@@ -501,7 +519,11 @@ mod tests {
             .unwrap();
 
         assert!(ref_blob_or_manifest_exists(&db, "blobref").await.unwrap());
-        assert!(ref_blob_or_manifest_exists(&db, "manifestref").await.unwrap());
+        assert!(
+            ref_blob_or_manifest_exists(&db, "manifestref")
+                .await
+                .unwrap()
+        );
         assert!(!ref_blob_or_manifest_exists(&db, "nope").await.unwrap());
     }
 
@@ -534,16 +556,26 @@ mod tests {
     async fn list_tags_detailed_junta_manifest() {
         let db = mem_db().await;
         let repo = get_or_create_repo(&db, "app").await.unwrap();
-        insert_manifest(&db, "digest1", &repo.id, "application/vnd.docker.distribution.manifest.v2+json", 42, &[])
-            .await
-            .unwrap();
+        insert_manifest(
+            &db,
+            "digest1",
+            &repo.id,
+            "application/vnd.docker.distribution.manifest.v2+json",
+            42,
+            &[],
+        )
+        .await
+        .unwrap();
         upsert_tag(&db, &repo.id, "v1", "digest1").await.unwrap();
 
         let tags = list_tags_detailed(&db, &repo.id).await.unwrap();
         assert_eq!(tags.len(), 1);
         assert_eq!(tags[0].tag, "v1");
         assert_eq!(tags[0].digest, "digest1");
-        assert_eq!(tags[0].media_type, "application/vnd.docker.distribution.manifest.v2+json");
+        assert_eq!(
+            tags[0].media_type,
+            "application/vnd.docker.distribution.manifest.v2+json"
+        );
         assert_eq!(tags[0].size_bytes, 42);
     }
 
@@ -590,7 +622,10 @@ mod tests {
         let repos = list_repos(&db).await.unwrap();
         let a = repos.iter().find(|r| r.name == "hello").unwrap();
         let b = repos.iter().find(|r| r.name == "other-app").unwrap();
-        assert_eq!(a.size_bytes, 524, "repo A perdeu o tamanho do manifest compartilhado");
+        assert_eq!(
+            a.size_bytes, 524,
+            "repo A perdeu o tamanho do manifest compartilhado"
+        );
         assert_eq!(b.size_bytes, 524);
 
         // storage_bytes soma o digest compartilhado UMA vez (é o que ocupa no CAS).
@@ -600,18 +635,38 @@ mod tests {
         // delete_manifest do repo A não deve mais dar NotFound, e não deve
         // afetar a tag do repo B (que ainda referencia o mesmo digest).
         assert!(delete_manifest(&db, &repo_a.id, digest).await.unwrap());
-        assert!(get_manifest(&db, &repo_a.id, digest).await.unwrap().is_none());
-        assert!(get_manifest(&db, &repo_b.id, digest).await.unwrap().is_some());
-        assert_eq!(get_tag_digest(&db, &repo_b.id, "latest").await.unwrap(), Some(digest.to_string()));
+        assert!(
+            get_manifest(&db, &repo_a.id, digest)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            get_manifest(&db, &repo_b.id, digest)
+                .await
+                .unwrap()
+                .is_some()
+        );
+        assert_eq!(
+            get_tag_digest(&db, &repo_b.id, "latest").await.unwrap(),
+            Some(digest.to_string())
+        );
     }
 
     #[tokio::test]
     async fn delete_repo_remove_tudo_e_e_idempotente() {
         let db = mem_db().await;
         let repo = get_or_create_repo(&db, "app").await.unwrap();
-        insert_manifest(&db, "m1", &repo.id, "application/json", 1, &["blobref".into()])
-            .await
-            .unwrap();
+        insert_manifest(
+            &db,
+            "m1",
+            &repo.id,
+            "application/json",
+            1,
+            &["blobref".into()],
+        )
+        .await
+        .unwrap();
         upsert_tag(&db, &repo.id, "v1", "m1").await.unwrap();
 
         assert!(delete_repo(&db, &repo.id).await.unwrap());
@@ -628,21 +683,45 @@ mod tests {
         let repo = get_or_create_repo(&db, "app").await.unwrap();
         insert_blob(&db, "blob_vivo", 10).await.unwrap();
         insert_blob(&db, "blob_orfao", 20).await.unwrap();
-        insert_manifest(&db, "m_vivo", &repo.id, "application/json", 5, &["blob_vivo".into()])
-            .await
-            .unwrap();
+        insert_manifest(
+            &db,
+            "m_vivo",
+            &repo.id,
+            "application/json",
+            5,
+            &["blob_vivo".into()],
+        )
+        .await
+        .unwrap();
         upsert_tag(&db, &repo.id, "latest", "m_vivo").await.unwrap();
         // Manifest pendurado (sem tag — p.ex. tag republicada) segurando outro blob.
         insert_blob(&db, "blob_do_pendurado", 30).await.unwrap();
-        insert_manifest(&db, "m_pendurado", &repo.id, "application/json", 6, &["blob_do_pendurado".into()])
-            .await
-            .unwrap();
+        insert_manifest(
+            &db,
+            "m_pendurado",
+            &repo.id,
+            "application/json",
+            6,
+            &["blob_do_pendurado".into()],
+        )
+        .await
+        .unwrap();
 
         gc_metadata(&db).await.unwrap();
 
-        assert!(get_manifest(&db, &repo.id, "m_vivo").await.unwrap().is_some());
+        assert!(
+            get_manifest(&db, &repo.id, "m_vivo")
+                .await
+                .unwrap()
+                .is_some()
+        );
         assert!(blob_exists(&db, "blob_vivo").await.unwrap());
-        assert!(get_manifest(&db, &repo.id, "m_pendurado").await.unwrap().is_none());
+        assert!(
+            get_manifest(&db, &repo.id, "m_pendurado")
+                .await
+                .unwrap()
+                .is_none()
+        );
         assert!(!blob_exists(&db, "blob_do_pendurado").await.unwrap());
         assert!(!blob_exists(&db, "blob_orfao").await.unwrap());
         let live = all_cas_digests(&db).await.unwrap();
@@ -657,28 +736,74 @@ mod tests {
         let db = mem_db().await;
         let repo = get_or_create_repo(&db, "app").await.unwrap();
         insert_blob(&db, "layer", 100).await.unwrap();
-        insert_manifest(&db, "m_filho", &repo.id, "application/json", 5, &["layer".into()])
-            .await
-            .unwrap();
-        insert_manifest(&db, "m_index", &repo.id, "application/json", 3, &["m_filho".into()])
-            .await
-            .unwrap();
+        insert_manifest(
+            &db,
+            "m_filho",
+            &repo.id,
+            "application/json",
+            5,
+            &["layer".into()],
+        )
+        .await
+        .unwrap();
+        insert_manifest(
+            &db,
+            "m_index",
+            &repo.id,
+            "application/json",
+            3,
+            &["m_filho".into()],
+        )
+        .await
+        .unwrap();
         // Index vivo (taggeado) compartilhando o MESMO filho.
-        insert_manifest(&db, "m_index_vivo", &repo.id, "application/json", 3, &["m_filho".into()])
+        insert_manifest(
+            &db,
+            "m_index_vivo",
+            &repo.id,
+            "application/json",
+            3,
+            &["m_filho".into()],
+        )
+        .await
+        .unwrap();
+        upsert_tag(&db, &repo.id, "latest", "m_index_vivo")
             .await
             .unwrap();
-        upsert_tag(&db, &repo.id, "latest", "m_index_vivo").await.unwrap();
 
         gc_metadata(&db).await.unwrap();
-        assert!(get_manifest(&db, &repo.id, "m_index").await.unwrap().is_none());
-        assert!(get_manifest(&db, &repo.id, "m_filho").await.unwrap().is_some());
+        assert!(
+            get_manifest(&db, &repo.id, "m_index")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            get_manifest(&db, &repo.id, "m_filho")
+                .await
+                .unwrap()
+                .is_some()
+        );
         assert!(blob_exists(&db, "layer").await.unwrap());
 
         // Remove a tag do index vivo: agora a cadeia inteira é órfã.
-        sqlx::query("DELETE FROM registry_tags").execute(&db).await.unwrap();
+        sqlx::query("DELETE FROM registry_tags")
+            .execute(&db)
+            .await
+            .unwrap();
         gc_metadata(&db).await.unwrap();
-        assert!(get_manifest(&db, &repo.id, "m_index_vivo").await.unwrap().is_none());
-        assert!(get_manifest(&db, &repo.id, "m_filho").await.unwrap().is_none());
+        assert!(
+            get_manifest(&db, &repo.id, "m_index_vivo")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            get_manifest(&db, &repo.id, "m_filho")
+                .await
+                .unwrap()
+                .is_none()
+        );
         assert!(!blob_exists(&db, "layer").await.unwrap());
         assert!(all_cas_digests(&db).await.unwrap().is_empty());
     }
@@ -691,18 +816,37 @@ mod tests {
         let digest = "shared";
         insert_blob(&db, "blobref", 1).await.unwrap();
 
-        insert_manifest(&db, digest, &repo_a.id, "application/json", 1, &["blobref".into()])
-            .await
-            .unwrap();
-        insert_manifest(&db, digest, &repo_b.id, "application/json", 1, &["blobref".into()])
-            .await
-            .unwrap();
+        insert_manifest(
+            &db,
+            digest,
+            &repo_a.id,
+            "application/json",
+            1,
+            &["blobref".into()],
+        )
+        .await
+        .unwrap();
+        insert_manifest(
+            &db,
+            digest,
+            &repo_b.id,
+            "application/json",
+            1,
+            &["blobref".into()],
+        )
+        .await
+        .unwrap();
         upsert_tag(&db, &repo_b.id, "latest", digest).await.unwrap();
 
         assert!(delete_repo(&db, &repo_a.id).await.unwrap());
         // repo_b ainda tem o manifest e sua ref — delete_repo não devia ter
         // tocado nisso, já que o digest continua em uso por outro repo.
-        assert!(get_manifest(&db, &repo_b.id, digest).await.unwrap().is_some());
+        assert!(
+            get_manifest(&db, &repo_b.id, digest)
+                .await
+                .unwrap()
+                .is_some()
+        );
         assert!(ref_blob_or_manifest_exists(&db, "blobref").await.unwrap());
         let (ref_count,): (i64,) =
             sqlx::query_as("SELECT COUNT(*) FROM registry_manifest_refs WHERE manifest_digest = ?")
@@ -710,6 +854,9 @@ mod tests {
                 .fetch_one(&db)
                 .await
                 .unwrap();
-        assert_eq!(ref_count, 1, "refs do manifest ainda usado por repo_b foram apagadas");
+        assert_eq!(
+            ref_count, 1,
+            "refs do manifest ainda usado por repo_b foram apagadas"
+        );
     }
 }

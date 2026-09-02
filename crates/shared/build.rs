@@ -100,8 +100,17 @@ fn main() {
         // ── variables ──
         let mut vars = String::new();
         for (k, v) in &tpl.variables {
-            let raw = v.as_str().map(str::to_owned).unwrap_or_else(|| v.to_string());
-            writeln!(vars, "        Var {{ key: {}, raw: {} }},", lit(k), lit(&raw)).unwrap();
+            let raw = v
+                .as_str()
+                .map(str::to_owned)
+                .unwrap_or_else(|| v.to_string());
+            writeln!(
+                vars,
+                "        Var {{ key: {}, raw: {} }},",
+                lit(k),
+                lit(&raw)
+            )
+            .unwrap();
         }
 
         // ── env (array de "K=V" ou tabela) ──
@@ -236,7 +245,10 @@ fn normalize_env(env: &Option<toml::Value>) -> Vec<(String, String)> {
         Some(toml::Value::Table(t)) => t
             .iter()
             .map(|(k, v)| {
-                let val = v.as_str().map(str::to_owned).unwrap_or_else(|| v.to_string());
+                let val = v
+                    .as_str()
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| v.to_string());
                 (k.clone(), val)
             })
             .collect(),

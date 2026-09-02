@@ -29,7 +29,9 @@ impl Default for EnvBackupConfig {
     }
 }
 
-fn default_env_backup_interval() -> u64 { 60 }
+fn default_env_backup_interval() -> u64 {
+    60
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RustployConfig {
@@ -153,7 +155,12 @@ impl ApiConfig {
     /// usa `fallback_host` (o chamador passa o IP de saída da máquina) sobre
     /// HTTP puro.
     pub fn public_base_url(&self, fallback_host: &str) -> String {
-        match self.domain.as_deref().map(str::trim).filter(|d| !d.is_empty()) {
+        match self
+            .domain
+            .as_deref()
+            .map(str::trim)
+            .filter(|d| !d.is_empty())
+        {
             Some(domain) if self.port == 443 => format!("https://{domain}"),
             Some(domain) => format!("https://{domain}:{}", self.port),
             None => format!("http://{fallback_host}:{}", self.port),

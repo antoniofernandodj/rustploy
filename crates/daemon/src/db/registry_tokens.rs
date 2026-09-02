@@ -112,7 +112,8 @@ mod tests {
     use super::*;
 
     async fn mem_db() -> Db {
-        let dir = std::env::temp_dir().join(format!("rustploy_test_registry_tokens_{}", Ulid::new()));
+        let dir =
+            std::env::temp_dir().join(format!("rustploy_test_registry_tokens_{}", Ulid::new()));
         super::super::connect(&dir).await.unwrap()
     }
 
@@ -144,7 +145,10 @@ mod tests {
     async fn verify_scope_hash_desconhecido_e_conhecido() {
         let db = mem_db().await;
         create(&db, "ci", "hash1", "push").await.unwrap();
-        assert_eq!(verify_scope(&db, "hash1").await.unwrap(), Some("push".to_string()));
+        assert_eq!(
+            verify_scope(&db, "hash1").await.unwrap(),
+            Some("push".to_string())
+        );
         assert_eq!(verify_scope(&db, "nope").await.unwrap(), None);
     }
 

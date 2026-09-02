@@ -3,8 +3,7 @@ use bollard::container::{LogOutput, LogsOptions};
 use chrono::Utc;
 use futures::StreamExt;
 use shared::{
-    compose_project_name,
-    EnvVarValue, Response as RpResponse, ServiceSource,
+    EnvVarValue, Response as RpResponse, ServiceSource, compose_project_name,
     protocol::{LogEntry, LogStream},
 };
 use tokio::io::AsyncWriteExt;
@@ -101,7 +100,12 @@ fn parse_compose_log_ts(line: &str) -> Option<chrono::DateTime<Utc>> {
     ts_str.parse::<chrono::DateTime<Utc>>().ok()
 }
 
-async fn compose_logs(project_name: &str, content: &str, tail: usize, env_vars: &[(String, String)]) -> RpResponse {
+async fn compose_logs(
+    project_name: &str,
+    content: &str,
+    tail: usize,
+    env_vars: &[(String, String)],
+) -> RpResponse {
     use tokio::process::Command;
 
     let mut child = match Command::new("docker")

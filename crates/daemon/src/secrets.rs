@@ -1,5 +1,5 @@
+use age::{Decryptor, secrecy::SecretString};
 use anyhow::{Result, anyhow};
-use age::{secrecy::SecretString, Decryptor};
 use std::{
     io::{Read, Write},
     path::Path,
@@ -55,13 +55,12 @@ impl SecretsManager {
     }
 
     pub async fn get_raw(&self, project_id: &str, name: &str) -> Result<String> {
-        let row: Option<(String,)> = sqlx::query_as(
-            "SELECT value FROM secret WHERE project_id = ? AND key = ?",
-        )
-        .bind(project_id)
-        .bind(name)
-        .fetch_optional(&*self.db)
-        .await?;
+        let row: Option<(String,)> =
+            sqlx::query_as("SELECT value FROM secret WHERE project_id = ? AND key = ?")
+                .bind(project_id)
+                .bind(name)
+                .fetch_optional(&*self.db)
+                .await?;
 
         let encrypted = row
             .ok_or_else(|| anyhow!("secret '{name}' not found in project '{project_id}'"))?

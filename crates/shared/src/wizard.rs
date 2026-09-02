@@ -25,8 +25,13 @@ pub enum DbKind {
 }
 
 impl DbKind {
-    pub const ALL: &'static [DbKind] =
-        &[Self::MongoDb, Self::Postgres, Self::MariaDb, Self::MySql, Self::Redis];
+    pub const ALL: &'static [DbKind] = &[
+        Self::MongoDb,
+        Self::Postgres,
+        Self::MariaDb,
+        Self::MySql,
+        Self::Redis,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
@@ -327,14 +332,26 @@ fn base_spec(
 }
 
 pub fn app_spec(name: String, project_id: String) -> ServiceSpec {
-    base_spec(name, project_id, ServiceSource::Registry { image: String::new() }, 80, vec![], None)
+    base_spec(
+        name,
+        project_id,
+        ServiceSource::Registry {
+            image: String::new(),
+        },
+        80,
+        vec![],
+        None,
+    )
 }
 
 pub fn compose_spec(name: String, project_id: String) -> ServiceSpec {
     base_spec(
         name,
         project_id,
-        ServiceSource::Compose(ComposeSource { content: String::new(), ingress_service: None }),
+        ServiceSource::Compose(ComposeSource {
+            content: String::new(),
+            ingress_service: None,
+        }),
         80,
         vec![],
         None,
@@ -342,13 +359,19 @@ pub fn compose_spec(name: String, project_id: String) -> ServiceSpec {
 }
 
 pub fn db_spec(db: DbKind, name: String, project_id: String, f: &DbFormInput) -> ServiceSpec {
-    let image =
-        if f.image.trim().is_empty() { db.default_image().to_string() } else { f.image.trim().to_string() };
+    let image = if f.image.trim().is_empty() {
+        db.default_image().to_string()
+    } else {
+        f.image.trim().to_string()
+    };
     let svc = format!("rp_{}", crate::normalize_name(&name));
     base_spec(
         name,
         project_id,
-        ServiceSource::Compose(ComposeSource { content: db_compose(db, &svc, &image, f), ingress_service: None }),
+        ServiceSource::Compose(ComposeSource {
+            content: db_compose(db, &svc, &image, f),
+            ingress_service: None,
+        }),
         db.default_port(),
         db_env_vars(db, f),
         Some(db.kind_id().to_string()),
@@ -356,7 +379,10 @@ pub fn db_spec(db: DbKind, name: String, project_id: String, f: &DbFormInput) ->
 }
 
 fn db_env_vars(db: DbKind, f: &DbFormInput) -> Vec<EnvVar> {
-    let plain = |k: &str, v: &str| EnvVar { key: k.to_string(), value: EnvVarValue::Plain(v.to_string()) };
+    let plain = |k: &str, v: &str| EnvVar {
+        key: k.to_string(),
+        value: EnvVarValue::Plain(v.to_string()),
+    };
     match db {
         DbKind::Postgres => vec![
             plain("POSTGRES_DB", &f.db_name),
@@ -395,7 +421,11 @@ fn db_compose(db: DbKind, svc: &str, img: &str, f: &DbFormInput) -> String {
             "services:\n  {svc}:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      POSTGRES_DB: ${{POSTGRES_DB}}\n      POSTGRES_USER: ${{POSTGRES_USER}}\n      POSTGRES_PASSWORD: ${{POSTGRES_PASSWORD}}\n    volumes:\n      - pgdata:/var/lib/postgresql\n\nvolumes:\n  pgdata:\n"
         ),
         DbKind::MongoDb => {
-            let replica = if f.use_replica_sets { "      MONGO_REPLICA_SET_NAME: rs0\n" } else { "" };
+            let replica = if f.use_replica_sets {
+                "      MONGO_REPLICA_SET_NAME: rs0\n"
+            } else {
+                ""
+            };
             format!(
                 "services:\n  {svc}:\n    image: {img}\n    restart: unless-stopped\n    environment:\n      MONGO_INITDB_ROOT_USERNAME: ${{MONGO_INITDB_ROOT_USERNAME}}\n      MONGO_INITDB_ROOT_PASSWORD: ${{MONGO_INITDB_ROOT_PASSWORD}}\n{replica}    volumes:\n      - mongodata:/data/db\n\nvolumes:\n  mongodata:\n"
             )
@@ -419,7 +449,12 @@ fn db_compose(db: DbKind, svc: &str, img: &str, f: &DbFormInput) -> String {
     }
 }
 
-pub fn broker_spec(broker: BrokerKind, name: String, project_id: String, f: &DbFormInput) -> ServiceSpec {
+pub fn broker_spec(
+    broker: BrokerKind,
+    name: String,
+    project_id: String,
+    f: &DbFormInput,
+) -> ServiceSpec {
     let image = if f.image.trim().is_empty() {
         broker.default_image().to_string()
     } else {
@@ -429,7 +464,10 @@ pub fn broker_spec(broker: BrokerKind, name: String, project_id: String, f: &DbF
     base_spec(
         name,
         project_id,
-        ServiceSource::Compose(ComposeSource { content: broker_compose(broker, &svc, &image, f), ingress_service: None }),
+        ServiceSource::Compose(ComposeSource {
+            content: broker_compose(broker, &svc, &image, f),
+            ingress_service: None,
+        }),
         broker.default_port(),
         broker_env_vars(broker, f),
         Some(broker.kind_id().to_string()),
@@ -437,7 +475,10 @@ pub fn broker_spec(broker: BrokerKind, name: String, project_id: String, f: &DbF
 }
 
 fn broker_env_vars(broker: BrokerKind, f: &DbFormInput) -> Vec<EnvVar> {
-    let plain = |k: &str, v: &str| EnvVar { key: k.to_string(), value: EnvVarValue::Plain(v.to_string()) };
+    let plain = |k: &str, v: &str| EnvVar {
+        key: k.to_string(),
+        value: EnvVarValue::Plain(v.to_string()),
+    };
     match broker {
         BrokerKind::Kafka | BrokerKind::Nats => vec![],
         BrokerKind::RabbitMq => vec![
@@ -461,8 +502,17 @@ fn broker_compose(broker: BrokerKind, svc: &str, img: &str, _f: &DbFormInput) ->
     }
 }
 
-pub fn template_spec(t: &'static Template, name: String, project_id: String, values: &[String]) -> ServiceSpec {
-    let name = if name.trim().is_empty() { template_slug(t) } else { name };
+pub fn template_spec(
+    t: &'static Template,
+    name: String,
+    project_id: String,
+    values: &[String],
+) -> ServiceSpec {
+    let name = if name.trim().is_empty() {
+        template_slug(t)
+    } else {
+        name
+    };
     let user: Vec<(String, String)> = templates::editable_vars(t)
         .iter()
         .zip(values.iter())
@@ -472,12 +522,18 @@ pub fn template_spec(t: &'static Template, name: String, project_id: String, val
     let env_vars = rendered
         .env
         .into_iter()
-        .map(|(key, value)| EnvVar { key, value: EnvVarValue::Plain(value) })
+        .map(|(key, value)| EnvVar {
+            key,
+            value: EnvVarValue::Plain(value),
+        })
         .collect();
     let mut spec = base_spec(
         name,
         project_id,
-        ServiceSource::Compose(ComposeSource { content: rendered.compose, ingress_service: None }),
+        ServiceSource::Compose(ComposeSource {
+            content: rendered.compose,
+            ingress_service: None,
+        }),
         rendered.port,
         env_vars,
         None,
@@ -552,17 +608,25 @@ fn build_spec_inner(req: &WizardCreateReq) -> Result<ServiceSpec, String> {
         "application" => Ok(app_spec(name, req.project_id.clone())),
         "compose" => Ok(compose_spec(name, req.project_id.clone())),
         "database" => {
-            let db = DbKind::from_str(&req.id).ok_or_else(|| format!("banco desconhecido: {}", req.id))?;
+            let db = DbKind::from_str(&req.id)
+                .ok_or_else(|| format!("banco desconhecido: {}", req.id))?;
             Ok(db_spec(db, name, req.project_id.clone(), &req.db_form()))
         }
         "broker" => {
-            let b = BrokerKind::from_str(&req.id).ok_or_else(|| format!("broker desconhecido: {}", req.id))?;
+            let b = BrokerKind::from_str(&req.id)
+                .ok_or_else(|| format!("broker desconhecido: {}", req.id))?;
             Ok(broker_spec(b, name, req.project_id.clone(), &req.db_form()))
         }
         "template" => {
-            let t = templates::find(&req.id).ok_or_else(|| format!("template desconhecido: {}", req.id))?;
+            let t = templates::find(&req.id)
+                .ok_or_else(|| format!("template desconhecido: {}", req.id))?;
             // template_spec usa o slug quando o nome vem vazio.
-            Ok(template_spec(t, name, req.project_id.clone(), &req.template_values))
+            Ok(template_spec(
+                t,
+                name,
+                req.project_id.clone(),
+                &req.template_values,
+            ))
         }
         other => Err(format!("tipo de serviço desconhecido: {other}")),
     }

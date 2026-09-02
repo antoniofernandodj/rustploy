@@ -123,7 +123,11 @@ impl ServiceSpec {
         if !self.domains.is_empty() {
             self.domains.clone()
         } else if let Some(d) = &self.domain {
-            vec![DomainRoute { domain: d.clone(), port: None, tls: self.tls_enabled }]
+            vec![DomainRoute {
+                domain: d.clone(),
+                port: None,
+                tls: self.tls_enabled,
+            }]
         } else {
             Vec::new()
         }
@@ -185,7 +189,10 @@ impl ServiceSpec {
 
 /// Resolve as variáveis de ambiente para um serviço, combinando as do projeto e as do serviço.
 /// As variáveis do serviço têm precedência sobre as do projeto.
-pub fn resolve_env_vars(project: &Project, service: &Service) -> std::collections::HashMap<String, EnvVar> {
+pub fn resolve_env_vars(
+    project: &Project,
+    service: &Service,
+) -> std::collections::HashMap<String, EnvVar> {
     let mut resolved = std::collections::HashMap::new();
 
     // Adiciona as variáveis de ambiente do projeto
@@ -513,11 +520,16 @@ impl DeployState {
 mod pre_deploy_gate_tests {
     use super::*;
 
-    fn sample_spec(pre_deploy_job_id: Option<String>, pre_deploy_job_ids: Vec<String>) -> ServiceSpec {
+    fn sample_spec(
+        pre_deploy_job_id: Option<String>,
+        pre_deploy_job_ids: Vec<String>,
+    ) -> ServiceSpec {
         ServiceSpec {
             name: "svc".into(),
             project_id: "proj-1".into(),
-            source: ServiceSource::Registry { image: "nginx:latest".into() },
+            source: ServiceSource::Registry {
+                image: "nginx:latest".into(),
+            },
             port: 8080,
             host_port: None,
             domain: None,
@@ -539,12 +551,19 @@ mod pre_deploy_gate_tests {
 
     #[test]
     fn pre_deploy_job_ids_json_round_trip() {
-        let spec = sample_spec(None, vec!["job_migration".into(), "job_lint".into(), "job_test".into()]);
+        let spec = sample_spec(
+            None,
+            vec!["job_migration".into(), "job_lint".into(), "job_test".into()],
+        );
         let json = serde_json::to_string(&spec).unwrap();
         let back: ServiceSpec = serde_json::from_str(&json).unwrap();
         assert_eq!(
             back.pre_deploy_job_ids,
-            vec!["job_migration".to_string(), "job_lint".to_string(), "job_test".to_string()]
+            vec![
+                "job_migration".to_string(),
+                "job_lint".to_string(),
+                "job_test".to_string()
+            ]
         );
     }
 
@@ -567,8 +586,14 @@ mod pre_deploy_gate_tests {
 
     #[test]
     fn pre_deploy_checks_prefers_queue_over_legacy() {
-        let spec = sample_spec(Some("job_legacy".into()), vec!["job_a".into(), "job_b".into()]);
-        assert_eq!(spec.pre_deploy_checks(), vec!["job_a".to_string(), "job_b".to_string()]);
+        let spec = sample_spec(
+            Some("job_legacy".into()),
+            vec!["job_a".into(), "job_b".into()],
+        );
+        assert_eq!(
+            spec.pre_deploy_checks(),
+            vec!["job_a".to_string(), "job_b".to_string()]
+        );
     }
 
     #[test]
@@ -984,16 +1009,25 @@ impl Default for JobGitSource {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum Recurrence {
     IntervalHours(u32),
-    Daily { hour: u8, minute: u8 },
+    Daily {
+        hour: u8,
+        minute: u8,
+    },
     /// `weekday`: 0=segunda .. 6=domingo (`chrono::Weekday::num_days_from_monday`).
-    Weekly { weekday: u8, hour: u8, minute: u8 },
+    Weekly {
+        weekday: u8,
+        hour: u8,
+        minute: u8,
+    },
 }
 
 impl Recurrence {
     /// Próximo disparo estritamente depois de `from`.
     pub fn next_after(&self, from: DateTime<Utc>) -> DateTime<Utc> {
         match self {
-            Recurrence::IntervalHours(hours) => from + chrono::Duration::hours((*hours).max(1) as i64),
+            Recurrence::IntervalHours(hours) => {
+                from + chrono::Duration::hours((*hours).max(1) as i64)
+            }
             Recurrence::Daily { hour, minute } => {
                 let mut candidate = Self::at_time(from, *hour, *minute);
                 if candidate <= from {
@@ -1001,7 +1035,11 @@ impl Recurrence {
                 }
                 candidate
             }
-            Recurrence::Weekly { weekday, hour, minute } => {
+            Recurrence::Weekly {
+                weekday,
+                hour,
+                minute,
+            } => {
                 let mut candidate = Self::at_time(from, *hour, *minute);
                 let target = (*weekday % 7) as i64;
                 let current = from.weekday().num_days_from_monday() as i64;
@@ -1159,14 +1197,20 @@ mod job_tests {
     fn daily_before_time_today_fires_today() {
         let from = "2026-01-01T02:00:00Z".parse::<DateTime<Utc>>().unwrap();
         let next = Recurrence::Daily { hour: 3, minute: 0 }.next_after(from);
-        assert_eq!(next, "2026-01-01T03:00:00Z".parse::<DateTime<Utc>>().unwrap());
+        assert_eq!(
+            next,
+            "2026-01-01T03:00:00Z".parse::<DateTime<Utc>>().unwrap()
+        );
     }
 
     #[test]
     fn daily_after_time_today_fires_tomorrow() {
         let from = "2026-01-01T04:00:00Z".parse::<DateTime<Utc>>().unwrap();
         let next = Recurrence::Daily { hour: 3, minute: 0 }.next_after(from);
-        assert_eq!(next, "2026-01-02T03:00:00Z".parse::<DateTime<Utc>>().unwrap());
+        assert_eq!(
+            next,
+            "2026-01-02T03:00:00Z".parse::<DateTime<Utc>>().unwrap()
+        );
     }
 
     #[test]
@@ -1175,24 +1219,47 @@ mod job_tests {
         let from = "2026-01-01T10:00:00Z".parse::<DateTime<Utc>>().unwrap();
         assert_eq!(from.weekday().num_days_from_monday(), 3);
         // Próxima segunda (weekday 0) às 03:00 -> 2026-01-05.
-        let next = Recurrence::Weekly { weekday: 0, hour: 3, minute: 0 }.next_after(from);
-        assert_eq!(next, "2026-01-05T03:00:00Z".parse::<DateTime<Utc>>().unwrap());
+        let next = Recurrence::Weekly {
+            weekday: 0,
+            hour: 3,
+            minute: 0,
+        }
+        .next_after(from);
+        assert_eq!(
+            next,
+            "2026-01-05T03:00:00Z".parse::<DateTime<Utc>>().unwrap()
+        );
     }
 
     #[test]
     fn weekly_same_weekday_but_time_passed_rolls_to_next_week() {
         // 2026-01-01 é quinta (weekday 3); pede quinta às 03:00, mas já são 10:00 -> semana que vem.
         let from = "2026-01-01T10:00:00Z".parse::<DateTime<Utc>>().unwrap();
-        let next = Recurrence::Weekly { weekday: 3, hour: 3, minute: 0 }.next_after(from);
-        assert_eq!(next, "2026-01-08T03:00:00Z".parse::<DateTime<Utc>>().unwrap());
+        let next = Recurrence::Weekly {
+            weekday: 3,
+            hour: 3,
+            minute: 0,
+        }
+        .next_after(from);
+        assert_eq!(
+            next,
+            "2026-01-08T03:00:00Z".parse::<DateTime<Utc>>().unwrap()
+        );
     }
 
     #[test]
     fn recurrence_json_round_trip() {
         for r in [
             Recurrence::IntervalHours(6),
-            Recurrence::Daily { hour: 3, minute: 30 },
-            Recurrence::Weekly { weekday: 6, hour: 0, minute: 0 },
+            Recurrence::Daily {
+                hour: 3,
+                minute: 30,
+            },
+            Recurrence::Weekly {
+                weekday: 6,
+                hour: 0,
+                minute: 0,
+            },
         ] {
             let json = serde_json::to_string(&r).unwrap();
             let back: Recurrence = serde_json::from_str(&json).unwrap();
@@ -1233,7 +1300,13 @@ mod git_provider_tests {
         };
         let s = serde_json::to_string(&cmd).unwrap();
         let back: Command = serde_json::from_str(&s).unwrap();
-        assert!(matches!(back, Command::GitProviderCreate { kind: GitProviderKind::Gitea, .. }));
+        assert!(matches!(
+            back,
+            Command::GitProviderCreate {
+                kind: GitProviderKind::Gitea,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -1245,7 +1318,10 @@ mod git_provider_tests {
             base_url: "https://gitea.test".into(),
             auth_mode: GitAuthMode::Pat,
             oauth_client_id: None,
-            account: Some(GitAccount { login: "alice".into(), avatar_url: None }),
+            account: Some(GitAccount {
+                login: "alice".into(),
+                avatar_url: None,
+            }),
             created_at: Utc::now(),
         }]);
         let s = serde_json::to_string(&resp).unwrap();
@@ -1288,7 +1364,11 @@ mod ingress_tests {
     #[test]
     fn porta_do_dominio_vence_a_porta_do_servico() {
         let spec = spec_com(
-            vec![DomainRoute { domain: "db.exemplo.com".into(), port: Some(8000), tls: true }],
+            vec![DomainRoute {
+                domain: "db.exemplo.com".into(),
+                port: Some(8000),
+                tls: true,
+            }],
             80,
             None,
         );
@@ -1299,7 +1379,11 @@ mod ingress_tests {
     #[test]
     fn dominio_sem_porta_usa_a_do_servico() {
         let spec = spec_com(
-            vec![DomainRoute { domain: "a.exemplo.com".into(), port: None, tls: false }],
+            vec![DomainRoute {
+                domain: "a.exemplo.com".into(),
+                port: None,
+                tls: false,
+            }],
             3000,
             None,
         );
@@ -1309,7 +1393,11 @@ mod ingress_tests {
     #[test]
     fn rota_de_porta_no_host_acrescenta_a_porta_do_servico() {
         let spec = spec_com(
-            vec![DomainRoute { domain: "a.exemplo.com".into(), port: Some(8000), tls: false }],
+            vec![DomainRoute {
+                domain: "a.exemplo.com".into(),
+                port: Some(8000),
+                tls: false,
+            }],
             5432,
             Some(15432),
         );
@@ -1318,7 +1406,11 @@ mod ingress_tests {
 
     #[test]
     fn sem_dominio_e_sem_host_port_nao_ha_porta_a_alcancar() {
-        assert!(spec_com(Vec::new(), 80, None).ingress_container_ports().is_empty());
+        assert!(
+            spec_com(Vec::new(), 80, None)
+                .ingress_container_ports()
+                .is_empty()
+        );
     }
 
     /// Specs gravados antes do campo existir continuam desserializando.

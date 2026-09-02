@@ -180,12 +180,18 @@ impl IngressController {
                 .as_ref()
                 .map(|b| b.cursor.clone())
                 .unwrap_or_else(|| Arc::new(AtomicUsize::new(0)));
-            existing.store(Arc::new(Some(PortBackends { addrs: backends, cursor })));
+            existing.store(Arc::new(Some(PortBackends {
+                addrs: backends,
+                cursor,
+            })));
         } else {
             let port_backend: PortBackend =
                 Arc::new(ArcSwap::from_pointee(Some(PortBackends::new(backends))));
             ports.insert(host_port, port_backend.clone());
-            tokio::spawn(crate::ingress::proxy::serve_port_proxy(host_port, port_backend));
+            tokio::spawn(crate::ingress::proxy::serve_port_proxy(
+                host_port,
+                port_backend,
+            ));
         }
     }
 

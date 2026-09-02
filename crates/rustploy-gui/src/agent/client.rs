@@ -16,8 +16,8 @@ use http_body_util::{BodyExt, Full};
 use hyper::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use hyper::{Method, Request, StatusCode};
 use hyper_rustls::HttpsConnector;
-use hyper_util::client::legacy::connect::HttpConnector;
 use hyper_util::client::legacy::Client;
+use hyper_util::client::legacy::connect::HttpConnector;
 use hyper_util::rt::TokioExecutor;
 
 use super::session::Session;
@@ -217,7 +217,10 @@ pub(crate) fn response_payload(v: &serde_json::Value) -> Option<&serde_json::Val
 pub(crate) fn response_error(v: &serde_json::Value) -> Option<(String, String)> {
     let err = v.get("Err")?;
     Some((
-        err.get("code").and_then(|c| c.as_str()).unwrap_or("Err").to_string(),
+        err.get("code")
+            .and_then(|c| c.as_str())
+            .unwrap_or("Err")
+            .to_string(),
         err.get("message")
             .and_then(|m| m.as_str())
             .unwrap_or_default()

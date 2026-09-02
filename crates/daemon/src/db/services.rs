@@ -57,12 +57,14 @@ pub async fn create(db: &Db, spec: ServiceSpec) -> Result<Service> {
     // pegar também nomes diferentes que colapsam no mesmo safe_name
     // (ex.: "my-api" e "my_api").
     let new_safe = spec.safe_name();
-    let existing: Vec<(String,)> =
-        sqlx::query_as("SELECT name FROM service WHERE project_id = ?")
-            .bind(&spec.project_id)
-            .fetch_all(db)
-            .await?;
-    if existing.iter().any(|(n,)| shared::normalize_name(n) == new_safe) {
+    let existing: Vec<(String,)> = sqlx::query_as("SELECT name FROM service WHERE project_id = ?")
+        .bind(&spec.project_id)
+        .fetch_all(db)
+        .await?;
+    if existing
+        .iter()
+        .any(|(n,)| shared::normalize_name(n) == new_safe)
+    {
         anyhow::bail!(
             "já existe um serviço com o nome \"{}\" neste projeto",
             spec.name
@@ -129,7 +131,10 @@ pub async fn update_spec(db: &Db, id: &str, spec: ServiceSpec) -> Result<Option<
             .bind(id)
             .fetch_all(db)
             .await?;
-    if others.iter().any(|(n,)| shared::normalize_name(n) == new_safe) {
+    if others
+        .iter()
+        .any(|(n,)| shared::normalize_name(n) == new_safe)
+    {
         anyhow::bail!(
             "já existe um serviço com o nome \"{}\" neste projeto",
             spec.name
@@ -197,7 +202,6 @@ pub async fn update_status(
     status: &ServiceStatus,
     container_id: Option<&str>,
 ) -> Result<()> {
-
     info!(
         service_id = %id,
         status = %status,
@@ -240,11 +244,10 @@ pub async fn get_running(db: &Db) -> Result<Vec<Service>> {
 }
 
 pub async fn count_by_project(db: &Db, project_id: &str) -> Result<i64> {
-    let (count,): (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM service WHERE project_id = ?")
-            .bind(project_id)
-            .fetch_one(db)
-            .await?;
+    let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM service WHERE project_id = ?")
+        .bind(project_id)
+        .fetch_one(db)
+        .await?;
     Ok(count)
 }
 
@@ -258,11 +261,9 @@ pub async fn get_watchable(db: &Db) -> Result<Vec<Service>> {
 }
 
 pub async fn list_all(db: &Db) -> Result<Vec<Service>> {
-    let rows = sqlx::query_as::<_, ServiceRow>(&format!(
-        "SELECT {SELECT_COLS} FROM service"
-    ))
-    .fetch_all(db)
-    .await?;
+    let rows = sqlx::query_as::<_, ServiceRow>(&format!("SELECT {SELECT_COLS} FROM service"))
+        .fetch_all(db)
+        .await?;
     rows.into_iter().map(row_to_service).collect()
 }
 
@@ -275,7 +276,9 @@ mod tests {
         ServiceSpec {
             name: name.into(),
             project_id: project.into(),
-            source: ServiceSource::Registry { image: "nginx:latest".into() },
+            source: ServiceSource::Registry {
+                image: "nginx:latest".into(),
+            },
             port: 80,
             host_port: None,
             domain: None,
@@ -296,8 +299,7 @@ mod tests {
     }
 
     async fn mem_db() -> Db {
-        let dir = std::env::temp_dir()
-            .join(format!("rustploy_test_{}", Ulid::new()));
+        let dir = std::env::temp_dir().join(format!("rustploy_test_{}", Ulid::new()));
         super::super::connect(&dir).await.unwrap()
     }
 
@@ -327,11 +329,25 @@ mod tests {
         let web = create(&db, spec("web", "proj_a")).await.unwrap();
 
         // Renomear "web" → "api" (já existe) deve falhar.
-        assert!(update_spec(&db, &web.id, spec("api", "proj_a")).await.is_err());
+        assert!(
+            update_spec(&db, &web.id, spec("api", "proj_a"))
+                .await
+                .is_err()
+        );
         // Renomear para um nome livre funciona.
-        assert!(update_spec(&db, &web.id, spec("web2", "proj_a")).await.unwrap().is_some());
+        assert!(
+            update_spec(&db, &web.id, spec("web2", "proj_a"))
+                .await
+                .unwrap()
+                .is_some()
+        );
         // Regravar o próprio serviço com o mesmo nome (não é colisão) funciona.
-        assert!(update_spec(&db, &web.id, spec("web2", "proj_a")).await.unwrap().is_some());
+        assert!(
+            update_spec(&db, &web.id, spec("web2", "proj_a"))
+                .await
+                .unwrap()
+                .is_some()
+        );
     }
 
     #[tokio::test]
@@ -348,9 +364,22 @@ mod tests {
         let cleared = clear_pre_deploy_job(&db, "job_alvo").await.unwrap();
         assert_eq!(cleared, 1);
 
-        assert_eq!(get(&db, &api.id).await.unwrap().unwrap().spec.pre_deploy_job_id, None);
         assert_eq!(
-            get(&db, &web.id).await.unwrap().unwrap().spec.pre_deploy_job_id,
+            get(&db, &api.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .spec
+                .pre_deploy_job_id,
+            None
+        );
+        assert_eq!(
+            get(&db, &web.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .spec
+                .pre_deploy_job_id,
             Some("job_outro".into())
         );
     }
@@ -370,7 +399,12 @@ mod tests {
         assert_eq!(cleared, 1);
 
         assert_eq!(
-            get(&db, &api.id).await.unwrap().unwrap().spec.pre_deploy_job_ids,
+            get(&db, &api.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .spec
+                .pre_deploy_job_ids,
             vec!["job_migration".to_string(), "job_test".to_string()]
         );
     }
@@ -382,7 +416,9 @@ mod tests {
         with_queue.pre_deploy_job_ids = vec!["job_migration".into()];
         create(&db, with_queue).await.unwrap();
 
-        let cleared = clear_pre_deploy_job(&db, "job_nunca_referenciado").await.unwrap();
+        let cleared = clear_pre_deploy_job(&db, "job_nunca_referenciado")
+            .await
+            .unwrap();
         assert_eq!(cleared, 0);
     }
 }

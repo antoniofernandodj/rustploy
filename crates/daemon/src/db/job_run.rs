@@ -70,12 +70,11 @@ pub async fn finish(db: &Db, id: &str, exit_code: i32) -> Result<Option<JobRun>>
 }
 
 pub async fn get(db: &Db, id: &str) -> Result<Option<JobRun>> {
-    let row = sqlx::query_as::<_, JobRunRow>(&format!(
-        "SELECT {SELECT_COLS} FROM job_run WHERE id = ?"
-    ))
-    .bind(id)
-    .fetch_optional(db)
-    .await?;
+    let row =
+        sqlx::query_as::<_, JobRunRow>(&format!("SELECT {SELECT_COLS} FROM job_run WHERE id = ?"))
+            .bind(id)
+            .fetch_optional(db)
+            .await?;
     Ok(row.map(row_to_job_run))
 }
 

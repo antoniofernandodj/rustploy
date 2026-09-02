@@ -13,7 +13,13 @@ pub async fn handle(
         .filter(|s| !s.is_empty())
         .map(str::to_string);
 
-    if let Err(e) = save_optional(&state, daemon_settings::KEY_ACME_EMAIL, email_trimmed.clone()).await {
+    if let Err(e) = save_optional(
+        &state,
+        daemon_settings::KEY_ACME_EMAIL,
+        email_trimmed.clone(),
+    )
+    .await
+    {
         return e;
     }
 
@@ -61,9 +67,11 @@ pub async fn handle(
         }
         if let Some(new_domain) = registry_trimmed {
             let port = RustployConfig::global().registry.port;
-            state
-                .ingress
-                .upsert_route(&new_domain, vec![format!("127.0.0.1:{port}")], "rp-registry");
+            state.ingress.upsert_route(
+                &new_domain,
+                vec![format!("127.0.0.1:{port}")],
+                "rp-registry",
+            );
             let tls = state.tls.clone();
             let d = new_domain.clone();
             tokio::spawn(async move {
@@ -113,12 +121,12 @@ async fn save_optional(
     value: Option<String>,
 ) -> Result<(), RpResponse> {
     match value {
-        Some(v) if !v.trim().is_empty() => {
-            daemon_settings::set(&state.db, key, v.trim()).await.map_err(|e| {
+        Some(v) if !v.trim().is_empty() => daemon_settings::set(&state.db, key, v.trim())
+            .await
+            .map_err(|e| {
                 error!(error = %e, key, "failed to save daemon setting");
                 RpResponse::err("DatabaseError", e.to_string())
-            })
-        }
+            }),
         _ => daemon_settings::delete(&state.db, key).await.map_err(|e| {
             error!(error = %e, key, "failed to delete daemon setting");
             RpResponse::err("DatabaseError", e.to_string())

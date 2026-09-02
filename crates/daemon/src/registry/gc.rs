@@ -21,7 +21,7 @@ use std::collections::HashSet;
 use std::time::Duration;
 
 use super::storage::RegistryStorage;
-use crate::db::{registry as db_registry, Db};
+use crate::db::{Db, registry as db_registry};
 
 /// Idade mínima de um arquivo órfão em `uploads/` para o GC apagar — folga
 /// generosa para uploads legitimamente lentos ainda em andamento.
@@ -36,7 +36,10 @@ pub struct GcResult {
 pub async fn run(db: &Db, storage: &RegistryStorage) -> anyhow::Result<GcResult> {
     let _commit = storage.lock_commit().await;
     db_registry::gc_metadata(db).await?;
-    let live: HashSet<String> = db_registry::all_cas_digests(db).await?.into_iter().collect();
+    let live: HashSet<String> = db_registry::all_cas_digests(db)
+        .await?
+        .into_iter()
+        .collect();
     let (cas_removed, cas_bytes) = storage.sweep_orphan_files(&live).await?;
     let (up_removed, up_bytes) = storage.clean_stale_uploads(UPLOAD_TTL).await?;
     Ok(GcResult {
@@ -69,11 +72,18 @@ mod tests {
 
         let repo = db_registry::get_or_create_repo(&db, "app").await.unwrap();
         let vivo = storage.write_blob_direct(b"camada viva").await.unwrap();
-        db_registry::insert_blob(&db, &vivo.digest, vivo.size as i64).await.unwrap();
+        db_registry::insert_blob(&db, &vivo.digest, vivo.size as i64)
+            .await
+            .unwrap();
         let orfao = storage.write_blob_direct(b"camada orfa").await.unwrap();
-        db_registry::insert_blob(&db, &orfao.digest, orfao.size as i64).await.unwrap();
+        db_registry::insert_blob(&db, &orfao.digest, orfao.size as i64)
+            .await
+            .unwrap();
 
-        let manifest = storage.write_blob_direct(br#"{"schemaVersion":2}"#).await.unwrap();
+        let manifest = storage
+            .write_blob_direct(br#"{"schemaVersion":2}"#)
+            .await
+            .unwrap();
         db_registry::insert_manifest(
             &db,
             &manifest.digest,
@@ -84,13 +94,18 @@ mod tests {
         )
         .await
         .unwrap();
-        db_registry::upsert_tag(&db, &repo.id, "latest", &manifest.digest).await.unwrap();
+        db_registry::upsert_tag(&db, &repo.id, "latest", &manifest.digest)
+            .await
+            .unwrap();
 
         let result = run(&db, &storage).await.unwrap();
         assert_eq!(result.blobs_removed, 1);
         assert_eq!(result.bytes_freed, orfao.size);
         assert!(storage.blob_exists(&vivo.digest).await);
-        assert!(storage.blob_exists(&manifest.digest).await, "manifest taggeado sumiu do CAS");
+        assert!(
+            storage.blob_exists(&manifest.digest).await,
+            "manifest taggeado sumiu do CAS"
+        );
         assert!(!storage.blob_exists(&orfao.digest).await);
         assert!(db_registry::blob_exists(&db, &vivo.digest).await.unwrap());
         assert!(!db_registry::blob_exists(&db, &orfao.digest).await.unwrap());
@@ -110,8 +125,13 @@ mod tests {
 
         let repo = db_registry::get_or_create_repo(&db, "hello").await.unwrap();
         let blob = storage.write_blob_direct(b"layer bytes").await.unwrap();
-        db_registry::insert_blob(&db, &blob.digest, blob.size as i64).await.unwrap();
-        let manifest = storage.write_blob_direct(br#"{"schemaVersion":2,"x":1}"#).await.unwrap();
+        db_registry::insert_blob(&db, &blob.digest, blob.size as i64)
+            .await
+            .unwrap();
+        let manifest = storage
+            .write_blob_direct(br#"{"schemaVersion":2,"x":1}"#)
+            .await
+            .unwrap();
         db_registry::insert_manifest(
             &db,
             &manifest.digest,
@@ -122,11 +142,16 @@ mod tests {
         )
         .await
         .unwrap();
-        db_registry::upsert_tag(&db, &repo.id, "latest", &manifest.digest).await.unwrap();
+        db_registry::upsert_tag(&db, &repo.id, "latest", &manifest.digest)
+            .await
+            .unwrap();
 
         assert!(db_registry::delete_repo(&db, &repo.id).await.unwrap());
         let result = run(&db, &storage).await.unwrap();
-        assert_eq!(result.blobs_removed, 2, "blob + manifest deviam sair do CAS");
+        assert_eq!(
+            result.blobs_removed, 2,
+            "blob + manifest deviam sair do CAS"
+        );
         assert_eq!(result.bytes_freed, blob.size + manifest.size);
         assert!(!storage.blob_exists(&blob.digest).await);
         assert!(!storage.blob_exists(&manifest.digest).await);
@@ -154,7 +179,10 @@ mod tests {
 
         // Sessão ativa com mtime igualmente velho: deve FICAR.
         let active_id = storage.start_upload().await.unwrap();
-        storage.write_chunk(&active_id, b"em andamento").await.unwrap();
+        storage
+            .write_chunk(&active_id, b"em andamento")
+            .await
+            .unwrap();
         let active_path = root.join("uploads").join(&active_id);
         std::fs::File::options()
             .write(true)

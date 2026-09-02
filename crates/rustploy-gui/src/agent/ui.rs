@@ -15,11 +15,11 @@
 //! O par de leitura é o espelho do contexto em [`super::session`]: escrever é
 //! pelo canal, ler é pelo espelho.
 
-use std::collections::HashMap;
+use glacier_ui::ContextMap;
 use std::time::{Duration, Instant};
 
 use glacier_ui::ExternalSender;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::session::SharedSession;
 
@@ -75,7 +75,9 @@ pub(super) async fn connect(
         tokio::time::sleep(POLL).await;
 
         if let Some(s) = session.get() {
-            return ConnectOutcome::Conectado { remote_url: s.base_url };
+            return ConnectOutcome::Conectado {
+                remote_url: s.base_url,
+            };
         }
 
         // `connect()` escreve o motivo em `error` (falha de transporte/401) ou
@@ -154,7 +156,7 @@ pub(super) fn keys(session: &SharedSession, pedidas: &str) -> Value {
 /// Todas as chaves do contexto, com os segredos redigidos. Só sob pedido
 /// explícito (`?all=1`) — é a resposta cara mencionada em [`state`].
 pub(super) fn all_keys(session: &SharedSession) -> Value {
-    let ctx: HashMap<String, String> = session.context();
+    let ctx: ContextMap = session.context();
     let mut out = serde_json::Map::new();
 
     for (k, v) in ctx {
@@ -172,11 +174,10 @@ pub(super) fn all_keys(session: &SharedSession) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
 
     fn com_contexto(pares: &[(&str, &str)]) -> SharedSession {
         let s = SharedSession::default();
-        let ctx: HashMap<String, String> = pares
+        let ctx: ContextMap = pares
             .iter()
             .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
             .collect();

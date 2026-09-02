@@ -51,7 +51,7 @@ pub struct TlsManager {
 }
 
 impl TlsManager {
-pub fn new(cert_dir: PathBuf, acme_config: AcmeConfig) -> Result<Self> {
+    pub fn new(cert_dir: PathBuf, acme_config: AcmeConfig) -> Result<Self> {
         std::fs::create_dir_all(&cert_dir)?;
 
         let resolver = Arc::new(SniResolver {
@@ -59,8 +59,7 @@ pub fn new(cert_dir: PathBuf, acme_config: AcmeConfig) -> Result<Self> {
         });
 
         // 1. Cria o ServerConfig normalmente (com let mut)
-        let mut server_config = ServerConfig::builder_with_provider(
-            Arc::new(default_provider()))
+        let mut server_config = ServerConfig::builder_with_provider(Arc::new(default_provider()))
             .with_safe_default_protocol_versions()
             .map_err(|e| anyhow!("TLS protocol config: {e}"))?
             .with_no_client_auth()
@@ -126,7 +125,10 @@ pub fn new(cert_dir: PathBuf, acme_config: AcmeConfig) -> Result<Self> {
             return Ok(());
         }
 
-        info!(domain, "TLS: nenhum certificado válido encontrado, iniciando provisionamento via ACME");
+        info!(
+            domain,
+            "TLS: nenhum certificado válido encontrado, iniciando provisionamento via ACME"
+        );
 
         let email = email.as_deref().unwrap_or("admin@localhost");
         info!(domain, email, directory = %directory, "TLS: carregando/criando conta ACME");
@@ -148,7 +150,11 @@ pub fn new(cert_dir: PathBuf, acme_config: AcmeConfig) -> Result<Self> {
             .await
             .map_err(|e| anyhow!("ACME authorizations: {e}"))?;
 
-        info!(domain, count = authorizations.len(), "TLS: authorizations recebidas");
+        info!(
+            domain,
+            count = authorizations.len(),
+            "TLS: authorizations recebidas"
+        );
 
         let mut pending: Vec<(String, String)> = vec![];
 
@@ -181,7 +187,10 @@ pub fn new(cert_dir: PathBuf, acme_config: AcmeConfig) -> Result<Self> {
                 .map_err(|e| anyhow!("ACME set_challenge_ready: {e}"))?;
         }
 
-        info!(domain, "TLS: aguardando LE validar o challenge (poll a cada 3s, máx 90s)");
+        info!(
+            domain,
+            "TLS: aguardando LE validar o challenge (poll a cada 3s, máx 90s)"
+        );
 
         // Aguarda o pedido ficar Ready (LE valida o challenge)
         let mut ready = false;
@@ -194,14 +203,22 @@ pub fn new(cert_dir: PathBuf, acme_config: AcmeConfig) -> Result<Self> {
             debug!(domain, attempt, status = ?state.status, "TLS: poll order status");
             match state.status {
                 OrderStatus::Ready => {
-                    info!(domain, attempt, "TLS: order Ready — LE validou o challenge com sucesso");
+                    info!(
+                        domain,
+                        attempt, "TLS: order Ready — LE validou o challenge com sucesso"
+                    );
                     ready = true;
                     break;
                 }
                 OrderStatus::Invalid => {
-                    warn!(domain, attempt, "TLS: order Invalid — LE rejeitou o challenge");
+                    warn!(
+                        domain,
+                        attempt, "TLS: order Invalid — LE rejeitou o challenge"
+                    );
                     self.remove_challenges(&pending);
-                    return Err(anyhow!("ACME: order inválida para {domain} (LE rejeitou o challenge HTTP-01)"));
+                    return Err(anyhow!(
+                        "ACME: order inválida para {domain} (LE rejeitou o challenge HTTP-01)"
+                    ));
                 }
                 other => {
                     info!(domain, attempt, status = ?other, "TLS: aguardando...");
@@ -249,7 +266,9 @@ pub fn new(cert_dir: PathBuf, acme_config: AcmeConfig) -> Result<Self> {
                 state.status
             };
             if matches!(order_status, OrderStatus::Invalid) {
-                return Err(anyhow!("ACME: order inválida durante finalização para {domain}"));
+                return Err(anyhow!(
+                    "ACME: order inválida durante finalização para {domain}"
+                ));
             }
             if let Some(chain) = order
                 .certificate()
@@ -274,7 +293,10 @@ pub fn new(cert_dir: PathBuf, acme_config: AcmeConfig) -> Result<Self> {
             .unwrap()
             .insert(domain.to_string(), ck);
 
-        info!(domain, "TLS: certificado provisionado com sucesso — HTTPS ativo");
+        info!(
+            domain,
+            "TLS: certificado provisionado com sucesso — HTTPS ativo"
+        );
         Ok(())
     }
 
@@ -332,7 +354,10 @@ pub fn new(cert_dir: PathBuf, acme_config: AcmeConfig) -> Result<Self> {
         let creds_path = self.cert_dir.join("acme-account.json");
 
         if let Ok(raw) = std::fs::read_to_string(&creds_path) {
-            info!("TLS: credenciais ACME encontradas em {}, tentando restaurar conta", creds_path.display());
+            info!(
+                "TLS: credenciais ACME encontradas em {}, tentando restaurar conta",
+                creds_path.display()
+            );
             match serde_json::from_str::<AccountCredentials>(&raw) {
                 Ok(creds) => match Account::from_credentials(creds).await {
                     Ok(account) => {
@@ -378,17 +403,12 @@ pub fn new(cert_dir: PathBuf, acme_config: AcmeConfig) -> Result<Self> {
         Ok(())
     }
 
-    fn parse_certified_key(
-        &self,
-        cert_pem: &[u8],
-        key_pem: &[u8],
-    ) -> Result<Arc<CertifiedKey>> {
+    fn parse_certified_key(&self, cert_pem: &[u8], key_pem: &[u8]) -> Result<Arc<CertifiedKey>> {
         use rustls::pki_types::CertificateDer;
 
-        let certs: Vec<CertificateDer<'static>> =
-            rustls_pemfile::certs(&mut &*cert_pem)
-                .collect::<Result<_, _>>()
-                .map_err(|e| anyhow!("parse cert PEM: {e}"))?;
+        let certs: Vec<CertificateDer<'static>> = rustls_pemfile::certs(&mut &*cert_pem)
+            .collect::<Result<_, _>>()
+            .map_err(|e| anyhow!("parse cert PEM: {e}"))?;
 
         if certs.is_empty() {
             return Err(anyhow!("nenhum certificado encontrado no PEM"));
@@ -413,7 +433,10 @@ pub fn new(cert_dir: PathBuf, acme_config: AcmeConfig) -> Result<Self> {
             if !path.is_dir() {
                 continue;
             }
-            let Some(domain) = path.file_name().and_then(|n| n.to_str()).map(str::to_string)
+            let Some(domain) = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(str::to_string)
             else {
                 continue;
             };

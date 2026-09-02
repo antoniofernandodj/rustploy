@@ -168,7 +168,10 @@ mod tests {
         }
         // Ausente → NotFound / exists=false.
         assert!(!a.exists("crates/rustploy-gui/views/nao_existe.gv"));
-        assert!(a.read_to_string("crates/rustploy-gui/views/nao_existe.gv").is_err());
+        assert!(
+            a.read_to_string("crates/rustploy-gui/views/nao_existe.gv")
+                .is_err()
+        );
     }
 
     /// Prova de ponta a ponta, headless (sem janela e **sem `chdir`**): o motor
@@ -184,6 +187,9 @@ mod tests {
             .register_component("app", "crates/rustploy-gui/views/app.gv")
             .expect("registrar 'app' a partir dos assets embutidos");
         motor.set_initial_screen("app");
-        assert!(motor.render_current().is_ok(), "render do app embutido falhou");
+        assert!(
+            motor.render_current().is_ok(),
+            "render do app embutido falhou"
+        );
     }
 }

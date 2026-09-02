@@ -13,7 +13,7 @@
 //! `/api/rpc` e `/api/events`, como já fazia o client iced.
 
 use bytes::Bytes;
-use http_body_util::{combinators::BoxBody, BodyExt, Full};
+use http_body_util::{BodyExt, Full, combinators::BoxBody};
 use hyper::{Response, StatusCode};
 
 type ApiBody = BoxBody<Bytes, std::convert::Infallible>;
@@ -72,8 +72,8 @@ mod headless_tests {
     use bytes::Bytes;
     use chromiumoxide::browser::{Browser, BrowserConfig};
     use futures::StreamExt;
-    use http_body_util::{combinators::BoxBody, BodyExt, Full};
-    use hyper::{server::conn::http1, service::service_fn, Request, Response, StatusCode};
+    use http_body_util::{BodyExt, Full, combinators::BoxBody};
+    use hyper::{Request, Response, StatusCode, server::conn::http1, service::service_fn};
     use hyper_util::rt::TokioIo;
     use std::time::Duration;
     use tokio::net::TcpListener;
@@ -96,12 +96,13 @@ mod headless_tests {
                 };
                 tokio::spawn(async move {
                     let svc = service_fn(|req: Request<hyper::body::Incoming>| async move {
-                        let resp: Response<ApiBody> = serve(req.uri().path()).unwrap_or_else(|| {
-                            Response::builder()
-                                .status(StatusCode::NOT_FOUND)
-                                .body(Full::new(Bytes::from_static(b"not found")).boxed())
-                                .expect("404 bem-formado")
-                        });
+                        let resp: Response<ApiBody> =
+                            serve(req.uri().path()).unwrap_or_else(|| {
+                                Response::builder()
+                                    .status(StatusCode::NOT_FOUND)
+                                    .body(Full::new(Bytes::from_static(b"not found")).boxed())
+                                    .expect("404 bem-formado")
+                            });
                         Ok::<_, std::convert::Infallible>(resp)
                     });
                     let _ = http1::Builder::new()
@@ -118,14 +119,13 @@ mod headless_tests {
     /// perfil default do chromiumoxide e o segundo a chegar morre com
     /// "Failed to create SingletonLock: File exists" — cada `launch()`
     /// precisa do seu diretório.
-    static USER_DATA_DIR_COUNTER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    static USER_DATA_DIR_COUNTER: std::sync::atomic::AtomicU32 =
+        std::sync::atomic::AtomicU32::new(0);
 
     async fn launch() -> (Browser, tokio::task::JoinHandle<()>) {
         let n = USER_DATA_DIR_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let user_data_dir = std::env::temp_dir().join(format!(
-            "rustploy-webui-test-{}-{n}",
-            std::process::id()
-        ));
+        let user_data_dir =
+            std::env::temp_dir().join(format!("rustploy-webui-test-{}-{n}", std::process::id()));
         let config = BrowserConfig::builder()
             .chrome_executable("/usr/bin/google-chrome")
             .no_sandbox()
@@ -308,7 +308,11 @@ mod headless_tests {
                 "view={view} deveria estar visível (seletor {selector})"
             );
         }
-        assert_eq!(errors(&page).await, Vec::<String>::new(), "sem erros de JS no console");
+        assert_eq!(
+            errors(&page).await,
+            Vec::<String>::new(),
+            "sem erros de JS no console"
+        );
     }
 
     /// Aba "Projeto aberto" — `view` chama-se `project` na webui contra
@@ -321,11 +325,20 @@ mod headless_tests {
         let page = open_page(&browser, addr).await;
         seed_connected(&page).await;
 
-        page.evaluate("Alpine.store('app').view = 'project'; Alpine.store('app').selectedProjectId = 'prj_1'")
-            .await
-            .expect("abre o projeto");
-        assert!(visible(&page, "[x-data=\"projectDetail\"]").await, "project_detail deveria estar visível");
-        assert_eq!(errors(&page).await, Vec::<String>::new(), "sem erros de JS no console");
+        page.evaluate(
+            "Alpine.store('app').view = 'project'; Alpine.store('app').selectedProjectId = 'prj_1'",
+        )
+        .await
+        .expect("abre o projeto");
+        assert!(
+            visible(&page, "[x-data=\"projectDetail\"]").await,
+            "project_detail deveria estar visível"
+        );
+        assert_eq!(
+            errors(&page).await,
+            Vec::<String>::new(),
+            "sem erros de JS no console"
+        );
     }
 
     /// Detalhe de serviço + a aba General (edição de origem — Compose / Git
@@ -357,17 +370,30 @@ mod headless_tests {
             };
         })()"#;
         page.evaluate(open_service).await.expect("abre o serviço");
-        assert!(visible(&page, "[x-data=\"serviceDetail\"]").await, "service_detail deveria estar visível");
         assert!(
-            visible(&page, "[x-data=\"serviceDetail\"] input[x-model=\"fRepoUrl\"]").await,
+            visible(&page, "[x-data=\"serviceDetail\"]").await,
+            "service_detail deveria estar visível"
+        );
+        assert!(
+            visible(
+                &page,
+                "[x-data=\"serviceDetail\"] input[x-model=\"fRepoUrl\"]"
+            )
+            .await,
             "aba General deveria mostrar o form Git (sourceKind=Git)"
         );
 
         // As 3 sub-abas Provider (mesma cobertura do sweep de prov_tab em
         // templates_render.rs) — cada uma com um marcador só seu no DOM.
         let prov_tabs: &[(&str, &str)] = &[
-            ("git", "[x-data=\"serviceDetail\"] input[x-model=\"fRepoUrl\"]"),
-            ("gitea", "[x-data=\"serviceDetail\"] select[x-model=\"giteaProviderId\"]"),
+            (
+                "git",
+                "[x-data=\"serviceDetail\"] input[x-model=\"fRepoUrl\"]",
+            ),
+            (
+                "gitea",
+                "[x-data=\"serviceDetail\"] select[x-model=\"giteaProviderId\"]",
+            ),
             ("zip", "[x-data=\"serviceDetail\"] input[type=\"file\"]"),
         ];
         for (tab, selector) in prov_tabs {
@@ -376,7 +402,10 @@ mod headless_tests {
             ))
             .await
             .unwrap_or_else(|e| panic!("setProvTab({tab}): {e}"));
-            assert!(visible(&page, selector).await, "prov_tab={tab} deveria mostrar {selector}");
+            assert!(
+                visible(&page, selector).await,
+                "prov_tab={tab} deveria mostrar {selector}"
+            );
         }
 
         // Compose: troca a origem inteira e confirma que o textarea aparece.
@@ -395,10 +424,18 @@ mod headless_tests {
         // colado) — `document.querySelector` sem escopo pegava aquele
         // textarea (fora de tela, `x-show=false`) em vez do nosso.
         assert!(
-            visible(&page, "[x-data=\"serviceDetail\"] textarea[x-model=\"composeText\"]").await,
+            visible(
+                &page,
+                "[x-data=\"serviceDetail\"] textarea[x-model=\"composeText\"]"
+            )
+            .await,
             "origem Compose deveria mostrar o editor de texto"
         );
 
-        assert_eq!(errors(&page).await, Vec::<String>::new(), "sem erros de JS no console");
+        assert_eq!(
+            errors(&page).await,
+            Vec::<String>::new(),
+            "sem erros de JS no console"
+        );
     }
 }

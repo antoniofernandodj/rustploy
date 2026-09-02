@@ -19,14 +19,8 @@
 use std::time::Duration;
 
 use glacier_ui::{
-    window,
-    Font,
-    GlacierDaemon,
-    TrayActions,
-    TrayConfig,
-    TrayItem,
-    notifications_enabled,
-    set_notifications_enabled,
+    Font, GlacierDaemon, TrayActions, TrayConfig, TrayItem, notifications_enabled,
+    set_notifications_enabled, window,
 };
 
 /// Ícone da bandeja: os mesmos bytes PNG embutidos usados no ícone da janela
@@ -107,24 +101,21 @@ pub(crate) fn run() -> iced::Result {
             let sessao = sessao_agente.clone();
             let ui = ui_agente.clone();
             move |motor| {
-            // A API de agente sobe AQUI, e não antes de `run()`, porque o
-            // `.main()` só roda na instância PRIMÁRIA: o `single_instance`
-            // encerra a segunda antes disto. Subindo antes, um segundo
-            // lançamento reescreveria o handoff da instância viva com um token
-            // que morre em seguida. `spawn` é idempotente porque este gancho
-            // roda de novo ao reabrir a janela pela bandeja.
-            crate::agent::spawn(sessao.clone(), ui.clone());
+                // A API de agente sobe AQUI, e não antes de `run()`, porque o
+                // `.main()` só roda na instância PRIMÁRIA: o `single_instance`
+                // encerra a segunda antes disto. Subindo antes, um segundo
+                // lançamento reescreveria o handoff da instância viva com um token
+                // que morre em seguida. `spawn` é idempotente porque este gancho
+                // roda de novo ao reabrir a janela pela bandeja.
+                crate::agent::spawn(sessao.clone(), ui.clone());
 
-            if let Err(e) = motor
-                .register_component(
-                    "app",
-                    "crates/rustploy-gui/views/app.gv"
-                ) {
-                // O Display do GlacierError já traz arquivo:linha:coluna, o
-                // trecho e a dica — não vale reembrulhar.
+                if let Err(e) = motor.register_component("app", "crates/rustploy-gui/views/app.gv")
+                {
+                    // O Display do GlacierError já traz arquivo:linha:coluna, o
+                    // trecho e a dica — não vale reembrulhar.
                     eprintln!("{e}");
                 }
-            motor.set_initial_screen("app");
+                motor.set_initial_screen("app");
             }
         })
         .toast_period(Duration::from_millis(250))
@@ -189,7 +180,6 @@ fn handle_tray(id: &str, tray: &mut TrayActions) {
     }
 }
 
-
 /// Builds the main window's static chrome. Nem tamanho nem posição saem daqui:
 /// o tamanho de primeira abertura e o mínimo são declarados no `<screen>` de
 /// `views/app.gv` (glacier-ui 0.59+), e a geometria lembrada
@@ -207,11 +197,7 @@ fn main_window_settings() -> window::Settings {
         // Embedded so it works regardless of CWD; on Wayland the dock icon
         // instead comes from the `.desktop` file matched by app id, see the
         // Debian package assets in `Cargo.toml`.
-        icon: window::icon::from_file_data(
-            include_bytes!(
-                "../../assets/rustploy.png"),
-            None
-        ).ok(),
+        icon: window::icon::from_file_data(include_bytes!("../../assets/rustploy.png"), None).ok(),
         decorations: false,
         exit_on_close_request: false,
         platform_specific: platform_specific(),

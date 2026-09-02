@@ -42,10 +42,18 @@ struct Response {
 
 impl Response {
     fn ok(backend: &str) -> Self {
-        Self { ok: true, backend: backend.into(), error: String::new() }
+        Self {
+            ok: true,
+            backend: backend.into(),
+            error: String::new(),
+        }
     }
     fn err(msg: String) -> Self {
-        Self { ok: false, backend: String::new(), error: msg }
+        Self {
+            ok: false,
+            backend: String::new(),
+            error: msg,
+        }
     }
 }
 
@@ -66,7 +74,10 @@ fn default_range_end() -> u16 {
 
 impl Default for PortRange {
     fn default() -> Self {
-        Self { range_start: default_range_start(), range_end: default_range_end() }
+        Self {
+            range_start: default_range_start(),
+            range_end: default_range_end(),
+        }
     }
 }
 
@@ -79,8 +90,8 @@ fn load_range() -> PortRange {
         #[serde(default)]
         external_ports: PortRange,
     }
-    let path = std::env::var("RUSTPLOY_CONFIG")
-        .unwrap_or_else(|_| "/etc/rustploy/config.toml".into());
+    let path =
+        std::env::var("RUSTPLOY_CONFIG").unwrap_or_else(|_| "/etc/rustploy/config.toml".into());
     std::fs::read_to_string(&path)
         .ok()
         .and_then(|s| toml::from_str::<PartialConfig>(&s).ok())
@@ -187,7 +198,11 @@ fn apply_ufw(port: u16, allow: bool) -> Response {
     };
     match Command::new("ufw").args(&args).output() {
         Ok(out) if out.status.success() => {
-            eprintln!("rustployd-fw: ufw {} {} ok", if allow { "allow" } else { "delete" }, rule);
+            eprintln!(
+                "rustployd-fw: ufw {} {} ok",
+                if allow { "allow" } else { "delete" },
+                rule
+            );
             Response::ok("ufw")
         }
         Ok(out) => {

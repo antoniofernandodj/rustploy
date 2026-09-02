@@ -140,7 +140,8 @@ async fn handle_http(
     }
 
     // ── Proxy normal (sem TLS ativo) ──────────────────────────────────────────
-    handle(req, routes, false).await}
+    handle(req, routes, false).await
+}
 
 // ─── HTTPS ────────────────────────────────────────────────────────────────────
 
@@ -229,7 +230,7 @@ async fn forward(
 ) -> Result<Response<ProxyBody>, std::convert::Infallible> {
     // 1. Injeta/Ajusta os cabeçalhos de Proxy na requisição de IDA para o Backend
     let headers = req.headers_mut();
-    
+
     // Define se a conexão externa foi HTTPS ou HTTP
     let proto = if is_tls { "https" } else { "http" };
     headers.insert("x-forwarded-proto", proto.parse().unwrap());
@@ -269,7 +270,7 @@ async fn forward(
             // Resolve o problema de duplicação:
             // Garante que o HeaderMap retornado esteja limpo/sanitizado se necessário,
             // tirando headers repetidos ou indesejados vindos do servidor de aplicação.
-            
+
             Ok(Response::from_parts(parts, body.map_err(|e| e).boxed()))
         }
         Err(e) => {

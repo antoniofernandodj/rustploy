@@ -1,7 +1,7 @@
+use crate::transform::TransformedData;
 use anyhow::Result;
 use sqlx::SqlitePool;
 use std::fs;
-use crate::transform::TransformedData;
 
 pub async fn write_sql_file(path: &str, data: &TransformedData) -> Result<()> {
     let mut sql = String::new();
@@ -57,7 +57,7 @@ pub async fn write_to_db(data: &TransformedData) -> Result<()> {
 
     for p in &data.projects {
         let env_vars = serde_json::to_string(&p.env_vars)?;
-        
+
         // Try to find existing project by name
         let existing: Option<(String,)> = sqlx::query_as("SELECT id FROM project WHERE name = ?")
             .bind(&p.name)
@@ -66,14 +66,12 @@ pub async fn write_to_db(data: &TransformedData) -> Result<()> {
 
         let final_id = if let Some((id,)) = existing {
             // Update existing project
-            sqlx::query(
-                "UPDATE project SET description = ?, env_vars = ? WHERE id = ?"
-            )
-            .bind(&p.description)
-            .bind(&env_vars)
-            .bind(&id)
-            .execute(&pool)
-            .await?;
+            sqlx::query("UPDATE project SET description = ?, env_vars = ? WHERE id = ?")
+                .bind(&p.description)
+                .bind(&env_vars)
+                .bind(&id)
+                .execute(&pool)
+                .await?;
             id
         } else {
             // Insert new project
@@ -95,9 +93,11 @@ pub async fn write_to_db(data: &TransformedData) -> Result<()> {
 
     for s in &data.services {
         let spec = serde_json::to_string(&s.spec)?;
-        
+
         // Reconcile project_id
-        let project_id = project_id_map.get(&s.spec.project_id).unwrap_or(&s.spec.project_id);
+        let project_id = project_id_map
+            .get(&s.spec.project_id)
+            .unwrap_or(&s.spec.project_id);
 
         // Delete existing service with same name to avoid duplicates/confusion
         sqlx::query("DELETE FROM service WHERE name = ?")

@@ -1,8 +1,6 @@
 use crate::api::AppState;
 use bollard::{
-    container::PruneContainersOptions,
-    image::PruneImagesOptions,
-    network::PruneNetworksOptions,
+    container::PruneContainersOptions, image::PruneImagesOptions, network::PruneNetworksOptions,
     volume::PruneVolumesOptions,
 };
 use shared::Response as RpResponse;
@@ -18,7 +16,10 @@ pub struct PruneStat {
 
 pub async fn prune_containers(state: AppState) -> RpResponse {
     match prune_containers_core(&state).await {
-        Ok(s) => RpResponse::PruneResult { count: s.count, reclaimed_bytes: s.reclaimed_bytes },
+        Ok(s) => RpResponse::PruneResult {
+            count: s.count,
+            reclaimed_bytes: s.reclaimed_bytes,
+        },
         Err(e) => RpResponse::err("DockerError", e),
     }
 }
@@ -47,7 +48,10 @@ pub(crate) async fn prune_containers_core(state: &AppState) -> Result<PruneStat,
 /// map serialized straight to JSON, so the Engine API (1.42+) still honors it.
 pub async fn prune_volumes(state: AppState, all: bool) -> RpResponse {
     match prune_volumes_core(&state, all).await {
-        Ok(s) => RpResponse::PruneResult { count: s.count, reclaimed_bytes: s.reclaimed_bytes },
+        Ok(s) => RpResponse::PruneResult {
+            count: s.count,
+            reclaimed_bytes: s.reclaimed_bytes,
+        },
         Err(e) => RpResponse::err("DockerError", e),
     }
 }
@@ -77,7 +81,10 @@ pub(crate) async fn prune_volumes_core(state: &AppState, all: bool) -> Result<Pr
 /// Docker's own default when the filter is omitted).
 pub async fn prune_images(state: AppState, all: bool) -> RpResponse {
     match prune_images_core(&state, all).await {
-        Ok(s) => RpResponse::PruneResult { count: s.count, reclaimed_bytes: s.reclaimed_bytes },
+        Ok(s) => RpResponse::PruneResult {
+            count: s.count,
+            reclaimed_bytes: s.reclaimed_bytes,
+        },
         Err(e) => RpResponse::err("DockerError", e),
     }
 }
@@ -106,7 +113,10 @@ pub(crate) async fn prune_images_core(state: &AppState, all: bool) -> Result<Pru
 /// não está exposta pelo bollard 0.17.
 pub async fn prune_build_cache(_state: AppState) -> RpResponse {
     match prune_build_cache_core().await {
-        Ok(s) => RpResponse::PruneResult { count: s.count, reclaimed_bytes: s.reclaimed_bytes },
+        Ok(s) => RpResponse::PruneResult {
+            count: s.count,
+            reclaimed_bytes: s.reclaimed_bytes,
+        },
         Err(e) => RpResponse::err("DockerError", e),
     }
 }
@@ -122,7 +132,10 @@ pub(crate) async fn prune_build_cache_core() -> Result<PruneStat, String> {
             // Tenta extrair "Total reclaimed space: X.XXX MB" da saída
             let text = String::from_utf8_lossy(&out.stdout);
             let reclaimed_bytes = parse_reclaimed_space(&text);
-            Ok(PruneStat { count: 0, reclaimed_bytes })
+            Ok(PruneStat {
+                count: 0,
+                reclaimed_bytes,
+            })
         }
         Ok(out) => Err(String::from_utf8_lossy(&out.stderr).trim().to_string()),
         Err(e) => Err(e.to_string()),
@@ -151,7 +164,10 @@ fn parse_reclaimed_space(output: &str) -> u64 {
 
 pub async fn prune_networks(state: AppState) -> RpResponse {
     match prune_networks_core(&state).await {
-        Ok(s) => RpResponse::PruneResult { count: s.count, reclaimed_bytes: s.reclaimed_bytes },
+        Ok(s) => RpResponse::PruneResult {
+            count: s.count,
+            reclaimed_bytes: s.reclaimed_bytes,
+        },
         Err(e) => RpResponse::err("DockerError", e),
     }
 }

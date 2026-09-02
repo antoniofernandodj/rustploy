@@ -26,22 +26,33 @@ pub async fn handle(
     let mut changed: Vec<(String, String)> = Vec::new();
 
     // Nome -> ID interno, para resolver `source.git.provider` de cada manifesto.
-    let provider_ids: BTreeMap<String, String> = match crate::db::git_providers::list(&state.db).await {
-        Ok(list) => list.into_iter().map(|p| (p.name, p.id)).collect(),
-        Err(e) => {
-            tracing::error!(error = %e, "manifest_apply: erro ao listar git providers");
-            return RpResponse::err("DatabaseError", e.to_string());
-        }
-    };
-    info!(?provider_ids, "manifest_apply: git providers disponíveis pra resolução (nome -> id)");
+    let provider_ids: BTreeMap<String, String> =
+        match crate::db::git_providers::list(&state.db).await {
+            Ok(list) => list.into_iter().map(|p| (p.name, p.id)).collect(),
+            Err(e) => {
+                tracing::error!(error = %e, "manifest_apply: erro ao listar git providers");
+                return RpResponse::err("DatabaseError", e.to_string());
+            }
+        };
+    info!(
+        ?provider_ids,
+        "manifest_apply: git providers disponíveis pra resolução (nome -> id)"
+    );
 
     for yaml in manifests {
         let manifest: ProjectManifest = match serde_yaml::from_str(&yaml) {
             Ok(m) => m,
             Err(e) => return RpResponse::err("InvalidManifest", e.to_string()),
         };
-        if let Err(resp) =
-            apply_one(&state, manifest, prune, &provider_ids, &mut report, &mut changed).await
+        if let Err(resp) = apply_one(
+            &state,
+            manifest,
+            prune,
+            &provider_ids,
+            &mut report,
+            &mut changed,
+        )
+        .await
         {
             return resp;
         }
@@ -180,7 +191,9 @@ async fn apply_one(
         }
         let existing_match = existing_services.iter().find(|s| s.spec.name == svc_name);
         if let Some(s) = existing_match {
-            if let (ServiceSource::Git(old_g), ServiceSource::Git(new_g)) = (&s.spec.source, &spec.source) {
+            if let (ServiceSource::Git(old_g), ServiceSource::Git(new_g)) =
+                (&s.spec.source, &spec.source)
+            {
                 if old_g.provider_id != new_g.provider_id {
                     warn!(
                         service = %label,
@@ -206,8 +219,13 @@ async fn apply_one(
                 crate::db::services::update_spec(&state.db, &s.id, effective_spec.clone())
                     .await
                     .map_err(db_err)?;
-                super::service_update::sync_firewall(state, &s.id, s.spec.host_port, effective_spec.host_port)
-                    .await;
+                super::service_update::sync_firewall(
+                    state,
+                    &s.id,
+                    s.spec.host_port,
+                    effective_spec.host_port,
+                )
+                .await;
                 debug!(service = %label, service_id = %s.id, "manifest_apply: serviço atualizado (Updated)");
                 (ActionVerb::Updated, Some(s.id.clone()))
             }

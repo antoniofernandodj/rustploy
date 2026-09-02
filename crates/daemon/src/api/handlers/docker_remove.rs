@@ -15,7 +15,10 @@ use shared::Response as RpResponse;
 /// pelo Docker (409) — a UI só oferece "Remover" nos parados, mas o daemon não
 /// força de qualquer forma.
 pub async fn remove_container(state: AppState, id: String) -> RpResponse {
-    let opts = RemoveContainerOptions { v: true, ..Default::default() };
+    let opts = RemoveContainerOptions {
+        v: true,
+        ..Default::default()
+    };
     match state.docker.inner.remove_container(&id, Some(opts)).await {
         Ok(()) => {
             // Remover um container muda contagens de imagem em-uso e anexos de rede.
@@ -30,7 +33,10 @@ pub async fn remove_container(state: AppState, id: String) -> RpResponse {
 /// `docker rmi <id>` (sem `-f`): remove uma imagem sem uso. Uma imagem
 /// referenciada por algum container é recusada pelo Docker.
 pub async fn remove_image(state: AppState, id: String) -> RpResponse {
-    let opts = RemoveImageOptions { force: false, noprune: false };
+    let opts = RemoveImageOptions {
+        force: false,
+        noprune: false,
+    };
     match state.docker.inner.remove_image(&id, Some(opts), None).await {
         Ok(_) => {
             state.docker_cache.df.invalidate().await;
@@ -42,7 +48,12 @@ pub async fn remove_image(state: AppState, id: String) -> RpResponse {
 
 /// `docker volume rm <name>` (sem `-f`): remove um volume sem uso.
 pub async fn remove_volume(state: AppState, name: String) -> RpResponse {
-    match state.docker.inner.remove_volume(&name, Some(RemoveVolumeOptions { force: false })).await {
+    match state
+        .docker
+        .inner
+        .remove_volume(&name, Some(RemoveVolumeOptions { force: false }))
+        .await
+    {
         Ok(()) => {
             state.docker_cache.df.invalidate().await;
             RpResponse::Ok

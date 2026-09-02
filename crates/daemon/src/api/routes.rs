@@ -90,9 +90,7 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::RegistryTokenRevoke { .. } => "RegistryTokenRevoke",
         _ => "Unknown",
     };
-    info!(
-        command = cmd_name, "→ Request"
-    );
+    info!(command = cmd_name, "→ Request");
 
     let resp = match cmd {
         Command::Ping => handlers::ping::handle(state).await,
@@ -112,7 +110,9 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::DockerVolumes => handlers::docker_inventory::list_volumes(state).await,
         Command::DockerNetworks => handlers::docker_inventory::list_networks(state).await,
         Command::DockerContainers => handlers::docker_inventory::list_containers(state).await,
-        Command::RemoveContainer { id } => handlers::docker_remove::remove_container(state, id).await,
+        Command::RemoveContainer { id } => {
+            handlers::docker_remove::remove_container(state, id).await
+        }
         Command::RemoveImage { id } => handlers::docker_remove::remove_image(state, id).await,
         Command::RemoveVolume { name } => handlers::docker_remove::remove_volume(state, name).await,
         Command::RemoveNetwork { id } => handlers::docker_remove::remove_network(state, id).await,
@@ -122,7 +122,9 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
             handlers::ingress::reconcile(state, service_id).await
         }
         Command::EnvBackupList => handlers::env_backup::list(state).await,
-        Command::EnvBackupRestore { snapshot } => handlers::env_backup::restore(state, snapshot).await,
+        Command::EnvBackupRestore { snapshot } => {
+            handlers::env_backup::restore(state, snapshot).await
+        }
         Command::ProjectCreate { name, description } => {
             handlers::project_create::handle(state, name, description).await
         }
@@ -193,9 +195,10 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
             handlers::regenerate_webhook_token::handle(state, service_id).await
         }
         Command::GetDaemonSettings => handlers::get_daemon_settings::handle(state).await,
-        Command::SetDaemonSettings { acme_email, registry_domain } => {
-            handlers::set_daemon_settings::handle(state, acme_email, registry_domain).await
-        }
+        Command::SetDaemonSettings {
+            acme_email,
+            registry_domain,
+        } => handlers::set_daemon_settings::handle(state, acme_email, registry_domain).await,
         Command::SecretSet {
             project_id,
             name,
@@ -259,8 +262,16 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
             recurrence,
         } => {
             handlers::job_update::handle(
-                state, id, name, compose, git_source, main_service, env_vars, env_comments,
-                enabled, recurrence,
+                state,
+                id,
+                name,
+                compose,
+                git_source,
+                main_service,
+                env_vars,
+                env_comments,
+                enabled,
+                recurrence,
             )
             .await
         }
@@ -274,7 +285,9 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::JobRunHistory { job_id, limit } => {
             handlers::job_run_history::handle(state, job_id, limit).await
         }
-        Command::GetJobLogs { job_run_id } => handlers::get_job_logs::handle(state, job_run_id).await,
+        Command::GetJobLogs { job_run_id } => {
+            handlers::get_job_logs::handle(state, job_run_id).await
+        }
         Command::GitProviderList => handlers::git_provider_list::handle(state).await,
         Command::GitProviderCreate {
             kind,
@@ -327,15 +340,13 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
             handlers::registry::token_create(state, name, scope).await
         }
         Command::RegistryTokenList => handlers::registry::token_list(state).await,
-        Command::RegistryTokenRevoke { name } => handlers::registry::token_revoke(state, name).await,
+        Command::RegistryTokenRevoke { name } => {
+            handlers::registry::token_revoke(state, name).await
+        }
         _ => RpResponse::err("NotImplemented", "command not yet implemented"),
     };
 
     let ok = !matches!(resp, RpResponse::Err { .. });
-    info!(
-        ok,
-        command = cmd_name,
-        "← Response"
-    );
+    info!(ok, command = cmd_name, "← Response");
     resp
 }

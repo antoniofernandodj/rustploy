@@ -20,7 +20,9 @@ use std::path::Path;
 
 /// Extensões de imagem que os logos de blueprint usam (o resto da pasta —
 /// `docker-compose.yml`/`template.toml`/`.md` — é do daemon e a GUI nunca lê).
-const LOGO_EXTS: &[&str] = &["png", "svg", "webp", "jpg", "jpeg", "gif", "ico", "avif", "bmp"];
+const LOGO_EXTS: &[&str] = &[
+    "png", "svg", "webp", "jpg", "jpeg", "gif", "ico", "avif", "bmp",
+];
 
 /// Alvo do redimensionamento dos logos raster: a maior dimensão é reduzida para
 /// no máximo isto, preservando a proporção. Os logos aparecem a ~30px lógicos
@@ -43,8 +45,7 @@ fn main() {
     // Deriva as macros do VERSIONINFO a partir de CARGO_PKG_VERSION (ex.:
     // "0.1.0" -> comma "0,1,0,0" e string "0.1.0"), passadas como defines para
     // o RC. Assim a versão do .exe nunca sai do lugar em relação ao Cargo.toml.
-    let version = std::env::var("CARGO_PKG_VERSION")
-        .unwrap_or_else(|_| "0.0.0".into());
+    let version = std::env::var("CARGO_PKG_VERSION").unwrap_or_else(|_| "0.0.0".into());
 
     let mut parts: Vec<String> = version
         .split(['.', '-', '+'])
@@ -142,7 +143,11 @@ fn downscale_png(bytes: &[u8]) -> Option<Vec<u8>> {
     if img.width().max(img.height()) <= LOGO_MAX_DIM {
         return None;
     }
-    let resized = img.resize(LOGO_MAX_DIM, LOGO_MAX_DIM, image::imageops::FilterType::Lanczos3);
+    let resized = img.resize(
+        LOGO_MAX_DIM,
+        LOGO_MAX_DIM,
+        image::imageops::FilterType::Lanczos3,
+    );
     let mut out = Vec::new();
     resized
         .write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png)

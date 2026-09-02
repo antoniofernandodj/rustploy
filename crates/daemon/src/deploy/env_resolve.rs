@@ -57,7 +57,11 @@ async fn resolve_project_env(
 /// chave), decifrando `EnvVarValue::Secret` via `secrets`. Mesma precedência
 /// de `shared::resolve_env_vars`, mas com secrets resolvidas em texto puro
 /// (`shared::resolve_env_vars` deixa `EnvVarValue` intacto).
-pub async fn resolve(db: &Db, secrets: &SecretsManager, svc: &Service) -> Result<Vec<(String, String)>> {
+pub async fn resolve(
+    db: &Db,
+    secrets: &SecretsManager,
+    svc: &Service,
+) -> Result<Vec<(String, String)>> {
     let mut env_map = resolve_project_env(db, secrets, &svc.spec.project_id).await?;
 
     for ev in &svc.spec.env_vars {
@@ -65,7 +69,10 @@ pub async fn resolve(db: &Db, secrets: &SecretsManager, svc: &Service) -> Result
             EnvVarValue::Plain(v) => v.clone(),
             EnvVarValue::Secret(name) => {
                 debug!(service_id = %svc.id, secret = %name, "resolve_env: desencriptando secret do serviço");
-                secrets.get_raw(&svc.spec.project_id, name).await.unwrap_or_default()
+                secrets
+                    .get_raw(&svc.spec.project_id, name)
+                    .await
+                    .unwrap_or_default()
             }
         };
         env_map.insert(ev.key.clone(), value);
@@ -107,7 +114,11 @@ pub async fn resolve_project_only(
 /// projeto/serviço. Centraliza aqui a lógica que antes vivia inline em
 /// `jobs::runner` (o `match trigger_service_id` pra escolher `resolve` vs
 /// `resolve_project_only`).
-pub async fn resolve_job(db: &Db, secrets: &SecretsManager, job: &Job) -> Result<Vec<(String, String)>> {
+pub async fn resolve_job(
+    db: &Db,
+    secrets: &SecretsManager,
+    job: &Job,
+) -> Result<Vec<(String, String)>> {
     let base = match &job.trigger_service_id {
         Some(sid) => {
             let svc = crate::db::services::get(db, sid)
@@ -124,7 +135,10 @@ pub async fn resolve_job(db: &Db, secrets: &SecretsManager, job: &Job) -> Result
             EnvVarValue::Plain(v) => v.clone(),
             EnvVarValue::Secret(name) => {
                 debug!(job_id = %job.id, secret = %name, "resolve_env: desencriptando secret do job");
-                secrets.get_raw(&job.project_id, name).await.unwrap_or_default()
+                secrets
+                    .get_raw(&job.project_id, name)
+                    .await
+                    .unwrap_or_default()
             }
         };
         env_map.insert(ev.key.clone(), value);

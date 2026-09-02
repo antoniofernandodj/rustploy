@@ -13,7 +13,7 @@
 //! troca de servidor sem que este módulo precise conhecer nenhum dos dois
 //! fluxos.
 
-use std::collections::HashMap;
+use glacier_ui::ContextMap;
 use std::sync::{Arc, RwLock};
 
 /// Conexão viva com um daemon rustploy, do ponto de vista da API de agente.
@@ -42,7 +42,7 @@ struct Espelho {
     /// de dezenas de KB), a cada 2s no ritmo do snapshot do SSE. Numa aplicação
     /// de desktop isso é ruído; a alternativa (comparar campo a campo para só
     /// copiar o que mudou) custaria a mesma ordem de trabalho.
-    context: HashMap<String, String>,
+    context: ContextMap,
 }
 
 /// Handle compartilhado. Sessão `None` = a janela não está conectada a daemon
@@ -62,7 +62,7 @@ impl SharedSession {
     }
 
     /// Cópia do contexto inteiro.
-    pub(crate) fn context(&self) -> HashMap<String, String> {
+    pub(crate) fn context(&self) -> ContextMap {
         self.0.read().map(|g| g.context.clone()).unwrap_or_default()
     }
 
@@ -72,7 +72,7 @@ impl SharedSession {
     /// o arquivo de handoff sem escrever em disco a cada tick de snapshot do
     /// SSE (que dispara um dispatch a cada 2s, e portanto uma chamada aqui). O
     /// espelho do contexto é atualizado sempre, mudando ou não a sessão.
-    pub(crate) fn sync_from_context(&self, ctx: &HashMap<String, String>) -> bool {
+    pub(crate) fn sync_from_context(&self, ctx: &ContextMap) -> bool {
         let nova = Session::from_context(ctx);
 
         match self.0.write() {
@@ -94,7 +94,7 @@ impl Session {
     /// validação passou (`handlers/connection.luau::connect`); sem esse gate a
     /// API de agente aceitaria requisições enquanto a tela de login ainda
     /// mostra credenciais que o usuário está digitando.
-    fn from_context(ctx: &HashMap<String, String>) -> Option<Self> {
+    fn from_context(ctx: &ContextMap) -> Option<Self> {
         if ctx.get("connected").map(String::as_str) != Some("true") {
             return None;
         }
@@ -118,7 +118,7 @@ impl Session {
 mod tests {
     use super::*;
 
-    fn ctx(pares: &[(&str, &str)]) -> HashMap<String, String> {
+    fn ctx(pares: &[(&str, &str)]) -> ContextMap {
         pares
             .iter()
             .map(|(k, v)| ((*k).to_string(), (*v).to_string()))

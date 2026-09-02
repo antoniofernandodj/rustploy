@@ -1,25 +1,14 @@
 use anyhow::{Result, anyhow};
 use bollard::{
     Docker,
-    errors::Error as BollardError,
     container::{
-        Config,
-        CreateContainerOptions,
-        InspectContainerOptions,
-        LogsOptions,
-        NetworkingConfig,
-        RemoveContainerOptions,
-        RenameContainerOptions,
-        StartContainerOptions,
+        Config, CreateContainerOptions, InspectContainerOptions, LogsOptions, NetworkingConfig,
+        RemoveContainerOptions, RenameContainerOptions, StartContainerOptions,
         StopContainerOptions,
     },
+    errors::Error as BollardError,
     models::{
-        EndpointSettings,
-        HostConfig,
-        Mount,
-        MountTypeEnum,
-        RestartPolicy,
-        RestartPolicyNameEnum
+        EndpointSettings, HostConfig, Mount, MountTypeEnum, RestartPolicy, RestartPolicyNameEnum,
     },
 };
 use futures::StreamExt;
@@ -27,10 +16,7 @@ use shared::ServiceSpec;
 use std::collections::HashMap;
 use tracing::{debug, info, warn};
 
-pub fn staging_name(
-    service_name: &str,
-    deployment_id_short: &str
-) -> String {
+pub fn staging_name(service_name: &str, deployment_id_short: &str) -> String {
     replica_staging_name(service_name, deployment_id_short, 0)
 }
 
@@ -38,11 +24,7 @@ pub fn _live_name(service_name: &str) -> String {
     replica_live_name(service_name, 0)
 }
 
-pub fn replica_staging_name(
-    service_name: &str,
-    dep_short: &str,
-    idx: u32
-) -> String {
+pub fn replica_staging_name(service_name: &str, dep_short: &str, idx: u32) -> String {
     let safe_name = shared::normalize_name(service_name);
     if idx == 0 {
         format!("rp_{safe_name}_staging_{dep_short}")
@@ -51,10 +33,7 @@ pub fn replica_staging_name(
     }
 }
 
-pub fn replica_live_name(
-    service_name: &str,
-    idx: u32
-) -> String {
+pub fn replica_live_name(service_name: &str, idx: u32) -> String {
     let safe_name = shared::normalize_name(service_name);
     if idx == 0 {
         format!("rp_{safe_name}")
@@ -73,7 +52,6 @@ pub async fn create_staging(
     resolved_env: &[(String, String)],
     container_name: &str,
 ) -> Result<String> {
-
     let name = container_name;
     info!(
         name = %name,
@@ -122,15 +100,9 @@ pub async fn create_staging(
         .collect();
 
     let mut labels = HashMap::new();
-    labels.insert(
-        "rustploy.managed".to_string(),
-        "true".to_string()
-    );
+    labels.insert("rustploy.managed".to_string(), "true".to_string());
 
-    labels.insert(
-        "rustploy.service_id".to_string(),
-        service_id.to_string()
-    );
+    labels.insert("rustploy.service_id".to_string(), service_id.to_string());
 
     labels.insert(
         "rustploy.deployment_id".to_string(),
@@ -200,11 +172,9 @@ pub async fn create_staging(
             m.insert(format!("{}/tcp", spec.port), HashMap::new());
             m
         }),
-        networking_config: Some(
-            NetworkingConfig {
-                endpoints_config: endpoints
-            }
-        ),
+        networking_config: Some(NetworkingConfig {
+            endpoints_config: endpoints,
+        }),
         ..Default::default()
     };
 
@@ -228,10 +198,7 @@ pub async fn create_staging(
     Ok(response.id)
 }
 
-pub async fn start(
-    docker: &Docker,
-    container_id: &str
-) -> Result<()> {
+pub async fn start(docker: &Docker, container_id: &str) -> Result<()> {
     info!(
         container_id = %format!(
             "...{}",
@@ -239,12 +206,9 @@ pub async fn start(
         ),
         "iniciando container"
     );
-    
+
     docker
-        .start_container(
-            container_id,
-            None::<StartContainerOptions<String>>
-        )
+        .start_container(container_id, None::<StartContainerOptions<String>>)
         .await?;
 
     info!(
@@ -264,14 +228,16 @@ pub async fn start(
 /// ser tratado como falha ao parar/remover — o estado desejado já é
 /// satisfeito.
 fn is_not_found(e: &BollardError) -> bool {
-    matches!(e, BollardError::DockerResponseServerError { status_code: 404, .. })
+    matches!(
+        e,
+        BollardError::DockerResponseServerError {
+            status_code: 404,
+            ..
+        }
+    )
 }
 
-pub async fn stop_graceful(
-    docker: &Docker,
-    container_id: &str,
-    timeout: i64
-) -> Result<()> {
+pub async fn stop_graceful(docker: &Docker, container_id: &str, timeout: i64) -> Result<()> {
     info!(
         container_id = %format!(
             "...{}",
@@ -307,11 +273,7 @@ pub async fn stop_graceful(
     Ok(())
 }
 
-pub async fn rename(
-    docker: &Docker,
-    container_id: &str,
-    new_name: &str
-) -> Result<()> {
+pub async fn rename(docker: &Docker, container_id: &str, new_name: &str) -> Result<()> {
     info!(
         container_id = %format!(
             "...{}",
@@ -335,10 +297,7 @@ pub async fn rename(
     Ok(())
 }
 
-pub async fn remove(
-    docker: &Docker,
-    container_id: &str
-) -> Result<()> {
+pub async fn remove(docker: &Docker, container_id: &str) -> Result<()> {
     info!(
         container_id = %format!(
             "...{}",
@@ -366,11 +325,11 @@ pub async fn remove(
         return Err(e.into());
     }
     info!(
-        container_id = %format!(
-            "...{}",
-            &container_id[..container_id.len().min(10)]),
-            "removido"
-        );
+    container_id = %format!(
+        "...{}",
+        &container_id[..container_id.len().min(10)]),
+        "removido"
+    );
     Ok(())
 }
 
@@ -448,14 +407,7 @@ pub async fn get_container_ip(
         .or_else(|| {
             net_containers
                 .iter()
-                .find(
-                    |(k, _)| k
-                        .starts_with(
-                            container_id
-                        ) || container_id.starts_with(
-                            k.as_str()
-                        )
-                )
+                .find(|(k, _)| k.starts_with(container_id) || container_id.starts_with(k.as_str()))
                 .map(|(_, v)| v)
         })
         .ok_or_else(|| {
@@ -463,9 +415,7 @@ pub async fn get_container_ip(
                 .keys()
                 .map(|k| k[..k.len().min(12)].to_string())
                 .collect();
-            anyhow!(
-                "container não encontrado na rede {network_name} (presentes: {ids:?})"
-            )
+            anyhow!("container não encontrado na rede {network_name} (presentes: {ids:?})")
         })?;
 
     info!(
@@ -482,9 +432,7 @@ pub async fn get_container_ip(
         .as_deref()
         .filter(|s| !s.is_empty())
         .map(|s| s.split('/').next().unwrap_or(s).to_string())
-        .ok_or_else(
-            || anyhow!("sem IPv4 para container na rede {network_name}")
-        )?;
+        .ok_or_else(|| anyhow!("sem IPv4 para container na rede {network_name}"))?;
 
     info!(
         container_id = %format!(
@@ -498,12 +446,7 @@ pub async fn get_container_ip(
 }
 
 /// Returns the last `tail` lines of stdout+stderr from a container (best-effort).
-pub async fn get_container_logs(
-    docker: &Docker,
-    container_id: &str,
-    tail: usize
-) -> Vec<String> {
-
+pub async fn get_container_logs(docker: &Docker, container_id: &str, tail: usize) -> Vec<String> {
     let opts = LogsOptions::<String> {
         stdout: true,
         stderr: true,
@@ -523,10 +466,7 @@ pub async fn get_container_logs(
     lines
 }
 
-pub async fn find_all_by_service_id(
-    docker: &Docker,
-    service_id: &str
-) -> Result<Vec<String>> {
+pub async fn find_all_by_service_id(docker: &Docker, service_id: &str) -> Result<Vec<String>> {
     use bollard::container::ListContainersOptions;
     debug!(
         service_id = %service_id,
@@ -535,16 +475,15 @@ pub async fn find_all_by_service_id(
     let mut filters = HashMap::new();
     filters.insert(
         "label".to_string(),
-        vec![format!("rustploy.service_id={service_id}")]
+        vec![format!("rustploy.service_id={service_id}")],
     );
     let opts = ListContainersOptions {
         all: true,
-        filters, ..Default::default()
+        filters,
+        ..Default::default()
     };
     let list = docker.list_containers(Some(opts)).await?;
-    let ids: Vec<String> = list
-        .into_iter()
-        .filter_map(|c| c.id).collect();
+    let ids: Vec<String> = list.into_iter().filter_map(|c| c.id).collect();
 
     debug!(
         service_id = %service_id,
@@ -582,19 +521,13 @@ impl ContainerIndex {
     /// Containers de um serviço: pelos labels `rustploy.service_id`, ou — quando
     /// vazio (serviço Compose) — pelo `com.docker.compose.project` derivado de
     /// `compose_project_name(id, name)`.
-    pub fn for_service(
-        &self,
-        service_id: &str,
-        service_name: &str
-    ) -> Vec<ManagedContainer> {
+    pub fn for_service(&self, service_id: &str, service_name: &str) -> Vec<ManagedContainer> {
         if let Some(v) = self.by_service_id.get(service_id) {
             return v.clone();
         }
-        let project = shared::compose_project_name(
-            service_id,
-            service_name
-        );
-        self.by_compose_project.get(&project)
+        let project = shared::compose_project_name(service_id, service_name);
+        self.by_compose_project
+            .get(&project)
             .cloned()
             .unwrap_or_default()
     }
@@ -603,9 +536,7 @@ impl ContainerIndex {
 /// Lista **todos** os containers do host numa única chamada e os indexa por
 /// service_id e por projeto Compose (ver [`ContainerIndex`]). Erros de Docker
 /// degradam para um índice vazio (o snapshot segue sem a informação).
-pub async fn index_containers(
-    docker: &Docker
-) -> ContainerIndex {
+pub async fn index_containers(docker: &Docker) -> ContainerIndex {
     use bollard::container::ListContainersOptions;
     let opts = ListContainersOptions::<String> {
         all: true,
@@ -615,7 +546,7 @@ pub async fn index_containers(
         Ok(l) => l,
         Err(e) => {
             warn!(
-                error = %e, 
+                error = %e,
                 "containers::index_containers: falha ao listar containers"
             );
             return ContainerIndex::default();
@@ -637,9 +568,15 @@ pub async fn index_containers(
             state: c.state.unwrap_or_default(),
         };
         if let Some(service_id) = labels.get("rustploy.service_id") {
-            idx.by_service_id.entry(service_id.clone()).or_default().push(mc);
+            idx.by_service_id
+                .entry(service_id.clone())
+                .or_default()
+                .push(mc);
         } else if let Some(project) = labels.get("com.docker.compose.project") {
-            idx.by_compose_project.entry(project.clone()).or_default().push(mc);
+            idx.by_compose_project
+                .entry(project.clone())
+                .or_default()
+                .push(mc);
         }
     }
     idx
@@ -659,14 +596,20 @@ pub async fn find_old_containers(
     let mut filters = HashMap::new();
     filters.insert(
         "label".to_string(),
-        vec![format!("rustploy.service_id={service_id}")]
+        vec![format!("rustploy.service_id={service_id}")],
     );
-    let opts = ListContainersOptions { all: true, filters, ..Default::default() };
+    let opts = ListContainersOptions {
+        all: true,
+        filters,
+        ..Default::default()
+    };
     let list = docker.list_containers(Some(opts)).await?;
     let ids: Vec<String> = list
         .into_iter()
         .filter(|c| {
-            let dep = c.labels.as_ref()
+            let dep = c
+                .labels
+                .as_ref()
                 .and_then(|l| l.get("rustploy.deployment_id"))
                 .map(|s| s.as_str())
                 .unwrap_or("");
@@ -683,10 +626,7 @@ pub async fn find_old_containers(
     Ok(ids)
 }
 
-pub async fn find_by_name(
-    docker: &Docker,
-    name: &str
-) -> Result<Option<String>> {
+pub async fn find_by_name(docker: &Docker, name: &str) -> Result<Option<String>> {
     use bollard::container::ListContainersOptions;
     debug!(name = %name, "buscando container por nome");
     let mut filters = HashMap::new();
@@ -880,7 +820,6 @@ pub async fn find_compose_ingress_container(
     Ok(candidates.into_iter().next().map(|(id, _)| id))
 }
 
-
 #[cfg(test)]
 mod tests_ingress {
     use super::*;
@@ -934,15 +873,15 @@ mod tests_ingress {
     fn porta_do_dominio_escolhe_o_gateway_e_nao_o_primeiro() {
         // mesma ordem de STACK; só o índice 4 (kong) expõe 8000
         let exposed = vec![
-            vec![9999],      // auth
-            vec![5432],      // db
-            vec![9000],      // functions
-            vec![8080],      // imgproxy
-            vec![8000, 8443],// kong
-            vec![8080],      // meta
-            vec![3000],      // rest
-            vec![5000],      // storage
-            vec![4000, 5452],// supavisor
+            vec![9999],       // auth
+            vec![5432],       // db
+            vec![9000],       // functions
+            vec![8080],       // imgproxy
+            vec![8000, 8443], // kong
+            vec![8080],       // meta
+            vec![3000],       // rest
+            vec![5000],       // storage
+            vec![4000, 5452], // supavisor
         ];
         assert_eq!(match_exposed_port(&exposed, &[8000]), Some(4));
     }

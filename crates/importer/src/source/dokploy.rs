@@ -91,9 +91,11 @@ impl DokploySource {
     }
 
     pub async fn fetch_all(&self) -> Result<DokployData> {
-        let projects = sqlx::query_as::<_, DokployProject>("SELECT \"projectId\", name, description FROM \"project\"")
-            .fetch_all(&self.pool)
-            .await?;
+        let projects = sqlx::query_as::<_, DokployProject>(
+            "SELECT \"projectId\", name, description FROM \"project\"",
+        )
+        .fetch_all(&self.pool)
+        .await?;
 
         let applications = sqlx::query_as::<_, DokployApplication>(
             "SELECT a.\"applicationId\", a.name, a.\"sourceType\"::TEXT, a.repository, a.owner, a.branch, a.\"buildPath\", \
@@ -109,13 +111,13 @@ impl DokploySource {
         let composes = sqlx::query_as::<_, DokployCompose>(
             "SELECT c.\"composeId\", c.name, c.\"composeFile\", e.\"projectId\", c.env \
              FROM \"compose\" c \
-             JOIN \"environment\" e ON c.\"environmentId\" = e.\"environmentId\""
+             JOIN \"environment\" e ON c.\"environmentId\" = e.\"environmentId\"",
         )
         .fetch_all(&self.pool)
         .await?;
 
         let domains = sqlx::query_as::<_, DokployDomain>(
-            "SELECT host, https, port, \"applicationId\", \"composeId\" FROM \"domain\""
+            "SELECT host, https, port, \"applicationId\", \"composeId\" FROM \"domain\"",
         )
         .fetch_all(&self.pool)
         .await?;

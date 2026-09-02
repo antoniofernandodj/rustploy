@@ -5,7 +5,7 @@
 
 use crate::api::AppState;
 use crate::db;
-use crate::docker::{self, networks, DockerClient};
+use crate::docker::{self, DockerClient, networks};
 use crate::event_bus::EventBus;
 use crate::secrets::SecretsManager;
 use anyhow::Result;
@@ -116,11 +116,13 @@ impl JobRunner {
         mirror_deployment: Option<(String, String)>,
         cancel_rx: Option<tokio::sync::watch::Receiver<bool>>,
     ) -> Result<i32> {
-        let network_name = networks::ensure_project_network(&self.docker.inner, &job.project_id).await?;
+        let network_name =
+            networks::ensure_project_network(&self.docker.inner, &job.project_id).await?;
 
         // Base (projeto [+ serviço gatilho]) + overrides do próprio job, maior
         // precedência — ver deploy::env_resolve::resolve_job.
-        let env_vars = crate::deploy::env_resolve::resolve_job(&self.db, &self.secrets, job).await?;
+        let env_vars =
+            crate::deploy::env_resolve::resolve_job(&self.db, &self.secrets, job).await?;
 
         // Nome de projeto do compose: só minúsculas/dígitos/`_`/`-` (regra do
         // próprio `docker compose`) — o run_id (ULID) tem letras maiúsculas.
