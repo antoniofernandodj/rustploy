@@ -1,55 +1,41 @@
 --!strict
--- fmt/time.luau — timestamps, durações e barra de progresso. chrono (Rust)
--- formatava em horário LOCAL; aqui parseamos o RFC3339 (UTC, com "Z") e
--- convertemos para epoch verdadeiro somando o offset local, para então
--- formatar com os.date (que usa horário local).
+-- fmt/time.luau — timestamps, durações e barra de progresso.
+--
+-- Os timestamps chegam do daemon em RFC 3339 UTC ("2026-07-06T12:34:56Z") e a
+-- tela mostra hora local. Desde a glacier-ui 0.73 essa tradução é do motor: o
+-- global `date` aceita o formato com fuso, `to_local` desloca o instante e
+-- `format` desenha — então o que sobra aqui é só a escolha do formato de
+-- exibição, uma linha por função.
+--
+-- Antes disto o arquivo tinha um `iso_to_epoch` próprio e um `TZ_OFFSET`
+-- calculado com `os.difftime(now, os.time(os.date("!*t", now)))`. Esse offset
+-- era SEMPRE ZERO, e vale registrar por quê: o `os.time` do Luau usa `timegm`,
+-- e não o `mktime` do Lua, então uma tabela de componentes é lida como UTC e
+-- `os.time(os.date("!*t", t))` devolve o próprio `t`. A soma era inofensiva
+-- (quem convertia para local era o `os.date` seguinte), mas o comentário
+-- descrevia uma conta que não acontecia. O equivalente correto no dialeto é
+-- `os.time(os.date("*t", t)) - t`, e é o que o `date` do motor usa por dentro.
 
 local M = {}
 
-local TZ_OFFSET: number = 0
-do
-    local ok, off = pcall(function()
-        local now = os.time()
-        return os.difftime(now, os.time(os.date("!*t", now)))
-    end)
-    if ok and type(off) == "number" then
-        TZ_OFFSET = off
-    end
-end
+-- As três funções abaixo aceitam `nil` e devolvem "": um `finished_at` ainda
+-- não preenchido, ou um campo que o daemon omitiu, é o caso normal e não
+-- deveria obrigar cada chamador a testar. `date.to_local` e `date.format`
+-- propagam o nil sozinhos, então basta o `or ""` no fim.
 
--- RFC3339 "2026-07-06T12:34:56(.789)?(Z|±hh:mm)?" → epoch (segundos). Os
--- componentes são tratados como UTC; +TZ_OFFSET recupera o epoch verdadeiro.
-local function iso_to_epoch(iso: string?): number?
-    if type(iso) ~= "string" then return nil end
-    local y, mo, d, h, mi, s = string.match(iso, "(%d+)-(%d+)-(%d+)T(%d+):(%d+):(%d+)")
-    if not y then return nil end
-    local utc = os.time{
-        year = tonumber(y) :: number, month = tonumber(mo) :: number, day = tonumber(d) :: number,
-        hour = tonumber(h) :: number, min = tonumber(mi) :: number, sec = tonumber(s) :: number,
-    }
-    if not utc then return nil end
-    return utc + TZ_OFFSET
-end
-
--- HH:MM:SS local de um timestamp ISO (ou "" se inválido).
+-- HH:MM:SS local de um timestamp do daemon.
 function M.time_hms(iso: string?): string
-    local ep = iso_to_epoch(iso)
-    if not ep then return "" end
-    return os.date("%H:%M:%S", ep)
+    return date.format(date.to_local(iso), "HH:mm:SS") or ""
 end
 
 -- "dd/mm HH:MM" local.
 function M.date_dm_hm(iso: string?): string
-    local ep = iso_to_epoch(iso)
-    if not ep then return "" end
-    return os.date("%d/%m %H:%M", ep)
+    return date.format(date.to_local(iso), "DD/MM HH:mm") or ""
 end
 
 -- "dd/mm HH:MM:SS" local.
 function M.date_dm_hms(iso: string?): string
-    local ep = iso_to_epoch(iso)
-    if not ep then return "" end
-    return os.date("%d/%m %H:%M:%S", ep)
+    return date.format(date.to_local(iso), "DD/MM HH:mm:SS") or ""
 end
 
 -- Ns ou Mm Ns.
@@ -86,12 +72,15 @@ function M.fmt_bytes(b: any): string
 end
 
 -- Duração de um deployment (finished_at ou agora) − started_at, em fmt_secs.
+--
+-- `date.diff_seconds` compara INSTANTES, não texto: ele traz cada lado para a
+-- hora local antes de subtrair, e é por isso que dá para misturar o
+-- `finished_at` do daemon (RFC 3339 com "Z") com o `date.now()` da máquina
+-- (sem fuso, hora local) sem converter nenhum dos dois na mão.
 function M.fmt_duration(dep: any): string
-    local start = iso_to_epoch(dep.started_at)
-    if not start then return "0s" end
-    local finish = dep.finished_at and iso_to_epoch(dep.finished_at) or os.time()
-    local secs = finish - start
-    if secs < 0 then secs = 0 end
+    local fim: string = dep.finished_at or date.now(true)
+    local secs: number? = date.diff_seconds(fim, dep.started_at)
+    if secs == nil or secs < 0 then return "0s" end
     return M.fmt_secs(secs)
 end
 

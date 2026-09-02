@@ -10,6 +10,7 @@
         "json",
         "confirm",
         "toast",
-        "storage"
+        "storage",
+        "date"
     ]
 }

@@ -84,3 +84,41 @@ declare storage: {
     set: (key: string, value: any) -> (),
     remove: (key: string) -> (),
 }
+
+-- Data e hora sobre strings ISO (glacier-ui 0.72+; fuso e epoch na 0.73). Um
+-- valor SEM fuso é hora local — é o que `today`/`now` devolvem e o que o
+-- `<timeedit>` guarda; um valor COM fuso (`2026-07-06T12:34:56Z`, `...-03:00`,
+-- fração de segundo opcional) usa o dele. É esse segundo formato que o daemon
+-- manda em todo `started_at`/`created_at`, e `to_local` é o que o traz para a
+-- hora de parede da tela. Ver `fmt/time.luau`.
+export type DateDelta = {
+    years: number?,
+    months: number?,
+    days: number?,
+    hours: number?,
+    minutes: number?,
+    seconds: number?,
+}
+
+declare date: {
+    today: () -> string,
+    now: (segundos: boolean?) -> string,
+    time: (segundos: boolean?) -> string,
+    parse: (iso: string) -> { [string]: number }?,
+    valid: (iso: string) -> boolean,
+    weekday: (iso: string) -> number?,
+    date_of: (iso: string) -> string?,
+    time_of: (iso: string) -> string?,
+    days_in_month: (ano: number, mes: number) -> number,
+    compare: (a: string, b: string) -> number?,
+    is_before: (a: string, b: string) -> boolean,
+    is_after: (a: string, b: string) -> boolean,
+    add: (iso: string, delta: DateDelta?) -> string?,
+    diff: (a: string, b: string) -> number?,
+    diff_seconds: (a: string, b: string) -> number?,
+    format: (iso: string, fmt: string) -> string?,
+    epoch: (iso: string) -> number?,
+    from_epoch: (segundos: number, utc: boolean?) -> string?,
+    to_local: (iso: string) -> string?,
+    to_utc: (iso: string) -> string?,
+}

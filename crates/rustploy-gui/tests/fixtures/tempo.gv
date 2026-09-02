@@ -1,0 +1,8 @@
+<screen title="fixture" size="200 200">
+    <resources>
+        <script src="tempo.luau"></script>
+    </resources>
+    <column>
+        <text content="{hms_z}" />
+    </column>
+</screen>
