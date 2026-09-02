@@ -29,7 +29,7 @@ path = "src/main.rs"
 # 0.58.6+ é REQUISITO da API de agente (`src/agent/`): `external::sender()` é o
 # canal que deixa a thread do servidor HTTP injetar ações no motor da janela —
 # sem ele, conectar/navegar/abrir janela só aconteceria por clique humano.
-glacier-ui = { version = "0.78", features = ["tray"] }
+glacier-ui = { version = "0.79", features = ["tray"] }
 
 # Embute a árvore de assets (views/estilos/scripts/ícones/logos) no binário em
 # builds de release, para um executável standalone que não depende dos arquivos
