@@ -1,7 +1,10 @@
 <component>
   <resources>
     <style>
-      .login_wrap       { width: fill; height: fill; align-x: center; align-y: center; background: var(--bg); }
+      /* sem `background: var(--bg)`: é a cor do tema, já pintada na janela
+         inteira — repeti-la era uma camada redobrada em cada pixel (ver
+         PRIMITIVAS.md, "O que custa num quadro"). */
+      .login_wrap       { width: fill; height: fill; align-x: center; align-y: center; }
       .login_card       { width: fill; max-width: 460; align-x: start; background: var(--surface); border-radius: 4; border-width: 1; border-color: var(--border); padding: 32; spacing: 16; }
       .login_head       { width: fill; spacing: 14; align-y: center; }
       .login_brand      { width: fill; spacing: 6; align-x: start; }

@@ -20,8 +20,11 @@
       .win_btn        { width: 48; padding: 5 0; color: var(--border); text-align: center; }
       .win_close      { width: 48; padding: 5 0; color: var(--danger); text-align: center; }
 
-      .np_screen  { width: fill; height: fill; background: var(--bg); }
-      .np_wrap    { width: fill; height: fill; background: var(--bg); padding: 24; spacing: 18; }
+      /* sem `background: var(--bg)`: é a cor do tema, já pintada na janela
+         inteira — repeti-la era uma camada redobrada em cada pixel (ver
+         PRIMITIVAS.md, "O que custa num quadro"). */
+      .np_screen  { width: fill; height: fill; }
+      .np_wrap    { width: fill; height: fill; padding: 24; spacing: 18; }
       .np_head    { width: fill; spacing: 5; }
       .np_title   { size: 20; bold: true; color: var(--text); }
       .np_group   { width: fill; spacing: 6; }

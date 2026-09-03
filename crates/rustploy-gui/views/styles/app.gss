@@ -33,7 +33,13 @@
 
 /* ── Base ─────────────────────────────────────────────────────────────── */
 .mono       { }
-.screen     { width: fill; height: fill; background: var(--bg); }
+/* Sem `background`: o tema já pinta `--bg` (#0A0E14 em theme.json) na janela
+   inteira, e repintar a mesma cor aqui era uma camada redobrada em cada pixel.
+   Medido no motor: caixas pintadas custam ~45 ms por quadro numa GPU integrada
+   antiga, e as de janela inteira são as mais caras (ver PRIMITIVAS.md, "O que
+   custa num quadro"). Se um dia o fundo da tela precisar diferir do tema, mude
+   o tema — não pinte por cima. */
+.screen     { width: fill; height: fill; }
 
 /* ── Sidebar / top bar ────────────────────────────────────────────────── */
 /* .nav_item (era o botão-texto puro do item de sidebar, sem ícone) ficou sem
@@ -49,7 +55,9 @@
 .btn_ghost        { color: var(--border); padding: 11 18; border-radius: 5 }
 
 /* ── Panels & cards ───────────────────────────────────────────────────── */
-.content    { width: fill; height: fill; padding: 28 32; spacing: 22; background: var(--bg); }
+/* Idem: `--bg` é a cor do tema, e o `.content` fica dentro do `.screen`, que
+   já está sobre ela. Era a terceira camada da mesma cor nos mesmos pixels. */
+.content    { width: fill; height: fill; padding: 28 32; spacing: 22; }
 .panel      { background: var(--surface); border-radius: 7; border-width: 1; border-color: var(--border); padding: 4; }
 .card       { width: fill; background: var(--raised); border-radius: 6; border-width: 1; border-color: var(--border); padding: 18; spacing: 10; }
 
@@ -83,7 +91,11 @@
    mais longa que "projeto/serviço" — e, sem espaços, não quebra linha (ver
    fmt.docker_containers, que trunca com Util.ellipsis para nunca estourar). */
 .col_img    { width: 340; }
-.panel_fill { width: fill; height: fill; background: var(--surface); border-radius: 7; border-width: 1; border-color: var(--border); padding: 4; }
+/* Sem `border-radius`: este painel ocupa a área de conteúdo inteira, e o
+   arredondamento custa matemática por pixel em toda ela para um detalhe de 7px
+   que quase não se nota. Os cantos ficam nas caixas pequenas (cards, botões,
+   abas), onde se veem e são baratos. */
+.panel_fill { width: fill; height: fill; background: var(--surface); border-width: 1; border-color: var(--border); padding: 4; }
 .form_panel { width: fill; max-width: 640; background: var(--surface); border-radius: 7; border-width: 1; border-color: var(--border); padding: 24; spacing: 10; }
 /* Ponto colorido do StateCell/rp-badge — compartilhado; o rótulo e a paleta
    (state_<kind>) moram no <style> do state_cell.gv. */

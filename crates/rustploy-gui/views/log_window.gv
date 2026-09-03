@@ -43,7 +43,10 @@
       .win_btn        { width: 48; padding: 5 0; color: var(--border); text-align: center; }
       .win_close      { width: 48; padding: 5 0; color: var(--danger); text-align: center; }
 
-      .lw_body   { width: fill; height: fill; background: var(--bg); padding: 14; spacing: 10; }
+      /* sem `background: var(--bg)`: é a cor do tema, já pintada na janela
+         inteira — repeti-la era uma camada redobrada em cada pixel (ver
+         PRIMITIVAS.md, "O que custa num quadro"). */
+      .lw_body   { width: fill; height: fill; padding: 14; spacing: 10; }
       .lw_head   { width: fill; align-y: center; spacing: 12; }
       .lw_title  { size: 13; bold: true; color: var(--text); }
       .lw_count  { width: fill; size: 11; color: var(--muted); }

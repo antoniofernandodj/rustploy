@@ -26,7 +26,10 @@
       .win_btn        { width: 48; padding: 5 0; color: var(--border); text-align: center; }
       .win_close      { width: 48; padding: 5 0; color: var(--danger); text-align: center; }
 
-      .ntok_screen { width: fill; height: fill; background: var(--bg); }
+      /* sem `background: var(--bg)`: é a cor do tema, já pintada na janela
+         inteira — repeti-la era uma camada redobrada em cada pixel (ver
+         PRIMITIVAS.md, "O que custa num quadro"). */
+      .ntok_screen { width: fill; height: fill; }
       .ntok_body   { width: fill; height: fill; }
 
       .np_label   { size: 11; bold: true; color: var(--muted); }
