@@ -226,7 +226,7 @@ function iac_export(): ()
     ctx.iac_busy = ""
 end
 
-local function do_import(api: any, yaml: string, toml: string): ()
+local function do_import(api: any, yaml: string, toml: string, prune: boolean, deploy: boolean): ()
     ctx.iac_has_missing = "false"
     ctx.iac_has_report = "false"
     ctx.iac_missing_vars = ""
@@ -237,8 +237,8 @@ local function do_import(api: any, yaml: string, toml: string): ()
         ManifestImport = {
             yaml = yaml,
             dotenv = toml,
-            prune = ctx.iac_prune == "true",
-            deploy = ctx.iac_deploy == "true",
+            prune = prune,
+            deploy = deploy,
         },
     }
     if not ok then
@@ -270,8 +270,16 @@ local function do_import(api: any, yaml: string, toml: string): ()
     for _, a in ipairs(res.ManifestReport.actions or {}) do
         table.insert(lines, "[" .. tostring(a.action) .. "] " .. tostring(a.kind) .. " " .. tostring(a.name))
     end
+    local pruned = res.ManifestReport.pruned or res.ManifestReport.removed or {}
+    if #pruned > 0 then
+        table.insert(lines, "removidos (prune): " .. table.concat(pruned, ", "))
+    elseif prune then
+        table.insert(lines, "prune ligado — nenhum serviço ausente para remover")
+    end
     if #(res.ManifestReport.deployed or {}) > 0 then
         table.insert(lines, "deploy disparado: " .. table.concat(res.ManifestReport.deployed, ", "))
+    elseif deploy then
+        table.insert(lines, "deploy ligado — nada mudou para disparar")
     end
     ctx.iac_report_lines = lines
     ctx.iac_has_report = "true"
@@ -303,8 +311,29 @@ function iac_import(): ()
         return
     end
 
+    -- Lê os dois checkboxes AQUI e confirma o que vai acontecer — prune remove
+    -- serviços, então o usuário vê exatamente o que marcou antes de aplicar.
+    local prune = ctx.iac_prune == "true"
+    local deploy = ctx.iac_deploy == "true"
+    local ok_go = confirm{
+        title = "Aplicar este manifesto?",
+        message = "Do zip: "
+            .. tostring(m.yaml and #m.yaml or 0) .. " B de YAML + "
+            .. tostring(m.toml and #m.toml or 0) .. " B de TOML.\n\n"
+            .. "• Remover serviços ausentes (prune): "
+            .. (prune and "SIM" or "não") .. "\n"
+            .. "• Disparar deploy dos alterados: "
+            .. (deploy and "SIM" or "não"),
+        confirm_label = "Aplicar",
+        destructive = prune,
+    }
+    if not ok_go then
+        ctx.iac_import_msg = "cancelado"
+        return
+    end
+
     ctx.iac_busy = "true"
-    do_import(api, m.yaml or "", m.toml or "")
+    do_import(api, m.yaml or "", m.toml or "", prune, deploy)
     ctx.iac_busy = ""
 end
 

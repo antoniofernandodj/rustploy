@@ -95,6 +95,10 @@ function init(): ()
     -- Sidebar-gaveta (<drawer> em shell.gv): começa aberta; o ☰ da topbar
     -- alterna via `drawer::toggle:menu`.
     ctx.menu = ctx.menu or "true"
+    -- Checkboxes do Infra as Code (Settings → aba IaC): semeados aqui pra o
+    -- estado ser determinístico e o `do_import` nunca ler `nil`.
+    ctx.iac_prune = ctx.iac_prune or "false"
+    ctx.iac_deploy = ctx.iac_deploy or "false"
     ctx.data_loading = "true"
     -- Coleção fixa do <radiogroup> de dia da semana (aba Manutenção). Semeada
     -- aqui, e não no dc_apply_config, porque não depende da config carregada:
