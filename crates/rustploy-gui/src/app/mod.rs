@@ -113,6 +113,18 @@ pub(crate) fn run() -> iced::Result {
                 // roda de novo ao reabrir a janela pela bandeja.
                 crate::agent::spawn(sessao.clone(), ui.clone());
 
+                // Desliga o menu de contexto embutido dos campos de texto
+                // (botão direito → desfazer/copiar/colar/…). Ele empilha um
+                // `stack!` na raiz da árvore de widgets pra desenhar o overlay,
+                // e o iced descarta o estado da subárvore antiga — o motor
+                // restaura o FOCO do campo mas não o deslocamento dos
+                // `<scrollable>`, então um clique-direito num input dentro de
+                // uma área rolável jogava a tela toda pro topo. O rustploy não
+                // usa `<contextmenu>` e os atalhos de teclado (Ctrl+C/V/X/A)
+                // seguem funcionando — o menu do botão direito é só
+                // conveniência, e não vale o salto de rolagem.
+                motor.set_input_context_menu(false);
+
                 if let Err(e) = motor.register_component("app", "crates/rustploy-gui/views/app.gv")
                 {
                     // O Display do GlacierError já traz arquivo:linha:coluna, o
