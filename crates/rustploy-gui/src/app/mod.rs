@@ -61,6 +61,10 @@ pub(crate) fn run() -> iced::Result {
         // para o mesmo data dir do usuário que o resto da persistência local usa,
         // então o arquivo cai em `~/.local/share/rustploy/.glacier-storage/`.
         .storage_dir(shared::fallback_data_dir())
+        // Extensão da camada Luau: `manifest_zip_read` / `manifest_zip_write`,
+        // usadas pelo Infra as Code (Settings). O motor tem `zip_dir` mas não o
+        // inverso, e a camada Lua não abre um `.zip` — ver `src/manifest_zip.rs`.
+        .lua_extension(crate::manifest_zip::install)
         // Persistência automática da geometria da principal (glacier 0.49+):
         // grava tamanho/posição ao fechar e restaura ao abrir, sob o
         // `storage_dir` acima. Substituiu a antiga `src/app/store.rs` (WindowState

@@ -12,6 +12,9 @@
 
 mod agent;
 mod app;
+// Ponte Lua ↔ Rust do zip do Infra as Code (ler/gravar o `.zip` de manifesto).
+// Registrada como extensão da camada Luau no builder do daemon (`app::run`).
+mod manifest_zip;
 // Em dev os assets são lidos do disco (com hot-reload) por caminho relativo ao
 // CWD → precisamos entrar na pasta-base. Em release eles são embutidos no
 // binário (ver `embedded` + `app::run`), então nem o localizador nem o `chdir`

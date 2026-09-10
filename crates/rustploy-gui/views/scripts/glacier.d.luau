@@ -47,6 +47,20 @@ declare function zip_dir(source: string, dest: string): (boolean, string?)
 declare function open_file(opts: any?): string?
 declare function save_file(opts: any?): string?
 declare function pick_folder(opts: any?): string?
+
+-- ── Extensão da camada Luau ESPECÍFICA do rustploy-gui ──────────────────────
+-- Registradas em `src/app/mod.rs` via `GlacierDaemon::lua_extension`
+-- (src/manifest_zip.rs), NÃO são globais do motor. O `.zip` do Infra as Code:
+--   • write: grava um zip com exatamente rustploy.yml + rustploy.vars.toml
+--   • read:  lê e VALIDA (exatamente um .yml e um .toml na raiz, nada mais);
+--            `{ ok = true, yaml, toml }` ou `{ ok = false, error }`.
+declare function manifest_zip_write(zip_path: string, yaml: string, toml: string): (boolean, string?)
+declare function manifest_zip_read(zip_path: string): {
+    ok: boolean,
+    yaml: string?,
+    toml: string?,
+    error: string?,
+}
 -- Streams de vida longa. NÃO suspendem: registram o stream e devolvem o handle
 -- na hora. Cada callback é uma FUNÇÃO (closure e upvalue funcionam) — o motor
 -- também aceita o nome de uma função global, como atalho, mas o tipo abaixo

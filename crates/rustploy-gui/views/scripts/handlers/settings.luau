@@ -169,18 +169,17 @@ end
 
 -- ── Settings → Infra as Code (export/import declarativo) ─────────────────
 --
--- O manifesto é uma PASTA com dois arquivos:
---   • rustploy.yml        — projetos/serviços (env vars sempre como ${VAR})
---   • rustploy.vars.toml   — os valores reais das vars (aninhado por escopo)
--- Exportar grava a pasta no lugar escolhido pelo diálogo nativo e, de brinde,
--- um `.zip` ao lado para compartilhar. Importar aponta o diálogo nativo para
--- uma pasta com esses dois arquivos — a MESMA que o export produz.
-local IAC_YML = "rustploy.yml"
-local IAC_TOML = "rustploy.vars.toml"
+-- O manifesto é um `.zip` (um ARQUIVO) com exatamente dois membros na raiz:
+--   • rustploy.yml       — projetos/serviços (env vars sempre como ${VAR})
+--   • rustploy.vars.toml  — os valores reais das vars (aninhado por escopo)
+-- Ler/gravar o zip é `manifest_zip_read`/`manifest_zip_write` — extensão Rust
+-- da camada Luau (src/manifest_zip.rs), porque o motor tem `zip_dir` mas não
+-- o inverso. Exportar e importar usam os diálogos nativos do SO; o import
+-- REJEITA um zip que não tenha exatamente um .yml e um .toml, sem mais nada.
 
 -- O corpo do export DEPOIS do diálogo — separado só para o `iac_busy` ser
 -- ligado/desligado em volta sem repetir o reset em cada early-return.
-local function do_export(api: any, dir: string, zip_path: string): ()
+local function do_export(api: any, zip_path: string): ()
     ctx.iac_export_msg = "exportando…"
     local ok, res = api:rpc_checked("ManifestExportAll")
     if not ok or type(res) ~= "table" or not res.ManifestBundle then
@@ -189,19 +188,17 @@ local function do_export(api: any, dir: string, zip_path: string): ()
         return
     end
 
-    local okw, werr = write_file(dir .. "/" .. IAC_YML, res.ManifestBundle.yaml or "")
-    if okw then
-        okw, werr = write_file(dir .. "/" .. IAC_TOML, res.ManifestBundle.dotenv or "")
-    end
-    if not okw then
-        ctx.iac_export_msg = "erro ao gravar: " .. tostring(werr)
-        toast{ message = "Falha ao gravar o manifesto: " .. tostring(werr), kind = "error" }
+    local okz, zerr = manifest_zip_write(
+        zip_path,
+        res.ManifestBundle.yaml or "",
+        res.ManifestBundle.dotenv or ""
+    )
+    if not okz then
+        ctx.iac_export_msg = "erro ao gravar o zip: " .. tostring(zerr)
+        toast{ message = "Falha ao gravar o zip: " .. tostring(zerr), kind = "error" }
         return
     end
-
-    local okz, zerr = zip_dir(dir, zip_path)
-    ctx.iac_export_msg = okz and ("salvo em " .. dir .. "  (+ " .. zip_path .. ")")
-        or ("pasta salva em " .. dir .. " — zip falhou: " .. tostring(zerr))
+    ctx.iac_export_msg = "salvo em " .. zip_path
     toast{ message = "Infra as Code exportado", kind = "success" }
 end
 
@@ -211,8 +208,7 @@ function iac_export(): ()
         return
     end
 
-    -- `save_file` (SUSPENDE): o usuário escolhe o caminho do .zip; a pasta
-    -- staging (mesmo nome, sem .zip) fica ao lado e é o que se re-importa.
+    -- `save_file` (SUSPENDE): o usuário escolhe o caminho do .zip.
     local zip_path = save_file{
         title = "Exportar Infra as Code",
         default_name = "rustploy-infra.zip",
@@ -224,32 +220,22 @@ function iac_export(): ()
     if not string.match(zip_path, "%.zip$") then
         zip_path = zip_path .. ".zip"
     end
-    local dir = string.gsub(zip_path, "%.zip$", "")
 
     ctx.iac_busy = "true"
-    do_export(api, dir, zip_path)
+    do_export(api, zip_path)
     ctx.iac_busy = ""
 end
 
-local function do_import(api: any, dir: string): ()
+local function do_import(api: any, yaml: string, toml: string): ()
     ctx.iac_has_missing = "false"
     ctx.iac_has_report = "false"
     ctx.iac_missing_vars = ""
     ctx.iac_report_lines = {}
 
-    local yr = fetch("file://" .. dir .. "/" .. IAC_YML)
-    if not yr.ok or Helpers.trim(yr.body or "") == "" then
-        ctx.iac_import_msg = "não achei " .. IAC_YML .. " na pasta escolhida"
-        toast{ message = "Pasta sem " .. IAC_YML, kind = "error" }
-        return
-    end
-    local tr = fetch("file://" .. dir .. "/" .. IAC_TOML)
-    local toml = (tr.ok and tr.body) or ""
-
     ctx.iac_import_msg = "importando…"
     local ok, res = api:rpc{
         ManifestImport = {
-            yaml = yr.body,
+            yaml = yaml,
             dotenv = toml,
             prune = ctx.iac_prune == "true",
             deploy = ctx.iac_deploy == "true",
@@ -300,17 +286,25 @@ function iac_import(): ()
         return
     end
 
-    -- `pick_folder` (SUSPENDE): a pasta com rustploy.yml + rustploy.vars.toml
-    -- (a mesma que o export grava). Descompactar um .zip exigiria um primitivo
-    -- de unzip que o motor ainda não tem — por isso a pasta, não o .zip.
-    local dir = pick_folder{
-        title = "Importar Infra as Code (pasta com " .. IAC_YML .. ")",
+    -- `open_file` (SUSPENDE): o `.zip` do manifesto. `manifest_zip_read` extrai
+    -- e VALIDA — exatamente um .yml e um .toml na raiz, nada mais.
+    local zip_path = open_file{
+        title = "Importar Infra as Code (.zip)",
+        filters = { { name = "Zip", extensions = { "zip" } } },
     }
-    if not dir then
+    if not zip_path then
         return
     end
+
+    local m = manifest_zip_read(zip_path)
+    if not m.ok then
+        ctx.iac_import_msg = "zip inválido: " .. tostring(m.error)
+        toast{ message = tostring(m.error), kind = "error" }
+        return
+    end
+
     ctx.iac_busy = "true"
-    do_import(api, dir)
+    do_import(api, m.yaml or "", m.toml or "")
     ctx.iac_busy = ""
 end
 

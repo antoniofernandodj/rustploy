@@ -1102,22 +1102,22 @@
         </scrollable>
       </if>
 
-      <!-- Infra as Code: o manifesto é uma PASTA com rustploy.yml (projetos/
-           serviços, env vars sempre como ${VAR}) + rustploy.vars.toml (os
-           valores reais, aninhados por escopo). Exportar/importar usam os
-           diálogos nativos do SO; a pasta que o export grava é a mesma que o
-           import lê. Ver iac_export/iac_import em handlers/settings.luau. -->
+      <!-- Infra as Code: o manifesto é um `.zip` com exatamente rustploy.yml
+           (projetos/serviços, env vars sempre como ${VAR}) + rustploy.vars.toml
+           (os valores reais, aninhados por escopo). Exportar/importar usam os
+           diálogos nativos do SO; o import rejeita um zip que tenha qualquer
+           outra coisa. Ver iac_export/iac_import em handlers/settings.luau. -->
       <if cond="{settings_tab}" equals="iac">
         <scrollable direction="vertical" class="scroll_fill">
           <column class="form_panel">
             <text class="label_cap">EXPORTAR</text>
             <text class="muted">
-              Grava a pasta do manifesto (rustploy.yml + rustploy.vars.toml) no
-              lugar que você escolher, e um .zip ao lado para compartilhar. Os
-              valores das env vars ficam só no TOML; secrets nunca saem do daemon.
+              Gera um `.zip` com rustploy.yml + rustploy.vars.toml no lugar que
+              você escolher. Os valores das env vars ficam só no TOML; secrets
+              nunca saem do daemon.
             </text>
             <row class="busy_row">
-              <button class="btn_primary" on_click="iac_export" text="Exportar para uma pasta…" />
+              <button class="btn_primary" on_click="iac_export" text="Exportar para um .zip…" />
               <spinner class="busy_spin" if="{iac_busy}" />
               <text class="muted">{iac_export_msg}</text>
             </row>
@@ -1126,11 +1126,11 @@
 
             <text class="label_cap">IMPORTAR</text>
             <text class="muted">
-              Escolha a pasta do manifesto (a mesma que o Exportar grava — com
-              rustploy.yml e rustploy.vars.toml dentro). Falta o valor de alguma
-              variável usada no YAML? O import é cancelado antes de aplicar
-              qualquer coisa (a faltante vem rotulada com o escopo, ex.
-              "Chiquitos/api: APP_PORT").
+              Escolha o `.zip` do manifesto (o mesmo que o Exportar gera). Ele
+              precisa ter exatamente um .yml e um .toml na raiz — nada mais, ou
+              o import é recusado. Falta o valor de alguma variável usada no
+              YAML? Também é cancelado antes de aplicar qualquer coisa (a
+              faltante vem rotulada com o escopo, ex. "Chiquitos/api: APP_PORT").
             </text>
 
             <row class="env_add">
@@ -1149,7 +1149,7 @@
             </row>
 
             <row class="busy_row">
-              <button class="btn_primary" on_click="iac_import" text="Importar de uma pasta…" />
+              <button class="btn_primary" on_click="iac_import" text="Importar de um .zip…" />
               <spinner class="busy_spin" if="{iac_busy}" />
               <text class="muted">{iac_import_msg}</text>
             </row>

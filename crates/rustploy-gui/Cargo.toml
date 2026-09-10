@@ -39,6 +39,11 @@ glacier-ui = { version = "0.102", features = ["tray"] }
 # no disco. Ver src/embedded.rs (só compila em `cfg(not(debug_assertions))`).
 include_dir = "0.7"
 
+# Ler/gravar o `.zip` do Infra as Code (src/manifest_zip.rs, exposto à camada
+# Luau via lua_extension). MESMA versão/feature que o glacier-ui já usa, para o
+# cargo deduplicar — sem uma segunda cópia do crate no binário.
+zip = { version = "8", default-features = false, features = ["deflate-flate2"] }
+
 shared = { package = "rustploy-shared", version = "0.1.0", path = "../shared" }
 
 # GUI — features must stay compatible with glacier-ui's iced.
