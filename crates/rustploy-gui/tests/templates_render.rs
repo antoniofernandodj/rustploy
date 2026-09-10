@@ -533,60 +533,128 @@ fn all_screens_and_service_tabs_render() {
     );
 }
 
-/// Regressão: abaixo de 900px de largura a sidebar vira um trilho de ícones —
-/// o rótulo de cada NavItem (ex.: "Deploy Engine", "Projects (N)") precisa
-/// sumir (`hidden`), senão não cabe e quebra o layout (era exatamente esse o
-/// bug reportado: rótulos longos, sem espaço pra quebrar, bagunçando a
-/// sidebar). Descoberto assim: nav_item.gv usava seletor agrupado por vírgula
-/// dentro de `@media` (".nav_label_on, .nav_label_off { hidden: true; }") —
-/// o GSS não suporta agrupamento por vírgula (nem fora de `@media`); a string
-/// inteira virava uma ÚNICA chave, que nunca casava com nenhuma classe real,
-/// então a regra nunca era aplicada. Cada seletor precisa da própria
-/// declaração (ver nav_item.gv).
+/// Onda 2 da reforma (docs/plano-reforma-gui-glacier-0.102.md): a sidebar é uma
+/// `<drawer>`, não mais um trilho de ícones colapsável por `@media`. O contrato
+/// que este teste trava:
+///   1. o `<drawer>` (um `<Reveal axis="x">` após o eval) reflete `{menu}` no
+///      seu `open` — `"true"` abre, vazio fecha;
+///   2. o gatilho `☰` da topbar dispara `drawer::toggle:menu` (a ação que o
+///      builtin `Drawer` consome, de qualquer lugar da tela);
+///   3. abaixo de 900px os rótulos dos NavItem **não** são forçados a `hidden`
+///      por um `@media` (era o bug antigo: o trilho de ícones sumia o rótulo;
+///      agora a gaveta inteira fecha pelo ☰, e quando aberta cabe em 264px).
 #[test]
-fn sidebar_nav_label_hidden_below_900px() {
+fn sidebar_is_a_drawer_bound_to_menu_key() {
     use glacier_ui::widget::EngineMessage;
     let mut m = boot();
     m.define_data("screen", "shell");
     m.define_data("view", "deployments");
+    m.define_data("menu", "true");
     m.reevaluate_all().expect("eval shell");
-    // Mesma largura que reproduziu o bug (persistida em
-    // rustploy-gui-window.json de uma sessão real).
+    // Largura estreita: a que reproduziu o bug original de layout.
     let _ = m.dispatch(&EngineMessage::Viewport {
         width: 731.0,
         height: 680.0,
     });
 
-    fn find_texts<'a>(
+    fn find<'a>(
         node: &'a glacier_ui::parser::UiNode,
+        pred: &dyn Fn(&glacier_ui::parser::UiNode) -> bool,
         out: &mut Vec<&'a glacier_ui::parser::UiNode>,
     ) {
-        if let glacier_ui::parser::NodeType::Text { content, .. } = &node.kind {
-            if content == "Deploy Engine" || content.starts_with("Projects (") {
-                out.push(node);
-            }
+        if pred(node) {
+            out.push(node);
         }
         for child in &node.children {
-            find_texts(child, out);
+            find(child, pred, out);
         }
     }
 
+    // (2) o gatilho ☰ → drawer::toggle:menu
     let ast = m.evaluated("app").expect("app evaluated");
-    let mut found = Vec::new();
-    find_texts(ast, &mut found);
-    assert_eq!(
-        found.len(),
-        2,
-        "esperava achar os rótulos \"Deploy Engine\" e \"Projects (N)\""
+    let mut triggers = Vec::new();
+    find(
+        ast,
+        &|n| {
+            matches!(
+                &n.kind,
+                glacier_ui::parser::NodeType::Button { on_click: Some(a), .. }
+                    if a == "drawer::toggle:menu"
+            )
+        },
+        &mut triggers,
     );
-    for n in &found {
-        assert_eq!(
+    assert_eq!(
+        triggers.len(),
+        1,
+        "esperava um botão on_click=\"drawer::toggle:menu\" (o ☰ da topbar)"
+    );
+
+    // (1) o <Reveal axis="x"> da gaveta reflete {menu}
+    let mut reveals = Vec::new();
+    find(
+        ast,
+        &|n| {
+            matches!(
+                &n.kind,
+                glacier_ui::parser::NodeType::Reveal { horizontal: true, open, .. }
+                    if open == "true"
+            )
+        },
+        &mut reveals,
+    );
+    assert!(
+        !reveals.is_empty(),
+        "esperava o <Reveal axis=\"x\"> da <drawer> com open=\"true\" quando menu=true"
+    );
+
+    // (3) rótulos dos NavItem NÃO forçados a hidden abaixo de 900px
+    let mut labels = Vec::new();
+    find(
+        ast,
+        &|n| {
+            matches!(
+                &n.kind,
+                glacier_ui::parser::NodeType::Text { content, .. }
+                    if content == "Deploy Engine" || content.starts_with("Projects (")
+            )
+        },
+        &mut labels,
+    );
+    assert_eq!(
+        labels.len(),
+        2,
+        "esperava os rótulos \"Deploy Engine\" e \"Projects (N)\" na gaveta aberta"
+    );
+    for n in &labels {
+        assert_ne!(
             n.hidden,
             Some(true),
-            "rótulo {:?} deveria estar hidden abaixo de 900px",
+            "rótulo {:?} não deve ser forçado a hidden — a gaveta aberta mostra tudo",
             n.kind
         );
     }
+
+    // Gaveta fechada: o <Reveal> passa a open vazio.
+    m.define_data("menu", "");
+    m.reevaluate_all().expect("eval shell menu fechado");
+    let ast = m.evaluated("app").expect("app evaluated");
+    let mut closed = Vec::new();
+    find(
+        ast,
+        &|n| {
+            matches!(
+                &n.kind,
+                glacier_ui::parser::NodeType::Reveal { horizontal: true, open, .. }
+                    if open.is_empty()
+            )
+        },
+        &mut closed,
+    );
+    assert!(
+        !closed.is_empty(),
+        "esperava o <Reveal axis=\"x\"> da <drawer> com open vazio quando menu=\"\""
+    );
 }
 
 /// Regressão: as ações da tela de serviço (Deploy/Reload/Rebuild/Stop) têm duas

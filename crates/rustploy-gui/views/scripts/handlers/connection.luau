@@ -92,6 +92,9 @@ function init(): ()
     ctx.status_line = ctx.status_line or "pronto para conectar"
     ctx.error = ctx.error or ""
     ctx.search = ctx.search or ""
+    -- Sidebar-gaveta (<drawer> em shell.gv): começa aberta; o ☰ da topbar
+    -- alterna via `drawer::toggle:menu`.
+    ctx.menu = ctx.menu or "true"
     ctx.data_loading = "true"
     -- Coleção fixa do <radiogroup> de dia da semana (aba Manutenção). Semeada
     -- aqui, e não no dc_apply_config, porque não depende da config carregada:

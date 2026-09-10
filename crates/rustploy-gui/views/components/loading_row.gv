@@ -6,6 +6,11 @@
   ficava preso em "true" e o spinner nunca sumia. O `if` inline do chamador é
   re-avaliado ao vivo (mesmo padrão do `if` que esconde/mostra a grid).
   `note` sobrescreve o spano padrão quando fornecido (prop ausente → vazio).
+
+  O indicador é o `<spinner>` do motor (glacier-ui 0.66+): um anel girando de
+  verdade, não o glifo `⟳` estático de antes. O diâmetro sai do `width`/`height`
+  do nó (o `size:` do GSS é corpo de fonte e não vale aqui); a cor cai no
+  `color` da classe.
 -->
 <component>
   <!-- `note` é a única prop, e é opcional: sem ela vale o texto padrão. O
@@ -23,7 +28,8 @@
     }
 
     .loading_spin {
-      size: 16;
+      width: 16;
+      height: 16;
       color: var(--spin);
     }
 
@@ -35,7 +41,7 @@
   </resources>
 
   <row class="loading_row">
-    <text class="loading_spin">⟳</text>
+    <spinner class="loading_spin" />
     <text class="loading_note" if="{note}" not_equals="">
       {note}
     </text>
