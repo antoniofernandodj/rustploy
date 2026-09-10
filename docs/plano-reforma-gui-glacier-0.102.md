@@ -1,7 +1,29 @@
 # Plano: reforma do `rustploy-gui` sobre o glacier-ui moderno (0.87 → 0.102)
 
-Estado: **proposta** — nada implementado.
+Estado: **em andamento** — Ondas 0, 1 (parcial) e 2 feitas; spinner trocado.
 Data: 2026-09-10.
+
+## O que já foi (branch `reforma-gui-glacier-0.102`)
+
+| | commit | resumo |
+|---|---|---|
+| **Onda 0** | `chore(rustploy-gui): bump glacier-ui 0.87 → 0.102.1` | dependência subida; `cargo check --workspace`, `test` (13+45), `clippy`, `fmt` verdes; nenhuma quebra do intervalo toca o rustploy |
+| **Spinner** | (junto da Onda 2) | `LoadingRow` troca o glifo `⟳` estático pelo `<spinner>` do motor (anel girando) |
+| **Onda 2** | `refactor(rustploy-gui): sidebar vira <drawer>` | `shell.gv` usa `<drawer value="menu">`; `.sidebar` no `.gss` fica só com a cor; somem os `@media` de sidebar (shell + nav_item); `☰` na topbar via `app:drawer::toggle:menu`; `init()` semeia `menu="true"`. Teste reescrito. |
+| **Onda 1** (parcial) | `refactor…: "Novo projeto"…` + `refactor…: edit_project/penv_add/secret_add…` | 4 formulários no `<form>` validado (`rules=`/`msg=`/`on_validation_error`/`type="submit"`); ~7 escadas `if campo=="" …` removidas dos handlers; `:invalid` no `app.gss`; teste da fiação de validação na árvore avaliada. |
+
+**Falta da Onda 1:** `login.gv` (o `<ComboEdit>` de URL — o `connect()` já faz um
+`normalize_url` que é validação real, não só "não-vazio"; baixa prioridade),
+`service.gv` (form `general` multi-provider — o `f_gen_port` ganharia
+`gte:1|lte:65535`, mas a tela é grande e casa melhor com a Onda 3/4) e
+`new_service.gv`/`new_job_window.gv` (validação **condicional** entre campos e
+passo — pertence à Onda 5, com `<Wizard>`).
+
+**Faltam as Ondas 3–7** (tabelas, abas, wizard, chrome, autocomplete) — abaixo,
+inalteradas.
+
+---
+
 Escopo: `crates/rustploy-gui/views/**` (`.gv` + `.gss` + Luau) e, por reflexo
 obrigatório (AGENTS.md, "Toda feature de UI vive em dois lugares"),
 `crates/daemon/webui/**`. Sem mudança no `glacier-ui` — tudo abaixo já existe
