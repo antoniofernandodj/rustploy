@@ -80,6 +80,8 @@ function init(): ()
     ctx.njob_git_branch = ""
     ctx.njob_compose_path = "docker-compose.yml"
     ctx.njob_git_msg = ""
+    ctx.njob_git_busy = ""
+    ctx.njob_busy = ""
 
     -- Env vars próprias do job (blob .env colado, parseado em njob_create).
     ctx.njob_env_text = ""
@@ -152,7 +154,9 @@ function njob_source(kind: string): ()
             return
         end
         ctx.njob_git_msg = "carregando contas…"
+        ctx.njob_git_busy = "true"
         local ok, res = api:rpc("GitProviderList")
+        ctx.njob_git_busy = ""
         if ok and res.GitProviders then
             ctx.njob_git_providers = fmt.git_providers(res.GitProviders)
             ctx.njob_git_msg = ""
@@ -172,7 +176,9 @@ function njob_git_provider_pick(id: string): ()
         return
     end
     ctx.njob_git_msg = "carregando repositórios…"
+    ctx.njob_git_busy = "true"
     local ok, res = api:rpc{ GitRepoList = { provider_id = ctx.njob_git_provider_id } }
+    ctx.njob_git_busy = ""
     if ok and res.GitRepos then
         ctx.njob_git_repos = fmt.git_repos(res.GitRepos)
         ctx.njob_git_msg = tostring(#res.GitRepos) .. " repositório(s)"
@@ -202,7 +208,9 @@ function njob_git_repo_pick(full_name: string): ()
         return
     end
     ctx.njob_git_msg = "carregando branches…"
+    ctx.njob_git_busy = "true"
     local okb, resb = api:rpc{ GitBranchList = { provider_id = pid, repo_full_name = full_name } }
+    ctx.njob_git_busy = ""
     if okb and resb.GitBranches then
         ctx.njob_git_branches = fmt.git_branches(resb.GitBranches)
         ctx.njob_git_msg = ""
@@ -363,6 +371,7 @@ function njob_create(): ()
     local editing = ctx.njob_edit_id ~= ""
 
     ctx.njob_msg = editing and "salvando…" or "criando…"
+    ctx.njob_busy = "true"
     local ok, res
     if editing then
         ok, res = api:rpc_checked{
@@ -393,6 +402,7 @@ function njob_create(): ()
             },
         }
     end
+    ctx.njob_busy = ""
     if not ok then
         ctx.njob_msg = ""
         ctx.njob_err = "erro: " .. tostring(res)

@@ -38,6 +38,7 @@ function init(): ()
     ctx.ns_name = ""
     ctx.ns_app_name = ""
     ctx.ns_msg = ""
+    ctx.ns_busy = ""
     ctx.erro_ns_name = ""
     ctx.ns_tsearch = ""
     ctx.ns_step = "pick_type"

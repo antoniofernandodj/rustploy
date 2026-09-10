@@ -1230,7 +1230,7 @@
                 <text class="label_cap">A CADA (HORAS)</text>
                 <!-- Teto de 168 = uma semana. Acima disso o usuário quer a
                   frequência "semanal", que é a aba ao lado. -->
-                <spinbox field_class="field_input" form_control="dc_hours" value="dc_hours" min="1" max="168" width="90" placeholder="6" />
+                <spinbox field_class="spin_field" form_control="dc_hours" value="dc_hours" min="1" max="168" width="90" placeholder="6" />
               </column>
             </row>
 

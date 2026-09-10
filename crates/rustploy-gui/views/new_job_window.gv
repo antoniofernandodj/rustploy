@@ -153,7 +153,10 @@
                 Selecione a conta conectada, o repositório e a branch. O repo
                 precisa já ter um docker-compose.yml no caminho informado.
               </text>
-              <text if="{njob_git_msg}" not_equals="" class="muted">{njob_git_msg}</text>
+              <row class="busy_row" if="{njob_git_msg}" not_equals="">
+                <spinner class="busy_spin" if="{njob_git_busy}" />
+                <text class="muted">{njob_git_msg}</text>
+              </row>
 
               <text class="np_label">CONTA GIT</text>
               <select
@@ -219,7 +222,7 @@
               <text class="np_label">A CADA QUANTAS HORAS</text>
               <!-- Teto de 168 = uma semana, igual ao da limpeza automática em
                 home.gv. Acima disso existe a recorrência "Semanal". -->
-              <spinbox field_class="np_input" form_control="njob_hours" value="njob_hours" min="1" max="168" width="90" placeholder="6" />
+              <spinbox field_class="spin_field" form_control="njob_hours" value="njob_hours" min="1" max="168" width="90" placeholder="6" />
             </if>
 
             <!-- Os pares HORA/MINUTO de texto livre viraram um <timeedit> só
@@ -250,7 +253,10 @@
             </if>
 
             <text if="{njob_err}" not_equals="" class="err">{njob_err}</text>
-            <text if="{njob_msg}" not_equals="" class="muted">{njob_msg}</text>
+            <row class="busy_row" if="{njob_msg}" not_equals="">
+              <spinner class="busy_spin" if="{njob_busy}" />
+              <text class="muted">{njob_msg}</text>
+            </row>
 
             <row class="np_actions">
               <column class="np_spacer" />

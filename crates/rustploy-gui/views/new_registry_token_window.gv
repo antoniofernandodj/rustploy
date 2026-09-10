@@ -72,10 +72,17 @@
             Usado em `docker login`/push/pull contra o registry embutido.
           </text>
 
-          <form name="ntok_form" on_submit="ntok_create" width="fill" spacing="10">
+          <form
+            name="ntok_form"
+            on_submit="ntok_create"
+            on_validation_error="ntok_apontar"
+            width="fill"
+            spacing="10"
+          >
             <text class="np_label">NOME</text>
-            <input class="np_input" form_control="ntok_name" value="ntok_name"
-              on_change="field:ntok_name" placeholder="ex.: ci-deploy" />
+            <input class="np_input" form_control="ntok_name"
+              rules="required" msg="informe um nome" placeholder="ex.: ci-deploy" />
+            <text class="err" if="{erro_ntok_name}" not_empty>{erro_ntok_name}</text>
 
             <text class="label_cap">ESCOPO</text>
             <row class="tabs">
@@ -84,12 +91,15 @@
             </row>
 
             <text if="{ntok_err}" not_equals="" class="err">{ntok_err}</text>
-            <text if="{ntok_msg}" not_equals="" class="muted">{ntok_msg}</text>
+            <row class="busy_row" if="{ntok_msg}" not_equals="">
+              <spinner class="busy_spin" if="{ntok_busy}" />
+              <text class="muted">{ntok_msg}</text>
+            </row>
 
             <row class="np_actions">
               <column class="np_spacer" />
               <button class="btn_ghost" on_click="window:close" text="Cancelar" />
-              <button class="btn_primary" on_click="ntok_create" text="Criar token" />
+              <button type="submit" class="btn_primary" text="Criar token" />
             </row>
           </form>
         </if>

@@ -90,9 +90,13 @@
           />
         </column>
 
-        <!-- Erros de rede/RPC (não de campo) e o status "criando…". -->
+        <!-- Erros de rede/RPC (não de campo) e o status "criando…" — spinner
+          enquanto o RPC está no ar ({np_busy}). -->
         <text if="{np_err}" not_equals="" class="err">{np_err}</text>
-        <text if="{np_msg}" not_equals="" class="muted">{np_msg}</text>
+        <row class="busy_row" if="{np_msg}" not_equals="">
+          <spinner class="busy_spin" if="{np_busy}" />
+          <text class="muted">{np_msg}</text>
+        </row>
 
         <row class="np_actions">
           <column class="np_spacer" />

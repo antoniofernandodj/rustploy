@@ -26,9 +26,12 @@
       </row>
     </row>
 
-    <text if="{ns_msg}" not_equals="" class="warn">
-      {ns_msg}
-    </text>
+    <!-- Status do wizard: spinner enquanto o RPC de criação está no ar
+      ({ns_busy}); o texto acompanha ({ns_msg} = "criando…" / "erro: …"). -->
+    <row class="busy_row" if="{ns_msg}" not_equals="">
+      <spinner class="busy_spin" if="{ns_busy}" />
+      <text class="warn">{ns_msg}</text>
+    </row>
 
     <!-- ── Passo 1: tipo de serviço ──────────────────────────────────────── -->
     <if cond="{ns_step}" equals="pick_type">
@@ -150,7 +153,6 @@
               on_click="ns_create"
               text="Criar Application"
             />
-            <text class="muted">{ns_msg}</text>
           </row>
         </column>
       </form>
@@ -196,9 +198,6 @@
               on_click="ns_create"
               text="Criar Compose Stack"
             />
-            <text class="muted">
-              {ns_msg}
-            </text>
           </row>
         </column>
       </form>
@@ -305,7 +304,6 @@
                 on_click="ns_create"
                 text="Criar {ns_db_label}"
               />
-              <text class="muted">{ns_msg}</text>
             </row>
           </column>
         </form>
@@ -372,7 +370,6 @@
                 on_click="ns_create"
                 text="Criar {ns_template_name}"
               />
-              <text class="muted">{ns_msg}</text>
             </row>
           </column>
         </form>

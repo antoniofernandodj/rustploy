@@ -28,6 +28,7 @@ function init(): ()
     ctx.np_desc = ctx.np_desc or ""
     ctx.np_err = ""
     ctx.np_msg = ""
+    ctx.np_busy = ""
 end
 
 -- on_validation_error do <form>: as falhas já vêm prontas em JSON
@@ -52,6 +53,7 @@ function submit_project(): ()
     local name = Helpers.trim(ctx.np_name)
     local desc = Helpers.trim(ctx.np_desc)
     ctx.np_msg = "criando…"
+    ctx.np_busy = "true"
 
     local ok, res = api:rpc_checked{
         ProjectCreate = {
@@ -59,6 +61,7 @@ function submit_project(): ()
             description = (desc ~= "" and desc or nil),
         },
     }
+    ctx.np_busy = ""
     if not ok then
         ctx.np_msg = ""
         ctx.np_err = "erro: " .. tostring(res)

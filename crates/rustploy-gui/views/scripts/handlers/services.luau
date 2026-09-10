@@ -863,7 +863,9 @@ function gitea_provider_pick(id: string): ()
         return
     end
     ctx.gitea_msg = "carregando repositórios…"
+    ctx.gitea_busy = "true"
     local ok, res = api:rpc{ GitRepoList = { provider_id = id } }
+    ctx.gitea_busy = ""
     if ok and res.GitRepos then
         ctx.gitea_repos = fmt.git_repos(res.GitRepos)
         ctx.gitea_msg = tostring(#res.GitRepos) .. " repositório(s)"
@@ -899,11 +901,16 @@ function gitea_repo_pick(full_name: string): ()
         return
     end
     ctx.gitea_msg = "carregando branches…"
+    ctx.gitea_busy = "true"
     local okb, resb = api:rpc{
         GitBranchList = { provider_id = pid, repo_full_name = full_name }
     }
+    ctx.gitea_busy = ""
     if okb and resb.GitBranches then
         ctx.gitea_branches = fmt.git_branches(resb.GitBranches)
+        ctx.gitea_msg = tostring(#resb.GitBranches) .. " branch(es)"
+    else
+        ctx.gitea_msg = "erro ao listar branches"
     end
 end
 

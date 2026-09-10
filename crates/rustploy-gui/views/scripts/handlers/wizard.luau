@@ -248,7 +248,9 @@ function ns_create(): ()
         expose_external = (ctx.ns_expose_external == "true"),
     }
     ctx.ns_msg = "criando…"
+    ctx.ns_busy = "true"
     local ok, res = api:rpc_checked{ WizardCreate = req }
+    ctx.ns_busy = ""
     if ok and res.Service then
         -- Sucesso: avisa a janela principal (que atualiza a grade de serviços do
         -- projeto aberto) e fecha esta janela do wizard.

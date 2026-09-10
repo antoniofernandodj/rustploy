@@ -151,11 +151,24 @@
 /* ── Forms ────────────────────────────────────────────────────────────── */
 .field_input  { width: fill; padding: 13 14; }
 
+/* Campo de um <spinbox> (`field_class="spin_field"`). O `.field_input` (padding
+   13 14 → ~44px de altura) desencontrava o campo dos degraus ▴▾, que somam
+   ~30px (2 × ~1,3 × glyph_size 11 — ver o builtin SpinBox do glacier-ui). Um
+   padding menor casa a altura dos dois. Sem `width`: cada <spinbox> passa a
+   largura do campo pela prop `width=`. */
+.spin_field   { padding: 6 12; }
+
+/* Linha "ocupado": spinner + texto de status enquanto um RPC está no ar. O
+   spinner só aparece com a flag `*_busy` ligada; o texto acompanha o `*_msg`. */
+.busy_row   { spacing: 9; align-y: center; }
+.busy_spin  { width: 15; height: 15; color: var(--spin); }
+
 /* Destaque de campo reprovado na validação declarada do <form> (glacier-ui
    0.102+): NÃO é uma classe que o script liga — é o pseudo-estado `:invalid`,
    que o motor acende sozinho enquanto o `{erro_<campo>}` do campo estiver
    preenchido. Uma regra por classe (o GSS não agrupa por vírgula). */
 .field_input:invalid { border_width: 1; border_color: var(--error); }
+.spin_field:invalid  { border_width: 1; border_color: var(--error); }
 .np_input:invalid    { border_width: 1; border_color: var(--error); }
 .env_in_key:invalid  { border_width: 1; border_color: var(--error); }
 .env_in_val:invalid  { border_width: 1; border_color: var(--error); }

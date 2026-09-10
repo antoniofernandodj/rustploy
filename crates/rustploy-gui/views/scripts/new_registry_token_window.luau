@@ -28,18 +28,18 @@ function init(): ()
     ctx.ntok_scope = "pull"
     ctx.ntok_err = ""
     ctx.ntok_msg = ""
+    ctx.ntok_busy = ""
     ctx.ntok_login_cmd = ""
-end
-
--- onChange dos inputs (mesma convenção `field:<chave>` do app principal).
-function field(key: string?, v: string?): ()
-    if key then
-        ctx[key] = v or ""
-    end
 end
 
 function ntok_scope(s: string): ()
     ctx.ntok_scope = s
+end
+
+-- on_validation_error do <form> — NOME é `rules="required"`; o motor já
+-- publicou {erro_ntok_name} e acendeu o :invalid.
+function ntok_apontar(_erros_json: string?): ()
+    toast{ message = "Informe o nome do token", kind = "warning" }
 end
 
 function ntok_create(): ()
@@ -48,17 +48,16 @@ function ntok_create(): ()
         ctx.ntok_err = "sem conexão — reabra a janela pelo app"
         return
     end
+    -- rules="required" no <form> garante ntok_name preenchido aqui.
     local name = Helpers.trim(ctx.ntok_name)
-    if name == "" then
-        ctx.ntok_err = "informe um nome"
-        return
-    end
     ctx.ntok_err = ""
     ctx.ntok_msg = "criando…"
+    ctx.ntok_busy = "true"
 
     local ok, res = api:rpc_checked{
         RegistryTokenCreate = { name = name, scope = ctx.ntok_scope },
     }
+    ctx.ntok_busy = ""
     if not ok then
         ctx.ntok_msg = ""
         ctx.ntok_err = "erro: " .. tostring(res)
