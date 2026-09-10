@@ -36,6 +36,17 @@ declare function fetch(url: string, opts: any?): FetchResult
 -- Escrita de arquivo local (glacier-ui 0.49+), contraparte do `fetch("file://…")`.
 -- Devolve `true` no sucesso, ou `false, mensagem` na falha.
 declare function write_file(path: string, contents: string): (boolean, string?)
+-- Idem, acrescentando ao fim (glacier-ui 0.49+).
+declare function append_file(path: string, contents: string): (boolean, string?)
+-- Compacta a árvore de `source` (diretório) num `.zip` em `dest` (glacier-ui
+-- 0.83+). Síncrono (I/O local). `(true)` no sucesso, `(false, mensagem)` na falha.
+declare function zip_dir(source: string, dest: string): (boolean, string?)
+-- Diálogos nativos do SO (glacier-ui 0.49+). SUSPENDEM a corrotina até o usuário
+-- escolher/cancelar; devolvem o caminho escolhido, ou `nil` se cancelou.
+-- `opts`: { title?, starting_dir?, default_name?, filters? }.
+declare function open_file(opts: any?): string?
+declare function save_file(opts: any?): string?
+declare function pick_folder(opts: any?): string?
 -- Streams de vida longa. NÃO suspendem: registram o stream e devolvem o handle
 -- na hora. Cada callback é uma FUNÇÃO (closure e upvalue funcionam) — o motor
 -- também aceita o nome de uma função global, como atalho, mas o tipo abaixo
