@@ -101,7 +101,9 @@
     </row>
     <row>
       <text class="muted">id: {container_id}</text>
-      <text class="muted" if="{container_extra}" not_equals="">extra: {container_extra}</text>
+      <text class="muted" if="{container_extra}" not_equals="">
+        extra: {container_extra}
+      </text>
     </row>
     <hr />
     <row class="card_stats">

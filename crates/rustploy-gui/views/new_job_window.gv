@@ -129,19 +129,38 @@
           <form name="njob_form" on_submit="njob_create" width="fill" spacing="10">
 
             <text class="np_label">NOME</text>
-            <input class="np_input" form_control="njob_name" value="njob_name"
-              on_change="field:njob_name" placeholder="ex.: backup-db" />
+            <input
+              class="np_input"
+              form_control="njob_name"
+              value="njob_name"
+              on_change="field:njob_name"
+              placeholder="ex.: backup-db"
+            />
 
             <text class="label_cap">FONTE DO COMPOSE</text>
             <row class="tabs">
-              <TabButton label="Compose" current="{njob_source}" target="compose" action="njob_source:compose" />
-              <TabButton label="Git" current="{njob_source}" target="git" action="njob_source:git" />
+              <TabButton
+                label="Compose"
+                current="{njob_source}"
+                target="compose"
+                action="njob_source:compose"
+              />
+              <TabButton
+                label="Git"
+                current="{njob_source}"
+                target="git"
+                action="njob_source:git"
+              />
             </row>
 
             <template if="{njob_source}" equals="compose">
               <text class="np_label">DOCKER-COMPOSE.YML</text>
-              <textarea class="env_editor" font="mono" value="njob_compose"
-                placeholder="services:&#10;  job:&#10;    image: busybox&#10;    command: [&quot;sh&quot;, &quot;-c&quot;, &quot;echo ok&quot;]" />
+              <textarea
+                class="env_editor"
+                font="mono"
+                value="njob_compose"
+                placeholder="services:&#10;  job:&#10;    image: busybox&#10;    command: [&quot;sh&quot;, &quot;-c&quot;, &quot;echo ok&quot;]"
+              />
             </template>
 
             <!-- Aba Git: mesmo picker conta→repo→branch da aba Gitea de
@@ -190,14 +209,28 @@
                 valueField="name"
               />
 
-              <text class="np_label">CAMINHO DO COMPOSE NO REPO</text>
-              <input class="np_input" form_control="njob_compose_path" value="njob_compose_path"
-                on_change="field:njob_compose_path" placeholder="docker-compose.yml" />
+              <text class="np_label">
+                CAMINHO DO COMPOSE NO REPO
+              </text>
+              <input
+                class="np_input"
+                form_control="njob_compose_path"
+                value="njob_compose_path"
+                on_change="field:njob_compose_path"
+                placeholder="docker-compose.yml"
+              />
             </template>
 
-            <text class="np_label">MAIN SERVICE (nome dentro do compose acima)</text>
-            <input class="np_input" form_control="njob_main_service" value="njob_main_service"
-              on_change="field:njob_main_service" placeholder="ex.: job" />
+            <text class="np_label">
+              MAIN SERVICE (nome dentro do compose acima)
+            </text>
+            <input
+              class="np_input"
+              form_control="njob_main_service"
+              value="njob_main_service"
+              on_change="field:njob_main_service"
+              placeholder="ex.: job"
+            />
 
             <!-- Env vars próprias do job — maior precedência na resolução
                  (por cima de projeto + serviço gatilho). Formato .env colado,
@@ -212,17 +245,43 @@
 
             <text class="label_cap">RECORRÊNCIA</text>
             <row class="tabs">
-              <TabButton label="Manual" current="{njob_kind}" target="manual" action="njob_kind:manual" />
-              <TabButton label="Intervalo" current="{njob_kind}" target="interval" action="njob_kind:interval" />
-              <TabButton label="Diária" current="{njob_kind}" target="daily" action="njob_kind:daily" />
-              <TabButton label="Semanal" current="{njob_kind}" target="weekly" action="njob_kind:weekly" />
+              <TabButton
+                label="Manual"
+                current="{njob_kind}"
+                target="manual"
+                action="njob_kind:manual"
+              />
+              <TabButton
+                label="Intervalo"
+                current="{njob_kind}"
+                target="interval"
+                action="njob_kind:interval"
+              />
+              <TabButton
+                label="Diária"
+                current="{njob_kind}"
+                target="daily"
+                action="njob_kind:daily"
+              />
+              <TabButton
+                label="Semanal"
+                current="{njob_kind}"
+                target="weekly"
+                action="njob_kind:weekly"
+              />
             </row>
 
             <template if="{njob_kind}" equals="interval">
               <text class="np_label">A CADA QUANTAS HORAS</text>
               <!-- Teto de 168 = uma semana, igual ao da limpeza automática em
                 home.gv. Acima disso existe a recorrência "Semanal". -->
-              <spinbox field_class="spin_field" form_control="njob_hours" value="njob_hours" min="1" max="168" width="90" placeholder="6" />
+              <spinbox
+                field_class="spin_field"
+                form_control="njob_hours"
+                value="njob_hours"
+                min="1"
+                max="168" width="90" placeholder="6"
+              />
             </template>
 
             <!-- Os pares HORA/MINUTO de texto livre viraram um <timeedit> só
@@ -252,7 +311,9 @@
               </row>
             </template>
 
-            <text if="{njob_err}" not_equals="" class="err">{njob_err}</text>
+            <text if="{njob_err}" not_equals="" class="err">
+              {njob_err}
+            </text>
             <row class="busy_row" if="{njob_msg}" not_equals="">
               <spinner class="busy_spin" if="{njob_busy}" />
               <text class="muted">{njob_msg}</text>
@@ -260,10 +321,30 @@
 
             <row class="np_actions">
               <column class="np_spacer" />
-              <button class="btn_ghost" if="{njob_edit_id}" not_equals="" on_click="njob_back" text="Fechar" />
-              <button class="btn_ghost" if="{njob_edit_id}" equals="" on_click="njob_back" text="‹ Voltar" />
-              <button class="btn_primary" if="{njob_edit_id}" not_equals="" on_click="njob_create" text="Salvar" />
-              <button class="btn_primary" if="{njob_edit_id}" equals="" on_click="njob_create" text="Criar job" />
+              <button
+                class="btn_ghost"
+                if="{njob_edit_id}"
+                not_equals=""
+                on_click="njob_back" text="Fechar"
+              />
+              <button
+                class="btn_ghost"
+                if="{njob_edit_id}"
+                equals=""
+                on_click="njob_back" text="‹ Voltar"
+              />
+              <button
+                class="btn_primary"
+                if="{njob_edit_id}"
+                not_equals=""
+                on_click="njob_create" text="Salvar"
+              />
+              <button
+                class="btn_primary"
+                if="{njob_edit_id}"
+                equals=""
+                on_click="njob_create" text="Criar job"
+              />
             </row>
 
           </form>

@@ -629,7 +629,11 @@
           <template if="{proj_tab}" equals="jobs">
             <row class="env_head">
               <text class="muted_fill">{proj_jobs_count} job(s)</text>
-              <button class="btn_sm_primary" on_click="open_new_job_window" text="+ Novo job" />
+              <button
+                class="btn_sm_primary"
+                on_click="open_new_job_window"
+                text="+ Novo job"
+              />
             </row>
             <text if="{proj_jobs}" empty class="muted">
               Nenhum job cadastrado ainda.
@@ -639,17 +643,46 @@
                 <row class="kv_row" for-each="proj_jobs" var="j">
                   <text class="env_key">{j.name}</text>
                   <text class="muted col_dur">{j.recurrence}</text>
-                  <StateCell kind="{j.last_run_kind}" label="{j.last_run_label}" />
+                  <StateCell
+                    kind="{j.last_run_kind}"
+                    label="{j.last_run_label}"
+                  />
                   <text class="muted kv_val_fill">→ {j.next_run_at}</text>
-                  <button class="copy_btn" if="{j.running}" not_equals="true"
-                    on_click="job_run_now:{j.id}" text="Rodar agora" />
-                  <button class="env_del" if="{j.running}" equals="true"
-                    on_click="job_run_cancel:{j.last_run_id}" text="Cancelar" />
-                  <button class="copy_btn" if="{j.last_run_id}" not_equals=""
-                    on_click="open_job_logs_window:{j.last_run_id}" text="Ver logs" />
-                  <button class="copy_btn" on_click="job_toggle:{j.id}" text="{j.enabled_label}" />
-                  <button class="copy_btn" on_click="open_edit_job_window:{j.id}" text="Editar" />
-                  <button class="env_del" on_click="job_del:{j.id}" text="✕" />
+                  <button
+                    class="copy_btn"
+                    if="{j.running}"
+                    not_equals="true"
+                    on_click="job_run_now:{j.id}"
+                    text="Rodar agora"
+                  />
+                  <button class="env_del"
+                    if="{j.running}"
+                    equals="true"
+                    on_click="job_run_cancel:{j.last_run_id}"
+                    text="Cancelar"
+                  />
+                  <button
+                    class="copy_btn"
+                    if="{j.last_run_id}"
+                    not_equals=""
+                    on_click="open_job_logs_window:{j.last_run_id}"
+                    text="Ver logs"
+                  />
+                  <button
+                    class="copy_btn"
+                    on_click="job_toggle:{j.id}"
+                    text="{j.enabled_label}"
+                  />
+                  <button
+                    class="copy_btn"
+                    on_click="open_edit_job_window:{j.id}"
+                    text="Editar"
+                  />
+                  <button
+                    class="env_del"
+                    on_click="job_del:{j.id}"
+                    text="✕"
+                  />
                 </row>
               </column>
             </scrollable>

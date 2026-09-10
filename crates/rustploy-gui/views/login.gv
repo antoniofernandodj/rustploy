@@ -70,7 +70,11 @@
           >{erro_url}</text>
 
           <row class="forget_row">
-            <button class="forget_btn" on_click="esquecer_servidor" text="Esquecer este servidor" />
+            <button
+              class="forget_btn"
+              on_click="esquecer_servidor"
+              text="Esquecer este servidor"
+            />
           </row>
         </column>
 

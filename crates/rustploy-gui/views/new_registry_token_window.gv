@@ -80,14 +80,31 @@
             spacing="10"
           >
             <text class="np_label">NOME</text>
-            <input class="np_input" form_control="ntok_name"
-              rules="required" msg="informe um nome" placeholder="ex.: ci-deploy" />
-            <text class="err" if="{erro_ntok_name}" not_empty>{erro_ntok_name}</text>
+            <input
+              class="np_input"
+              form_control="ntok_name"
+              rules="required"
+              msg="informe um nome"
+              placeholder="ex.: ci-deploy"
+            />
+            <text class="err" if="{erro_ntok_name}" not_empty>
+              {erro_ntok_name}
+            </text>
 
             <text class="label_cap">ESCOPO</text>
             <row class="tabs">
-              <TabButton label="Somente leitura (pull)" current="{ntok_scope}" target="pull" action="ntok_scope:pull" />
-              <TabButton label="Leitura e escrita (push)" current="{ntok_scope}" target="push" action="ntok_scope:push" />
+              <TabButton
+                label="Somente leitura (pull)"
+                current="{ntok_scope}"
+                target="pull"
+                action="ntok_scope:pull"
+              />
+              <TabButton
+                label="Leitura e escrita (push)"
+                current="{ntok_scope}"
+                target="push"
+                action="ntok_scope:push"
+              />
             </row>
 
             <text if="{ntok_err}" not_equals="" class="err">{ntok_err}</text>
@@ -116,13 +133,21 @@
             <text class="kv_val_fill">{ntok_login_cmd}</text>
             <row class="np_actions">
               <column class="np_spacer" />
-              <button class="copy_btn" on_click="clipboard:ntok_login_cmd" text="Copiar" />
+              <button
+                class="copy_btn"
+                on_click="clipboard:ntok_login_cmd"
+                text="Copiar"
+              />
             </row>
           </column>
 
           <row class="np_actions">
             <column class="np_spacer" />
-            <button class="btn_primary" on_click="window:close" text="Fechar" />
+            <button
+              class="btn_primary"
+              on_click="window:close"
+              text="Fechar"
+            />
           </row>
         </template>
 

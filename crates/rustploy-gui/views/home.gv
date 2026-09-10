@@ -734,8 +734,16 @@
                   <text class="muted col_dur">{r.size}</text>
                   <text class="muted col_dur">{r.created}</text>
                   <row class="col_act_2">
-                    <button class="copy_btn" on_click="registry_open_repo:{r.name}" text="≡" tooltip="Ver tags" />
-                    <button class="env_del" on_click="registry_rm_repo:{r.name}" text="✕" tooltip="Remover" />
+                    <button
+                      class="copy_btn"
+                      on_click="registry_open_repo:{r.name}" text="≡"
+                      tooltip="Ver tags"
+                    />
+                    <button
+                      class="env_del"
+                      on_click="registry_rm_repo:{r.name}" text="✕"
+                      tooltip="Remover"
+                    />
                   </row>
                 </row>
                 <hr />
@@ -753,7 +761,8 @@
             <button class="btn_primary" on_click="registry_open_token_window" text="+ Novo token" />
           </row>
           <text if="{registry_tokens}" empty class="muted">
-            Nenhum token ainda. Sem token nenhum push/pull é autenticado — crie um antes de usar o registry.
+            Nenhum token ainda. Sem token nenhum push/pull é autenticado —
+            crie um antes de usar o registry.
           </text>
           <row class="thead" if="{registry_tokens}" not_empty>
             <text class="th col_svc">NOME</text>
@@ -769,7 +778,12 @@
               <text class="muted col_dur">{tk.created}</text>
               <text class="muted col_dur">{tk.last_used}</text>
               <row class="col_act">
-                <button class="env_del" on_click="registry_rm_token:{tk.name}" text="✕" tooltip="Revogar" />
+                <button
+                  class="env_del"
+                  on_click="registry_rm_token:{tk.name}"
+                  text="✕"
+                  tooltip="Revogar"
+                />
               </row>
             </row>
             <hr />
@@ -778,7 +792,9 @@
 
         <column class="panel_fill" if="{registry_selected_repo}" not_equals="">
           <row class="env_head">
-            <text class="muted_fill">{registry_selected_repo} — {registry_tags_count} tag(s)</text>
+            <text class="muted_fill">
+              {registry_selected_repo} — {registry_tags_count} tag(s)
+            </text>
             <button class="btn_ghost" on_click="registry_close_repo" text="← Voltar" />
           </row>
           <row class="thead">
@@ -805,7 +821,11 @@
                   <text class="muted col_dur">{t.size}</text>
                   <text class="muted col_dur">{t.updated}</text>
                   <row class="col_act">
-                    <button class="dk_rm" on_click="registry_rm_tag:{t.tag}" text="Remover" />
+                    <button
+                      class="dk_rm"
+                      on_click="registry_rm_tag:{t.tag}"
+                      text="Remover"
+                    />
                   </row>
                 </row>
                 <hr />
@@ -929,7 +949,11 @@
                       {p.kind}  ·  {p.base_url}  ·  {p.auth_mode}  ·  {p.account}
                     </text>
                   </column>
-                  <button class="btn_danger" on_click="gp_delete:{p.id}" text="Remover" />
+                  <button
+                    class="btn_danger"
+                    on_click="gp_delete:{p.id}"
+                    text="Remover"
+                  />
                 </row>
               </template>
             </column>
@@ -1192,9 +1216,24 @@
 
             <text class="label_cap">FREQUÊNCIA</text>
             <row class="tabs">
-              <TabButton label="A cada N horas" current="{dc_kind}" target="interval" action="dc_kind:interval" />
-              <TabButton label="Todo dia" current="{dc_kind}" target="daily" action="dc_kind:daily" />
-              <TabButton label="Toda semana" current="{dc_kind}" target="weekly" action="dc_kind:weekly" />
+              <TabButton
+                label="A cada N horas"
+                current="{dc_kind}"
+                target="interval"
+                action="dc_kind:interval"
+              />
+              <TabButton
+                label="Todo dia"
+                current="{dc_kind}"
+                target="daily"
+                action="dc_kind:daily"
+              />
+              <TabButton
+                label="Toda semana"
+                current="{dc_kind}"
+                target="weekly"
+                action="dc_kind:weekly"
+              />
             </row>
 
             <row class="hc_grid" if="{dc_kind}" equals="interval">
@@ -1202,7 +1241,15 @@
                 <text class="label_cap">A CADA (HORAS)</text>
                 <!-- Teto de 168 = uma semana. Acima disso o usuário quer a
                   frequência "semanal", que é a aba ao lado. -->
-                <spinbox field_class="spin_field" form_control="dc_hours" value="dc_hours" min="1" max="168" width="90" placeholder="6" />
+                <spinbox
+                  field_class="spin_field"
+                  form_control="dc_hours"
+                  value="dc_hours"
+                  min="1"
+                  max="168"
+                  width="90"
+                  placeholder="6"
+                />
               </column>
             </row>
 
@@ -1238,9 +1285,17 @@
             <hr />
             <text class="label_cap">O QUE LIMPAR</text>
 
-            <checkbox checked="dc_containers" on_toggle="field:dc_containers" label="Containers parados" />
+            <checkbox
+              checked="dc_containers"
+              on_toggle="field:dc_containers"
+              label="Containers parados"
+            />
 
-            <checkbox checked="dc_images" on_toggle="field:dc_images" label="Imagens sem uso" />
+            <checkbox
+              checked="dc_images"
+              on_toggle="field:dc_images"
+              label="Imagens sem uso"
+            />
             <checkbox
               if="{dc_images}"
               equals="true"
@@ -1249,9 +1304,17 @@
               label="   incluir todas as não usadas (não só as sem tag)"
             />
 
-            <checkbox checked="dc_networks" on_toggle="field:dc_networks" label="Redes sem uso" />
+            <checkbox
+              checked="dc_networks"
+              on_toggle="field:dc_networks"
+              label="Redes sem uso"
+            />
 
-            <checkbox checked="dc_build_cache" on_toggle="field:dc_build_cache" label="Cache de build" />
+            <checkbox
+              checked="dc_build_cache"
+              on_toggle="field:dc_build_cache"
+              label="Cache de build"
+            />
 
             <hr />
             <text class="label_cap err">VOLUMES — CUIDADO</text>
@@ -1261,7 +1324,11 @@
               recriaria sozinho. Confirme que sabe o que existe no host antes de
               ativar.
             </text>
-            <checkbox checked="dc_volumes" on_toggle="field:dc_volumes" label="Volumes sem uso" />
+            <checkbox
+              checked="dc_volumes"
+              on_toggle="field:dc_volumes"
+              label="Volumes sem uso"
+            />
             <checkbox
               if="{dc_volumes}"
               equals="true"
@@ -1271,9 +1338,24 @@
             />
 
             <row class="env_add">
-              <button class="btn_primary" on_click="dc_save" text="Salvar" />
-              <button class="tab" if="{dc_running}" not_equals="true" on_click="dc_run_now" text="Executar agora" />
-              <button class="tab" if="{dc_running}" equals="true" text="Executando…" />
+              <button
+                class="btn_primary"
+                on_click="dc_save"
+                text="Salvar"
+              />
+              <button
+                class="tab"
+                if="{dc_running}"
+                not_equals="true"
+                on_click="dc_run_now"
+                text="Executar agora"
+              />
+              <button
+                class="tab"
+                if="{dc_running}"
+                equals="true"
+                text="Executando…"
+              />
               <text class="muted">{dc_msg}</text>
             </row>
 
@@ -1291,13 +1373,18 @@
         <column class="header_titles">
           <text class="title">Schedules</text>
           <text class="subtitle">
-            Tarefas one-shot (docker-compose) agendadas ou manuais, de todos os projetos.
+            Tarefas one-shot (docker-compose) agendadas
+            ou manuais, de todos os projetos.
           </text>
         </column>
         <row class="stats_row stats_hide_md">
           <StatCard label="JOBS" value="{jobs_count}" />
         </row>
-        <button class="btn_primary" on_click="open_new_job_window" text="+ Novo job" />
+        <button
+          class="btn_primary"
+          on_click="open_new_job_window"
+          text="+ Novo job"
+        />
       </row>
       <column class="panel_fill">
         <row class="thead">
@@ -1322,18 +1409,58 @@
                   <text class="muted col_dur">{j.recurrence}</text>
                   <text class="muted col_dur">{j.next_run_at}</text>
                   <row class="col_act_5">
-                    <button class="copy_btn" if="{j.running}" not_equals="true"
-                      on_click="job_run_now:{j.id}" text="▶" tooltip="Rodar agora" />
-                    <button class="env_del" if="{j.running}" equals="true"
-                      on_click="job_run_cancel:{j.last_run_id}" text="■" tooltip="Cancelar" />
-                    <button class="copy_btn" if="{j.last_run_id}" not_equals=""
-                      on_click="open_job_logs_window:{j.last_run_id}" text="≡" tooltip="Ver logs" />
-                    <button class="copy_btn" if="{j.enabled}" equals="true"
-                      on_click="job_toggle:{j.id}" text="‖" tooltip="Pausar" />
-                    <button class="copy_btn" if="{j.enabled}" not_equals="true"
-                      on_click="job_toggle:{j.id}" text="▶" tooltip="Ativar" />
-                    <button class="copy_btn" on_click="open_edit_job_window:{j.id}" text="✎" tooltip="Editar" />
-                    <button class="env_del" on_click="job_del:{j.id}" text="✕" tooltip="Remover" />
+                    <button
+                      class="copy_btn"
+                      if="{j.running}"
+                      not_equals="true"
+                      on_click="job_run_now:{j.id}"
+                      text="▶"
+                      tooltip="Rodar agora"
+                    />
+                    <button
+                      class="env_del"
+                      if="{j.running}"
+                      equals="true"
+                      on_click="job_run_cancel:{j.last_run_id}"
+                      text="■"
+                      tooltip="Cancelar"
+                    />
+                    <button
+                      class="copy_btn"
+                      if="{j.last_run_id}"
+                      not_equals=""
+                      on_click="open_job_logs_window:{j.last_run_id}"
+                      text="≡"
+                      tooltip="Ver logs"
+                    />
+                    <button
+                      class="copy_btn"
+                      if="{j.enabled}"
+                      equals="true"
+                      on_click="job_toggle:{j.id}"
+                      text="‖"
+                      tooltip="Pausar"
+                    />
+                    <button
+                      class="copy_btn"
+                      if="{j.enabled}"
+                      not_equals="true"
+                      on_click="job_toggle:{j.id}"
+                      text="▶"
+                      tooltip="Ativar"
+                    />
+                    <button
+                      class="copy_btn"
+                      on_click="open_edit_job_window:{j.id}"
+                      text="✎"
+                      tooltip="Editar"
+                    />
+                    <button
+                      class="env_del"
+                      on_click="job_del:{j.id}"
+                      text="✕"
+                      tooltip="Remover"
+                    />
                   </row>
                 </row>
                 <hr />
