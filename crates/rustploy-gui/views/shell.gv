@@ -300,28 +300,27 @@
                 <form
                   name="edit_project"
                   on_submit="save_project_edit"
+                  on_validation_error="proj_edit_apontar"
                   spacing="6"
                   width="fill"
                 >
                   <input
                     class="field_input"
                     form_control="edit_proj_name"
+                    rules="required"
+                    msg="informe um nome"
                     placeholder="Nome do projeto"
                   />
-                  <if cond="{erro_edit_proj_name}" not_equals="">
-                    <text class="err">{erro_edit_proj_name}</text>
-                  </if>
+                  <text class="err" if="{erro_edit_proj_name}" not_empty>
+                    {erro_edit_proj_name}
+                  </text>
                   <input
                     class="field_input"
                     form_control="edit_proj_desc"
                     placeholder="Descrição (opcional)"
                   />
                   <row class="env_add">
-                    <button
-                      class="btn_primary"
-                      on_click="save_project_edit"
-                      text="Salvar"
-                    />
+                    <button type="submit" class="btn_primary" text="Salvar" />
                     <button
                       class="btn_ghost"
                       on_click="cancel_project_edit"
@@ -400,11 +399,19 @@
                   />
                 </else>
               </row>
-              <form name="penv_add" on_submit="penv_add" width="fill" spacing="8">
+              <form
+                name="penv_add"
+                on_submit="penv_add"
+                on_validation_error="penv_apontar"
+                width="fill"
+                spacing="8"
+              >
                 <row class="env_add">
                   <input
                     class="env_in_key"
                     form_control="penv_new_key"
+                    rules="required"
+                    msg="chave vazia"
                     placeholder="KEY"
                   />
                 </row>
@@ -454,16 +461,12 @@
                   </row>
                 </else>
                 <row>
-                  <button
-                    class="btn_primary"
-                    on_click="penv_add"
-                    text="Adicionar"
-                  />
+                  <button type="submit" class="btn_primary" text="Adicionar" />
                 </row>
               </form>
-              <if cond="{erro_penv_new_key}" not_equals="">
-                <text class="err">{erro_penv_new_key}</text>
-              </if>
+              <text class="err" if="{erro_penv_new_key}" not_empty>
+                {erro_penv_new_key}
+              </text>
               <scrollable direction="vertical" class="env_list_scroll">
                 <column class="kv_list">
                   <template
@@ -568,32 +571,41 @@
                   O valor real só é decifrado em memória, na hora do deploy.
                 </text>
               </column>
-              <form name="secret_add" on_submit="secret_add" width="fill" spacing="8">
+              <form
+                name="secret_add"
+                on_submit="secret_add"
+                on_validation_error="secret_add_apontar"
+                width="fill"
+                spacing="8"
+              >
                 <row class="env_add">
                   <input
                     class="env_in_key"
                     form_control="sec_new_name"
+                    rules="required"
+                    msg="informe um nome"
                     placeholder="NOME"
                   />
                 </row>
+                <text class="err" if="{erro_sec_new_name}" not_empty>
+                  {erro_sec_new_name}
+                </text>
                 <row class="env_add">
                   <input
                     class="env_in_val"
                     form_control="sec_new_val"
+                    rules="required"
+                    msg="informe um valor"
                     placeholder="valor (cifrado ao salvar)"
                   />
                 </row>
+                <text class="err" if="{erro_sec_new_val}" not_empty>
+                  {erro_sec_new_val}
+                </text>
                 <row>
-                  <button
-                    class="btn_primary"
-                    on_click="secret_add"
-                    text="Salvar secret"
-                  />
+                  <button type="submit" class="btn_primary" text="Salvar secret" />
                 </row>
               </form>
-              <if cond="{erro_sec_new_name}" not_equals="">
-                <text class="err">{erro_sec_new_name}</text>
-              </if>
               <hr />
               <text if="{proj_secrets}" empty class="muted">
                 Nenhum secret neste projeto ainda.

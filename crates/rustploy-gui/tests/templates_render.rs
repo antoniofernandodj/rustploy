@@ -55,6 +55,37 @@ fn new_project_form_window_renders() {
         m.render("new_project_form").is_ok(),
         "render new_project_form"
     );
+
+    // Onda 1 da reforma: o campo NOME usa a validação declarada no <form>
+    // (glacier-ui 0.102+). Na árvore avaliada, o `form_control` "np_name" deve
+    // carregar `rules` com `required` e ter o `on_validation_error` do <form>
+    // propagado (form_error_action) — é o que garante que um envio vazio
+    // roteia pro `np_apontar` em vez do `submit_project`.
+    fn find_control<'a>(
+        node: &'a glacier_ui::parser::UiNode,
+        name: &str,
+    ) -> Option<&'a glacier_ui::parser::UiNode> {
+        if node.form_control() == Some(name) {
+            return Some(node);
+        }
+        node.children.iter().find_map(|c| find_control(c, name))
+    }
+    let ast = m.evaluated("new_project_form").expect("evaluated");
+    let np_name = find_control(ast, "np_name")
+        .expect("o form_control \"np_name\" deve existir na árvore avaliada");
+    assert!(
+        np_name.rules().is_some_and(|r| r.contains("required")),
+        "np_name deve carregar rules=\"required\", achei {:?}",
+        np_name.rules()
+    );
+    assert_eq!(
+        np_name
+            .form
+            .as_ref()
+            .and_then(|f| f.form_error_action.as_deref()),
+        Some("np_apontar"),
+        "o on_validation_error do <form> deve chegar no campo (form_error_action)"
+    );
 }
 
 /// A janela "Novo job" (`new_job_window.gv` + `new_job_window.luau`) é um

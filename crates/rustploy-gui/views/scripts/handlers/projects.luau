@@ -181,6 +181,13 @@ function cancel_project_edit(): ()
     ctx.editing_project = "false"
 end
 
+-- on_validation_error do <form name="edit_project"> — o motor já publicou
+-- {erro_edit_proj_name} e acendeu o :invalid; aqui é só o aviso.
+function proj_edit_apontar(_erros_json: string?): ()
+    toast{ message = "Informe o nome do projeto", kind = "warning" }
+end
+
+-- on_submit: só roda com a validação (rules="required" no NOME) aprovada.
 function save_project_edit(): ()
     local pid = ctx.selected_project_id or ""
     local api = State.api
@@ -188,11 +195,6 @@ function save_project_edit(): ()
         return
     end
     local name = Helpers.trim(ctx.edit_proj_name)
-    if name == "" then
-        ctx.erro_edit_proj_name = "informe um nome";
-        return
-    end
-    ctx.erro_edit_proj_name = ""
     local desc = Helpers.trim(ctx.edit_proj_desc)
     local ok, res = api:rpc_checked{
         ProjectUpdate = {
@@ -341,12 +343,16 @@ local function reorder_project_env(
     return new_vars, new_comments
 end
 
+-- on_validation_error do <form name="penv_add"> (a chave é obrigatória via
+-- rules="required"). O erro do modo-secret abaixo continua no handler porque é
+-- condicional (não dá pra declarar no <form>).
+function penv_apontar(_erros_json: string?): ()
+    toast{ message = "Informe a chave (KEY)", kind = "warning" }
+end
+
 function penv_add(): ()
+    -- rules="required" no <form> garante penv_new_key preenchido aqui.
     local key = Helpers.trim(ctx.penv_new_key)
-    if key == "" then
-        ctx.erro_penv_new_key = "chave vazia";
-        return
-    end
     ctx.erro_penv_new_key = ""
     local val = ctx.penv_new_val or ""
     -- Duas formas de virar referência de secret (a que o daemon decifra no

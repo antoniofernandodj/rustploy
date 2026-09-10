@@ -28,23 +28,22 @@ local function known_names(): { [string]: boolean }
     return set
 end
 
+-- on_validation_error do <form name="secret_add"> — NOME e valor são
+-- `rules="required"` no <form>; o motor publica {erro_sec_new_name} /
+-- {erro_sec_new_val} e acende o :invalid. Aqui é só o aviso.
+function secret_add_apontar(_erros_json: string?): ()
+    toast{ message = "Preencha nome e valor do secret", kind = "warning" }
+end
+
 function secret_add(): ()
     local pid = ctx.selected_project_id or ""
     local api = State.api
     if pid == "" or not api then
         return
     end
+    -- rules="required" no <form> garante nome e valor preenchidos aqui.
     local name = Helpers.trim(ctx.sec_new_name)
-    if name == "" then
-        ctx.erro_sec_new_name = "informe um nome"
-        return
-    end
-    ctx.erro_sec_new_name = ""
     local value = ctx.sec_new_val or ""
-    if value == "" then
-        ctx.erro_sec_new_name = "informe um valor"
-        return
-    end
     local replacing = known_names()[name] == true
     local ok, res = api:rpc_checked{
         SecretSet = { project_id = pid, name = name, value = value }
