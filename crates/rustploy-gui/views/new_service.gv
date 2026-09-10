@@ -34,7 +34,7 @@
     </row>
 
     <!-- ── Passo 1: tipo de serviço ──────────────────────────────────────── -->
-    <if cond="{ns_step}" equals="pick_type">
+    <template if="{ns_step}" equals="pick_type">
       <column class="form_panel">
         <text class="label_cap">
           ESCOLHA O TIPO DE SERVIÇO
@@ -72,10 +72,10 @@
           />
         </column>
       </column>
-    </if>
+    </template>
 
     <!-- ── Passo 2 (Database): escolha do banco ─────────────────────────── -->
-    <if cond="{ns_step}" equals="pick_db">
+    <template if="{ns_step}" equals="pick_db">
       <column class="form_panel">
         <text class="label_cap">
           ESCOLHA O BANCO DE DADOS
@@ -91,10 +91,10 @@
           />
         </column>
       </column>
-    </if>
+    </template>
 
     <!-- ── Passo 2 (Broker): escolha do broker ──────────────────────────── -->
-    <if cond="{ns_step}" equals="pick_broker">
+    <template if="{ns_step}" equals="pick_broker">
       <column class="form_panel">
         <text class="label_cap">
           ESCOLHA O BROKER
@@ -109,10 +109,10 @@
             action="ns_broker:{b.id}" />
         </column>
       </column>
-    </if>
+    </template>
 
     <!-- ── Application ───────────────────────────────────────────────────── -->
-    <if cond="{ns_step}" equals="app_form">
+    <template if="{ns_step}" equals="app_form">
       <form name="ns_app" on_submit="ns_create" width="fill">
         <column class="form_panel">
           <text class="label_cap">
@@ -156,10 +156,10 @@
           </row>
         </column>
       </form>
-    </if>
+    </template>
 
     <!-- ── Compose ───────────────────────────────────────────────────────── -->
-    <if cond="{ns_step}" equals="compose_form">
+    <template if="{ns_step}" equals="compose_form">
       <form name="ns_compose" on_submit="ns_create" width="fill">
         <column class="form_panel">
           <text class="label_cap">
@@ -201,10 +201,10 @@
           </row>
         </column>
       </form>
-    </if>
+    </template>
 
     <!-- ── Database (form do banco escolhido) ────────────────────────────── -->
-    <if cond="{ns_step}" equals="db_form">
+    <template if="{ns_step}" equals="db_form">
       <scrollable direction="vertical" class="scroll_fill">
         <form name="ns_db" on_submit="ns_create" width="fill">
           <column class="form_panel">
@@ -223,7 +223,7 @@
               {erro_ns_name}
             </text>
 
-            <if cond="{ns_db_has_dbname}" equals="true">
+            <template if="{ns_db_has_dbname}" equals="true">
               <text class="label_cap">
                 DATABASE NAME
               </text>
@@ -234,9 +234,9 @@
                 value="ns_db_name"
                 on_change="field:ns_db_name"
               />
-            </if>
+            </template>
 
-            <if cond="{ns_db_has_user}" equals="true">
+            <template if="{ns_db_has_user}" equals="true">
               <text class="label_cap">
                 USER
               </text>
@@ -247,7 +247,7 @@
                 value="ns_db_user" 
                 on_change="field:ns_db_user" 
               />
-            </if>
+            </template>
 
             <text class="label_cap">
               PASSWORD (gerada — pode trocar)
@@ -261,7 +261,7 @@
               on_change="field:ns_db_password"
             />
 
-            <if cond="{ns_db_has_rootpw}"
+            <template if="{ns_db_has_rootpw}"
               equals="true">
               <text class="label_cap">
                 ROOT PASSWORD (gerada — pode trocar)
@@ -273,7 +273,7 @@
                 value="ns_db_root_password"
                 on_change="field:ns_db_root_password"
               />
-            </if>
+            </template>
 
             <checkbox
               label="Use Replica Sets"
@@ -308,10 +308,10 @@
           </column>
         </form>
       </scrollable>
-    </if>
+    </template>
 
     <!-- ── Template: catálogo ─────────────────────────────────────────────── -->
-    <if cond="{ns_step}" equals="pick_template">
+    <template if="{ns_step}" equals="pick_template">
       <column class="env_wrap">
         <column class="hc_field">
           <text class="label_cap">BUSCAR</text>
@@ -333,10 +333,10 @@
           </column>
         </scrollable>
       </column>
-    </if>
+    </template>
 
     <!-- ── Template: configuração ─────────────────────────────────────────── -->
-    <if cond="{ns_step}" equals="template_form">
+    <template if="{ns_step}" equals="template_form">
       <scrollable direction="vertical" class="scroll_fill">
         <form name="ns_template" on_submit="ns_create" width="fill">
           <column class="form_panel">
@@ -374,6 +374,6 @@
           </column>
         </form>
       </scrollable>
-    </if>
+    </template>
   </column>
 </component>

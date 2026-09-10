@@ -54,7 +54,7 @@
       <column class="form_panel">
 
         <!-- Passo 1: escolher o projeto -->
-        <if cond="{njob_step}" equals="pick_project">
+        <template if="{njob_step}" equals="pick_project">
           <text class="label_cap">ESCOLHA O PROJETO</text>
           <text class="muted">
             O job sobe um stack docker-compose próprio; o projeto define a rede.
@@ -73,11 +73,11 @@
             <column class="np_spacer" />
             <button class="btn_ghost" on_click="cancel" text="Cancelar" />
           </row>
-        </if>
+        </template>
 
         <!-- Passo 2: escolher o serviço gatilho (opcional — só env vars de
              base; a rede Docker já vem do projeto escolhido no passo 1). -->
-        <if cond="{njob_step}" equals="pick_service">
+        <template if="{njob_step}" equals="pick_service">
           <text class="label_cap">
             SERVIÇO GATILHO (OPCIONAL) — {njob_project_name}
           </text>
@@ -111,20 +111,20 @@
             <column class="np_spacer" />
             <button class="btn_ghost" on_click="njob_back" text="‹ Voltar" />
           </row>
-        </if>
+        </template>
 
         <!-- Passo 3: formulário do job (também o único passo em modo edição —
              aberto por open_edit_job_window, sem passos 1/2: projeto/serviço
              gatilho não são editáveis via JobUpdate). -->
-        <if cond="{njob_step}" equals="form">
-          <if cond="{njob_edit_id}" not_equals="">
+        <template if="{njob_step}" equals="form">
+          <template if="{njob_edit_id}" not_equals="">
             <text class="label_cap">EDITAR JOB — {njob_name}</text>
-          </if>
-          <else>
+          </template>
+          <template else>
             <text class="label_cap">
               NOVO JOB — {njob_project_name} / {njob_service_name}
             </text>
-          </else>
+          </template>
 
           <form name="njob_form" on_submit="njob_create" width="fill" spacing="10">
 
@@ -138,17 +138,17 @@
               <TabButton label="Git" current="{njob_source}" target="git" action="njob_source:git" />
             </row>
 
-            <if cond="{njob_source}" equals="compose">
+            <template if="{njob_source}" equals="compose">
               <text class="np_label">DOCKER-COMPOSE.YML</text>
               <textarea class="env_editor" font="mono" value="njob_compose"
                 placeholder="services:&#10;  job:&#10;    image: busybox&#10;    command: [&quot;sh&quot;, &quot;-c&quot;, &quot;echo ok&quot;]" />
-            </if>
+            </template>
 
             <!-- Aba Git: mesmo picker conta→repo→branch da aba Gitea de
                  serviço (service.gv); o repo escolhido precisa já ter um
                  docker-compose.yml no caminho informado — o job clona e roda
                  esse arquivo a cada execução, em vez do colado acima. -->
-            <if cond="{njob_source}" equals="git">
+            <template if="{njob_source}" equals="git">
               <text class="muted">
                 Selecione a conta conectada, o repositório e a branch. O repo
                 precisa já ter um docker-compose.yml no caminho informado.
@@ -193,7 +193,7 @@
               <text class="np_label">CAMINHO DO COMPOSE NO REPO</text>
               <input class="np_input" form_control="njob_compose_path" value="njob_compose_path"
                 on_change="field:njob_compose_path" placeholder="docker-compose.yml" />
-            </if>
+            </template>
 
             <text class="np_label">MAIN SERVICE (nome dentro do compose acima)</text>
             <input class="np_input" form_control="njob_main_service" value="njob_main_service"
@@ -218,26 +218,26 @@
               <TabButton label="Semanal" current="{njob_kind}" target="weekly" action="njob_kind:weekly" />
             </row>
 
-            <if cond="{njob_kind}" equals="interval">
+            <template if="{njob_kind}" equals="interval">
               <text class="np_label">A CADA QUANTAS HORAS</text>
               <!-- Teto de 168 = uma semana, igual ao da limpeza automática em
                 home.gv. Acima disso existe a recorrência "Semanal". -->
               <spinbox field_class="spin_field" form_control="njob_hours" value="njob_hours" min="1" max="168" width="90" placeholder="6" />
-            </if>
+            </template>
 
             <!-- Os pares HORA/MINUTO de texto livre viraram um <timeedit> só
               (chave `njob_time`, "HH:MM") — mesma troca e mesmo motivo da
               limpeza automática em home.gv. -->
-            <if cond="{njob_kind}" equals="daily">
+            <template if="{njob_kind}" equals="daily">
               <row class="env_add">
                 <column class="np_group">
                   <text class="np_label">HORÁRIO</text>
                   <timeedit value="njob_time" />
                 </column>
               </row>
-            </if>
+            </template>
 
-            <if cond="{njob_kind}" equals="weekly">
+            <template if="{njob_kind}" equals="weekly">
               <text class="np_label">DIA DA SEMANA</text>
               <!-- Mesma troca de home.gv: sete <TabButton> + handler viraram um
                 <radiogroup>, que grava `njob_weekday` sozinho. -->
@@ -250,7 +250,7 @@
                   <timeedit value="njob_time" />
                 </column>
               </row>
-            </if>
+            </template>
 
             <text if="{njob_err}" not_equals="" class="err">{njob_err}</text>
             <row class="busy_row" if="{njob_msg}" not_equals="">
@@ -267,7 +267,7 @@
             </row>
 
           </form>
-        </if>
+        </template>
 
       </column>
     </scrollable>

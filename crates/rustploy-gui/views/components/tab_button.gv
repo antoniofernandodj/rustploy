@@ -21,17 +21,17 @@
     </style>
   </resources>
 
-  <if cond="{current}" equals="{target}">
+  <template if="{current}" equals="{target}">
     <button
       class="tab_on"
       on_click="{action}"
       text="{label}"
     />
-  </if> <else>
+  </template> <template else>
     <button
       class="tab"
       on_click="{action}"
       text="{label}"
     />
-  </else>
+  </template>
 </component>

@@ -155,7 +155,7 @@
       </row>
       <hr />
       <!-- Content -->
-      <if cond="{view}" equals="deployments">
+      <template if="{view}" equals="deployments">
         <column class="content">
           <row class="header_row">
             <column class="header_titles">
@@ -184,9 +184,9 @@
               <text class="th col_start">INÍCIO</text>
             </row>
 
-            <if cond="{data_loading}" equals="true">
+            <template if="{data_loading}" equals="true">
               <LoadingRow />
-            </if>
+            </template>
 
             <scrollable
               if="{data_loading}"
@@ -209,10 +209,10 @@
             </scrollable>
           </column>
         </column>
-      </if>
+      </template>
 
       <!-- ── Projects (lista de projetos) ────────────────────────────── -->
-      <else-if cond="{view}" equals="projects">
+      <template else-if="{view}" equals="projects">
         <column class="content">
           <row class="header_row">
             <column class="header_titles">
@@ -237,9 +237,9 @@
               text="+ Novo projeto"
             />
           </row>
-          <if cond="{data_loading}" equals="true">
+          <template if="{data_loading}" equals="true">
             <LoadingRow />
-          </if>
+          </template>
 
           <scrollable
             if="{data_loading}"
@@ -258,9 +258,9 @@
             </column>
           </scrollable>
         </column>
-      </else-if>
+      </template>
       <!-- ── Projeto: serviços de um projeto ────────────────────────── -->
-      <else-if cond="{view}" equals="project_services">
+      <template else-if="{view}" equals="project_services">
         <column class="content">
           <row class="header_row">
             <column class="header_titles">
@@ -274,7 +274,7 @@
                   text="‹ Projetos"
                 />
                 <column class="hspacer" />
-                <if cond="{editing_project}" not_equals="true">
+                <template if="{editing_project}" not_equals="true">
                   <row class="proj_actions">
                     <button
                       class="btn_sm_primary"
@@ -286,17 +286,17 @@
                       on_click="edit_project_toggle"
                       text="Editar projeto"
                     />
-                    <if cond="{proj_can_delete}" equals="1">
+                    <template if="{proj_can_delete}" equals="1">
                       <button
                         class="btn_sm_danger"
                         on_click="delete_project:{selected_project_id}"
                         text="Remover projeto"
                       />
-                    </if>
+                    </template>
                   </row>
-                </if>
+                </template>
               </row>
-              <if cond="{editing_project}" equals="true">
+              <template if="{editing_project}" equals="true">
                 <form
                   name="edit_project"
                   on_submit="save_project_edit"
@@ -329,14 +329,14 @@
                     <text class="muted">{proj_action_msg}</text>
                   </row>
                 </form>
-              </if>
-              <else>
+              </template>
+              <template else>
                 <text class="title">{proj_name}</text>
                 <text class="subtitle">{proj_description}</text>
                 <text if="{proj_action_msg}" not_equals="" class="muted">
                   {proj_action_msg}
                 </text>
-              </else>
+              </template>
             </column>
           </row>
           <!-- Sub-abas do projeto -->
@@ -367,10 +367,10 @@
             />
           </row>
           <hr />
-          <if cond="{proj_loading}" equals="true">
+          <template if="{proj_loading}" equals="true">
             <LoadingRow />
-          </if>
-          <if cond="{proj_tab}" equals="env">
+          </template>
+          <template if="{proj_tab}" equals="env">
             <!-- ── Variáveis de ambiente do projeto ────────────────────── -->
             <column class="env_wrap" if="{proj_loading}" not_equals="true">
               <row class="env_head">
@@ -384,20 +384,20 @@
                   text="Exportar"
                 />
                 <text>&nbsp;</text>
-                <if cond="{penv_text_open}" equals="true">
+                <template if="{penv_text_open}" equals="true">
                   <button
                     class="btn_export_on"
                     on_click="penv_text_toggle"
                     text="Fechar"
                   />
-                </if>
-                <else>
+                </template>
+                <template else>
                   <button
                     class="tab"
                     on_click="penv_text_toggle"
                     text=".env"
                   />
-                </else>
+                </template>
               </row>
               <form
                 name="penv_add"
@@ -418,8 +418,8 @@
                 <!-- Modo secret: o campo valor passa a receber o NOME de um
                      secret do projeto (a referência, não o conteúdo), que o
                      daemon decifra no deploy. Vários filhos condicionais →
-                     tag if, não atributo. -->
-                <if cond="{penv_new_is_secret}" equals="true">
+                     `<template>`, não `if=` atributo. -->
+                <template if="{penv_new_is_secret}" equals="true">
                   <row class="env_add">
                     <input
                       class="env_in_val"
@@ -445,8 +445,8 @@
                       text="{s.name_display}"
                     />
                   </row>
-                </if>
-                <else>
+                </template>
+                <template else>
                   <row class="env_add">
                     <input
                       class="env_in_val"
@@ -459,7 +459,7 @@
                       text="usar secret"
                     />
                   </row>
-                </else>
+                </template>
                 <row>
                   <button type="submit" class="btn_primary" text="Adicionar" />
                 </row>
@@ -478,7 +478,7 @@
                     <!-- Comentários (# ...) do .env: arrastáveis como as vars
                          (reancoram na var seguinte da nova ordem), mas sem
                          delete — removem-se editando o .env. -->
-                    <if cond="{e.__dragging}" equals="true">
+                    <template if="{e.__dragging}" equals="true">
                       <row class="kv_row_drag" if="{e.kind}" equals="comment">
                         <text class="env_drag_handle env_dragging" dragHandle="true">
                           ⋮&nbsp;
@@ -498,8 +498,8 @@
                         <text class="env_key">{e.key_display}</text>
                         <text class="kv_val_fill">{e.value}</text>
                       </row>
-                    </if>
-                    <else>
+                    </template>
+                    <template else>
                       <row class="kv_row" if="{e.kind}" equals="comment">
                         <text class="env_drag_handle" dragHandle="true">⋮&nbsp;</text>
                         <text class="muted">{e.value}</text>
@@ -515,14 +515,14 @@
                         <text class="env_key">{e.key_display}</text>
                         <text class="kv_val_fill">{e.value}</text>
                       </row>
-                    </else>
+                    </template>
                   </template>
                 </column>
               </scrollable>
-              <!-- Editor .env: vários filhos condicionais → TAG if (o atributo
+              <!-- Editor .env: vários filhos condicionais → `<template>` (o atributo
                    if= só esconderia o Text, deixando TextArea/botões sempre
                    visíveis). -->
-              <if cond="{penv_text_open}" equals="true">
+              <template if="{penv_text_open}" equals="true">
                 <text class="muted">
                   Cole/edite no formato KEY=VALUE (# comentário).
                 </text>
@@ -544,10 +544,10 @@
                     text="Cancelar"
                   />
                 </row>
-              </if>
+              </template>
             </column>
-          </if>
-          <if cond="{proj_tab}" equals="secrets">
+          </template>
+          <template if="{proj_tab}" equals="secrets">
             <!-- ── Secrets do projeto ──────────────────────────────────────
                  Write-only: o daemon só devolve os nomes (o valor é cifrado
                  com a chave mestre do servidor), então não há coluna de valor
@@ -625,8 +625,8 @@
                 </column>
               </scrollable>
             </column>
-          </if>
-          <if cond="{proj_tab}" equals="jobs">
+          </template>
+          <template if="{proj_tab}" equals="jobs">
             <row class="env_head">
               <text class="muted_fill">{proj_jobs_count} job(s)</text>
               <button class="btn_sm_primary" on_click="open_new_job_window" text="+ Novo job" />
@@ -653,8 +653,8 @@
                 </row>
               </column>
             </scrollable>
-          </if>
-          <if cond="{proj_tab}" equals="services">
+          </template>
+          <template if="{proj_tab}" equals="services">
             <scrollable
               if="{proj_loading}"
               not_equals="true"
@@ -672,19 +672,19 @@
                 </row>
               </column>
             </scrollable>
-          </if>
+          </template>
         </column>
-      </else-if>
+      </template>
       <!-- ── Service detail / demais views ────────────────────────────
         O wizard "Novo serviço" saiu daqui (view=new_service): agora abre
         numa JANELA à parte (new_service_window.gv), disparada por
         open_new_service_window. -->
-      <else-if cond="{view}" equals="service">
+      <template else-if="{view}" equals="service">
         <ServiceDetail />
-      </else-if>
-      <else>
+      </template>
+      <template else>
         <HomeViews />
-      </else>
+      </template>
     </column>
   </row>
 </component>

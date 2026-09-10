@@ -29,9 +29,9 @@
   <column class="content">
 
     <!-- ── Monitoring ───────────────────────────────────────────────────── -->
-    <!-- Bloco com múltiplos filhos condicionais: precisa da TAG if, não do
-         atributo if= (que só condiciona o próprio elemento). -->
-    <if cond="{view}" equals="monitoring">
+    <!-- Bloco com múltiplos filhos condicionais: precisa de `<template>`, não do
+         atributo if= (que condicionaria só um elemento). -->
+    <template if="{view}" equals="monitoring">
       <row class="header_row">
         <column class="header_titles">
           <text class="title">Monitoring</text>
@@ -55,9 +55,9 @@
           <text class="th col_dur">RX</text>
           <text class="th col_start">TX</text>
         </row>
-        <if cond="{data_loading}" equals="true">
+        <template if="{data_loading}" equals="true">
           <LoadingRow />
-        </if>
+        </template>
         <scrollable
           if="{data_loading}"
           not_equals="true"
@@ -79,10 +79,10 @@
           </column>
         </scrollable>
       </column>
-    </if>
+    </template>
 
     <!-- ── Ingress ──────────────────────────────────────────────────────── -->
-    <if cond="{view}" equals="ingress">
+    <template if="{view}" equals="ingress">
       <row class="header_row">
         <column class="header_titles">
           <text class="title">Ingress</text>
@@ -102,9 +102,9 @@
           <text class="th col_dur">UPSTREAM</text>
           <text class="th col_start">TLS</text>
         </row>
-        <if cond="{data_loading}" equals="true">
+        <template if="{data_loading}" equals="true">
           <LoadingRow />
-        </if>
+        </template>
         <scrollable
           if="{data_loading}"
           not_equals="true"
@@ -154,12 +154,12 @@
           </template>
         </column>
       </column>
-    </if>
+    </template>
 
     <!-- ── Deploy Engine ────────────────────────────────────────────────── -->
     <!-- KPIs + deploys em andamento + histórico das últimas 24h. Tudo vem do
          Command::DeployEngineStatus (ver eng_* em app/net.rs); sem backend novo. -->
-    <if cond="{view}" equals="deploy_engine">
+    <template if="{view}" equals="deploy_engine">
       <row class="header_row">
         <column class="header_titles">
           <text class="title">Deploy Engine</text>
@@ -246,9 +246,9 @@
           <text class="th col_dur">TOTAL</text>
           <text class="th col_start">FASE</text>
         </row>
-        <if cond="{data_loading}" equals="true">
+        <template if="{data_loading}" equals="true">
           <LoadingRow />
-        </if>
+        </template>
         <scrollable
           if="{data_loading}"
           not_equals="true"
@@ -311,14 +311,14 @@
           </column>
         </scrollable>
       </column>
-    </if>
+    </template>
 
     <!-- ── Docker ───────────────────────────────────────────────────────── -->
     <!-- Sub-abas Containers / Images / Volumes / Networks. As três últimas
          listam TODO o host Docker (não só recursos geridos pelo Rustploy — ver
          `docker_inventory` no daemon), com indicação de uso e botão de limpar
          as que estão sem uso. -->
-    <if cond="{view}" equals="docker">
+    <template if="{view}" equals="docker">
       <row class="header_row">
         <column class="header_titles">
           <text class="title">Docker</text>
@@ -387,9 +387,9 @@
           <text class="th col_dur">ESTADO</text>
           <text class="th col_act">AÇÃO</text>
         </row>
-        <if cond="{data_loading}" equals="true">
+        <template if="{data_loading}" equals="true">
           <LoadingRow />
-        </if>
+        </template>
         <scrollable
           if="{data_loading}"
           not_equals="true"
@@ -453,9 +453,9 @@
           <text class="th col_state">USO</text>
           <text class="th col_act">AÇÃO</text>
         </row>
-        <if cond="{data_loading}" equals="true">
+        <template if="{data_loading}" equals="true">
           <LoadingRow />
-        </if>
+        </template>
         <scrollable
           if="{data_loading}"
           not_equals="true"
@@ -465,7 +465,7 @@
           <column class="table_body">
             <!-- Sub-aba já vem ordenada por tag (docker_images_json); o checkbox
                  "Somente em uso" só esconde as linhas SEM USO, sem round-trip. -->
-            <if cond="{docker_images_only_used}" equals="true">
+            <template if="{docker_images_only_used}" equals="true">
               <column
                 class="row_wrap"
                 for-each="docker_images"
@@ -491,7 +491,7 @@
                 </row>
                 <hr />
               </column>
-            </if> <else>
+            </template> <template else>
               <column class="row_wrap" for-each="docker_images" var="i">
                 <row class="trow">
                   <text class="td_key col_svc">{i.tags}</text>
@@ -511,7 +511,7 @@
                 </row>
                 <hr />
               </column>
-            </else>
+            </template>
           </column>
         </scrollable>
       </column>
@@ -545,9 +545,9 @@
           <text class="th col_state">USO</text>
           <text class="th col_act">AÇÃO</text>
         </row>
-        <if cond="{data_loading}" equals="true">
+        <template if="{data_loading}" equals="true">
           <LoadingRow />
-        </if>
+        </template>
         <scrollable
           if="{data_loading}"
           not_equals="true"
@@ -555,7 +555,7 @@
           class="scroll_fill"
         >
           <column class="table_body">
-            <if cond="{docker_volumes_only_used}" equals="true">
+            <template if="{docker_volumes_only_used}" equals="true">
               <template for-each="docker_volumes" var="v">
                 <column class="row_wrap" if="{v.in_use_label}" equals="EM USO">
                   <row class="trow">
@@ -568,7 +568,7 @@
                   <hr />
                 </column>
               </template>
-            </if> <else>
+            </template> <template else>
               <column for-each="docker_volumes" var="v" class="row_wrap">
                 <row class="trow">
                   <text class="td_key col_svc">{v.name}</text>
@@ -587,7 +587,7 @@
                 </row>
                 <hr />
               </column>
-            </else>
+            </template>
           </column>
         </scrollable>
       </column>
@@ -620,9 +620,9 @@
           <text class="th col_state">USO</text>
           <text class="th col_act">AÇÃO</text>
         </row>
-        <if cond="{data_loading}" equals="true">
+        <template if="{data_loading}" equals="true">
           <LoadingRow />
-        </if>
+        </template>
         <scrollable
           if="{data_loading}"
           not_equals="true"
@@ -630,7 +630,7 @@
           class="scroll_fill"
         >
           <column class="table_body">
-            <if cond="{docker_networks_only_used}" equals="true">
+            <template if="{docker_networks_only_used}" equals="true">
               <template for-each="docker_networks" var="n">
                 <column class="row_wrap" if="{n.in_use_label}" equals="EM USO">
                   <row class="trow">
@@ -652,7 +652,7 @@
                   <hr />
                 </column>
               </template>
-            </if> <else>
+            </template> <template else>
               <template for-each="docker_networks" var="n">
                 <column class="row_wrap">
                   <row class="trow">
@@ -674,7 +674,7 @@
                   <hr />
                 </column>
               </template>
-            </else>
+            </template>
           </column>
         </scrollable>
       </column>
@@ -707,9 +707,9 @@
             <text class="th col_dur">CRIADO</text>
             <text class="th col_act_2">AÇÃO</text>
           </row>
-          <if cond="{data_loading}" equals="true">
+          <template if="{data_loading}" equals="true">
             <LoadingRow />
-          </if>
+          </template>
           <!-- Fica com `registry_repos_count` (não vira `empty` em
                `registry_repos` como os outros pares lista/count deste plano de
                convergência): `registry_repos` é FILTRADO pela busca
@@ -788,9 +788,9 @@
             <text class="th col_dur">ATUALIZADA</text>
             <text class="th col_act">AÇÃO</text>
           </row>
-          <if cond="{registry_tags_loading}" equals="true">
+          <template if="{registry_tags_loading}" equals="true">
             <LoadingRow />
-          </if>
+          </template>
           <scrollable
             if="{registry_tags_loading}"
             not_equals="true"
@@ -814,10 +814,10 @@
           </scrollable>
         </column>
       </column>
-    </if>
+    </template>
 
     <!-- ── Settings: sub-abas Web Server | Git ──────────────────────────── -->
-    <if cond="{view}" equals="settings">
+    <template if="{view}" equals="settings">
       <row class="header_row">
         <column class="header_titles">
           <text class="title">Settings</text>
@@ -853,7 +853,7 @@
       <hr />
 
       <!-- Web Server (default) -->
-      <if cond="{settings_tab}" equals="web">
+      <template if="{settings_tab}" equals="web">
         <form name="settings" on_submit="settings_save" width="fill">
           <column class="form_panel">
             <text class="label_cap">URL PÚBLICA DA API</text>
@@ -907,10 +907,10 @@
             </row>
           </column>
         </form>
-      </if>
+      </template>
 
       <!-- Git: contas conectadas + formulário de conexão -->
-      <if cond="{settings_tab}" equals="git">
+      <template if="{settings_tab}" equals="git">
         <scrollable direction="vertical" class="scroll_fill">
           <column class="form_panel">
             <text class="label_cap">
@@ -1020,7 +1020,7 @@
               </row>
 
               <!-- OAuth2 -->
-              <if cond="{gp_mode}" not_equals="pat">
+              <template if="{gp_mode}" not_equals="pat">
                 <text class="label_cap">CLIENT ID</text>
                 <TextInput
                   placeholder=""
@@ -1060,10 +1060,10 @@
                   New OAuth App e cole a Redirect URI acima em "Authorization
                   callback URL".
                 </text>
-              </if>
+              </template>
 
               <!-- PAT -->
-              <if cond="{gp_mode}" equals="pat">
+              <template if="{gp_mode}" equals="pat">
                 <text class="label_cap">
                   PERSONAL ACCESS TOKEN
                 </text>
@@ -1083,7 +1083,7 @@
                   No GitHub: Settings → Developer settings → Personal access
                   tokens → gere um token com escopo "repo".
                 </text>
-              </if>
+              </template>
 
               <row class="env_add">
                 <button
@@ -1100,14 +1100,14 @@
             </form>
           </column>
         </scrollable>
-      </if>
+      </template>
 
       <!-- Infra as Code: o manifesto é um `.zip` com exatamente rustploy.yml
            (projetos/serviços, env vars sempre como ${VAR}) + rustploy.vars.toml
            (os valores reais, aninhados por escopo). Exportar/importar usam os
            diálogos nativos do SO; o import rejeita um zip que tenha qualquer
            outra coisa. Ver iac_export/iac_import em handlers/settings.luau. -->
-      <if cond="{settings_tab}" equals="iac">
+      <template if="{settings_tab}" equals="iac">
         <scrollable direction="vertical" class="scroll_fill">
           <column class="form_panel">
             <text class="label_cap">EXPORTAR</text>
@@ -1154,28 +1154,28 @@
               <text class="muted">{iac_import_msg}</text>
             </row>
 
-            <if cond="{iac_has_missing}" equals="true">
+            <template if="{iac_has_missing}" equals="true">
               <text class="err">
                 Variáveis sem valor no TOML: {iac_missing_vars}
               </text>
-            </if>
+            </template>
 
-            <if cond="{iac_has_report}" equals="true">
+            <template if="{iac_has_report}" equals="true">
               <text class="label_cap">RESULTADO</text>
               <column class="kv_list">
                 <row class="kv_row" for-each="iac_report_lines" var="l">
                   <text class="muted">{l}</text>
                 </row>
               </column>
-            </if>
+            </template>
           </column>
         </scrollable>
-      </if>
+      </template>
 
       <!-- Manutenção: limpeza automática de recursos Docker sem uso (ver
            docs/plano-limpeza-automatica-docker.md) — mesmas funções dos botões
            manuais da aba Docker, disparadas por agendamento em vez de clique. -->
-      <if cond="{settings_tab}" equals="maintenance">
+      <template if="{settings_tab}" equals="maintenance">
         <scrollable direction="vertical" class="scroll_fill">
           <column class="form_panel">
             <text class="label_cap">LIMPEZA AUTOMÁTICA</text>
@@ -1282,11 +1282,11 @@
             <text class="muted">{dc_last_run_text}</text>
           </column>
         </scrollable>
-      </if>
-    </if>
+      </template>
+    </template>
 
     <!-- ── Schedules: jobs one-shot via docker-compose, de todos os projetos ── -->
-    <if cond="{view}" equals="schedules">
+    <template if="{view}" equals="schedules">
       <row class="header_row">
         <column class="header_titles">
           <text class="title">Schedules</text>
@@ -1342,7 +1342,7 @@
           </column>
         </scrollable>
       </column>
-    </if>
+    </template>
 
     <column class="content_center" if="{view}" equals="support">
       <text class="title">Support</text>

@@ -16,9 +16,9 @@
     <prop name="can_delete" />
     <prop name="filler" />
   </props>
-  <if cond="{filler}" equals="1">
+  <template if="{filler}" equals="1">
       <column class="card_filler" />
-  </if> <else>
+  </template> <template else>
     <column class="card">
       <row class="card_head">
         <text class="card_name">{name}</text>
@@ -56,5 +56,5 @@
         not_equals="1"
       >Não removível: tem serviços</text>
     </column>
-  </else>
+  </template>
 </component>

@@ -66,7 +66,7 @@
       <column class="form_panel">
 
         <!-- Passo 1: formulário -->
-        <if cond="{ntok_step}" equals="form">
+        <template if="{ntok_step}" equals="form">
           <text class="label_cap">NOVO TOKEN DE ACESSO (BASIC AUTH)</text>
           <text class="muted">
             Usado em `docker login`/push/pull contra o registry embutido.
@@ -102,10 +102,10 @@
               <button type="submit" class="btn_primary" text="Criar token" />
             </row>
           </form>
-        </if>
+        </template>
 
         <!-- Passo 2: segredo exibido uma única vez -->
-        <if cond="{ntok_step}" equals="reveal">
+        <template if="{ntok_step}" equals="reveal">
           <text class="label_cap">TOKEN CRIADO — COPIE AGORA</text>
           <text class="err">
             O segredo não pode ser recuperado depois de fechar esta janela.
@@ -124,7 +124,7 @@
             <column class="np_spacer" />
             <button class="btn_primary" on_click="window:close" text="Fechar" />
           </row>
-        </if>
+        </template>
 
       </column>
     </scrollable>

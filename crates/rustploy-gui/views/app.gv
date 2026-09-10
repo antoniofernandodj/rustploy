@@ -86,8 +86,8 @@
           />
         </row>
 
-        <if cond="{screen}" equals="login"> <Login /> </if>
-        <else> <Shell /> </else>
+        <template if="{screen}" equals="login"> <Login /> </template>
+        <template else> <Shell /> </template>
       </column>
       <column class="rz_v" on_press="window:resize:e" />
     </row>

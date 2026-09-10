@@ -198,9 +198,9 @@
                  Gitea) não completa, mostramos um loading — os Selects só aparecem
                  depois, já populados, em vez de piscarem vazios. -->
             <column class="form_panel" if="{svc_loading}" equals="true">
-              <if cond="{svc_loading}" equals="true">
+              <template if="{svc_loading}" equals="true">
                 <LoadingRow note="Carregando dados do serviço…" />
-              </if>
+              </template>
             </column>
 
             <form
@@ -213,7 +213,7 @@
 
               <!-- Serviços Compose (bancos/brokers) editam o YAML direto; não têm
                    provider Git/Registry. -->
-              <if cond="{svc_source_kind}" equals="Compose">
+              <template if="{svc_source_kind}" equals="Compose">
                 <text class="label_cap">DOCKER COMPOSE (YAML)</text>
                 <text class="muted">
                   Edite o compose do serviço.
@@ -240,10 +240,10 @@
                   />
                   <text class="muted">{svc_action_msg}</text>
                 </row>
-              </if>
+              </template>
 
               <!-- Provider Git/conta-conectada/Zip — apenas para serviços não-Compose. -->
-              <if cond="{svc_source_kind}" not_equals="Compose">
+              <template if="{svc_source_kind}" not_equals="Compose">
 
               <text class="label_cap">PROVIDER</text>
               <row class="tabs">
@@ -253,7 +253,7 @@
                   target="git"
                   action="prov:git"
                 />
-                <if cond="{gitea_providers}" not_empty>
+                <template if="{gitea_providers}" not_empty>
                   <!-- Vale para qualquer conta conectada em Settings → Git —
                        Gitea *e* GitHub. O `target`/`action` seguem "gitea" por
                        ser a chave de estado (prov_tab), não o nome do provedor. -->
@@ -263,7 +263,7 @@
                     target="gitea"
                     action="prov:gitea"
                   />
-                </if>
+                </template>
                 <TabButton
                   label="Zip"
                   current="{prov_tab}"
@@ -274,7 +274,7 @@
               <hr />
 
               <!-- ── Sub-aba Git: form de URL/imagem crua ─────────────── -->
-              <if cond="{prov_tab}" equals="git">
+              <template if="{prov_tab}" equals="git">
                 <text class="label_cap">
                   SOURCE — REPOSITORY URL / IMAGE
                 </text>
@@ -409,10 +409,10 @@
                   <button class="btn_primary" on_click="gen_save" text="Save" />
                   <text class="muted">{svc_action_msg}</text>
                 </row>
-              </if>
+              </template>
 
               <!-- ── Sub-aba Zip: upload de arquivo local com Dockerfile na raiz ─ -->
-              <if cond="{prov_tab}" equals="zip">
+              <template if="{prov_tab}" equals="zip">
                 <text class="label_cap">ZIP DOCKERFILE</text>
                 <input
                   class="field_input"
@@ -445,10 +445,10 @@
                   <button class="btn_primary" on_click="archive_upload" text="Enviar zip" />
                   <button class="btn_secondary" on_click="gen_save" text="Salvar porta" />
                 </row>
-              </if>
+              </template>
 
               <!-- ── Sub-aba conta conectada (Gitea/GitHub): picker conta/repo/branch ─ -->
-              <if cond="{prov_tab}" equals="gitea">
+              <template if="{prov_tab}" equals="gitea">
                 <text class="muted">
                   Selecione a conta conectada,
                   o repositório e a branch a implantar.
@@ -566,8 +566,8 @@
                   <button class="btn_primary" on_click="gen_save" text="Save" />
                   <text class="muted">{svc_action_msg}</text>
                 </row>
-              </if>
-              </if>
+              </template>
+              </template>
             </form>
         </scrollable>
 
@@ -635,13 +635,13 @@
             </text>
             <button class="btn_export" on_click="env_export" text="Exportar" />
             <text>&nbsp;</text>
-            <if cond="{env_text_open}" equals="true">
+            <template if="{env_text_open}" equals="true">
               <button class="btn_export_on" on_click="env_text_toggle" text="Fechar" />
-            </if>
+            </template>
 
-            <else>
+            <template else>
               <button class="tab" on_click="env_text_toggle" text=".env" />
-            </else>
+            </template>
           </row>
           <form name="env_add" on_submit="env_add" width="fill" spacing="8">
             <row class="env_add">
@@ -682,7 +682,7 @@
                      delete — removem-se editando o .env. A classe da linha muda
                      para `kv_row_drag` no item agarrado ({e.__dragging} vem do
                      glacier-ui durante o arrasto). -->
-                <if cond="{e.__dragging}" equals="true">
+                <template if="{e.__dragging}" equals="true">
                   <row class="kv_row_drag" if="{e.kind}" equals="comment">
                     <text class="env_drag_handle env_dragging" dragHandle="true">
                       ⋮ 
@@ -698,9 +698,9 @@
                     <text class="env_key">{e.key_display}</text>
                     <text class="kv_val_fill">{e.value}</text>
                   </row>
-                </if>
+                </template>
 
-                <else>
+                <template else>
                   <row class="kv_row" if="{e.kind}" equals="comment">
                     <text class="env_drag_handle" dragHandle="true">
                       ⋮ 
@@ -714,17 +714,17 @@
                     <text class="env_key">{e.key_display}</text>
                     <text class="kv_val_fill">{e.value}</text>
                   </row>
-                </else>
+                </template>
               </template>
 
-              <!-- Editor .env: vários filhos condicionais → TAG if (o atributo
+              <!-- Editor .env: vários filhos condicionais → `<template>` (o atributo
                    if= só esconderia o Text, deixando TextArea/botões sempre
                    visíveis). Vive dentro do mesmo <column> da lista (e não
                    como irmão dela) para que os botões Salvar/Cancelar nunca
                    fiquem fora da área visível da janela (antes eram irmãos
                    fixos após um scrollable height:fill, e podiam ser
                    cortados/escondidos em janelas mais baixas). -->
-              <if cond="{env_text_open}" equals="true">
+              <template if="{env_text_open}" equals="true">
                 <text class="muted">
                   Cole/edite no formato KEY=VALUE (# comentário).
                 </text>
@@ -748,7 +748,7 @@
                     text="Cancelar"
                   />
                 </row>
-              </if>
+              </template>
             </column>
           </scrollable>
         </column>
@@ -954,7 +954,7 @@
               action="hckind:docker"
             />
           </row>
-          <if cond="{f_hc_kind}" equals="http">
+          <template if="{f_hc_kind}" equals="http">
             <text class="label_cap">
               HTTP PATH
             </text>
@@ -978,7 +978,7 @@
               engolia lixo em silêncio (`tonumber(...) or 200`). Quem valida
               agora é o próprio widget, que satura em min/max. Mesma história
               nos outros cinco campos numéricos desta tela. -->
-          </if>
+          </template>
           <!-- Os quatro números do health check. A faixa de cada um sai do que
             o daemon aceita: intervalo/timeout/start em segundos (1h de teto é
             folgado para qualquer check razoável), retries na faixa do Docker.
@@ -1091,7 +1091,7 @@
           <scrollable direction="vertical" class="env_list_scroll">
             <column class="kv_list">
               <template for-each="pre_deploy_checks" var="c" on_reorder="pdc_reorder" reorder_key="id">
-                <if cond="{c.__dragging}" equals="true">
+                <template if="{c.__dragging}" equals="true">
                   <row class="kv_row_drag">
                     <text class="env_drag_handle env_dragging" dragHandle="true">
                       ⋮
@@ -1101,8 +1101,8 @@
                     <text class="env_key">{c.index}.</text>
                     <text class="kv_val_fill">{c.name}</text>
                   </row>
-                </if>
-                <else>
+                </template>
+                <template else>
                   <row class="kv_row">
                     <text class="env_drag_handle" dragHandle="true">⋮ </text>
                     <button class="env_del" on_click="pdc_del:{c.id}" text="✕" />
@@ -1110,7 +1110,7 @@
                     <text class="env_key">{c.index}.</text>
                     <text class="kv_val_fill">{c.name}</text>
                   </row>
-                </else>
+                </template>
               </template>
             </column>
           </scrollable>

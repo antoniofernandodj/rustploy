@@ -477,8 +477,14 @@ poderia dispensar parênteses, mas **não** adotamos essa forma.
 - **O GSS não suporta seletor por vírgula** (`.a, .b { }`, nem dentro de
   `@media`): vira uma chave só, errada, e falha em silêncio. Uma declaração por
   seletor.
-- **`if=` como atributo** condiciona só o elemento; a **tag** `<if>` condiciona
-  todos os filhos e usa `cond=`, não `if=`.
+- **Condicional e laço são `<template>` ou atributo, nunca `<if>`/`<foreach>`.**
+  As tags `<if>`/`<else-if>`/`<else>` viraram
+  `<template if=>`/`<template else-if=>`/`<template else>` em todo `.gv`
+  (2026-09-11; `<foreach>` já não existia) — mesmo `NodeType` no parser do
+  glacier, e alinha com o `<template x-for>` da webui. Um
+  `<template if="{x}" equals="y">` envolve **vários** filhos sem criar caixa;
+  `if="{x}"` **como atributo** num elemento real condiciona **só aquele
+  elemento**. Não reintroduza `<if>`/`<foreach>`.
 
 ### Descartar ≠ apagar
 
