@@ -151,6 +151,15 @@
 /* ── Forms ────────────────────────────────────────────────────────────── */
 .field_input  { width: fill; padding: 13 14; }
 
+/* Destaque de campo reprovado na validação declarada do <form> (glacier-ui
+   0.102+): NÃO é uma classe que o script liga — é o pseudo-estado `:invalid`,
+   que o motor acende sozinho enquanto o `{erro_<campo>}` do campo estiver
+   preenchido. Uma regra por classe (o GSS não agrupa por vírgula). */
+.field_input:invalid { border_width: 1; border_color: var(--error); }
+.np_input:invalid    { border_width: 1; border_color: var(--error); }
+.env_in_key:invalid  { border_width: 1; border_color: var(--error); }
+.env_in_val:invalid  { border_width: 1; border_color: var(--error); }
+
 /* ── Status badge text color (compartilhado; ok/warn moram nos templates) ─ */
 .err   { color: var(--error); }
 

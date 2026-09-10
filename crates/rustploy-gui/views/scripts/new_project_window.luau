@@ -21,31 +21,35 @@ local function client(): Api.Client?
 end
 
 function init(): ()
+    -- `np_name`/`np_desc` são as chaves que os `form_control` do <form> ligam
+    -- (sem `value=`/`on_change=`: o motor grava sozinho). Só o valor inicial é
+    -- semeado aqui; os `erro_np_*` são publicados pelo motor na validação.
     ctx.np_name = ctx.np_name or ""
     ctx.np_desc = ctx.np_desc or ""
     ctx.np_err = ""
     ctx.np_msg = ""
 end
 
--- onChange dos inputs (mesma convenção `field:<chave>` do app principal).
-function field(key: string, value: string): ()
-    ctx[key] = value
+-- on_validation_error do <form>: as falhas já vêm prontas em JSON
+-- (`[{campo,msg}]`) e os `{erro_<campo>}` + o `:invalid` já estão na tela —
+-- aqui é só o aviso.
+function np_apontar(_erros_json: string?): ()
+    ctx.np_msg = ""
+    toast{ message = "Corrija os campos destacados", kind = "warning" }
 end
 
--- onSubmit/onClick do formulário. `fetch` (dentro de rpc_checked) SUSPENDE a
--- corrotina; ao voltar, em sucesso avisa a janela principal e se fecha.
+-- on_submit do <form>: só roda quando a validação (rules="required" no campo
+-- NOME) passou, então `np_name` está garantidamente preenchido. `fetch` (dentro
+-- de rpc_checked) SUSPENDE a corrotina; ao voltar, em sucesso avisa a janela
+-- principal e se fecha.
 function submit_project(): ()
     local api = client()
     if not api then
         ctx.np_err = "sem conexão — reabra a janela pelo app"
         return
     end
-    local name = Helpers.trim(ctx.np_name)
-    if name == "" then
-        ctx.np_err = "informe um nome"
-        return
-    end
     ctx.np_err = ""
+    local name = Helpers.trim(ctx.np_name)
     local desc = Helpers.trim(ctx.np_desc)
     ctx.np_msg = "criando…"
 

@@ -57,17 +57,28 @@
         <text class="muted">Cadastre um projeto no cluster conectado.</text>
       </column>
 
-      <form name="np_form" on_submit="submit_project" width="fill" spacing="14">
+      <!-- Validação declarada no <form> (glacier-ui 0.102+): as regras moram no
+        campo (`rules=`), o motor valida ao enviar e roteia `on_submit` (tudo
+        certo) ou `on_validation_error` (algo falhou). O `<button type="submit">`
+        dispara sem `on_click`; o `.np_input:invalid` (app.gss) acende sozinho. -->
+      <form
+        name="np_form"
+        on_submit="submit_project"
+        on_validation_error="np_apontar"
+        width="fill"
+        spacing="14"
+      >
 
         <column class="np_group">
           <text class="np_label">NOME</text>
           <input
             class="np_input"
             form_control="np_name"
-            value="np_name"
-            on_change="field:np_name"
+            rules="required"
+            msg="informe um nome"
             placeholder="Nome do projeto"
           />
+          <text class="err" if="{erro_np_name}" not_empty>{erro_np_name}</text>
         </column>
 
         <column class="np_group">
@@ -75,19 +86,18 @@
           <input
             class="np_input"
             form_control="np_desc"
-            value="np_desc"
-            on_change="field:np_desc"
             placeholder="Descrição"
           />
         </column>
 
+        <!-- Erros de rede/RPC (não de campo) e o status "criando…". -->
         <text if="{np_err}" not_equals="" class="err">{np_err}</text>
         <text if="{np_msg}" not_equals="" class="muted">{np_msg}</text>
 
         <row class="np_actions">
           <column class="np_spacer" />
-          <button class="btn_ghost"   on_click="cancel"         text="Cancelar" />
-          <button class="btn_primary" on_click="submit_project" text="Criar projeto" />
+          <button class="btn_ghost" on_click="cancel" text="Cancelar" />
+          <button type="submit" class="btn_primary" text="Criar projeto" />
         </row>
 
       </form>
