@@ -22,6 +22,13 @@ passo — pertence à Onda 5, com `<Wizard>`).
 **Faltam as Ondas 3–7** (tabelas, abas, wizard, chrome, autocomplete) — abaixo,
 inalteradas.
 
+### Polish em cima da reforma (não é onda, mas anda junto)
+
+| commit | resumo |
+|---|---|
+| `fix…: spinner nos estados "no ar" + alinha campo do <spinbox>` | (1) `.spin_field { padding: 6 12 }` casa a altura do campo com os degraus ▴▾ nos 8 `<spinbox>` (healthcheck/réplicas/dc_hours/njob_hours). (2) flag `*_busy` em cada fluxo com RPC no ar → `<row class="busy_row"><spinner if="{*_busy}"/><text>{*_msg}</text></row>`: novo serviço/projeto/job/token e o picker Git (conta→repo→branch) de serviço e de job. O "carregando branches…" do serviço, que ficava preso, agora atualiza ao terminar. |
+| `feat…: Infra as Code exporta/importa uma pasta via diálogo nativo` | os 4 `<textarea>` (2 export readonly + 2 import) saem. Exportar → `save_file` grava a pasta `rustploy.yml` + `rustploy.vars.toml` + um `.zip` ao lado; Importar → `pick_folder` lê a mesma pasta. `glacier.d.luau` ganha os tipos de `save_file`/`open_file`/`pick_folder`/`zip_dir`/`append_file`. **Pendência:** um `.zip` único nos dois sentidos precisa de um `unzip` no glacier-ui. |
+
 ---
 
 Escopo: `crates/rustploy-gui/views/**` (`.gv` + `.gss` + Luau) e, por reflexo
