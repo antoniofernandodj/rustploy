@@ -309,6 +309,7 @@ local function with_spec(mutate: (spec: any) -> ()): ()
     local ok2, res2 = api:rpc_checked{ ServiceUpdate = { id = sid, spec = spec } }
     if ok2 then
         ctx.svc_action_msg = "salvo"
+        toast{ message = tostring("Salvo"), kind = "success" }
         M.fetch_service_detail(sid)
     else
         ctx.svc_action_msg = "erro: " .. res2

@@ -150,6 +150,13 @@ local function apply_snapshot(msg: any): ()
         ctx.eng_total_24h = tostring(eng.total_24h or 0)
         ctx.eng_uptime = fmt.fmt_uptime(eng.uptime_secs)
         ctx.eng_active = fmt.eng_active(eng.active)
+        -- Materializa o percentual de cada deploy ativo numa chave própria do
+        -- contexto (`eng_pct_<service_id>`) — o `<progressbar>` do glacier-ui
+        -- lê `value` como o NOME de uma chave, não como um valor interpolado
+        -- de item de `for-each` (ver `pct_key` em fmt/dashboard.luau).
+        for _, info in ipairs(eng.active or {}) do
+            ctx["eng_pct_" .. tostring(info.service_id)] = tostring(info.percent)
+        end
         ctx.eng_recent = fmt.eng_recent(eng.recent)
         ctx.eng_recent_count = tostring(#(eng.recent or {}))
         -- Fila global (um por vez): itens esperando + estado pausado.

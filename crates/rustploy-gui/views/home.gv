@@ -265,7 +265,13 @@
                 <text class="td_key col_svc">{a.service}</text>
                 <text class="td col_proj">{a.project}</text>
                 <StateCell kind="{a.state_kind}" label="{a.state_label}" />
-                <text class="td col_dur">{a.bar} {a.percent}</text>
+                <progressbar
+                  class="col_dur"
+                  value="{a.pct_key}"
+                  min="0"
+                  max="100"
+                  showValue="true"
+                />
                 <text class="muted col_dur">{a.total}</text>
                 <text class="muted col_start">{a.phase}</text>
               </row>

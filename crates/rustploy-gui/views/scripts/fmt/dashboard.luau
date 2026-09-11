@@ -440,8 +440,12 @@ function M.eng_active(active: {any}?): string
             project = Util.ellipsis(info.project_name, B.proj),
             state_label = label,
             state_kind = Util.state_kind(info.state),
-            percent = tostring(info.percent) .. "%",
-            bar = Time.progress_bar(info.percent, 12),
+            -- Nome da chave onde o percentual mora no contexto global — ver
+            -- handlers/stream.luau. O `<progressbar>` do glacier-ui lê seu
+            -- `value` como o NOME de uma chave de contexto (não um valor
+            -- interpolado), então um item de `for-each` não pode passar o
+            -- número direto: precisa apontar para uma chave real.
+            pct_key = "eng_pct_" .. tostring(info.service_id),
             total = Time.fmt_secs(info.elapsed_secs),
             phase = Time.fmt_secs(info.current_state_secs),
             service_id = info.service_id,
