@@ -1073,113 +1073,118 @@
           </row>
         </column>
 
-        <!-- Advanced (editável) -->
-        <form
-          if="{tab}"
-          equals="advanced"
-          class="form_panel"
-          name="advanced"
-          on_submit="adv_save"
-        >
-          <text class="label_cap">
-            REPLICAS
-          </text>
-          <!-- O teto de 20 é arbitrário mas deliberado: um número acima disso
-            num single-node é quase sempre engano de digitação, e o widget não
-            deixa mais chegar lá. O piso de 1 substitui o `if r < 1 then r = 1`
-            do adv_save, que fica como rede redundante. -->
-          <spinbox
-            field_class="spin_field"
-            form_control="f_replicas"
-            value="f_replicas"
-            min="1"
-            max="20"
-            width="90"
-            placeholder="1"
-          />
-          <text class="label_cap">
-            RUN COMMAND
-          </text>
-          <input
-            class="field_input"
-            form_control="f_run_command"
-            value="f_run_command"
-            on_change="field:f_run_command"
-            placeholder="(padrão da imagem)"
-          />
+        <scrollable direction="vertical" class="scroll_fill" if="{tab}" equals="advanced">
+          <column class="svc_main">
+            <form
+              name="advanced"
+              on_submit="adv_save"
+              class="form_panel"
+            >
+              <text class="label_cap">
+                REPLICAS
+              </text>
+              <!-- O teto de 20 é arbitrário mas deliberado: um número acima disso
+                num single-node é quase sempre engano de digitação, e o widget não
+                deixa mais chegar lá. O piso de 1 substitui o `if r < 1 then r = 1`
+                do adv_save, que fica como rede redundante. -->
+              <spinbox
+                field_class="spin_field"
+                form_control="f_replicas"
+                value="f_replicas"
+                min="1"
+                max="20"
+                width="90"
+                placeholder="1"
+              />
+              <text class="label_cap">
+                RUN COMMAND
+              </text>
+              <input
+                class="field_input"
+                form_control="f_run_command"
+                value="f_run_command"
+                on_change="field:f_run_command"
+                placeholder="(padrão da imagem)"
+              />
 
-          <text class="muted">
-            Run args atuais: {svc_run_args}
-          </text>
+              <text class="muted">
+                Run args atuais: {svc_run_args}
+              </text>
 
-          <row class="env_add">
-            <button class="btn_primary" on_click="adv_save" text="Save" />
-            <text class="muted">{svc_action_msg}</text>
-          </row>
-        </form>
+              <row class="env_add">
+                <button class="btn_primary" on_click="adv_save">
+                  Save
+                </button>
+                <text class="muted">{svc_action_msg}</text>
+              </row>
+            </form>
 
-        <!-- Fila de pré-deploy (editável, efeito imediato — como Domains, não
-             passa pelo Save do form acima): cada item roda em ORDEM antes do
-             deploy; a primeira falha para a fila inteira. -->
-        <column if="{tab}" equals="advanced" class="form_panel">
-          <text class="label_cap">
-            FILA DE PRÉ-DEPLOY ({pre_deploy_checks_count})
-          </text>
-          <text class="muted">
-            Roda esses Jobs em ORDEM antes do deploy (manual ou webhook), um de
-            cada vez. Se o exit code de algum for diferente de 0, a fila para e
-            o deploy não acontece — os checks seguintes não rodam. Arraste
-            pelo ⋮ para reordenar. Cadastre jobs em Schedules.
-          </text>
+            <!-- Fila de pré-deploy (editável, efeito imediato — como Domains, não
+                 passa pelo Save do form acima): cada item roda em ORDEM antes do
+                 deploy; a primeira falha para a fila inteira. -->
+            <column class="form_panel">
+              <text class="label_cap">
+                FILA DE PRÉ-DEPLOY ({pre_deploy_checks_count})
+              </text>
+              <text class="muted">
+                Roda esses Jobs em ORDEM antes do deploy (manual ou webhook), um de
+                cada vez. Se o exit code de algum for diferente de 0, a fila para e
+                o deploy não acontece — os checks seguintes não rodam. Arraste
+                pelo ⋮ para reordenar. Cadastre jobs em Schedules.
+              </text>
 
-          <scrollable direction="vertical" class="env_list_scroll">
-            <column class="kv_list">
-              <template
-                for-each="pre_deploy_checks"
-                var="c"
-                on_reorder="pdc_reorder"
-                reorder_key="id"
-              >
-                <template if="{c.__dragging}" equals="true">
-                  <row class="kv_row_drag">
-                    <text class="env_drag_handle env_dragging" dragHandle="true">
-                      ⋮
-                    </text>
-                    <button class="env_del" on_click="pdc_del:{c.id}" text="✕" />
-                    <text class="env_sep"> </text>
-                    <text class="env_key">{c.index}.</text>
-                    <text class="kv_val_fill">{c.name}</text>
-                  </row>
-                </template>
-                <template else>
-                  <row class="kv_row">
-                    <text class="env_drag_handle" dragHandle="true">⋮ </text>
-                    <button class="env_del" on_click="pdc_del:{c.id}" text="✕" />
-                    <text class="env_sep"> </text>
-                    <text class="env_key">{c.index}.</text>
-                    <text class="kv_val_fill">{c.name}</text>
-                  </row>
-                </template>
-              </template>
+              <scrollable direction="vertical" class="env_list_scroll">
+                <column class="kv_list" height="shrink">
+                  <template
+                    for-each="pre_deploy_checks"
+                    var="c"
+                    on_reorder="pdc_reorder"
+                    reorder_key="id"
+                  >
+                    <template if="{c.__dragging}" equals="true">
+                      <row class="kv_row_drag">
+                        <text class="env_drag_handle env_dragging" dragHandle="true">
+                          ⋮
+                        </text>
+                        <button class="env_del" on_click="pdc_del:{c.id}">✕</button>
+                        <text class="env_sep"> </text>
+                        <text class="env_key">{c.index}.</text>
+                        <text class="kv_val_fill">{c.name}</text>
+                      </row>
+                    </template>
+                    <template else>
+                      <row class="kv_row">
+                        <text class="env_drag_handle" dragHandle="true">⋮ </text>
+                        <button class="env_del" on_click="pdc_del:{c.id}">✕</button>
+                        <text class="env_sep"> </text>
+                        <text class="env_key">{c.index}.</text>
+                        <text class="kv_val_fill">{c.name}</text>
+                      </row>
+                    </template>
+                  </template>
+                </column>
+              </scrollable>
+
+              <text class="label_cap">
+                ADICIONAR À FILA
+              </text>
+              <select
+                class="select"
+                options="pre_deploy_available_jobs"
+                value="f_pdc_add_job_id"
+                on_change="field:f_pdc_add_job_id"
+                placeholder="escolher job..."
+                labelField="name"
+                valueField="id"
+              />
+              <row class="env_add">
+                <button class="btn_primary" on_click="pdc_add">
+                  Adicionar à fila
+                </button>
+              </row>
             </column>
-          </scrollable>
-
-          <text class="label_cap">
-            ADICIONAR À FILA
-          </text>
-          <select
-            class="select"
-            options="pre_deploy_available_jobs"
-            value="f_pdc_add_job_id"
-            on_change="field:f_pdc_add_job_id"
-            placeholder="escolher job..."
-            labelField="name"
-            valueField="id"
-          />
-          <row class="env_add">
-            <button class="btn_primary" on_click="pdc_add" text="Adicionar à fila" />
-          </row>
-        </column>
+          </column>
+        </scrollable>
       </column>
 
       <!-- Painel lateral: status. O log ao vivo saiu daqui (era um for-each sempre

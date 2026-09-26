@@ -95,8 +95,24 @@
    arredondamento custa matemática por pixel em toda ela para um detalhe de 7px
    que quase não se nota. Os cantos ficam nas caixas pequenas (cards, botões,
    abas), onde se veem e são baratos. */
-.panel_fill { width: fill; height: fill; background: var(--surface); border-width: 1; border-color: var(--border); padding: 4; }
-.form_panel { width: fill; max-width: 640; background: var(--surface); border-radius: 7; border-width: 1; border-color: var(--border); padding: 24; spacing: 10; }
+.panel_fill {
+   width: fill;
+   height: fill;
+   background: var(--surface);
+   border-width: 1;
+   border-color: var(--border);
+   padding: 4;
+}
+.form_panel {
+   width: fill;
+   height: shrink;
+   max-width: 720;
+   background: var(--surface);
+   border-radius: 7; border-width: 1;
+   border-color: var(--border);
+   padding: 24;
+   spacing: 10;
+}
 /* Ponto colorido do StateCell/rp-badge — compartilhado; o rótulo e a paleta
    (state_<kind>) moram no <style> do state_cell.gv. */
 .state_dot  { size: 11; }
@@ -129,7 +145,7 @@
 .env_in_val    { width: fill; padding: 9 12; }
 .env_drag_handle { color: var(--faint); padding: 0 6 0 0; cursor: grab; }
 .env_dragging    { cursor: grabbing; }
-.env_del       { color: var(--danger); padding: 4 10; }
+.env_del       { color: var(--danger); padding: 4 10; background: var(--border); border-radius: 4; }
 /* Respiro entre o botão ✕ e a chave da variável (evita que o vermelho encoste
    no texto). Usado nas linhas de env de serviço e de projeto. */
 .env_sep       { width: 10; }
