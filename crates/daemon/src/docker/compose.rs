@@ -3,8 +3,9 @@ use anyhow::{Result, anyhow};
 use bollard::{Docker, volume::CreateVolumeOptions};
 use chrono::Utc;
 use shared::{Event, RustployConfig};
+use std::collections::VecDeque;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tokio::fs::{File, remove_file};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
@@ -479,6 +480,24 @@ pub async fn run_once(
     up_result
 }
 
+/// Quantas linhas do próprio `docker compose` (build, pull, erros de
+/// container) o job guarda pra despejar no log quando falha.
+const COMPOSE_TAIL_MAX: usize = 200;
+
+/// Separa o prefixo `<service>-<replica> |` que o `docker compose up` (sem
+/// `-d`) põe em cada linha de saída de container. Devolve o nome do serviço
+/// e o resto da linha; `None` pra linha sem esse prefixo — as linhas de
+/// controle do próprio compose (`Container x Started`, build, spinners).
+fn split_service_prefix(line: &str) -> Option<(&str, &str)> {
+    let (prefix, rest) = line.split_once('|')?;
+    let prefix = prefix.trim();
+    let (name, replica) = prefix.rsplit_once('-')?;
+    if replica.is_empty() || !replica.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    Some((name, rest.trim_start_matches(' ')))
+}
+
 /// Filtra uma linha bruta de `docker compose up` (sem `-d`) pra só sobrar a
 /// saída do `main_service`: sem `-d`, o compose intercala stdout/stderr de
 /// TODOS os serviços do stack (prefixo `<service>-<replica> | <msg>`, ex.:
@@ -489,13 +508,106 @@ pub async fn run_once(
 /// `main_service` sobrevive (prefixo removido); linhas de outros serviços e
 /// linhas de controle do compose (sem esse prefixo) são descartadas.
 fn filter_main_service_line<'a>(line: &'a str, main_service: &str) -> Option<&'a str> {
-    let (prefix, rest) = line.split_once('|')?;
-    let prefix = prefix.trim();
-    let (name, replica) = prefix.rsplit_once('-')?;
-    if name != main_service || replica.is_empty() || !replica.bytes().all(|b| b.is_ascii_digit()) {
-        return None;
+    match split_service_prefix(line)? {
+        (name, rest) if name == main_service => Some(rest),
+        _ => None,
     }
-    Some(rest.trim_start_matches(' '))
+}
+
+/// Limpa uma linha de controle do compose pra caber no log do job: fica só
+/// o último quadro de um spinner (texto depois do último `\r`) e sem os
+/// códigos ANSI de cor/cursor. `None` quando não sobra texto.
+fn clean_compose_line(line: &str) -> Option<String> {
+    let line = line.rsplit('\r').next().unwrap_or(line);
+    let mut out = String::with_capacity(line.len());
+    let mut chars = line.chars();
+    while let Some(c) = chars.next() {
+        if c != '\u{1b}' {
+            out.push(c);
+            continue;
+        }
+        // CSI (`ESC [ ... <final>`): pula até o byte final (0x40..=0x7E).
+        // Outros escapes de dois caracteres (`ESC x`): pula só o `x`.
+        if chars.next() == Some('[') {
+            for c in chars.by_ref() {
+                if ('\u{40}'..='\u{7e}').contains(&c) {
+                    break;
+                }
+            }
+        }
+    }
+    let out = out.trim_end();
+    (!out.trim().is_empty()).then(|| out.to_string())
+}
+
+/// Grava uma linha no log do job (tabela `job_log` + evento ao vivo) e, se o
+/// job espelha um deployment, no build log dele também.
+async fn record_job_line(
+    bus: &EventBus,
+    db: &Db,
+    job_id: &str,
+    job_run_id: &str,
+    mirror: Option<&(String, String)>,
+    stream: shared::protocol::LogStream,
+    line: String,
+) {
+    let ts = Utc::now();
+    bus.publish(Event::JobLogLine {
+        job_run_id: job_run_id.to_string(),
+        job_id: job_id.to_string(),
+        line: line.clone(),
+        timestamp: ts,
+        stream: stream.clone(),
+    });
+    let _ = crate::db::job_log::append(db, job_run_id, &stream, &line, ts).await;
+    if let Some((deployment_id, service_id)) = mirror {
+        let _ = crate::db::build_logs::append(db, deployment_id, &line, ts).await;
+        bus.publish(Event::BuildLog {
+            deployment_id: deployment_id.clone(),
+            service_id: service_id.clone(),
+            line,
+            timestamp: ts,
+        });
+    }
+}
+
+/// Lê um dos pipes do `docker compose up` até fechar. A saída do
+/// `main_service` vai direto pro log do job; a de outros serviços é
+/// descartada; as linhas do próprio compose vão pro `compose_tail`, que só
+/// é despejado no log se o job falhar — é onde mora a causa quando o stack
+/// nem chega a rodar o `main_service` (build quebrado, porta ocupada…).
+#[allow(clippy::too_many_arguments)]
+async fn read_compose_output<R: tokio::io::AsyncRead + Unpin>(
+    reader: R,
+    stream: shared::protocol::LogStream,
+    main_service: &str,
+    bus: &EventBus,
+    db: &Db,
+    job_id: &str,
+    job_run_id: &str,
+    mirror: Option<&(String, String)>,
+    compose_tail: &Mutex<VecDeque<String>>,
+) {
+    let mut lines = BufReader::new(reader).lines();
+    while let Ok(Some(raw_line)) = lines.next_line().await {
+        if let Some(line) = filter_main_service_line(&raw_line, main_service) {
+            if !line.trim().is_empty() {
+                let line = line.to_string();
+                record_job_line(bus, db, job_id, job_run_id, mirror, stream.clone(), line).await;
+            }
+            continue;
+        }
+        if split_service_prefix(&raw_line).is_some() {
+            continue;
+        }
+        if let Some(line) = clean_compose_line(&raw_line) {
+            let mut tail = compose_tail.lock().unwrap_or_else(|e| e.into_inner());
+            if tail.len() == COMPOSE_TAIL_MAX {
+                tail.pop_front();
+            }
+            tail.push_back(line);
+        }
+    }
 }
 
 async fn run_once_up(
@@ -532,95 +644,33 @@ async fn run_once_up(
         .spawn()
         .map_err(|e| anyhow!("falha ao iniciar docker compose: {e}"))?;
 
-    let stdout = BufReader::new(child.stdout.take().unwrap());
-    let stderr = BufReader::new(child.stderr.take().unwrap());
+    let stdout = child.stdout.take().unwrap();
+    let stderr = child.stderr.take().unwrap();
 
-    let bus_s = bus.clone();
-    let db_s = db.clone();
-    let jid = job_id.to_string();
-    let rid = job_run_id.to_string();
-    let mirror_s = mirror_deployment.clone();
-    let main_service_s = main_service.to_string();
-    let read_stdout = async move {
-        let mut lines = stdout.lines();
-        while let Ok(Some(raw_line)) = lines.next_line().await {
-            let Some(line) = filter_main_service_line(&raw_line, &main_service_s) else {
-                continue;
-            };
-            if line.trim().is_empty() {
-                continue;
-            }
-            let line = line.to_string();
-            let ts = Utc::now();
-            bus_s.publish(Event::JobLogLine {
-                job_run_id: rid.clone(),
-                job_id: jid.clone(),
-                line: line.clone(),
-                timestamp: ts,
-                stream: shared::protocol::LogStream::Stdout,
-            });
-            let _ = crate::db::job_log::append(
-                &db_s,
-                &rid,
-                &shared::protocol::LogStream::Stdout,
-                &line,
-                ts,
-            )
-            .await;
-            if let Some((deployment_id, service_id)) = &mirror_s {
-                let _ = crate::db::build_logs::append(&db_s, deployment_id, &line, ts).await;
-                bus_s.publish(Event::BuildLog {
-                    deployment_id: deployment_id.clone(),
-                    service_id: service_id.clone(),
-                    line: line.clone(),
-                    timestamp: ts,
-                });
-            }
-        }
-    };
-    let bus_e = bus.clone();
-    let db_e = db.clone();
-    let jid_e = job_id.to_string();
-    let rid_e = job_run_id.to_string();
-    let mirror_e = mirror_deployment;
-    let main_service_e = main_service.to_string();
-    let read_stderr = async move {
-        let mut lines = stderr.lines();
-        while let Ok(Some(raw_line)) = lines.next_line().await {
-            let Some(line) = filter_main_service_line(&raw_line, &main_service_e) else {
-                continue;
-            };
-            if line.trim().is_empty() {
-                continue;
-            }
-            let line = line.to_string();
-            let ts = Utc::now();
-            bus_e.publish(Event::JobLogLine {
-                job_run_id: rid_e.clone(),
-                job_id: jid_e.clone(),
-                line: line.clone(),
-                timestamp: ts,
-                stream: shared::protocol::LogStream::Stderr,
-            });
-            let _ = crate::db::job_log::append(
-                &db_e,
-                &rid_e,
-                &shared::protocol::LogStream::Stderr,
-                &line,
-                ts,
-            )
-            .await;
-            if let Some((deployment_id, service_id)) = &mirror_e {
-                let _ = crate::db::build_logs::append(&db_e, deployment_id, &line, ts).await;
-                bus_e.publish(Event::BuildLog {
-                    deployment_id: deployment_id.clone(),
-                    service_id: service_id.clone(),
-                    line: line.clone(),
-                    timestamp: ts,
-                });
-            }
-        }
-    };
+    let mirror = mirror_deployment.as_ref();
+    let compose_tail = Mutex::new(VecDeque::new());
+    let read_stdout = read_compose_output(
+        stdout,
+        shared::protocol::LogStream::Stdout,
+        main_service,
+        bus,
+        db,
+        job_id,
+        job_run_id,
+        mirror,
+        &compose_tail,
+    );
+    let read_stderr = read_compose_output(
+        stderr,
+        shared::protocol::LogStream::Stderr,
+        main_service,
+        bus,
+        db,
+        job_id,
+        job_run_id,
+        mirror,
+        &compose_tail,
+    );
 
     // Sem cancelamento: espera os readers normalmente (eles só terminam
     // quando os pipes fecham, ou seja, quando o processo sai). Com
@@ -657,7 +707,45 @@ async fn run_once_up(
     // `--exit-code-from` propaga o exit code de `main_service` como o do
     // processo `docker compose` — sem código (ex.: morto por sinal) conta
     // como falha (-1), não sucesso silencioso.
-    Ok(status.code().unwrap_or(-1))
+    let exit_code = status.code().unwrap_or(-1);
+
+    // Na falha, o fim da saída do próprio compose entra no log: sem isso,
+    // um stack que quebra antes do `main_service` rodar (build, porta
+    // ocupada, container com nome repetido) termina com exit code != 0 e
+    // log vazio. No sucesso fica de fora, pra não poluir "Ver logs".
+    if exit_code != 0 {
+        let tail = std::mem::take(&mut *compose_tail.lock().unwrap_or_else(|e| e.into_inner()));
+        if !tail.is_empty() {
+            let header = format!(
+                "==> Job falhou (exit code {exit_code}); últimas {} linhas do docker compose:",
+                tail.len()
+            );
+            record_job_line(
+                bus,
+                db,
+                job_id,
+                job_run_id,
+                mirror,
+                shared::protocol::LogStream::Stderr,
+                header,
+            )
+            .await;
+            for line in tail {
+                record_job_line(
+                    bus,
+                    db,
+                    job_id,
+                    job_run_id,
+                    mirror,
+                    shared::protocol::LogStream::Stderr,
+                    line,
+                )
+                .await;
+            }
+        }
+    }
+
+    Ok(exit_code)
 }
 
 pub async fn down(
@@ -742,6 +830,55 @@ mod tests {
     #[test]
     fn drops_lines_without_replica_suffix() {
         assert_eq!(filter_main_service_line("main | hello", "main"), None);
+    }
+
+    #[test]
+    fn detects_prefix_of_any_service() {
+        assert_eq!(
+            split_service_prefix("side-1  | hello"),
+            Some(("side", "hello"))
+        );
+        assert_eq!(split_service_prefix(" Container rp-main-1 Started "), None);
+    }
+
+    #[test]
+    fn cleans_ansi_and_spinner_frames_from_compose_lines() {
+        assert_eq!(
+            clean_compose_line(
+                "\u{1b}[1A\u{1b}[2K\u{1b}[31mError\u{1b}[0m: port is already allocated"
+            ),
+            Some("Error: port is already allocated".to_string())
+        );
+        assert_eq!(
+            clean_compose_line(" ⠋ Container a  Starting\r ✔ Container a  Started  "),
+            Some(" ✔ Container a  Started".to_string())
+        );
+        assert_eq!(clean_compose_line("\u{1b}[2K   "), None);
+    }
+
+    #[tokio::test]
+    async fn keeps_only_compose_lines_in_tail() {
+        let bus = EventBus::new();
+        let db = crate::db::Db::connect_lazy("sqlite::memory:").unwrap();
+        let tail = Mutex::new(VecDeque::new());
+        let input: &[u8] =
+            b"main-1  | hello\nside-1  | ignored\n\x1b[31mfailed to bind port 5432\x1b[0m\n\n";
+        read_compose_output(
+            input,
+            shared::protocol::LogStream::Stderr,
+            "main",
+            &bus,
+            &db,
+            "job_x",
+            "jrun_x",
+            None,
+            &tail,
+        )
+        .await;
+        assert_eq!(
+            tail.into_inner().unwrap(),
+            VecDeque::from(["failed to bind port 5432".to_string()])
+        );
     }
 
     #[tokio::test]
