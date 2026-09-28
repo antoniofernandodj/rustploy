@@ -666,7 +666,16 @@ pub struct Healthcheck {
 impl Default for Healthcheck {
     fn default() -> Self {
         Self {
-            kind: HealthcheckKind::Tcp,
+            // `None` (não `Tcp`): serviço novo nasce SEM verificação. Era `Tcp`
+            // aqui e `None` no caminho de criação da webui, então o mesmo
+            // "criar serviço" dava healthchecks diferentes conforme o cliente e
+            // o caminho (wizard × `ServiceCreate` direto). Escolhido `None`
+            // porque a porta declarada nem sempre é uma porta que aceita
+            // conexão — worker e job não escutam nada, e um `Tcp` padrão
+            // reprovaria o deploy deles. O custo é o deploy passar mesmo com a
+            // porta errada; por isso o log do deploy agora diz, em letras
+            // claras, que nada foi testado (ver `deploy::executor`).
+            kind: HealthcheckKind::None,
             interval_secs: 5,
             timeout_secs: 3,
             retries: 10,
