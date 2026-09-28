@@ -756,14 +756,41 @@ impl DeployExecutor {
                     healthcheck = ?svc.spec.healthcheck.kind,
                     "step[HealthcheckPolling]: iniciando polling de healthcheck"
                 );
-                self.log_step(
-                    &dep.id,
-                    &svc.id,
-                    &format!("--> Healthcheck: aguardando {ip}:{}", svc.spec.port),
-                )
-                .await;
-                self.poll_healthcheck(&ip, &cid, svc, dep).await?;
-                self.log_step(&dep.id, &svc.id, "--> Healthcheck OK").await;
+                // Com `HealthcheckKind::None` nada é testado (ver
+                // `poll_healthcheck`), então o log não pode dizer que esperou a
+                // porta e que ela respondeu: um serviço cuja porta do spec não
+                // é a que o container escuta ia para `Live` com duas linhas
+                // verdes no log, e só aparecia como 502 no domínio.
+                if svc.spec.healthcheck.kind == HealthcheckKind::None {
+                    self.log_step(
+                        &dep.id,
+                        &svc.id,
+                        &format!(
+                            "--> Healthcheck desligado: {}:{} não será testada",
+                            ip, svc.spec.port
+                        ),
+                    )
+                    .await;
+                    if !svc.spec.domain_routes().is_empty() || svc.spec.host_port.is_some() {
+                        self.log_step(
+                            &dep.id,
+                            &svc.id,
+                            "    (porta errada aqui só aparece como 502 no domínio — \
+                             considere um healthcheck TCP)",
+                        )
+                        .await;
+                    }
+                    self.poll_healthcheck(&ip, &cid, svc, dep).await?;
+                } else {
+                    self.log_step(
+                        &dep.id,
+                        &svc.id,
+                        &format!("--> Healthcheck: aguardando {ip}:{}", svc.spec.port),
+                    )
+                    .await;
+                    self.poll_healthcheck(&ip, &cid, svc, dep).await?;
+                    self.log_step(&dep.id, &svc.id, "--> Healthcheck OK").await;
+                }
                 info!(
                     deployment_id = %dep.id,
                     ip = %ip,
