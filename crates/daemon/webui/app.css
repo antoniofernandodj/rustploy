@@ -383,6 +383,35 @@ hr, .rule   { width: 100%; height: 1px; border: none; background: var(--border);
     white-space: pre; overflow-wrap: normal;
 }
 
+/* ── Seção de conteúdo (Deploy Engine) ───────────────────────────────────
+   Tradução das mesmas classes de app.gss. O `.panel_fill` é um painel que
+   ocupa a tela inteira — certo quando a tela tem UMA lista. O Deploy Engine
+   tem três, de naturezas diferentes (fila curta, um deploy rodando por vez,
+   histórico longo), e três `.panel_fill` empilhados davam um terço da altura
+   a cada um: três caixas enormes e vazias quando não há deploy nenhum. Aqui
+   a altura vem do conteúdo e só o histórico recebe o que sobra. */
+.section, .section_fill {
+    width: 100%;
+    background: var(--surface);
+    border-radius: 7px;
+    border: 1px solid var(--border);
+}
+.section       { flex: 0 0 auto; }
+.section_fill  { flex: 1 1 auto; min-height: 0; }
+.section_head  { width: 100%; align-items: center; padding: 13px 16px; flex-shrink: 0; }
+.section_title { flex: 1 1 auto; min-width: 0; font-size: 11px; font-weight: 700; color: var(--faint); letter-spacing: .04em; }
+.section_body  { width: 100%; padding: 0 6px 6px 6px; flex-shrink: 0; }
+.section_scroll{ width: 100%; flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 6px 6px 6px; }
+/* Vazio: centralizado e com respiro, em vez de uma frase solta no canto
+   superior esquerdo de um painel de 300px de altura. */
+.empty_state   { width: 100%; text-align: center; padding: 26px 0; font-size: 12px; color: var(--faint); flex-shrink: 0; }
+/* Só para a seção que recebe `fill` (o histórico): sem isto o aviso de vazio
+   fica encostado no topo de um card de várias centenas de pixels. */
+.empty_wrap    { width: 100%; flex: 1 1 auto; min-height: 0; align-items: center; }
+/* Fila pausada: faixa com a cor de alerta, não um cinza que se confunde com
+   o estado vazio logo abaixo. */
+.banner_warn   { width: 100%; padding: 9px 16px; font-size: 12px; color: var(--warn); background: var(--raised); border-radius: 5px; flex-shrink: 0; }
+
 /* ── Toasts ──────────────────────────────────────────────────────────────
    Porte do `toasts.rs` do glacier-ui: empilhados no canto inferior direito,
    não-modais (a UI por baixo continua clicável) e cumulativos, cada um com

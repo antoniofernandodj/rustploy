@@ -103,6 +103,37 @@
    border-color: var(--border);
    padding: 4;
 }
+/* ── Seção de conteúdo (Deploy Engine) ────────────────────────────────────
+   O `.panel_fill` acima é um painel que ocupa a tela inteira: certo quando a
+   tela TEM uma lista só. O Deploy Engine tem três listas de naturezas
+   diferentes — a fila (curta), o que está rodando (no máximo um) e o
+   histórico (longo) — e empilhar três `.panel_fill` dava a cada um um terço
+   da altura: três caixas enormes e vazias quando não há deploy nenhum. Aqui
+   a altura vem do conteúdo (`shrink`) e só o histórico recebe `fill`. */
+.section       { width: fill; height: shrink; background: var(--surface); border-radius: 7; border-width: 1; border-color: var(--border); }
+.section_fill  { width: fill; height: fill; background: var(--surface); border-radius: 7; border-width: 1; border-color: var(--border); }
+/* Cabeçalho da seção: título à esquerda, ação à direita. O `width: fill` no
+   TÍTULO é o que empurra o botão — o iced não tem `justify-content`, e sem
+   isso o botão encosta no rótulo (era o caso do "⏸ Pausar fila", que saía
+   colado no "NA FILA (0)" em vez de ir para a borda direita). */
+.section_head  { width: fill; align-y: center; padding: 13 16; }
+.section_title { width: fill; size: 11; bold: true; color: var(--faint); }
+/* Corpo: padding nas laterais e embaixo — o cabeçalho de tabela encosta no
+   topo do corpo, como nas outras telas. */
+.section_body  { width: fill; padding: 0 6 6 6; }
+.section_scroll{ width: fill; height: fill; padding: 0 6 6 6; }
+/* Vazio: centralizado e com respiro, em vez de uma frase solta no canto
+   superior esquerdo de um painel de 300px de altura. */
+.empty_state   { width: fill; text-align: center; padding: 26 0; size: 12; color: var(--faint); }
+/* Só para a seção que recebe `fill` (o histórico): sem isto o aviso de vazio
+   fica encostado no topo de um card de várias centenas de pixels. É uma ROW
+   de propósito — `align-y` centraliza no eixo cruzado, e numa column esse
+   eixo é o horizontal, então lá a regra não teria efeito nenhum. */
+.empty_wrap    { width: fill; height: fill; align-y: center; }
+/* Aviso de fila pausada: faixa com a cor de alerta, não um texto cinza que
+   se confunde com o estado vazio logo abaixo. */
+.banner_warn   { width: fill; padding: 9 16; size: 12; color: var(--warn); background: var(--raised); border-radius: 5; }
+
 .form_panel {
    width: fill;
    height: shrink;

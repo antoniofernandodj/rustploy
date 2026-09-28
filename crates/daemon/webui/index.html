@@ -222,41 +222,52 @@
           </row>
         </row>
 
-        <!-- Na fila -->
-        <column class="panel_fill">
-          <row class="env_head">
-            <text class="label_cap" x-text="'NA FILA (' + queued.length + ')'"></text>
+        <!-- As três seções são irmãs e de tamanhos diferentes: fila e
+             "executando agora" crescem com o conteúdo (uma fila vazia não tem
+             por que ocupar um terço da janela) e só o histórico fica com o
+             espaço que sobra, porque é a única lista que cresce sem limite.
+             Mesma estrutura de home.gv (client iced). -->
+        <column class="section">
+          <row class="section_head">
+            <text class="section_title" x-text="'NA FILA (' + queued.length + ')'"></text>
             <button class="copy_btn" type="button" @click="store.queueTogglePause()"
-                    x-text="paused ? '▶ Retomar fila' : '⏸ Pausar fila'"></button>
+                    x-text="paused ? 'Retomar fila' : 'Pausar fila'"></button>
           </row>
-          <text class="muted" x-show="paused">Fila pausada — deploys esperam até você retomar.</text>
-          <text class="muted" x-show="queued.length === 0" style="padding:12px">Nenhum deploy na fila.</text>
-          <column class="table_body">
-            <template x-for="q in queued" :key="q.deploymentId">
-              <row class="trow">
-                <text class="td_key col_svc" x-text="q.pos + '. ' + q.service"></text>
-                <text class="td col_proj" x-text="q.project"></text>
-                <button class="copy_btn" type="button" @click="store.queuePromote(q.deploymentId)">↑ topo</button>
-                <button class="env_del" type="button" @click="store.queueCancel(q.deploymentId)">✕</button>
-              </row>
-            </template>
+          <column class="section_body">
+            <text class="banner_warn" x-show="paused">Fila pausada — deploys esperam até você retomar.</text>
+            <text class="empty_state" x-show="queued.length === 0">Nenhum deploy na fila.</text>
+            <column class="table_body">
+              <template x-for="q in queued" :key="q.deploymentId">
+                <column class="row_wrap">
+                  <row class="trow">
+                    <text class="td_key col_svc" x-text="q.pos + '. ' + q.service"></text>
+                    <text class="td col_start" x-text="q.project"></text>
+                    <button class="copy_btn" type="button" @click="store.queuePromote(q.deploymentId)">↑ topo</button>
+                    <button class="env_del" type="button" @click="store.queueCancel(q.deploymentId)">✕</button>
+                  </row>
+                  <hr class="rule" />
+                </column>
+              </template>
+            </column>
           </column>
         </column>
 
-        <!-- Executando agora -->
-        <column class="panel_fill">
-          <text class="label_cap" x-text="'EXECUTANDO AGORA (' + active.length + ')'"></text>
-          <row class="thead">
-            <text class="th col_svc">SERVIÇO</text>
-            <text class="th col_proj">PROJETO</text>
-            <text class="th col_state">ESTADO</text>
-            <text class="th col_dur">PROGRESSO</text>
-            <text class="th col_dur">TOTAL</text>
-            <text class="th col_start">FASE</text>
+        <!-- Executando agora: no máximo um deploy por vez (a fila é serial). -->
+        <column class="section">
+          <row class="section_head">
+            <text class="section_title" x-text="'EXECUTANDO AGORA (' + active.length + ')'"></text>
           </row>
-          <column class="scroll_fill">
+          <column class="section_body">
+            <row class="thead" x-show="active.length > 0">
+              <text class="th col_svc">SERVIÇO</text>
+              <text class="th col_proj">PROJETO</text>
+              <text class="th col_state">ESTADO</text>
+              <text class="th col_dur">PROGRESSO</text>
+              <text class="th col_dur">TOTAL</text>
+              <text class="th col_start">FASE</text>
+            </row>
             <column class="table_body">
-              <text class="muted" x-show="active.length === 0" style="padding:16px">Nenhum deploy em andamento.</text>
+              <text class="empty_state" x-show="active.length === 0">Nenhum deploy em andamento.</text>
               <template x-for="a in active" :key="a.serviceId">
                 <column class="row_wrap">
                   <row class="trow">
@@ -275,22 +286,29 @@
               </template>
             </column>
           </column>
+        </column>
 
-          <!-- Histórico 24h -->
-          <text class="label_cap" x-text="'HISTÓRICO 24H (' + recent.length + ')'"></text>
-          <row class="thead">
-            <text class="th col_icon"></text>
-            <text class="th col_svc">SERVIÇO</text>
-            <text class="th col_proj">PROJETO</text>
-            <text class="th col_state">ESTADO</text>
-            <text class="th col_dur">DURAÇÃO</text>
-            <text class="th col_start">INÍCIO</text>
+        <!-- Histórico 24h: a única lista que cresce sem limite — fica com o
+             espaço restante e com o scroll. -->
+        <column class="section_fill">
+          <row class="section_head">
+            <text class="section_title" x-text="'HISTÓRICO 24H (' + recent.length + ')'"></text>
           </row>
-          <column class="scroll_fill">
+          <column class="section_body">
+            <row class="thead" x-show="recent.length > 0">
+              <text class="th col_icon"></text>
+              <text class="th col_svc">SERVIÇO</text>
+              <text class="th col_proj">PROJETO</text>
+              <text class="th col_state">ESTADO</text>
+              <text class="th col_dur">DURAÇÃO</text>
+              <text class="th col_start">INÍCIO</text>
+            </row>
+          </column>
+          <row class="empty_wrap" x-show="recent.length === 0">
+            <text class="empty_state">Nenhum deploy concluído nas últimas 24h.</text>
+          </row>
+          <column class="section_scroll" x-show="recent.length > 0">
             <column class="table_body">
-              <text class="muted" x-show="recent.length === 0" style="padding:16px">
-                Nenhum deploy concluído nas últimas 24h.
-              </text>
               <template x-for="(r, i) in recent" :key="r.service + r.start + i">
                 <column class="row_wrap">
                   <row class="trow">
