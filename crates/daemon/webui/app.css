@@ -383,6 +383,48 @@ hr, .rule   { width: 100%; height: 1px; border: none; background: var(--border);
     white-space: pre; overflow-wrap: normal;
 }
 
+/* ── Toasts ──────────────────────────────────────────────────────────────
+   Porte do `toasts.rs` do glacier-ui: empilhados no canto inferior direito,
+   não-modais (a UI por baixo continua clicável) e cumulativos, cada um com
+   seu próprio cronômetro. z-index acima do modal — um erro disparado de
+   dentro do modal de build log precisa aparecer por cima dele. */
+.toast_wrap {
+    position: fixed; right: 20px; bottom: 20px; z-index: 60;
+    /* Largura fixa (e não uma por conteúdo): empilhados, toasts de tamanhos
+       diferentes viram uma escada de bordas à esquerda. */
+    width: 380px; max-width: calc(100vw - 40px);
+    gap: 10px; pointer-events: none;
+}
+.toast {
+    pointer-events: auto;
+    width: 100%;
+    align-items: flex-start; gap: 10px;
+    padding: 12px 14px; border-radius: 6px;
+    background: var(--raised); border: 1px solid var(--border);
+    border-left: 3px solid var(--faint);
+    box-shadow: 0 8px 24px rgba(1,4,9,.55);
+    animation: toast_in .16s ease-out;
+}
+@keyframes toast_in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+
+.toast_icon  { flex-shrink: 0; font-size: 13px; line-height: 18px; color: var(--faint); }
+.toast_msg   { flex: 1 1 auto; min-width: 0; font-size: 13px; line-height: 18px; color: var(--text-2); overflow-wrap: anywhere; }
+.toast_close { flex-shrink: 0; padding: 0 2px; font-size: 15px; line-height: 18px; color: var(--faint); cursor: pointer; }
+.toast_close:hover { color: var(--text); }
+
+.toast_info    { border-left-color: var(--accent); }
+.toast_success { border-left-color: var(--ok); }
+.toast_warning { border-left-color: var(--warn); }
+.toast_error   { border-left-color: var(--error); }
+.toast_info    .toast_icon { color: var(--accent); }
+.toast_success .toast_icon { color: var(--ok); }
+.toast_warning .toast_icon { color: var(--warn); }
+.toast_error   .toast_icon { color: var(--error); }
+
 /* ── Responsivo ───────────────────────────────────────────────────────── */
 @media (max-width: 1280px) { .stats_hide_xl { display: none !important; } }
 @media (max-width: 1000px) { .stats_hide_lg { display: none !important; } }
@@ -403,6 +445,10 @@ hr, .rule   { width: 100%; height: 1px; border: none; background: var(--border);
   .col_proj   { width: 120px; }
   .col_state  { width: 130px; }
   .col_dur    { width: 90px; }
+  /* Numa tela estreita o toast ocupa a largura toda: 260px de mínimo num
+     viewport de 360 deixaria a mensagem em quatro linhas. */
+  .toast_wrap { left: 16px; right: 16px; bottom: 16px; max-width: none; }
+  .toast      { width: 100%; min-width: 0; max-width: none; }
 }
 
 @media (max-width: 560px) {

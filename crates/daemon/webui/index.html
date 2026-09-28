@@ -221,7 +221,6 @@
             </column>
           </row>
         </row>
-        <text class="muted" x-show="store.engineMsg" x-text="store.engineMsg"></text>
 
         <!-- Na fila -->
         <column class="panel_fill">
@@ -485,7 +484,6 @@
             <text class="muted_fill" x-text="containers.length + ' container(s)'"></text>
             <button class="btn_danger" type="button" @click="store.dockerPruneContainers()">Limpar parados</button>
           </row>
-          <text class="muted" x-show="store.dockerMsg" x-text="store.dockerMsg"></text>
           <row class="thead">
             <text class="th col_svc">NOME</text>
             <text class="th col_img">IMAGEM</text>
@@ -530,7 +528,6 @@
             </label>
             <button class="btn_danger" type="button" @click="store.dockerPruneImages()">Limpar sem uso</button>
           </row>
-          <text class="muted" x-show="store.dockerMsg" x-text="store.dockerMsg"></text>
           <row class="thead">
             <text class="th col_svc">TAGS</text>
             <text class="th col_proj">PROJETO / SERVIÇO</text>
@@ -577,7 +574,6 @@
             </label>
             <button class="btn_danger" type="button" @click="store.dockerPruneVolumes()">Limpar sem uso</button>
           </row>
-          <text class="muted" x-show="store.dockerMsg" x-text="store.dockerMsg"></text>
           <row class="thead">
             <text class="th col_svc">NOME</text>
             <text class="th col_proj">DRIVER</text>
@@ -619,7 +615,6 @@
             </label>
             <button class="btn_danger" type="button" @click="store.dockerPruneNetworks()">Limpar sem uso</button>
           </row>
-          <text class="muted" x-show="store.dockerMsg" x-text="store.dockerMsg"></text>
           <row class="thead">
             <text class="th col_svc">NOME</text>
             <text class="th col_proj">PROJETO</text>
@@ -662,7 +657,6 @@
             <button class="btn_danger" type="button" x-show="store.snap?.registry_status?.enabled"
                     @click="store.registryGc()">Executar GC</button>
           </row>
-          <text class="muted" x-show="store.registryMsg" x-text="store.registryMsg"></text>
 
           <!-- Lista de repositórios -->
           <column x-show="!store.registrySelectedRepo">
@@ -825,7 +819,6 @@
           </row>
           <button class="btn_primary" type="button" @click="store.openNewJob()">+ Novo job</button>
         </row>
-        <text class="muted" x-show="store.jobMsg" x-text="store.jobMsg"></text>
 
         <column class="panel_fill">
           <row class="thead">
@@ -1549,7 +1542,6 @@
             <button class="btn_export" type="button" @click="openEnvText()" x-show="!envTextOpen">.env</button>
             <button class="btn_export_on" type="button" @click="closeEnvText()" x-show="envTextOpen">Fechar</button>
           </row>
-          <text class="muted" x-show="store.projectMsg" x-text="store.projectMsg"></text>
           <template x-if="!envTextOpen">
             <column style="gap:10px">
               <row class="env_add">
@@ -2352,6 +2344,20 @@
       </column>
     </column>
   </row>
+
+  <!-- Toasts: fora do shell de propósito, para sobreviverem a qualquer troca
+       de tela (inclusive um logout no meio de uma ação). -->
+  <column class="toast_wrap" aria-live="polite" aria-atomic="false">
+    <template x-for="t in $store.app.toasts" :key="t.id">
+      <row class="toast" :class="'toast_' + t.kind" role="status">
+        <text class="toast_icon" aria-hidden="true"
+              x-text="({ info: 'ℹ', success: '✓', warning: '⚠', error: '✕' })[t.kind] || 'ℹ'"></text>
+        <text class="toast_msg" x-text="t.message"></text>
+        <button class="toast_close" type="button" aria-label="Fechar"
+                @click="$store.app.dismissToast(t.id)">&times;</button>
+      </row>
+    </template>
+  </column>
 </div>
 
 </body>

@@ -84,7 +84,6 @@ document.addEventListener("alpine:init", () => {
     fContextPath: "",
     fBuildStage: "",
     fArchivePort: "",
-    sourceMsg: "",
     giteaProviderId: "",
     giteaProviders: [],
     giteaRepoFullName: "",
@@ -101,7 +100,6 @@ document.addEventListener("alpine:init", () => {
     async initGeneralForm() {
       const spec = this.svc?.spec;
       if (!spec) return;
-      this.sourceMsg = "";
       if (spec.source.Compose) {
         this.composeText = spec.source.Compose.content || "";
         this.composeOrig = this.composeText;
@@ -160,7 +158,8 @@ document.addEventListener("alpine:init", () => {
           this.giteaProviders = r.value.GitProviders;
           this.giteaMsg = "";
         } else {
-          this.giteaMsg = "erro ao listar contas conectadas";
+          this.giteaMsg = "";
+          this.store.toastErr("erro ao listar contas conectadas");
         }
       }
     },
@@ -177,7 +176,8 @@ document.addEventListener("alpine:init", () => {
         this.giteaRepos = r.value.GitRepos;
         this.giteaMsg = `${r.value.GitRepos.length} repositório(s)`;
       } else {
-        this.giteaMsg = "erro ao listar repositórios";
+        this.giteaMsg = "";
+        this.store.toastErr("erro ao listar repositórios");
       }
     },
 
@@ -197,7 +197,8 @@ document.addEventListener("alpine:init", () => {
         this.giteaBranches = r.value.GitBranches;
         this.giteaMsg = "";
       } else {
-        this.giteaMsg = "erro ao listar branches";
+        this.giteaMsg = "";
+        this.store.toastErr("erro ao listar branches");
       }
     },
 
@@ -241,18 +242,20 @@ document.addEventListener("alpine:init", () => {
 
     async uploadArchive() {
       if (!this.archiveFile) {
-        this.archiveMsg = "selecione um arquivo .zip";
+        this.store.toastWarn("selecione um arquivo .zip");
         return;
       }
       this.archiveMsg = "enviando zip…";
       const r = await this.store.api.uploadArchive(this.svc.id, this.archiveFile);
       if (r.ok) {
-        this.archiveMsg = "zip enviado";
+        this.archiveMsg = "";
         this.archiveFile = null;
+        this.store.toastOk("zip enviado");
         await this.store.fetchServiceDetail(this.svc.id);
         await this.store.refreshNow();
       } else {
-        this.archiveMsg = "erro: " + r.error;
+        this.archiveMsg = "";
+        this.store.toastErr("erro: " + r.error);
       }
       if (this.fArchivePort) {
         const spec = JSON.parse(JSON.stringify(this.svc.spec));

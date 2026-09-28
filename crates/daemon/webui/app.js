@@ -96,11 +96,9 @@ document.addEventListener("alpine:init", () => {
     sysMem: "—",
     sysDisk: "—",
     sysLoad: "—",
-    engineMsg: "",
 
     // ── Docker / Registry (aba Docker) ──────────────────────────────────
     dockerTab: "containers",
-    dockerMsg: "",
     onlyUsedImages: false,
     onlyUsedVolumes: false,
     onlyUsedNetworks: false,
@@ -110,12 +108,10 @@ document.addEventListener("alpine:init", () => {
     registryTags: [],
     registryTagsLoading: false,
     registryTokens: [],
-    registryMsg: "",
 
     // ── Schedules (jobs one-shot) ────────────────────────────────────────
     jobsById: {}, // id -> Job cru (porta de State.jobs_by_id, precisa do
     // record completo pra reenviar em JobUpdate — só `enabled` muda)
-    jobMsg: "",
     jobLogLines: [],
     jobLogStream: null,
     jobsInflight: {}, // id -> true entre o click em "Rodar agora" e o
@@ -232,7 +228,10 @@ document.addEventListener("alpine:init", () => {
     view: "deployments",
     selectedProjectId: null,
     selectedServiceId: null,
-    projectMsg: "",
+
+    // Serviço cujo deploy foi disparado DESTA aba (ver applyBusEvent):
+    // sobrevive à navegação, ao contrário de `selectedServiceId`.
+    deployTrackId: null,
 
     // ── Detalhe de serviço aberto ────────────────────────────────────
     serviceDetail: null, // Service (ServiceGet)
@@ -243,10 +242,62 @@ document.addEventListener("alpine:init", () => {
     serviceLogLines: [],
     serviceLogStream: null,
 
+    // ── Toasts ────────────────────────────────────────────────────────
+    // O par do `toast{ message, kind }` do glacier-ui na GUI desktop: mesmos
+    // quatro kinds, mesma duração de 4s, empilhados no canto inferior
+    // direito. Existe porque metade das ações da webui só escrevia `*Msg`
+    // numa linha da tela — e em quase toda ação bem-sucedida essa linha
+    // recebia `""`, ou seja, silêncio total: o único jeito de saber se o
+    // clique funcionou era ver a lista mudar.
+    //
+    // Mensagem de PROGRESSO ("salvando…", "carregando repositórios…")
+    // continua inline no `*Msg` da tela. Toast some sozinho; estado, não.
+    toasts: [],
+    toastSeq: 0,
+
+    toast(message, kind = "info", durationMs = 4000) {
+      if (!message) return null;
+      const id = ++this.toastSeq;
+      this.toasts.push({ id, kind, message: String(message) });
+      setTimeout(() => this.dismissToast(id), durationMs);
+      return id;
+    },
+
+    toastOk(message) {
+      return this.toast(message, "success");
+    },
+    toastErr(message) {
+      return this.toast(message, "error");
+    },
+    toastWarn(message) {
+      return this.toast(message, "warning");
+    },
+
+    // Desfecho de um rpc num passo só: `okMessage` omitido = sucesso
+    // silencioso (a tela já mostra o resultado, um toast seria ruído).
+    // Devolve `r.ok` para caber num `if`.
+    toastResult(r, okMessage) {
+      if (r.ok) {
+        if (okMessage) this.toastOk(okMessage);
+      } else {
+        this.toastErr("erro: " + r.error);
+      }
+      return r.ok;
+    },
+
+    dismissToast(id) {
+      const i = this.toasts.findIndex((t) => t.id === id);
+      if (i !== -1) this.toasts.splice(i, 1);
+    },
+
+    serviceNameById(id) {
+      const e = (this.snap?.services || []).find((x) => x.service.id === id);
+      return e?.service?.spec?.name || "serviço";
+    },
+
     nav(view) {
       this.stopServiceLogs();
       this.view = view;
-      if (view === "projects") this.projectMsg = "";
     },
 
     persistPrefs() {
@@ -350,11 +401,11 @@ document.addEventListener("alpine:init", () => {
         // deployment virar `Failed` no snapshot de 2s, sem hipótese nenhuma
         // do porquê. Ver docs/plano-erro-de-deploy-invisivel.md.
         const d = ev.DeployStateChanged;
+        const terminal =
+          d.state === "Live" || d.state === "Failed" || d.state === "Stopped";
+        const motivo = shortReason(d.message);
         if (d.service_id && d.service_id === this.selectedServiceId) {
-          const terminal =
-            d.state === "Live" || d.state === "Failed" || d.state === "Stopped";
           if (terminal) {
-            const motivo = shortReason(d.message);
             this.serviceMsg =
               d.state === "Live"
                 ? "deploy concluído"
@@ -364,6 +415,20 @@ document.addEventListener("alpine:init", () => {
             this.fetchServiceDetail(d.service_id);
           } else {
             this.serviceMsg = `deploy · ${d.state}`;
+          }
+        }
+        // Desfecho do deploy que ESTE usuário disparou, mesmo que ele já
+        // tenha saído da tela do serviço — quem manda deployar vai fazer
+        // outra coisa enquanto o build roda. A GUI desktop resolve isso com
+        // notificação do SO mais toast; no browser ficamos no toast (uma
+        // Notification exigiria pedir permissão, que ninguém pediu).
+        if (terminal && d.service_id && d.service_id === this.deployTrackId) {
+          this.deployTrackId = null;
+          const nome = this.serviceNameById(d.service_id);
+          if (d.state === "Live") {
+            this.toastOk(`${nome}: deploy concluído`);
+          } else {
+            this.toastErr(`${nome}: ${motivo || "deploy " + d.state}`);
           }
         }
       }
@@ -394,7 +459,8 @@ document.addEventListener("alpine:init", () => {
       if (!this.api) return;
       this.statusLine = "parando todos…";
       const r = await this.api.rpcChecked("StopAllManaged");
-      this.statusLine = r.ok ? "todos os serviços parados" : "erro: " + r.error;
+      this.statusLine = r.ok ? "todos os serviços parados" : "falha ao parar";
+      this.toastResult(r, "todos os serviços parados");
     },
 
     async clearFinished() {
@@ -404,7 +470,7 @@ document.addEventListener("alpine:init", () => {
         .filter((d) => d.state === "Stopped" || d.state === "Failed")
         .map((d) => d.id);
       if (ids.length === 0) {
-        this.deploymentsMsg = "nada para limpar";
+        this.toastWarn("nada para limpar");
         return;
       }
       if (
@@ -422,8 +488,9 @@ document.addEventListener("alpine:init", () => {
         if (r.ok) removed++;
         else failed++;
       }
-      this.deploymentsMsg =
-        failed === 0 ? `${removed} removido(s)` : `${removed} removido(s), ${failed} falharam`;
+      this.deploymentsMsg = "";
+      if (failed === 0) this.toastOk(`${removed} deployment(s) removido(s)`);
+      else this.toastErr(`${removed} removido(s), ${failed} falharam`);
     },
 
     async refreshNow() {
@@ -445,7 +512,10 @@ document.addEventListener("alpine:init", () => {
       const r = await this.api.rpcChecked({
         ProjectCreate: { name: name.trim(), description: description?.trim() || null },
       });
-      if (r.ok) await this.refreshNow();
+      if (r.ok) {
+        this.toastOk("projeto criado");
+        await this.refreshNow();
+      }
       return r;
     },
 
@@ -453,6 +523,7 @@ document.addEventListener("alpine:init", () => {
       const r = await this.api.rpcChecked({
         ProjectUpdate: { id, name: name.trim(), description: description?.trim() || null },
       });
+      this.toastResult(r, "projeto atualizado");
       if (r.ok) await this.refreshNow();
       return r;
     },
@@ -462,6 +533,7 @@ document.addEventListener("alpine:init", () => {
         return { ok: false, error: "cancelado" };
       }
       const r = await this.api.rpcChecked({ ProjectDelete: { id } });
+      this.toastResult(r, "projeto removido");
       if (r.ok) {
         await this.refreshNow();
         this.nav("projects");
@@ -471,7 +543,6 @@ document.addEventListener("alpine:init", () => {
 
     openProject(id) {
       this.selectedProjectId = id;
-      this.projectMsg = "";
       this.nav("project");
     },
 
@@ -483,7 +554,7 @@ document.addEventListener("alpine:init", () => {
           env_comments: envComments,
         },
       });
-      this.projectMsg = r.ok ? "variáveis salvas" : "erro: " + r.error;
+      this.toastResult(r, "variáveis salvas");
       if (r.ok) await this.refreshNow();
       return r;
     },
@@ -493,6 +564,7 @@ document.addEventListener("alpine:init", () => {
       const r = await this.api.rpcChecked({
         SecretSet: { project_id: this.selectedProjectId, name: name.trim(), value },
       });
+      this.toastResult(r, `secret ${name.trim()} salvo`);
       if (r.ok) await this.refreshNow();
       return r;
     },
@@ -504,6 +576,7 @@ document.addEventListener("alpine:init", () => {
       const r = await this.api.rpcChecked({
         SecretDelete: { project_id: this.selectedProjectId, name },
       });
+      this.toastResult(r, `secret ${name} removido`);
       if (r.ok) await this.refreshNow();
     },
 
@@ -537,6 +610,7 @@ document.addEventListener("alpine:init", () => {
     async wizardCreate(req) {
       const r = await this.api.rpcChecked({ WizardCreate: req });
       if (r.ok) {
+        this.toastOk("serviço criado");
         await this.refreshNow();
         const created = r.value?.Service;
         if (created) this.openService(created.id);
@@ -579,6 +653,7 @@ document.addEventListener("alpine:init", () => {
       };
       const r = await this.api.rpcChecked({ ServiceCreate: spec });
       if (r.ok) {
+        this.toastOk("serviço criado");
         await this.refreshNow();
         const created = r.value?.Service;
         if (created) this.openService(created.id);
@@ -614,11 +689,11 @@ document.addEventListener("alpine:init", () => {
       const id = this.selectedServiceId;
       const r = await this.api.rpcChecked({ ServiceUpdate: { id, spec } });
       if (r.ok) {
-        this.serviceMsg = okMsg || "salvo";
+        this.toastOk(okMsg || "salvo");
         await this.fetchServiceDetail(id);
         await this.refreshNow();
       } else {
-        this.serviceMsg = "erro: " + r.error;
+        this.toastErr("erro: " + r.error);
       }
       return r;
     },
@@ -631,8 +706,9 @@ document.addEventListener("alpine:init", () => {
       if (r.ok) {
         await this.refreshNow();
         this.nav("project");
+        this.toastOk("serviço removido");
       } else {
-        this.serviceMsg = "erro ao remover: " + r.error;
+        this.toastErr("erro ao remover: " + r.error);
       }
     },
 
@@ -643,7 +719,7 @@ document.addEventListener("alpine:init", () => {
         return;
       }
       const r = await this.api.rpcChecked({ ServiceStop: { service_id: id } });
-      if (!r.ok) this.projectMsg = "erro ao parar: " + r.error;
+      this.toastResult(r, "serviço parado");
       await this.refreshNow();
     },
 
@@ -666,11 +742,12 @@ document.addEventListener("alpine:init", () => {
 
       const r1 = await this.api.rpcChecked({ ServiceStop: { service_id: id } });
       if (!r1.ok) {
-        this.projectMsg = "erro ao parar: " + r1.error;
+        this.toastErr("erro ao parar: " + r1.error);
         return;
       }
       const r2 = await this.api.rpcChecked({ ServiceDelete: { id } });
-      this.projectMsg = r2.ok ? "serviço parado e removido" : "erro ao remover: " + r2.error;
+      if (r2.ok) this.toastOk("serviço parado e removido");
+      else this.toastErr("erro ao remover: " + r2.error);
       await this.refreshNow();
     },
 
@@ -678,14 +755,19 @@ document.addEventListener("alpine:init", () => {
       const id = this.selectedServiceId;
       this.serviceMsg = "iniciando deploy…";
       const r = await this.api.rpcChecked({ DeployStart: { service_id: id } });
-      this.serviceMsg = r.ok ? "deploy iniciado" : "erro: " + r.error;
+      this.serviceMsg = "";
+      // Guarda quem o USUÁRIO mandou deployar: o desfecho (DeployStateChanged)
+      // vira toast mesmo que ele já tenha navegado para outra tela — é o par
+      // do `State.deploy_track` da GUI desktop.
+      if (r.ok) this.deployTrackId = id;
+      this.toastResult(r, "deploy iniciado");
       await this.fetchServiceDetail(id);
       await this.refreshNow();
     },
 
     async deployAbort(deploymentId) {
       const r = await this.api.rpcChecked({ DeployAbort: { deployment_id: deploymentId } });
-      this.serviceMsg = r.ok ? "deploy cancelado" : "erro: " + r.error;
+      this.toastResult(r, "deploy cancelado");
       await this.fetchServiceDetail(this.selectedServiceId);
     },
 
@@ -693,12 +775,14 @@ document.addEventListener("alpine:init", () => {
       if (!confirm("Reverter para o deploy anterior?")) return;
       const id = this.selectedServiceId;
       const r = await this.api.rpcChecked({ DeployRollback: { service_id: id } });
-      this.serviceMsg = r.ok ? "rollback iniciado" : "erro: " + r.error;
+      if (r.ok) this.deployTrackId = id;
+      this.toastResult(r, "rollback iniciado");
       await this.fetchServiceDetail(id);
     },
 
     async deleteDeployment(deploymentId) {
       const r = await this.api.rpcChecked({ DeployDelete: { deployment_id: deploymentId } });
+      this.toastResult(r, "deployment removido");
       if (r.ok) await this.fetchServiceDetail(this.selectedServiceId);
       return r;
     },
@@ -711,76 +795,80 @@ document.addEventListener("alpine:init", () => {
      * (o daemon já trata remoção da fila como caso do abort). */
     async queueCancel(deploymentId) {
       const r = await this.api.rpcChecked({ DeployAbort: { deployment_id: deploymentId } });
-      this.engineMsg = r.ok ? "" : "erro: " + r.error;
+      this.toastResult(r, "deploy cancelado");
       await this.refreshNow();
     },
 
     async queuePromote(deploymentId) {
       const r = await this.api.rpcChecked({ DeployQueuePromote: { deployment_id: deploymentId } });
-      this.engineMsg = r.ok ? "" : "erro: " + r.error;
+      this.toastResult(r, "deploy movido para o topo da fila");
       await this.refreshNow();
     },
 
     async queueTogglePause() {
       const paused = !!this.snap?.engine?.paused;
       const r = await this.api.rpcChecked({ DeployQueuePause: { paused: !paused } });
-      this.engineMsg = r.ok ? "" : "erro: " + r.error;
+      this.toastResult(r, paused ? "fila retomada" : "fila pausada");
       await this.refreshNow();
     },
 
     // ── Docker (host-wide) ──────────────────────────────────────────────
     // Porta de handlers/docker.luau — cada prune/remove segue o mesmo padrão:
-    // rpcChecked + mensagem em dockerMsg + refreshNow() pra refletir na hora
+    // rpcChecked + toast do desfecho + refreshNow() pra refletir na hora
     // (o snapshot de 2s pegaria de qualquer jeito, mas assim fica imediato).
 
-    /** Formata Response::PruneResult{count,reclaimed_bytes}; sem esse payload
-     * (algum prune que devolve só Ok), mensagem genérica. */
-    pruneResultMsg(r) {
-      if (!r.ok) return "erro: " + r.error;
+    /** Toast de um prune, com o Response::PruneResult{count,reclaimed_bytes}
+     * quando o daemon o devolve; sem esse payload (algum prune que responde
+     * só Ok), mensagem genérica. */
+    toastPrune(r) {
+      if (!r.ok) return this.toastErr("erro: " + r.error);
       const pr = r.value?.PruneResult;
-      if (pr) return `removidos: ${pr.count} · ${fmtBytes(pr.reclaimed_bytes)} liberados`;
-      return "limpeza concluída";
+      return this.toastOk(
+        pr
+          ? `removidos: ${pr.count} · ${fmtBytes(pr.reclaimed_bytes)} liberados`
+          : "limpeza concluída"
+      );
     },
 
     async dockerPruneContainers() {
       const r = await this.api.rpcChecked("PruneContainers");
-      this.dockerMsg = this.pruneResultMsg(r);
+      this.toastPrune(r);
       await this.refreshNow();
     },
     async dockerPruneImages() {
       const r = await this.api.rpcChecked({ PruneImages: { all: this.pruneAllImages } });
-      this.dockerMsg = this.pruneResultMsg(r);
+      this.toastPrune(r);
       await this.refreshNow();
     },
     async dockerPruneVolumes() {
       const r = await this.api.rpcChecked({ PruneVolumes: { all: this.pruneAllVolumes } });
-      this.dockerMsg = this.pruneResultMsg(r);
+      this.toastPrune(r);
       await this.refreshNow();
     },
     async dockerPruneNetworks() {
       const r = await this.api.rpcChecked("PruneNetworks");
-      this.dockerMsg = this.pruneResultMsg(r);
+      this.toastPrune(r);
       await this.refreshNow();
     },
 
     async dockerRemoveContainer(id) {
       const r = await this.api.rpcChecked({ RemoveContainer: { id } });
-      this.dockerMsg = r.ok ? "" : "erro: " + r.error;
+      this.toastResult(r, "removido");
       if (r.ok) await this.refreshNow();
     },
     async dockerRemoveImage(id) {
       const r = await this.api.rpcChecked({ RemoveImage: { id } });
-      this.dockerMsg = r.ok ? "" : "erro: " + r.error;
+      this.toastResult(r, "removido");
       if (r.ok) await this.refreshNow();
     },
     async dockerRemoveVolume(name) {
       const r = await this.api.rpcChecked({ RemoveVolume: { name } });
-      this.dockerMsg = r.ok ? "" : "erro: " + r.error;
+      this.toastResult(r, "removido");
       if (r.ok) await this.refreshNow();
     },
     async dockerRemoveNetwork(id) {
       const r = await this.api.rpcChecked({ RemoveNetwork: { id } });
-      this.dockerMsg = r.ok ? "" : "erro: " + r.error;
+      this.toastResult(r, "removido");
       if (r.ok) await this.refreshNow();
     },
 
@@ -815,7 +903,7 @@ document.addEventListener("alpine:init", () => {
     async registryRmTag(tag) {
       const repo = this.registrySelectedRepo;
       const r = await this.api.rpcChecked({ RegistryTagDelete: { repo, tag } });
-      this.registryMsg = r.ok ? "" : "erro: " + r.error;
+      this.toastResult(r, `tag ${tag} removida`);
       if (r.ok) {
         await this.registryOpenRepo(repo);
         await this.refreshNow();
@@ -823,7 +911,7 @@ document.addEventListener("alpine:init", () => {
     },
     async registryRmRepo(name) {
       const r = await this.api.rpcChecked({ RegistryRepoDelete: { repo: name } });
-      this.registryMsg = r.ok ? "" : "erro: " + r.error;
+      this.toastResult(r, `repositório ${name} removido`);
       if (r.ok) {
         if (this.registrySelectedRepo === name) this.registryCloseRepo();
         await this.refreshNow();
@@ -833,17 +921,19 @@ document.addEventListener("alpine:init", () => {
       const r = await this.api.rpcChecked("RegistryGc");
       if (r.ok) {
         const gc = r.value?.RegistryGcResult;
-        this.registryMsg = gc
-          ? `GC: ${gc.blobs_removed} arquivo(s) removido(s) · ${fmtBytes(gc.bytes_freed)} liberados`
-          : "GC concluído";
+        this.toastOk(
+          gc
+            ? `GC: ${gc.blobs_removed} arquivo(s) removido(s) · ${fmtBytes(gc.bytes_freed)} liberados`
+            : "GC concluído"
+        );
         await this.refreshNow();
       } else {
-        this.registryMsg = "erro: " + r.error;
+        this.toastErr("erro: " + r.error);
       }
     },
     async registryRmToken(name) {
       const r = await this.api.rpcChecked({ RegistryTokenRevoke: { name } });
-      this.registryMsg = r.ok ? "" : "erro: " + r.error;
+      this.toastResult(r, `token ${name} revogado`);
       if (r.ok) await this.registryRefreshTokens();
     },
 
@@ -864,7 +954,7 @@ document.addEventListener("alpine:init", () => {
       this.jobsInflight[id] = true;
       try {
         const r = await this.api.rpcChecked({ JobRunNow: { id } });
-        this.jobMsg = r.ok ? "" : "erro: " + r.error;
+        this.toastResult(r, "job disparado");
         await this.refreshNow();
       } finally {
         delete this.jobsInflight[id];
@@ -880,7 +970,7 @@ document.addEventListener("alpine:init", () => {
     async jobRunCancel(jobRunId) {
       if (!jobRunId) return;
       const r = await this.api.rpcChecked({ JobRunCancel: { job_run_id: jobRunId } });
-      this.jobMsg = r.ok ? "cancelamento solicitado" : "erro: " + r.error;
+      this.toastResult(r, "cancelamento solicitado");
       await this.refreshNow();
     },
 
@@ -889,7 +979,7 @@ document.addEventListener("alpine:init", () => {
     async jobToggle(id) {
       const job = this.jobsById[id];
       if (!job) {
-        this.jobMsg = "job não encontrado no snapshot atual";
+        this.toastWarn("job não encontrado no snapshot atual");
         return;
       }
       const r = await this.api.rpcChecked({
@@ -905,14 +995,14 @@ document.addEventListener("alpine:init", () => {
           recurrence: job.recurrence,
         },
       });
-      this.jobMsg = r.ok ? "" : "erro: " + r.error;
+      this.toastResult(r, job.enabled ? "job desativado" : "job ativado");
       await this.refreshNow();
     },
 
     async jobDelete(id) {
       if (!confirm("Remover este job? Ação irreversível.")) return;
       const r = await this.api.rpcChecked({ JobDelete: { id } });
-      this.jobMsg = r.ok ? "" : "erro: " + r.error;
+      this.toastResult(r, "job removido");
       await this.refreshNow();
     },
 
@@ -1138,8 +1228,12 @@ document.addEventListener("alpine:init", () => {
         });
       }
       this.njobSubmitting = false;
-      if (r.ok) this.closeNewJob();
-      else this.njobErr = r.error;
+      if (r.ok) {
+        this.toastOk(this.njobEditId ? "job atualizado" : "job criado");
+        this.closeNewJob();
+      } else {
+        this.njobErr = r.error;
+      }
     },
 
     /** Abre o mesmo modal do wizard, mas em modo edição: pula pro passo
@@ -1150,7 +1244,7 @@ document.addEventListener("alpine:init", () => {
     async openEditJob(id) {
       const job = this.jobsById[id];
       if (!job) {
-        this.jobMsg = "job não encontrado no snapshot atual";
+        this.toastWarn("job não encontrado no snapshot atual");
         return;
       }
       this.showNewJob = true;
@@ -1282,7 +1376,8 @@ document.addEventListener("alpine:init", () => {
           registry_domain: registryDomain || null,
         },
       });
-      this.settingsMsg = r.ok ? "configurações salvas" : "erro: " + r.error;
+      this.settingsMsg = "";
+      this.toastResult(r, "configurações salvas");
     },
 
     async gpRefresh() {
@@ -1302,7 +1397,7 @@ document.addEventListener("alpine:init", () => {
       if (!base) {
         if (isGithub) base = "https://github.com";
         else {
-          this.gpMsg = "informe a Base URL do Gitea";
+          this.toastWarn("informe a Base URL do Gitea");
           return;
         }
       }
@@ -1313,7 +1408,7 @@ document.addEventListener("alpine:init", () => {
         const cid = this.gpClientId.trim();
         const csec = this.gpClientSecret || "";
         if (!cid || !csec.trim()) {
-          this.gpMsg = "Client ID e Client Secret são obrigatórios";
+          this.toastWarn("Client ID e Client Secret são obrigatórios");
           return;
         }
         cmd = {
@@ -1330,7 +1425,7 @@ document.addEventListener("alpine:init", () => {
       } else {
         const pat = this.gpPat || "";
         if (!pat.trim()) {
-          this.gpMsg = "informe o Personal Access Token";
+          this.toastWarn("informe o Personal Access Token");
           return;
         }
         cmd = {
@@ -1348,7 +1443,8 @@ document.addEventListener("alpine:init", () => {
       this.gpMsg = "conectando…";
       const r = await this.api.rpc(cmd);
       if (!r.ok || !r.value?.GitProviderInfo) {
-        this.gpMsg = "erro: " + (r.ok ? "resposta inesperada" : r.error);
+        this.gpMsg = "";
+        this.toastErr("erro: " + (r.ok ? "resposta inesperada" : r.error));
         return;
       }
       const pid = r.value.GitProviderInfo.id;
@@ -1364,7 +1460,8 @@ document.addEventListener("alpine:init", () => {
           this.gpMsg = "provider criado; inicie o OAuth manualmente";
         }
       } else {
-        this.gpMsg = `conta ${label} conectada ✓`;
+        this.gpMsg = "";
+        this.toastOk(`conta ${label} conectada`);
       }
       this.gpName = "";
       this.gpBaseUrl = "";
@@ -1376,7 +1473,8 @@ document.addEventListener("alpine:init", () => {
 
     async gpDelete(id) {
       const r = await this.api.rpcChecked({ GitProviderDelete: { id } });
-      this.gpMsg = r.ok ? "provider removido" : "erro: " + r.error;
+      this.gpMsg = "";
+      this.toastResult(r, "provider removido");
       await this.gpRefresh();
     },
 
@@ -1384,13 +1482,15 @@ document.addEventListener("alpine:init", () => {
       this.iacExportMsg = "exportando…";
       const r = await this.api.rpcChecked("ManifestExportAll");
       if (!r.ok || !r.value?.ManifestBundle) {
-        this.iacExportMsg = "erro: " + (r.ok ? "resposta inesperada" : r.error);
+        this.iacExportMsg = "";
+        this.toastErr("erro: " + (r.ok ? "resposta inesperada" : r.error));
         return;
       }
       this.iacYaml = r.value.ManifestBundle.yaml;
       this.iacDotenv = r.value.ManifestBundle.dotenv;
       this.iacHasExport = true;
-      this.iacExportMsg = "exportado ✓";
+      this.iacExportMsg = "";
+      this.toastOk("manifesto exportado");
     },
 
     /** 3 formas de resposta possíveis (mesma distinção de handlers/
@@ -1404,7 +1504,7 @@ document.addEventListener("alpine:init", () => {
 
       const yaml = this.iacImportYaml || "";
       if (!yaml.trim()) {
-        this.iacImportMsg = "cole o YAML do manifesto";
+        this.toastWarn("cole o YAML do manifesto");
         return;
       }
 
@@ -1418,7 +1518,8 @@ document.addEventListener("alpine:init", () => {
         },
       });
       if (!r.ok) {
-        this.iacImportMsg = "erro: " + r.error;
+        this.iacImportMsg = "";
+        this.toastErr("erro: " + r.error);
         return;
       }
       const v = r.value;
@@ -1426,14 +1527,17 @@ document.addEventListener("alpine:init", () => {
         this.iacHasMissing = true;
         this.iacMissingVars = v.MissingEnvVars.join(", ");
         this.iacImportMsg = "faltam variáveis — nada foi aplicado";
+        this.toastErr("faltam variáveis — nada foi aplicado");
         return;
       }
       if (v?.Err) {
-        this.iacImportMsg = `erro: ${v.Err.code}: ${v.Err.message}`;
+        this.iacImportMsg = "";
+        this.toastErr(`erro: ${v.Err.code}: ${v.Err.message}`);
         return;
       }
       if (!v?.ManifestReport) {
-        this.iacImportMsg = "resposta inesperada do daemon";
+        this.iacImportMsg = "";
+        this.toastErr("resposta inesperada do daemon");
         return;
       }
       const lines = (v.ManifestReport.actions || []).map(
@@ -1444,7 +1548,8 @@ document.addEventListener("alpine:init", () => {
       }
       this.iacReportLines = lines;
       this.iacHasReport = true;
-      this.iacImportMsg = "import concluído ✓";
+      this.iacImportMsg = "";
+      this.toastOk("import concluído");
       await this.refreshNow();
     },
 
@@ -1534,9 +1639,11 @@ document.addEventListener("alpine:init", () => {
       if (r.ok && r.value?.DockerCleanupConfig) {
         this.dcApplyConfig(r.value.DockerCleanupConfig.config);
         this.dcLastRunText = dockerCleanupLastRunSummary(r.value.DockerCleanupConfig.last_run);
-        this.dcMsg = "configurações salvas";
+        this.dcMsg = "";
+        this.toastOk("configurações salvas");
       } else {
-        this.dcMsg = "erro: " + r.error;
+        this.dcMsg = "";
+        this.toastErr("erro: " + r.error);
       }
     },
 
@@ -1548,7 +1655,7 @@ document.addEventListener("alpine:init", () => {
       const anySelected =
         this.dcContainers || this.dcImages || this.dcVolumes || this.dcNetworks || this.dcBuildCache;
       if (!anySelected) {
-        this.dcMsg = "marque pelo menos um recurso";
+        this.toastWarn("marque pelo menos um recurso");
         return;
       }
       if (
@@ -1563,14 +1670,15 @@ document.addEventListener("alpine:init", () => {
       const r = await this.api.rpcChecked("DockerCleanupRunNow");
       if (!r.ok) {
         this.dcRunning = false;
-        this.dcMsg = "erro: " + r.error;
+        this.dcMsg = "";
+        this.toastErr("erro: " + r.error);
       }
     },
 
     async serviceStop() {
       const id = this.selectedServiceId;
       const r = await this.api.rpcChecked({ ServiceStop: { service_id: id } });
-      this.serviceMsg = r.ok ? "serviço parado" : "erro: " + r.error;
+      this.toastResult(r, "serviço parado");
       await this.fetchServiceDetail(id);
       await this.refreshNow();
     },
@@ -1578,7 +1686,7 @@ document.addEventListener("alpine:init", () => {
     async serviceReload() {
       const id = this.selectedServiceId;
       const r = await this.api.rpcChecked({ ServiceReload: { service_id: id } });
-      this.serviceMsg = r.ok ? "serviço recarregado" : "erro: " + r.error;
+      this.toastResult(r, "serviço recarregado");
       await this.fetchServiceDetail(id);
     },
 

@@ -438,4 +438,104 @@ mod headless_tests {
             "sem erros de JS no console"
         );
     }
+
+    /// Toasts (`$store.app.toast`): o feedback de ação da webui, que até
+    /// então só existia na GUI desktop. Cobre o que a mudança promete —
+    /// aparecer com a cor do kind, empilhar, sair no clique do "×" e expirar
+    /// sozinho — porque nada disso passa por um snapshot ou por uma rota: é
+    /// só store + template, e um `cargo test` verde sem navegador não diria
+    /// nada sobre ele.
+    #[tokio::test]
+    async fn toasts_aparecem_empilham_e_expiram() {
+        let addr = spawn_static_server().await;
+        let (browser, _handler) = launch().await;
+        let page = open_page(&browser, addr).await;
+        seed_connected(&page).await;
+
+        page.evaluate(
+            r#"(() => {
+                const s = Alpine.store('app');
+                s.toastOk('salvo');
+                s.toastErr('erro: falhou');
+                s.toastWarn('confira os campos');
+            })()"#,
+        )
+        .await
+        .expect("dispara três toasts");
+
+        assert!(
+            visible(&page, ".toast_wrap .toast_success").await,
+            "toast de sucesso deveria aparecer"
+        );
+        for kind in ["success", "error", "warning"] {
+            assert!(
+                visible(&page, &format!(".toast_wrap .toast_{kind}")).await,
+                "toast kind={kind} deveria aparecer"
+            );
+        }
+        let count = page
+            .evaluate("document.querySelectorAll('.toast_wrap .toast').length")
+            .await
+            .expect("conta os toasts")
+            .into_value::<u32>()
+            .expect("contagem numérica");
+        assert_eq!(
+            count, 3,
+            "os três toasts deveriam empilhar, não se substituir"
+        );
+
+        // O "×" dispensa só o seu.
+        page.evaluate("document.querySelector('.toast_wrap .toast_error .toast_close').click()")
+            .await
+            .expect("clica no × do toast de erro");
+        for _ in 0..20 {
+            let n = page
+                .evaluate("document.querySelectorAll('.toast_wrap .toast').length")
+                .await
+                .ok()
+                .and_then(|r| r.into_value::<u32>().ok())
+                .unwrap_or(9);
+            if n == 2 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        let restantes = page
+            .evaluate("[...document.querySelectorAll('.toast_wrap .toast')].map(e => e.className).join(' ')")
+            .await
+            .expect("classes restantes")
+            .into_value::<String>()
+            .expect("string");
+        assert!(
+            !restantes.contains("toast_error"),
+            "o × deveria remover o toast clicado; restou: {restantes}"
+        );
+        assert!(
+            restantes.contains("toast_success") && restantes.contains("toast_warning"),
+            "os outros dois deveriam continuar; restou: {restantes}"
+        );
+
+        // Expiração automática: duração curta em vez de esperar os 4s padrão.
+        page.evaluate("Alpine.store('app').toast('some sozinho', 'info', 150)")
+            .await
+            .expect("toast curto");
+        assert!(
+            visible(&page, ".toast_wrap .toast_info").await,
+            "toast info deveria aparecer antes de expirar"
+        );
+        tokio::time::sleep(Duration::from_millis(400)).await;
+        let sobrou_info = page
+            .evaluate("!!document.querySelector('.toast_wrap .toast_info')")
+            .await
+            .expect("consulta o toast info")
+            .into_value::<bool>()
+            .expect("bool");
+        assert!(!sobrou_info, "o toast deveria ter expirado sozinho");
+
+        assert_eq!(
+            errors(&page).await,
+            Vec::<String>::new(),
+            "sem erros de JS no console"
+        );
+    }
 }
