@@ -63,10 +63,14 @@ impl Default for RustployConfig
 (2 testes)
 
 ### lib.rs — Tipos compartilhados entre daemon e GUI (modelos, protocolo, config, manifest, templates) e os nomes…
-fn compose_project_name(svc_id, svc_name) -> String — Unique Docker Compose project name for a rustploy service.
+fn compose_project_name(svc_id, svc_name) -> String — Nome de stack Compose no formato **legado**, derivado a cada uso: primeiros 8 caracteres do ID (time…
+fn new_compose_project_name(svc_id, svc_name) -> String — Nome de stack Compose de um serviço **novo**: `rp_<últimos 8 chars do ID>_<nome>` (a parte aleatória…
+fn new_compose_project_name_long(svc_id, svc_name) -> String — Variante com o ID inteiro, para quando o índice `UNIQUE` recusa a curta.
+fn new_project_network_name(project_id) -> String — Nome de rede Docker de um projeto **novo**: `rp_net_<ID inteiro, minúsculo>`.
+fn compose_safe(name) -> String — Nome de serviço reduzido ao que o Docker Compose aceita num nome de projeto (ASCII minúsculo, dígito…
 fn app_container_base(svc_id, svc_name) -> String — Base do nome de container de um serviço Application: `rp_<id8>_<safe>`.
 fn app_network_alias(svc_name) -> String — Hostname de um serviço Application **dentro da rede do projeto**: `rp_<safe>`.
-(4 testes)
+(7 testes)
 
 ### manifest.rs — Infra-as-Code: structs do manifesto declarativo (`rustploy.yml`).
 struct ServerManifest { api_version, projects } — Manifesto raiz (agregador): vários projetos, inline ou via `include:`.
@@ -138,6 +142,8 @@ struct DomainRoute { domain, port, tls } — Uma rota HTTP de domínio de um ser
 impl DomainRoute
   fn container_port(default) -> u16 — Porta de container efetiva (a própria, ou a `port` padrão do serviço).
 fn normalize_name(name) -> String
+impl Service
+  fn compose_project_name() -> String — Nome da stack Compose: o gravado; na falta (banco ainda não migrado, ou serviço que virou Compose de…
 impl ServiceSpec
   fn safe_name() -> String
   fn domain_routes() -> Vec<DomainRoute> — Rotas HTTP efetivas do serviço: a lista `domains` nova, ou — para specs antigos que só têm o campo `…
@@ -163,7 +169,7 @@ struct GitAccount { login, avatar_url } — The connected account, populated onc
 struct GitProvider { id, kind, name, base_url, auth_mode, oauth_client_id, account, created_at } — A connected Git provider, as exposed to clients.
 struct GitRepo { full_name, clone_url, default_branch, private } — A repository listed from a provider's API.
 struct GitBranch { name } — A branch listed from a provider's API.
-struct Service { id, spec, status, live_container_id, created_at, updated_at }
+struct Service { id, spec, compose_project, status, live_container_id, created_at, updated_at }
 enum ServiceStatus { Stopped, Stopping, Deploying, Running, Degraded, Error, Queued }
 struct Deployment { id, service_id, image, state, states_log, started_at, finished_at }
 enum DeployState { Pending, PreDeployCheck, ResolvingDeps, PullingImage, CloningRepo, BuildingImage, Staging, HealthcheckPolling, SwappingIn, Draining, Promoting, Live, Stopped, RollingBack, Failed, Pruning, ComposingUp }

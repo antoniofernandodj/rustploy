@@ -35,7 +35,7 @@ impl DeployExecutor
   fn registry_credentials_for(image) -> Option<bollard::auth::DockerCredentials> — Se `image` aponta pro registry embutido do próprio rustployd, devolve as credenciais do token intern…
   fn image_for(dep, svc) -> String
   fn archive_dir(service_id, archive_id) -> PathBuf
-  fn network_name(project_id) -> String
+  fn network_name(project_id) -> Result<String> — Nome da rede do projeto — o gravado em `project.network_name`.
   fn ensure_network(project_id) -> Result<String>
   fn resolve_env(svc) -> Result<Vec<(String, String)>> — Wrapper fino: a lógica de verdade mora em `deploy::env_resolve::resolve` (reaproveitada pelo `JobRun…
   fn load_deployment(id) -> Result<Deployment>

@@ -88,6 +88,8 @@ const SELECT_COLS
 type Db = SqlitePool
 fn connect(db_path) -> Result<Db>
 fn migrate(pool) -> Result<()> — Cria as tabelas e aplica as migrações incrementais (`ALTER TABLE` idempotente via `add_column_if_mis…
+fn connect_existing_for_test(pool) — Reexecuta a migração num banco já aberto (um boot seguinte), para os testes.
+fn ensure_unique_index(pool, name, target, why) — Cria um índice `UNIQUE` sem derrubar o boot: se já há valores repetidos (uma colisão anterior ao pla…
 fn add_column_if_missing(pool, sql) -> Result<()> — Executa um `ALTER TABLE ...
 
 ### projects.rs — Tabela `project`: CRUD de projetos e suas env vars de nível de projeto.
@@ -95,6 +97,8 @@ struct ProjectRow { id, name, description, env_vars, env_comments, created_at }
 fn row_to_project(row) -> Result<Project>
 fn create(db, name, description) -> Result<Project>
 fn update_env_vars(db, id, env_vars, env_comments) -> Result<Option<Project>>
+fn network_name(db, project_id) -> Result<String> — Nome da rede Docker do projeto — o gravado.
+fn network_names(db) — `id do projeto → nome da rede` de todos os projetos (o inventário Docker descobre por aqui de quem é…
 fn list(db) -> Result<Vec<Project>>
 fn get(db, id) -> Result<Option<Project>>
 fn update(db, id, name, description) -> Result<Option<Project>>
@@ -142,6 +146,7 @@ fn touch_last_used(db, token_sha256) -> Result<()> — Best-effort, chamado em b
 type ServiceRow = (String, String, String, String, String, Option<St…
 fn row_to_service(row) -> Result<Service>
 fn parse_status(s) -> ServiceStatus
+fn new_compose_project(db, id, name) -> Result<String> — Nome de stack para um serviço Compose novo: o curto (`rp_<últimos 8 do ID>_<nome>`); se já está em u…
 fn create(db, spec) -> Result<Service>
 fn list(db, project_id) -> Result<Vec<Service>>
 fn get(db, id) -> Result<Option<Service>>
@@ -153,8 +158,10 @@ fn get_running(db) -> Result<Vec<Service>>
 fn count_by_project(db, project_id) -> Result<i64>
 fn get_watchable(db) -> Result<Vec<Service>>
 fn list_all(db) -> Result<Vec<Service>>
+fn compose_service_keys(content) -> std::collections::BTreeSet<String> — Chaves de serviço (`services:`) de um compose, para casar com as de uma stack viva.
+fn backfill_compose_projects(db, live) -> Result<()> — Grava `compose_project` nos serviços Compose que ainda não têm, com o nome **que a stack já usa** — …
 const SELECT_COLS
-(6 testes)
+(14 testes)
 
 ### webhook_tokens.rs — Tabela de tokens de webhook de deploy, um por serviço.
 fn get(db, service_id) -> Result<Option<String>>

@@ -7,8 +7,13 @@ No Rustploy, todos os serviços de um mesmo projeto se comunicam automaticamente
 Quando um projeto é criado, o Rustploy garante a existência de uma **rede bridge dedicada**:
 
 ```
-rp_net_{primeiros_8_chars_do_project_id}
+rp_net_{id_do_projeto_inteiro_em_minúsculo}
 ```
+
+O nome é **gravado** em `project.network_name` na criação e lido de lá em todo
+uso (não é recalculado). Projetos criados antes de 2026-09-29 mantêm o nome
+antigo, `rp_net_{8 primeiros chars do ID}` — a migração só o anotou. Ver
+`docs/plano-nome-gravado-rede-e-stack.md`.
 
 Todos os serviços do projeto — tanto **Application** (Registry/Git) quanto **Compose** — são conectados a essa rede automaticamente pelo daemon no momento do deploy.
 
@@ -123,7 +128,7 @@ DATABASE_URL=postgresql://appuser:secret@postgres:5432/myapp
 **Verificar se um container está na rede do projeto:**
 
 ```bash
-docker network inspect rp_net_<8chars> \
+docker network inspect <nome da rede do projeto> \
   --format '{{range .Containers}}{{.Name}} {{end}}'
 ```
 

@@ -54,7 +54,8 @@ fn find_all_by_service_id(docker, service_id) -> Result<Vec<String>>
 struct ManagedContainer { id, name, state } — Container gerenciado pelo rustploy, no formato leve que o GUI exibe (id + nome + estado).
 struct ContainerIndex { by_service_id, by_compose_project } — Índice de containers do host resolvido numa única listagem, com duas chaves: por `rustploy.service_i…
 impl ContainerIndex
-  fn for_service(service_id, service_name) -> Vec<ManagedContainer> — Containers de um serviço: pelos labels `rustploy.service_id`, ou — quando vazio (serviço Compose) — …
+  fn for_service(service) -> Vec<ManagedContainer> — Containers de um serviço: pelos labels `rustploy.service_id`, ou — quando vazio (serviço Compose) — …
+fn list_compose_projects(docker) — Stacks Compose que existem no host (`com.docker.compose.project`, com os containers vivos ou parados…
 fn index_containers(docker) -> ContainerIndex — Lista **todos** os containers do host numa única chamada e os indexa por service_id e por projeto Co…
 fn find_old_containers(docker, service_id, exclude_deployment_id) -> Result<Vec<String>> — Returns container IDs for a service excluding those from the given deployment.
 fn find_by_name(docker, name) -> Result<Option<String>> — TODO: sem uso desde a checagem de dono.
@@ -83,11 +84,10 @@ impl DockerClient
   fn ping() -> Result<()>
 
 ### networks.rs — Rede Docker por projeto: nome e criação sob demanda.
-fn project_network_name(project_id_short) -> String
+fn legacy_project_net_for(project_id) -> String — Nome de rede no formato **legado** (`rp_net_` + 8 primeiros chars do ID), derivado a cada uso e sem …
 fn id_short(id) -> &str
-fn project_net_for(project_id) -> String
-fn ensure_project_network(docker, project_id) -> Result<String>
-fn _remove_project_network(docker, project_id) -> Result<()>
+fn ensure_project_network(docker, name) -> Result<String> — Garante que a rede `name` existe (cria uma bridge se não) e devolve o id.
+fn _remove_project_network(docker, name) -> Result<()>
 fn _connect_container(docker, network_name, container_id) -> Result<()>
 fn _disconnect_container(docker, network_name, container_id) -> Result<()>
 

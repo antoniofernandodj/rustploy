@@ -678,7 +678,7 @@ linha `event:` e só enxerga o `data:`.
   `tokio::spawn`. Ver a seção abaixo.
 - **`docker/`** — wrappers bollard: `images` (pull/build), `containers`
   (create/start/stop/rename/remove), `networks` (rede bridge por projeto,
-  `rp_net_<prefixo_do_projeto>`). Não há `volumes.rs`: o rustploy nunca cria
+  nome gravado em `project.network_name`). Não há `volumes.rs`: o rustploy nunca cria
   volume nomeado, só bind mount (`ServiceSpec.volumes`).
 - **`api/handlers/docker_inventory.rs`** — listagem do host inteiro para a aba
   Docker (`DockerImages`/`Volumes`/`Networks`/`Containers`), não só o que é do
@@ -688,7 +688,7 @@ linha `event:` e só enxerga o `data:`.
   endpoint de listagem de networks nunca preenche o próprio campo `Containers`.
   Atribuição de projeto/serviço é melhor esforço: imagens por tag
   (`rp_<safe_name>:…` para builds Git, string exata para imagens de registry),
-  networks pela convenção `rp_net_<id_curto>`; volumes não têm atribuição
+  networks pelo nome gravado em `project.network_name`; volumes não têm atribuição
   nenhuma (não há label para correlacionar). Também tem o `stop_all_managed`
   (`Command::StopAllManaged`), que para todo serviço do rustploy replicando o
   `service_stop::handle`, **independente do que a coluna de status diz** — assim

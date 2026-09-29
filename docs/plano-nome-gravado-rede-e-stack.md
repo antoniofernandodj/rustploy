@@ -1,9 +1,34 @@
 # Plano: nome de rede e de stack Compose gravados, não derivados
 
-> **Status:** proposta, **não implementado** (2026-09-29).
-> Origem: bug achado no teste E2E de `plano-colisao-nome-container.md`
-> (seção "Bug encontrado no teste"). Produção verificada no mesmo dia:
-> **nenhuma** colisão existente, nem de rede nem de stack.
+> **Status: implementado** (2026-09-29), passos 1 a 3 da "Ordem sugerida".
+>
+> Diferenças em relação ao texto do plano, decididas na implementação:
+> - `Service` ganhou `compose_project: Option<String>` (serialização com
+>   `#[serde(default)]`, só leitura) e o helper `Service::compose_project_name()`,
+>   que devolve o gravado ou, na falta, a fórmula legada. `Project` **não**
+>   ganhou campo: a rede é lida por `db::projects::network_name` /
+>   `network_names`.
+> - a rede dos projetos existentes é preenchida em SQL na própria migração
+>   (`db::migrate`); a stack dos serviços Compose precisa do Docker, então é
+>   preenchida logo depois da conexão com o Docker no boot
+>   (`db::services::backfill_compose_projects`, chamada em `main.rs`), antes da
+>   recovery. Sem Docker listável, as colunas ficam `NULL` e vale o fallback
+>   legado (comportamento de antes).
+> - o backfill nunca adota a stack de outro serviço. O prefixo do nome não basta
+>   (8 primeiros chars do ID: igual para tudo criado no mesmo segundo, como num
+>   import de manifesto — ver "Bug achado no teste com a infra de produção"): uma
+>   stack só é adotada por um serviço renomeado se as chaves de serviço dos seus
+>   containers (`com.docker.compose.service`) cabem nas do compose do serviço e
+>   só ela serve; senão vale a fórmula legada com o nome atual.
+> - `update_spec` grava a stack de um serviço que **virou** Compose numa edição
+>   de fonte, com o nome do momento; se já há stack gravada, não mexe (é o que
+>   torna o rename seguro).
+> - o `rustploy-import` insere direto no banco sem as colunas novas: ficam
+>   `NULL` e o daemon preenche no boot (rede pela fórmula legada).
+> - **validado com Docker de verdade** em 2026-09-29 (seção "Como foi validado"),
+>   inclusive com o manifesto de produção (`rustploy-infra.zip`) importado por um
+>   daemon do commit anterior. Não foi feito contra uma cópia do `rustploy.db` de
+>   produção.
 
 ## O problema, em termos simples
 
@@ -175,3 +200,94 @@ Não existe em produção (verificado). Mas um servidor qualquer poderia ter:
 
 Até o passo 2 entrar: evitar import de manifesto que crie vários projetos ou
 serviços de uma vez.
+
+
+## Como foi validado (2026-09-29)
+
+`rustployd` isolado (banco, portas e config próprios), operado pela API, com
+`redis:6.2-alpine` e um volume nomeado. Os recursos `rp_*` que já existiam no
+host não foram tocados (a limpeza remove só o que difere de um snapshot tirado
+antes).
+
+**Daemon novo, banco limpo**
+1. Dois projetos criados em seguida, sem espera, com IDs de mesmos 8 primeiros
+   caracteres: `network_name` diferentes (`rp_net_<ID inteiro>`), uma rede cada,
+   e um serviço `api` em cada projeto sem se misturar.
+2. Serviço Compose com volume: grava um arquivo, renomeia `postgres` → `banco`,
+   redeploy. Mesma stack (`rp_<id8>_postgres`), mesmo volume, um só container
+   (sem órfão), arquivo intacto.
+
+**Daemon do commit anterior cria tudo; daemon novo sobe sobre o mesmo banco**
+3. Nenhum container, rede ou volume muda de nome, e nenhum container é
+   recriado; os serviços voltam `Running` pela recovery.
+4. `network_name` preenchido com o nome legado (`rp_net_<8 chars>`);
+   `compose_project` preenchido com a stack viva. Um serviço **renomeado antes
+   da atualização e ainda não redeployado** adota a stack do nome antigo.
+5. Redeploy de tudo pelo daemon novo reusa as mesmas redes e volumes, com os
+   dados intactos; um segundo rename + redeploy também.
+6. Banco antigo **com colisão de rede**: o índice `UNIQUE` não é criado, o aviso
+   é logado e o daemon segue no ar.
+
+**Com a infra de produção** (`rustploy-infra.zip`: 1 projeto, 13 serviços, 6 Compose
+e 7 Git), importada por um daemon do commit anterior num banco isolado.
+Sobem só `cache`, `broker` e `storage` (Compose autocontidos); os de Git (repos
+privados) ficam importados e parados; `db` e `mongo` não sobem (`host_port` +
+volume externo abririam portas no firewall do host). O `broker` é renomeado
+para `mq` **sem** redeploy antes de o daemon novo subir.
+7. Nada muda de nome nem é recriado; `network_name` do projeto = nome legado;
+   os 6 serviços Compose ganham stack, os 7 de Git não; `mq` adota a stack viva
+   `rp_<id8>_broker`.
+8. Redeploy dos três pelo daemon novo reusa redes e volumes, com os dados
+   intactos; rename de `cache` + redeploy também.
+
+## Bug achado no teste com a infra de produção
+
+A primeira versão do backfill escolhia, para um serviço renomeado, "a única
+stack viva com o mesmo prefixo de ID". O import cria os 13 serviços no mesmo
+segundo, então **todos** têm o mesmo prefixo: o serviço `db`, que nunca subiu,
+adotou a stack viva do `broker`, e o `mq` (ex-`broker`) ficou sem ela e foi
+marcado `Stopped` pela recovery — o serviço "perdia" o volume e o outro passava
+a mexer nos dados errados. Os testes de unidade e os E2E anteriores não pegaram
+porque criavam poucos serviços e em segundos diferentes.
+
+Correção: casar também pelas chaves de serviço do compose (seção acima) e só
+adotar com candidato único; teste de regressão
+`backfill_de_import_no_mesmo_segundo_liga_cada_stack_ao_seu_servico`.
+
+Limite que continua: dois serviços Compose de mesmo prefixo **e** mesmas chaves
+de serviço, ambos renomeados sem redeploy, são ambíguos — o backfill loga um
+aviso e usa a fórmula legada (o que o daemon já fazia antes deste plano), sem
+adivinhar.
+
+## Segundo zip, de outro servidor (2026-09-29)
+
+4 projetos e 9 serviços (3 Compose: `db` do Standimob — uma stack Supabase de 9
+containers —, `rdo-banco` e outro `db` do projeto gestão; 6 Git, de repos
+privados, que ficam parados). O firewall do host não foi tocado
+(`RUSTPLOY_FW_SOCKET` apontado para um socket inexistente).
+
+**Importado direto pelo daemon novo** (o caso de uso): 4 redes e 3 stacks
+distintas, inclusive para os **dois serviços chamados `db`**; cada stack na rede
+do seu projeto e sem vazar para a de outro; rename + redeploy sem volume ou rede
+nova, com o marcador de todos os volumes intacto.
+
+**Importado e implantado pelo daemon anterior, depois atualizado**: aqui o
+import cria os 9 serviços no mesmo segundo, e a fórmula antiga dá a **mesma
+stack** (`rp_<id8>_db`) aos dois `db`, e a **mesma rede** aos 4 projetos. O
+daemon anterior então trata os dois `db` como uma stack só (o `reconcile` marcou
+o segundo como `Running` só porque achou os containers do primeiro na stack).
+O daemon novo sobe sobre esse banco sem renomear nem recriar nada, grava os
+nomes que já existiam, não cria os índices `UNIQUE`, loga o aviso e segue no ar
+— como o plano prevê: **ele não conserta uma colisão que já existe**. Separar
+continua manual (redeploy de um dos projetos numa rede nova; decidir de quem são
+os volumes da stack repetida). Serviços e projetos criados dali em diante já
+saem com nomes distintos.
+
+Observação do teste: o boot do daemon novo re-enfileira deploys que estavam
+pendentes no antigo (recovery, comportamento já existente); numa rodada isso
+criou um container que não existia no snapshot anterior, mas com o nome da
+stack legada, ou seja, sem mudar nenhum nome.
+
+Consequência prática: **importe zips de outros servidores pelo daemon novo**.
+Importar pelo antigo e atualizar depois preserva o que existe, mas carrega as
+colisões junto.
