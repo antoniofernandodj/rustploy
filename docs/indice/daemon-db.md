@@ -1,0 +1,163 @@
+# Índice: daemon: persistência (db/)
+
+> Gerado por `cargo run -p indexer`; não editar à mão. Sem números de linha:
+> `grep -n "nome" <dir><arquivo>` dá a linha. Cada item: `nome(params) — doc`.
+> Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
+> `impl A, B for T` = impls de traits comuns (métodos omitidos).
+
+## crates/daemon/src/db/
+
+### build_logs.rs
+fn append(db, deployment_id, line, timestamp) -> Result<()>
+fn delete_for_deployment(db, deployment_id) -> Result<()>
+fn get_for_deployment(db, deployment_id) -> Result<Vec<BuildLogLine>>
+
+### daemon_settings.rs
+fn get(db, key) -> Result<Option<String>>
+fn set(db, key, value) -> Result<()>
+fn delete(db, key) -> Result<()>
+const KEY_WEBHOOK_BASE_URL — DEPRECADA: a base pública passou a ser derivada de `[api] domain`/`port` (ver `AppState::public_base…
+const KEY_DOCKER_CLEANUP_CONFIG — JSON de `shared::DockerCleanupConfig` — ver `crate::maintenance`.
+const KEY_DOCKER_CLEANUP_LAST_RUN — JSON de `shared::DockerCleanupLastRun`, ausente até a primeira execução.
+const KEY_ACME_EMAIL, KEY_REGISTRY_DOMAIN
+
+### deployments.rs
+type DeploymentRow = (String, String, String, String, String, DateTime<…
+fn row_to_deployment(row) -> Deployment
+fn parse_state(s) -> DeployState
+fn create(db, service_id, image) -> Result<Deployment>
+fn get(db, id) -> Result<Option<Deployment>>
+fn list_for_service(db, service_id, limit) -> Result<Vec<Deployment>>
+fn _latest_for_service(db, service_id) -> Result<Option<Deployment>>
+fn transition(db, id, from, to, message) -> Result<Deployment>
+fn list_recent(db, limit) -> Result<Vec<Deployment>>
+fn get_non_terminal(db) -> Result<Vec<Deployment>>
+fn list_terminal_last_24h(db, limit) -> Result<Vec<Deployment>>
+fn stats_last_24h(db) -> Result<(u64, u64, u64)>
+fn delete(db, id) -> Result<()>
+const SELECT_COLS
+
+### git_providers.rs — Persistence for connected Git providers (Gitea OAuth2 / PAT).
+struct StoredProvider { id, kind, name, base_url, auth_mode, oauth_client_id, oauth_client_secret_enc, access_token_enc, refresh_token_enc, account_login, account_avatar, created_at } — Full row as stored, including the encrypted secret columns.
+type Row = (String, String, String, String, String, Option<St…
+fn row_to_stored(r) -> Result<StoredProvider>
+impl StoredProvider
+  fn to_public() -> GitProvider — Client-facing projection.
+fn insert(db, p) -> Result<()>
+fn list(db) -> Result<Vec<StoredProvider>>
+fn get(db, id) -> Result<Option<StoredProvider>>
+fn set_tokens(db, id, access_token_enc, refresh_token_enc, account_login, account_avatar) -> Result<()> — Records the connected account and its tokens once OAuth completes (or a PAT validates).
+fn delete(db, id) -> Result<bool>
+const COLS
+
+### job.rs
+type JobRow = (String, String, String, String, String, String, b…
+fn row_to_job(row) -> Result<Job>
+fn create(db, project_id, trigger_service_id, name, compose, git_source, main_service, env_vars, env_comments, recurrence) -> Result<Job>
+fn get(db, id) -> Result<Option<Job>>
+fn list(db, project_id) -> Result<Vec<Job>>
+fn list_all(db) -> Result<Vec<Job>>
+fn list_due(db, now) -> Result<Vec<Job>> — Jobs vencidos: habilitados, com agendamento configurado, e cujo `next_run_at` já passou — usado só p…
+fn update(db, id, name, compose, git_source, main_service, env_vars, env_comments, enabled, recurrence) -> Result<Option<Job>>
+fn mark_fired(db, id, last_run_at, next_run_at) -> Result<()> — Registra o disparo de um job: `last_run_at` = agora, `next_run_at` já avançado (`None` se o job não …
+fn delete(db, id) -> Result<bool> — Apaga o job e o histórico junto (`job_run` + `job_log`) — não há FK com cascade no schema, então a l…
+fn count_by_project(db, project_id) -> Result<i64>
+fn delete_by_trigger_service(db, service_id) -> Result<u64> — Remove todos os jobs que usam o serviço como gatilho (cascade do `service_delete` — a GUI avisa no c…
+const SELECT_COLS
+(5 testes)
+
+### job_log.rs
+fn stream_to_str(s) -> &'static str
+fn str_to_stream(s) -> LogStream
+fn append(db, job_run_id, stream, line, timestamp) -> Result<()>
+fn get_for_run(db, job_run_id) -> Result<Vec<BuildLogLine>>
+(1 testes)
+
+### job_run.rs
+type JobRunRow = (String, String, DateTime<Utc>, Option<DateTime<Ut…
+fn row_to_job_run(row) -> JobRun
+fn create(db, job_id) -> Result<JobRun>
+fn finish(db, id, exit_code) -> Result<Option<JobRun>> — Fecha uma execução com o exit code do processo `docker compose`.
+fn get(db, id) -> Result<Option<JobRun>>
+fn list_for_job(db, job_id, limit) -> Result<Vec<JobRun>>
+fn latest_for_job(db, job_id) -> Result<Option<JobRun>>
+const SELECT_COLS
+(2 testes)
+
+### mod.rs
+type Db = SqlitePool
+fn connect(db_path) -> Result<Db>
+fn migrate(pool) -> Result<()>
+fn add_column_if_missing(pool, sql) -> Result<()> — Executa um `ALTER TABLE ...
+
+### projects.rs
+struct ProjectRow { id, name, description, env_vars, env_comments, created_at }
+fn row_to_project(row) -> Result<Project>
+fn create(db, name, description) -> Result<Project>
+fn update_env_vars(db, id, env_vars, env_comments) -> Result<Option<Project>>
+fn list(db) -> Result<Vec<Project>>
+fn get(db, id) -> Result<Option<Project>>
+fn update(db, id, name, description) -> Result<Option<Project>>
+fn delete(db, id) -> Result<bool>
+(1 testes)
+
+### registry.rs — Wrappers SQL do registry OCI embutido (metadados; os bytes de blob/manifest vivem no CAS em disco, v…
+struct Repo { id }
+struct ManifestRow { media_type, size }
+struct RepoSummary { name, tag_count, size_bytes, created_at } — Linha da lista de repositórios (sub-aba Registry).
+struct TagDetail { tag, digest, media_type, size_bytes, updated_at } — Linha da lista de tags de um repositório (sub-aba Registry, detalhe).
+struct RegistrySummary { repo_count, blob_count, storage_bytes } — Agregados globais do registry, para o cabeçalho da sub-aba Registry.
+fn get_or_create_repo(db, name) -> Result<Repo> — Busca o repo por nome; cria (`rrepo_<ulid>`) se ainda não existir.
+fn get_repo_by_name(db, name) -> Result<Option<Repo>> — Só leitura — usada nas rotas GET/HEAD que não devem criar repo implicitamente (manifests/tags/blobs …
+fn list_repo_names(db) -> Result<Vec<String>> — `GET /v2/_catalog` — nomes ordenados.
+fn list_repos(db) -> Result<Vec<RepoSummary>> — Lista de repositórios com contagem de tags + tamanho agregado (soma dos manifests do repo — aproxima…
+fn list_tags_detailed(db, repo_id) -> Result<Vec<TagDetail>> — Tags de um repositório com o manifest que cada uma aponta (digest, media_type, tamanho).
+fn summary(db) -> Result<RegistrySummary> — Agregados globais (repos/blobs/tamanho total) para o cabeçalho da sub-aba Registry.
+fn delete_repo(db, repo_id) -> Result<bool> — Remove o repositório inteiro (todos os manifests/tags/refs) — só metadados, não mexe no CAS em disco…
+fn insert_blob(db, digest, size) -> Result<()> — Idempotente — uploads concorrentes do mesmo blob finalizando quase ao mesmo tempo não colidem.
+fn blob_exists(db, digest) -> Result<bool>
+fn insert_manifest(db, digest, repo_id, media_type, size, refs) -> Result<()> — Grava o manifest e substitui suas refs numa transação — idempotente: republicar a mesma tag/digest n…
+fn get_manifest(db, repo_id, digest) -> Result<Option<ManifestRow>> — Confere que o digest pertence ao repo (multi-tenant seguro: um repo não pode ler manifest de outro s…
+fn ref_blob_or_manifest_exists(db, digest) -> Result<bool> — Checagem GLOBAL no CAS (não por repo) — decisão deliberada: exigir refs presentes globalmente simpli…
+fn upsert_tag(db, repo_id, tag, manifest_digest) -> Result<()>
+fn get_tag_digest(db, repo_id, tag) -> Result<Option<String>>
+fn list_tags(db, repo_id) -> Result<Vec<String>>
+fn delete_manifest(db, repo_id, digest) -> Result<bool> — Remove o manifest deste repo e as tags dele que apontavam para ele — só metadados (blobs órfãos são …
+fn gc_metadata(db) -> Result<()> — Fase de metadados do GC (`crate::registry::gc`), numa transação só:
+fn all_cas_digests(db) -> Result<Vec<String>> — Todos os digests que DEVEM existir no CAS (blobs + manifests) — o conjunto "vivo" que o sweep do GC …
+(13 testes)
+
+### registry_tokens.rs — Tokens de acesso do registry OCI embutido (Basic auth — ver `crate::registry::auth`).
+const RP_INTERNAL — Nome reservado do token interno usado pelo próprio deploy executor pra puxar imagens do registry emb…
+struct TokenInfo { name, scope, created_at, last_used_at }
+fn create(db, name, token_sha256, scope) -> Result<()>
+fn upsert_internal(db, token_sha256) -> Result<()> — Cria ou atualiza o token interno `rp-internal`, regenerado a cada boot do daemon (ver `crate::regist…
+fn list(db) -> Result<Vec<TokenInfo>>
+fn revoke(db, name) -> Result<bool>
+fn verify_scope(db, token_sha256) -> Result<Option<String>> — Retorna o escopo do token cujo hash bate, se existir.
+fn touch_last_used(db, token_sha256) -> Result<()> — Best-effort, chamado em background (`tokio::spawn`) pelo caminho de auth — não deve atrasar a respos…
+(7 testes)
+
+### services.rs
+type ServiceRow = (String, String, String, String, String, Option<St…
+fn row_to_service(row) -> Result<Service>
+fn parse_status(s) -> ServiceStatus
+fn create(db, spec) -> Result<Service>
+fn list(db, project_id) -> Result<Vec<Service>>
+fn get(db, id) -> Result<Option<Service>>
+fn update_spec(db, id, spec) -> Result<Option<Service>>
+fn clear_pre_deploy_job(db, job_id) -> Result<u64> — Remove o job dado da fila de pré-deploy check (`pre_deploy_job_ids`, e do `pre_deploy_job_id` legado…
+fn update_status(db, id, status, container_id) -> Result<()>
+fn delete(db, id) -> Result<bool>
+fn get_running(db) -> Result<Vec<Service>>
+fn count_by_project(db, project_id) -> Result<i64>
+fn get_watchable(db) -> Result<Vec<Service>>
+fn list_all(db) -> Result<Vec<Service>>
+const SELECT_COLS
+(6 testes)
+
+### webhook_tokens.rs
+fn get(db, service_id) -> Result<Option<String>>
+fn upsert(db, service_id, token) -> Result<()>
+fn _delete(db, service_id) -> Result<()>
+fn generate_token() -> String

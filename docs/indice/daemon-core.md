@@ -1,0 +1,129 @@
+# Índice: daemon: main, bins, event bus, secrets, métricas e o resto
+
+> Gerado por `cargo run -p indexer`; não editar à mão. Sem números de linha:
+> `grep -n "nome" <dir><arquivo>` dá a linha. Cada item: `nome(params) — doc`.
+> Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
+> `impl A, B for T` = impls de traits comuns (métodos omitidos).
+
+## crates/daemon/
+
+### build.rs — Gera, em tempo de compilação, os assets estáticos da web UI/PWA (`crates/daemon/webui/`, ver `docs/`…
+fn main()
+fn collect_files(root, dir, out) — Percorre `dir` recursivamente, coletando caminhos relativos a `root` (sempre com `/`, mesmo no Windo…
+fn route_for(rel) -> String
+fn content_type_for(rel) -> &'static str
+fn minify(src, is_html) -> String — Minificação conservadora — SÓ remove comentários `<!-- -->` do HTML (delimitadores inequívocos, o pa…
+fn gzip(data) -> Vec<u8>
+fn fnv1a(h, data) -> u64
+const FNV_OFFSET, FNV_PRIME
+
+## crates/daemon/src/bin/
+
+### rustployd-fw.rs — `rustployd-fw` — helper privilegiado de firewall do rustploy.
+struct Request { op, port }
+struct Response { ok, backend, error }
+impl Response
+  fn ok(backend) -> Self
+  fn err(msg) -> Self
+struct PortRange { range_start, range_end }
+fn default_range_start() -> u16
+fn default_range_end() -> u16
+fn load_range() -> PortRange — Lê só a seção `[external_ports]` da config do rustploy — o resto do arquivo não interessa ao helper …
+fn listener() -> UnixListener — Socket herdado do systemd (LISTEN_FDS, fd 3) ou, em dev, criado pelo próprio helper em `$RUSTPLOY_FW…
+fn main()
+fn handle_conn(stream, range)
+fn handle_request(req, range) -> Response
+fn ufw_active() -> Option<bool> — `Some(true)` = ufw instalado e ativo; `Some(false)` = instalado e inativo; `None` = não instalado.
+fn apply_ufw(port, allow) -> Response
+impl Default for PortRange
+
+## crates/daemon/src/
+
+### env_backup.rs
+struct EnvSnapshot { created_at, projects, services } — Conteúdo de um snapshot: todos os projectos e serviços com as suas env vars.
+struct ProjectEnvEntry { id, name, env_vars, env_comments }
+struct ServiceEnvEntry { id, name, project_id, env_vars }
+fn backup_loop(db, backup_dir, interval_secs)
+fn write_snapshot(db, backup_dir) -> anyhow::Result<()>
+fn collect_snapshot(db) -> anyhow::Result<EnvSnapshot>
+fn list_snapshots(backup_dir) -> anyhow::Result<Vec<String>>
+fn restore_snapshot(db, backup_dir, snapshot) -> anyhow::Result<usize>
+fn cleanup_old(backup_dir) -> anyhow::Result<()>
+const _
+
+### event_bus.rs
+struct EventBus { sender }
+impl EventBus
+  fn new() -> Self
+  fn publish(event) — Publica um evento no bus, para os assinantes conectados no momento.
+  fn subscribe() -> broadcast::Receiver<Event>
+const CHANNEL_CAPACITY
+impl Default for EventBus
+
+### firewall.rs — Cliente do helper privilegiado de firewall (`rustployd-fw`).
+const TIMEOUT — `ufw` normalmente responde em milissegundos; o timeout largo cobre o primeiro start do helper via so…
+struct FwResponse { ok, backend, error }
+fn socket_path() -> String
+fn ensure_allowed(port) -> Result<String, String> — Libera `port`/tcp no firewall do host.
+fn ensure_denied(port) -> Result<String, String> — Remove a liberação de `port`/tcp.
+fn ensure_allowed_bg(port) — Variante fire-and-forget para handlers de RPC: não atrasa a resposta ao cliente; o resultado vai par…
+fn ensure_denied_bg(port)
+fn request(op, port) -> Result<String, String>
+fn do_request(op, port) -> Result<String, String>
+const DEFAULT_SOCKET
+
+### health.rs
+fn check_http(url, expected, timeout) -> bool
+fn check_tcp(addr, timeout) -> bool
+
+### logs.rs
+fn stream_loop(docker, db, bus)
+fn stream_container(docker, container_id, service_id, bus)
+fn publish_log(bus, service_id, container_id, is_stderr, bytes)
+const STREAM_IDLE_TIMEOUT
+
+### main.rs
+fn main() -> Result<()>
+fn init_logging(level)
+fn fallback_dir() -> PathBuf
+fn resolve_data_path(configured) -> PathBuf — Tries to use `configured` as the data directory.
+fn resolve_master_key_path(configured) -> PathBuf — Tries to use `configured` as the master key path.
+fn can_write_dir(dir) -> bool — Returns true only when `dir` (or its path) is both creatable and writable.
+const GLOBAL
+
+### metrics.rs
+fn collect_loop(docker, db, bus, interval_secs)
+fn collect_system_metrics(sys) -> SystemMetricsPoint
+fn collect_container_metrics(docker, container_id, service_id, _prev_cpu) -> anyhow::Result<ContainerMetricsPoint>
+
+### ports.rs — Alocação automática de portas externas (`ServiceSpec.host_port`).
+const AUTO_PORT — Sentinela em `ServiceSpec.host_port` que pede alocação automática.
+fn resolve_host_port(db, spec, exclude_id) -> Result<(), String> — Resolve o `host_port` do spec antes de persistir: - `Some(0)` → aloca uma porta livre da faixa confi…
+fn port_in_use_by_other(db, port, exclude_id) -> bool — True se `port` ainda é reservada por algum serviço ≠ `exclude_id` (ou pelo próprio daemon) — usado a…
+fn used_ports(db, exclude_id) -> Result<Vec<u16>, String> — Portas de host indisponíveis: `host_port` de todos os serviços (exceto `exclude_id`) + portas do pró…
+fn allocate(used) -> Result<u16, String> — Varre a faixa configurada e devolve a primeira porta que (a) nenhum serviço reserva e (b) nenhum pro…
+(2 testes)
+
+### secrets.rs
+struct SecretsManager { passphrase, db }
+impl SecretsManager
+  fn new(master_key_path, db) -> Result<Self>
+  fn encrypt(plaintext) -> Result<String>
+  fn decrypt(ciphertext_hex) -> Result<String>
+  fn get_raw(project_id, name) -> Result<String>
+  fn set(project_id, name, value) -> Result<()>
+  fn delete(project_id, name) -> Result<()>
+  fn list_names(project_id) -> Result<Vec<String>>
+fn generate_key() -> Result<String>
+
+### watchdog.rs
+struct ServiceState { last_check, consecutive_failures, restart_attempts }
+fn watchdog_loop(state)
+fn try_restart(state, svc, container_id, svc_state)
+fn is_not_found_error(e) -> bool
+fn trigger_redeploy(state, svc)
+fn run_healthcheck(hc, container_id, docker, port, timeout) -> bool
+fn get_container_ip(docker, container_id) -> Option<String>
+fn container_is_running(docker, container_id) -> bool
+fn mark_service(db, bus, service_id, status, container_id)
+const BASE_TICK, MAX_RESTART_ATTEMPTS, RESTART_WAIT

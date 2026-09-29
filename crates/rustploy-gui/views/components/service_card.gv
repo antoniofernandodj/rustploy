@@ -1,6 +1,4 @@
 <!--
-         container_name, container_id, container_extra
-
   Card de serviço da aba "Serviços" de um projeto — o análogo do ProjectCard.
   Mesmo esquema if/else de topo: `filler=1` rende só o slot vazio que preenche
   a fileira do grid; caso contrário, o card real. O crachá de estado reaproveita

@@ -322,6 +322,33 @@ Relevante quando algo não responde como esperado:
 
 # Parte 2 — Trabalhando no código
 
+## Achar código: comece por `docs/indice/`
+
+Antes de abrir arquivo ou sair dando `grep` por palavra-chave, leia o índice.
+Ele foi feito para gastar pouco token: arquivos como `deploy/executor.rs` passam
+de 20 mil tokens lidos inteiros, e o índice responde "onde está X" por uma
+fração disso.
+
+1. **`docs/indice/INDEX.md`**: a árvore do repositório, com uma linha de
+   responsabilidade por arquivo, e qual índice de área cobre cada diretório.
+2. **O índice da área** (`daemon-deploy.md`, `gui-handlers.md`, `webui.md`…):
+   structs com campos, enums com variantes, métodos sob `impl Tipo`, funções
+   Luau/JS e handlers dos `.gv`, cada um com a primeira frase da sua doc.
+   Para seguir uma feature de ponta a ponta, **`comandos.md`** liga cada
+   `Command` ao handler no daemon e a quem o chama na GUI, na webui e na API de
+   agente, e lista as lacunas de paridade entre os dois clientes.
+3. **`grep -n "fn nome" <arquivo>`** dá a linha, e aí se lê só o trecho
+   (`offset`/`limit`), nunca o arquivo grande inteiro.
+
+O índice **não tem número de linha, de propósito**: ele mudaria a cada edição.
+Tudo é endereçado por caminho + nome, então o índice só envelhece quando um
+símbolo é criado, renomeado ou apagado. Nesse caso, rode **`make index`** (ou
+`cargo run -p indexer`) e commite `docs/indice/` junto. Os arquivos são gerados:
+não edite à mão. A descrição de cada item vem do `//!`/`///` (ou do comentário
+de cabeçalho, em Luau/JS/`.gv`), então documentar o código melhora o índice.
+O gerador fica em `tools/indexer/`, e o porquê de cada decisão está em
+`docs/plano-indice-de-codigo.md`.
+
 ## Convenções
 
 ### glacier-ui: nunca `path`, nunca `[patch]`
@@ -593,6 +620,7 @@ termina TLS com certificado ACME.
 | `daemon` | `rustployd` | Servidor: API, banco, Docker, ingress, motor de deploy, registry |
 | `rustploy-gui` | `rustploy-gui` | Cliente desktop glacier-ui (XML→iced). Toda a rede e lógica de negócio vive em **Luau** (`views/scripts/`), falando com o daemon pela API HTTP/JSON + SSE |
 | `fw-helper` | `rustployd-fw` | Helper privilegiado de firewall (root, socket activation em `/run/rustploy/fw.sock`). O daemon pede allow/deny de portas externas (`daemon/src/firewall.rs`); o helper só aceita portas dentro da faixa `[external_ports]` e só fala com o ufw. **Sem dependência da crate `shared`, de propósito.** Ver `docs/relatorio-porta-externa-automatica.md` |
+| `tools/indexer` | `indexer` | Gera `docs/indice/` (`make index`): o mapa de arquivos e símbolos da seção "Achar código" da Parte 2. Não é publicado nem empacotado |
 
 Os identificadores são ULIDs, com prefixo por tipo (`prj_`, `svc_`, `dep_`,
 `arc_`).

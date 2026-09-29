@@ -12,6 +12,7 @@ O que procurar lá:
 
 | Assunto | Onde |
 |---|---|
+| **Achar código gastando pouco token: `docs/indice/INDEX.md` antes de qualquer grep/leitura** | Parte 2 — Achar código |
 | Operar um rustploy por HTTP (a API de agente) | Parte 1 — Manual de Controle por Agente |
 | Regra do `glacier-ui` (nunca `path`/`[patch]`, sempre publicar) | Parte 2 — Convenções |
 | GUI e webui são **dois** clientes; feature de UI entra nos dois | Parte 2 — Convenções |

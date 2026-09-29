@@ -4,6 +4,7 @@ members = [
     "crates/shared",
     "crates/importer",
     "crates/rustploy-gui",
+    "tools/indexer",
 ]
 resolver = "2"
 
