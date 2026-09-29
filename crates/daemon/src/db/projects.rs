@@ -31,14 +31,17 @@ fn row_to_project(row: ProjectRow) -> Result<Project> {
 pub async fn create(db: &Db, name: String, description: Option<String>) -> Result<Project> {
     let id = format!("prj_{}", Ulid::new());
     let now = Utc::now();
+    // Rede gravada na criação (ID inteiro: não colide) e lida daí em diante.
+    let network_name = shared::new_project_network_name(&id);
     sqlx::query(
-        "INSERT INTO project (id, name, description, env_vars, env_comments, created_at)
-         VALUES (?, ?, ?, '[]', '[]', ?)",
+        "INSERT INTO project (id, name, description, env_vars, env_comments, created_at, network_name)
+         VALUES (?, ?, ?, '[]', '[]', ?, ?)",
     )
     .bind(&id)
     .bind(&name)
     .bind(&description)
     .bind(now)
+    .bind(&network_name)
     .execute(db)
     .await?;
     Ok(Project {
@@ -71,6 +74,36 @@ pub async fn update_env_vars(
         return Ok(None);
     }
     get(db, id).await
+}
+
+/// Nome da rede Docker do projeto — o gravado. Sem gravado (banco de antes da
+/// migração, ou linha inserida por fora, como faz o importer), a fórmula
+/// legada, que é o nome que a rede já tem.
+pub async fn network_name(db: &Db, project_id: &str) -> Result<String> {
+    let stored: Option<Option<String>> =
+        sqlx::query_scalar("SELECT network_name FROM project WHERE id = ?")
+            .bind(project_id)
+            .fetch_optional(db)
+            .await?;
+    Ok(stored
+        .flatten()
+        .unwrap_or_else(|| crate::docker::networks::legacy_project_net_for(project_id)))
+}
+
+/// `id do projeto → nome da rede` de todos os projetos (o inventário Docker
+/// descobre por aqui de quem é cada rede `rp_net_*`).
+pub async fn network_names(db: &Db) -> Result<std::collections::HashMap<String, String>> {
+    let rows: Vec<(String, Option<String>)> =
+        sqlx::query_as("SELECT id, network_name FROM project")
+            .fetch_all(db)
+            .await?;
+    Ok(rows
+        .into_iter()
+        .map(|(id, net)| {
+            let net = net.unwrap_or_else(|| crate::docker::networks::legacy_project_net_for(&id));
+            (id, net)
+        })
+        .collect())
 }
 
 pub async fn list(db: &Db) -> Result<Vec<Project>> {

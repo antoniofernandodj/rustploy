@@ -15,7 +15,7 @@ use bollard::models::HealthStatusEnum;
 use chrono::Utc;
 use shared::{
     DeployState, Deployment, Event, HealthcheckKind, RustployConfig, Service, ServiceSource,
-    ServiceStatus, compose_project_name,
+    ServiceStatus,
 };
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tokio::time::sleep;
@@ -604,7 +604,7 @@ impl DeployExecutor {
 
             DeployState::Staging => {
                 let image = self.image_for(dep, svc);
-                let network = self.network_name(&svc.spec.project_id);
+                let network = self.network_name(&svc.spec.project_id).await?;
                 let env = self.resolve_env(svc).await?;
                 let replicas = svc.spec.replicas.max(1);
                 let dep_short = self.short(&dep.id).to_string();
@@ -782,7 +782,7 @@ impl DeployExecutor {
                 )
                 .await?
                 .ok_or_else(|| anyhow!("staging container not found"))?;
-                let net = self.network_name(&svc.spec.project_id);
+                let net = self.network_name(&svc.spec.project_id).await?;
                 info!(
                     deployment_id = %dep.id,
                     container_id = %cid,
@@ -844,7 +844,7 @@ impl DeployExecutor {
             DeployState::SwappingIn => {
                 let replicas = svc.spec.replicas.max(1);
                 let dep_short = self.short(&dep.id).to_string();
-                let net = self.network_name(&svc.spec.project_id);
+                let net = self.network_name(&svc.spec.project_id).await?;
 
                 // Coleta os IPs de todas as réplicas; cada rota de domínio
                 // depois compõe `ip:porta` com a sua própria porta de container.
@@ -1088,13 +1088,13 @@ impl DeployExecutor {
                 self.log_step(&dep.id, &svc.id, "==> Deploy falhou — iniciando rollback")
                     .await;
                 if let ServiceSource::Compose(compose) = &svc.spec.source {
-                    let project_name = compose_project_name(&svc.id, &svc.spec.name);
+                    let project_name = svc.compose_project_name();
                     info!(
                         deployment_id = %dep.id,
                         project = %project_name,
                         "step[RollingBack]: derrubando compose stack"
                     );
-                    let network_name = self.network_name(&svc.spec.project_id);
+                    let network_name = self.network_name(&svc.spec.project_id).await?;
                     let env_vars = self.resolve_env(&svc).await.unwrap_or_default();
                     let _ = docker::compose::down(
                         &compose.content,
@@ -1139,7 +1139,7 @@ impl DeployExecutor {
 
                 // Restaura todos os backends live anteriores para o ingress
                 let live_replicas = svc.spec.replicas.max(1);
-                let net = self.network_name(&svc.spec.project_id);
+                let net = self.network_name(&svc.spec.project_id).await?;
                 let live_ips =
                     containers::live_replica_ips(&self.docker.inner, &svc.id, &net, live_replicas)
                         .await;
@@ -1191,14 +1191,14 @@ impl DeployExecutor {
                 let ServiceSource::Compose(compose) = &svc.spec.source else {
                     return Err(anyhow!("expected Compose source in ComposingUp"));
                 };
-                let project_name = compose_project_name(&svc.id, &svc.spec.name);
+                let project_name = svc.compose_project_name();
                 info!(
                     deployment_id = %dep.id,
                     content_bytes = compose.content.len(),
                     project = %project_name,
                     "step[ComposingUp]: executando docker compose up"
                 );
-                let network_name = self.network_name(&svc.spec.project_id);
+                let network_name = self.network_name(&svc.spec.project_id).await?;
                 let env_vars = self.resolve_env(&svc).await.unwrap_or_default();
                 docker::compose::up(
                     &self.docker.inner,
@@ -1576,12 +1576,14 @@ impl DeployExecutor {
             .join(archive_id)
     }
 
-    fn network_name(&self, project_id: &str) -> String {
-        networks::project_net_for(project_id)
+    /// Nome da rede do projeto — o gravado em `project.network_name`.
+    async fn network_name(&self, project_id: &str) -> Result<String> {
+        crate::db::projects::network_name(&self.db, project_id).await
     }
 
     async fn ensure_network(&self, project_id: &str) -> Result<String> {
-        networks::ensure_project_network(&self.docker.inner, project_id).await
+        let name = self.network_name(project_id).await?;
+        networks::ensure_project_network(&self.docker.inner, &name).await
     }
 
     /// Wrapper fino: a lógica de verdade mora em `deploy::env_resolve::resolve`

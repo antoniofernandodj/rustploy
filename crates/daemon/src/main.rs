@@ -111,6 +111,19 @@ async fn main() -> Result<()> {
         None
     };
 
+    // Grava o nome da stack Compose dos serviços que ainda não têm, com o que já
+    // está no Docker (nada muda de nome). Antes da recovery, que já lê o gravado.
+    match docker::containers::list_compose_projects(&docker.inner).await {
+        Ok(live) => {
+            if let Err(e) = db::services::backfill_compose_projects(&db, &live).await {
+                error!(error = %e, "falha ao gravar o nome das stacks Compose");
+            }
+        }
+        Err(e) => {
+            warn!(error = %e, "não listei as stacks Compose; nomes seguem pela fórmula legada")
+        }
+    }
+
     // Recovery — devolve os deploys que estavam na fila (Pending) para
     // re-enfileirar depois que o AppState/DeployQueue existir.
     let deploys_to_requeue = deploy::recovery::recover(

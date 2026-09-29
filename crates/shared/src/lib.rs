@@ -10,9 +10,11 @@ pub mod wizard;
 
 pub use config::{ApiConfig, RegistryConfig, RustployConfig, fallback_data_dir, user_home};
 
-/// Unique Docker Compose project name for a rustploy service.
-/// Incorporates the first 8 chars of the service ULID to avoid collisions
-/// between services with the same user-facing name in different projects.
+/// Nome de stack Compose no formato **legado**, derivado a cada uso: primeiros
+/// 8 caracteres do ID (timestamp — não é único) + nome do serviço (muda no
+/// rename). Só a migração de preenchimento e o fallback de
+/// [`Service::compose_project_name`] o usam; serviço novo recebe o nome gravado
+/// por [`new_compose_project_name`]. Ver `docs/plano-nome-gravado-rede-e-stack.md`.
 pub fn compose_project_name(svc_id: &str, svc_name: &str) -> String {
     let id_part = svc_id
         .strip_prefix("svc_")
@@ -20,7 +22,36 @@ pub fn compose_project_name(svc_id: &str, svc_name: &str) -> String {
         .get(..8)
         .unwrap_or(svc_id)
         .to_lowercase();
-    let safe: String = svc_name
+    format!("rp_{id_part}_{}", compose_safe(svc_name))
+}
+
+/// Nome de stack Compose de um serviço **novo**: `rp_<últimos 8 chars do ID>_<nome>`
+/// (a parte aleatória do ULID, como em [`app_container_base`]), com o nome que o
+/// serviço tem na criação. Vira `com.docker.compose.project` e prefixo dos
+/// volumes; é gravado em `service.compose_project` e nunca mais recalculado.
+pub fn new_compose_project_name(svc_id: &str, svc_name: &str) -> String {
+    let ulid = svc_id.strip_prefix("svc_").unwrap_or(svc_id);
+    let id_part = ulid[ulid.len().saturating_sub(8)..].to_lowercase();
+    format!("rp_{id_part}_{}", compose_safe(svc_name))
+}
+
+/// Variante com o ID inteiro, para quando o índice `UNIQUE` recusa a curta.
+pub fn new_compose_project_name_long(svc_id: &str, svc_name: &str) -> String {
+    let ulid = svc_id.strip_prefix("svc_").unwrap_or(svc_id).to_lowercase();
+    format!("rp_{ulid}_{}", compose_safe(svc_name))
+}
+
+/// Nome de rede Docker de um projeto **novo**: `rp_net_<ID inteiro, minúsculo>`.
+/// O ID inteiro não colide (os 8 primeiros chars de um ULID são o horário).
+pub fn new_project_network_name(project_id: &str) -> String {
+    let ulid = project_id.strip_prefix("prj_").unwrap_or(project_id);
+    format!("rp_net_{}", ulid.to_lowercase())
+}
+
+/// Nome de serviço reduzido ao que o Docker Compose aceita num nome de projeto
+/// (ASCII minúsculo, dígitos e `_`).
+fn compose_safe(name: &str) -> String {
+    let safe: String = name
         .chars()
         .map(|c| {
             if c.is_ascii_alphanumeric() {
@@ -30,9 +61,9 @@ pub fn compose_project_name(svc_id: &str, svc_name: &str) -> String {
             }
         })
         .collect();
-    let safe = safe.trim_matches('_');
-    format!("rp_{id_part}_{safe}")
+    safe.trim_matches('_').to_string()
 }
+
 /// Base do nome de container de um serviço Application: `rp_<id8>_<safe>`.
 /// Réplicas e stagings acrescentam sufixos (ver `docker::containers` no
 /// daemon).
@@ -92,6 +123,37 @@ mod tests_container_names {
     #[test]
     fn alias_e_o_nome_curto_de_sempre() {
         assert_eq!(app_network_alias("Minha API"), "rp_minha_api");
+    }
+
+    #[test]
+    fn stack_legada_e_a_de_sempre() {
+        assert_eq!(
+            compose_project_name("svc_01JABCDEFGHJKMNPQRSTVWXYZ0", "Meu DB"),
+            "rp_01jabcde_meu_db"
+        );
+    }
+
+    #[test]
+    fn stack_nova_usa_a_parte_aleatoria_e_o_nome_da_criacao() {
+        assert_eq!(
+            new_compose_project_name("svc_01JABCDEFGHJKMNPQRSTVWXYZ0", "Meu DB"),
+            "rp_stvwxyz0_meu_db"
+        );
+        assert_eq!(
+            new_compose_project_name_long("svc_01JABCDEFGHJKMNPQRSTVWXYZ0", "db"),
+            "rp_01jabcdefghjkmnpqrstvwxyz0_db"
+        );
+        let a = new_compose_project_name("svc_01JABCDEFG0000000000000001", "db");
+        let b = new_compose_project_name("svc_01JABCDEFG0000000000000002", "db");
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn rede_nova_leva_o_id_inteiro() {
+        assert_eq!(
+            new_project_network_name("prj_01M3NV213V06RX7CXJ5FDDAP0K"),
+            "rp_net_01m3nv213v06rx7cxj5fddap0k"
+        );
     }
 }
 

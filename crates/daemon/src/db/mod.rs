@@ -20,6 +20,7 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteJournalMode},
 };
 use std::str::FromStr;
+use tracing::{info, warn};
 
 pub type Db = SqlitePool;
 
@@ -239,7 +240,54 @@ async fn migrate(pool: &SqlitePool) -> Result<()> {
     )
     .await?;
 
+    // Nome da rede Docker do projeto e da stack Compose do serviço: gravados,
+    // não derivados (ver `docs/plano-nome-gravado-rede-e-stack.md`).
+    add_column_if_missing(pool, "ALTER TABLE project ADD COLUMN network_name TEXT").await?;
+    add_column_if_missing(pool, "ALTER TABLE service ADD COLUMN compose_project TEXT").await?;
+
+    // Preenche a rede dos projetos que ainda não têm com o nome que **já usam**
+    // (fórmula legada: `rp_net_` + 8 primeiros chars do ID) — nenhuma rede
+    // existente muda de nome. `instr` é 0 sem `_`, e `substr(id, 1, 8)` cobre.
+    let filled = sqlx::query(
+        "UPDATE project SET network_name = 'rp_net_' || substr(id, instr(id, '_') + 1, 8)
+         WHERE network_name IS NULL",
+    )
+    .execute(pool)
+    .await?
+    .rows_affected();
+    if filled > 0 {
+        info!(
+            projects = filled,
+            "db::migrate: network_name preenchido com o nome legado"
+        );
+    }
+    ensure_unique_index(
+        pool,
+        "idx_project_network_name",
+        "project(network_name)",
+        "dois projetos compartilham a mesma rede Docker (IDs com os mesmos 8 primeiros \
+         caracteres); o daemon segue como antes, mas separá-los exige redeploy de um deles",
+    )
+    .await;
+
     Ok(())
+}
+
+/// Reexecuta a migração num banco já aberto (um boot seguinte), para os testes.
+#[cfg(test)]
+pub(crate) async fn connect_existing_for_test(pool: &SqlitePool) {
+    migrate(pool).await.unwrap();
+}
+
+/// Cria um índice `UNIQUE` sem derrubar o boot: se já há valores repetidos (uma
+/// colisão anterior ao plano de nome gravado), só loga — o daemon funciona como
+/// antes e o operador resolve na mão, porque separar mexe em containers vivos.
+/// O SQLite ignora `NULL` num índice único.
+pub(crate) async fn ensure_unique_index(pool: &SqlitePool, name: &str, target: &str, why: &str) {
+    let sql = format!("CREATE UNIQUE INDEX IF NOT EXISTS {name} ON {target}");
+    if let Err(e) = sqlx::query(&sql).execute(pool).await {
+        warn!(index = name, error = %e, "db::migrate: índice UNIQUE não criado: {why}");
+    }
 }
 
 /// Executa um `ALTER TABLE ... ADD COLUMN`, tratando como no-op se a coluna já

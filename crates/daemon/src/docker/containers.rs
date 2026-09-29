@@ -737,18 +737,48 @@ pub struct ContainerIndex {
 
 impl ContainerIndex {
     /// Containers de um serviço: pelos labels `rustploy.service_id`, ou — quando
-    /// vazio (serviço Compose) — pelo `com.docker.compose.project` derivado de
-    /// `compose_project_name(id, name)`.
-    pub fn for_service(&self, service_id: &str, service_name: &str) -> Vec<ManagedContainer> {
-        if let Some(v) = self.by_service_id.get(service_id) {
+    /// vazio (serviço Compose) — pelo `com.docker.compose.project` gravado do
+    /// serviço (`Service::compose_project_name`).
+    pub fn for_service(&self, service: &shared::Service) -> Vec<ManagedContainer> {
+        if let Some(v) = self.by_service_id.get(&service.id) {
             return v.clone();
         }
-        let project = shared::compose_project_name(service_id, service_name);
         self.by_compose_project
-            .get(&project)
+            .get(&service.compose_project_name())
             .cloned()
             .unwrap_or_default()
     }
+}
+
+/// Stacks Compose que existem no host (`com.docker.compose.project`, com os
+/// containers vivos ou parados), cada uma com o conjunto de chaves de serviço
+/// que ela tem (`com.docker.compose.service`). Alimenta a migração que grava o
+/// nome da stack de cada serviço (`db::services::backfill_compose_projects`):
+/// o container de uma stack não leva label do serviço do rustploy, então as
+/// chaves de serviço são o único jeito de ligar stack e serviço sem depender do
+/// prefixo do nome (igual para tudo que foi criado no mesmo segundo).
+pub async fn list_compose_projects(
+    docker: &Docker,
+) -> Result<std::collections::BTreeMap<String, std::collections::BTreeSet<String>>> {
+    use bollard::container::ListContainersOptions;
+    let list = docker
+        .list_containers(Some(ListContainersOptions::<String> {
+            all: true,
+            ..Default::default()
+        }))
+        .await?;
+    let mut out: std::collections::BTreeMap<String, std::collections::BTreeSet<String>> =
+        Default::default();
+    for c in list {
+        let labels = c.labels.unwrap_or_default();
+        if let Some(project) = labels.get("com.docker.compose.project") {
+            let keys = out.entry(project.clone()).or_default();
+            if let Some(svc) = labels.get("com.docker.compose.service") {
+                keys.insert(svc.clone());
+            }
+        }
+    }
+    Ok(out)
 }
 
 /// Lista **todos** os containers do host numa única chamada e os indexa por

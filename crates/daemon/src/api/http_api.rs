@@ -648,7 +648,7 @@ pub(crate) async fn snapshot(state: &AppState) -> String {
             .await
             {
                 for s in svcs {
-                    let conts = container_index.for_service(&s.id, &s.spec.name);
+                    let conts = container_index.for_service(&s);
                     let mut sv = serde_json::to_value(&s).unwrap_or(Value::Null);
                     if let Value::Object(m) = &mut sv {
                         m.insert(

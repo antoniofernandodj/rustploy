@@ -5,7 +5,6 @@ use crate::{api::AppState, docker, docker::containers};
 use chrono::Utc;
 use shared::{
     DeployState, EnvVarValue, Event, Response as RpResponse, ServiceSource, ServiceStatus,
-    compose_project_name,
 };
 
 pub async fn handle(state: AppState, service_id: String) -> RpResponse {
@@ -34,7 +33,10 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
     // Compose services are stopped via compose_down.
     if let ServiceSource::Compose(compose) = &svc.spec.source {
         let pid = &svc.spec.project_id;
-        let network_name = docker::networks::project_net_for(pid);
+        let network_name = match crate::db::projects::network_name(&state.db, pid).await {
+            Ok(n) => n,
+            Err(e) => return RpResponse::err("DatabaseError", e.to_string()),
+        };
 
         // Build env map: project vars as base, service vars override (mirrors resolve_env in executor.rs).
         let mut env_map: std::collections::HashMap<String, String> =
@@ -66,7 +68,7 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
         return stop_compose(
             &state,
             &service_id,
-            &svc.spec.name,
+            &svc.compose_project_name(),
             &compose.content,
             &network_name,
             &env_vars,
@@ -121,19 +123,12 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
 async fn stop_compose(
     state: &AppState,
     service_id: &str,
-    service_name: &str,
+    project_name: &str,
     content: &str,
     network_name: &str,
     env_vars: &[(String, String)],
 ) -> RpResponse {
-    if let Err(e) = docker::compose::down(
-        content,
-        &compose_project_name(service_id, service_name),
-        network_name,
-        env_vars,
-    )
-    .await
-    {
+    if let Err(e) = docker::compose::down(content, project_name, network_name, env_vars).await {
         return RpResponse::err("DockerError", e.to_string());
     }
     finish_stop(state, service_id, None).await

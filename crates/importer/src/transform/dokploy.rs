@@ -118,6 +118,8 @@ pub fn transform(data: DokployData, gitea_url: Option<&str>) -> (TransformedData
 
         transformed_services.push(Service {
             id: new_id,
+            // O importer grava direto no banco sem a coluna; o daemon preenche no boot.
+            compose_project: None,
             spec: ServiceSpec {
                 name: da.name,
                 project_id: project_id.clone(),
@@ -177,6 +179,8 @@ pub fn transform(data: DokployData, gitea_url: Option<&str>) -> (TransformedData
 
         transformed_services.push(Service {
             id: new_id,
+            // O importer grava direto no banco sem a coluna; o daemon preenche no boot.
+            compose_project: None,
             spec: ServiceSpec {
                 name: dc.name,
                 project_id: project_id.clone(),

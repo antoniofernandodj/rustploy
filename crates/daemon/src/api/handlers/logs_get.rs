@@ -6,7 +6,7 @@ use bollard::container::{LogOutput, LogsOptions};
 use chrono::Utc;
 use futures::StreamExt;
 use shared::{
-    EnvVarValue, Response as RpResponse, ServiceSource, compose_project_name,
+    EnvVarValue, Response as RpResponse, ServiceSource,
     protocol::{LogEntry, LogStream},
 };
 use tokio::io::AsyncWriteExt;
@@ -47,7 +47,7 @@ pub async fn handle(state: AppState, service_id: String, tail: usize) -> RpRespo
         }
 
         let env_vars: Vec<(String, String)> = env_map.into_iter().collect();
-        let project_name = compose_project_name(&service_id, &svc.spec.name);
+        let project_name = svc.compose_project_name();
         return compose_logs(&project_name, &compose.content, tail, &env_vars).await;
     }
 

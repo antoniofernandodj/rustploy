@@ -9,7 +9,7 @@ use crate::{
     ingress::{IngressController, TlsManager},
     secrets::SecretsManager,
 };
-use shared::{DeployState, Service, ServiceStatus, compose_project_name};
+use shared::{DeployState, Service, ServiceStatus};
 use std::{path::PathBuf, sync::Arc};
 use tracing::{info, warn};
 
@@ -215,10 +215,13 @@ pub async fn reconcile(
 
     for svc in services {
         let replicas = svc.spec.replicas.max(1);
-        let net = format!(
-            "rp_net_{}",
-            docker::networks::id_short(&svc.spec.project_id)
-        );
+        let net = match crate::db::projects::network_name(db, &svc.spec.project_id).await {
+            Ok(n) => n,
+            Err(e) => {
+                warn!(service_id = %svc.id, error = %e, "recovery: falha ao ler a rede do projeto");
+                continue;
+            }
+        };
 
         let mut ips = containers::live_replica_ips(&docker.inner, &svc.id, &net, replicas).await;
 
@@ -277,7 +280,7 @@ async fn compose_ingress_ip(docker: &DockerClient, svc: &Service, net: &str) -> 
         shared::ServiceSource::Compose(c) => c.ingress_service.as_deref(),
         _ => None,
     };
-    let project = compose_project_name(&svc.id, &svc.spec.name);
+    let project = svc.compose_project_name();
     let cid = containers::find_compose_ingress_container(
         &docker.inner,
         &project,
@@ -341,10 +344,13 @@ async fn restore_routes(
 
     for svc in services {
         let replicas = svc.spec.replicas.max(1);
-        let net = format!(
-            "rp_net_{}",
-            docker::networks::id_short(&svc.spec.project_id)
-        );
+        let net = match crate::db::projects::network_name(db, &svc.spec.project_id).await {
+            Ok(n) => n,
+            Err(e) => {
+                warn!(service_id = %svc.id, error = %e, "recovery: falha ao ler a rede do projeto");
+                continue;
+            }
+        };
 
         // Coleta IPs de todas as réplicas live (Git/Registry)
         let mut ips = containers::live_replica_ips(&docker.inner, &svc.id, &net, replicas).await;

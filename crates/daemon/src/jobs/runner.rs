@@ -116,8 +116,9 @@ impl JobRunner {
         mirror_deployment: Option<(String, String)>,
         cancel_rx: Option<tokio::sync::watch::Receiver<bool>>,
     ) -> Result<i32> {
+        let project_net = crate::db::projects::network_name(&self.db, &job.project_id).await?;
         let network_name =
-            networks::ensure_project_network(&self.docker.inner, &job.project_id).await?;
+            networks::ensure_project_network(&self.docker.inner, &project_net).await?;
 
         // Base (projeto [+ serviço gatilho]) + overrides do próprio job, maior
         // precedência — ver deploy::env_resolve::resolve_job.

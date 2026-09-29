@@ -7,8 +7,17 @@ use bollard::{
 };
 use tracing::info;
 
-pub fn project_network_name(project_id_short: &str) -> String {
-    format!("rp_net_{project_id_short}")
+/// Nome de rede no formato **legado** (`rp_net_` + 8 primeiros chars do ID),
+/// derivado a cada uso e sem garantia de unicidade. Só a migração de
+/// preenchimento (SQL, em `db::migrate`) e o fallback de
+/// `db::projects::network_name` o usam; o nome de um projeto novo é gravado na
+/// criação (`shared::new_project_network_name`).
+pub fn legacy_project_net_for(project_id: &str) -> String {
+    let s = project_id
+        .find('_')
+        .map(|i| &project_id[i + 1..])
+        .unwrap_or(project_id);
+    format!("rp_net_{}", &s[..8.min(s.len())])
 }
 
 pub fn id_short(id: &str) -> &str {
@@ -17,17 +26,10 @@ pub fn id_short(id: &str) -> &str {
     &s[..8.min(s.len())]
 }
 
-pub fn project_net_for(project_id: &str) -> String {
-    project_network_name(id_short(project_id))
-}
-
-pub async fn ensure_project_network(docker: &Docker, project_id: &str) -> Result<String> {
-    let pid = project_id
-        .find('_')
-        .map(|i| &project_id[i + 1..])
-        .unwrap_or(project_id);
-    let short = &pid[..8.min(pid.len())];
-    let name = project_network_name(short);
+/// Garante que a rede `name` existe (cria uma bridge se não) e devolve o id.
+/// O nome vem de `db::projects::network_name`.
+pub async fn ensure_project_network(docker: &Docker, name: &str) -> Result<String> {
+    let name = name.to_string();
 
     if let Ok(info) = docker.inspect_network::<String>(&name, None).await {
         let id = info.id.clone().unwrap_or_else(|| name.clone());
@@ -62,19 +64,12 @@ pub async fn ensure_project_network(docker: &Docker, project_id: &str) -> Result
     Ok(id)
 }
 
-pub async fn _remove_project_network(docker: &Docker, project_id: &str) -> Result<()> {
-    let pid = project_id
-        .find('_')
-        .map(|i| &project_id[i + 1..])
-        .unwrap_or(project_id);
-
-    let short = &pid[..8.min(pid.len())];
-    let name = project_network_name(short);
+pub async fn _remove_project_network(docker: &Docker, name: &str) -> Result<()> {
     info!(
         network = %name,
         "networks::remove: removendo rede do projeto"
     );
-    let _ = docker.remove_network(&name).await;
+    let _ = docker.remove_network(name).await;
     info!(
         network = %name,
         "networks::remove: rede removida"

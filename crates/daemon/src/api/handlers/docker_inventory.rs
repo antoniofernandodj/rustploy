@@ -2,7 +2,7 @@
 //! the host (not just rustploy-managed resources), plus a robust "stop
 //! everything rustploy manages" command.
 
-use crate::{api::AppState, docker};
+use crate::api::AppState;
 use shared::{
     DockerContainerInfo, DockerImageInfo, DockerNetworkInfo, DockerVolumeInfo,
     Response as RpResponse, ServiceSource, ServiceStatus,
@@ -14,12 +14,13 @@ use std::collections::HashMap;
 /// - Git-built images/containers are tagged `rp_<safe_name>:...` (see
 ///   `deploy/executor.rs`'s `BuildingImage` step) — matched by `safe_name`.
 /// - Registry-sourced services reference the image string verbatim.
-/// - Project networks are named `rp_net_<project_id_short>` (see
-///   `docker/networks.rs::project_network_name`).
+/// - Project networks are matched by the name stored in
+///   `project.network_name` (`db::projects::network_names`).
 struct ServiceIndex {
     by_safe_name: HashMap<String, (String, String)>,
     by_registry_image: HashMap<String, (String, String)>,
-    by_project_short: HashMap<String, String>,
+    /// nome da rede Docker (gravado em `project.network_name`) → nome do projeto.
+    by_network: HashMap<String, String>,
     /// service_id → (nome do projeto, nome do serviço), para atribuir um
     /// container pelo label `rustploy.service_id` (exato). Ver `list_containers`.
     by_service_id: HashMap<String, (String, String)>,
@@ -34,14 +35,12 @@ impl ServiceIndex {
             .iter()
             .map(|p| (p.id.clone(), p.name.clone()))
             .collect();
-        let by_project_short = projects
+        let network_of = crate::db::projects::network_names(&state.db)
+            .await
+            .unwrap_or_default();
+        let by_network = projects
             .iter()
-            .map(|p| {
-                (
-                    docker::networks::id_short(&p.id).to_string(),
-                    p.name.clone(),
-                )
-            })
+            .filter_map(|p| Some((network_of.get(&p.id)?.clone(), p.name.clone())))
             .collect();
 
         let services = crate::db::services::list_all(&state.db)
@@ -69,7 +68,7 @@ impl ServiceIndex {
         Self {
             by_safe_name,
             by_registry_image,
-            by_project_short,
+            by_network,
             by_service_id,
         }
     }
@@ -93,11 +92,10 @@ impl ServiceIndex {
         (None, None)
     }
 
-    /// Resolves a network's owning project from the `rp_net_<short>` naming
-    /// convention. `None` for non-rustploy networks.
+    /// Resolves a network's owning project from the stored network name.
+    /// `None` for non-rustploy networks.
     fn network_project(&self, name: &str) -> Option<String> {
-        let short = name.strip_prefix("rp_net_")?;
-        self.by_project_short.get(short).cloned()
+        self.by_network.get(name).cloned()
     }
 }
 

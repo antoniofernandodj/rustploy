@@ -114,6 +114,17 @@ pub fn normalize_name(name: &str) -> String {
     out.trim_matches('_').to_string()
 }
 
+impl Service {
+    /// Nome da stack Compose: o gravado; na falta (banco ainda não migrado, ou
+    /// serviço que virou Compose depois), a fórmula legada com o nome atual —
+    /// exatamente o que o daemon usava antes de o nome ser gravado.
+    pub fn compose_project_name(&self) -> String {
+        self.compose_project
+            .clone()
+            .unwrap_or_else(|| crate::compose_project_name(&self.id, &self.spec.name))
+    }
+}
+
 impl ServiceSpec {
     pub fn safe_name(&self) -> String {
         normalize_name(&self.name)
@@ -401,6 +412,14 @@ pub struct GitBranch {
 pub struct Service {
     pub id: String,
     pub spec: ServiceSpec,
+    /// Nome da stack Docker Compose (só serviços Compose), **gravado** na
+    /// criação e nunca recalculado — renomear o serviço não muda a stack, então
+    /// os volumes (`<stack>_<volume>`) continuam os mesmos. Só leitura para os
+    /// clientes: vive numa coluna própria, fora do `spec`, que a GUI e a webui
+    /// devolvem no `ServiceUpdate`. `None` em serviço que não é Compose; use
+    /// [`Service::compose_project_name`].
+    #[serde(default)]
+    pub compose_project: Option<String>,
     pub status: ServiceStatus,
     pub live_container_id: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -875,9 +894,9 @@ pub struct DockerNetworkInfo {
     /// included, once their last service is gone).
     pub in_use: bool,
     pub container_count: usize,
-    /// Project this network belongs to, inferred from the
-    /// `rp_net_<project_id_short>` naming convention (see
-    /// `docker/networks.rs::project_network_name`). `None` for non-rustploy
+    /// Project this network belongs to, matched by the
+    /// name stored in `project.network_name` (see
+    /// `db::projects::network_names`). `None` for non-rustploy
     /// networks (the built-in `bridge`/`host`/`none`, or manually created ones).
     pub project: Option<String>,
 }

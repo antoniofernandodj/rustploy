@@ -1218,6 +1218,7 @@ services:
         let svc = Service {
             id: "svc-1".into(),
             spec: svc_spec,
+            compose_project: None,
             status: ServiceStatus::Stopped,
             live_container_id: None,
             created_at: chrono::Utc::now(),
