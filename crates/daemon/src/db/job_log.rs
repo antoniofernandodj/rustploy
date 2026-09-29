@@ -1,3 +1,5 @@
+//! Tabela `job_log`: linhas de log (stdout/stderr) de cada execução de job.
+
 use super::Db;
 use anyhow::Result;
 use chrono::{DateTime, Utc};

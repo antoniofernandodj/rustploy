@@ -1,3 +1,6 @@
+//! `SecretsManager`: secrets por projeto cifrados no banco com a chave mestra
+//! do daemon.
+
 use age::{Decryptor, secrecy::SecretString};
 use anyhow::{Result, anyhow};
 use std::{

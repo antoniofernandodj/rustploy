@@ -1,3 +1,6 @@
+<!-- Detalhe de um serviço: cabeçalho com ações (deploy, stop, reload) e as abas
+     General (fonte), Connection, Domains, Environment, Deployments, Logs e
+     Advanced. -->
 <component>
   <resources>
     <style>

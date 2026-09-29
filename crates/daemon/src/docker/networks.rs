@@ -1,3 +1,5 @@
+//! Rede Docker por projeto: nome e criação sob demanda.
+
 use anyhow::Result;
 use bollard::{
     Docker,

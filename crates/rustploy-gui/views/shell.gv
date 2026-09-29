@@ -1,3 +1,6 @@
+<!-- Casca do app conectado: sidebar, topbar e as views de projeto (Deployments,
+     Projects, serviços de um projeto, detalhe de serviço); importa home.gv para
+     as telas globais. -->
 
 <component>
   <resources>

@@ -1,3 +1,5 @@
+//! `Command::ProjectList`: todos os projetos.
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

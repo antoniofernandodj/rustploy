@@ -1,3 +1,6 @@
+//! `Command::SetDaemonSettings`: grava e-mail ACME e domínio do registry,
+//! ligando/desligando ACME e a rota do registry no ingress na hora.
+
 use crate::{api::AppState, db::daemon_settings};
 use shared::{Response as RpResponse, RustployConfig};
 use tracing::{error, info, warn};

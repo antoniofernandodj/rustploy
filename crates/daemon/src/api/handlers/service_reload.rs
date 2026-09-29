@@ -1,3 +1,6 @@
+//! `Command::ServiceReload`: reinicia o container live de um serviço (stop
+//! gracioso + start) sem redeployar.
+
 use crate::{api::AppState, docker::containers};
 use chrono::Utc;
 use shared::{DeployState, Event, Response as RpResponse, ServiceStatus};

@@ -1,3 +1,5 @@
+//! `Command::GitProviderDelete`: desconecta (apaga) um provedor git.
+
 use crate::api::AppState;
 use shared::Response;
 

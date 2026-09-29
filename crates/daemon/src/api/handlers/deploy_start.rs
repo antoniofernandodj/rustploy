@@ -1,3 +1,6 @@
+//! `Command::DeployStart`: valida a fonte do serviço, cria o deployment e o
+//! enfileira na fila global (quem roda é `deploy::queue::run_worker`).
+
 use crate::{api::AppState, db::services};
 use shared::{Event, Response as RpResponse, ServiceSource, ServiceStatus};
 use tracing::{error, info, warn};

@@ -1,3 +1,5 @@
+<!-- Telas globais da sidebar, cada uma numa seção por valor de view: Monitoring,
+     Ingress, Deploy Engine, Docker (e Registry), Settings, Schedules e Suporte. -->
 <component>
   <resources>
     <style>

@@ -1,3 +1,6 @@
+//! Upload de `.zip` para serviço com fonte Archive: valida o tamanho e extrai
+//! com proteção contra path traversal.
+
 use std::{
     fs,
     io::{self, Cursor},

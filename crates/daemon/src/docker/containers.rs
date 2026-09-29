@@ -1,3 +1,6 @@
+//! Containers de serviços Application: nomes (live, staging, réplicas, legado),
+//! busca por label, criação, start/stop, IP e alias de rede.
+
 use anyhow::{Result, anyhow};
 use bollard::{
     Docker,
@@ -248,6 +251,9 @@ pub async fn attach_network_alias(
     Ok(())
 }
 
+/// Cria o container de staging de uma réplica já na rede do projeto
+/// (`network_mode` e `NetworkingConfig`, como o `docker run --network`), com
+/// labels, env, volumes e limites do spec.
 #[allow(clippy::too_many_arguments)]
 pub async fn create_staging(
     docker: &Docker,
@@ -572,6 +578,8 @@ pub async fn inspect(
     Ok(resp)
 }
 
+/// IP do container na rede dada, lido via `docker network inspect` (o IP do
+/// `container inspect` vem vazio em algumas combinações de Docker/bollard).
 pub async fn get_container_ip(
     docker: &Docker,
     container_id: &str,

@@ -1,3 +1,6 @@
+//! `Command::DaemonStatus`: versão, uptime e contagem de serviços
+//! rodando/total.
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

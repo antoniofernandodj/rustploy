@@ -1,3 +1,6 @@
+//! `Command::GetWebhookUrl`: URL de webhook de deploy de um serviço;
+//! `build_url` monta `{base}/webhook/{id}/{token}`.
+
 use crate::{api::AppState, db::webhook_tokens};
 use shared::Response as RpResponse;
 

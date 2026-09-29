@@ -1,3 +1,6 @@
+//! `Command::DeployQueuePromote`: fura a fila (move um enfileirado para o
+//! início).
+
 use crate::api::AppState;
 use shared::{Event, Response as RpResponse};
 

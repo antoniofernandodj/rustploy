@@ -1,3 +1,5 @@
+//! Cliente Docker (`DockerClient`, via bollard) e os submódulos por recurso.
+
 pub mod compose;
 pub mod containers;
 pub mod images;

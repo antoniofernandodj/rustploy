@@ -1,3 +1,5 @@
+//! Tabela `project`: CRUD de projetos e suas env vars de nível de projeto.
+
 use super::Db;
 use anyhow::Result;
 use chrono::{DateTime, Utc};

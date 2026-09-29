@@ -1,3 +1,5 @@
+//! Tabela `build_log`: linhas do log de build de cada deployment.
+
 use super::Db;
 use anyhow::Result;
 use chrono::{DateTime, Utc};

@@ -1,3 +1,7 @@
+//! `DeployExecutor`: roda um deployment pela máquina de estados
+//! (clone/pull/build, staging, healthcheck, troca para live, rollback) e grava
+//! cada passo no log de build.
+
 use crate::{
     db::Db,
     docker,
@@ -180,6 +184,9 @@ impl DeployExecutor {
         info!(deployment_id = %deployment_id, "executor: encerrado");
     }
 
+    /// Laço da máquina de estados: chama `step` até um estado terminal,
+    /// persistindo cada transição e, se um passo falha, gravando a causa real
+    /// no log de build (o único canal que a tela de log lê).
     async fn execute(&self, deployment_id: &str) -> Result<()> {
         loop {
             let deployment = self.load_deployment(deployment_id).await?;
@@ -261,6 +268,10 @@ impl DeployExecutor {
         Ok(())
     }
 
+    /// Executa o trabalho do estado atual do deployment e devolve o próximo: um
+    /// braço por `DeployState` (pré-deploy check, dependências,
+    /// pull/clone/build, staging, healthcheck, troca para live, drenagem,
+    /// promoção, rollback e o caminho Compose).
     async fn step(&self, dep: &Deployment, svc: &Service) -> Result<DeployState> {
         match &dep.state {
             DeployState::Pending => {
@@ -1276,6 +1287,9 @@ impl DeployExecutor {
         }
     }
 
+    /// Espera o container de staging ficar saudável (healthcheck do spec ou o
+    /// HEALTHCHECK nativo da imagem) e, se falhar, guarda as últimas linhas de
+    /// log dele antes do rollback removê-lo.
     async fn poll_healthcheck(
         &self,
         ip: &str,

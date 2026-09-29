@@ -1,3 +1,5 @@
+//! `Command::GetBuildLogs`: linhas do log de build de um deployment.
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

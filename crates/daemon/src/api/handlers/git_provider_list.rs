@@ -1,3 +1,5 @@
+//! `Command::GitProviderList`: provedores git conectados, sem os tokens.
+
 use crate::api::AppState;
 use shared::Response;
 

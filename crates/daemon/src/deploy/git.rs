@@ -1,3 +1,6 @@
+//! Clone de repositório git para build, com progresso, credenciais de provedor
+//! conectado ou secret, e URL mascarada nos logs.
+
 use crate::db::Db;
 use crate::secrets::SecretsManager;
 use anyhow::{Result, anyhow};

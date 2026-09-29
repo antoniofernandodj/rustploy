@@ -1,3 +1,6 @@
+//! `Command::RegenerateWebhookToken`: gera um token novo de webhook para o
+//! serviço e devolve a URL nova.
+
 use crate::{api::AppState, db::webhook_tokens};
 use shared::Response as RpResponse;
 use tracing::error;

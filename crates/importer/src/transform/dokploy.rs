@@ -1,3 +1,6 @@
+//! Converte os dados do Dokploy em projetos e serviços do rustploy, anotando o
+//! que não dá para migrar no `Report`.
+
 use crate::source::dokploy::DokployData;
 use crate::transform::TransformedData;
 use crate::warnings::Report;

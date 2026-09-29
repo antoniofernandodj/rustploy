@@ -1,3 +1,7 @@
+//! Ponto de entrada do `rustployd`: resolve config e diretórios, sobe banco,
+//! Docker, ingress, API e registry, faz a recuperação de boot e lança os loops
+//! de fundo (fila de deploy, watchdog, métricas, logs, backup de env).
+
 mod api;
 mod db;
 mod deploy;

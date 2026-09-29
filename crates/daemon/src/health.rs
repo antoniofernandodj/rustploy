@@ -1,3 +1,6 @@
+//! Checagens de saúde HTTP e TCP usadas pelo healthcheck do deploy e pelo
+//! watchdog.
+
 use std::time::Duration;
 use tracing::{debug, warn};
 

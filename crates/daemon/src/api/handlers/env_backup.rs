@@ -1,3 +1,6 @@
+//! `Command::EnvBackupList`/`EnvBackupRestore`: lista e restaura snapshots de
+//! env vars (`crate::env_backup`).
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

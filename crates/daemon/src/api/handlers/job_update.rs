@@ -1,3 +1,6 @@
+//! `Command::JobUpdate`: edita um job (compose ou fonte git, serviço principal,
+//! env, recorrência, ligado/desligado).
+
 use crate::api::AppState;
 use shared::{EnvComment, EnvVar, JobGitSource, Recurrence, Response as RpResponse};
 

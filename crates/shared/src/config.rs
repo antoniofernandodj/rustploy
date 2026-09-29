@@ -1,3 +1,6 @@
+//! Configuração do daemon (`config.toml`): structs de cada seção com defaults e
+//! o singleton `CONFIG`.
+
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::OnceLock;

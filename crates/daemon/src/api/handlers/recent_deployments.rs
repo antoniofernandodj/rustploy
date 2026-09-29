@@ -1,3 +1,6 @@
+//! `Command::RecentDeployments`: deployments recentes de todos os serviços, com
+//! o Live velho corrigido e nomes resolvidos.
+
 use crate::api::AppState;
 use shared::{DeploymentSummary, Response as RpResponse};
 use std::collections::HashMap;

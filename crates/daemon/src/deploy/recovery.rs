@@ -1,3 +1,6 @@
+//! Recuperação no boot: aborta deploys interrompidos, reconcilia status com o
+//! Docker e restaura as rotas do ingress.
+
 use crate::{
     db::Db,
     docker,
@@ -10,6 +13,9 @@ use shared::{DeployState, Service, ServiceStatus, compose_project_name};
 use std::{path::PathBuf, sync::Arc};
 use tracing::{info, warn};
 
+/// Recuperação no boot: devolve os deployments que estavam só na fila (para
+/// re-enfileirar), aborta os que tinham começado (limpando stagings) e restaura
+/// rotas e certificados dos serviços no ar.
 pub async fn recover(
     db: Arc<Db>,
     docker: Arc<DockerClient>,
@@ -311,6 +317,9 @@ async fn reconcile_routes(
     }
 }
 
+/// Recria no ingress as rotas de domínio e de porta dos serviços no ar
+/// (réplicas live, ou o container da stack Compose) e reabre a porta externa no
+/// firewall.
 async fn restore_routes(
     db: &Db,
     docker: &DockerClient,

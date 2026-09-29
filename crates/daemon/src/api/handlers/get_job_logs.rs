@@ -1,3 +1,5 @@
+//! `Command::GetJobLogs`: linhas do log de uma execução de job.
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

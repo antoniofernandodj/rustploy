@@ -1,3 +1,6 @@
+//! `Command::JobRunCancel`: sinaliza o cancelamento de uma execução de job em
+//! andamento.
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

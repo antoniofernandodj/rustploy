@@ -1,3 +1,7 @@
+//! `Command::DeployAbort`: aborta um deploy. Se ainda está na fila, só o tira
+//! de lá e devolve o serviço a Stopped; se está rodando, aborta a task do
+//! executor.
+
 use crate::api::AppState;
 use shared::{Event, Response as RpResponse, ServiceStatus};
 

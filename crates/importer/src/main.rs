@@ -1,3 +1,6 @@
+//! CLI do importer: migra projetos e serviços de outra plataforma (hoje,
+//! Dokploy) para o rustploy.
+
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};

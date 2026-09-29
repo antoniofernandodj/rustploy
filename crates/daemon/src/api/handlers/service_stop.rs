@@ -1,3 +1,6 @@
+//! `Command::ServiceStop`: para um serviço (todas as réplicas live, ou a stack
+//! Compose) e marca o deployment como Stopped.
+
 use crate::{api::AppState, docker, docker::containers};
 use chrono::Utc;
 use shared::{

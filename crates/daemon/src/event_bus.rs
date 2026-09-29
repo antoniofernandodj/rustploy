@@ -1,3 +1,6 @@
+//! Bus de eventos em memória (broadcast): o que alimenta o SSE `/api/events`
+//! dos clientes.
+
 use shared::Event;
 use tokio::sync::broadcast;
 

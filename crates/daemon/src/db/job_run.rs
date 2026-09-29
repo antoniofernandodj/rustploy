@@ -1,3 +1,5 @@
+//! Tabela `job_run`: cada execução de um job e seu exit code.
+
 use super::Db;
 use anyhow::Result;
 use chrono::{DateTime, Utc};

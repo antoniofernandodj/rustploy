@@ -1,3 +1,5 @@
+//! `Command::SecretDelete`: apaga um secret do projeto.
+
 use crate::api::AppState;
 use shared::Response;
 

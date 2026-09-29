@@ -1,3 +1,6 @@
+//! `Command::ProjectEnvSet`: substitui as env vars (e comentários) de nível de
+//! projeto.
+
 use crate::api::AppState;
 use shared::{EnvComment, EnvVar, Response as RpResponse};
 use tracing::info;

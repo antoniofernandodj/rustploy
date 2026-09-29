@@ -1,3 +1,6 @@
+//! `dispatch`: o `match` que manda cada `Command` para o seu handler em
+//! `handlers/`. Ver `docs/indice/comandos.md`.
+
 use super::AppState;
 use shared::{Command, Response as RpResponse};
 use tracing::info;

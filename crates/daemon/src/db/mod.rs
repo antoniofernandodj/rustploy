@@ -1,3 +1,6 @@
+//! Conexão SQLite (`Db`) e as migrações do schema, feitas à mão com
+//! `add_column_if_missing`.
+
 pub mod build_logs;
 pub mod daemon_settings;
 pub mod deployments;
@@ -32,6 +35,8 @@ pub async fn connect(db_path: &std::path::Path) -> Result<Db> {
     Ok(pool)
 }
 
+/// Cria as tabelas e aplica as migrações incrementais (`ALTER TABLE`
+/// idempotente via `add_column_if_missing`); roda a cada boot.
 async fn migrate(pool: &SqlitePool) -> Result<()> {
     sqlx::query(
         "

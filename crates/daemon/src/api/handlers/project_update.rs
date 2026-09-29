@@ -1,3 +1,5 @@
+//! `Command::ProjectUpdate`: renomeia/redescreve um projeto.
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

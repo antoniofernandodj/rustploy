@@ -1,3 +1,4 @@
+<!-- Tela de login: URL do daemon e token, com a lista de servidores lembrados. -->
 <component>
   <resources>
     <style>

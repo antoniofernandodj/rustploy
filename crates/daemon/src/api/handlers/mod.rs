@@ -1,3 +1,6 @@
+//! Um arquivo por `Command` (o `match` que escolhe o handler fica em
+//! `api/routes.rs`) e utilitários comuns como `humanize_db_error`.
+
 /// Converte um erro de banco (sqlx) numa mensagem amigável para o usuário.
 /// Reconhece as violações de constraint mais comuns (UNIQUE) e devolve algo
 /// legível em vez do texto cru do SQLite (`(code: 2067) UNIQUE constraint

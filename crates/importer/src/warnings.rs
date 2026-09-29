@@ -1,3 +1,6 @@
+//! `Report` do importer: problemas encontrados na migração, por severidade
+//! (bloqueante, aviso, informação).
+
 use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

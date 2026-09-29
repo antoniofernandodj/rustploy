@@ -1,3 +1,6 @@
+//! `Command::ServiceDelete`: apaga um serviço, tira suas rotas do ingress e
+//! fecha a porta externa no firewall.
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

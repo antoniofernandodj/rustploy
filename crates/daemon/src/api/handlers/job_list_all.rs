@@ -1,3 +1,6 @@
+//! `Command::JobListAll`: jobs de todos os projetos, com nomes de
+//! projeto/serviço resolvidos.
+
 use crate::api::AppState;
 use shared::{JobSummary, Response as RpResponse};
 use std::collections::HashMap;

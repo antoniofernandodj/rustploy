@@ -1,3 +1,5 @@
+//! Tabela de tokens de webhook de deploy, um por serviço.
+
 use anyhow::Result;
 use chrono::Utc;
 

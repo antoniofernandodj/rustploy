@@ -1,3 +1,5 @@
+//! `Command::ProjectCreate`: cria um projeto.
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

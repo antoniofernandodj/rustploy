@@ -1,3 +1,6 @@
+//! API do daemon: `AppState` (estado compartilhado por todos os handlers) e os
+//! caches do inventário Docker.
+
 pub mod handlers;
 pub mod http_api;
 pub mod public_routes;

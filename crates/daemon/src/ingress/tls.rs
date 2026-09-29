@@ -1,3 +1,6 @@
+//! Certificados TLS: resolução por SNI, emissão e renovação ACME (Let's
+//! Encrypt) e os desafios HTTP-01.
+
 use anyhow::{Result, anyhow};
 use instant_acme::{
     Account, AccountCredentials, ChallengeType, Identifier, NewAccount, NewOrder, OrderStatus,

@@ -1,3 +1,6 @@
+//! `Command::ManifestApply`: reconcilia manifestos YAML de projeto (IaC) com o
+//! banco, com prune e deploy opcionais.
+
 use crate::api::AppState;
 use shared::{
     ActionVerb, ApplyReport, ProjectManifest, ResourceAction, ResourceActionKind,
@@ -78,6 +81,9 @@ pub async fn handle(
     RpResponse::ManifestReport(report)
 }
 
+/// Aplica um manifesto de projeto: resolve o projeto pelo nome, atualiza env
+/// vars só se o manifesto declara alguma, e reconcilia os serviços por nome
+/// (com prune e deploy opcionais).
 async fn apply_one(
     state: &AppState,
     manifest: ProjectManifest,

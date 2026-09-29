@@ -1,3 +1,6 @@
+//! Streaming dos logs dos containers gerenciados para o event bus, reconectando
+//! e encerrando streams parados.
+
 use crate::{db::Db, event_bus::EventBus};
 use bollard::{
     Docker,
@@ -59,6 +62,8 @@ pub async fn stream_loop(docker: Arc<Docker>, db: Arc<Db>, bus: Arc<EventBus>) {
     }
 }
 
+/// Transmite os logs de um container para o event bus até o stream acabar, ou
+/// até ficar parado por `STREAM_IDLE_TIMEOUT` com o container já fora do ar.
 async fn stream_container(
     docker: Arc<Docker>,
     container_id: String,

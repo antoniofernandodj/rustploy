@@ -1,3 +1,5 @@
+//! `Command::SecretSet`: cria/sobrescreve um secret cifrado do projeto.
+
 use crate::api::AppState;
 use shared::Response;
 

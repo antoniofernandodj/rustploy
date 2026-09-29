@@ -1,3 +1,5 @@
+<!-- Janela principal da GUI: mostra o Login ou o Shell (app conectado), com a
+     titlebar customizada. Script: scripts/app.luau. -->
 <screen title="Rustploy" size="1280 820" min-size="480 680">
   <resources>
     <link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />

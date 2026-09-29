@@ -1,3 +1,6 @@
+//! Tabela chave-valor de configurações do daemon editáveis pela UI (ACME,
+//! registry, limpeza do Docker).
+
 use anyhow::Result;
 
 use super::Db;

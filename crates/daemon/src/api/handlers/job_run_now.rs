@@ -1,3 +1,6 @@
+//! `Command::JobRunNow`: dispara uma execução avulsa de um job
+//! (`jobs::runner::spawn`).
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

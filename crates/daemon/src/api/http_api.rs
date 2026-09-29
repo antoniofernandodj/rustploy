@@ -178,6 +178,9 @@ async fn serve_conn<I>(
     }
 }
 
+/// Roteia uma requisição HTTP da API: rotas públicas (webhook, callback OAuth)
+/// antes do gate do token Bearer, e depois `/api/rpc`, o SSE `/api/events`, o
+/// upload de zip e os arquivos da webui.
 async fn handle(
     req: Request<Incoming>,
     state: AppState,

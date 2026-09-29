@@ -1,3 +1,6 @@
+//! Tabela `job`: jobs one-shot (Schedules), incluindo quais estão vencidos para
+//! o agendador.
+
 use super::Db;
 use anyhow::Result;
 use chrono::{DateTime, Utc};

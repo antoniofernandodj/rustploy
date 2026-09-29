@@ -1,3 +1,5 @@
+//! `Command::ServiceGet`: um serviço pelo id.
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

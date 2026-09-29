@@ -1,3 +1,6 @@
+//! Tipos compartilhados entre daemon e GUI (modelos, protocolo, config,
+//! manifest, templates) e os nomes Docker derivados de um serviço.
+
 pub mod config;
 pub mod manifest;
 pub mod models;

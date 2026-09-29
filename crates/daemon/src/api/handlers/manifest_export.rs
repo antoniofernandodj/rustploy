@@ -1,3 +1,6 @@
+//! `Command::ManifestExport`: exporta um projeto como manifesto IaC (secrets
+//! como `secret:NOME`).
+
 use crate::api::AppState;
 use shared::{ProjectManifest, Response as RpResponse};
 use std::collections::BTreeMap;

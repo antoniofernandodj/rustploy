@@ -1,3 +1,6 @@
+//! `Command::GitRepoList`: repositórios de um provedor git, com um refresh
+//! OAuth e nova tentativa se o token expirou.
+
 use crate::api::AppState;
 use shared::Response;
 

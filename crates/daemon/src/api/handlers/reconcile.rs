@@ -1,3 +1,6 @@
+//! Corrige deployments marcados Live que já não estão no ar (`fix_stale_live`),
+//! sem tocar em serviço com deploy em andamento.
+
 /// Reconciles deployments marked as "Live" in the DB against the actual Docker
 /// container state, correcting stale entries.
 ///
@@ -12,6 +15,9 @@ use shared::{DeployState, Deployment, Event, ServiceStatus};
 use std::collections::HashSet;
 use tracing::warn;
 
+/// Passa para Pruning/Stopped os deployments marcados Live que já não estão no
+/// ar (só o mais recente de cada serviço pode ser Live), sem tocar em serviço
+/// com deploy em curso.
 pub async fn fix_stale_live(state: &AppState, deployments: Vec<Deployment>) -> Vec<Deployment> {
     // Collect the ID of the most-recent Live deployment per service.
     // The list is already ordered by started_at DESC, so the first Live entry

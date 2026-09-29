@@ -1,3 +1,5 @@
+//! `Command::JobCreate`: cria um job one-shot (Schedules) de um projeto.
+
 use crate::api::AppState;
 use shared::{EnvComment, EnvVar, JobGitSource, Recurrence, Response as RpResponse};
 

@@ -494,6 +494,8 @@ async fn get_manifest(
         .expect("valid GET manifest response"))
 }
 
+/// `PUT /v2/<repo>/manifests/<ref>`: valida que os blobs referenciados existem
+/// e grava o manifest e a tag, sob a trava compartilhada com o GC.
 async fn put_manifest(
     req: Request<Incoming>,
     db: &Db,

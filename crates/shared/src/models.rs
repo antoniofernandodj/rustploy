@@ -1,3 +1,6 @@
+//! Modelos de domínio: projeto, `ServiceSpec` e suas fontes, deployment e
+//! estados, jobs, healthcheck, métricas e inventário Docker.
+
 use chrono::{DateTime, Datelike, Utc};
 use serde::{Deserialize, Serialize};
 

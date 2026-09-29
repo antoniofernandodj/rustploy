@@ -1,3 +1,6 @@
+//! Tabela `deployment`: criar, transicionar de estado, histórico por serviço e
+//! estatísticas de 24h.
+
 use super::Db;
 use anyhow::Result;
 use chrono::{DateTime, Utc};

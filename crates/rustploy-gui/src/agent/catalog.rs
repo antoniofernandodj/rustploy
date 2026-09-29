@@ -13,6 +13,8 @@
 
 use serde_json::{Value, json};
 
+/// O documento de descoberta servido em `GET /agent/schema`: o que a API de
+/// agente faz, suas rotas e exemplos de `Command`.
 pub(super) fn schema() -> Value {
     json!({
         "service": "rustploy-gui agent API",

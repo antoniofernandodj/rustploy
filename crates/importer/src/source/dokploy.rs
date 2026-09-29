@@ -1,3 +1,6 @@
+//! Leitura dos projetos, aplicações, stacks Compose e domínios direto do
+//! Postgres do Dokploy.
+
 use anyhow::Result;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Pool, Postgres};

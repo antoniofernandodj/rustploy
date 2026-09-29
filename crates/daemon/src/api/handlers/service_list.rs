@@ -1,3 +1,5 @@
+//! `Command::ServiceList`: serviços de um projeto.
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

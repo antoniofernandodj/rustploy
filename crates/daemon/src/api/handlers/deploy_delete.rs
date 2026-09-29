@@ -1,3 +1,6 @@
+//! `Command::DeployDelete`: apaga um deployment terminado e seus logs de build;
+//! recusa um em andamento.
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 use tracing::info;

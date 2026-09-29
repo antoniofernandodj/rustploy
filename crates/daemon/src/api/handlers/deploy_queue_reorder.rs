@@ -1,3 +1,5 @@
+//! `Command::DeployQueueReorder`: reordena a fila global (arrastar na GUI).
+
 use crate::api::AppState;
 use shared::{Event, Response as RpResponse};
 

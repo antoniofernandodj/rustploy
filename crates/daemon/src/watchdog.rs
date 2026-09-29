@@ -1,3 +1,7 @@
+//! Watchdog dos serviços no ar: checa se o container roda e passa no
+//! healthcheck, reinicia com limite de tentativas e, se o container sumiu, pede
+//! redeploy.
+
 use crate::{api::AppState, db::Db, event_bus::EventBus};
 use bollard::Docker;
 use shared::{Event, Healthcheck, HealthcheckKind, ServiceSource, ServiceStatus};
@@ -19,6 +23,9 @@ struct ServiceState {
     restart_attempts: u32,
 }
 
+/// Laço do watchdog: a cada tick, para cada serviço no ar, confere se o
+/// container roda e passa no healthcheck, e aciona `try_restart` depois de
+/// falhas seguidas.
 pub async fn watchdog_loop(state: AppState) {
     let mut states: HashMap<String, ServiceState> = HashMap::new();
 
@@ -133,6 +140,8 @@ pub async fn watchdog_loop(state: AppState) {
     }
 }
 
+/// Tenta religar o container de um serviço caído, até `MAX_RESTART_ATTEMPTS`;
+/// se o container foi removido, enfileira um redeploy no lugar.
 async fn try_restart(
     state: &AppState,
     svc: &shared::Service,

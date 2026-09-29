@@ -1,3 +1,5 @@
+//! Tabela `service`: CRUD do ServiceSpec, status e container live.
+
 use super::Db;
 use anyhow::Result;
 use chrono::{DateTime, Utc};

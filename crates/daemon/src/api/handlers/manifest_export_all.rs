@@ -1,3 +1,6 @@
+//! `Command::ManifestExportAll`: exporta todos os projetos e serviços num
+//! manifesto raiz só.
+
 use crate::api::AppState;
 use shared::{EnvDoc, Response as RpResponse, ServerManifest, ServiceSource};
 use std::collections::BTreeMap;

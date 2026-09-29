@@ -1,3 +1,5 @@
+//! `Command::SecretList`: nomes (nunca valores) dos secrets de um projeto.
+
 use crate::api::AppState;
 use shared::Response;
 

@@ -1,3 +1,6 @@
+//! `Command::ManifestImport`: importa um manifesto IaC (raiz `projects:` ou de
+//! projeto) mais o `.env`, criando provedores git referenciados.
+
 use crate::api::AppState;
 use crate::db::git_providers::{self, StoredProvider};
 use chrono::Utc;

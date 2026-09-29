@@ -1,3 +1,6 @@
+//! Coleta periódica de métricas de CPU/memória/disco do host e por container,
+//! publicadas no event bus.
+
 use crate::{db::Db, event_bus::EventBus};
 use bollard::Docker;
 use chrono::Utc;

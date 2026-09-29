@@ -1,3 +1,6 @@
+//! `Command::ProjectDelete`: apaga um projeto; recusa se ainda tiver serviços
+//! ou jobs.
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

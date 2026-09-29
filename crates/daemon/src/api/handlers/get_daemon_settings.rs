@@ -1,3 +1,6 @@
+//! `Command::GetDaemonSettings`: e-mail ACME, domínio do registry e a URL
+//! pública derivada de `[api]`.
+
 use crate::{api::AppState, db::daemon_settings};
 use shared::Response as RpResponse;
 

@@ -1,3 +1,5 @@
+//! `Command::JobRunHistory`: últimas execuções de um job.
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

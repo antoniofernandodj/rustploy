@@ -1,3 +1,5 @@
+//! `Command::DeployQueuePause`: pausa/retoma a fila global de deploys.
+
 use crate::api::AppState;
 use shared::{Event, Response as RpResponse};
 

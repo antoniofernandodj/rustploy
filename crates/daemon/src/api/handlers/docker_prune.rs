@@ -1,3 +1,7 @@
+//! `Command::Prune*`: limpeza manual de containers, volumes, imagens, build
+//! cache e redes; as versões `*_core` são reaproveitadas pela limpeza
+//! automática.
+
 use crate::api::AppState;
 use bollard::{
     container::PruneContainersOptions, image::PruneImagesOptions, network::PruneNetworksOptions,

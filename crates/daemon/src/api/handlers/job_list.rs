@@ -1,3 +1,5 @@
+//! `Command::JobList`: jobs (Schedules) de um projeto.
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

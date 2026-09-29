@@ -1,3 +1,6 @@
+//! Tabela de rotas do ingress (domínio → backends, porta → backends) com
+//! round-robin, lida sem lock pelo proxy.
+
 use arc_swap::ArcSwap;
 use std::{
     collections::HashMap,
@@ -115,9 +118,11 @@ impl IngressController {
         self.table.store(Arc::new(new_table));
     }
 
-    /// Registra todas as rotas HTTP de domínio de um serviço a partir dos IPs
-    /// dos containers live. Cada domínio é roteado para a sua porta de container
-    /// (own `port`, ou a `port` padrão do serviço) — é isto que permite um
+    /// Registra as rotas de domínio de um serviço e poda as órfãs dele.
+    ///
+    /// As rotas saem dos IPs dos containers live. Cada domínio é roteado para
+    /// a sua porta de container (own `port`, ou a `port` padrão do serviço) —
+    /// é isto que permite um
     /// serviço em várias portas expor um subdomínio por porta.
     ///
     /// As rotas deste `service_id` que **não** estão mais no spec são removidas

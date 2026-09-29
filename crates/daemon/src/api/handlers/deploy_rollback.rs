@@ -1,3 +1,6 @@
+//! `Command::DeployRollback`: acha o deploy Live anterior de um serviço (só
+//! consulta; não redeploya).
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

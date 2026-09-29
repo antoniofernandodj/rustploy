@@ -1,3 +1,5 @@
+//! `Command::Ping`: responde `Pong` com o uptime.
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

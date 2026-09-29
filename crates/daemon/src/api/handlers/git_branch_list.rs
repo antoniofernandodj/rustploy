@@ -1,3 +1,6 @@
+//! `Command::GitBranchList`: branches de um repositório num provedor git
+//! conectado.
+
 use crate::api::AppState;
 use shared::Response;
 

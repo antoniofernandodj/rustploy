@@ -228,6 +228,8 @@ async fn watch_session(ctx: Arc<Ctx>) {
 
 // ── roteamento ──────────────────────────────────────────────────────────────
 
+/// Roteia uma requisição da API de agente: liveness sem token, depois o gate de
+/// token, as rotas de dados (repassadas ao daemon) e as de controle da janela.
 async fn handle(
     req: Request<Incoming>,
     ctx: Arc<Ctx>,

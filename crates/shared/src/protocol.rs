@@ -1,3 +1,6 @@
+//! Protocolo da API: `Command` (o que o cliente pede), `Response` e `Event` (o
+//! que o SSE entrega).
+
 use crate::manifest::ApplyReport;
 use crate::models::*;
 use serde::{Deserialize, Serialize};

@@ -1,3 +1,6 @@
+//! Grava os dados transformados no banco do rustploy (ou num arquivo SQL),
+//! casando projetos pelo nome.
+
 use crate::transform::TransformedData;
 use anyhow::Result;
 use sqlx::SqlitePool;
@@ -40,6 +43,8 @@ pub async fn write_sql_file(path: &str, data: &TransformedData) -> Result<()> {
     Ok(())
 }
 
+/// Grava os dados transformados direto no SQLite do rustploy: atualiza ou cria
+/// projetos pelo nome e substitui serviços de mesmo nome.
 pub async fn write_to_db(data: &TransformedData) -> Result<()> {
     // Determine DB path. Default to dev location or system location.
     let db_path = if std::path::Path::new("rustploy.db").exists() {

@@ -1,3 +1,6 @@
+//! Backup periódico das env vars de projetos e serviços em snapshots JSON, com
+//! listagem, restauração e limpeza dos antigos.
+
 use crate::db::Db;
 use chrono::{Datelike, Utc};
 use serde::{Deserialize, Serialize};

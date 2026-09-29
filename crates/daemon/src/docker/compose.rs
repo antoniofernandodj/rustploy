@@ -1,3 +1,7 @@
+//! Serviços e jobs Docker Compose: `up` de stack com a rede do projeto
+//! injetada, execução one-shot de job com cancelamento, e login no registry
+//! embutido.
+
 use crate::{db::Db, event_bus::EventBus};
 use anyhow::{Result, anyhow};
 use bollard::{Docker, volume::CreateVolumeOptions};
@@ -70,6 +74,9 @@ async fn registry_logout() -> Result<()> {
     Ok(())
 }
 
+/// Reescreve o YAML do Compose para que todo serviço entre também na rede do
+/// projeto (declarada como `external`), sem perder as redes que o usuário já
+/// declarou.
 pub fn inject_project_network(content: &str, network_name: &str) -> Result<String> {
     use serde_yaml::Value;
     let mut doc: Value =
@@ -208,6 +215,9 @@ pub async fn ensure_external_volumes(docker: &Docker, content: &str) -> Result<(
     Ok(())
 }
 
+/// Sobe (ou atualiza) a stack Compose de um serviço: grava `.env` e
+/// `docker-compose.yml` com a rede do projeto injetada e roda `docker compose
+/// up -d`, com o progresso no log de build.
 pub async fn up(
     docker: &Docker,
     content: &str,
@@ -388,6 +398,9 @@ async fn wait_for_cancel(rx: &mut tokio::sync::watch::Receiver<bool>) {
     }
 }
 
+/// Executa um job uma vez: prepara o compose (colado ou do repositório git) com
+/// a rede do projeto, roda `run_once_up` e sempre desmonta a stack no fim,
+/// mesmo se falhou.
 pub async fn run_once(
     source: JobBuildSource<'_>,
     project_name: &str,
@@ -610,6 +623,9 @@ async fn read_compose_output<R: tokio::io::AsyncRead + Unpin>(
     }
 }
 
+/// Roda o `docker compose up` de um job até o `main_service` sair, transmitindo
+/// stdout/stderr para o log e matando o processo se chegar o sinal de
+/// cancelamento.
 async fn run_once_up(
     project_name: &str,
     compose_rel_path: &str,

@@ -1,3 +1,6 @@
+//! Imagens: pull (com credenciais) e build a partir de um contexto empacotado
+//! em tar, com progresso no log de build.
+
 use crate::{db::Db, event_bus::EventBus};
 use anyhow::{Result, anyhow};
 use bollard::{

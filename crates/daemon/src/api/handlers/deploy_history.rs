@@ -1,3 +1,6 @@
+//! `Command::DeployHistory`: últimos deployments de um serviço, com o `live`
+//! velho corrigido por `reconcile::fix_stale_live`.
+
 use crate::api::AppState;
 use shared::Response as RpResponse;
 

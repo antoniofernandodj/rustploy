@@ -1,3 +1,6 @@
+//! `Command::DockerCleanupConfig*` e `DockerCleanupRunNow`: config e disparo
+//! manual da limpeza automática do Docker (`maintenance/`).
+
 use crate::api::AppState;
 use crate::maintenance;
 use chrono::Utc;

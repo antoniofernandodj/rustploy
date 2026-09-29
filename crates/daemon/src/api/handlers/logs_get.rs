@@ -1,3 +1,6 @@
+//! `Command::LogsGet`: últimas linhas de log de um serviço, do container ou
+//! (Compose) via `docker compose logs`.
+
 use crate::api::AppState;
 use bollard::container::{LogOutput, LogsOptions};
 use chrono::Utc;
@@ -100,6 +103,8 @@ fn parse_compose_log_ts(line: &str) -> Option<chrono::DateTime<Utc>> {
     ts_str.parse::<chrono::DateTime<Utc>>().ok()
 }
 
+/// Logs de um serviço Compose via `docker compose logs --timestamps`, com o
+/// timestamp de cada linha extraído do prefixo `servico-1 |`.
 async fn compose_logs(
     project_name: &str,
     content: &str,
