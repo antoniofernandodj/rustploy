@@ -232,6 +232,16 @@ mod headless_tests {
         page.evaluate(js).await.expect("seed do Alpine store");
     }
 
+    /// Avalia `js` (uma expressão, possivelmente uma Promise) e devolve o
+    /// resultado como `String` — os testes serializam com `JSON.stringify`.
+    async fn eval_str(page: &chromiumoxide::Page, js: &str) -> String {
+        page.evaluate(js)
+            .await
+            .unwrap_or_else(|e| panic!("evaluate falhou: {e}\n{js}"))
+            .into_value::<String>()
+            .expect("o JS deveria devolver uma string")
+    }
+
     /// `true` se o elemento existir e estiver de fato visível (`x-show`
     /// escreve `display:none` inline; `offsetParent` é `null` tanto pra
     /// `display:none` quanto pra ancestral escondido — cobre os dois).
@@ -431,6 +441,120 @@ mod headless_tests {
             .await,
             "origem Compose deveria mostrar o editor de texto"
         );
+
+        assert_eq!(
+            errors(&page).await,
+            Vec::<String>::new(),
+            "sem erros de JS no console"
+        );
+    }
+
+    /// Renomear serviço (aba General): o campo aparece, o aviso muda conforme o
+    /// tipo (Compose × Application), `renameService()` manda o spec inteiro só
+    /// com o nome trocado, não manda nada se o nome não mudou, e o card
+    /// "Internal URL" de um Compose continua apontando para a chave do YAML
+    /// depois do rename (o hostname interno não acompanha o nome).
+    #[tokio::test]
+    async fn renomear_servico_na_aba_general() {
+        let addr = spawn_static_server().await;
+        let (browser, _handler) = launch().await;
+        let page = open_page(&browser, addr).await;
+        seed_connected(&page).await;
+
+        page.evaluate(
+            r#"(() => {
+                const s = Alpine.store('app');
+                s.view = 'service';
+                s.selectedServiceId = 'svc_1';
+                s.serviceTab = 'general';
+                s.serviceLoading = false;
+                s.serviceDeployments = [];
+                s.serviceDetail = {
+                    id: 'svc_1', status: 'Running', live_container_id: null,
+                    spec: { name: 'banco', port: 5432, replicas: 1, project_id: 'prj_1', db_kind: 'postgres',
+                        env_vars: [], domains: [],
+                        source: { Compose: { content: 'services:\n  # comentário\n\n  rp_banco:\n    image: postgres:18\n' } },
+                        healthcheck: { kind: 'None', interval_secs: 5, timeout_secs: 3, retries: 10, start_period_secs: 5 } },
+                };
+                // Captura o que o rename manda salvar, sem daemon.
+                window.__saved = [];
+                s.saveServiceSpec = async (spec, msg) => { window.__saved.push({ spec, msg }); return { ok: true }; };
+                window.__toasts = [];
+                s.toastErr = (m) => window.__toasts.push(m);
+                Alpine.$data(document.querySelector('[x-data="serviceDetail"]')).initGeneralForm();
+            })()"#,
+        )
+        .await
+        .expect("abre o serviço Compose");
+
+        assert!(
+            visible(
+                &page,
+                "[x-data=\"serviceDetail\"] input[x-model=\"editName\"]"
+            )
+            .await,
+            "a aba General deveria mostrar o campo de nome"
+        );
+        let d = "Alpine.$data(document.querySelector('[x-data=\"serviceDetail\"]'))";
+        assert_eq!(
+            eval_str(&page, "(() => Alpine.$data(document.querySelector('[x-data=\"serviceDetail\"]')).editName)()").await,
+            "banco",
+            "o campo começa com o nome atual"
+        );
+        assert!(
+            eval_str(&page, "(() => Alpine.$data(document.querySelector('[x-data=\"serviceDetail\"]')).renameNote)()")
+                .await
+                .contains("volumes"),
+            "Compose: o aviso diz que a stack e os volumes não mudam"
+        );
+
+        // Mesmo nome e nome vazio: nada é salvo; o vazio avisa.
+        let _ = eval_str(
+            &page,
+            &format!("(async () => {{ const d = {d}; d.editName = 'banco'; await d.renameService(); d.editName = '   '; await d.renameService(); return ''; }})()")
+        )
+        .await;
+        assert_eq!(
+            eval_str(&page, "(() => JSON.stringify({ saved: window.__saved.length, toasts: window.__toasts }))()").await,
+            r#"{"saved":0,"toasts":["Informe o nome do serviço"]}"#,
+            "mesmo nome não salva; vazio só avisa"
+        );
+
+        // Nome novo: manda o spec inteiro (fonte, porta, db_kind) só com o nome trocado.
+        let saved = eval_str(
+            &page,
+            &format!("(async () => {{ const d = {d}; d.editName = '  meu-banco  '; await d.renameService(); const x = window.__saved[0]; return JSON.stringify({{ n: window.__saved.length, msg: x.msg, name: x.spec.name, port: x.spec.port, kind: x.spec.db_kind, content: x.spec.source.Compose.content, edit: d.editName }}); }})()")
+        )
+        .await;
+        let v: serde_json::Value = serde_json::from_str(&saved).unwrap();
+        assert_eq!(v["n"], 1);
+        assert_eq!(v["msg"], "serviço renomeado");
+        assert_eq!(v["name"], "meu-banco", "o nome é aparado");
+        assert_eq!(v["port"], 5432);
+        assert_eq!(v["kind"], "postgres");
+        assert!(v["content"].as_str().unwrap().contains("rp_banco:"));
+        assert_eq!(v["edit"], "meu-banco");
+
+        // O detalhe passa a ter o nome novo; o host interno segue o YAML.
+        let url = eval_str(
+            &page,
+            &format!("(() => {{ Alpine.store('app').serviceDetail.spec.name = 'meu-banco'; return {d}.connectionInfo.internalUrl; }})()")
+        )
+        .await;
+        assert_eq!(
+            url, "postgresql://rp_banco:5432",
+            "Compose: hostname = chave do YAML, não o nome"
+        );
+
+        // Application: outro aviso, e o host interno acompanha o nome.
+        let app = eval_str(
+            &page,
+            &format!("(() => {{ const s = Alpine.store('app'); s.serviceDetail = {{ id: 'svc_2', status: 'Running', live_container_id: null, spec: {{ name: 'meu-api', port: 8080, replicas: 1, project_id: 'prj_1', env_vars: [], domains: [], source: {{ Registry: {{ image: 'nginx' }} }}, healthcheck: {{ kind: 'None', interval_secs: 5, timeout_secs: 3, retries: 10, start_period_secs: 5 }} }} }}; return JSON.stringify({{ note: {d}.renameNote, url: {d}.connectionInfo.internalUrl }}); }})()")
+        )
+        .await;
+        let a: serde_json::Value = serde_json::from_str(&app).unwrap();
+        assert!(a["note"].as_str().unwrap().contains("próximo deploy"));
+        assert_eq!(a["url"], "rp_meu_api:8080");
 
         assert_eq!(
             errors(&page).await,

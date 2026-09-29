@@ -248,8 +248,31 @@ local function internal_scheme(db_kind: string?): string?
     else return "http" end
 end
 
-function M.internal_url(db_kind: string?, safe: string, port: any): string
-    local host = "rp_" .. safe .. ":" .. tostring(port)
+-- Chave do serviço que recebe o tráfego dentro de um compose: `ingress_service`
+-- se declarado, senão a primeira chave de `services:`. É o nome que resolve na
+-- rede do projeto (alias do Compose) e **não muda** quando o serviço do
+-- rustploy é renomeado — o YAML continua o mesmo.
+function M.compose_host(content: string?, ingress_service: string?): string?
+    if ingress_service and ingress_service ~= "" then return ingress_service end
+    local in_services = false
+    for line in string.gmatch((content or "") .. "\n", "([^\n]*)\n") do
+        if not in_services then
+            if string.match(line, "^services:%s*$") then in_services = true end
+        else
+            local key = string.match(line, "^%s+([%w_%.%-]+):")
+            if key then return key end
+            -- linha em branco ou comentário: segue; qualquer outra coisa sem
+            -- recuo encerra o bloco `services:`.
+            if not string.match(line, "^%s*$") and not string.match(line, "^%s*#") then return nil end
+        end
+    end
+    return nil
+end
+
+-- `compose_host`: host do compose (ver `compose_host`) — para serviço Compose o
+-- hostname interno é a chave do YAML, não `rp_<nome>`.
+function M.internal_url(db_kind: string?, safe: string, port: any, compose_host: string?): string
+    local host = (compose_host or ("rp_" .. safe)) .. ":" .. tostring(port)
     local scheme = internal_scheme(db_kind)
     if scheme then return scheme .. "://" .. host end
     return host

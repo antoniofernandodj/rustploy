@@ -317,10 +317,30 @@ function internalScheme(dbKind) {
   return null; // kafka / serviço comum: passthrough sem esquema
 }
 
+/** Chave do serviço que recebe o tráfego dentro de um compose: `ingress_service`
+ * se declarado, senão a primeira chave de `services:`. É o hostname que resolve
+ * na rede do projeto e **não muda** quando o serviço do rustploy é renomeado
+ * (o YAML continua o mesmo). Espelha `compose_host` de fmt/service_detail.luau. */
+export function composeHost(content, ingressService) {
+  if (ingressService) return ingressService;
+  let inServices = false;
+  for (const line of String(content || "").split("\n")) {
+    if (!inServices) {
+      if (/^services:\s*$/.test(line)) inServices = true;
+      continue;
+    }
+    const m = line.match(/^\s+([\w.-]+):/);
+    if (m) return m[1];
+    // linha em branco ou comentário: segue; outra coisa sem recuo encerra o bloco.
+    if (!/^\s*$/.test(line) && !/^\s*#/.test(line)) return null;
+  }
+  return null;
+}
+
 /** URL de conexão dentro da rede Docker do daemon (`rp_<safe>:<porta>`, com
  * esquema por tipo de banco). */
-export function internalUrl(dbKind, safe, port) {
-  const host = `rp_${safe}:${port}`;
+export function internalUrl(dbKind, safe, port, composeHostName) {
+  const host = `${composeHostName || `rp_${safe}`}:${port}`;
   const scheme = internalScheme(dbKind);
   return scheme ? `${scheme}://${host}` : host;
 }

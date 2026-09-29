@@ -68,6 +68,7 @@ M.deployments_detail = ServiceDetail.deployments_detail
 M.domains_json = ServiceDetail.domains_json
 M.safe_name = ServiceDetail.safe_name
 M.internal_url = ServiceDetail.internal_url
+M.compose_host = ServiceDetail.compose_host
 M.external_url = ServiceDetail.external_url
 M.containers = ServiceDetail.containers
 

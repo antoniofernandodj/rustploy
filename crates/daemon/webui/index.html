@@ -1898,6 +1898,18 @@
 
             <!-- General -->
             <column class="panel_pad" x-show="store.serviceTab === 'general'">
+              <!-- Renomear. flex-shrink:0 via .form_panel (ver app.css). Compose: o nome
+                   é só de exibição (stack e volumes gravados); Application: o alias de
+                   rede acompanha o nome no próximo deploy — renameNote diz qual vale. -->
+              <column class="form_panel" style="margin-bottom:14px">
+                <text class="label_cap">NOME DO SERVIÇO</text>
+                <row class="env_add">
+                  <input class="field_input" type="text" x-model="editName" placeholder="Nome do serviço"
+                         @keydown.enter.prevent="renameService()" />
+                  <button class="btn_primary" type="button" @click="renameService()">Renomear</button>
+                </row>
+                <text class="muted" x-text="renameNote"></text>
+              </column>
               <row class="kv_row"><text class="kv_key">Origem</text><text class="kv_val" x-text="sourceText"></text></row>
               <row class="kv_row"><text class="kv_key">Porta</text><text class="kv_val" x-text="svc.spec.port"></text></row>
               <row class="kv_row"><text class="kv_key">Réplicas</text><text class="kv_val" x-text="svc.spec.replicas"></text></row>

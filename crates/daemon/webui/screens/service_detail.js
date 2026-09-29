@@ -19,6 +19,7 @@ import {
   timeHms,
   safeName,
   internalUrl,
+  composeHost,
   externalUrl,
   envRowsWithComments,
 } from "../fmt.js";
@@ -71,6 +72,8 @@ document.addEventListener("alpine:init", () => {
     // atual — chamado ao abrir a aba, mesmo padrão de initHcForm/initAdvForm.
     composeText: "",
     composeOrig: "",
+    // Renomear (aba General). Porta de save_service_name em handlers/services.luau.
+    editName: "",
     provTab: "git", // "git" | "gitea" | "zip"
     fRepoUrl: "",
     fBranch: "",
@@ -100,6 +103,7 @@ document.addEventListener("alpine:init", () => {
     async initGeneralForm() {
       const spec = this.svc?.spec;
       if (!spec) return;
+      this.editName = spec.name;
       if (spec.source.Compose) {
         this.composeText = spec.source.Compose.content || "";
         this.composeOrig = this.composeText;
@@ -138,6 +142,28 @@ document.addEventListener("alpine:init", () => {
         this.giteaProviderId = "";
         this.provTab = "git";
       }
+    },
+
+    /** O que o rename muda (ou não) para este tipo de serviço. */
+    get renameNote() {
+      return this.isCompose
+        ? "A stack e os volumes do Docker não mudam com o nome: os dados continuam os mesmos."
+        : "O hostname interno (rp_<nome>) só passa a valer no próximo deploy. " +
+            "Outros serviços que usam o nome antigo em variáveis de ambiente precisam ser atualizados.";
+    },
+
+    /** Unicidade dentro do projeto é checada no daemon (a mensagem volta no toast). */
+    async renameService() {
+      const name = this.editName.trim();
+      if (!name) {
+        this.store.toastErr("Informe o nome do serviço");
+        return;
+      }
+      if (name === this.svc.spec.name) return;
+      const spec = JSON.parse(JSON.stringify(this.svc.spec));
+      spec.name = name;
+      const r = await this.store.saveServiceSpec(spec, "serviço renomeado");
+      if (r.ok) this.editName = name;
     },
 
     async saveCompose() {
@@ -313,7 +339,12 @@ document.addEventListener("alpine:init", () => {
         domain: domain || "—",
         tls: tls ? "enabled" : "disabled",
         dbKind: spec.db_kind || null,
-        internalUrl: internalUrl(spec.db_kind, safe, spec.port),
+        internalUrl: internalUrl(
+          spec.db_kind,
+          safe,
+          spec.port,
+          spec.source?.Compose ? composeHost(spec.source.Compose.content, spec.source.Compose.ingress_service) : null,
+        ),
         externalUrl: externalUrl(domain, tls, spec.host_port, spec.db_kind, this.store.api.baseUrl, spec.env_vars),
       };
     },

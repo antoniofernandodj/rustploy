@@ -206,6 +206,36 @@
               </template>
             </column>
 
+            <!-- Renomear: form próprio, FORA do form "general" (form não aninha).
+                 O nome é só de exibição para Compose (stack e volumes ficam
+                 gravados); em Application o alias de rede acompanha o nome no
+                 próximo deploy — o aviso abaixo diz qual dos dois vale. -->
+            <form
+              class="form_panel"
+              if="{svc_loading}"
+              not_equals="true"
+              name="svc_rename"
+              on_submit="save_service_name"
+              on_validation_error="svc_rename_apontar"
+              spacing="6"
+            >
+              <text class="label_cap">NOME DO SERVIÇO</text>
+              <row class="env_add">
+                <input
+                  class="field_input"
+                  form_control="edit_svc_name"
+                  rules="required"
+                  msg="informe um nome"
+                  placeholder="Nome do serviço"
+                />
+                <button type="submit" class="btn_primary" text="Renomear" />
+              </row>
+              <text class="err" if="{erro_edit_svc_name}" not_empty>
+                {erro_edit_svc_name}
+              </text>
+              <text class="muted">{svc_rename_note}</text>
+            </form>
+
             <form
               class="form_panel"
               if="{svc_loading}"

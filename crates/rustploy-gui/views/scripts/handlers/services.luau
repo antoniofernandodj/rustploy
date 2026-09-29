@@ -149,6 +149,16 @@ function M.fetch_service_detail(sid: string): ()
     ctx.svc_error = ""
     ctx.svc_id = svc.id
     ctx.svc_name = spec.name
+    -- Aba General → "Nome do serviço": campo do form de rename + o aviso do que
+    -- o rename muda (ou não) para este tipo de serviço.
+    ctx.edit_svc_name = spec.name
+    ctx.erro_edit_svc_name = ""
+    if skind == "Compose" then
+        ctx.svc_rename_note = "A stack e os volumes do Docker não mudam com o nome: os dados continuam os mesmos."
+    else
+        ctx.svc_rename_note = "O hostname interno (rp_<nome>) só passa a valer no próximo deploy. "
+            .. "Outros serviços que usam o nome antigo em variáveis de ambiente precisam ser atualizados."
+    end
     ctx.svc_project = project_name
     ctx.svc_project_id = spec.project_id
     ctx.svc_status_label = status_label
@@ -189,7 +199,9 @@ function M.fetch_service_detail(sid: string): ()
     -- markup exibe, truncado para não empurrar o botão "Copiar" para fora.
     ctx.svc_external_url = fmt.external_url(pr_domain, pr_tls, spec.host_port, spec.db_kind, ctx.api_url, merged_env)
     ctx.svc_external_url_short = fmt.ellipsis(ctx.svc_external_url, 20)
-    ctx.svc_internal_url = fmt.internal_url(spec.db_kind, fmt.safe_name(spec.name), spec.port)
+    local compose_src = spec.source.Compose
+    local chost = compose_src and fmt.compose_host(compose_src.content, compose_src.ingress_service) or nil
+    ctx.svc_internal_url = fmt.internal_url(spec.db_kind, fmt.safe_name(spec.name), spec.port, chost)
     ctx.svc_internal_url_short = fmt.ellipsis(ctx.svc_internal_url, 20)
     ctx.svc_db_kind = spec.db_kind or "—"
     ctx.svc_hc = fmt.healthcheck_summary(spec.healthcheck)
@@ -315,6 +327,26 @@ local function with_spec(mutate: (spec: any) -> ()): ()
         ctx.svc_action_msg = "erro: " .. res2
         toast{ message = tostring(res2), kind = "error" }
     end
+end
+
+-- ── Renomear serviço (aba General → "Nome do serviço") ──────────────────────
+
+-- on_validation_error do <form name="svc_rename">: o motor já acendeu o :invalid
+-- e publicou {erro_edit_svc_name}; aqui é só o aviso.
+function svc_rename_apontar(_erros_json: string?): ()
+    toast{ message = "Informe o nome do serviço", kind = "warning" }
+end
+
+-- on_submit: só roda com a validação (rules="required") aprovada. Unicidade
+-- dentro do projeto é checada no daemon (a mensagem volta no toast).
+function save_service_name(): ()
+    local name = Helpers.trim(ctx.edit_svc_name)
+    if name == "" or name == ctx.svc_name then
+        return
+    end
+    with_spec(function(spec)
+        spec.name = name
+    end)
 end
 
 -- Move o domínio legado (domain/tls_enabled) para a lista `domains`.
