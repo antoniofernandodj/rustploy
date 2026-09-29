@@ -48,7 +48,7 @@ clippy: ## Roda o clippy em todo o workspace
 lint: fmt-check clippy ## fmt-check + clippy
 
 .PHONY: index
-index: ## Regenera docs/indice/ (mapa de arquivos e símbolos para agentes)
+index: ## Regenera docs/indice/; checa tudo antes e, se algo falhar, não altera nada
 	cargo run -q -p indexer
 
 # ── Cross-compile (Windows) ───────────────────────────────────────────────────

@@ -7,20 +7,20 @@
 
 ## crates/importer/src/
 
-### main.rs
+### main.rs — CLI do importer: migra projetos e serviços de outra plataforma (hoje, Dokploy) para o rustploy.
 struct Cli { command }
 enum Commands { Dokploy }
 fn main() -> Result<()>
 
 ## crates/importer/src/sink/
 
-### mod.rs
+### mod.rs — Grava os dados transformados no banco do rustploy (ou num arquivo SQL), casando projetos pelo nome.
 fn write_sql_file(path, data) -> Result<()>
-fn write_to_db(data) -> Result<()>
+fn write_to_db(data) -> Result<()> — Grava os dados transformados direto no SQLite do rustploy: atualiza ou cria projetos pelo nome e sub…
 
 ## crates/importer/src/source/
 
-### dokploy.rs
+### dokploy.rs — Leitura dos projetos, aplicações, stacks Compose e domínios direto do Postgres do Dokploy.
 struct DokployProject { id, name, description }
 struct DokployApplication { id, name, source_type, repository, owner, branch, _build_path, dockerfile, docker_context_path, docker_build_stage, custom_git_url, custom_git_branch, build_type, env, project_id, gitea_repository, gitea_owner }
 struct DokployCompose { id, name, compose_file, project_id, env }
@@ -31,21 +31,21 @@ impl DokploySource
   fn new(pg_url) -> Result<Self>
   fn fetch_all() -> Result<DokployData>
 
-### mod.rs
+### mod.rs — Fontes de dados do importer, uma por plataforma de origem.
 
 ## crates/importer/src/transform/
 
-### dokploy.rs
+### dokploy.rs — Converte os dados do Dokploy em projetos e serviços do rustploy, anotando o que não dá para migrar n…
 fn transform(data, gitea_url) -> (TransformedData, Report)
 fn parse_env(env_str) -> Vec<EnvVar>
 fn normalize_path(path) -> String
 
-### mod.rs
+### mod.rs — Conversão dos dados de origem para os modelos do rustploy (`TransformedData`).
 struct TransformedData { projects, services }
 
 ## crates/importer/src/
 
-### warnings.rs
+### warnings.rs — `Report` do importer: problemas encontrados na migração, por severidade (bloqueante, aviso, informaç…
 enum Severity { Blocking, Warning, Info }
 struct Issue { severity, scope, code, message, hint }
 struct Report { issues }

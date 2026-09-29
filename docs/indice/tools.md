@@ -9,9 +9,9 @@
 
 ### commands.rs — `comandos.md`: uma linha por variante de `Command` ligando as três pontas de uma feature: o handler …
 struct Variant { name, group, doc }
-fn render(root, files) -> String
-fn variants(root) -> Vec<Variant> — Variantes na ordem de declaração, com o grupo dado pelo último comentário `// Grupo` visto acima del…
-fn handlers(root) -> BTreeMap<String, String> — Variante → `arquivo` (ou `arquivo::fn`) do handler, dos braços de todo `match` em `routes.rs` cujo c…
+fn render(root, files) -> Result<String, String> — Falha (sem gerar nada) se não achar o `enum Command` ou nenhum handler: uma tabela vazia seria pior …
+fn variants(root) -> Result<Vec<Variant>, String> — Variantes na ordem de declaração, com o grupo dado pelo último comentário `// Grupo` visto acima del…
+fn handlers(root) -> Result<BTreeMap<String, String>, String> — Variante → `arquivo` (ou `arquivo::fn`) do handler, dos braços de todo `match` em `routes.rs` cujo c…
 fn callers(root, files, prefix, ext, comment, pattern) -> BTreeMap<String, BTreeSet<String>> — Variante → arquivos (relativos a `prefix`) que a mencionam como Command.
 const PROTOCOL, ROUTES, GUI_SCRIPTS, WEBUI, AGENT
 
@@ -19,17 +19,19 @@ const PROTOCOL, ROUTES, GUI_SCRIPTS, WEBUI, AGENT
 const COMMANDS_MD — Índice transversal (não é área de prefixo): ver `commands.rs`.
 const AREAS — Áreas do índice de símbolos: (arquivo gerado, título, prefixos cobertos).
 const COLLAPSE — Diretórios de dados que viram uma linha só no INDEX.md.
+const NAMES_ONLY — Diretórios que o INDEX.md lista só por nome, numa linha: a descrição de cada arquivo repetiria um ín…
 const COMMON_TRAITS — Traits cujos métodos são ditados pela própria trait: listar os métodos só gastaria token.
-fn main()
-fn repo_root() -> PathBuf
-fn tracked_files(root) -> Vec<String> — Arquivos versionados + novos não ignorados, para indexar antes do commit.
+fn main() -> ExitCode
+fn run() -> Result<(), Vec<String>> — Primeiro gera tudo em memória e checa; só grava se nada falhou.
+fn repo_root() -> Result<PathBuf, String>
+fn tracked_files(root) -> Result<Vec<String>, String> — Arquivos versionados + novos não ignorados, para indexar antes do commit.
 fn ext_of(path) -> &str
 fn is_indexed(path) -> bool — Arquivos cujos símbolos entram nos índices de área.
 fn area_of(path) -> Option<usize>
 fn split_dir(path) -> (&str, &str)
 fn render_index(root, files) -> String
 fn describe_file(root, path) -> Option<String> — Uma linha de descrição por arquivo, só de fontes baratas e confiáveis.
-fn render_area(root, title, paths) -> String
+fn render_area(root, title, paths, errors) -> String — Um arquivo que não dá para ler ou parsear vai para `errors` (e o índice não é gravado), em vez de vi…
 struct Renderer { out, tests }
 impl Renderer
   fn line(indent, body, attrs)

@@ -6,7 +6,7 @@
 
 ## crates/rustploy-gui/views/
 
-### app.gv
+### app.gv — Janela principal da GUI: mostra o Login ou o Shell (app conectado), com a titlebar customizada.
 <screen "Rustploy">
 imports: Login, Shell
 script: scripts/app.luau
@@ -58,7 +58,7 @@ props: name, description, logo, logo_kind, action
 
 ## crates/rustploy-gui/views/
 
-### home.gv
+### home.gv — Telas globais da sidebar, cada uma numa seção por valor de view: Monitoring, Ingress, Deploy Engine,…
 <component>
 views: monitoring, ingress, deploy_engine, docker, settings, schedules, support
 handlers: clipboard, dc_run_now, dc_save, docker_prune_containers, docker_prune_images, docker_prune_networks, docker_prune_volumes, docker_rm_container, docker_rm_image, docker_rm_network, docker_rm_volume, field, gp_connect, gp_delete, gp_refresh, iac_export, iac_import, job_del, job_run_cancel, job_run_now, job_toggle, open, open_edit_job_window, open_job_logs_window, open_new_job_window, queue_cancel, queue_promote, queue_reorder, queue_toggle_pause, registry_close_repo, registry_gc, registry_open_repo, registry_open_token_window, registry_rm_repo, registry_rm_tag, registry_rm_token, settings_save
@@ -68,7 +68,7 @@ handlers: clipboard, dc_run_now, dc_save, docker_prune_containers, docker_prune_
 script: scripts/log_window.luau
 handlers: clipboard, textarea_end, textarea_top, window
 
-### login.gv
+### login.gv — Tela de login: URL do daemon e token, com a lista de servidores lembrados.
 <component>
 handlers: connect, esquecer_servidor
 
@@ -99,11 +99,11 @@ imports: NewServiceWizard, PickerRow, TemplateRow
 script: scripts/new_service_window.luau
 handlers: window
 
-### service.gv
+### service.gv — Detalhe de um serviço: cabeçalho com ações (deploy, stop, reload) e as abas General (fonte), Connect…
 <component>
 handlers: adv_save, archive_upload, clipboard, compose_cancel, compose_save, delete_deployment, dep_logs, dom_add, dom_del, dom_hostport_auto, dom_hostport_save, env_add, env_del, env_export, env_import, env_reorder, env_text_cancel, env_text_toggle, field, gen_save, gitea_provider_pick, gitea_repo_pick, hc_save, open_logs_window, open_project, pdc_add, pdc_del, pdc_reorder, regen_webhook, svc_deploy, svc_rebuild, svc_reload, svc_stop
 
-### shell.gv
+### shell.gv — Casca do app conectado: sidebar, topbar e as views de projeto (Deployments, Projects, serviços de um…
 <component>
 imports: HomeViews, LoadingRow, NavItem, PickerRow, ProjectCard, ServiceCard, ServiceDetail, StatCard, StateCell, TabButton, TemplateRow
 views: deployments, projects, project_services, service

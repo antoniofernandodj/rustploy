@@ -13,7 +13,7 @@ fn resolve(db, secrets, svc) -> Result<Vec<(String, String)>> — Funde env vars
 fn resolve_project_only(db, secrets, project_id) -> Result<Vec<(String, String)>> — Só as env vars do projeto — usado por jobs sem serviço gatilho (`Job::trigger_service_id: None`, job…
 fn resolve_job(db, secrets, job) -> Result<Vec<(String, String)>> — Env vars completas de um `Job`: base (projeto, + serviço gatilho quando houver) por baixo, `job.env_…
 
-### executor.rs
+### executor.rs — `DeployExecutor`: roda um deployment pela máquina de estados (clone/pull/build, staging, healthcheck…
 fn copy_dir_all(src, dst) -> Result<()>
 struct DeployExecutor { db, docker, ingress, bus, secrets, tls, db_path, drain_secs, registry_internal_token }
 fn is_embedded_registry_image(image, port, domain) -> bool — Reconhece se `image` aponta para o registry Docker embutido do próprio rustployd, seja por loopback …
@@ -23,9 +23,9 @@ fn rollback_cause(dep) -> String — Texto que vai para `ServiceStatus::Error` q
 fn truncate_chars(s, max) -> String — Trunca por CARACTERE (não por byte): cortar um `&str` com índice de byte no meio de um multibyte ent…
 impl DeployExecutor
   fn run(deployment_id)
-  fn execute(deployment_id) -> Result<()>
-  fn step(dep, svc) -> Result<DeployState>
-  fn poll_healthcheck(ip, container_id, svc, dep) -> Result<()>
+  fn execute(deployment_id) -> Result<()> — Laço da máquina de estados: chama `step` até um estado terminal, persistindo cada transição e, se um…
+  fn step(dep, svc) -> Result<DeployState> — Executa o trabalho do estado atual do deployment e devolve o próximo: um braço por `DeployState` (pr…
+  fn poll_healthcheck(ip, container_id, svc, dep) -> Result<()> — Espera o container de staging ficar saudável (healthcheck do spec ou o HEALTHCHECK nativo da imagem)…
   fn clone_dir(deployment_id) -> PathBuf
   fn short(id) -> &'a str
   fn ensure_live_names_free(svc) -> Result<()> — Falha o deploy se algum nome live que ele vai ocupar (`rp_<id8>_<safe>`, `…_r<i>`) já for de um cont…
@@ -43,7 +43,7 @@ impl DeployExecutor
   fn transition(deployment_id, from, to, message) -> Result<()>
 (20 testes)
 
-### git.rs
+### git.rs — Clone de repositório git para build, com progresso, credenciais de provedor conectado ou secret, e U…
 struct CloneOptions { url, branch, token, username, dir }
 struct CloneProgress { _phase, percent, description }
 fn clone(opts, on_progress) -> Result<()> — Clone a git repository into `opts.dir`, calling `on_progress` for each stderr line emitted by git.
@@ -53,7 +53,7 @@ fn redact_url(url) -> String — Returns the URL with any embedded credentials r
 fn parse_progress(line) -> CloneProgress — Maps a raw git stderr line to a `CloneProgress` value.
 fn extract_percent(line) -> u8 — Extracts the integer percentage from a git progress line.
 
-### mod.rs
+### mod.rs — Motor de deploy: fila global, executor, recuperação no boot, clone git e resolução de env vars.
 
 ### queue.rs — Fila **global** de deploys: no máximo um deploy rodando por vez no daemon.
 struct QueueInner { queued, running, paused }
@@ -73,16 +73,16 @@ fn run_worker(state) — Worker único da fila global.
 fn run_one(state, dep_id) — Roda um deployment: marca o serviço como `Deploying`, spawna o executor como task (guardando o `Abor…
 (5 testes)
 
-### recovery.rs
-fn recover(db, docker, ingress, bus, secrets, tls, db_path, drain_secs, registry_internal_token) -> Vec<String>
+### recovery.rs — Recuperação no boot: aborta deploys interrompidos, reconcilia status com o Docker e restaura as rota…
+fn recover(db, docker, ingress, bus, secrets, tls, db_path, drain_secs, registry_internal_token) -> Vec<String> — Recuperação no boot: devolve os deployments que estavam só na fila (para re-enfileirar), aborta os q…
 fn reconcile(db, docker, ingress, tls) — Reconciles every service's DB status against actual Docker container state.
 fn compose_ingress_ip(docker, svc, net) -> Option<String> — IP do container que atende o ingress numa stack Compose, ou `None` quando a stack não está no ar.
 fn reconcile_routes(svc, ips, ingress, tls)
-fn restore_routes(db, docker, ingress, tls)
+fn restore_routes(db, docker, ingress, tls) — Recria no ingress as rotas de domínio e de porta dos serviços no ar (réplicas live, ou o container d…
 
 ## crates/daemon/src/jobs/
 
-### mod.rs
+### mod.rs — Jobs one-shot (Schedules): execução (`runner`) e agendamento (`scheduler`).
 
 ### runner.rs — Execução de um `Job` (tarefa one-shot via docker-compose): resolve rede + env vars do serviço gatilh…
 struct JobRunner { db, docker, bus, secrets, db_path, registry_internal_token }
@@ -92,7 +92,7 @@ impl JobRunner
   fn run_inner_mirrored(job, run_id, mirror_deployment, cancel_rx) -> Result<i32> — Roda `job` até o `main_service` terminar e devolve o exit code — sem tocar em `job.recurrence`/`resc…
   fn reschedule(job)
 
-### scheduler.rs — Ticker de agendamento dos jobs one-shot — mesmo formato de `metrics.rs`/ `env_backup.rs`: `tokio::ti…
+### scheduler.rs — Ticker de agendamento dos jobs one-shot — mesmo formato de `metrics.rs`/`env_backup.rs`: `tokio::tim…
 fn scheduler_loop(state)
 const TICK_SECS
 

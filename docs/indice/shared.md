@@ -21,7 +21,7 @@ fn lit(s) -> String — Literal Rust `&str` válido (escapado) para `s`.
 
 ## crates/shared/src/
 
-### config.rs
+### config.rs — Configuração do daemon (`config.toml`): structs de cada seção com defaults e o singleton `CONFIG`.
 const CONFIG — Process-wide configuration singleton.
 struct EnvBackupConfig { dir, interval_secs }
 fn default_env_backup_interval() -> u64
@@ -62,7 +62,7 @@ impl Default for RegistryConfig
 impl Default for RustployConfig
 (2 testes)
 
-### lib.rs
+### lib.rs — Tipos compartilhados entre daemon e GUI (modelos, protocolo, config, manifest, templates) e os nomes…
 fn compose_project_name(svc_id, svc_name) -> String — Unique Docker Compose project name for a rustploy service.
 fn app_container_base(svc_id, svc_name) -> String — Base do nome de container de um serviço Application: `rp_<id8>_<safe>`.
 fn app_network_alias(svc_name) -> String — Hostname de um serviço Application **dentro da rede do projeto**: `rp_<safe>`.
@@ -131,7 +131,7 @@ impl std::fmt::Display for ActionVerb
 impl std::fmt::Display for ResourceActionKind
 (11 testes)
 
-### models.rs
+### models.rs — Modelos de domínio: projeto, `ServiceSpec` e suas fontes, deployment e estados, jobs, healthcheck, m…
 struct Project { id, name, description, env_vars, env_comments, created_at }
 struct ServiceSpec { name, project_id, source, port, host_port, domain, tls_enabled, env_vars, env_comments, volumes, healthcheck, replicas, resources, run_command, run_args, db_kind, domains, pre_deploy_job_id, pre_deploy_job_ids }
 struct DomainRoute { domain, port, tls } — Uma rota HTTP de domínio de um serviço: qual domínio, para qual porta do container e com ou sem TLS.
@@ -218,7 +218,7 @@ impl Default for JobGitSource
 impl std::fmt::Display for ServiceStatus
 (21 testes)
 
-### protocol.rs
+### protocol.rs — Protocolo da API: `Command` (o que o cliente pede), `Response` e `Event` (o que o SSE entrega).
 enum Command { ProjectCreate, ProjectDelete, ProjectUpdate, ProjectList, ProjectEnvSet, ServiceCreate, ServiceUpdate, ServiceDelete, ServiceList, ServiceGet, DeployStart, DeployAbort, DeployRollback, DeployHistory, DeployDelete, ServiceStop, ServiceReload, RecentDeployments, GetBuildLogs, LogsGet, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, GetWebhookUrl, RegenerateWebhookToken, GetDaemonSettings, SetDaemonSettings, SecretSet, SecretDelete, SecretList, ManifestApply, ManifestExport, ManifestExportAll, ManifestImport, JobCreate, JobUpdate, JobDelete, JobList, JobListAll, JobRunNow, JobRunCancel, JobRunHistory, GetJobLogs, PruneContainers, PruneVolumes, PruneImages, PruneBuildCache, PruneNetworks, DockerCleanupConfigGet, DockerCleanupConfigSet, DockerCleanupRunNow, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, RemoveContainer, RemoveImage, RemoveVolume, RemoveNetwork, StopAllManaged, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DaemonStatus, DeployEngineStatus, GitProviderList, GitProviderCreate, GitProviderDelete, GitOAuthStart, GitRepoList, GitBranchList, WizardCatalog, WizardCreate, Snapshot, RegistryStatus, RegistryRepoList, RegistryTagList, RegistryTagDelete, RegistryRepoDelete, RegistryGc, RegistryTokenCreate, RegistryTokenList, RegistryTokenRevoke, DeployQueuePromote, DeployQueueReorder, DeployQueuePause }
 enum Event { DeployStateChanged, DeployProgress, BuildLog, LogLine, ContainerMetrics, SystemMetrics, ServiceStatusChanged, DaemonReady, Error, JobLogLine, JobRunStateChanged, DeployQueueChanged, DockerCleanupCompleted }
 impl Event
@@ -274,7 +274,7 @@ impl std::fmt::Debug for Template
 
 ## crates/shared/src/
 
-### wizard.rs — Lógica do wizard "Novo serviço" (Application / Database / Broker / Compose / Template): catálogos, g…
+### wizard.rs — Lógica do wizard "Novo serviço" (Application / Database / Broker / Compose /Template): catálogos, ge…
 enum DbKind { MongoDb, Postgres, MariaDb, MySql, Redis }
 impl DbKind
   fn label() -> &'static str

@@ -33,7 +33,7 @@ fn index() -> Value — O índice, pronto para sair pela API.
 (3 testes)
 
 ### catalog.rs — `GET /agent/schema` — o documento de descoberta.
-fn schema() -> Value
+fn schema() -> Value — O documento de descoberta servido em `GET /agent/schema`: o que a API de agente faz, suas rotas e ex…
 (2 testes)
 
 ### client.rs — Cliente HTTP para o daemon rustploy remoto.
@@ -87,7 +87,7 @@ fn accept_loop(listener, ctx) -> Result<(), String> — O laço de aceitação, 
 fn bind(preferido) — Tenta o endereço pedido; se a porta estiver ocupada (outro app, ou uma instância anterior ainda ence…
 fn remote_url(ctx) -> Option<String>
 fn watch_session(ctx) — Mantém o campo `remote_url`/`connected` do handoff em dia.
-fn handle(req, ctx)
+fn handle(req, ctx) — Roteia uma requisição da API de agente: liveness sem token, depois o gate de token, as rotas de dado…
 fn not_found(metodo, caminho) -> ApiFail
 fn build_log_path(p) -> Option<String> — `/agent/deploys/<id>/logs` → `<id>`.
 fn archive_path(p) -> Option<String> — `/agent/services/<id>/archive` → `<id>`.
@@ -206,7 +206,7 @@ const TOML_ENTRY
 
 ## crates/rustploy-gui/tests/fixtures/
 
-### tempo.gv
+### tempo.gv — Fixture do teste fmt_time.rs: tela mínima que roda o fmt/time.luau e exibe o resultado.
 <screen "fixture">
 script: tempo.luau
 

@@ -103,7 +103,7 @@ fn created_blob_response(repo_name, digest_hex) -> Response<RegistryBody>
 fn manifest(method, req, db, storage, repo_name, reference)
 fn resolve_manifest_digest(db, repo_id, reference) -> Result<String, RegistryError>
 fn get_manifest(db, storage, repo_name, reference, head_only)
-fn put_manifest(req, db, storage, repo_name, reference)
+fn put_manifest(req, db, storage, repo_name, reference) — `PUT /v2/<repo>/manifests/<ref>`: valida que os blobs referenciados existem e grava o manifest e a t…
 fn extract_refs(value) -> Result<Vec<String>, RegistryError> — Extrai os digests referenciados por um manifest: `manifests[].digest` para um index/manifest-list (m…
 fn delete_manifest_route(db, repo_name, reference)
 fn collect_body(req) -> Result<Bytes, RegistryError>

@@ -53,121 +53,59 @@
 - build.rs — Gera, em tempo de compilação, os assets estáticos da web UI/PWA (`crates/daemon/…
 
 ### crates/daemon/src/ → daemon-core.md
-- env_backup.rs
-- event_bus.rs
+- env_backup.rs — Backup periódico das env vars de projetos e serviços em snapshots JSON, com list…
+- event_bus.rs — Bus de eventos em memória (broadcast): o que alimenta o SSE `/api/events` dos cl…
 - firewall.rs — Cliente do helper privilegiado de firewall (`rustployd-fw`).
-- health.rs
-- logs.rs
-- main.rs
-- metrics.rs
+- health.rs — Checagens de saúde HTTP e TCP usadas pelo healthcheck do deploy e pelo watchdog.
+- logs.rs — Streaming dos logs dos containers gerenciados para o event bus, reconectando e e…
+- main.rs — Ponto de entrada do `rustployd`: resolve config e diretórios, sobe banco, Docker…
+- metrics.rs — Coleta periódica de métricas de CPU/memória/disco do host e por container, publi…
 - ports.rs — Alocação automática de portas externas (`ServiceSpec.host_port`).
-- secrets.rs
-- watchdog.rs
+- secrets.rs — `SecretsManager`: secrets por projeto cifrados no banco com a chave mestra do da…
+- watchdog.rs — Watchdog dos serviços no ar: checa se o container roda e passa no healthcheck, r…
 
 ### crates/daemon/src/api/ → daemon-api.md
 - http_api.rs — HTTP/JSON + SSE control API — the daemon's remote administrative channel.
-- mod.rs
+- mod.rs — API do daemon: `AppState` (estado compartilhado por todos os handlers) e os cach…
 - public_routes.rs — Rotas HTTP **públicas** (sem Bearer): o webhook de deploy e o callback OAuth do …
-- routes.rs
+- routes.rs — `dispatch`: o `match` que manda cada `Command` para o seu handler em `handlers/`…
 - web_ui.rs — Servidor de estáticos da web UI/PWA (`crates/daemon/webui/`) — alternativa ao cl…
 
 ### crates/daemon/src/api/handlers/ → daemon-api.md
-- daemon_status.rs
-- deploy_abort.rs
-- deploy_delete.rs
-- deploy_engine_status.rs
-- deploy_history.rs
-- deploy_queue_pause.rs
-- deploy_queue_promote.rs
-- deploy_queue_reorder.rs
-- deploy_rollback.rs
-- deploy_start.rs
-- docker_cleanup.rs
-- docker_inventory.rs — Docker-wide inventory for the Docker tab: every image/volume/network on the host…
-- docker_prune.rs
-- docker_remove.rs — Remoção INDIVIDUAL de um recurso Docker (o par por-item dos `docker_prune`): um …
-- env_backup.rs
-- get_build_logs.rs
-- get_daemon_settings.rs
-- get_job_logs.rs
-- get_webhook_url.rs
-- git_branch_list.rs
-- git_oauth_start.rs
-- git_provider_create.rs
-- git_provider_delete.rs
-- git_provider_list.rs
-- git_repo_list.rs
-- ingress.rs — Leitura e conserto da tabela de rotas do ingress proxy.
-- job_create.rs
-- job_delete.rs
-- job_list.rs
-- job_list_all.rs
-- job_run_cancel.rs
-- job_run_history.rs
-- job_run_now.rs
-- job_update.rs
-- logs_get.rs
-- manifest_apply.rs
-- manifest_export.rs
-- manifest_export_all.rs
-- manifest_import.rs
-- mod.rs
-- ping.rs
-- project_create.rs
-- project_delete.rs
-- project_env_set.rs
-- project_list.rs
-- project_update.rs
-- recent_deployments.rs
-- reconcile.rs
-- regenerate_webhook_token.rs
-- registry.rs — Sub-aba Docker > Registry: navegação (repositórios/tags), delete e GC do registr…
-- secret_delete.rs
-- secret_list.rs
-- secret_set.rs
-- service_archive_upload.rs
-- service_create.rs
-- service_delete.rs
-- service_get.rs
-- service_list.rs
-- service_reload.rs
-- service_stop.rs
-- service_update.rs
-- set_daemon_settings.rs
-- wizard.rs — Wizard "Novo serviço" server-side: catálogos (`WizardCatalog`) e criação (`Wizar…
+- 63 arquivos, um arquivo por `Command` (exceto `mod.rs`); o que cada um faz está em `comandos.md` e `daemon-api.md`: daemon_status, deploy_abort, deploy_delete, deploy_engine_status, deploy_history, deploy_queue_pause, deploy_queue_promote, deploy_queue_reorder, deploy_rollback, deploy_start, docker_cleanup, docker_inventory, docker_prune, docker_remove, env_backup, get_build_logs, get_daemon_settings, get_job_logs, get_webhook_url, git_branch_list, git_oauth_start, git_provider_create, git_provider_delete, git_provider_list, git_repo_list, ingress, job_create, job_delete, job_list, job_list_all, job_run_cancel, job_run_history, job_run_now, job_update, logs_get, manifest_apply, manifest_export, manifest_export_all, manifest_import, mod, ping, project_create, project_delete, project_env_set, project_list, project_update, recent_deployments, reconcile, regenerate_webhook_token, registry, secret_delete, secret_list, secret_set, service_archive_upload, service_create, service_delete, service_get, service_list, service_reload, service_stop, service_update, set_daemon_settings, wizard
 
 ### crates/daemon/src/bin/ → daemon-core.md
 - rustployd-fw.rs — `rustployd-fw` — helper privilegiado de firewall do rustploy.
 
 ### crates/daemon/src/db/ → daemon-db.md
-- build_logs.rs
-- daemon_settings.rs
-- deployments.rs
+- build_logs.rs — Tabela `build_log`: linhas do log de build de cada deployment.
+- daemon_settings.rs — Tabela chave-valor de configurações do daemon editáveis pela UI (ACME, registry,…
+- deployments.rs — Tabela `deployment`: criar, transicionar de estado, histórico por serviço e esta…
 - git_providers.rs — Persistence for connected Git providers (Gitea OAuth2 / PAT).
-- job.rs
-- job_log.rs
-- job_run.rs
-- mod.rs
-- projects.rs
+- job.rs — Tabela `job`: jobs one-shot (Schedules), incluindo quais estão vencidos para o a…
+- job_log.rs — Tabela `job_log`: linhas de log (stdout/stderr) de cada execução de job.
+- job_run.rs — Tabela `job_run`: cada execução de um job e seu exit code.
+- mod.rs — Conexão SQLite (`Db`) e as migrações do schema, feitas à mão com `add_column_if_…
+- projects.rs — Tabela `project`: CRUD de projetos e suas env vars de nível de projeto.
 - registry.rs — Wrappers SQL do registry OCI embutido (metadados; os bytes de blob/manifest vive…
 - registry_tokens.rs — Tokens de acesso do registry OCI embutido (Basic auth — ver `crate::registry::au…
-- services.rs
-- webhook_tokens.rs
+- services.rs — Tabela `service`: CRUD do ServiceSpec, status e container live.
+- webhook_tokens.rs — Tabela de tokens de webhook de deploy, um por serviço.
 
 ### crates/daemon/src/deploy/ → daemon-deploy.md
 - env_resolve.rs — Resolução de env vars com secrets decifradas — extraído de `DeployExecutor::reso…
-- executor.rs
-- git.rs
-- mod.rs
+- executor.rs — `DeployExecutor`: roda um deployment pela máquina de estados (clone/pull/build, …
+- git.rs — Clone de repositório git para build, com progresso, credenciais de provedor cone…
+- mod.rs — Motor de deploy: fila global, executor, recuperação no boot, clone git e resoluç…
 - queue.rs — Fila **global** de deploys: no máximo um deploy rodando por vez no daemon.
-- recovery.rs
+- recovery.rs — Recuperação no boot: aborta deploys interrompidos, reconcilia status com o Docke…
 
 ### crates/daemon/src/docker/ → daemon-docker.md
-- compose.rs
-- containers.rs
-- images.rs
-- mod.rs
-- networks.rs
+- compose.rs — Serviços e jobs Docker Compose: `up` de stack com a rede do projeto injetada, ex…
+- containers.rs — Containers de serviços Application: nomes (live, staging, réplicas, legado), bus…
+- images.rs — Imagens: pull (com credenciais) e build a partir de um contexto empacotado em ta…
+- mod.rs — Cliente Docker (`DockerClient`, via bollard) e os submódulos por recurso.
+- networks.rs — Rede Docker por projeto: nome e criação sob demanda.
 
 ### crates/daemon/src/git_providers/ → daemon-registry.md
 - gitea.rs — Minimal Gitea API client: OAuth2 token exchange/refresh plus the few REST endpoi…
@@ -175,15 +113,15 @@
 - mod.rs — Clients for hosted Git providers.
 
 ### crates/daemon/src/ingress/ → daemon-docker.md
-- mod.rs
+- mod.rs — Ingress: proxy reverso HTTP/HTTPS embutido, tabela de rotas e TLS/ACME.
 - proxy.rs — Proxy reverso HTTP/1.1 embutido, construído sobre hyper.
-- router.rs
-- tls.rs
+- router.rs — Tabela de rotas do ingress (domínio → backends, porta → backends) com round-robi…
+- tls.rs — Certificados TLS: resolução por SNI, emissão e renovação ACME (Let's Encrypt) e …
 
 ### crates/daemon/src/jobs/ → daemon-deploy.md
-- mod.rs
+- mod.rs — Jobs one-shot (Schedules): execução (`runner`) e agendamento (`scheduler`).
 - runner.rs — Execução de um `Job` (tarefa one-shot via docker-compose): resolve rede + env va…
-- scheduler.rs — Ticker de agendamento dos jobs one-shot — mesmo formato de `metrics.rs`/ `env_ba…
+- scheduler.rs — Ticker de agendamento dos jobs one-shot — mesmo formato de `metrics.rs`/`env_bac…
 
 ### crates/daemon/src/maintenance/ → daemon-deploy.md
 - mod.rs — Limpeza automática (agendada) de recursos Docker não usados — ver `docs/plano-li…
@@ -204,7 +142,7 @@
 - app.css — Rustploy — web UI stylesheet.
 - app.js — único <script type="module"> carregado por index.html.
 - fmt.js — timestamps, durações e paleta de estado.
-- index.html
+- index.html — Casca única da webui (Alpine.js): login, shell e todas as telas, uma seção por v…
 - manifest.webmanifest
 - sw.js — service worker do PWA Rustploy.
 
@@ -221,7 +159,7 @@
 - monitoring.js — tela "Monitoring": uso de CPU/memória do host e por container.
 - new_service.js — wizard "Novo serviço", porta de new_service.gv (client iced): passo pick_type → …
 - project_detail.js — projeto aberto (view=project_services no client iced): sub-abas Serviços/Variáve…
-- projects.js — tela "Projects": grid de cards + criar/editar/ remover.
+- projects.js — tela "Projects": grid de cards + criar/editar/remover.
 - schedules.js — tela "Schedules": jobs one-shot (docker-compose) agendados ou manuais, de todos …
 - service_detail.js — detalhe de um serviço.
 - settings.js — tela "Settings": Web Server / Git / Infra as Code.
@@ -230,19 +168,19 @@
 - Cargo.toml — Migration importer tool for the Rustploy PaaS platform
 
 ### crates/importer/src/ → importer.md
-- main.rs
-- warnings.rs
+- main.rs — CLI do importer: migra projetos e serviços de outra plataforma (hoje, Dokploy) p…
+- warnings.rs — `Report` do importer: problemas encontrados na migração, por severidade (bloquea…
 
 ### crates/importer/src/sink/ → importer.md
-- mod.rs
+- mod.rs — Grava os dados transformados no banco do rustploy (ou num arquivo SQL), casando …
 
 ### crates/importer/src/source/ → importer.md
-- dokploy.rs
-- mod.rs
+- dokploy.rs — Leitura dos projetos, aplicações, stacks Compose e domínios direto do Postgres d…
+- mod.rs — Fontes de dados do importer, uma por plataforma de origem.
 
 ### crates/importer/src/transform/ → importer.md
-- dokploy.rs
-- mod.rs
+- dokploy.rs — Converte os dados do Dokploy em projetos e serviços do rustploy, anotando o que …
+- mod.rs — Conversão dos dados de origem para os modelos do rustploy (`TransformedData`).
 
 ### crates/rustploy-gui/ → gui.md
 - CONTINUE.md — rustploy-gui — plano de continuação
@@ -279,21 +217,21 @@
 - templates_render.rs — Headless validation: every template parses, every screen/tab evaluates and build…
 
 ### crates/rustploy-gui/tests/fixtures/ → gui.md
-- tempo.gv
+- tempo.gv — Fixture do teste fmt_time.rs: tela mínima que roda o fmt/time.luau e exibe o res…
 - tempo.luau — Fixture do teste `fmt_time.rs`: exercita o `fmt/time.luau` de verdade, através d…
 
 ### crates/rustploy-gui/views/ → gui-views.md
-- app.gv
-- home.gv
+- app.gv — Janela principal da GUI: mostra o Login ou o Shell (app conectado), com a titleb…
+- home.gv — Telas globais da sidebar, cada uma numa seção por valor de view: Monitoring, Ing…
 - log_window.gv — Janela de LOGS AO VIVO (runtime OU build): motor Glacier próprio e ISOLADO do ap…
-- login.gv
+- login.gv — Tela de login: URL do daemon e token, com a lista de servidores lembrados.
 - new_job_window.gv — Janela "Novo job": motor Glacier próprio, aberto por open_window a partir do app…
 - new_project_form.gv — Janela "Novo projeto": motor Glacier próprio, aberto por open_window a partir do…
 - new_registry_token_window.gv — Janela "Novo token do registry": motor Glacier próprio, aberto por open_window a…
 - new_service.gv — Wizard "Novo serviço" (view=new_service): tipo → formulário por tipo, espelhando…
 - new_service_window.gv — Janela do wizard "Novo serviço": motor Glacier próprio, aberto por open_window (…
-- service.gv
-- shell.gv
+- service.gv — Detalhe de um serviço: cabeçalho com ações (deploy, stop, reload) e as abas Gene…
+- shell.gv — Casca do app conectado: sidebar, topbar e as views de projeto (Deployments, Proj…
 
 ### crates/rustploy-gui/views/components/ → gui-views.md
 - badge.gv — Variante "badge" da célula de estado (mesmo ponto + rótulo, mas com o espaçament…
@@ -312,7 +250,7 @@
 - fmt.luau — fachada: reexporta os builders de views/scripts/fmt_*.luau sob um único módulo, …
 - glacier.d.luau — Definições dos globais que o motor glacier-ui injeta no interpretador Luau em ru…
 - helpers.luau — utilitários puros compartilhados pelos handlers_*.luau (sem estado, sem I/O).
-- log_window.luau — script da JANELA de logs (runtime OU build) de um serviço/ deployment, um motor …
+- log_window.luau — script da JANELA de logs (runtime OU build) de um serviço/deployment, um motor G…
 - new_job_window.luau — script da JANELA "Novo job", um motor Glacier próprio e ISOLADO do app principal…
 - new_project_window.luau — script da JANELA de "Novo projeto", um motor Glacier próprio e ISOLADO do app pr…
 - new_registry_token_window.luau — script da JANELA "Novo token do registry", um motor Glacier próprio e ISOLADO do…
@@ -320,7 +258,7 @@
 - state.luau — estado mutável compartilhado entre todos os handlers/*.luau (mesmo interpretador…
 
 ### crates/rustploy-gui/views/scripts/fmt/ → gui-scripts.md
-- dashboard.luau — builders de lista do dashboard (deployments/projects/ services/docker/ingress/mo…
+- dashboard.luau — builders de lista do dashboard (deployments/projects/services/docker/ingress/mon…
 - docker_cleanup.luau — resumo textual da limpeza automática de Docker (Settings → Manutenção).
 - git.luau — builders dos provedores/repositórios/branches Git conectados (Gitea/GitHub) — Se…
 - jobs.luau — formata Job/JobSummary/JobRun (tarefas one-shot via docker-compose) pra exibição…
@@ -356,12 +294,12 @@
 - build.rs — Gera, em tempo de compilação, o catálogo estático de templates a partir dos blue…
 
 ### crates/shared/src/ → shared.md
-- config.rs
-- lib.rs
+- config.rs — Configuração do daemon (`config.toml`): structs de cada seção com defaults e o s…
+- lib.rs — Tipos compartilhados entre daemon e GUI (modelos, protocolo, config, manifest, t…
 - manifest.rs — Infra-as-Code: structs do manifesto declarativo (`rustploy.yml`).
-- models.rs
-- protocol.rs
-- wizard.rs — Lógica do wizard "Novo serviço" (Application / Database / Broker / Compose / Tem…
+- models.rs — Modelos de domínio: projeto, `ServiceSpec` e suas fontes, deployment e estados, …
+- protocol.rs — Protocolo da API: `Command` (o que o cliente pede), `Response` e `Event` (o que …
+- wizard.rs — Lógica do wizard "Novo serviço" (Application / Database / Broker / Compose /Temp…
 
 ### crates/shared/src/templates/ → shared.md
 - mod.rs — Catálogo de templates de aplicações (formato Dokploy), lido dos blueprints em `t…

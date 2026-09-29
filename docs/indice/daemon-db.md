@@ -7,12 +7,12 @@
 
 ## crates/daemon/src/db/
 
-### build_logs.rs
+### build_logs.rs — Tabela `build_log`: linhas do log de build de cada deployment.
 fn append(db, deployment_id, line, timestamp) -> Result<()>
 fn delete_for_deployment(db, deployment_id) -> Result<()>
 fn get_for_deployment(db, deployment_id) -> Result<Vec<BuildLogLine>>
 
-### daemon_settings.rs
+### daemon_settings.rs — Tabela chave-valor de configurações do daemon editáveis pela UI (ACME, registry, limpeza do Docker).
 fn get(db, key) -> Result<Option<String>>
 fn set(db, key, value) -> Result<()>
 fn delete(db, key) -> Result<()>
@@ -21,7 +21,7 @@ const KEY_DOCKER_CLEANUP_CONFIG — JSON de `shared::DockerCleanupConfig` — ve
 const KEY_DOCKER_CLEANUP_LAST_RUN — JSON de `shared::DockerCleanupLastRun`, ausente até a primeira execução.
 const KEY_ACME_EMAIL, KEY_REGISTRY_DOMAIN
 
-### deployments.rs
+### deployments.rs — Tabela `deployment`: criar, transicionar de estado, histórico por serviço e estatísticas de 24h.
 type DeploymentRow = (String, String, String, String, String, DateTime<…
 fn row_to_deployment(row) -> Deployment
 fn parse_state(s) -> DeployState
@@ -50,7 +50,7 @@ fn set_tokens(db, id, access_token_enc, refresh_token_enc, account_login, accoun
 fn delete(db, id) -> Result<bool>
 const COLS
 
-### job.rs
+### job.rs — Tabela `job`: jobs one-shot (Schedules), incluindo quais estão vencidos para o agendador.
 type JobRow = (String, String, String, String, String, String, b…
 fn row_to_job(row) -> Result<Job>
 fn create(db, project_id, trigger_service_id, name, compose, git_source, main_service, env_vars, env_comments, recurrence) -> Result<Job>
@@ -66,14 +66,14 @@ fn delete_by_trigger_service(db, service_id) -> Result<u64> — Remove todos os 
 const SELECT_COLS
 (5 testes)
 
-### job_log.rs
+### job_log.rs — Tabela `job_log`: linhas de log (stdout/stderr) de cada execução de job.
 fn stream_to_str(s) -> &'static str
 fn str_to_stream(s) -> LogStream
 fn append(db, job_run_id, stream, line, timestamp) -> Result<()>
 fn get_for_run(db, job_run_id) -> Result<Vec<BuildLogLine>>
 (1 testes)
 
-### job_run.rs
+### job_run.rs — Tabela `job_run`: cada execução de um job e seu exit code.
 type JobRunRow = (String, String, DateTime<Utc>, Option<DateTime<Ut…
 fn row_to_job_run(row) -> JobRun
 fn create(db, job_id) -> Result<JobRun>
@@ -84,13 +84,13 @@ fn latest_for_job(db, job_id) -> Result<Option<JobRun>>
 const SELECT_COLS
 (2 testes)
 
-### mod.rs
+### mod.rs — Conexão SQLite (`Db`) e as migrações do schema, feitas à mão com `add_column_if_missing`.
 type Db = SqlitePool
 fn connect(db_path) -> Result<Db>
-fn migrate(pool) -> Result<()>
+fn migrate(pool) -> Result<()> — Cria as tabelas e aplica as migrações incrementais (`ALTER TABLE` idempotente via `add_column_if_mis…
 fn add_column_if_missing(pool, sql) -> Result<()> — Executa um `ALTER TABLE ...
 
-### projects.rs
+### projects.rs — Tabela `project`: CRUD de projetos e suas env vars de nível de projeto.
 struct ProjectRow { id, name, description, env_vars, env_comments, created_at }
 fn row_to_project(row) -> Result<Project>
 fn create(db, name, description) -> Result<Project>
@@ -138,7 +138,7 @@ fn verify_scope(db, token_sha256) -> Result<Option<String>> — Retorna o escopo
 fn touch_last_used(db, token_sha256) -> Result<()> — Best-effort, chamado em background (`tokio::spawn`) pelo caminho de auth — não deve atrasar a respos…
 (7 testes)
 
-### services.rs
+### services.rs — Tabela `service`: CRUD do ServiceSpec, status e container live.
 type ServiceRow = (String, String, String, String, String, Option<St…
 fn row_to_service(row) -> Result<Service>
 fn parse_status(s) -> ServiceStatus
@@ -156,7 +156,7 @@ fn list_all(db) -> Result<Vec<Service>>
 const SELECT_COLS
 (6 testes)
 
-### webhook_tokens.rs
+### webhook_tokens.rs — Tabela de tokens de webhook de deploy, um por serviço.
 fn get(db, service_id) -> Result<Option<String>>
 fn upsert(db, service_id, token) -> Result<()>
 fn _delete(db, service_id) -> Result<()>

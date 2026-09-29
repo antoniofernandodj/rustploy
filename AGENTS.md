@@ -343,7 +343,10 @@ fração disso.
 O índice **não tem número de linha, de propósito**: ele mudaria a cada edição.
 Tudo é endereçado por caminho + nome, então o índice só envelhece quando um
 símbolo é criado, renomeado ou apagado. Nesse caso, rode **`make index`** (ou
-`cargo run -p indexer`) e commite `docs/indice/` junto. Os arquivos são gerados:
+`cargo run -p indexer`) e commite `docs/indice/` junto. Ele gera e checa tudo
+em memória antes de gravar: se um arquivo não parseia, se o `enum Command` some
+ou se uma área fica vazia (diretório movido), ele sai com erro dizendo o quê e
+**não altera nada**, para o índice nunca ficar pela metade. Os arquivos são gerados:
 não edite à mão. A descrição de cada item vem do `//!`/`///` (ou do comentário
 de cabeçalho, em Luau/JS/`.gv`), então documentar o código melhora o índice.
 O gerador fica em `tools/indexer/`, e o porquê de cada decisão está em

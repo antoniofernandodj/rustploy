@@ -29,9 +29,11 @@ struct Variant {
     doc: Option<String>,
 }
 
-pub fn render(root: &Path, files: &[String]) -> String {
-    let variants = variants(root);
-    let handlers = handlers(root);
+/// Falha (sem gerar nada) se não achar o `enum Command` ou nenhum handler:
+/// uma tabela vazia seria pior que nenhuma, porque parece verdade.
+pub fn render(root: &Path, files: &[String]) -> Result<String, String> {
+    let variants = variants(root)?;
+    let handlers = handlers(root)?;
     let gui = callers(
         root,
         files,
@@ -132,20 +134,20 @@ pub fn render(root: &Path, files: &[String]) -> String {
             }
         );
     }
-    s
+    Ok(s)
 }
 
 /// Variantes na ordem de declaração, com o grupo dado pelo último comentário
 /// `// Grupo` visto acima delas (o `syn` descarta comentários comuns, então o
 /// grupo sai de uma leitura por linha do mesmo trecho).
-fn variants(root: &Path) -> Vec<Variant> {
-    let text = fs::read_to_string(root.join(PROTOCOL)).expect("ler protocol.rs");
-    let file = syn::parse_file(&text).expect("parsear protocol.rs");
+fn variants(root: &Path) -> Result<Vec<Variant>, String> {
+    let text = fs::read_to_string(root.join(PROTOCOL)).map_err(|e| format!("{PROTOCOL}: {e}"))?;
+    let file = syn::parse_file(&text).map_err(|e| format!("{PROTOCOL}: {e}"))?;
     let Some(en) = file.items.iter().find_map(|i| match i {
         syn::Item::Enum(e) if e.ident == "Command" => Some(e),
         _ => None,
     }) else {
-        return Vec::new();
+        return Err(format!("{PROTOCOL}: `enum Command` não encontrado"));
     };
 
     let mut groups: BTreeMap<String, String> = BTreeMap::new();
@@ -171,7 +173,8 @@ fn variants(root: &Path) -> Vec<Variant> {
         }
     }
 
-    en.variants
+    Ok(en
+        .variants
         .iter()
         .map(|v| Variant {
             name: v.ident.to_string(),
@@ -181,12 +184,12 @@ fn variants(root: &Path) -> Vec<Variant> {
                 .unwrap_or_default(),
             doc: doc_summary(&v.attrs),
         })
-        .collect()
+        .collect())
 }
 
 /// Variante → `arquivo` (ou `arquivo::fn`) do handler, dos braços de todo
 /// `match` em `routes.rs` cujo corpo chama `handlers::…`.
-fn handlers(root: &Path) -> BTreeMap<String, String> {
+fn handlers(root: &Path) -> Result<BTreeMap<String, String>, String> {
     struct Arms(BTreeMap<String, String>);
     impl<'ast> Visit<'ast> for Arms {
         fn visit_arm(&mut self, arm: &'ast syn::Arm) {
@@ -208,11 +211,16 @@ fn handlers(root: &Path) -> BTreeMap<String, String> {
             syn::visit::visit_arm(self, arm);
         }
     }
-    let text = fs::read_to_string(root.join(ROUTES)).expect("ler routes.rs");
-    let file = syn::parse_file(&text).expect("parsear routes.rs");
+    let text = fs::read_to_string(root.join(ROUTES)).map_err(|e| format!("{ROUTES}: {e}"))?;
+    let file = syn::parse_file(&text).map_err(|e| format!("{ROUTES}: {e}"))?;
     let mut arms = Arms(BTreeMap::new());
     arms.visit_file(&file);
-    arms.0
+    if arms.0.is_empty() {
+        return Err(format!(
+            "{ROUTES}: nenhum braço `Command::X => handlers::…` encontrado"
+        ));
+    }
+    Ok(arms.0)
 }
 
 /// Variante → arquivos (relativos a `prefix`) que a mencionam como Command.

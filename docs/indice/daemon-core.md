@@ -39,7 +39,7 @@ impl Default for PortRange
 
 ## crates/daemon/src/
 
-### env_backup.rs
+### env_backup.rs — Backup periódico das env vars de projetos e serviços em snapshots JSON, com listagem, restauração e …
 struct EnvSnapshot { created_at, projects, services } — Conteúdo de um snapshot: todos os projectos e serviços com as suas env vars.
 struct ProjectEnvEntry { id, name, env_vars, env_comments }
 struct ServiceEnvEntry { id, name, project_id, env_vars }
@@ -51,7 +51,7 @@ fn restore_snapshot(db, backup_dir, snapshot) -> anyhow::Result<usize>
 fn cleanup_old(backup_dir) -> anyhow::Result<()>
 const _
 
-### event_bus.rs
+### event_bus.rs — Bus de eventos em memória (broadcast): o que alimenta o SSE `/api/events` dos clientes.
 struct EventBus { sender }
 impl EventBus
   fn new() -> Self
@@ -72,17 +72,17 @@ fn request(op, port) -> Result<String, String>
 fn do_request(op, port) -> Result<String, String>
 const DEFAULT_SOCKET
 
-### health.rs
+### health.rs — Checagens de saúde HTTP e TCP usadas pelo healthcheck do deploy e pelo watchdog.
 fn check_http(url, expected, timeout) -> bool
 fn check_tcp(addr, timeout) -> bool
 
-### logs.rs
+### logs.rs — Streaming dos logs dos containers gerenciados para o event bus, reconectando e encerrando streams pa…
 fn stream_loop(docker, db, bus)
-fn stream_container(docker, container_id, service_id, bus)
+fn stream_container(docker, container_id, service_id, bus) — Transmite os logs de um container para o event bus até o stream acabar, ou até ficar parado por `STR…
 fn publish_log(bus, service_id, container_id, is_stderr, bytes)
 const STREAM_IDLE_TIMEOUT
 
-### main.rs
+### main.rs — Ponto de entrada do `rustployd`: resolve config e diretórios, sobe banco, Docker, ingress, API e reg…
 fn main() -> Result<()>
 fn init_logging(level)
 fn fallback_dir() -> PathBuf
@@ -91,7 +91,7 @@ fn resolve_master_key_path(configured) -> PathBuf — Tries to use `configured` 
 fn can_write_dir(dir) -> bool — Returns true only when `dir` (or its path) is both creatable and writable.
 const GLOBAL
 
-### metrics.rs
+### metrics.rs — Coleta periódica de métricas de CPU/memória/disco do host e por container, publicadas no event bus.
 fn collect_loop(docker, db, bus, interval_secs)
 fn collect_system_metrics(sys) -> SystemMetricsPoint
 fn collect_container_metrics(docker, container_id, service_id, _prev_cpu) -> anyhow::Result<ContainerMetricsPoint>
@@ -104,7 +104,7 @@ fn used_ports(db, exclude_id) -> Result<Vec<u16>, String> — Portas de host ind
 fn allocate(used) -> Result<u16, String> — Varre a faixa configurada e devolve a primeira porta que (a) nenhum serviço reserva e (b) nenhum pro…
 (2 testes)
 
-### secrets.rs
+### secrets.rs — `SecretsManager`: secrets por projeto cifrados no banco com a chave mestra do daemon.
 struct SecretsManager { passphrase, db }
 impl SecretsManager
   fn new(master_key_path, db) -> Result<Self>
@@ -116,10 +116,10 @@ impl SecretsManager
   fn list_names(project_id) -> Result<Vec<String>>
 fn generate_key() -> Result<String>
 
-### watchdog.rs
+### watchdog.rs — Watchdog dos serviços no ar: checa se o container roda e passa no healthcheck, reinicia com limite d…
 struct ServiceState { last_check, consecutive_failures, restart_attempts }
-fn watchdog_loop(state)
-fn try_restart(state, svc, container_id, svc_state)
+fn watchdog_loop(state) — Laço do watchdog: a cada tick, para cada serviço no ar, confere se o container roda e passa no healt…
+fn try_restart(state, svc, container_id, svc_state) — Tenta religar o container de um serviço caído, até `MAX_RESTART_ATTEMPTS`; se o container foi removi…
 fn is_not_found_error(e) -> bool
 fn trigger_redeploy(state, svc)
 fn run_healthcheck(hc, container_id, docker, port, timeout) -> bool

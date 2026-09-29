@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, ExitCode};
 
 const OUT_DIR: &str = "docs/indice";
 /// Índice transversal (não é área de prefixo): ver `commands.rs`.
@@ -99,6 +99,13 @@ const COLLAPSE: &[(&str, &str)] = &[(
     "catálogo de templates de app (formato Dokploy), compilado pelo build.rs do shared",
 )];
 
+/// Diretórios que o INDEX.md lista só por nome, numa linha: a descrição de
+/// cada arquivo repetiria um índice que já cobre o diretório melhor.
+const NAMES_ONLY: &[(&str, &str)] = &[(
+    "crates/daemon/src/api/handlers/",
+    "um arquivo por `Command` (exceto `mod.rs`); o que cada um faz está em `comandos.md` e `daemon-api.md`",
+)];
+
 const BINARY_EXT: &[&str] = &[
     "png", "svg", "webp", "jpg", "jpeg", "gif", "ico", "ttf", "otf", "woff", "woff2",
 ];
@@ -143,10 +150,27 @@ const COMMON_TRAITS: &[&str] = &[
     "IntoResponse",
 ];
 
-fn main() {
-    let root = repo_root();
-    let files = tracked_files(&root);
+fn main() -> ExitCode {
+    match run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(errors) => {
+            eprintln!("indexer: {OUT_DIR}/ NÃO foi alterado. Corrija e rode de novo:");
+            for e in errors {
+                eprintln!("  - {e}");
+            }
+            ExitCode::FAILURE
+        }
+    }
+}
 
+/// Primeiro gera tudo em memória e checa; só grava se nada falhou. Um índice
+/// pela metade (parte nova, parte velha) é pior que o anterior inteiro.
+fn run() -> Result<(), Vec<String>> {
+    let root = repo_root().map_err(|e| vec![e])?;
+    let files = tracked_files(&root).map_err(|e| vec![e])?;
+    let mut errors = Vec::new();
+
+    // ── 1. Gera e checa ──────────────────────────────────────────────────────
     let mut areas: Vec<(&str, &str, Vec<&String>)> =
         AREAS.iter().map(|(f, t, _)| (*f, *t, Vec::new())).collect();
     for path in files.iter().filter(|p| is_indexed(p)) {
@@ -154,65 +178,91 @@ fn main() {
             areas[i].2.push(path);
         }
     }
+    let mut outputs: Vec<(String, String)> = Vec::new();
+    for (i, (file, title, paths)) in areas.iter().enumerate() {
+        // Área vazia = prefixo que não casa mais nada (diretório movido ou
+        // renomeado): o índice dela sumiria em silêncio.
+        if paths.is_empty() {
+            errors.push(format!(
+                "área `{file}` ficou vazia: nenhum arquivo em {} (diretório movido? ajuste AREAS)",
+                AREAS[i].2.join(", ")
+            ));
+            continue;
+        }
+        outputs.push((
+            file.to_string(),
+            render_area(&root, title, paths, &mut errors),
+        ));
+    }
+    match commands::render(&root, &files) {
+        Ok(text) => outputs.push((COMMANDS_MD.into(), text)),
+        Err(e) => errors.push(e),
+    }
+    outputs.push(("INDEX.md".into(), render_index(&root, &files)));
+    if !errors.is_empty() {
+        return Err(errors);
+    }
 
+    // ── 2. Grava ─────────────────────────────────────────────────────────────
     let out = root.join(OUT_DIR);
-    fs::create_dir_all(&out).expect("criar docs/indice");
-    // Área renomeada/removida não pode deixar um índice velho para trás.
-    for entry in fs::read_dir(&out).expect("listar docs/indice").flatten() {
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if name.ends_with(".md")
-            && name != "INDEX.md"
-            && name != COMMANDS_MD
-            && !AREAS.iter().any(|(f, _, _)| *f == name)
-        {
-            let _ = fs::remove_file(entry.path());
+    fs::create_dir_all(&out).map_err(|e| vec![format!("{OUT_DIR}: {e}")])?;
+    for (file, text) in &outputs {
+        fs::write(out.join(file), text).map_err(|e| vec![format!("{OUT_DIR}/{file}: {e}")])?;
+    }
+    // Só depois de tudo gravado: área renomeada/removida não pode deixar um
+    // índice velho para trás.
+    if let Ok(entries) = fs::read_dir(&out) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if name.ends_with(".md") && !outputs.iter().any(|(f, _)| *f == name) {
+                let _ = fs::remove_file(entry.path());
+            }
         }
     }
 
-    let mut sizes = Vec::new();
-    for (file, title, paths) in &areas {
-        let text = render_area(&root, title, paths);
-        sizes.push((file.to_string(), text.len()));
-        fs::write(out.join(file), text).expect("gravar área");
-    }
-    let commands = commands::render(&root, &files);
-    sizes.push((COMMANDS_MD.into(), commands.len()));
-    fs::write(out.join(COMMANDS_MD), commands).expect("gravar comandos.md");
-
-    let index = render_index(&root, &files);
-    sizes.push(("INDEX.md".into(), index.len()));
-    fs::write(out.join("INDEX.md"), index).expect("gravar INDEX.md");
-
     // ~4 bytes por token é a estimativa grosseira usual; serve para comparar.
-    for (f, bytes) in sizes {
-        eprintln!("{OUT_DIR}/{f}: {bytes} bytes (~{} tokens)", bytes / 4);
+    for (file, text) in &outputs {
+        eprintln!(
+            "{OUT_DIR}/{file}: {} bytes (~{} tokens)",
+            text.len(),
+            text.len() / 4
+        );
     }
+    Ok(())
 }
 
-fn repo_root() -> PathBuf {
+fn repo_root() -> Result<PathBuf, String> {
     let out = Command::new("git")
         .args(["rev-parse", "--show-toplevel"])
         .output()
-        .expect("git");
-    PathBuf::from(String::from_utf8(out.stdout).unwrap().trim())
+        .map_err(|e| format!("git não rodou: {e}"))?;
+    if !out.status.success() {
+        return Err("não é um repositório git".into());
+    }
+    Ok(PathBuf::from(String::from_utf8_lossy(&out.stdout).trim()))
 }
 
 /// Arquivos versionados + novos não ignorados, para indexar antes do commit.
-fn tracked_files(root: &Path) -> Vec<String> {
+fn tracked_files(root: &Path) -> Result<Vec<String>, String> {
     let out = Command::new("git")
         .current_dir(root)
         .args(["ls-files", "--cached", "--others", "--exclude-standard"])
         .output()
-        .expect("git ls-files");
-    let mut files: Vec<String> = String::from_utf8(out.stdout)
-        .unwrap()
+        .map_err(|e| format!("git ls-files não rodou: {e}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "git ls-files falhou: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+    let mut files: Vec<String> = String::from_utf8_lossy(&out.stdout)
         .lines()
         .filter(|p| root.join(p).is_file())
         .map(str::to_owned)
         .collect();
     files.sort();
     files.dedup();
-    files
+    Ok(files)
 }
 
 fn ext_of(path: &str) -> &str {
@@ -297,6 +347,16 @@ fn render_index(root: &Path, files: &[String]) -> String {
             let _ = write!(s, " → {}", AREAS[i].0);
         }
         s.push('\n');
+        if let Some((_, desc)) = NAMES_ONLY.iter().find(|(p, _)| p == dir) {
+            let stems: Vec<&str> = names.iter().map(|n| n.trim_end_matches(".rs")).collect();
+            let _ = writeln!(
+                s,
+                "- {} arquivos, {desc}: {}",
+                names.len(),
+                stems.join(", ")
+            );
+            continue;
+        }
         for name in names {
             let path = format!("{dir}{name}");
             match describe_file(root, &path) {
@@ -346,7 +406,9 @@ fn describe_file(root: &Path, path: &str) -> Option<String> {
 const RUST_NOTATION: &str = "> Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;\n\
      > `impl A, B for T` = impls de traits comuns (métodos omitidos).\n";
 
-fn render_area(root: &Path, title: &str, paths: &[&String]) -> String {
+/// Um arquivo que não dá para ler ou parsear vai para `errors` (e o índice
+/// não é gravado), em vez de virar uma entrada quebrada no meio do índice.
+fn render_area(root: &Path, title: &str, paths: &[&String], errors: &mut Vec<String>) -> String {
     let mut s = String::new();
     let _ = writeln!(s, "# Índice: {title}\n");
     s.push_str(
@@ -371,7 +433,13 @@ fn render_area(root: &Path, title: &str, paths: &[&String]) -> String {
             let _ = writeln!(s, "\n## {dir}");
             last_dir = dir;
         }
-        let text = fs::read_to_string(root.join(path)).unwrap_or_default();
+        let text = match fs::read_to_string(root.join(path)) {
+            Ok(t) => t,
+            Err(e) => {
+                errors.push(format!("{path}: {e}"));
+                continue;
+            }
+        };
         if ext_of(path) != "rs" {
             match script::describe(path, &text) {
                 Some(d) => {
@@ -401,9 +469,7 @@ fn render_area(root: &Path, title: &str, paths: &[&String]) -> String {
                     let _ = writeln!(s, "({} testes)", r.tests);
                 }
             }
-            Err(e) => {
-                let _ = writeln!(s, "\n### {name}\n(não parseou: {e})");
-            }
+            Err(e) => errors.push(format!("{path}: não parseou: {e}")),
         }
     }
     s
@@ -695,7 +761,8 @@ fn summarize<'a>(lines: impl Iterator<Item = &'a str>) -> Option<String> {
             break;
         }
         let l = l.trim_start_matches('#').trim();
-        if !para.is_empty() {
+        // Linha quebrada em "round-" / "a/" continua a mesma palavra.
+        if !para.is_empty() && !para.ends_with(['-', '/']) {
             para.push(' ');
         }
         para.push_str(l);

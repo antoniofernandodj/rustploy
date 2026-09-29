@@ -1,7 +1,8 @@
 # Plano: índice de código para busca barata
 
-> **Status:** fases 1 a 4 implementadas em 2026-09-29 (`tools/indexer`, saída
-> em `docs/indice/`, `make index`); fases 5 e 6 (opcionais) pendentes.
+> **Status:** concluído em 2026-09-29 (`tools/indexer`, saída em
+> `docs/indice/`, `make index`). Fases 1 a 4 e 6 implementadas; a fase 5 foi
+> dispensada e trocada pela checagem prévia do próprio `make index`.
 
 ## 1. O problema, em linguagem simples
 
@@ -187,12 +188,12 @@ linha.
 Como o índice não tem número de linha, ele só muda quando a *estrutura*
 muda. Proposta:
 
-- `make index` roda `cargo run -p indexer` e reescreve `docs/indice/`.
-- `cargo run -p indexer -- --check` compara com o que está commitado e
-  falha se estiver velho. Dá para colocar isso num pre-commit local ou no
-  CI. **Fica como opcional**: você prefere configuração mínima (ver o
-  histórico do postinst), então começo só com o `make index` e decidimos
-  depois se vale automatizar.
+- `make index` roda `cargo run -p indexer` e reescreve `docs/indice/`,
+  mas **checa tudo antes de gravar** e, se algo falhar, não altera nada
+  (ver fase 5, na seção 10).
+- ~~`cargo run -p indexer -- --check` num pre-commit ou no CI, para falhar
+  se o índice estiver velho~~: dispensado. Atualizar o índice continua
+  sendo um passo manual (`make index`).
 - O índice fica **commitado** no git. Assim o diff de um commit mostra
   também "entrou a função X, saiu a Y", o que é um bom resumo estrutural.
 - A saída é **determinística** (ordem alfabética de caminho, depois ordem
@@ -255,8 +256,24 @@ fases.
    do AGENTS.md, mais a linha do indexer na tabela de crates; uma linha no
    topo da tabela do CLAUDE.md (é o arquivo que o Claude lê em toda sessão);
    e a memória.
-5. *(Opcional)* `--check` em pre-commit ou CI.
-6. *(Opcional)* Passada de `//!` nos 102 arquivos sem descrição.
+5. ~~`--check` em pre-commit ou CI~~ — **dispensada** pelo usuário. No lugar,
+   o próprio `make index` checa antes de gravar: gera todos os arquivos em
+   memória e, se algo falhar (arquivo ilegível ou que não parseia, `enum
+   Command` ou braços de handler não encontrados, área vazia porque um
+   diretório mudou de lugar), sai com código de erro listando cada problema
+   e **não altera** `docs/indice/`. Antes, um arquivo que não parseava virava
+   "(não parseou)" dentro do índice, e uma falha no `comandos.md` acontecia
+   depois de as áreas já terem sido gravadas, deixando o índice pela metade.
+   Os índices obsoletos só são apagados depois que tudo foi gravado.
+6. ✅ **Descrições**: cabeçalho em todos os 110 arquivos que não tinham
+   (103 `.rs` com `//!`, 6 `.gv` e o `index.html` com comentário), e `///`
+   nas 23 funções sem doc com 60+ linhas que o cabeçalho do arquivo não
+   cobria (o `step` do executor tem ~1.000). A doc do `register_domains`
+   passou a abrir com a poda de rota órfã, a busca que falhava na fase 1.
+   Efeito colateral: o INDEX.md foi a ~6.500 tokens, mesmo com os 63
+   handlers da API listados só por nome numa linha (as descrições deles já
+   estão em `comandos.md`). Cortar as descrições do INDEX para 70
+   caracteres economizava só ~300 tokens, então elas ficaram em 80.
 
 Critério de pronto: pegar 5 perguntas reais ("onde o deploy decide que
 falhou?", "quem grava a rota de ingress?", "onde a webui mostra toast?"…)
