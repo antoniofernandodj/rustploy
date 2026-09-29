@@ -206,6 +206,13 @@ const TOML_ENTRY
 
 ## crates/rustploy-gui/tests/fixtures/
 
+### compose_host.gv — Fixture do teste fmt_service_detail.rs: tela mínima que roda o fmt/service_detail.luau e exibe um re…
+<screen "fixture">
+script: compose_host.luau
+
+### compose_host.luau — Fixture do teste `fmt_service_detail.rs`: exercita `compose_host` e `internal_url` de `fmt/service_d…
+function init()
+
 ### tempo.gv — Fixture do teste fmt_time.rs: tela mínima que roda o fmt/time.luau e exibe o resultado.
 <screen "fixture">
 script: tempo.luau
@@ -214,6 +221,10 @@ script: tempo.luau
 function init()
 
 ## crates/rustploy-gui/tests/
+
+### fmt_service_detail.rs — O `fmt/service_detail.luau` (`compose_host` e `internal_url`) rodando no motor de verdade.
+fn boot() -> GlacierUI
+(2 testes)
 
 ### fmt_time.rs — O `fmt/time.luau` rodando no motor de verdade.
 fn boot() -> GlacierUI
