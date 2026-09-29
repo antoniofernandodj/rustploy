@@ -598,9 +598,14 @@ impl DeployExecutor {
                 let replicas = svc.spec.replicas.max(1);
                 let dep_short = self.short(&dep.id).to_string();
 
+                // Antes de subir qualquer coisa: os nomes live que este deploy
+                // vai ocupar não podem ser de outro serviço.
+                self.ensure_live_names_free(svc).await?;
+
                 if replicas == 1 {
                     // Single replica: caminho existente, healthcheck e swap tratados nos próximos estados
-                    let cname = containers::replica_staging_name(&svc.spec.name, &dep_short, 0);
+                    let cname =
+                        containers::replica_staging_name(&svc.id, &svc.spec.name, &dep_short, 0);
                     self.log_step(&dep.id, &svc.id, "--> Criando container de staging")
                         .await;
                     info!(deployment_id = %dep.id, container_name = %cname, "step[Staging]: criando réplica única");
@@ -613,6 +618,7 @@ impl DeployExecutor {
                         &network,
                         &env,
                         &cname,
+                        0,
                     )
                     .await?;
                     containers::start(&self.docker.inner, &id).await?;
@@ -635,20 +641,22 @@ impl DeployExecutor {
 
                 // Estado inicial: coleta IPs das réplicas live já existentes (None = primeiro deploy)
                 let mut ips: Vec<Option<String>> = vec![None; replicas as usize];
-                for i in 0..replicas {
-                    let live = containers::replica_live_name(&svc.spec.name, i);
-                    if let Ok(Some(cid)) = containers::find_by_name(&self.docker.inner, &live).await
+                let lives = containers::find_live_replicas(&self.docker.inner, &svc.id).await?;
+                for live in lives.iter().filter(|r| r.running && r.replica < replicas) {
+                    if ips[live.replica as usize].is_some() {
+                        continue;
+                    }
+                    if let Ok(ip) =
+                        containers::get_container_ip(&self.docker.inner, &live.id, &network).await
                     {
-                        if let Ok(ip) =
-                            containers::get_container_ip(&self.docker.inner, &cid, &network).await
-                        {
-                            ips[i as usize] = Some(ip);
-                        }
+                        ips[live.replica as usize] = Some(ip);
                     }
                 }
+                let alias = shared::app_network_alias(&svc.spec.name);
 
                 for i in 0..replicas {
-                    let staging = containers::replica_staging_name(&svc.spec.name, &dep_short, i);
+                    let staging =
+                        containers::replica_staging_name(&svc.id, &svc.spec.name, &dep_short, i);
                     info!(
                         deployment_id = %dep.id,
                         replica = i,
@@ -665,6 +673,7 @@ impl DeployExecutor {
                         &network,
                         &env,
                         &staging,
+                        i,
                     )
                     .await?;
                     containers::start(&self.docker.inner, &staging_id).await?;
@@ -681,22 +690,37 @@ impl DeployExecutor {
                     // Falha aqui → RollingBack remove todos os stagings pendentes
                     self.poll_healthcheck(&ip, &staging_id, svc, dep).await?;
 
-                    // Derruba a réplica live antiga (se existir)
-                    let live_name = containers::replica_live_name(&svc.spec.name, i);
-                    if let Ok(Some(old_cid)) =
-                        containers::find_by_name(&self.docker.inner, &live_name).await
-                    {
+                    // Saudável: ganha o alias `rp_<safe>` na rede do projeto.
+                    // Reconecta o container, então o IP muda — relido abaixo,
+                    // antes de ir para o ingress (que ainda não o conhece).
+                    containers::attach_network_alias(
+                        &self.docker.inner,
+                        &staging_id,
+                        &network,
+                        &alias,
+                    )
+                    .await?;
+                    let ip =
+                        containers::get_container_ip(&self.docker.inner, &staging_id, &network)
+                            .await?;
+
+                    // Derruba a réplica live antiga (se existir) — pelo label;
+                    // pode estar no nome atual ou no legado.
+                    let olds = containers::find_live_replicas(&self.docker.inner, &svc.id).await?;
+                    for old in olds.iter().filter(|r| r.replica == i && r.id != staging_id) {
                         info!(
                             deployment_id = %dep.id,
                             replica = i,
-                            old_container = %old_cid,
+                            old_container = %old.id,
+                            old_name = %old.name,
                             "step[Staging/Rolling]: parando réplica anterior"
                         );
-                        let _ = containers::stop_graceful(&self.docker.inner, &old_cid, 30).await;
-                        let _ = containers::remove(&self.docker.inner, &old_cid).await;
+                        let _ = containers::stop_graceful(&self.docker.inner, &old.id, 30).await;
+                        let _ = containers::remove(&self.docker.inner, &old.id).await;
                     }
 
                     // Promove staging → live
+                    let live_name = containers::replica_live_name(&svc.id, &svc.spec.name, i);
                     containers::rename(&self.docker.inner, &staging_id, &live_name).await?;
                     info!(
                         deployment_id = %dep.id,
@@ -731,15 +755,22 @@ impl DeployExecutor {
             }
 
             DeployState::HealthcheckPolling => {
-                let staging = containers::staging_name(&svc.spec.name, self.short(&dep.id));
+                let staging =
+                    containers::staging_name(&svc.id, &svc.spec.name, self.short(&dep.id));
                 info!(
                     deployment_id = %dep.id,
                     container_name = %staging,
                     "step[HealthcheckPolling]: buscando container de staging"
                 );
-                let cid = containers::find_by_name(&self.docker.inner, &staging)
-                    .await?
-                    .ok_or_else(|| anyhow!("staging container not found"))?;
+                let cid = containers::find_staging(
+                    &self.docker.inner,
+                    &svc.id,
+                    &svc.spec.name,
+                    self.short(&dep.id),
+                    0,
+                )
+                .await?
+                .ok_or_else(|| anyhow!("staging container not found"))?;
                 let net = self.network_name(&svc.spec.project_id);
                 info!(
                     deployment_id = %dep.id,
@@ -807,17 +838,30 @@ impl DeployExecutor {
                 // Coleta os IPs de todas as réplicas; cada rota de domínio
                 // depois compõe `ip:porta` com a sua própria porta de container.
                 let mut ips: Vec<String> = Vec::with_capacity(replicas as usize);
+                let alias = shared::app_network_alias(&svc.spec.name);
                 for i in 0..replicas {
-                    let staging = containers::replica_staging_name(&svc.spec.name, &dep_short, i);
+                    let staging =
+                        containers::replica_staging_name(&svc.id, &svc.spec.name, &dep_short, i);
                     info!(
                         deployment_id = %dep.id,
                         replica = i,
                         container_name = %staging,
                         "step[SwappingIn]: resolvendo IP da réplica de staging"
                     );
-                    let staging_id = containers::find_by_name(&self.docker.inner, &staging)
-                        .await?
-                        .ok_or_else(|| anyhow!("staging container not found: {staging}"))?;
+                    let staging_id = containers::find_staging(
+                        &self.docker.inner,
+                        &svc.id,
+                        &svc.spec.name,
+                        &dep_short,
+                        i,
+                    )
+                    .await?
+                    .ok_or_else(|| anyhow!("staging container not found: {staging}"))?;
+                    // O alias `rp_<safe>` entra agora — depois do healthcheck e
+                    // **antes** de o ingress apontar para o staging: reconectar
+                    // muda o IP e derrubaria conexões já roteadas para ele.
+                    containers::attach_network_alias(&self.docker.inner, &staging_id, &net, &alias)
+                        .await?;
                     let ip =
                         containers::get_container_ip(&self.docker.inner, &staging_id, &net).await?;
                     ips.push(ip);
@@ -914,15 +958,31 @@ impl DeployExecutor {
                 // Renomeia cada réplica de staging → live.
                 let mut primary_id = String::new();
                 for i in 0..replicas {
-                    let staging = containers::replica_staging_name(&svc.spec.name, &dep_short, i);
-                    let live = containers::replica_live_name(&svc.spec.name, i);
-                    let sid = match containers::find_by_name(&self.docker.inner, &staging).await? {
+                    let live = containers::replica_live_name(&svc.id, &svc.spec.name, i);
+                    let sid = match containers::find_staging(
+                        &self.docker.inner,
+                        &svc.id,
+                        &svc.spec.name,
+                        &dep_short,
+                        i,
+                    )
+                    .await?
+                    {
                         Some(id) => id,
                         None => {
-                            warn!(deployment_id = %dep.id, replica = i, container_name = %staging, "step[Promoting]: réplica de staging não encontrada, pulando");
+                            warn!(deployment_id = %dep.id, replica = i, "step[Promoting]: réplica de staging não encontrada, pulando");
                             continue;
                         }
                     };
+                    // Live antigo desta réplica que `find_old_containers` não
+                    // achou (label de antes dos prefixos de ID, sem `svc_`):
+                    // ainda responderia pelo nome/alias e, se tiver o nome
+                    // atual, faria o rename falhar com conflito.
+                    let lives = containers::find_live_replicas(&self.docker.inner, &svc.id).await?;
+                    for stale in lives.iter().filter(|r| r.replica == i && r.id != sid) {
+                        info!(deployment_id = %dep.id, replica = i, container_id = %stale.id, name = %stale.name, "step[Promoting]: removendo live antigo remanescente");
+                        let _ = containers::remove(&self.docker.inner, &stale.id).await;
+                    }
                     info!(
                         deployment_id = %dep.id,
                         replica = i,
@@ -1052,9 +1112,14 @@ impl DeployExecutor {
                     "step[RollingBack]: removendo containers de staging"
                 );
                 for i in 0..replicas {
-                    let staging = containers::replica_staging_name(&svc.spec.name, &dep_short, i);
-                    if let Ok(Some(id)) =
-                        containers::find_by_name(&self.docker.inner, &staging).await
+                    if let Ok(Some(id)) = containers::find_staging(
+                        &self.docker.inner,
+                        &svc.id,
+                        &svc.spec.name,
+                        &dep_short,
+                        i,
+                    )
+                    .await
                     {
                         let _ = containers::remove(&self.docker.inner, &id).await;
                         info!(deployment_id = %dep.id, replica = i, container_id = %id, "step[RollingBack]: staging removido");
@@ -1064,18 +1129,9 @@ impl DeployExecutor {
                 // Restaura todos os backends live anteriores para o ingress
                 let live_replicas = svc.spec.replicas.max(1);
                 let net = self.network_name(&svc.spec.project_id);
-                let mut live_ips: Vec<String> = Vec::new();
-                for i in 0..live_replicas {
-                    let live = containers::replica_live_name(&svc.spec.name, i);
-                    if let Ok(Some(cid)) = containers::find_by_name(&self.docker.inner, &live).await
-                    {
-                        if let Ok(ip) =
-                            containers::get_container_ip(&self.docker.inner, &cid, &net).await
-                        {
-                            live_ips.push(ip);
-                        }
-                    }
-                }
+                let live_ips =
+                    containers::live_replica_ips(&self.docker.inner, &svc.id, &net, live_replicas)
+                        .await;
                 if !live_ips.is_empty() {
                     if !svc.spec.domain_routes().is_empty() {
                         info!(
@@ -1361,7 +1417,65 @@ impl DeployExecutor {
         &s[..8.min(s.len())]
     }
 
-    /// Persiste uma linha de log de build no banco e a publica no event bus.
+    /// Falha o deploy se algum nome live que ele vai ocupar
+    /// (`rp_<id8>_<safe>`, `…_r<i>`) já for de um container de **outro**
+    /// serviço.
+    ///
+    /// Com o ID no nome isso não deveria acontecer — fica como defesa: sem
+    /// esta checagem o deploy iria até o fim e só falharia no rename, com o
+    /// live antigo deste serviço já removido. Melhor recusar antes de subir o
+    /// staging, dizendo de quem é o nome. Ver
+    /// `docs/plano-colisao-nome-container.md`.
+    async fn ensure_live_names_free(&self, svc: &Service) -> Result<()> {
+        for i in 0..svc.spec.replicas.max(1) {
+            let live = containers::replica_live_name(&svc.id, &svc.spec.name, i);
+            let Some((cid, owner)) = containers::name_owner(&self.docker.inner, &live).await?
+            else {
+                continue;
+            };
+            if owner
+                .as_deref()
+                .is_some_and(|o| containers::label_owned_by(o, &svc.id))
+            {
+                continue;
+            }
+            let dono = match owner.as_deref() {
+                Some(owner_id) => self.describe_service(owner_id).await,
+                None => "um container que não foi criado pelo rustploy".to_string(),
+            };
+            warn!(
+                service_id = %svc.id,
+                container_name = %live,
+                container_id = %cid,
+                owner = ?owner,
+                "deploy recusado: nome de container ocupado por outro serviço"
+            );
+            return Err(anyhow!(
+                "o nome de container `{live}` já é usado por {dono}; o deploy foi \
+                 recusado para não derrubá-lo. Nome de container é único no servidor \
+                 inteiro: renomeie um dos dois serviços ou remova o container órfão"
+            ));
+        }
+        Ok(())
+    }
+
+    /// "o serviço `api` do projeto `loja`", para mensagens de erro. Cai no ID
+    /// quando o serviço não existe mais no banco (container órfão).
+    async fn describe_service(&self, service_id: &str) -> String {
+        let candidates = [service_id.to_string(), format!("svc_{service_id}")];
+        for id in &candidates {
+            if let Ok(Some(owner)) = crate::db::services::get(&self.db, id).await {
+                let projeto = match crate::db::projects::get(&self.db, &owner.spec.project_id).await
+                {
+                    Ok(Some(p)) => p.name,
+                    _ => owner.spec.project_id.clone(),
+                };
+                return format!("o serviço `{}` do projeto `{projeto}`", owner.spec.name);
+            }
+        }
+        format!("o serviço `{service_id}` (que não existe mais — container órfão)")
+    }
+
     /// Garante a liberação da porta externa no firewall do host (helper
     /// `rustployd-fw`) e registra o resultado no deploy log. Idempotente — rodar
     /// a cada deploy também re-cria a regra caso o admin a tenha removido.
@@ -1382,6 +1496,7 @@ impl DeployExecutor {
         self.log_step(deployment_id, service_id, &line).await;
     }
 
+    /// Persiste uma linha de log de build no banco e a publica no event bus.
     async fn log_step(&self, deployment_id: &str, service_id: &str, line: &str) {
         let ts = chrono::Utc::now();
         let _ = crate::db::build_logs::append(&self.db, deployment_id, line, ts).await;

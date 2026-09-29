@@ -77,23 +77,21 @@ pub async fn handle(state: AppState, service_id: String) -> RpResponse {
         Err(e) => return RpResponse::err("DockerError", e.to_string()),
     };
 
-    // Fallback por nome: containers existentes antes da migração de prefixos de ID
-    // têm labels antigas (sem prefixo svc_) e não são encontrados via find_all_by_service_id.
+    // Fallback: containers existentes antes da migração de prefixos de ID têm
+    // labels antigas (sem prefixo svc_) e não são encontrados via
+    // find_all_by_service_id.
     let ids_to_stop: Vec<String> = if !all_ids.is_empty() {
         all_ids
     } else if let Some(cid) = &svc.live_container_id {
         vec![cid.clone()]
     } else {
-        // Último recurso: procurar por nome (rp_<service_name>)
-        let replicas = svc.spec.replicas.max(1);
-        let mut found = Vec::new();
-        for i in 0..replicas {
-            let name = containers::replica_live_name(&svc.spec.name, i);
-            if let Ok(Some(cid)) = containers::find_by_name(&state.docker.inner, &name).await {
-                found.push(cid);
-            }
-        }
-        found
+        // Último recurso: réplicas live pelo label em qualquer formato
+        // (`find_live_replicas` aceita o ID sem `svc_`) — nunca pelo nome, que
+        // pode ser de um serviço homônimo de outro projeto.
+        containers::find_live_replicas(&state.docker.inner, &service_id)
+            .await
+            .map(|v| v.into_iter().map(|r| r.id).collect())
+            .unwrap_or_default()
     };
 
     if ids_to_stop.is_empty() {

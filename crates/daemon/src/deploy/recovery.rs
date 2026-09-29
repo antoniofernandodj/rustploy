@@ -89,11 +89,21 @@ pub async fn recover(
                     state = dep.state.label(),
                     "aborting pre-swap deployment"
                 );
-                // Remove staging container if it exists
-                let staging_name =
-                    containers::staging_name(&svc.spec.name, docker::networks::id_short(&dep.id));
-                if let Ok(Some(id)) = containers::find_by_name(&docker.inner, &staging_name).await {
-                    let _ = containers::remove(&docker.inner, &id).await;
+                // Remove staging containers if they exist (todas as réplicas;
+                // nome atual ou legado, sempre conferindo o dono)
+                let dep_short = docker::networks::id_short(&dep.id);
+                for i in 0..svc.spec.replicas.max(1) {
+                    if let Ok(Some(id)) = containers::find_staging(
+                        &docker.inner,
+                        &svc.id,
+                        &svc.spec.name,
+                        dep_short,
+                        i,
+                    )
+                    .await
+                    {
+                        let _ = containers::remove(&docker.inner, &id).await;
+                    }
                 }
                 let _ = crate::db::deployments::transition(
                     &db,
@@ -204,16 +214,7 @@ pub async fn reconcile(
             docker::networks::id_short(&svc.spec.project_id)
         );
 
-        let mut ips: Vec<String> = Vec::new();
-
-        for i in 0..replicas {
-            let live_name = containers::replica_live_name(&svc.spec.name, i);
-            if let Ok(Some(cid)) = containers::find_by_name(&docker.inner, &live_name).await {
-                if let Ok(ip) = containers::get_container_ip(&docker.inner, &cid, &net).await {
-                    ips.push(ip);
-                }
-            }
-        }
+        let mut ips = containers::live_replica_ips(&docker.inner, &svc.id, &net, replicas).await;
 
         if ips.is_empty() {
             if let Some(ip) = compose_ingress_ip(docker, &svc, &net).await {
@@ -337,15 +338,7 @@ async fn restore_routes(
         );
 
         // Coleta IPs de todas as réplicas live (Git/Registry)
-        let mut ips: Vec<String> = Vec::new();
-        for i in 0..replicas {
-            let live_name = containers::replica_live_name(&svc.spec.name, i);
-            if let Ok(Some(cid)) = containers::find_by_name(&docker.inner, &live_name).await {
-                if let Ok(ip) = containers::get_container_ip(&docker.inner, &cid, &net).await {
-                    ips.push(ip);
-                }
-            }
-        }
+        let mut ips = containers::live_replica_ips(&docker.inner, &svc.id, &net, replicas).await;
 
         // Fallback para Compose: o container da stack que atende o ingress.
         if ips.is_empty() {

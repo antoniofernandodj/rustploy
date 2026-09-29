@@ -14,7 +14,16 @@ Todos os serviços do projeto — tanto **Application** (Registry/Git) quanto **
 
 ### Serviços Application
 
-O executor conecta o container à rede do projeto via `docker network connect` antes do start, atribuindo o nome `rp_{service_name}` ao container.
+O executor cria o container já na rede do projeto. O **nome do container** é
+`rp_{id8}_{service_name}` (8 caracteres do ID do serviço — nome de container é
+único no servidor inteiro, e dois projetos podem ter um serviço `api`). Quando
+o deploy passa no healthcheck, o container ganha na rede do projeto o **alias**
+`rp_{service_name}`, que é o nome que os outros serviços usam. Com réplicas,
+todas recebem o mesmo alias e o DNS do Docker distribui entre elas.
+
+(Até 2026-09-29 o nome do container era `rp_{service_name}`, sem ID. O
+primeiro deploy depois da atualização troca o container; o hostname
+`rp_{service_name}` continua o mesmo. Ver `docs/plano-colisao-nome-container.md`.)
 
 ### Serviços Compose
 
@@ -50,14 +59,23 @@ O Docker Compose resolve `postgres` internamente.
 Use o nome do container gerado pelo Rustploy:
 
 ```
-rp_{nome_do_service_compose}-{nome_do_serviço_no_yaml}-1
+rp_{id8}_{nome_do_service_compose}-{nome_do_serviço_no_yaml}-1
 ```
 
-Exemplo: serviço Compose `mydb` com serviço `postgres` no YAML → container `rp_mydb-postgres-1`.
+onde `{id8}` são 8 caracteres do ID do serviço. Exemplo: serviço Compose
+`mydb` com serviço `postgres` no YAML → container
+`rp_01jabcde_mydb-postgres-1`. O nome exato aparece no inventário Docker da
+GUI/webui.
 
 ```
-DATABASE_URL=postgresql://user:pass@rp_mydb-postgres-1:5432/mydb
+DATABASE_URL=postgresql://user:pass@rp_01jabcde_mydb-postgres-1:5432/mydb
 ```
+
+A **chave do serviço no YAML** também resolve, como alias, dentro da rede do
+projeto — no exemplo, `postgres`. Os bancos criados pelo wizard usam a chave
+`rp_{nome}`, então `rp_mydb` funciona para eles. (Verificado em 2026-09-29: o
+formato `rp_{nome}-{serviço}-1`, sem o ID, que este doc ensinava antes, **não
+resolve**.)
 
 ### De um serviço Compose para um serviço Application
 
@@ -97,7 +115,7 @@ O Rustploy injeta a rede do projeto automaticamente.
 ### Env var da API (serviço Application `myapi`)
 
 ```
-DATABASE_URL=postgresql://appuser:secret@rp_mydb-postgres-1:5432/myapp
+DATABASE_URL=postgresql://appuser:secret@postgres:5432/myapp
 ```
 
 ## Troubleshooting
@@ -109,12 +127,12 @@ docker network inspect rp_net_<8chars> \
   --format '{{range .Containers}}{{.Name}} {{end}}'
 ```
 
-A saída deve listar tanto o container da API (`rp_myapi`) quanto os containers do banco (`rp_mydb-postgres-1`).
+A saída deve listar tanto o container da API (`rp_{id8}_myapi`) quanto os containers do banco (`rp_{id8}_mydb-postgres-1`).
 
 **Testar resolução de DNS de dentro de um container:**
 
 ```bash
-docker exec rp_myapi getent hosts rp_mydb-postgres-1
+docker exec <container_da_api> getent hosts postgres
 ```
 
 Se não resolver, confirme que o deploy do serviço Compose foi concluído com sucesso — a rede só é injetada no momento do `compose up`.

@@ -16,32 +16,239 @@ use shared::ServiceSpec;
 use std::collections::HashMap;
 use tracing::{debug, info, warn};
 
-pub fn staging_name(service_name: &str, deployment_id_short: &str) -> String {
-    replica_staging_name(service_name, deployment_id_short, 0)
-}
+// ── Nomes de container de serviço Application ───────────────────────────────
+//
+// Formato atual: `rp_<id8>_<safe>` (+ `_r<i>` / `_staging_<dep>`), com a base
+// de `shared::app_container_base`. Formato legado, de antes do ID no nome:
+// `rp_<safe>` (+ os mesmos sufixos). Nenhum dos dois serve para **achar** o
+// container de um serviço — isso é por label (`find_live_replicas`, e
+// `find_owned_by_name` para staging). O legado só é montado para achar o
+// staging de um deploy que estava em andamento quando o daemon foi atualizado.
+// Ver `docs/plano-colisao-nome-container.md`.
 
-pub fn _live_name(service_name: &str) -> String {
-    replica_live_name(service_name, 0)
-}
-
-pub fn replica_staging_name(service_name: &str, dep_short: &str, idx: u32) -> String {
-    let safe_name = shared::normalize_name(service_name);
+fn with_replica_suffix(base: String, idx: u32) -> String {
     if idx == 0 {
-        format!("rp_{safe_name}_staging_{dep_short}")
+        base
     } else {
-        format!("rp_{safe_name}_staging_{dep_short}_r{idx}")
+        format!("{base}_r{idx}")
     }
 }
 
-pub fn replica_live_name(service_name: &str, idx: u32) -> String {
-    let safe_name = shared::normalize_name(service_name);
-    if idx == 0 {
-        format!("rp_{safe_name}")
-    } else {
-        format!("rp_{safe_name}_r{idx}")
-    }
+pub fn staging_name(service_id: &str, service_name: &str, deployment_id_short: &str) -> String {
+    replica_staging_name(service_id, service_name, deployment_id_short, 0)
 }
 
+pub fn replica_staging_name(
+    service_id: &str,
+    service_name: &str,
+    dep_short: &str,
+    idx: u32,
+) -> String {
+    let base = shared::app_container_base(service_id, service_name);
+    with_replica_suffix(format!("{base}_staging_{dep_short}"), idx)
+}
+
+pub fn replica_live_name(service_id: &str, service_name: &str, idx: u32) -> String {
+    with_replica_suffix(shared::app_container_base(service_id, service_name), idx)
+}
+
+/// Nome de staging no formato legado (`rp_<safe>_staging_<dep>[_r<i>]`).
+pub fn legacy_replica_staging_name(service_name: &str, dep_short: &str, idx: u32) -> String {
+    let safe_name = shared::normalize_name(service_name);
+    with_replica_suffix(format!("rp_{safe_name}_staging_{dep_short}"), idx)
+}
+
+/// Staging da réplica `idx` deste deploy: no nome atual ou, para um deploy
+/// iniciado antes da atualização do daemon, no legado. Sempre conferindo o
+/// dono.
+pub async fn find_staging(
+    docker: &Docker,
+    service_id: &str,
+    service_name: &str,
+    dep_short: &str,
+    idx: u32,
+) -> Result<Option<String>> {
+    let atual = replica_staging_name(service_id, service_name, dep_short, idx);
+    if let Some(id) = find_owned_by_name(docker, &atual, service_id).await? {
+        return Ok(Some(id));
+    }
+    let legado = legacy_replica_staging_name(service_name, dep_short, idx);
+    find_owned_by_name(docker, &legado, service_id).await
+}
+
+/// Índice de réplica de um container: o label `rustploy.replica` ou, em
+/// container de antes do label, o sufixo `_r<i>` do nome (sem sufixo = 0).
+fn replica_index(labels: Option<&HashMap<String, String>>, name: &str) -> u32 {
+    if let Some(i) = labels
+        .and_then(|l| l.get("rustploy.replica"))
+        .and_then(|v| v.parse().ok())
+    {
+        return i;
+    }
+    name.rsplit_once("_r")
+        .and_then(|(_, n)| n.parse().ok())
+        .unwrap_or(0)
+}
+
+/// É um staging (nome termina em `_staging_<dep>` ou `_staging_<dep>_r<i>`)?
+/// Staging promovido é renomeado, e perde o marcador.
+///
+/// `<dep>` são os 8 primeiros caracteres do ULID do deploy — maiúsculas e
+/// dígitos. O nome do serviço entra normalizado, sempre minúsculo; é isso que
+/// impede o live de um serviço chamado `app-staging-prod` de ser tomado por
+/// staging.
+fn is_staging_name(name: &str) -> bool {
+    let Some((_, tail)) = name.rsplit_once("_staging_") else {
+        return false;
+    };
+    let dep = tail.split_once("_r").map_or(tail, |(d, _)| d);
+    dep.len() == 8
+        && dep
+            .chars()
+            .all(|c| c.is_ascii_digit() || c.is_ascii_uppercase())
+}
+
+/// Réplica live de um serviço Application, achada por label.
+#[derive(Debug, Clone)]
+pub struct LiveReplica {
+    pub id: String,
+    pub name: String,
+    pub replica: u32,
+    pub running: bool,
+}
+
+/// Todas as réplicas live (não-staging) de um serviço, **pelo label**
+/// `rustploy.service_id` — não pelo nome. Acha tanto `rp_<id8>_<safe>` quanto
+/// o legado `rp_<safe>`, e continua achando depois de um rename do serviço.
+/// Ordenadas por réplica; em empate (legado + atual da mesma réplica, durante
+/// a transição), a que está rodando vem primeiro.
+pub async fn find_live_replicas(docker: &Docker, service_id: &str) -> Result<Vec<LiveReplica>> {
+    use bollard::container::ListContainersOptions;
+    let mut filters = HashMap::new();
+    // Filtra só pela existência da chave: o valor pode estar no formato de
+    // antes dos prefixos de ID (sem `svc_`), que `label_owned_by` aceita.
+    filters.insert("label".to_string(), vec!["rustploy.service_id".to_string()]);
+    let opts = ListContainersOptions {
+        all: true,
+        filters,
+        ..Default::default()
+    };
+    let mut out: Vec<LiveReplica> = docker
+        .list_containers(Some(opts))
+        .await?
+        .into_iter()
+        .filter(|c| {
+            c.labels
+                .as_ref()
+                .and_then(|l| l.get("rustploy.service_id"))
+                .is_some_and(|o| label_owned_by(o, service_id))
+        })
+        .filter_map(|c| {
+            let name = c
+                .names
+                .as_ref()
+                .and_then(|n| n.first())
+                .map(|n| n.trim_start_matches('/').to_string())?;
+            if is_staging_name(&name) {
+                return None;
+            }
+            Some(LiveReplica {
+                id: c.id?,
+                replica: replica_index(c.labels.as_ref(), &name),
+                running: c.state.as_deref() == Some("running"),
+                name,
+            })
+        })
+        .collect();
+    out.sort_by_key(|r| (r.replica, !r.running));
+    debug!(service_id = %service_id, count = out.len(), "réplicas live encontradas");
+    Ok(out)
+}
+
+/// IPs, na rede `network`, das réplicas live `0..replicas` de um serviço — uma
+/// por réplica, a rodando quando houver duas (transição legado → atual).
+/// Réplica sem IP na rede (parada, ou fora dela) fica de fora.
+pub async fn live_replica_ips(
+    docker: &Docker,
+    service_id: &str,
+    network: &str,
+    replicas: u32,
+) -> Vec<String> {
+    let lives = match find_live_replicas(docker, service_id).await {
+        Ok(v) => v,
+        Err(e) => {
+            warn!(service_id = %service_id, error = %e, "falha ao listar réplicas live");
+            return vec![];
+        }
+    };
+    let mut ips = Vec::new();
+    for i in 0..replicas {
+        for live in lives.iter().filter(|r| r.replica == i) {
+            if let Ok(ip) = get_container_ip(docker, &live.id, network).await {
+                ips.push(ip);
+                break;
+            }
+        }
+    }
+    ips
+}
+
+/// Dá ao container o alias `alias` na rede `network`, reconectando-o
+/// (`disconnect` + `connect`): o Docker não altera aliases de um endpoint
+/// existente. **O IP do container na rede muda** — quem guardou o IP (ingress)
+/// precisa relê-lo. Não faz nada se o alias já estiver lá (retomada de deploy
+/// pela recovery), para não derrubar conexões à toa.
+pub async fn attach_network_alias(
+    docker: &Docker,
+    container_id: &str,
+    network: &str,
+    alias: &str,
+) -> Result<()> {
+    use bollard::network::{ConnectNetworkOptions, DisconnectNetworkOptions};
+    let info = docker
+        .inspect_container(container_id, None::<InspectContainerOptions>)
+        .await?;
+    let ja_tem = info
+        .network_settings
+        .as_ref()
+        .and_then(|n| n.networks.as_ref())
+        .and_then(|n| n.get(network))
+        .and_then(|e| e.aliases.as_ref())
+        .is_some_and(|a| a.iter().any(|x| x == alias));
+    if ja_tem {
+        debug!(container_id = %container_id, alias = %alias, "alias já presente");
+        return Ok(());
+    }
+    docker
+        .disconnect_network(
+            network,
+            DisconnectNetworkOptions {
+                container: container_id.to_string(),
+                force: true,
+            },
+        )
+        .await
+        .map_err(|e| anyhow!("falha ao desconectar {container_id} de {network}: {e}"))?;
+    docker
+        .connect_network(
+            network,
+            ConnectNetworkOptions {
+                container: container_id.to_string(),
+                endpoint_config: EndpointSettings {
+                    aliases: Some(vec![alias.to_string()]),
+                    ..Default::default()
+                },
+            },
+        )
+        .await
+        .map_err(|e| {
+            anyhow!("falha ao reconectar {container_id} a {network} com alias {alias}: {e}")
+        })?;
+    info!(container_id = %container_id, network = %network, alias = %alias, "alias de rede atribuído");
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
 pub async fn create_staging(
     docker: &Docker,
     spec: &ServiceSpec,
@@ -51,6 +258,7 @@ pub async fn create_staging(
     network_id: &str,
     resolved_env: &[(String, String)],
     container_name: &str,
+    replica: u32,
 ) -> Result<String> {
     let name = container_name;
     info!(
@@ -108,6 +316,8 @@ pub async fn create_staging(
         "rustploy.deployment_id".to_string(),
         deployment_id.to_string(),
     );
+
+    labels.insert("rustploy.replica".to_string(), replica.to_string());
 
     let mem_limit = if spec.resources.mem_limit_bytes > 0 {
         Some(spec.resources.mem_limit_bytes as i64)
@@ -626,6 +836,10 @@ pub async fn find_old_containers(
     Ok(ids)
 }
 
+/// TODO: sem uso desde a checagem de dono. **Não** usar para containers de
+/// serviço (`rp_<safe>`…): o nome não diz de quem o container é — use
+/// [`find_owned_by_name`]. Mantida para buscas de container fora desse caso.
+#[allow(dead_code)]
 pub async fn find_by_name(docker: &Docker, name: &str) -> Result<Option<String>> {
     use bollard::container::ListContainersOptions;
     debug!(name = %name, "buscando container por nome");
@@ -652,6 +866,67 @@ pub async fn find_by_name(docker: &Docker, name: &str) -> Result<Option<String>>
         ),
     }
     Ok(found)
+}
+
+/// O label `rustploy.service_id` de um container identifica `service_id`?
+///
+/// Aceita também o formato de antes dos prefixos de tipo nos IDs (commit
+/// 8a6d27f): containers criados naquela época carregam o ULID sem o `svc_`.
+pub fn label_owned_by(label: &str, service_id: &str) -> bool {
+    label == service_id || service_id.strip_prefix("svc_") == Some(label)
+}
+
+/// Quem ocupa o nome `name` no host: `None` se não há container com esse
+/// nome; senão `(container_id, rustploy.service_id)`, com o label `None` num
+/// container sem ele (não criado pelo rustploy, ou antigo demais).
+pub async fn name_owner(docker: &Docker, name: &str) -> Result<Option<(String, Option<String>)>> {
+    use bollard::container::ListContainersOptions;
+    let mut filters = HashMap::new();
+    filters.insert("name".to_string(), vec![format!("^/{name}$")]);
+    let opts = ListContainersOptions {
+        all: true,
+        filters,
+        ..Default::default()
+    };
+    let found = docker.list_containers(Some(opts)).await?.into_iter().next();
+    Ok(found.and_then(|c| {
+        let owner = c
+            .labels
+            .as_ref()
+            .and_then(|l| l.get("rustploy.service_id"))
+            .cloned();
+        c.id.map(|id| (id, owner))
+    }))
+}
+
+/// Como [`find_by_name`], mas só devolve o container se ele pertencer a
+/// `service_id` (label `rustploy.service_id`).
+///
+/// Nome de container é único no **host**, mas nome de serviço só é único no
+/// **projeto**: dois projetos com um serviço `api` disputam o nome `rp_api`.
+/// Achar "o live deste serviço" só pelo nome faz o deploy de um parar e
+/// remover o container do outro. Toda busca por `replica_live_name` /
+/// `replica_staging_name` passa por aqui. Ver
+/// `docs/plano-colisao-nome-container.md`.
+pub async fn find_owned_by_name(
+    docker: &Docker,
+    name: &str,
+    service_id: &str,
+) -> Result<Option<String>> {
+    match name_owner(docker, name).await? {
+        Some((id, Some(owner))) if label_owned_by(&owner, service_id) => Ok(Some(id)),
+        Some((id, owner)) => {
+            warn!(
+                name = %name,
+                container_id = %id,
+                owner = ?owner,
+                service_id = %service_id,
+                "container com o nome esperado pertence a outro serviço (ou a nenhum) — ignorado"
+            );
+            Ok(None)
+        }
+        None => Ok(None),
+    }
 }
 
 /// Containers **rodando** cujo nome começa com `prefix`, como `(id, nome)`,
@@ -898,5 +1173,111 @@ mod tests_ingress {
         let exposed = vec![vec![443], vec![8000]];
         assert_eq!(match_exposed_port(&exposed, &[8000, 443]), Some(1));
         assert_eq!(match_exposed_port(&exposed, &[443, 8000]), Some(0));
+    }
+}
+
+#[cfg(test)]
+mod tests_owner {
+    use super::*;
+
+    const SVC: &str = "svc_01JABCDEFGHJKMNPQRSTVWXYZ0";
+
+    #[test]
+    fn nomes_atuais_tem_o_id() {
+        assert_eq!(replica_live_name(SVC, "api", 0), "rp_stvwxyz0_api");
+        assert_eq!(replica_live_name(SVC, "api", 2), "rp_stvwxyz0_api_r2");
+        assert_eq!(
+            replica_staging_name(SVC, "api", "01JQQQQQ", 1),
+            "rp_stvwxyz0_api_staging_01JQQQQQ_r1"
+        );
+        assert_eq!(
+            legacy_replica_staging_name("api", "01JQQQQQ", 0),
+            "rp_api_staging_01JQQQQQ"
+        );
+    }
+
+    #[test]
+    fn staging_reconhecido_nos_dois_formatos() {
+        assert!(is_staging_name("rp_stvwxyz0_api_staging_01JQQQQQ"));
+        assert!(is_staging_name("rp_stvwxyz0_api_staging_01JQQQQQ_r3"));
+        assert!(is_staging_name("rp_api_staging_01JQQQQQ"));
+        assert!(!is_staging_name("rp_stvwxyz0_api"));
+        assert!(!is_staging_name("rp_api_r1"));
+        // serviço cujo nome contém "staging": o live não é staging
+        assert!(!is_staging_name("rp_stvwxyz0_staging"));
+        assert!(!is_staging_name("rp_stvwxyz0_app_staging_area_de_testes"));
+        assert!(!is_staging_name("rp_stvwxyz0_app_staging_prod"));
+        assert!(!is_staging_name("rp_stvwxyz0_app_staging_prod_r1"));
+    }
+
+    #[test]
+    fn indice_de_replica_pelo_label_ou_pelo_nome() {
+        let mut l = HashMap::new();
+        l.insert("rustploy.replica".to_string(), "3".to_string());
+        assert_eq!(replica_index(Some(&l), "rp_stvwxyz0_api"), 3);
+        assert_eq!(replica_index(None, "rp_api_r2"), 2);
+        assert_eq!(replica_index(None, "rp_api"), 0);
+        assert_eq!(replica_index(None, "rp_x_redis"), 0);
+    }
+
+    #[test]
+    fn label_do_proprio_servico() {
+        assert!(label_owned_by("svc_01JABC", "svc_01JABC"));
+    }
+
+    #[test]
+    fn label_de_antes_dos_prefixos_de_id() {
+        assert!(label_owned_by("01JABC", "svc_01JABC"));
+    }
+
+    #[test]
+    fn label_de_outro_servico() {
+        assert!(!label_owned_by("svc_01JXYZ", "svc_01JABC"));
+        assert!(!label_owned_by("01JXYZ", "svc_01JABC"));
+        assert!(!label_owned_by("", "svc_01JABC"));
+    }
+
+    /// Contra um Docker de verdade: o `rp_<safe>` de um serviço homônimo de
+    /// outro projeto não pode ser achado como se fosse o nosso.
+    /// `cargo test -p rustploy tests_owner -- --ignored` (precisa de Docker e
+    /// de uma imagem local qualquer em `RP_TEST_IMAGE`, padrão `redis:6.2-alpine`).
+    #[tokio::test]
+    #[ignore]
+    async fn nome_ocupado_por_outro_servico_nao_e_achado() {
+        let docker = Docker::connect_with_local_defaults().expect("docker");
+        let image = std::env::var("RP_TEST_IMAGE").unwrap_or_else(|_| "redis:6.2-alpine".into());
+        let name = format!("rp_teste_dono_{}", std::process::id());
+
+        let mut labels = HashMap::new();
+        labels.insert("rustploy.service_id".to_string(), "svc_OUTRO".to_string());
+        let id = docker
+            .create_container(
+                Some(CreateContainerOptions {
+                    name: name.clone(),
+                    platform: None,
+                }),
+                Config {
+                    image: Some(image),
+                    labels: Some(labels),
+                    ..Default::default()
+                },
+            )
+            .await
+            .expect("create")
+            .id;
+
+        let meu = find_owned_by_name(&docker, &name, "svc_MEU").await;
+        let dele = find_owned_by_name(&docker, &name, "svc_OUTRO").await;
+        let dono = name_owner(&docker, &name).await;
+        let _ = remove(&docker, &id).await;
+
+        assert_eq!(
+            meu.unwrap(),
+            None,
+            "container de outro serviço não pode ser o nosso"
+        );
+        assert_eq!(dele.unwrap(), Some(id.clone()));
+        assert_eq!(dono.unwrap(), Some((id, Some("svc_OUTRO".to_string()))));
+        assert_eq!(name_owner(&docker, &name).await.unwrap(), None);
     }
 }
