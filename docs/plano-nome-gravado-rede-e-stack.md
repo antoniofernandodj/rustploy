@@ -291,3 +291,13 @@ stack legada, ou seja, sem mudar nenhum nome.
 Consequência prática: **importe zips de outros servidores pelo daemon novo**.
 Importar pelo antigo e atualizar depois preserva o que existe, mas carrega as
 colisões junto.
+
+## Rename nas duas UIs (2026-09-29)
+
+O rename de **projeto** já existia nas duas UIs. Foi adicionado o de **serviço**
+na aba General (GUI: form `svc_rename` em `service.gv` + `save_service_name`;
+webui: bloco em `index.html` + `renameService()`), com o aviso do que o rename
+muda para o tipo de serviço, e o card "Internal URL" de um serviço Compose
+passou a usar a chave do YAML (`compose_host`, em Luau e em JS) em vez de
+`rp_<nome>` — que ficava errado depois de um rename. Não houve mudança no
+daemon: `ServiceUpdate` já aceitava o nome novo e checa unicidade no projeto.

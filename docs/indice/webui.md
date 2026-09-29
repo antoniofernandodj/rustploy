@@ -139,7 +139,8 @@ function stripAnsi(s) — Remove sequências de escape ANSI (cor/cursor/erase) d
 function parseDotenv(text) — Texto `.env` → { vars, comments } (env_vars/env_comments do ServiceSpec/Project).
 function safeName(name) — Normaliza um nome de serviço para `[a-z0-9_]`, mesmo algoritmo de `crate::normalize_name` (Rust) / `…
 function internalScheme(dbKind)
-function internalUrl(dbKind, safe, port) — URL de conexão dentro da rede Docker do daemon (`rp_<safe>:<porta>`, com esquema por tipo de banco).
+function composeHost(content, ingressService) — Chave do serviço que recebe o tráfego dentro de um compose: `ingress_service` se declarado, senão a …
+function internalUrl(dbKind, safe, port, composeHostName) — URL de conexão dentro da rede Docker do daemon (`rp_<safe>:<porta>`, com esquema por tipo de banco).
 function envPlain(vars, key)
 function dbCredentials(dbKind, vars) — (database, user, password) lidos das env vars conhecidas do banco.
 function withDbCredentials(base, database, user, password)
@@ -179,7 +180,7 @@ function engRecentRows(recent) — Deploy Engine: "Histórico 24h".
 ### index.html — Casca única da webui (Alpine.js): login, shell e todas as telas, uma seção por view, cada uma com o …
 seções: Login, Shell (sidebar + topbar + conteúdo), Deploy Engine, Monitoring, Ingress, Docker, Schedules, Modais globais de Jobs, Settings, Projects, Projeto aberto, Novo serviço (wizard por passos, porta de new_service.gv), Detalhe de serviço
 x-data: dashboard, deployEngine, docker, ingress, login, monitoring, newService, projectDetail, projects, schedules, serviceDetail, settings
-chama: String, abortDeployment, addDomain, addEnvVar, cancel, cancelCompose, cancelEdit, clearFinished, closeBuildLog, closeEnvText, closeJobLogs, closeNewJob, closeTokenModal, copyToClipboard, dcRunNow, dcSave, delDomain, delEnvVar, deleteProject, deleteSecret, deleteService, deployRollback, deployStart, disconnect, dismissToast, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDb, gotoTemplate, gotoType, gpConnect, gpDelete, gpRefresh, iacExport, iacImport, initAdvForm, initGeneralForm, initHcForm, jobDelete, jobRunCancel, jobRunNow, jobToggle, nav, njobBack, njobCreate, njobGitProviderPick, njobGitRepoPick, njobPickNoService, njobPickProject, njobPickService, njobSetSourceTab, ntokCreate, onArchiveFileChange, open, openEditJob, openEnvText, openJobLogs, openNewJob, openNewService, openProject, openService, openTokenModal, pdcAdd, pdcDel, pdcMove, persistPrefs, pickBroker, pickDb, pickTemplate, queueCancel, queuePromote, queueTogglePause, registryCloseRepo, registryGc, registryOpenRepo, registryRmRepo, registryRmTag, registryRmToken, removeDeployment, saveAdvanced, saveCompose, saveEdit, saveEnvText, saveHealthcheck, saveSource, searchChanged, serviceReload, serviceStop, setProvTab, setServiceTab, settingsSave, startEdit, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDb, submitNew, submitSecret, submitTemplate, uploadArchive, viewBuildLog, writeText
+chama: String, abortDeployment, addDomain, addEnvVar, cancel, cancelCompose, cancelEdit, clearFinished, closeBuildLog, closeEnvText, closeJobLogs, closeNewJob, closeTokenModal, copyToClipboard, dcRunNow, dcSave, delDomain, delEnvVar, deleteProject, deleteSecret, deleteService, deployRollback, deployStart, disconnect, dismissToast, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDb, gotoTemplate, gotoType, gpConnect, gpDelete, gpRefresh, iacExport, iacImport, initAdvForm, initGeneralForm, initHcForm, jobDelete, jobRunCancel, jobRunNow, jobToggle, nav, njobBack, njobCreate, njobGitProviderPick, njobGitRepoPick, njobPickNoService, njobPickProject, njobPickService, njobSetSourceTab, ntokCreate, onArchiveFileChange, open, openEditJob, openEnvText, openJobLogs, openNewJob, openNewService, openProject, openService, openTokenModal, pdcAdd, pdcDel, pdcMove, persistPrefs, pickBroker, pickDb, pickTemplate, queueCancel, queuePromote, queueTogglePause, registryCloseRepo, registryGc, registryOpenRepo, registryRmRepo, registryRmTag, registryRmToken, removeDeployment, renameService, saveAdvanced, saveCompose, saveEdit, saveEnvText, saveHealthcheck, saveSource, searchChanged, serviceReload, serviceStop, setProvTab, setServiceTab, settingsSave, startEdit, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDb, submitNew, submitSecret, submitTemplate, uploadArchive, viewBuildLog, writeText
 
 ## crates/daemon/webui/net/
 
@@ -275,6 +276,7 @@ function primaryContainer(svc) — Container "primário" de um serviço pra exib
   Alpine.data("serviceDetail")
     init() — `x-show` mantém este componente montado por toda a sessão — abrir um serviço não recria o Alpine.dat…
     initGeneralForm()
+    renameService() — Unicidade dentro do projeto é checada no daemon (a mensagem volta no toast).
     saveCompose()
     cancelCompose()
     setProvTab(tab)
@@ -302,7 +304,7 @@ function primaryContainer(svc) — Container "primário" de um serviço pra exib
     closeBuildLog()
     abortDeployment(deploymentId)
     removeDeployment(deploymentId)
-    get: store, svc, statusLabel, statusKind, sourceText, isCompose, liveContainers, connectionInfo, envVars, domains, runArgsText, preDeployQueueIds, preDeployChecks, preDeployAvailableJobs, deployments
+    get: store, svc, statusLabel, statusKind, sourceText, isCompose, renameNote, liveContainers, connectionInfo, envVars, domains, runArgsText, preDeployQueueIds, preDeployChecks, preDeployAvailableJobs, deployments
 
 ### settings.js — tela "Settings": Web Server / Git / Infra as Code.
   Alpine.data("settings")

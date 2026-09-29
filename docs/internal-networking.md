@@ -39,6 +39,27 @@ Antes de invocar `docker compose up`, o daemon injeta a rede do projeto no YAML 
 
 O rewrite é idempotente: se a rede já estiver declarada no YAML, não é adicionada de novo.
 
+## Renomear um serviço ou um projeto
+
+Aba **General** do serviço → "Nome do serviço" (GUI e webui). O projeto se
+renomeia em "Editar projeto".
+
+| O que | Renomear projeto | Renomear serviço Compose | Renomear serviço Application |
+|---|---|---|---|
+| Rede Docker | não muda (gravada em `project.network_name`) | não muda | não muda |
+| Stack e volumes | — | **não mudam** (stack gravada em `service.compose_project`) | — |
+| Hostname interno | — | não muda: é a **chave do serviço no YAML** | `rp_{nome}` passa a valer no **próximo deploy**; o nome antigo deixa de resolver |
+| Domínios, env vars, secrets | não mudam | não mudam | não mudam |
+
+Só o serviço Application tem consequência para quem o chama: outros serviços que
+usam `rp_{nome antigo}` em variáveis de ambiente precisam ser atualizados (e o
+serviço, redeployado). A tela avisa disso ao lado do campo. O card "Internal URL"
+de um serviço Compose mostra a chave do YAML (`ingress_service` se declarado,
+senão a primeira de `services:`), não o nome do serviço.
+
+Manifestos IaC casam projeto e serviço **por nome**: um manifesto antigo aplicado
+depois de um rename cria um projeto/serviço novo em vez de atualizar o existente.
+
 ## Como referenciar outros serviços
 
 ### De um serviço Compose para outro serviço Compose (mesmo stack)
