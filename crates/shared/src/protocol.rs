@@ -96,6 +96,12 @@ pub enum Command {
         service_id: String,
     },
 
+    /// Host e URL de conexão **dentro** da rede Docker do projeto (montada no
+    /// daemon por `shared::connection`, para GUI e webui não divergirem).
+    ServiceConnectionInfo {
+        service_id: String,
+    },
+
     // Webhooks
     GetWebhookUrl {
         service_id: String,
@@ -537,6 +543,13 @@ pub enum Response {
         uptime_secs: u64,
     },
     WebhookUrl(Option<String>),
+    ConnectionInfo {
+        /// Hostname que resolve na rede do projeto (chave do YAML, alias ou,
+        /// sem certeza, o nome do container).
+        host: String,
+        /// URI pronta (`postgresql://user:senha@host:5432/db`).
+        internal_url: String,
+    },
     DaemonSettings {
         /// URL pública da API, **derivada** de `[api] domain`/`port` — base das
         /// URLs de webhook e do callback OAuth. Só-leitura: não existe setter,

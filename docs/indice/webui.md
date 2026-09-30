@@ -275,6 +275,7 @@ function primaryContainer(svc) — Container "primário" de um serviço pra exib
 ### service_detail.js — detalhe de um serviço.
   Alpine.data("serviceDetail")
     init() — `x-show` mantém este componente montado por toda a sessão — abrir um serviço não recria o Alpine.dat…
+    loadConnUrl()
     initGeneralForm()
     renameService() — Unicidade dentro do projeto é checada no daemon (a mensagem volta no toast).
     saveCompose()

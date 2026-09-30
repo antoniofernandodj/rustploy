@@ -538,23 +538,22 @@ mod headless_tests {
         // O detalhe passa a ter o nome novo; o host interno segue o YAML.
         let url = eval_str(
             &page,
-            &format!("(() => {{ Alpine.store('app').serviceDetail.spec.name = 'meu-banco'; return {d}.connectionInfo.internalUrl; }})()")
+            &format!("(() => {{ Alpine.store('app').serviceDetail.spec.name = 'meu-banco'; {d}.connUrl = 'postgresql://u:p@rp_banco:5432/db'; return {d}.connectionInfo.internalUrl; }})()")
         )
         .await;
-        assert_eq!(
-            url, "postgresql://rp_banco:5432",
-            "Compose: hostname = chave do YAML, não o nome"
-        );
+        // O host (chave do YAML) agora é decidido no daemon
+        // (`shared::connection::compose_host`, testado lá); a webui só exibe.
+        assert_eq!(url, "postgresql://u:p@rp_banco:5432/db");
 
-        // Application: outro aviso, e o host interno acompanha o nome.
+        // Application: outro aviso.
         let app = eval_str(
             &page,
-            &format!("(() => {{ const s = Alpine.store('app'); s.serviceDetail = {{ id: 'svc_2', status: 'Running', live_container_id: null, spec: {{ name: 'meu-api', port: 8080, replicas: 1, project_id: 'prj_1', env_vars: [], domains: [], source: {{ Registry: {{ image: 'nginx' }} }}, healthcheck: {{ kind: 'None', interval_secs: 5, timeout_secs: 3, retries: 10, start_period_secs: 5 }} }} }}; return JSON.stringify({{ note: {d}.renameNote, url: {d}.connectionInfo.internalUrl }}); }})()")
+            &format!("(() => {{ {d}.connUrl = ''; const s = Alpine.store('app'); s.serviceDetail = {{ id: 'svc_2', status: 'Running', live_container_id: null, spec: {{ name: 'meu-api', port: 8080, replicas: 1, project_id: 'prj_1', env_vars: [], domains: [], source: {{ Registry: {{ image: 'nginx' }} }}, healthcheck: {{ kind: 'None', interval_secs: 5, timeout_secs: 3, retries: 10, start_period_secs: 5 }} }} }}; return JSON.stringify({{ note: {d}.renameNote, url: {d}.connectionInfo.internalUrl }}); }})()")
         )
         .await;
         let a: serde_json::Value = serde_json::from_str(&app).unwrap();
         assert!(a["note"].as_str().unwrap().contains("próximo deploy"));
-        assert_eq!(a["url"], "rp_meu_api:8080");
+        assert_eq!(a["url"], "—", "sem a URL do daemon, não inventa uma");
 
         assert_eq!(
             errors(&page).await,

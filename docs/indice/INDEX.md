@@ -72,7 +72,7 @@
 - web_ui.rs — Servidor de estáticos da web UI/PWA (`crates/daemon/webui/`) — alternativa ao cl…
 
 ### crates/daemon/src/api/handlers/ → daemon-api.md
-- 63 arquivos, um arquivo por `Command` (exceto `mod.rs`); o que cada um faz está em `comandos.md` e `daemon-api.md`: daemon_status, deploy_abort, deploy_delete, deploy_engine_status, deploy_history, deploy_queue_pause, deploy_queue_promote, deploy_queue_reorder, deploy_rollback, deploy_start, docker_cleanup, docker_inventory, docker_prune, docker_remove, env_backup, get_build_logs, get_daemon_settings, get_job_logs, get_webhook_url, git_branch_list, git_oauth_start, git_provider_create, git_provider_delete, git_provider_list, git_repo_list, ingress, job_create, job_delete, job_list, job_list_all, job_run_cancel, job_run_history, job_run_now, job_update, logs_get, manifest_apply, manifest_export, manifest_export_all, manifest_import, mod, ping, project_create, project_delete, project_env_set, project_list, project_update, recent_deployments, reconcile, regenerate_webhook_token, registry, secret_delete, secret_list, secret_set, service_archive_upload, service_create, service_delete, service_get, service_list, service_reload, service_stop, service_update, set_daemon_settings, wizard
+- 64 arquivos, um arquivo por `Command` (exceto `mod.rs`); o que cada um faz está em `comandos.md` e `daemon-api.md`: daemon_status, deploy_abort, deploy_delete, deploy_engine_status, deploy_history, deploy_queue_pause, deploy_queue_promote, deploy_queue_reorder, deploy_rollback, deploy_start, docker_cleanup, docker_inventory, docker_prune, docker_remove, env_backup, get_build_logs, get_daemon_settings, get_job_logs, get_webhook_url, git_branch_list, git_oauth_start, git_provider_create, git_provider_delete, git_provider_list, git_repo_list, ingress, job_create, job_delete, job_list, job_list_all, job_run_cancel, job_run_history, job_run_now, job_update, logs_get, manifest_apply, manifest_export, manifest_export_all, manifest_import, mod, ping, project_create, project_delete, project_env_set, project_list, project_update, recent_deployments, reconcile, regenerate_webhook_token, registry, secret_delete, secret_list, secret_set, service_archive_upload, service_connection_info, service_create, service_delete, service_get, service_list, service_reload, service_stop, service_update, set_daemon_settings, wizard
 
 ### crates/daemon/src/bin/ → daemon-core.md
 - rustployd-fw.rs — `rustployd-fw` — helper privilegiado de firewall do rustploy.
@@ -298,6 +298,7 @@
 
 ### crates/shared/src/ → shared.md
 - config.rs — Configuração do daemon (`config.toml`): structs de cada seção com defaults e o s…
+- connection.rs — Connection string de banco/broker, montada num lugar só.
 - lib.rs — Tipos compartilhados entre daemon e GUI (modelos, protocolo, config, manifest, t…
 - manifest.rs — Infra-as-Code: structs do manifesto declarativo (`rustploy.yml`).
 - models.rs — Modelos de domínio: projeto, `ServiceSpec` e suas fontes, deployment e estados, …
@@ -311,26 +312,16 @@
 - blueprints/ — catálogo de templates de app (formato Dokploy), compilado pelo build.rs do shared (1161 arquivos, não indexados)
 
 ### docs/
-- 2026-07-13-remocao-tui-e-registry-fase2.md — 2026-07-13 — Remoção do TUI + Registry Docker embutido (Fase 2)
 - api-agente-no-gui.md — A API de agente vive no app, não no daemon
-- compressao-gzip-api.md — Compressão gzip da API (daemon → GUI)
-- conceitos-tls-csr-acme.md — Conceitos: TLS, Certificados, CSR, CN, SANs, ACME e rcgen
 - correcao-persistencia-geometria-janela.md — Correção: a janela não reabria no último tamanho (glacier 0.49.0 → 0.49.1)
-- embedded-docker-registry.md — Rustploy — Registry Docker embutido, Fase 3 (integração com o deploy executor)
 - empacotamento-styles-e-cross-compile-windows.md — Empacotamento do rustploy-gui: mover styles/ e cross-compile Windows (cargo-xwin…
 - env-backup.md — Backup automático de env vars
-- example-iced-system-tray.md
-- infra-as-code-organizacao-repo.md — Infra-as-Code — Onde versionar os manifestos
-- infra-as-code.md — Infra-as-Code — Manifestos YAML declarativos
 - ingress-proxy.md — Como funciona o ingress proxy e o zero-downtime deploy
 - internal-networking.md — Comunicação interna entre serviços do projeto
 - inventario-paridade-telas.md — Inventário de paridade — GUI iced × webui
 - licoes-aprendidas.md — Lições aprendidas — erros, causas e soluções
-- luau-modularizacao-pacotes.md — Modularização da camada Luau em pacotes (`fmt/`, `handlers/`, `net/`)
 - memoria-threads-e-runtime.md — Memória de threads e runtime async — base teórica
-- migracao-http-luau.md — Plano: migrar RWP → HTTP/SSE + lógica de rede em Luau (rustploy.chiquitos.tech)
-- migration.md — Migração de Outras Plataformas
-- notificacao-so.md — Notificação nativa do SO ao concluir um deploy
+- plano-acao-banco-compartilhado.md — Plano de ação: implementar o banco compartilhado (Postgres) e migrar rdo-itemize…
 - plano-banco-compartilhado.md — Plano: banco compartilhado entre projetos + migração dos bancos antigos
 - plano-cancelamento-de-jobs.md — Cancelamento de `job_run` em andamento
 - plano-colisao-nome-container.md — Plano: colisão de nome de container entre projetos
@@ -358,6 +349,19 @@
 - webhooks-exemplos.md — Webhooks: exemplos de requisição e resposta
 - webhooks.md — Webhooks de Deploy
 - windows-code-signing.md — Assinatura de código no Windows (rustploy-gui)
+
+### docs/arquivo/
+- 2026-07-13-remocao-tui-e-registry-fase2.md — 2026-07-13 — Remoção do TUI + Registry Docker embutido (Fase 2)
+- compressao-gzip-api.md — Compressão gzip da API (daemon → GUI)
+- conceitos-tls-csr-acme.md — Conceitos: TLS, Certificados, CSR, CN, SANs, ACME e rcgen
+- embedded-docker-registry.md — Rustploy — Registry Docker embutido, Fase 3 (integração com o deploy executor)
+- example-iced-system-tray.md
+- infra-as-code-organizacao-repo.md — Infra-as-Code — Onde versionar os manifestos
+- infra-as-code.md — Infra-as-Code — Manifestos YAML declarativos
+- luau-modularizacao-pacotes.md — Modularização da camada Luau em pacotes (`fmt/`, `handlers/`, `net/`)
+- migracao-http-luau.md — Plano: migrar RWP → HTTP/SSE + lógica de rede em Luau (rustploy.chiquitos.tech)
+- migration.md — Migração de Outras Plataformas
+- notificacao-so.md — Notificação nativa do SO ao concluir um deploy
 
 ### packaging/
 - config.toml

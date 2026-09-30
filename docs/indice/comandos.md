@@ -42,6 +42,9 @@ LogsUnsubscribe | daemon: (inline em routes.rs) | gui: — | web: —
 MetricsSubscribe | daemon: (inline em routes.rs) | gui: — | web: —
 MetricsUnsubscribe | daemon: (inline em routes.rs) | gui: — | web: —
 
+## / daemon por `shared::connection`, para GUI e webui não divergirem).
+ServiceConnectionInfo — Host e URL de conexão **dentro** da rede Docker do projeto (montada no… | daemon: service_connection_info | gui: handlers/services | web: screens/service_detail
+
 ## Webhooks
 GetWebhookUrl | daemon: get_webhook_url | gui: handlers/services | web: —
 RegenerateWebhookToken | daemon: regenerate_webhook_token | gui: handlers/services | web: —

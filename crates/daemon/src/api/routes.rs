@@ -32,6 +32,7 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::LogsGet { .. } => "LogsGet",
         Command::RecentDeployments { .. } => "RecentDeployments",
         Command::GetBuildLogs { .. } => "GetBuildLogs",
+        Command::ServiceConnectionInfo { .. } => "ServiceConnectionInfo",
         Command::GetWebhookUrl { .. } => "GetWebhookUrl",
         Command::RegenerateWebhookToken { .. } => "RegenerateWebhookToken",
         Command::GetDaemonSettings => "GetDaemonSettings",
@@ -146,6 +147,9 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::ServiceCreate(spec) => handlers::service_create::handle(state, spec).await,
         Command::ServiceList { project_id } => {
             handlers::service_list::handle(state, project_id).await
+        }
+        Command::ServiceConnectionInfo { service_id } => {
+            handlers::service_connection_info::handle(state, service_id).await
         }
         Command::ServiceGet { id } => handlers::service_get::handle(state, id).await,
         Command::ServiceUpdate { id, spec } => {

@@ -225,6 +225,9 @@ fn extract_zip(bytes, dest) -> Result<()>
 fn safe_zip_path(name) -> Option<PathBuf>
 const MAX_ZIP_BYTES
 
+### service_connection_info.rs — `Command::ServiceConnectionInfo`: host e connection string internos de um serviço (ver `shared::conn…
+fn handle(state, service_id) -> RpResponse
+
 ### service_create.rs — `Command::ServiceCreate`: cria um serviço, alocando a porta externa automática e liberando-a no fire…
 fn handle(state, spec) -> RpResponse
 

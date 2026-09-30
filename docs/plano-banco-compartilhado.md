@@ -1,7 +1,7 @@
 # Plano: banco compartilhado entre projetos + migração dos bancos antigos
 
-> **Status:** proposta, **não implementado** (revisado em 2026-09-29). Nada
-> aqui existe no código ainda.
+> **Status:** em implementação — ver `docs/plano-acao-banco-compartilhado.md` §8
+> para o que já entrou (Fase 1 = §3 feita em 2026-09-30; o resto ainda é proposta).
 >
 > **Revisão 2** (mesmo dia), por diretriz do usuário:
 > 1. a connection string gerada vai para **env var comum (Plain)**, não para

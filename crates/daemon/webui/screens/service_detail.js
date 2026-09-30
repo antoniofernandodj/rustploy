@@ -48,8 +48,23 @@ document.addEventListener("alpine:init", () => {
         () => this.store.serviceDetail,
         () => {
           if (this.store.serviceTab === "general") this.initGeneralForm();
+          this.loadConnUrl();
         }
       );
+    },
+
+    // Internal URL vem pronta do daemon (`shared::connection`): host real do
+    // serviço, usuário/senha/database — não é mais montada aqui.
+    connUrl: "",
+    async loadConnUrl() {
+      const id = this.svc?.id;
+      if (!id) return;
+      try {
+        const r = await this.store.api.rpc({ ServiceConnectionInfo: { service_id: id } });
+        if (this.svc?.id === id) this.connUrl = r?.ConnectionInfo?.internal_url || "";
+      } catch (_) {
+        this.connUrl = "";
+      }
     },
 
     get svc() {
@@ -339,12 +354,7 @@ document.addEventListener("alpine:init", () => {
         domain: domain || "—",
         tls: tls ? "enabled" : "disabled",
         dbKind: spec.db_kind || null,
-        internalUrl: internalUrl(
-          spec.db_kind,
-          safe,
-          spec.port,
-          spec.source?.Compose ? composeHost(spec.source.Compose.content, spec.source.Compose.ingress_service) : null,
-        ),
+        internalUrl: this.connUrl || "—",
         externalUrl: externalUrl(domain, tls, spec.host_port, spec.db_kind, this.store.api.baseUrl, spec.env_vars),
       };
     },

@@ -199,9 +199,16 @@ function M.fetch_service_detail(sid: string): ()
     -- markup exibe, truncado para não empurrar o botão "Copiar" para fora.
     ctx.svc_external_url = fmt.external_url(pr_domain, pr_tls, spec.host_port, spec.db_kind, ctx.api_url, merged_env)
     ctx.svc_external_url_short = fmt.ellipsis(ctx.svc_external_url, 20)
-    local compose_src = spec.source.Compose
-    local chost = compose_src and fmt.compose_host(compose_src.content, compose_src.ingress_service) or nil
-    ctx.svc_internal_url = fmt.internal_url(spec.db_kind, fmt.safe_name(spec.name), spec.port, chost)
+    -- Internal URL vem pronta do daemon (`shared::connection`): host real,
+    -- usuário/senha/database. `fmt.internal_url` fica só de fallback.
+    local okc, resc = api:rpc{ ServiceConnectionInfo = { service_id = sid } }
+    if okc and type(resc) == "table" and resc.ConnectionInfo then
+        ctx.svc_internal_url = resc.ConnectionInfo.internal_url
+    else
+        local compose_src = spec.source.Compose
+        local chost = compose_src and fmt.compose_host(compose_src.content, compose_src.ingress_service) or nil
+        ctx.svc_internal_url = fmt.internal_url(spec.db_kind, fmt.safe_name(spec.name), spec.port, chost)
+    end
     ctx.svc_internal_url_short = fmt.ellipsis(ctx.svc_internal_url, 20)
     ctx.svc_db_kind = spec.db_kind or "—"
     ctx.svc_hc = fmt.healthcheck_summary(spec.healthcheck)

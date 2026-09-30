@@ -2,6 +2,7 @@
 //! manifest, templates) e os nomes Docker derivados de um serviço.
 
 pub mod config;
+pub mod connection;
 pub mod manifest;
 pub mod models;
 pub mod protocol;
