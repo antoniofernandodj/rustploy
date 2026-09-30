@@ -102,6 +102,26 @@ fn collect_loop(docker, db, bus, interval_secs)
 fn collect_system_metrics(sys) -> SystemMetricsPoint
 fn collect_container_metrics(docker, container_id, service_id, _prev_cpu) -> anyhow::Result<ContainerMetricsPoint>
 
+### migration.rs — Assistente de migração: banco antigo (serviço Compose do projeto) → database gerenciado de um servid…
+fn new_record(req, project_id, env_var) -> Record
+fn valid_source_db(name) -> bool — Nome de database de **origem**: vai para scripts shell/SQL, então só o conjunto seguro (o de destino…
+fn step(state, rec, i, st, detail)
+fn log(state, rec, text)
+fn pipe_script(e) -> &'static str — Script `bash` do pipe dump|restore.
+fn counts_plan(e, db) -> (String, String) — `(sh, stdin)` que imprime `tabela|contagem` do database `db` (um por linha, ordenado), pelo cliente …
+struct Side { host, port, user, pass }
+fn source_side(e, svc, host, env) -> Result<Side> — Credenciais de administração do banco **antigo**, das env vars resolvidas.
+fn dest_image(server) -> Result<String> — Imagem (e tag) do servidor de destino: a mesma traz as ferramentas na versão certa.
+fn image_version(image) -> Option<(u32, u32)> — Versão maior/menor de uma tag de imagem (`postgres:18` → (18, 0)); `None` se não der para ler (`late…
+fn source_image(svc) -> Option<String>
+fn dependents(state, source, host, env_var) -> Result<Vec<Service>> — Serviços do projeto que usam o banco antigo: os rodando que referenciam a env var da conexão ou o ho…
+fn docker_run_pipe(engine, image, network, origem, origem_db, destino, destino_db) -> Result<String>
+fn run(state, rec) — Roda a migração inteira.
+fn run_inner(state, rec, cur) -> Result<()>
+fn undo(state, rec, source_stopped) -> Result<()> — Volta tudo: env var antiga, banco antigo de pé (se foi parado) e serviços parados de novo no ar.
+const STEPS
+(3 testes)
+
 ### ports.rs — Alocação automática de portas externas (`ServiceSpec.host_port`).
 const AUTO_PORT — Sentinela em `ServiceSpec.host_port` que pede alocação automática.
 fn resolve_host_port(db, spec, exclude_id) -> Result<(), String> — Resolve o `host_port` do spec antes de persistir: - `Some(0)` → aloca uma porta livre da faixa confi…
@@ -128,6 +148,7 @@ impl Engine
   fn from_kind(kind) -> Option<Self>
   fn default_env_var() -> &'static str — Nome da env var padrão da connection string no projeto consumidor.
   fn kind_id() -> &'static str — `db_kind` que `shared::connection` entende.
+  fn admin_sh_pub() -> &'static str
   fn admin_sh() -> &'static str — Script `sh` que abre o cliente de administração (lê o SQL/JS do stdin).
 fn validate_name(name) -> Result<()> — Nome de database/usuário: `[a-z][a-z0-9_]*`, até 32 chars (limite do usuário no MySQL).
 fn generate_password() -> Result<String> — Senha aleatória alfanumérica (segura em SQL, JS e URL sem escapes).
@@ -135,6 +156,7 @@ fn create_script(e, name, pass, conn_limit, stmt_timeout_ms) -> String — Scrip
 fn drop_script(e, name) -> String — Script de remoção (**apaga os dados**).
 fn wait_ready(e, container, tries) -> Result<()> — Espera o administrador do servidor responder.
 fn exec(e, container, script) -> Result<String> — Roda `script` no cliente de administração dentro de `container`.
+fn exec_sh(e, container, sh, script) -> Result<String> — Como [`exec`], com o comando `sh -c` escolhido por quem chama.
 (3 testes)
 
 ### watchdog.rs — Watchdog dos serviços no ar: checa se o container roda e passa no healthcheck, reinicia com limite d…

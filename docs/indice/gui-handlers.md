@@ -118,6 +118,12 @@ function shared_disable()
 function mdb_show(id)
 function mdb_create()
 function mdb_delete(id)
+local default_source_db(spec)
+function M.load_migration_state(spec, sid)
+function mig_refresh()
+function mig_start()
+function mig_rollback()
+function mig_discard()
 function svc_rename_apontar(_erros_json) — on_validation_error do <form name="svc_rename">: o motor já acendeu o :invalid e publicou {erro_edit…
 function save_service_name() — on_submit: só roda com a validação (rules="required") aprovada.
 local materialize_domains(spec) — Move o domínio legado (domain/tls_enabled) para a lista `domains`.

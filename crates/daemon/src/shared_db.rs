@@ -48,6 +48,10 @@ impl Engine {
         }
     }
 
+    pub fn admin_sh_pub(self) -> &'static str {
+        self.admin_sh()
+    }
+
     /// Script `sh` que abre o cliente de administração (lê o SQL/JS do stdin).
     fn admin_sh(self) -> &'static str {
         match self {
@@ -56,8 +60,12 @@ impl Engine {
             Self::MySql | Self::MariaDb => {
                 r#"B=$(command -v mariadb || command -v mysql); MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec "$B" -uroot"#
             }
+            // O script vem por stdin; `--file /dev/stdin` evita o REPL (que em
+            // pipe imprime prompts e ecoa cada resultado) e faz `throw` virar
+            // exit code ≠ 0. O `mongo` legado recebe o arquivo como argumento.
             Self::Mongo => {
-                r#"B=$(command -v mongosh || command -v mongo); exec "$B" --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin"#
+                r#"if command -v mongosh >/dev/null; then exec mongosh --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --file /dev/stdin
+else exec mongo --quiet -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin /dev/stdin; fi"#
             }
         }
     }
@@ -175,8 +183,13 @@ pub async fn wait_ready(e: Engine, container: &str, tries: u32) -> Result<()> {
 
 /// Roda `script` no cliente de administração dentro de `container`.
 pub async fn exec(e: Engine, container: &str, script: &str) -> Result<String> {
+    exec_sh(e, container, e.admin_sh(), script).await
+}
+
+/// Como [`exec`], com o comando `sh -c` escolhido por quem chama.
+pub async fn exec_sh(e: Engine, container: &str, sh: &str, script: &str) -> Result<String> {
     let mut child = Command::new("docker")
-        .args(["exec", "-i", container, "sh", "-c", e.admin_sh()])
+        .args(["exec", "-i", container, "sh", "-c", sh])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

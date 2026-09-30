@@ -1887,6 +1887,8 @@
                       @click="store.setServiceTab('domains')">Domains</button>
               <button type="button" :class="store.serviceTab === 'deployments' ? 'tab_on' : 'tab_off'"
                       @click="store.setServiceTab('deployments')">Deployments</button>
+              <button type="button" x-show="canMigrate" :class="store.serviceTab === 'migrar' ? 'tab_on' : 'tab_off'"
+                      @click="store.setServiceTab('migrar')">Migrar</button>
               <button type="button" x-show="isShared" :class="store.serviceTab === 'databases' ? 'tab_on' : 'tab_off'"
                       @click="store.setServiceTab('databases')">Databases</button>
               <button type="button" :class="store.serviceTab === 'healthcheck' ? 'tab_on' : 'tab_off'"
@@ -2227,6 +2229,47 @@
             </column>
 
             <!-- Deployments -->
+            <column class="form_panel" x-show="store.serviceTab === 'migrar'">
+              <text class="label_cap">MIGRAR PARA BANCO COMPARTILHADO</text>
+              <text class="muted">Crie antes o database de destino no servidor compartilhado (aba Databases de lá, marcando "Não mexer em env var"). Mesmo motor e mesmo projeto. A migração é com parada: os serviços que usam este banco ficam fora do ar durante a cópia.</text>
+              <text class="label_cap">DATABASE DE ORIGEM (dentro deste banco)</text>
+              <input class="field_input" x-model="fMig.db" placeholder="nome do database" />
+              <text class="label_cap">DESTINO</text>
+              <select class="select" x-model="fMig.dest">
+                <option value="">database de destino...</option>
+                <template x-for="d in migDests" :key="d.id"><option :value="d.id" x-text="d.name"></option></template>
+              </select>
+              <text class="label_cap">ENV VAR A TROCAR</text>
+              <input class="field_input" x-model="fMig.env" placeholder="padrão DATABASE_URL / MONGODB_URI" />
+              <row class="env_add">
+                <button class="btn_primary" type="button" @click="startMigration()">Migrar</button>
+                <button class="btn_ghost" type="button" @click="loadMigration()">Atualizar</button>
+              </row>
+              <template x-if="mig">
+                <column>
+                  <text class="label_cap" x-text="'ANDAMENTO — ' + mig.status"></text>
+                  <column class="kv_list">
+                    <template x-for="s in migSteps" :key="s.name">
+                      <row class="kv_row">
+                        <text class="env_key" x-text="s.icon"></text>
+                        <text class="kv_val_fill" x-text="s.name"></text>
+                        <text class="muted" x-text="s.detail"></text>
+                      </row>
+                    </template>
+                  </column>
+                  <template x-if="mig.status === 'Completed'">
+                    <column>
+                      <text class="muted">Migração concluída — o banco antigo foi mantido (parado) para rollback.</text>
+                      <row class="env_add">
+                        <button class="btn_ghost" type="button" @click="rollbackMigration()">Reverter</button>
+                        <button class="btn_ghost" type="button" @click="discardOldDb()">Descartar banco antigo</button>
+                      </row>
+                    </column>
+                  </template>
+                </column>
+              </template>
+            </column>
+
             <column class="form_panel" x-show="store.serviceTab === 'databases'">
               <text class="label_cap" x-text="'DATABASES (' + mdbs.length + ')'"></text>
               <text class="muted">Cada database tem usuário próprio, sem acesso aos demais. O projeto consumidor recebe a connection string numa env var.</text>
@@ -2255,6 +2298,7 @@
               <input class="field_input" x-model="fMdb.limit" placeholder="limite de conexões (opcional; não vale no Mongo)" />
               <input class="field_input" x-model="fMdb.timeout" placeholder="timeout de query em ms (opcional; só Postgres)" />
               <label class="check_row"><input type="checkbox" x-model="fMdb.overwrite" /> Sobrescrever a env var se o projeto já a tiver</label>
+              <label class="check_row"><input type="checkbox" x-model="fMdb.skipEnv" /> Não mexer em env var (vou migrar os dados antes)</label>
               <row class="env_add">
                 <button class="btn_primary" type="button" @click="createMdb()">Criar database</button>
               </row>

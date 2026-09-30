@@ -153,6 +153,7 @@ fn views(state, svc, engine) -> RpResponse
 fn list(state, server_service_id) -> RpResponse
 fn create(state, req) -> RpResponse
 fn delete(state, id) -> RpResponse
+fn list_all(state) -> RpResponse
 
 ### manifest_apply.rs — `Command::ManifestApply`: reconcilia manifestos YAML de projeto (IaC) com o banco, com prune e deplo…
 fn handle(state, manifests, prune, deploy) -> RpResponse — Reconcilia uma lista de manifestos YAML de projeto contra o banco.
@@ -171,6 +172,14 @@ fn reconcile_git_providers(db, docs) -> Result<(), RpResponse> — Garante que t
 fn check_git_provider_refs(db, projects) -> Result<(), RpResponse> — Garante que todo `source.git.provider` (nome) referenciado no YAML resolve a um provider existente n…
 fn parse_projects(yaml) -> Result<Vec<ProjectManifest>, String> — Extrai a lista de `ProjectManifest` de um YAML colado (raiz ou projeto único).
 (5 testes)
+
+### migration.rs — `Command::Migration*`: assistente de migração para banco compartilhado (ver `crate::migration`).
+fn err(code, m) -> RpResponse
+fn start(state, req) -> RpResponse
+fn get(state, id) -> RpResponse
+fn list(state, project_id) -> RpResponse
+fn rollback(state, id) -> RpResponse — Reverte uma migração concluída: env var e serviços voltam ao banco antigo.
+fn discard(state, id) -> RpResponse — Descarta o banco antigo (já parado) — **apaga os dados dele**.
 
 ### mod.rs — Um arquivo por `Command` (o `match` que escolhe o handler fica em `api/routes.rs`) e utilitários com…
 fn humanize_db_error(err, subject) -> String — Converte um erro de banco (sqlx) numa mensagem amigável para o usuário.
@@ -344,4 +353,4 @@ type ApiBody = BoxBody<Bytes, std::convert::Infallible>
 struct Asset { route, content_type, etag, no_cache, gz } — Um arquivo do app shell, já processado (minificado + gzipado) em tempo de build — ver `Asset` gerado…
 fn serve(path) -> Option<Response<ApiBody>> — Serve `path` se casar com algum asset embutido do app shell; `None` se a rota não pertencer à web UI…
 const ASSETS
-(6 testes)
+(7 testes)

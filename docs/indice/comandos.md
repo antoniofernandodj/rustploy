@@ -61,6 +61,20 @@ ManagedDatabaseCreate — Cria database + usuário, autoriza o projeto e grava a
 ## / Remove database + usuário do servidor (**apaga os dados**).
 ManagedDatabaseDelete — Remove database + usuário do servidor (**apaga os dados**). | daemon: managed_database::delete | gui: handlers/services | web: screens/service_detail
 
+## / Todos os databases gerenciados (de todos os servidores).
+ManagedDatabaseListAll — Todos os databases gerenciados (de todos os servidores). | daemon: managed_database::list_all | gui: handlers/services | web: screens/service_detail
+
+## / Inicia a migração (corre em segundo plano; acompanhe com `MigrationGet`).
+MigrationStart — Inicia a migração (corre em segundo plano; acompanhe com `MigrationGet… | daemon: migration::start | gui: handlers/services | web: screens/service_detail
+MigrationGet | daemon: migration::get | gui: — | web: —
+MigrationList | daemon: migration::list | gui: handlers/services | web: screens/service_detail
+
+## / Volta a app para o banco antigo (env var + serviços).
+MigrationRollback — Volta a app para o banco antigo (env var + serviços). | daemon: migration::rollback | gui: handlers/services | web: screens/service_detail
+
+## / Remove o banco antigo (**apaga os dados dele**) após o período de observação.
+MigrationDiscard — Remove o banco antigo (**apaga os dados dele**) após o período de obse… | daemon: migration::discard | gui: handlers/services | web: screens/service_detail
+
 ## Webhooks
 GetWebhookUrl | daemon: get_webhook_url | gui: handlers/services | web: —
 RegenerateWebhookToken | daemon: regenerate_webhook_token | gui: handlers/services | web: —
@@ -196,4 +210,4 @@ DeployQueuePause — Pausa (`true`) ou retoma (`false`) a fila global. | daemon:
 
 - Só GUI (4): GetWebhookUrl, RegenerateWebhookToken, JobList, DeployQueueReorder
 - Só webui (2): ServiceCreate, DeployRollback
-- Nem GUI nem webui (27): ServiceList (agente), RecentDeployments (agente), LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, SecretList, ManifestApply, ManifestExport, JobListAll, JobRunHistory, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes (agente), IngressReconcile (agente), EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus (agente), RegistryStatus, RegistryRepoList
+- Nem GUI nem webui (28): ServiceList (agente), RecentDeployments (agente), LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, SecretList, ManifestApply, ManifestExport, JobListAll, JobRunHistory, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes (agente), IngressReconcile (agente), EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus (agente), RegistryStatus, RegistryRepoList

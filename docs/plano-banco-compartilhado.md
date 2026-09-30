@@ -1,7 +1,8 @@
 # Plano: banco compartilhado entre projetos + migração dos bancos antigos
 
-> **Status:** em implementação — ver `docs/plano-acao-banco-compartilhado.md` §8
-> para o que já entrou (Fase 1 = §3 feita em 2026-09-30; o resto ainda é proposta).
+> **Status:** **implementado** em 2026-09-30 (fases 1–4, Postgres/MySQL/MariaDB/
+> MongoDB) — o que foi feito, o que foi verificado e os limites conhecidos estão em
+> `docs/plano-acao-banco-compartilhado.md` §8. O texto abaixo é o desenho original.
 >
 > **Revisão 2** (mesmo dia), por diretriz do usuário:
 > 1. a connection string gerada vai para **env var comum (Plain)**, não para

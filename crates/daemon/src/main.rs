@@ -16,6 +16,7 @@ mod ingress;
 mod jobs;
 mod logs;
 mod maintenance;
+mod migration;
 mod metrics;
 mod ports;
 mod registry;
@@ -286,6 +287,13 @@ async fn main() -> Result<()> {
                 }
             }
         });
+    }
+
+    // Migração deixada "Running" por um daemon que caiu: não retoma, vira Failed.
+    if let Ok(n) = db::migration::fail_orphans(&state.db).await
+        && n > 0
+    {
+        tracing::warn!(n, "migrações interrompidas pelo restart marcadas como Failed");
     }
 
     // Watchdog: detecta containers parados/removidos, tenta restart e redeploy

@@ -212,3 +212,20 @@ pub async fn delete(state: AppState, id: String) -> RpResponse {
     }
     views(&state, &svc, engine).await
 }
+
+pub async fn list_all(state: AppState) -> RpResponse {
+    let servers = match db::services::list_all(&state.db).await {
+        Ok(v) => v,
+        Err(e) => return RpResponse::err("DatabaseError", e.to_string()),
+    };
+    let mut out = vec![];
+    for svc in servers.iter().filter(|s| s.spec.shared.is_some()) {
+        let Some(engine) = Engine::from_kind(svc.spec.db_kind.as_deref()) else {
+            continue;
+        };
+        if let Ok(rows) = db::managed_database::list(&state.db, &svc.id).await {
+            out.extend(rows.iter().map(|r| to_view(svc, engine, r)));
+        }
+    }
+    RpResponse::ManagedDatabases(out)
+}

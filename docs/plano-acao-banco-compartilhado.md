@@ -4,7 +4,7 @@
 > MySQL/MariaDB/Mongo; as 4 fases seguidas; a máquina local é só de teste (sem
 > cuidado especial com o daemon instalado).
 >
-> **Progresso:** ver §8 ao final.
+> **Progresso:** as 4 fases estão concluídas (2026-09-30) — ver §8 ao final.
 > Complementa `docs/plano-banco-compartilhado.md` (o *desenho*); este é o *como
 > executar e testar*. Escopo desta rodada: **só Postgres**.
 
@@ -174,3 +174,42 @@ commits (adiciono só os arquivos de cada fase).
   Limites honestos: timeout de query só no Postgres; conexões não limitáveis no
   Mongo (a UI avisa no placeholder); a senha do admin do Mongo vai na linha de
   comando **dentro** do container (mongosh não lê de env).
+
+- **Fase 4 — concluída (2026-09-30).** `migration.rs` (os 7 passos, em segundo
+  plano), tabela `migration`, comandos `Migration{Start,Get,List,Rollback,Discard}`
+  e `ManagedDatabaseListAll`, aba **Migrar** na GUI e na webui (teste headless).
+  Dump/restore = `docker run --rm` com a **imagem do servidor de destino**, na
+  rede do projeto, em pipe (`pipefail`, senhas por env do processo `docker`,
+  nunca no argv). Em vez de um `Job` do rustploy usei `docker run` direto: não
+  há compose a gerar, e o log vai para a própria migração.
+  **Verificado de verdade**, dados sintéticos, os 4 motores:
+  - **Postgres** (`rdo-itemize`, do zip): 2 schemas, FK, sequences, view, 5000
+    linhas → contagens iguais, sequence preservada (insert no novo dá o próximo
+    id), dono = usuário novo; serviço consumidor parado e religado, env var
+    trocada, banco antigo parado; **Reverter** devolveu env + banco antigo +
+    consumidor; novo `MigrationStart` no destino já cheio **falha limpo** na
+    pré-checagem sem parar nada.
+  - **Postgres** (`gestão`): a `DATABASE_URL` que estava **no serviço `api`**
+    (não no projeto) foi trocada; **Descartar** removeu serviço e containers.
+  - **MySQL 8.4** (tabelas com FK, view, procedure com `DEFINER` de root) e
+    **MariaDB 11**: ok, contagens iguais.
+  - **Mongo 7** (2 coleções, índice): ok. Achado: `mongosh` em pipe entra no
+    REPL e imprime prompts — o "destino vazio" falhava; passou a usar
+    `--file /dev/stdin` (também faz `throw` virar exit code ≠ 0).
+  Limites/pendências honestos: (a) o espaço em disco do destino **não** é
+  checado na pré-checagem; (b) extensões Postgres que exigem superusuário
+  falham no `pg_restore` (a migração aborta e desfaz — o destino fica com o que
+  restou; apague o database e tente de novo); (c) **Descartar** remove o
+  serviço mas os **volumes** Docker dele ficam (a limpeza automática/`prune`
+  cuida); (d) "Subir serviços" só enfileira o redeploy — o healthcheck de cada
+  um aparece na tela do serviço, o assistente não espera; (e) migração
+  interrompida por restart do daemon vira `Failed` e não retoma.
+  Fora do escopo, como no desenho: migrar entre motores, sem parada.
+
+### Como repetir os testes
+
+Daemon de teste: config própria (API 9811, ingress 18080/18443, ACME off, sem
+registry), `RUSTPLOY_CONFIG=… target/debug/rustployd`; importar o
+`rustploy.yml` do zip com `ManifestImport` (`deploy: false`); servidor central
+pelo wizard + `ServiceUpdate` com `shared: {}`. Tudo via `POST /api/rpc` com
+`Authorization: Bearer <token>`.

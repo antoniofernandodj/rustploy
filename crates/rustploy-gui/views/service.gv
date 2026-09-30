@@ -172,6 +172,14 @@
           action="tab:databases"
         />
       </template>
+      <template if="{svc_can_migrate}" equals="true">
+        <TabButton
+          label="Migrar"
+          current="{tab}"
+          target="migrar"
+          action="tab:migrar"
+        />
+      </template>
       <TabButton
         label="Healthcheck"
         current="{tab}"
@@ -893,6 +901,51 @@
           </text>
         </column>
 
+        <!-- Migrar este banco para um servidor compartilhado -->
+        <column if="{tab}" equals="migrar" class="form_panel">
+          <text class="label_cap">MIGRAR PARA BANCO COMPARTILHADO</text>
+          <text class="muted">
+            Crie antes o database de destino no servidor compartilhado (aba
+            Databases de lá, marcando "Não mexer em env var"). Mesmo motor e
+            mesmo projeto. A migração é com parada: os serviços que usam este
+            banco ficam fora do ar durante a cópia.
+          </text>
+          <text class="label_cap">DATABASE DE ORIGEM (dentro deste banco)</text>
+          <input class="field_input" form_control="f_mig_db" value="f_mig_db"
+            on_change="field:f_mig_db" placeholder="nome do database" />
+          <text class="label_cap">DESTINO</text>
+          <select class="select" options="mig_dests" value="f_mig_dest"
+            on_change="field:f_mig_dest" placeholder="database de destino..."
+            labelField="name" valueField="id" />
+          <text class="label_cap">ENV VAR A TROCAR</text>
+          <input class="field_input" form_control="f_mig_env" value="f_mig_env"
+            on_change="field:f_mig_env" placeholder="padrão DATABASE_URL / MONGODB_URI" />
+          <row class="env_add">
+            <button class="btn_primary" on_click="mig_start" text="Migrar" />
+            <button class="btn_ghost" on_click="mig_refresh" text="Atualizar" />
+          </row>
+
+          <template if="{mig_has}" equals="true">
+            <text class="label_cap">ANDAMENTO — {mig_status}</text>
+            <column class="kv_list">
+              <row class="kv_row" for-each="mig_steps" var="s">
+                <text class="env_key">{s.icon}</text>
+                <text class="kv_val_fill">{s.name}</text>
+                <text class="muted">{s.detail}</text>
+              </row>
+            </column>
+            <template if="{mig_can_finish}" equals="true">
+              <text class="muted">
+                Migração concluída — o banco antigo foi mantido (parado) para rollback.
+              </text>
+              <row class="env_add">
+                <button class="btn_ghost" on_click="mig_rollback" text="Reverter" />
+                <button class="btn_ghost" on_click="mig_discard" text="Descartar banco antigo" />
+              </row>
+            </template>
+          </template>
+        </column>
+
         <!-- Databases (servidor de banco compartilhado entre projetos) -->
         <column if="{tab}" equals="databases" class="form_panel">
           <text class="label_cap">DATABASES ({svc_mdbs_count})</text>
@@ -931,6 +984,8 @@
             on_change="field:f_mdb_timeout" placeholder="timeout de query em ms (opcional; só Postgres)" />
           <toggle checked="f_mdb_overwrite" on_toggle="field:f_mdb_overwrite"
             label="  Sobrescrever a env var se o projeto já a tiver" />
+          <toggle checked="f_mdb_skip_env" on_toggle="field:f_mdb_skip_env"
+            label="  Não mexer em env var (vou migrar os dados antes)" />
           <row class="env_add">
             <button class="btn_primary" on_click="mdb_create" text="Criar database" />
             <text class="muted">{svc_action_msg}</text>

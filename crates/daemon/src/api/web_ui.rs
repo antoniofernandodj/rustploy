@@ -726,4 +726,74 @@ mod headless_tests {
 
         assert_eq!(errors(&page).await, Vec::<String>::new(), "sem erros de JS no console");
     }
+
+    /// Aba Migrar: só aparece num banco Compose não compartilhado, lista os
+    /// destinos do mesmo projeto e manda o `MigrationStart` certo.
+    #[tokio::test]
+    async fn aba_migrar_banco_antigo() {
+        let addr = spawn_static_server().await;
+        let (browser, _handler) = launch().await;
+        let page = open_page(&browser, addr).await;
+        seed_connected(&page).await;
+
+        page.evaluate(
+            r#"(() => {
+                const s = Alpine.store('app');
+                window.__rpc = [];
+                s.api.rpc = async (c) => {
+                    window.__rpc.push(c);
+                    if (c === 'ManagedDatabaseListAll') return { ok: true, value: { ManagedDatabases: [
+                        { id: 'mdb_1', project_id: 'prj_a', name: 'rdo', env_var: 'DATABASE_URL' },
+                        { id: 'mdb_2', project_id: 'prj_outro', name: 'x', env_var: 'DATABASE_URL' }] } };
+                    if (c.MigrationList) return { ok: true, value: { Migrations: [{ id: 'mig_1', source_service_id: 'svc_old', status: 'Completed',
+                        steps: [{ name: 'Pré-checagem', state: 'ok', detail: '' }, { name: 'Dump + restore', state: 'ok', detail: '' }] }] } };
+                    return { ok: false, error: 'stub' };
+                };
+                s.api.rpcChecked = async (c) => { window.__rpc.push(c); return { ok: true, value: {} }; };
+                s.toastOk = () => {};
+                s.view = 'service';
+                s.selectedServiceId = 'svc_old';
+                s.serviceTab = 'migrar';
+                s.serviceLoading = false;
+                s.serviceDeployments = [];
+                s.serviceDetail = {
+                    id: 'svc_old', status: 'Running', live_container_id: null,
+                    spec: { name: 'banco', port: 5432, replicas: 1, project_id: 'prj_a', db_kind: 'postgres',
+                        env_vars: [{ key: 'POSTGRES_DB', value: { Plain: 'meu_db' } }], domains: [],
+                        source: { Compose: { content: 'services:\n  rp_banco:\n    image: postgres:18\n' } },
+                        healthcheck: { kind: 'None', interval_secs: 5, timeout_secs: 3, retries: 10, start_period_secs: 5 } },
+                };
+            })()"#,
+        )
+        .await
+        .expect("abre o banco antigo");
+
+        let d = "Alpine.$data(document.querySelector('[x-data=\"serviceDetail\"]'))";
+        let loaded = eval_str(
+            &page,
+            &format!("(async () => {{ const d = {d}; await d.loadMigration(); return JSON.stringify({{ dests: d.migDests.map(x => x.id), db: d.fMig.db, st: d.mig.status, steps: d.migSteps.map(x => x.icon).join('') }}); }})()"),
+        )
+        .await;
+        assert_eq!(
+            loaded,
+            r#"{"dests":["mdb_1"],"db":"meu_db","st":"Completed","steps":"✓✓"}"#,
+            "só destinos do mesmo projeto; origem preenchida do POSTGRES_DB"
+        );
+        assert!(
+            visible(&page, "[x-data=\"serviceDetail\"] input[x-model=\"fMig.db\"]").await,
+            "a aba Migrar deveria mostrar o formulário"
+        );
+        let sent = eval_str(
+            &page,
+            &format!("(async () => {{ window.confirm = () => true; const d = {d}; window.__rpc = []; d.fMig.dest = 'mdb_1'; d.fMig.env = ' URL_BANCO '; await d.startMigration(); return JSON.stringify(window.__rpc.find(c => c.MigrationStart).MigrationStart); }})()"),
+        )
+        .await;
+        let v: serde_json::Value = serde_json::from_str(&sent).unwrap();
+        assert_eq!(v["source_service_id"], "svc_old");
+        assert_eq!(v["source_database"], "meu_db");
+        assert_eq!(v["dest_database_id"], "mdb_1");
+        assert_eq!(v["env_var"], "URL_BANCO", "a env var é aparada");
+
+        assert_eq!(errors(&page).await, Vec::<String>::new(), "sem erros de JS no console");
+    }
 }

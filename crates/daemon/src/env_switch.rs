@@ -12,7 +12,7 @@ use anyhow::Result;
 use shared::{EnvVar, EnvVarValue};
 
 /// Onde a chave estava e o que valia (`None` = não existia ali).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EnvChange {
     /// `None` = env do projeto; `Some(id)` = env desse serviço.
     pub service_id: Option<String>,

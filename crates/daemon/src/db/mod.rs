@@ -9,6 +9,7 @@ pub mod job;
 pub mod job_log;
 pub mod job_run;
 pub mod managed_database;
+pub mod migration;
 pub mod projects;
 pub mod registry;
 pub mod registry_tokens;
@@ -233,6 +234,22 @@ async fn migrate(pool: &SqlitePool) -> Result<()> {
             statement_timeout_ms INTEGER,
             created_at           TEXT NOT NULL,
             UNIQUE (server_service_id, name)
+        );
+
+        -- Assistente de migração para banco compartilhado.
+        CREATE TABLE IF NOT EXISTS migration (
+            id                TEXT PRIMARY KEY,
+            project_id        TEXT NOT NULL,
+            source_service_id TEXT NOT NULL,
+            source_database   TEXT NOT NULL,
+            dest_database_id  TEXT NOT NULL,
+            env_var           TEXT NOT NULL,
+            status            TEXT NOT NULL,
+            steps             TEXT NOT NULL,
+            log               TEXT NOT NULL DEFAULT '[]',
+            env_changes       TEXT NOT NULL DEFAULT '[]',
+            stopped_services  TEXT NOT NULL DEFAULT '[]',
+            created_at        TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS shared_access (

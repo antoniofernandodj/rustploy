@@ -130,6 +130,48 @@ pub struct ManagedDatabaseCreateReq {
     pub statement_timeout_ms: Option<u32>,
 }
 
+/// Um passo do assistente de migração.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MigrationStep {
+    pub name: String,
+    /// `pending` | `running` | `ok` | `failed` | `skipped`
+    pub state: String,
+    #[serde(default)]
+    pub detail: String,
+}
+
+/// Migração de um banco antigo (serviço Compose do projeto) para um database
+/// gerenciado de um servidor compartilhado. Ver `docs/plano-banco-compartilhado.md` §5.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Migration {
+    pub id: String,
+    pub project_id: String,
+    pub source_service_id: String,
+    pub source_database: String,
+    pub dest_database_id: String,
+    pub env_var: String,
+    /// `Running` | `Failed` | `Completed` | `RolledBack` | `Discarded`
+    pub status: String,
+    pub steps: Vec<MigrationStep>,
+    /// Saída do dump/restore e das verificações (as últimas linhas).
+    #[serde(default)]
+    pub log: Vec<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Pedido de migração (`Command::MigrationStart`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MigrationStartReq {
+    pub source_service_id: String,
+    /// Nome do database **dentro** do banco antigo.
+    pub source_database: String,
+    /// Database gerenciado de destino (mesmo projeto, mesmo motor).
+    pub dest_database_id: String,
+    /// Env var que aponta para o banco e será trocada (vazio = padrão do motor).
+    #[serde(default)]
+    pub env_var: String,
+}
+
 /// Projeto autorizado a alcançar um servidor compartilhado.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SharedAccess {

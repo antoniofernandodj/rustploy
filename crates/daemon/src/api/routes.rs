@@ -39,6 +39,12 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::ManagedDatabaseList { .. } => "ManagedDatabaseList",
         Command::ManagedDatabaseCreate(_) => "ManagedDatabaseCreate",
         Command::ManagedDatabaseDelete { .. } => "ManagedDatabaseDelete",
+        Command::ManagedDatabaseListAll => "ManagedDatabaseListAll",
+        Command::MigrationStart(_) => "MigrationStart",
+        Command::MigrationGet { .. } => "MigrationGet",
+        Command::MigrationList { .. } => "MigrationList",
+        Command::MigrationRollback { .. } => "MigrationRollback",
+        Command::MigrationDiscard { .. } => "MigrationDiscard",
         Command::GetWebhookUrl { .. } => "GetWebhookUrl",
         Command::RegenerateWebhookToken { .. } => "RegenerateWebhookToken",
         Command::GetDaemonSettings => "GetDaemonSettings",
@@ -170,6 +176,12 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         }
         Command::ManagedDatabaseCreate(req) => handlers::managed_database::create(state, req).await,
         Command::ManagedDatabaseDelete { id } => handlers::managed_database::delete(state, id).await,
+        Command::ManagedDatabaseListAll => handlers::managed_database::list_all(state).await,
+        Command::MigrationStart(req) => handlers::migration::start(state, req).await,
+        Command::MigrationGet { id } => handlers::migration::get(state, id).await,
+        Command::MigrationList { project_id } => handlers::migration::list(state, project_id).await,
+        Command::MigrationRollback { id } => handlers::migration::rollback(state, id).await,
+        Command::MigrationDiscard { id } => handlers::migration::discard(state, id).await,
         Command::ServiceConnectionInfo { service_id } => {
             handlers::service_connection_info::handle(state, service_id).await
         }

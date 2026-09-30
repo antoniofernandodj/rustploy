@@ -97,6 +97,17 @@ fn delete(db, id) -> Result<()>
 fn delete_for_server(db, server_id) -> Result<()>
 const COLS
 
+### migration.rs — Tabela `migration`: estado do assistente de migração (passos, log, o que foi parado e as env vars tr…
+struct Record { m, env_changes, stopped_services } — Linha completa: a `Migration` pública + o que só o daemon precisa.
+type Tuple = (String, String, String, String, String, String, S…
+fn record(t) -> Result<Record>
+fn save(db, r) -> Result<()>
+fn get(db, id) -> Result<Option<Record>>
+fn list(db, project_id) -> Result<Vec<Record>>
+fn active_for_source(db, source_service_id) -> Result<bool> — Há migração `Running`/`Completed` (ainda não revertida/descartada) deste banco?
+fn fail_orphans(db) -> Result<u64> — Migrações deixadas `Running` por um daemon que caiu no meio: viram `Failed` (o dump não retoma; o us…
+const COLS
+
 ### mod.rs — Conexão SQLite (`Db`) e as migrações do schema, feitas à mão com `add_column_if_missing`.
 type Db = SqlitePool
 fn connect(db_path) -> Result<Db>

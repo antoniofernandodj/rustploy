@@ -50,8 +50,86 @@ document.addEventListener("alpine:init", () => {
           if (this.store.serviceTab === "general") this.initGeneralForm();
           this.loadConnUrl();
           this.loadSharedState();
+          this.loadMigration();
         }
       );
+    },
+
+    // ── Migração para banco compartilhado (aba Migrar) ─────────────────────
+    // Porta de handlers/services.luau (load_migration_state, mig_*). O daemon
+    // roda os passos em segundo plano; enquanto `Running`, repolla a cada 3 s.
+    migDests: [],
+    mig: null,
+    migTimer: null,
+    fMig: { db: "", dest: "", env: "" },
+    get canMigrate() {
+      return this.canShare && !this.svc?.spec?.shared;
+    },
+    get migSteps() {
+      const icon = { ok: "✓", running: "…", failed: "✗", skipped: "–", pending: "·" };
+      return (this.mig?.steps || []).map((s) => ({ ...s, icon: icon[s.state] || "·" }));
+    },
+    async loadMigration() {
+      clearTimeout(this.migTimer);
+      if (!this.canMigrate) {
+        this.mig = null;
+        if (this.store.serviceTab === "migrar") this.store.setServiceTab("general");
+        return;
+      }
+      const spec = this.svc.spec;
+      const id = this.svc.id;
+      if (!this.fMig.db) {
+        const get = (k) => (spec.env_vars || []).find((e) => e.key === k)?.value?.Plain;
+        this.fMig.db = get("POSTGRES_DB") || get("MYSQL_DATABASE") || "";
+      }
+      const [d, m] = await Promise.all([
+        this.store.api.rpc("ManagedDatabaseListAll"),
+        this.store.api.rpc({ MigrationList: { project_id: spec.project_id } }),
+      ]);
+      this.migDests = (d.ok ? d.value?.ManagedDatabases || [] : [])
+        .filter((x) => x.project_id === spec.project_id)
+        .map((x) => ({ id: x.id, name: `${x.name} (${x.env_var})` }));
+      this.mig = (m.ok ? m.value?.Migrations || [] : []).find((x) => x.source_service_id === id) || null;
+      if (this.mig?.status === "Running") {
+        this.migTimer = setTimeout(() => this.svc?.id === id && this.loadMigration(), 3000);
+      }
+    },
+    async startMigration() {
+      if (!this.fMig.dest || !this.fMig.db.trim()) {
+        this.store.toastErr("Escolha o database de destino e informe o de origem");
+        return;
+      }
+      if (!confirm("Os serviços do projeto que usam este banco serão parados durante o dump/restore e subirão de novo no banco novo. O banco antigo é mantido (parado) para rollback. Iniciar?")) return;
+      const r = await this.store.api.rpcChecked({
+        MigrationStart: {
+          source_service_id: this.svc.id,
+          source_database: this.fMig.db.trim(),
+          dest_database_id: this.fMig.dest,
+          env_var: this.fMig.env.trim(),
+        },
+      });
+      if (!r.ok) {
+        this.store.toastErr(r.error);
+        return;
+      }
+      this.store.toastOk("Migração iniciada");
+      await this.loadMigration();
+    },
+    async rollbackMigration() {
+      if (!confirm("A app volta ao banco antigo. O que foi escrito no banco novo depois da migração se perde. Reverter?")) return;
+      const r = await this.store.api.rpcChecked({ MigrationRollback: { id: this.mig.id } });
+      if (!r.ok) this.store.toastErr(r.error);
+      await this.loadMigration();
+    },
+    async discardOldDb() {
+      if (!confirm("O serviço do banco antigo é removido, com os dados dele. Sem volta. Descartar?")) return;
+      const r = await this.store.api.rpcChecked({ MigrationDiscard: { id: this.mig.id } });
+      if (!r.ok) {
+        this.store.toastErr(r.error);
+        return;
+      }
+      this.store.toastOk("Banco antigo descartado");
+      this.store.nav("projects");
     },
 
     // ── Servidor de banco compartilhado (aba Databases) ────────────────────
@@ -62,7 +140,7 @@ document.addEventListener("alpine:init", () => {
     mdbProjects: [],
     mdbUrl: "",
     mdbLabel: "",
-    fMdb: { name: "", project: "", env: "", limit: "", timeout: "", overwrite: false },
+    fMdb: { name: "", project: "", env: "", limit: "", timeout: "", overwrite: false, skipEnv: false },
     get canShare() {
       const k = (this.svc?.spec?.db_kind || "").toLowerCase();
       return (
@@ -123,6 +201,7 @@ document.addEventListener("alpine:init", () => {
           name: f.name.trim(),
           env_var: f.env.trim(),
           overwrite_env: !!f.overwrite,
+          skip_env: !!f.skipEnv,
           connection_limit: num(f.limit),
           statement_timeout_ms: num(f.timeout),
         },

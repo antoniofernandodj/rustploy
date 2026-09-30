@@ -212,6 +212,7 @@ function M.fetch_service_detail(sid: string): ()
     ctx.svc_internal_url_short = fmt.ellipsis(ctx.svc_internal_url, 20)
     ctx.svc_db_kind = spec.db_kind or "—"
     M.load_shared_state(spec, sid)
+    M.load_migration_state(spec, sid)
     ctx.svc_hc = fmt.healthcheck_summary(spec.healthcheck)
     ctx.svc_run_command = spec.run_command or "—"
     ctx.svc_run_args = (spec.run_args and #spec.run_args > 0) and table.concat(spec.run_args, " ") or "—"
@@ -351,6 +352,7 @@ function M.load_shared_state(spec: any, sid: string): ()
         if ctx[k] == nil then ctx[k] = "" end
     end
     if ctx.f_mdb_overwrite == nil then ctx.f_mdb_overwrite = "false" end
+    if ctx.f_mdb_skip_env == nil then ctx.f_mdb_skip_env = "false" end
     if ctx.svc_mdb_projects == nil then ctx.svc_mdb_projects = "[]" end
     local kind = spec.db_kind and string.lower(spec.db_kind) or ""
     local can = SHAREABLE[kind] == true and spec.source.Compose ~= nil
@@ -429,6 +431,7 @@ function mdb_create(): ()
         name = name,
         env_var = Helpers.trim(ctx.f_mdb_env),
         overwrite_env = ctx.f_mdb_overwrite == "true",
+        skip_env = ctx.f_mdb_skip_env == "true",
         connection_limit = tonumber(Helpers.trim(ctx.f_mdb_limit)),
         statement_timeout_ms = tonumber(Helpers.trim(ctx.f_mdb_timeout)),
     }
@@ -460,6 +463,130 @@ function mdb_delete(id: string): ()
     else
         toast{ message = tostring(res), kind = "error" }
     end
+end
+
+-- ── Migração para banco compartilhado (aba Migrar) ──────────────────────────
+-- O daemon roda os 7 passos em segundo plano (pré-checagem, parar escritas,
+-- dump+restore, verificação, trocar env, subir serviços, desligar o antigo).
+-- "Atualizar" relê o andamento; Reverter/Descartar só com a migração concluída.
+
+local STEP_ICON = { ok = "✓", running = "…", failed = "✗", skipped = "–", pending = "·" }
+
+local function default_source_db(spec: any): string
+    for _, key in ipairs({ "POSTGRES_DB", "MYSQL_DATABASE" }) do
+        for _, v in ipairs(spec.env_vars or {}) do
+            if v.key == key and v.value and v.value.Plain then return v.value.Plain end
+        end
+    end
+    return ""
+end
+
+function M.load_migration_state(spec: any, sid: string): ()
+    local api = State.api
+    local kind = spec.db_kind and string.lower(spec.db_kind) or ""
+    local can = SHAREABLE[kind] == true and spec.source.Compose ~= nil and spec.shared == nil
+    ctx.svc_can_migrate = can and "true" or "false"
+    ctx.mig_has = "false"
+    ctx.mig_can_finish = "false"
+    if not can or not api then
+        if ctx.tab == "migrar" then ctx.tab = "general" end
+        return
+    end
+    for _, k in ipairs({ "f_mig_dest", "f_mig_env", "mig_status", "mig_id", "mig_msg" }) do
+        if ctx[k] == nil then ctx[k] = "" end
+    end
+    if ctx.f_mig_db == nil or ctx.f_mig_db == "" then ctx.f_mig_db = default_source_db(spec) end
+    local okd, resd = api:rpc("ManagedDatabaseListAll")
+    local dests = {}
+    if okd and resd.ManagedDatabases then
+        for _, d in ipairs(resd.ManagedDatabases) do
+            if d.project_id == spec.project_id then
+                table.insert(dests, { id = d.id, name = d.name .. " (" .. d.env_var .. ")" })
+            end
+        end
+    end
+    ctx.mig_dests = json.encode(dests)
+    local ok, res = api:rpc{ MigrationList = { project_id = spec.project_id } }
+    if ok and res.Migrations then
+        for _, m in ipairs(res.Migrations) do
+            if m.source_service_id == sid then
+                local steps = {}
+                for _, st in ipairs(m.steps) do
+                    table.insert(steps, {
+                        name = st.name,
+                        icon = STEP_ICON[st.state] or "·",
+                        detail = st.detail or "",
+                    })
+                end
+                ctx.mig_steps = json.encode(steps)
+                ctx.mig_status = m.status
+                ctx.mig_id = m.id
+                ctx.mig_has = "true"
+                ctx.mig_can_finish = m.status == "Completed" and "true" or "false"
+                return
+            end
+        end
+    end
+end
+
+function mig_refresh(): ()
+    M.fetch_service_detail(ctx.selected_service)
+end
+
+function mig_start(): ()
+    if ctx.f_mig_dest == "" or Helpers.trim(ctx.f_mig_db) == "" then
+        toast{ message = "Escolha o database de destino e informe o de origem", kind = "warning" }
+        return
+    end
+    local ok = confirm{
+        title = "Iniciar migração?",
+        message = "Os serviços do projeto que usam este banco serão parados durante o dump/restore e subirão de novo no banco novo. O banco antigo é mantido (parado) para rollback.",
+        confirm_label = "Migrar",
+    }
+    if not ok then return end
+    local ok2, res = State.api:rpc_checked{ MigrationStart = {
+        source_service_id = ctx.selected_service,
+        source_database = Helpers.trim(ctx.f_mig_db),
+        dest_database_id = ctx.f_mig_dest,
+        env_var = Helpers.trim(ctx.f_mig_env),
+    } }
+    if ok2 then
+        toast{ message = "Migração iniciada — use Atualizar para acompanhar", kind = "success" }
+        M.fetch_service_detail(ctx.selected_service)
+    else
+        toast{ message = tostring(res), kind = "error" }
+    end
+end
+
+function mig_rollback(): ()
+    local ok = confirm{
+        title = "Reverter a migração?",
+        message = "A app volta ao banco antigo. O que foi escrito no banco novo depois da migração se perde.",
+        confirm_label = "Reverter",
+        destructive = true,
+    }
+    if not ok then return end
+    local ok2, res = State.api:rpc_checked{ MigrationRollback = { id = ctx.mig_id } }
+    if not ok2 then toast{ message = tostring(res), kind = "error" } end
+    M.fetch_service_detail(ctx.selected_service)
+end
+
+function mig_discard(): ()
+    local ok = confirm{
+        title = "Descartar o banco antigo?",
+        message = "O serviço do banco antigo é removido, com os dados dele. Sem volta.",
+        confirm_label = "Descartar",
+        destructive = true,
+    }
+    if not ok then return end
+    local ok2, res = State.api:rpc_checked{ MigrationDiscard = { id = ctx.mig_id } }
+    if not ok2 then
+        toast{ message = tostring(res), kind = "error" }
+        return
+    end
+    ctx.view = "projects"
+    ctx.selected_service = ""
+    toast{ message = "Banco antigo descartado", kind = "success" }
 end
 
 -- ── Renomear serviço (aba General → "Nome do serviço") ──────────────────────

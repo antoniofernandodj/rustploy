@@ -61,6 +61,7 @@ pub mod manifest_apply;
 pub mod manifest_export;
 pub mod manifest_export_all;
 pub mod manifest_import;
+pub mod migration;
 pub mod ping;
 pub mod project_create;
 pub mod project_delete;

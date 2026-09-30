@@ -127,6 +127,25 @@ pub enum Command {
         id: String,
     },
 
+    /// Todos os databases gerenciados (de todos os servidores).
+    ManagedDatabaseListAll,
+    /// Inicia a migração (corre em segundo plano; acompanhe com `MigrationGet`).
+    MigrationStart(crate::MigrationStartReq),
+    MigrationGet {
+        id: String,
+    },
+    MigrationList {
+        project_id: String,
+    },
+    /// Volta a app para o banco antigo (env var + serviços).
+    MigrationRollback {
+        id: String,
+    },
+    /// Remove o banco antigo (**apaga os dados dele**) após o período de observação.
+    MigrationDiscard {
+        id: String,
+    },
+
     // Webhooks
     GetWebhookUrl {
         service_id: String,
@@ -569,6 +588,8 @@ pub enum Response {
     },
     WebhookUrl(Option<String>),
     SharedAccessList(Vec<SharedAccess>),
+    Migration(Migration),
+    Migrations(Vec<Migration>),
     ManagedDatabases(Vec<ManagedDatabase>),
     ConnectionInfo {
         /// Hostname que resolve na rede do projeto (chave do YAML, alias ou,
