@@ -661,4 +661,69 @@ mod headless_tests {
             "sem erros de JS no console"
         );
     }
+
+    /// Servidor de banco compartilhado: a aba Databases só aparece no serviço
+    /// `shared`, lista os databases e manda o `ManagedDatabaseCreate` certo.
+    #[tokio::test]
+    async fn aba_databases_do_servidor_compartilhado() {
+        let addr = spawn_static_server().await;
+        let (browser, _handler) = launch().await;
+        let page = open_page(&browser, addr).await;
+        seed_connected(&page).await;
+
+        page.evaluate(
+            r#"(() => {
+                const s = Alpine.store('app');
+                window.__rpc = [];
+                s.api.rpc = async (c) => {
+                    window.__rpc.push(c);
+                    if (c === 'ProjectList') return { ok: true, value: { Projects: [{ id: 'prj_a', name: 'app-a' }] } };
+                    if (c.ManagedDatabaseList) return { ok: true, value: { ManagedDatabases: [{ id: 'mdb_1', project_id: 'prj_a', name: 'gestao', env_var: 'DATABASE_URL', connection_url: 'postgresql://gestao:pw@rp-shared-x:5432/gestao' }] } };
+                    return { ok: false, error: 'stub' };
+                };
+                s.api.rpcChecked = async (c) => { window.__rpc.push(c); return { ok: true, value: {} }; };
+                s.view = 'service';
+                s.selectedServiceId = 'svc_1';
+                s.serviceTab = 'databases';
+                s.serviceLoading = false;
+                s.serviceDeployments = [];
+                s.toastOk = () => {};
+                s.serviceDetail = {
+                    id: 'svc_1', status: 'Running', live_container_id: null,
+                    spec: { name: 'pg', port: 5432, replicas: 1, project_id: 'prj_i', db_kind: 'postgres', shared: {},
+                        env_vars: [], domains: [],
+                        source: { Compose: { content: 'services:\n  rp_pg:\n    image: postgres:18\n' } },
+                        healthcheck: { kind: 'None', interval_secs: 5, timeout_secs: 3, retries: 10, start_period_secs: 5 } },
+                };
+            })()"#,
+        )
+        .await
+        .expect("abre o servidor compartilhado");
+
+        assert!(
+            visible(&page, "[x-data=\"serviceDetail\"] input[x-model=\"fMdb.name\"]").await,
+            "a aba Databases deveria mostrar o formulário"
+        );
+        let d = "Alpine.$data(document.querySelector('[x-data=\"serviceDetail\"]'))";
+        let listed = eval_str(
+            &page,
+            &format!("(async () => {{ const d = {d}; await d.loadSharedState(); return JSON.stringify({{ n: d.mdbs.length, proj: d.mdbs[0].project, env: d.mdbs[0].envVar }}); }})()"),
+        )
+        .await;
+        assert_eq!(listed, r#"{"n":1,"proj":"app-a","env":"DATABASE_URL"}"#);
+
+        let sent = eval_str(
+            &page,
+            &format!("(async () => {{ const d = {d}; window.__rpc = []; d.fMdb = {{ name: ' rdo ', project: 'prj_a', env: '', limit: '20', timeout: '', overwrite: true }}; await d.createMdb(); return JSON.stringify(window.__rpc.find(c => c.ManagedDatabaseCreate).ManagedDatabaseCreate); }})()"),
+        )
+        .await;
+        let v: serde_json::Value = serde_json::from_str(&sent).unwrap();
+        assert_eq!(v["name"], "rdo", "o nome é aparado");
+        assert_eq!(v["server_service_id"], "svc_1");
+        assert_eq!(v["connection_limit"], 20);
+        assert!(v["statement_timeout_ms"].is_null(), "vazio vira null");
+        assert_eq!(v["overwrite_env"], true);
+
+        assert_eq!(errors(&page).await, Vec::<String>::new(), "sem erros de JS no console");
+    }
 }

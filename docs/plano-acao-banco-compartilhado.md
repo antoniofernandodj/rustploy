@@ -151,3 +151,26 @@ commits (adiciono só os arquivos de cada fase).
   **UI fica para a Fase 3**: o liga/desliga "compartilhado" e a concessão de
   acesso entram junto com a aba "Databases" (conceder é efeito de criar um
   database para um projeto). Até lá, só pela API.
+
+- **Fase 3 — concluída (2026-09-30), os 4 motores.** `shared_db.rs` (um `Engine`
+  por motor: script de criação/remoção, `wait_ready`, `docker exec -i` com SQL/JS
+  por stdin), tabela `managed_database`, comandos
+  `ManagedDatabase{List,Create,Delete}`, `env_switch.rs` (troca a env var em
+  **todo** lugar onde a chave existe — projeto e serviços — guardando o valor
+  antigo p/ rollback), aba **Databases** + botão "Compartilhar" na GUI e na
+  webui (teste headless novo). `skip_env` no pedido deixa a app no banco antigo
+  até a migração (Fase 4).
+  **Verificado de verdade**, cada motor com um servidor real no `infra`:
+  Postgres 18, MySQL 8.4, MariaDB 11 e Mongo 7 criam database+usuário, o
+  cliente de outra rede entra pelo alias global, o usuário de um database é
+  recusado no do outro (`CONNECT privilege`), limites (`rolconnlimit`,
+  `max_user_connections`, `statement_timeout`) aplicados, conflito de env var
+  recusado sem `overwrite_env`, e a troca atinge o `DATABASE_URL` definido no
+  serviço `api` do `gestão` (não só o do projeto), `DROP` remove de fato.
+  Achados: (1) o deploy marca "Live" antes de MySQL/MariaDB terminarem o init —
+  a criação espera o admin responder (`wait_ready`); (2) **`mongo:8` não sobe em
+  kernel ≥ 6.19** (SERVER-121912; esta máquina é 7.0) — testado com `mongo:7`;
+  (3) `ProvisionError` devolve o stderr do cliente.
+  Limites honestos: timeout de query só no Postgres; conexões não limitáveis no
+  Mongo (a UI avisa no placeholder); a senha do admin do Mongo vai na linha de
+  comando **dentro** do container (mongosh não lê de env).

@@ -86,6 +86,17 @@ fn latest_for_job(db, job_id) -> Result<Option<JobRun>>
 const SELECT_COLS
 (3 testes)
 
+### managed_database.rs — Tabela `managed_database`: databases criados em servidores compartilhados.
+struct Row { id, server_service_id, project_id, name, password, env_var, connection_limit, statement_timeout_ms, created_at }
+type Tuple = (String, String, String, String, String, String, O…
+fn row(t) -> Row
+fn insert(db, r) -> Result<Row>
+fn list(db, server_id) -> Result<Vec<Row>>
+fn get(db, id) -> Result<Option<Row>>
+fn delete(db, id) -> Result<()>
+fn delete_for_server(db, server_id) -> Result<()>
+const COLS
+
 ### mod.rs — Conexão SQLite (`Db`) e as migrações do schema, feitas à mão com `add_column_if_missing`.
 type Db = SqlitePool
 fn connect(db_path) -> Result<Db>

@@ -211,6 +211,7 @@ function M.fetch_service_detail(sid: string): ()
     end
     ctx.svc_internal_url_short = fmt.ellipsis(ctx.svc_internal_url, 20)
     ctx.svc_db_kind = spec.db_kind or "—"
+    M.load_shared_state(spec, sid)
     ctx.svc_hc = fmt.healthcheck_summary(spec.healthcheck)
     ctx.svc_run_command = spec.run_command or "—"
     ctx.svc_run_args = (spec.run_args and #spec.run_args > 0) and table.concat(spec.run_args, " ") or "—"
@@ -333,6 +334,131 @@ local function with_spec(mutate: (spec: any) -> ()): ()
     else
         ctx.svc_action_msg = "erro: " .. res2
         toast{ message = tostring(res2), kind = "error" }
+    end
+end
+
+-- ── Servidor de banco compartilhado (aba Databases) ─────────────────────────
+-- Ver docs/plano-banco-compartilhado.md. O daemon cria database + usuário,
+-- conecta o servidor à rede do projeto e grava a env var nele.
+
+local SHAREABLE = { postgres = true, postgresql = true, mysql = true, mariadb = true, mongodb = true, mongo = true }
+
+-- Preenche svc_can_share / svc_shared e, se compartilhado, a lista de databases
+-- e de projetos (para o <select>).
+function M.load_shared_state(spec: any, sid: string): ()
+    local api = State.api
+    for _, k in ipairs({ "f_mdb_name", "f_mdb_project", "f_mdb_env", "f_mdb_limit", "f_mdb_timeout", "mdb_url", "mdb_url_short" }) do
+        if ctx[k] == nil then ctx[k] = "" end
+    end
+    if ctx.f_mdb_overwrite == nil then ctx.f_mdb_overwrite = "false" end
+    if ctx.svc_mdb_projects == nil then ctx.svc_mdb_projects = "[]" end
+    local kind = spec.db_kind and string.lower(spec.db_kind) or ""
+    local can = SHAREABLE[kind] == true and spec.source.Compose ~= nil
+    ctx.svc_can_share = can and "true" or "false"
+    local shared = can and spec.shared ~= nil
+    ctx.svc_shared = shared and "true" or "false"
+    ctx.svc_mdbs = "[]"
+    ctx.svc_mdbs_count = "0"
+    if not shared or not api then
+        if ctx.tab == "databases" then ctx.tab = "general" end
+        return
+    end
+    local okp, resp = api:rpc("ProjectList")
+    local names = {}
+    local projs = {}
+    if okp and resp.Projects then
+        for _, p in ipairs(resp.Projects) do
+            names[p.id] = p.name
+            table.insert(projs, { id = p.id, name = p.name })
+        end
+    end
+    ctx.svc_mdb_projects = json.encode(projs)
+    local ok, res = api:rpc{ ManagedDatabaseList = { server_service_id = sid } }
+    local rows = {}
+    if ok and res.ManagedDatabases then
+        for _, d in ipairs(res.ManagedDatabases) do
+            table.insert(rows, {
+                id = d.id,
+                name = d.name,
+                project = names[d.project_id] or d.project_id,
+                env_var = d.env_var,
+                url = d.connection_url,
+            })
+        end
+    end
+    ctx.svc_mdbs = #rows > 0 and json.encode(rows) or "[]"
+    ctx.svc_mdbs_count = tostring(#rows)
+end
+
+function shared_enable(): ()
+    with_spec(function(spec: any): ()
+        spec.shared = json.object{}
+    end)
+end
+
+function shared_disable(): ()
+    if tonumber(ctx.svc_mdbs_count) and tonumber(ctx.svc_mdbs_count) > 0 then
+        toast{ message = "Remova os databases deste servidor antes de deixar de compartilhar", kind = "warning" }
+        return
+    end
+    with_spec(function(spec: any): ()
+        spec.shared = nil
+    end)
+end
+
+function mdb_show(id: string): ()
+    for _, d in ipairs(json.decode(ctx.svc_mdbs)) do
+        if d.id == id then
+            ctx.mdb_url = d.url
+            ctx.mdb_url_short = d.name .. " → " .. d.env_var
+            return
+        end
+    end
+end
+
+function mdb_create(): ()
+    local api = State.api
+    local name = Helpers.trim(ctx.f_mdb_name)
+    if name == "" or ctx.f_mdb_project == "" then
+        toast{ message = "Informe o nome e o projeto consumidor", kind = "warning" }
+        return
+    end
+    local req = {
+        server_service_id = ctx.selected_service,
+        project_id = ctx.f_mdb_project,
+        name = name,
+        env_var = Helpers.trim(ctx.f_mdb_env),
+        overwrite_env = ctx.f_mdb_overwrite == "true",
+        connection_limit = tonumber(Helpers.trim(ctx.f_mdb_limit)),
+        statement_timeout_ms = tonumber(Helpers.trim(ctx.f_mdb_timeout)),
+    }
+    ctx.svc_action_msg = "criando database…"
+    local ok, res = api:rpc_checked{ ManagedDatabaseCreate = req }
+    if ok then
+        toast{ message = "Database criado", kind = "success" }
+        ctx.svc_action_msg = "database criado"
+        ctx.f_mdb_name = ""
+        M.fetch_service_detail(ctx.selected_service)
+    else
+        ctx.svc_action_msg = "erro: " .. res
+        toast{ message = tostring(res), kind = "error" }
+    end
+end
+
+function mdb_delete(id: string): ()
+    local ok = confirm{
+        title = "Remover database?",
+        message = "O database e o usuário são apagados do servidor, com todos os dados. Ação irreversível.",
+        confirm_label = "Remover",
+        destructive = true,
+    }
+    if not ok then return end
+    local ok2, res = State.api:rpc_checked{ ManagedDatabaseDelete = { id = id } }
+    if ok2 then
+        ctx.mdb_url = ""
+        M.fetch_service_detail(ctx.selected_service)
+    else
+        toast{ message = tostring(res), kind = "error" }
     end
 end
 

@@ -10,7 +10,7 @@
 ProjectCreate | daemon: project_create | gui: handlers/projects, new_project_window | web: app | agente: catalog
 ProjectDelete | daemon: project_delete | gui: handlers/projects | web: app
 ProjectUpdate | daemon: project_update | gui: handlers/projects | web: app
-ProjectList | daemon: project_list | gui: handlers/projects | web: — | agente: catalog
+ProjectList | daemon: project_list | gui: handlers/projects, handlers/services | web: screens/service_detail | agente: catalog
 ProjectEnvSet | daemon: project_env_set | gui: handlers/projects | web: app
 
 ## Services
@@ -51,6 +51,15 @@ SharedAccessList — Projetos autorizados a alcançar um servidor de banco compa
 ## / Autoriza um projeto: conecta o servidor à rede dele sob o alias global.
 SharedAccessGrant — Autoriza um projeto: conecta o servidor à rede dele sob o alias global… | daemon: shared_access::grant | gui: — | web: —
 SharedAccessRevoke | daemon: shared_access::revoke | gui: — | web: —
+
+## / Databases gerenciados de um servidor compartilhado.
+ManagedDatabaseList — Databases gerenciados de um servidor compartilhado. | daemon: managed_database::list | gui: handlers/services | web: screens/service_detail
+
+## / Cria database + usuário, autoriza o projeto e grava a env var nele.
+ManagedDatabaseCreate — Cria database + usuário, autoriza o projeto e grava a env var nele. | daemon: managed_database::create | gui: handlers/services | web: screens/service_detail
+
+## / Remove database + usuário do servidor (**apaga os dados**).
+ManagedDatabaseDelete — Remove database + usuário do servidor (**apaga os dados**). | daemon: managed_database::delete | gui: handlers/services | web: screens/service_detail
 
 ## Webhooks
 GetWebhookUrl | daemon: get_webhook_url | gui: handlers/services | web: —
@@ -185,6 +194,6 @@ DeployQueuePause — Pausa (`true`) ou retoma (`false`) a fila global. | daemon:
 
 ## Paridade
 
-- Só GUI (5): ProjectList, GetWebhookUrl, RegenerateWebhookToken, JobList, DeployQueueReorder
+- Só GUI (4): GetWebhookUrl, RegenerateWebhookToken, JobList, DeployQueueReorder
 - Só webui (2): ServiceCreate, DeployRollback
 - Nem GUI nem webui (27): ServiceList (agente), RecentDeployments (agente), LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, SecretList, ManifestApply, ManifestExport, JobListAll, JobRunHistory, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes (agente), IngressReconcile (agente), EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus (agente), RegistryStatus, RegistryRepoList

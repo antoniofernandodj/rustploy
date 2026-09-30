@@ -116,6 +116,17 @@ pub enum Command {
         project_id: String,
     },
 
+    /// Databases gerenciados de um servidor compartilhado.
+    ManagedDatabaseList {
+        server_service_id: String,
+    },
+    /// Cria database + usuário, autoriza o projeto e grava a env var nele.
+    ManagedDatabaseCreate(crate::ManagedDatabaseCreateReq),
+    /// Remove database + usuário do servidor (**apaga os dados**).
+    ManagedDatabaseDelete {
+        id: String,
+    },
+
     // Webhooks
     GetWebhookUrl {
         service_id: String,
@@ -558,6 +569,7 @@ pub enum Response {
     },
     WebhookUrl(Option<String>),
     SharedAccessList(Vec<SharedAccess>),
+    ManagedDatabases(Vec<ManagedDatabase>),
     ConnectionInfo {
         /// Hostname que resolve na rede do projeto (chave do YAML, alias ou,
         /// sem certeza, o nome do container).

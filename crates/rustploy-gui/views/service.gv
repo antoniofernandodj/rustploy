@@ -164,6 +164,14 @@
         target="deployments"
         action="tab:deployments"
       />
+      <template if="{svc_shared}" equals="true">
+        <TabButton
+          label="Databases"
+          current="{tab}"
+          target="databases"
+          action="tab:databases"
+        />
+      </template>
       <TabButton
         label="Healthcheck"
         current="{tab}"
@@ -196,6 +204,8 @@
 
         <!-- General (source / build, editável) -->
         <scrollable if="{tab}" equals="general" direction="vertical" class="scroll_fill">
+          <!-- O scrollable só renderiza o PRIMEIRO filho: os forms ficam numa coluna. -->
+          <column width="fill" spacing="12">
 
             <!-- Enquanto o fetch do detalhe (spec + listas conta/repo/branch do
                  Gitea) não completa, mostramos um loading — os Selects só aparecem
@@ -602,6 +612,7 @@
               </template>
               </template>
             </form>
+          </column>
         </scrollable>
 
         <!-- Connection (valores copiáveis) -->
@@ -639,6 +650,16 @@
             <text class="kv_val_fill">{svc_internal_url_short}</text>
             <text>&nbsp;</text>
             <button class="copy_btn" on_click="clipboard:svc_internal_url" text="Copiar" />
+          </row>
+          <row class="kv_row" if="{svc_can_share}" equals="true">
+            <text class="kv_key">Compartilhado</text>
+            <text class="kv_val_fill">{svc_shared}</text>
+            <template if="{svc_shared}" equals="false">
+              <button class="copy_btn" on_click="shared_enable" text="Compartilhar" />
+            </template>
+            <template if="{svc_shared}" equals="true">
+              <button class="copy_btn" on_click="shared_disable" text="Desligar" />
+            </template>
           </row>
           <row class="kv_row" if="{svc_db_kind}" not_equals="—">
             <text class="kv_key">Tipo</text>
@@ -870,6 +891,50 @@
           <text class="muted">
             "Automática" aloca uma porta livre e a libera no firewall do host.
           </text>
+        </column>
+
+        <!-- Databases (servidor de banco compartilhado entre projetos) -->
+        <column if="{tab}" equals="databases" class="form_panel">
+          <text class="label_cap">DATABASES ({svc_mdbs_count})</text>
+          <text class="muted">
+            Cada database tem usuário próprio, sem acesso aos demais. O projeto
+            consumidor recebe a connection string numa env var.
+          </text>
+          <scrollable direction="vertical" class="env_list_scroll">
+            <column class="kv_list">
+              <row class="kv_row" for-each="svc_mdbs" var="d">
+                <button class="env_del" on_click="mdb_delete:{d.id}" text="✕" />
+                <text class="env_sep"> </text>
+                <button class="tab" on_click="mdb_show:{d.id}" text="{d.name}" />
+                <text class="kv_val_fill">→ {d.project}</text>
+                <text class="muted">{d.env_var}</text>
+              </row>
+            </column>
+          </scrollable>
+          <row class="kv_row" if="{mdb_url}" not_equals="">
+            <text class="kv_key">URL</text>
+            <text class="kv_val_fill">{mdb_url_short}</text>
+            <button class="copy_btn" on_click="clipboard:mdb_url" text="Copiar" />
+          </row>
+
+          <text class="label_cap">NOVO DATABASE</text>
+          <input class="field_input" form_control="f_mdb_name" value="f_mdb_name"
+            on_change="field:f_mdb_name" placeholder="nome (a-z, 0-9, _)" />
+          <select class="select" options="svc_mdb_projects" value="f_mdb_project"
+            on_change="field:f_mdb_project" placeholder="projeto consumidor..."
+            labelField="name" valueField="id" />
+          <input class="field_input" form_control="f_mdb_env" value="f_mdb_env"
+            on_change="field:f_mdb_env" placeholder="env var (padrão DATABASE_URL / MONGODB_URI)" />
+          <input class="field_input" form_control="f_mdb_limit" value="f_mdb_limit"
+            on_change="field:f_mdb_limit" placeholder="limite de conexões (opcional; não vale no Mongo)" />
+          <input class="field_input" form_control="f_mdb_timeout" value="f_mdb_timeout"
+            on_change="field:f_mdb_timeout" placeholder="timeout de query em ms (opcional; só Postgres)" />
+          <toggle checked="f_mdb_overwrite" on_toggle="field:f_mdb_overwrite"
+            label="  Sobrescrever a env var se o projeto já a tiver" />
+          <row class="env_add">
+            <button class="btn_primary" on_click="mdb_create" text="Criar database" />
+            <text class="muted">{svc_action_msg}</text>
+          </row>
         </column>
 
         <!-- Deployments -->

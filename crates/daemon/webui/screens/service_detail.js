@@ -49,8 +49,101 @@ document.addEventListener("alpine:init", () => {
         () => {
           if (this.store.serviceTab === "general") this.initGeneralForm();
           this.loadConnUrl();
+          this.loadSharedState();
         }
       );
+    },
+
+    // ── Servidor de banco compartilhado (aba Databases) ────────────────────
+    // Porta de handlers/services.luau (load_shared_state, mdb_*, shared_*).
+    // O daemon cria database + usuário, conecta o servidor à rede do projeto
+    // e grava a env var nele — ver docs/plano-banco-compartilhado.md.
+    mdbs: [],
+    mdbProjects: [],
+    mdbUrl: "",
+    mdbLabel: "",
+    fMdb: { name: "", project: "", env: "", limit: "", timeout: "", overwrite: false },
+    get canShare() {
+      const k = (this.svc?.spec?.db_kind || "").toLowerCase();
+      return (
+        ["postgres", "postgresql", "mysql", "mariadb", "mongodb", "mongo"].includes(k) &&
+        !!this.svc?.spec?.source?.Compose
+      );
+    },
+    get isShared() {
+      return this.canShare && !!this.svc?.spec?.shared;
+    },
+    async loadSharedState() {
+      if (!this.isShared) {
+        this.mdbs = [];
+        if (this.store.serviceTab === "databases") this.store.setServiceTab("general");
+        return;
+      }
+      const id = this.svc.id;
+      const [p, d] = await Promise.all([
+        this.store.api.rpc("ProjectList"),
+        this.store.api.rpc({ ManagedDatabaseList: { server_service_id: id } }),
+      ]);
+      const projects = p.ok ? p.value?.Projects || [] : [];
+      this.mdbProjects = projects.map((x) => ({ id: x.id, name: x.name }));
+      const names = Object.fromEntries(projects.map((x) => [x.id, x.name]));
+      this.mdbs = (d.ok ? d.value?.ManagedDatabases || [] : []).map((x) => ({
+        id: x.id,
+        name: x.name,
+        project: names[x.project_id] || x.project_id,
+        envVar: x.env_var,
+        url: x.connection_url,
+      }));
+    },
+    async setShared(on) {
+      if (!on && this.mdbs.length > 0) {
+        this.store.toastErr("Remova os databases deste servidor antes de deixar de compartilhar");
+        return;
+      }
+      const spec = JSON.parse(JSON.stringify(this.svc.spec));
+      if (on) spec.shared = {};
+      else delete spec.shared;
+      await this.store.saveServiceSpec(spec, on ? "servidor compartilhado" : "compartilhamento desligado");
+    },
+    showMdb(d) {
+      this.mdbUrl = d.url;
+      this.mdbLabel = `${d.name} → ${d.envVar}`;
+    },
+    async createMdb() {
+      const f = this.fMdb;
+      if (!f.name.trim() || !f.project) {
+        this.store.toastErr("Informe o nome e o projeto consumidor");
+        return;
+      }
+      const num = (v) => (String(v).trim() === "" ? null : Number(v));
+      const r = await this.store.api.rpcChecked({
+        ManagedDatabaseCreate: {
+          server_service_id: this.svc.id,
+          project_id: f.project,
+          name: f.name.trim(),
+          env_var: f.env.trim(),
+          overwrite_env: !!f.overwrite,
+          connection_limit: num(f.limit),
+          statement_timeout_ms: num(f.timeout),
+        },
+      });
+      if (!r.ok) {
+        this.store.toastErr(r.error);
+        return;
+      }
+      this.store.toastOk("Database criado");
+      this.fMdb.name = "";
+      await this.loadSharedState();
+    },
+    async deleteMdb(d) {
+      if (!confirm("Remover o database e o usuário do servidor, com todos os dados? Irreversível.")) return;
+      const r = await this.store.api.rpcChecked({ ManagedDatabaseDelete: { id: d.id } });
+      if (!r.ok) {
+        this.store.toastErr(r.error);
+        return;
+      }
+      this.mdbUrl = "";
+      await this.loadSharedState();
     },
 
     // Internal URL vem pronta do daemon (`shared::connection`): host real do
@@ -61,7 +154,7 @@ document.addEventListener("alpine:init", () => {
       if (!id) return;
       try {
         const r = await this.store.api.rpc({ ServiceConnectionInfo: { service_id: id } });
-        if (this.svc?.id === id) this.connUrl = r?.ConnectionInfo?.internal_url || "";
+        if (this.svc?.id === id) this.connUrl = r.ok ? r.value?.ConnectionInfo?.internal_url || "" : "";
       } catch (_) {
         this.connUrl = "";
       }

@@ -36,6 +36,9 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
         Command::SharedAccessList { .. } => "SharedAccessList",
         Command::SharedAccessGrant { .. } => "SharedAccessGrant",
         Command::SharedAccessRevoke { .. } => "SharedAccessRevoke",
+        Command::ManagedDatabaseList { .. } => "ManagedDatabaseList",
+        Command::ManagedDatabaseCreate(_) => "ManagedDatabaseCreate",
+        Command::ManagedDatabaseDelete { .. } => "ManagedDatabaseDelete",
         Command::GetWebhookUrl { .. } => "GetWebhookUrl",
         Command::RegenerateWebhookToken { .. } => "RegenerateWebhookToken",
         Command::GetDaemonSettings => "GetDaemonSettings",
@@ -162,6 +165,11 @@ pub async fn dispatch(state: AppState, cmd: Command) -> RpResponse {
             server_service_id,
             project_id,
         } => handlers::shared_access::revoke(state, server_service_id, project_id).await,
+        Command::ManagedDatabaseList { server_service_id } => {
+            handlers::managed_database::list(state, server_service_id).await
+        }
+        Command::ManagedDatabaseCreate(req) => handlers::managed_database::create(state, req).await,
+        Command::ManagedDatabaseDelete { id } => handlers::managed_database::delete(state, id).await,
         Command::ServiceConnectionInfo { service_id } => {
             handlers::service_connection_info::handle(state, service_id).await
         }

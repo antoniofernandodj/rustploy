@@ -1887,6 +1887,8 @@
                       @click="store.setServiceTab('domains')">Domains</button>
               <button type="button" :class="store.serviceTab === 'deployments' ? 'tab_on' : 'tab_off'"
                       @click="store.setServiceTab('deployments')">Deployments</button>
+              <button type="button" x-show="isShared" :class="store.serviceTab === 'databases' ? 'tab_on' : 'tab_off'"
+                      @click="store.setServiceTab('databases')">Databases</button>
               <button type="button" :class="store.serviceTab === 'healthcheck' ? 'tab_on' : 'tab_off'"
                       @click="initHcForm(); store.setServiceTab('healthcheck')">Healthcheck</button>
               <button type="button" :class="store.serviceTab === 'logs' ? 'tab_on' : 'tab_off'"
@@ -2128,6 +2130,12 @@
                 <text class="kv_val_fill" x-text="connectionInfo.internalUrl"></text>
                 <button class="copy_btn" type="button" @click="copyToClipboard(connectionInfo.internalUrl)">Copiar</button>
               </row>
+              <row class="kv_row" x-show="canShare">
+                <text class="kv_key">Compartilhado</text>
+                <text class="kv_val_fill" x-text="isShared ? 'true' : 'false'"></text>
+                <button class="copy_btn" type="button" x-show="!isShared" @click="setShared(true)">Compartilhar</button>
+                <button class="copy_btn" type="button" x-show="isShared" @click="setShared(false)">Desligar</button>
+              </row>
               <row class="kv_row" x-show="connectionInfo.dbKind">
                 <text class="kv_key">Tipo</text>
                 <text class="kv_val_fill" x-text="connectionInfo.dbKind"></text>
@@ -2219,6 +2227,39 @@
             </column>
 
             <!-- Deployments -->
+            <column class="form_panel" x-show="store.serviceTab === 'databases'">
+              <text class="label_cap" x-text="'DATABASES (' + mdbs.length + ')'"></text>
+              <text class="muted">Cada database tem usuário próprio, sem acesso aos demais. O projeto consumidor recebe a connection string numa env var.</text>
+              <column class="kv_list">
+                <template x-for="d in mdbs" :key="d.id">
+                  <row class="kv_row">
+                    <button class="env_del" type="button" @click="deleteMdb(d)">✕</button>
+                    <button class="tab_off" type="button" @click="showMdb(d)" x-text="d.name"></button>
+                    <text class="kv_val_fill" x-text="'→ ' + d.project"></text>
+                    <text class="muted" x-text="d.envVar"></text>
+                  </row>
+                </template>
+              </column>
+              <row class="kv_row" x-show="mdbUrl">
+                <text class="kv_key">URL</text>
+                <text class="kv_val_fill" x-text="mdbLabel"></text>
+                <button class="copy_btn" type="button" @click="copyToClipboard(mdbUrl)">Copiar</button>
+              </row>
+              <text class="label_cap">NOVO DATABASE</text>
+              <input class="field_input" x-model="fMdb.name" placeholder="nome (a-z, 0-9, _)" />
+              <select class="select" x-model="fMdb.project">
+                <option value="">projeto consumidor...</option>
+                <template x-for="p in mdbProjects" :key="p.id"><option :value="p.id" x-text="p.name"></option></template>
+              </select>
+              <input class="field_input" x-model="fMdb.env" placeholder="env var (padrão DATABASE_URL / MONGODB_URI)" />
+              <input class="field_input" x-model="fMdb.limit" placeholder="limite de conexões (opcional; não vale no Mongo)" />
+              <input class="field_input" x-model="fMdb.timeout" placeholder="timeout de query em ms (opcional; só Postgres)" />
+              <label class="check_row"><input type="checkbox" x-model="fMdb.overwrite" /> Sobrescrever a env var se o projeto já a tiver</label>
+              <row class="env_add">
+                <button class="btn_primary" type="button" @click="createMdb()">Criar database</button>
+              </row>
+            </column>
+
             <column class="panel_fill" x-show="store.serviceTab === 'deployments'">
               <row class="thead">
                 <text class="th col_state">ESTADO</text>

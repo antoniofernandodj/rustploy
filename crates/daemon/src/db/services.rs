@@ -295,6 +295,7 @@ pub async fn update_status(
 pub async fn delete(db: &Db, id: &str) -> Result<bool> {
     // Servidor compartilhado removido: os acessos dele não valem mais.
     super::shared_access::delete_for_server(db, id).await?;
+    super::managed_database::delete_for_server(db, id).await?;
     let rows_affected = sqlx::query("DELETE FROM service WHERE id = ?")
         .bind(id)
         .execute(db)

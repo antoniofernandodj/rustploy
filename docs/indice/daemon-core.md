@@ -51,6 +51,12 @@ fn restore_snapshot(db, backup_dir, snapshot) -> anyhow::Result<usize>
 fn cleanup_old(backup_dir) -> anyhow::Result<()>
 const _
 
+### env_switch.rs — Troca de uma env var de conexão (`DATABASE_URL`…) num projeto, com o valor antigo guardado para roll…
+struct EnvChange { service_id, key, previous } — Onde a chave estava e o que valia (`None` = não existia ali).
+fn is_defined(db, project_id, key) -> Result<bool> — A chave já está definida no projeto ou em algum serviço dele?
+fn switch(db, project_id, key, value) -> Result<Vec<EnvChange>> — Grava `value` (Plain) em todo lugar onde `key` existe; se em nenhum, no projeto.
+fn restore(db, project_id, changes) -> Result<()> — Desfaz [`switch`]: devolve o valor antigo (ou remove a chave criada).
+
 ### event_bus.rs — Bus de eventos em memória (broadcast): o que alimenta o SSE `/api/events` dos clientes.
 struct EventBus { sender }
 impl EventBus
@@ -115,6 +121,21 @@ impl SecretsManager
   fn delete(project_id, name) -> Result<()>
   fn list_names(project_id) -> Result<Vec<String>>
 fn generate_key() -> Result<String>
+
+### shared_db.rs — Provisionamento de database + usuário dentro de um servidor de banco compartilhado, por motor, via `…
+enum Engine { Postgres, MySql, MariaDb, Mongo }
+impl Engine
+  fn from_kind(kind) -> Option<Self>
+  fn default_env_var() -> &'static str — Nome da env var padrão da connection string no projeto consumidor.
+  fn kind_id() -> &'static str — `db_kind` que `shared::connection` entende.
+  fn admin_sh() -> &'static str — Script `sh` que abre o cliente de administração (lê o SQL/JS do stdin).
+fn validate_name(name) -> Result<()> — Nome de database/usuário: `[a-z][a-z0-9_]*`, até 32 chars (limite do usuário no MySQL).
+fn generate_password() -> Result<String> — Senha aleatória alfanumérica (segura em SQL, JS e URL sem escapes).
+fn create_script(e, name, pass, conn_limit, stmt_timeout_ms) -> String — Script de criação: database, usuário com acesso só a ele e limites.
+fn drop_script(e, name) -> String — Script de remoção (**apaga os dados**).
+fn wait_ready(e, container, tries) -> Result<()> — Espera o administrador do servidor responder.
+fn exec(e, container, script) -> Result<String> — Roda `script` no cliente de administração dentro de `container`.
+(3 testes)
 
 ### watchdog.rs — Watchdog dos serviços no ar: checa se o container roda e passa no healthcheck, reinicia com limite d…
 struct ServiceState { last_check, consecutive_failures, restart_attempts }

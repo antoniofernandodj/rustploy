@@ -88,6 +88,48 @@ pub struct ServiceSpec {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct SharedServerConfig {}
 
+/// Database (e usuário dedicado) criado para um projeto dentro de um servidor
+/// compartilhado. A senha nunca vai para o cliente: quem a usa é a env var do
+/// projeto consumidor (e `connection_url`, já montada pelo daemon).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ManagedDatabase {
+    pub id: String,
+    pub server_service_id: String,
+    pub project_id: String,
+    /// Nome do database **e** do usuário (`[a-z0-9_]`, ≤ 32).
+    pub name: String,
+    /// Env var do projeto que recebeu a connection string.
+    pub env_var: String,
+    pub connection_limit: Option<u32>,
+    pub statement_timeout_ms: Option<u32>,
+    /// `postgresql://usuario:senha@<alias>:5432/database` (como o projeto a vê).
+    pub connection_url: String,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Pedido de novo database gerenciado (`Command::ManagedDatabaseCreate`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ManagedDatabaseCreateReq {
+    pub server_service_id: String,
+    pub project_id: String,
+    pub name: String,
+    /// Vazio = padrão do motor (`DATABASE_URL`; Mongo: `MONGODB_URI`).
+    #[serde(default)]
+    pub env_var: String,
+    /// Sobrescreve a env var se o projeto já a tiver (definida no projeto ou
+    /// num serviço). Sem isto, a criação recusa.
+    #[serde(default)]
+    pub overwrite_env: bool,
+    /// Não mexe em env var nenhuma (o assistente de migração troca a conexão
+    /// só depois de copiar os dados; antes disso a app segue no banco antigo).
+    #[serde(default)]
+    pub skip_env: bool,
+    #[serde(default)]
+    pub connection_limit: Option<u32>,
+    #[serde(default)]
+    pub statement_timeout_ms: Option<u32>,
+}
+
 /// Projeto autorizado a alcançar um servidor compartilhado.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SharedAccess {

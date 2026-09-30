@@ -101,7 +101,7 @@ handlers: window
 
 ### service.gv — Detalhe de um serviço: cabeçalho com ações (deploy, stop, reload) e as abas General (fonte), Connect…
 <component>
-handlers: adv_save, archive_upload, clipboard, compose_cancel, compose_save, delete_deployment, dep_logs, dom_add, dom_del, dom_hostport_auto, dom_hostport_save, env_add, env_del, env_export, env_import, env_reorder, env_text_cancel, env_text_toggle, field, gen_save, gitea_provider_pick, gitea_repo_pick, hc_save, open_logs_window, open_project, pdc_add, pdc_del, pdc_reorder, regen_webhook, save_service_name, svc_deploy, svc_rebuild, svc_reload, svc_rename_apontar, svc_stop
+handlers: adv_save, archive_upload, clipboard, compose_cancel, compose_save, delete_deployment, dep_logs, dom_add, dom_del, dom_hostport_auto, dom_hostport_save, env_add, env_del, env_export, env_import, env_reorder, env_text_cancel, env_text_toggle, field, gen_save, gitea_provider_pick, gitea_repo_pick, hc_save, mdb_create, mdb_delete, mdb_show, open_logs_window, open_project, pdc_add, pdc_del, pdc_reorder, regen_webhook, save_service_name, shared_disable, shared_enable, svc_deploy, svc_rebuild, svc_reload, svc_rename_apontar, svc_stop
 
 ### shell.gv — Casca do app conectado: sidebar, topbar e as views de projeto (Deployments, Projects, serviços de um…
 <component>

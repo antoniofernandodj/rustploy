@@ -7,6 +7,7 @@ mod db;
 mod deploy;
 mod docker;
 mod env_backup;
+mod env_switch;
 mod event_bus;
 mod firewall;
 mod git_providers;
@@ -19,6 +20,7 @@ mod metrics;
 mod ports;
 mod registry;
 mod secrets;
+mod shared_db;
 mod watchdog;
 
 use mimalloc::MiMalloc;

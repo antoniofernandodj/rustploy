@@ -8,6 +8,7 @@ pub mod git_providers;
 pub mod job;
 pub mod job_log;
 pub mod job_run;
+pub mod managed_database;
 pub mod projects;
 pub mod registry;
 pub mod registry_tokens;
@@ -220,6 +221,20 @@ async fn migrate(pool: &SqlitePool) -> Result<()> {
 
         -- Projetos autorizados a alcançar um servidor de banco compartilhado
         -- (ver docs/plano-banco-compartilhado.md §2.3).
+        -- Databases/usuários criados dentro de um servidor compartilhado.
+        CREATE TABLE IF NOT EXISTS managed_database (
+            id                   TEXT PRIMARY KEY,
+            server_service_id    TEXT NOT NULL,
+            project_id           TEXT NOT NULL,
+            name                 TEXT NOT NULL,
+            password             TEXT NOT NULL,
+            env_var              TEXT NOT NULL,
+            connection_limit     INTEGER,
+            statement_timeout_ms INTEGER,
+            created_at           TEXT NOT NULL,
+            UNIQUE (server_service_id, name)
+        );
+
         CREATE TABLE IF NOT EXISTS shared_access (
             server_service_id TEXT NOT NULL,
             project_id        TEXT NOT NULL,

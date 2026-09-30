@@ -56,6 +56,7 @@ pub mod job_run_history;
 pub mod job_run_now;
 pub mod job_update;
 pub mod logs_get;
+pub mod managed_database;
 pub mod manifest_apply;
 pub mod manifest_export;
 pub mod manifest_export_all;
