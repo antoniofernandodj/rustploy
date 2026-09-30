@@ -57,7 +57,7 @@ fn extract_percent(line) -> u8 — Extracts the integer percentage from a git pr
 
 ### queue.rs — Fila **global** de deploys: no máximo um deploy rodando por vez no daemon.
 struct QueueInner { queued, running, paused }
-struct DeployQueue { inner, notify } — Handle compartilhado da fila (fica no `AppState`).
+struct DeployQueue { inner, notify, slot, paused_tx } — Handle compartilhado da fila (fica no `AppState`).
 impl DeployQueue
   fn new() -> Arc<Self>
   fn enqueue(dep_id) — Enfileira um deployment e acorda o worker.
@@ -66,12 +66,16 @@ impl DeployQueue
   fn reorder(order) — Reordena a fila para a ordem dada.
   fn set_paused(paused) — Pausa/retoma a fila.
   fn snapshot() -> (Option<String>, Vec<String>, bool) — Snapshot para o handler de status: `(running, queued_em_ordem, paused)`.
+  fn has_ready() -> bool — Há algo na fila e ela não está pausada?
+  fn acquire_next() -> (OwnedSemaphorePermit, String) — Espera a vaga e o próximo deploy da fila, nesta ordem: só depois de ter a vaga o deployment sai da f…
+  fn acquire_job_slot() -> OwnedSemaphorePermit — A vaga para um **job avulso**: espera a fila estar despausada e a vaga livre, em ordem de chegada.
+  fn try_job_slot_now() -> Option<OwnedSemaphorePermit> — Versão sem espera de [`acquire_job_slot`]: `None` se a vaga está ocupada ou a fila pausada (o chamad…
   fn take_next() -> Option<String> — Tira o próximo da fila e marca como running.
   fn clear_running()
   fn wait()
 fn run_worker(state) — Worker único da fila global.
 fn run_one(state, dep_id) — Roda um deployment: marca o serviço como `Deploying`, spawna o executor como task (guardando o `Abor…
-(5 testes)
+(11 testes)
 
 ### recovery.rs — Recuperação no boot: aborta deploys interrompidos, reconcilia status com o Docker e restaura as rota…
 fn recover(db, docker, ingress, bus, secrets, tls, db_path, drain_secs, registry_internal_token) -> Vec<String> — Recuperação no boot: devolve os deployments que estavam só na fila (para re-enfileirar), aborta os q…
@@ -83,14 +87,21 @@ fn restore_routes(db, docker, ingress, tls) — Recria no ingress as rotas de do
 ## crates/daemon/src/jobs/
 
 ### mod.rs — Jobs one-shot (Schedules): execução (`runner`) e agendamento (`scheduler`).
+fn recover_interrupted(db) -> anyhow::Result<usize> — Fecha, como **interrompidas**, as execuções que ficaram sem fim: um daemon que acabou de subir não t…
+const INTERRUPTED_EXIT_CODE — Exit code de uma execução interrompida por reinício (o mesmo `-1` que o runner grava quando a execuç…
+(1 testes)
 
 ### runner.rs — Execução de um `Job` (tarefa one-shot via docker-compose): resolve rede + env vars do serviço gatilh…
 struct JobRunner { db, docker, bus, secrets, db_path, registry_internal_token }
 fn spawn(state, job) -> Result<JobRun> — Cria o `job_run` e dispara a execução em background (`tokio::spawn`) — usado tanto pelo `scheduler_l…
+fn esperar_vaga(queue, cancel_rx, avisar_espera) -> Option<OwnedSemaphorePermit> — Espera a vaga única da fila (ver [`DeployQueue::acquire_job_slot`]).
 impl JobRunner
   fn run(job, run_id, cancel_rx)
   fn run_inner_mirrored(job, run_id, mirror_deployment, cancel_rx) -> Result<i32> — Roda `job` até o `main_service` terminar e devolve o exit code — sem tocar em `job.recurrence`/`resc…
+  fn linha(job_id, run_id, texto) — Uma linha no log da execução (banco + evento ao vivo).
+  fn cancelar_antes_de_comecar(job, run_id) — Cancelada enquanto esperava a vez: nunca começou.
   fn reschedule(job)
+(4 testes)
 
 ### scheduler.rs — Ticker de agendamento dos jobs one-shot — mesmo formato de `metrics.rs`/`env_backup.rs`: `tokio::tim…
 fn scheduler_loop(state)

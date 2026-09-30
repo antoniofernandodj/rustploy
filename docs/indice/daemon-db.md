@@ -78,11 +78,13 @@ type JobRunRow = (String, String, DateTime<Utc>, Option<DateTime<Ut…
 fn row_to_job_run(row) -> JobRun
 fn create(db, job_id) -> Result<JobRun>
 fn finish(db, id, exit_code) -> Result<Option<JobRun>> — Fecha uma execução com o exit code do processo `docker compose`.
+fn has_unfinished(db, job_id) -> Result<bool> — Há execução deste job **sem fim** — esperando a vez na fila ou rodando? O agendador usa para não emp…
+fn list_unfinished(db) -> Result<Vec<JobRun>> — Todas as execuções sem fim, de qualquer job.
 fn get(db, id) -> Result<Option<JobRun>>
 fn list_for_job(db, job_id, limit) -> Result<Vec<JobRun>>
 fn latest_for_job(db, job_id) -> Result<Option<JobRun>>
 const SELECT_COLS
-(2 testes)
+(3 testes)
 
 ### mod.rs — Conexão SQLite (`Db`) e as migrações do schema, feitas à mão com `add_column_if_missing`.
 type Db = SqlitePool

@@ -340,6 +340,7 @@
 - plano-fila-deploys.md — Plano: fila global de deploys (um por vez), visível e gerenciável
 - plano-file-io-luau-e-geometria.md — Plano: I/O de arquivo no Luau + geometria da janela fora do Rust
 - plano-indice-de-codigo.md — Plano: índice de código para busca barata
+- plano-jobs-na-fila-de-deploy.md — Plano: jobs e deploys na mesma fila (uma coisa por vez)
 - plano-limpeza-automatica-docker.md — Limpeza automática do Docker: liberar espaço em disco sozinho, todos os dias
 - plano-multi-login-clients.md — Plano: login multi-servidor no client iced + login simplificado na webui
 - plano-nome-gravado-rede-e-stack.md — Plano: nome de rede e de stack Compose gravados, não derivados
