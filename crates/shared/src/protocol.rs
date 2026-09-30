@@ -102,6 +102,20 @@ pub enum Command {
         service_id: String,
     },
 
+    /// Projetos autorizados a alcançar um servidor de banco compartilhado.
+    SharedAccessList {
+        server_service_id: String,
+    },
+    /// Autoriza um projeto: conecta o servidor à rede dele sob o alias global.
+    SharedAccessGrant {
+        server_service_id: String,
+        project_id: String,
+    },
+    SharedAccessRevoke {
+        server_service_id: String,
+        project_id: String,
+    },
+
     // Webhooks
     GetWebhookUrl {
         service_id: String,
@@ -543,6 +557,7 @@ pub enum Response {
         uptime_secs: u64,
     },
     WebhookUrl(Option<String>),
+    SharedAccessList(Vec<SharedAccess>),
     ConnectionInfo {
         /// Hostname que resolve na rede do projeto (chave do YAML, alias ou,
         /// sem certeza, o nome do container).

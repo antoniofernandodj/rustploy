@@ -71,7 +71,9 @@ fn connection_url(db_kind, t) -> String — URI padrão (`scheme://user:senha@ho
 fn credentials(db_kind, get) — `(database, usuário, senha, authSource)` de um banco/broker, lidos das env vars nas convenções que o…
 fn compose_services(content) -> Vec<(String, Option<String>)> — Serviços declarados num YAML de Compose: `(chave, imagem)`, na ordem.
 fn compose_host(content, ingress_service, db_kind) -> Option<String> — Host (chave do serviço no YAML) que recebe a conexão numa stack Compose: `ingress_service` se preenc…
-(5 testes)
+fn is_sql_or_mongo(db_kind) -> bool — Bancos que podem ser servidor compartilhado / ter databases gerenciados.
+fn validate_shared_rules(name, source, db_kind, shared) -> Result<(), String> — Regras do spec ligadas ao banco compartilhado, checadas onde o spec é gravado: (1) nenhum nome de se…
+(6 testes)
 
 ### lib.rs — Tipos compartilhados entre daemon e GUI (modelos, protocolo, config, manifest, templates) e os nomes…
 fn compose_project_name(svc_id, svc_name) -> String — Nome de stack Compose no formato **legado**, derivado a cada uso: primeiros 8 caracteres do ID (time…
@@ -81,7 +83,9 @@ fn new_project_network_name(project_id) -> String — Nome de rede Docker de um 
 fn compose_safe(name) -> String — Nome de serviço reduzido ao que o Docker Compose aceita num nome de projeto (ASCII minúsculo, dígito…
 fn app_container_base(svc_id, svc_name) -> String — Base do nome de container de um serviço Application: `rp_<id8>_<safe>`.
 fn app_network_alias(svc_name) -> String — Hostname de um serviço Application **dentro da rede do projeto**: `rp_<safe>`.
-(7 testes)
+fn shared_alias(compose_project) -> String — Alias DNS **global** de um servidor de banco compartilhado, o único nome dele que atravessa a rede d…
+const SHARED_ALIAS_PREFIX — Prefixo reservado: nenhum serviço/chave de Compose pode começar com ele.
+(8 testes)
 
 ### manifest.rs — Infra-as-Code: structs do manifesto declarativo (`rustploy.yml`).
 struct ServerManifest { api_version, projects } — Manifesto raiz (agregador): vários projetos, inline ou via `include:`.
@@ -94,7 +98,7 @@ struct ServiceEnvDoc { env }
 enum ProjectEntry { Include, Inline } — Uma entrada do manifesto raiz: projeto inline OU referência a um arquivo.
 struct ProjectManifest { api_version, project, services } — Manifesto de um único projeto (`project:` + `services:`).
 struct ProjectMeta { name, description, env }
-struct ServiceManifest { name, source, port, host_port, domain, tls, env, volumes, healthcheck, replicas, resources, command, args, db }
+struct ServiceManifest { name, source, port, host_port, domain, tls, env, volumes, healthcheck, replicas, resources, command, args, db, shared }
 struct SourceManifest { registry, git, compose, compose_ingress } — Origem do serviço: exatamente uma das três chaves deve estar presente.
 struct GitManifest { url, branch, root_path, dockerfile, context, build_stage, submodules, watch_paths, username, credentials, provider }
 struct HealthcheckManifest { kind, path, status, interval, timeout, retries, start_period }
@@ -148,7 +152,9 @@ impl std::fmt::Display for ResourceActionKind
 
 ### models.rs — Modelos de domínio: projeto, `ServiceSpec` e suas fontes, deployment e estados, jobs, healthcheck, m…
 struct Project { id, name, description, env_vars, env_comments, created_at }
-struct ServiceSpec { name, project_id, source, port, host_port, domain, tls_enabled, env_vars, env_comments, volumes, healthcheck, replicas, resources, run_command, run_args, db_kind, domains, pre_deploy_job_id, pre_deploy_job_ids }
+struct ServiceSpec { name, project_id, source, port, host_port, domain, tls_enabled, env_vars, env_comments, volumes, healthcheck, replicas, resources, run_command, run_args, db_kind, domains, pre_deploy_job_id, pre_deploy_job_ids, shared }
+struct SharedServerConfig {  } — Configuração de um servidor de banco compartilhado.
+struct SharedAccess { server_service_id, project_id, network, alias } — Projeto autorizado a alcançar um servidor compartilhado.
 struct DomainRoute { domain, port, tls } — Uma rota HTTP de domínio de um serviço: qual domínio, para qual porta do container e com ou sem TLS.
 impl DomainRoute
   fn container_port(default) -> u16 — Porta de container efetiva (a própria, ou a `port` padrão do serviço).
@@ -236,14 +242,14 @@ impl std::fmt::Display for ServiceStatus
 (21 testes)
 
 ### protocol.rs — Protocolo da API: `Command` (o que o cliente pede), `Response` e `Event` (o que o SSE entrega).
-enum Command { ProjectCreate, ProjectDelete, ProjectUpdate, ProjectList, ProjectEnvSet, ServiceCreate, ServiceUpdate, ServiceDelete, ServiceList, ServiceGet, DeployStart, DeployAbort, DeployRollback, DeployHistory, DeployDelete, ServiceStop, ServiceReload, RecentDeployments, GetBuildLogs, LogsGet, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, ServiceConnectionInfo, GetWebhookUrl, RegenerateWebhookToken, GetDaemonSettings, SetDaemonSettings, SecretSet, SecretDelete, SecretList, ManifestApply, ManifestExport, ManifestExportAll, ManifestImport, JobCreate, JobUpdate, JobDelete, JobList, JobListAll, JobRunNow, JobRunCancel, JobRunHistory, GetJobLogs, PruneContainers, PruneVolumes, PruneImages, PruneBuildCache, PruneNetworks, DockerCleanupConfigGet, DockerCleanupConfigSet, DockerCleanupRunNow, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, RemoveContainer, RemoveImage, RemoveVolume, RemoveNetwork, StopAllManaged, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DaemonStatus, DeployEngineStatus, GitProviderList, GitProviderCreate, GitProviderDelete, GitOAuthStart, GitRepoList, GitBranchList, WizardCatalog, WizardCreate, Snapshot, RegistryStatus, RegistryRepoList, RegistryTagList, RegistryTagDelete, RegistryRepoDelete, RegistryGc, RegistryTokenCreate, RegistryTokenList, RegistryTokenRevoke, DeployQueuePromote, DeployQueueReorder, DeployQueuePause }
+enum Command { ProjectCreate, ProjectDelete, ProjectUpdate, ProjectList, ProjectEnvSet, ServiceCreate, ServiceUpdate, ServiceDelete, ServiceList, ServiceGet, DeployStart, DeployAbort, DeployRollback, DeployHistory, DeployDelete, ServiceStop, ServiceReload, RecentDeployments, GetBuildLogs, LogsGet, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, ServiceConnectionInfo, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, GetWebhookUrl, RegenerateWebhookToken, GetDaemonSettings, SetDaemonSettings, SecretSet, SecretDelete, SecretList, ManifestApply, ManifestExport, ManifestExportAll, ManifestImport, JobCreate, JobUpdate, JobDelete, JobList, JobListAll, JobRunNow, JobRunCancel, JobRunHistory, GetJobLogs, PruneContainers, PruneVolumes, PruneImages, PruneBuildCache, PruneNetworks, DockerCleanupConfigGet, DockerCleanupConfigSet, DockerCleanupRunNow, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, RemoveContainer, RemoveImage, RemoveVolume, RemoveNetwork, StopAllManaged, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DaemonStatus, DeployEngineStatus, GitProviderList, GitProviderCreate, GitProviderDelete, GitOAuthStart, GitRepoList, GitBranchList, WizardCatalog, WizardCreate, Snapshot, RegistryStatus, RegistryRepoList, RegistryTagList, RegistryTagDelete, RegistryRepoDelete, RegistryGc, RegistryTokenCreate, RegistryTokenList, RegistryTokenRevoke, DeployQueuePromote, DeployQueueReorder, DeployQueuePause }
 enum Event { DeployStateChanged, DeployProgress, BuildLog, LogLine, ContainerMetrics, SystemMetrics, ServiceStatusChanged, DaemonReady, Error, JobLogLine, JobRunStateChanged, DeployQueueChanged, DockerCleanupCompleted }
 impl Event
   fn matches(service_id) -> bool
 enum LogStream { Stdout, Stderr }
 struct LogEntry { stream, line, timestamp }
 struct BuildLogLine { stream, line, timestamp }
-enum Response { Ok, Project, Projects, Service, Services, Deployment, Deployments, Logs, BuildLogs, DeploymentSummaries, DaemonStatus, DeployEngineStatus, Pong, WebhookUrl, ConnectionInfo, DaemonSettings, SecretNames, ManifestReport, Manifest, ManifestBundle, MissingEnvVars, GitProviders, GitProviderInfo, OAuthUrl, GitRepos, GitBranches, PruneResult, DockerCleanupConfig, EnvBackupSnapshots, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, StopAllResult, IngressRoutes, WizardCatalog, Snapshot, Job, Jobs, JobSummaries, JobRun, JobRuns, JobLogs, RegistryStatus, RegistryRepos, RegistryTags, RegistryGcResult, RegistryTokenCreated, RegistryTokens, Err }
+enum Response { Ok, Project, Projects, Service, Services, Deployment, Deployments, Logs, BuildLogs, DeploymentSummaries, DaemonStatus, DeployEngineStatus, Pong, WebhookUrl, SharedAccessList, ConnectionInfo, DaemonSettings, SecretNames, ManifestReport, Manifest, ManifestBundle, MissingEnvVars, GitProviders, GitProviderInfo, OAuthUrl, GitRepos, GitBranches, PruneResult, DockerCleanupConfig, EnvBackupSnapshots, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, StopAllResult, IngressRoutes, WizardCatalog, Snapshot, Job, Jobs, JobSummaries, JobRun, JobRuns, JobLogs, RegistryStatus, RegistryRepos, RegistryTags, RegistryGcResult, RegistryTokenCreated, RegistryTokens, Err }
 impl Response
   fn err(code, message) -> Self
 

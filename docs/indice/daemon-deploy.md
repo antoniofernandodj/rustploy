@@ -84,6 +84,15 @@ fn compose_ingress_ip(docker, svc, net) -> Option<String> — IP do container qu
 fn reconcile_routes(svc, ips, ingress, tls)
 fn restore_routes(db, docker, ingress, tls) — Recria no ingress as rotas de domínio e de porta dos serviços no ar (réplicas live, ou o container d…
 
+### shared_net.rs — Servidor de banco compartilhado: conecta o container dele às redes dos projetos autorizados, sob o a…
+fn alias_of(svc) -> String — Alias global do servidor (`shared::shared_alias` sobre a stack gravada).
+fn server_container(docker, svc) -> Option<String> — Container do servidor: o mesmo que o deploy elege como alvo da stack.
+fn alias_holder(docker, network, alias, me) -> Option<String> — Outro container (≠ `me`) que já responde por `alias` em `network`.
+fn connect_with_alias(docker, container_id, network, alias) -> Result<()> — Conecta `container_id` à rede com `alias` — e só com ele, sem o alias curto do Compose.
+fn connect_to_project(db, docker, svc, container_id, project_id) -> Result<String> — Conecta o servidor à rede de um projeto (cria a rede se preciso).
+fn sync_server(db, docker, svc) -> usize — Garante a conexão do servidor a **todas** as redes autorizadas.
+fn disconnect_from_project(db, docker, svc, project_id) -> Result<()> — Desconecta o servidor da rede de um projeto (revogação de acesso).
+
 ## crates/daemon/src/jobs/
 
 ### mod.rs — Jobs one-shot (Schedules): execução (`runner`) e agendamento (`scheduler`).

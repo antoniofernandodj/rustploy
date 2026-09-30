@@ -149,6 +149,7 @@ type ServiceRow = (String, String, String, String, String, Option<St…
 fn row_to_service(row) -> Result<Service>
 fn parse_status(s) -> ServiceStatus
 fn new_compose_project(db, id, name) -> Result<String> — Nome de stack para um serviço Compose novo: o curto (`rp_<últimos 8 do ID>_<nome>`); se já está em u…
+fn check_shared_rules(spec) -> Result<()> — Regras de nome/`shared` (prefixo `rp-shared-` reservado etc.) — ver `shared::connection::validate_sh…
 fn create(db, spec) -> Result<Service>
 fn list(db, project_id) -> Result<Vec<Service>>
 fn get(db, id) -> Result<Option<Service>>
@@ -164,6 +165,13 @@ fn compose_service_keys(content) -> std::collections::BTreeSet<String> — Chave
 fn backfill_compose_projects(db, live) -> Result<()> — Grava `compose_project` nos serviços Compose que ainda não têm, com o nome **que a stack já usa** — …
 const SELECT_COLS
 (14 testes)
+
+### shared_access.rs — Tabela `shared_access`: quais projetos podem alcançar cada servidor de banco compartilhado.
+fn grant(db, server_id, project_id) -> Result<()>
+fn revoke(db, server_id, project_id) -> Result<bool>
+fn projects_of(db, server_id) -> Result<Vec<String>> — Projetos autorizados num servidor, em ordem de concessão.
+fn delete_for_server(db, server_id) -> Result<()>
+(1 testes)
 
 ### webhook_tokens.rs — Tabela de tokens de webhook de deploy, um por serviço.
 fn get(db, service_id) -> Result<Option<String>>

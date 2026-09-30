@@ -1215,6 +1215,19 @@ impl DeployExecutor {
                 )
                 .await?;
 
+                // Servidor de banco compartilhado: o container acabou de ser
+                // (re)criado, e a recriação desfaz a conexão às redes dos
+                // projetos autorizados — reconecta já, sem esperar o reconcile.
+                if svc.spec.shared.is_some() {
+                    let n = crate::deploy::shared_net::sync_server(&self.db, &self.docker, &svc).await;
+                    self.log_step(
+                        &dep.id,
+                        &svc.id,
+                        &format!("==> Servidor compartilhado conectado a {n} rede(s) de projeto"),
+                    )
+                    .await;
+                }
+
                 // Compose ingress: numa stack só UM container atende o domínio.
                 // Ver `find_compose_ingress_container` — escolhe pelo
                 // `ingress_service` do spec, senão por quem expõe a porta pedida.
@@ -1774,6 +1787,7 @@ mod pre_deploy_check_tests {
             domains: vec![],
             pre_deploy_job_id: None,
             pre_deploy_job_ids,
+            shared: None,
         }
     }
 

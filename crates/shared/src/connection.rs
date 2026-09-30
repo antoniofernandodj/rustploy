@@ -182,6 +182,50 @@ pub fn compose_host(
     }
 }
 
+/// Bancos que podem ser servidor compartilhado / ter databases gerenciados.
+pub fn is_sql_or_mongo(db_kind: Option<&str>) -> bool {
+    matches!(
+        db_kind.map(str::to_ascii_lowercase).as_deref(),
+        Some("postgres" | "postgresql" | "mysql" | "mariadb" | "mongodb" | "mongo")
+    )
+}
+
+/// Regras do spec ligadas ao banco compartilhado, checadas onde o spec é
+/// gravado: (1) nenhum nome de serviço nem chave de Compose pode começar com o
+/// prefixo reservado `rp-shared-` (senão poderia forjar o alias de um servidor
+/// na rede de um projeto); (2) `shared` só vale para banco do wizard, em Compose.
+pub fn validate_shared_rules(
+    name: &str,
+    source: &crate::ServiceSource,
+    db_kind: Option<&str>,
+    shared: bool,
+) -> Result<(), String> {
+    let reserved = |n: &str| n.to_ascii_lowercase().starts_with(crate::SHARED_ALIAS_PREFIX);
+    if reserved(name) {
+        return Err(format!(
+            "o prefixo \"{}\" é reservado para bancos compartilhados",
+            crate::SHARED_ALIAS_PREFIX
+        ));
+    }
+    if let crate::ServiceSource::Compose(c) = source
+        && let Some((k, _)) = compose_services(&c.content).iter().find(|(k, _)| reserved(k))
+    {
+        return Err(format!(
+            "o serviço Compose \"{k}\" usa o prefixo reservado \"{}\"",
+            crate::SHARED_ALIAS_PREFIX
+        ));
+    }
+    if shared {
+        if !is_sql_or_mongo(db_kind) {
+            return Err("só Postgres, MySQL, MariaDB e MongoDB podem ser servidor compartilhado".into());
+        }
+        if !matches!(source, crate::ServiceSource::Compose(_)) {
+            return Err("servidor compartilhado precisa ser um serviço Compose".into());
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -227,6 +271,17 @@ mod tests {
     }
 
     const YAML: &str = "# c\nservices:\n\n  # nota\n  db:\n    image: postgres:18\n    environment:\n      A: 1\n  pooler:\n    image: edoburu/pgbouncer\nvolumes:\n  d:\n";
+
+    #[test]
+    fn prefixo_reservado_e_shared_so_em_banco() {
+        use crate::{ComposeSource, ServiceSource};
+        let c = |y: &str| ServiceSource::Compose(ComposeSource { content: y.into(), ingress_service: None });
+        assert!(validate_shared_rules("ok", &c(YAML), Some("postgres"), true).is_ok());
+        assert!(validate_shared_rules("rp-shared-x", &c(YAML), None, false).is_err());
+        assert!(validate_shared_rules("ok", &c("services:\n  rp-shared-a:\n    image: x\n"), None, false).is_err());
+        assert!(validate_shared_rules("ok", &c(YAML), Some("redis"), true).is_err());
+        assert!(validate_shared_rules("ok", &ServiceSource::Registry { image: "x".into() }, Some("postgres"), true).is_err());
+    }
 
     #[test]
     fn compose_host_regras() {

@@ -214,6 +214,12 @@ pub async fn reconcile(
     };
 
     for svc in services {
+        // Servidor de banco compartilhado: re-liga às redes autorizadas (a
+        // recriação do container, ou o restart do dockerd, desfaz). Barato
+        // quando já está tudo conectado.
+        if svc.spec.shared.is_some() {
+            crate::deploy::shared_net::sync_server(db, docker, &svc).await;
+        }
         let replicas = svc.spec.replicas.max(1);
         let net = match crate::db::projects::network_name(db, &svc.spec.project_id).await {
             Ok(n) => n,

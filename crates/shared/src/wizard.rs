@@ -328,6 +328,7 @@ fn base_spec(
         domains: vec![],
         pre_deploy_job_id: None,
         pre_deploy_job_ids: vec![],
+        shared: None,
     }
 }
 

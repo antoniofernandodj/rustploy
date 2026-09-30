@@ -75,6 +75,30 @@ pub struct ServiceSpec {
     /// [`ServiceSpec::pre_deploy_checks`].
     #[serde(default)]
     pub pre_deploy_job_ids: Vec<String>,
+    /// Se `Some`, este serviço de banco é um **servidor compartilhado**: o
+    /// daemon o conecta às redes dos projetos autorizados (`shared_access`),
+    /// sob o alias global [`shared_alias`](crate::shared_alias). Só vale com
+    /// `db_kind` de banco. Ver `docs/plano-banco-compartilhado.md` §2.3/§4.1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shared: Option<SharedServerConfig>,
+}
+
+/// Configuração de um servidor de banco compartilhado. Hoje só marca o serviço
+/// como tal; é struct (e não `bool`) para receber opções sem quebrar o spec.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct SharedServerConfig {}
+
+/// Projeto autorizado a alcançar um servidor compartilhado.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SharedAccess {
+    pub server_service_id: String,
+    pub project_id: String,
+    /// Nome da rede Docker do projeto (para a UI mostrar onde está conectado).
+    #[serde(default)]
+    pub network: String,
+    /// Alias global pelo qual o projeto enxerga o servidor.
+    #[serde(default)]
+    pub alias: String,
 }
 
 /// Uma rota HTTP de domínio de um serviço: qual domínio, para qual porta do
@@ -568,6 +592,7 @@ mod pre_deploy_gate_tests {
             domains: vec![],
             pre_deploy_job_id,
             pre_deploy_job_ids,
+            shared: None,
         }
     }
 

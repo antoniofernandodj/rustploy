@@ -132,3 +132,22 @@ commits (adiciono só os arquivos de cada fase).
   `postgresql://…@banco:5432/…` (o host é a chave do YAML, **não** `rp_banco`,
   confirmando o palpite errado que o doc de desenho descreve).
   O formato da **URL externa** (JDBC no Postgres) não foi tocado.
+
+- **Fase 2 — concluída (2026-09-30).** `ServiceSpec.shared`, tabela
+  `shared_access`, `deploy/shared_net.rs` (conecta o servidor às redes
+  autorizadas só com o alias `rp-shared-<id8>-<safe>`, derivado da stack
+  gravada — estável no rename), comandos `SharedAccess{List,Grant,Revoke}`,
+  prefixo `rp-shared-` reservado e `shared` só em banco Compose (validado em
+  `db::services::create/update_spec`), campo `shared` no manifesto IaC.
+  Reconexão: após cada `compose up` do servidor e a cada volta do reconcile (30 s,
+  também no boot).
+  **Verificado de verdade** (daemon de teste, manifesto do zip importado, servidor
+  `postgres:18` no projeto `infra`, acesso a `rdo-itemize` e `gestão`): o alias
+  resolve nas duas redes e o psql conecta por ele; `rp_pg_central` (alias
+  curto) **não** vaza; recriar o container reconecta na hora; desconectar à mão
+  é curado pelo reconcile em ≤35 s. Achado no teste: `attach_network_alias`
+  presume o container já na rede (falhava com "not connected"); criei
+  `connect_with_alias` próprio.
+  **UI fica para a Fase 3**: o liga/desliga "compartilhado" e a concessão de
+  acesso entram junto com a aba "Databases" (conceder é efeito de criar um
+  database para um projeto). Até lá, só pela API.

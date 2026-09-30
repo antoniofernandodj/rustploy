@@ -257,6 +257,13 @@ fn handle(state, acme_email, registry_domain) -> RpResponse
 fn provision_existing_domains(state) — Emite certificados para todos os services já em execução com tls_enabled.
 fn save_optional(state, key, value) -> Result<(), RpResponse>
 
+### shared_access.rs — `Command::SharedAccess{List,Grant,Revoke}`: quais projetos alcançam um servidor de banco compartilha…
+fn server(state, id) -> Result<Service, RpResponse>
+fn view(state, svc) -> Vec<SharedAccess>
+fn list(state, server_service_id) -> RpResponse
+fn grant(state, server_service_id, project_id) -> RpResponse
+fn revoke(state, server_service_id, project_id) -> RpResponse
+
 ### wizard.rs — Wizard "Novo serviço" server-side: catálogos (`WizardCatalog`) e criação (`WizardCreate`).
 fn catalog(search) -> RpResponse — Catálogos de bancos/brokers/templates prontos como JSON para o contexto do cliente (`ns_dbs`/`ns_bro…
 fn create(state, req) -> RpResponse — Monta o `ServiceSpec` a partir dos campos coletados pelo wizard e cria o serviço — reaproveitando o …

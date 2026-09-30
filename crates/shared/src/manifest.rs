@@ -197,6 +197,10 @@ pub struct ServiceManifest {
     /// Tipo de banco: postgres | mongodb | mariadb | mysql | redis
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub db: Option<String>,
+    /// Servidor de banco compartilhado entre projetos (ver `ServiceSpec::shared`).
+    /// Os projetos autorizados ficam no banco do daemon, não no manifesto.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub shared: bool,
 }
 
 /// Origem do serviço: exatamente uma das três chaves deve estar presente.
@@ -480,6 +484,7 @@ impl ServiceManifest {
             // check; fica vazio no import/export.
             pre_deploy_job_id: None,
             pre_deploy_job_ids: vec![],
+            shared: self.shared.then(crate::SharedServerConfig::default),
         }
     }
 
@@ -500,6 +505,7 @@ impl ServiceManifest {
             command: spec.run_command.clone(),
             args: spec.run_args.clone(),
             db: spec.db_kind.clone(),
+            shared: spec.shared.is_some(),
         }
     }
 }
@@ -1214,6 +1220,7 @@ services:
             domains: vec![],
             pre_deploy_job_id: None,
             pre_deploy_job_ids: vec![],
+            shared: None,
         };
         let svc = Service {
             id: "svc-1".into(),

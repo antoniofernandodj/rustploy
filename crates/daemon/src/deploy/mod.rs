@@ -6,3 +6,4 @@ pub mod executor;
 pub mod git;
 pub mod queue;
 pub mod recovery;
+pub mod shared_net;

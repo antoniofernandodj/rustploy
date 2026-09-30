@@ -45,6 +45,13 @@ MetricsUnsubscribe | daemon: (inline em routes.rs) | gui: — | web: —
 ## / daemon por `shared::connection`, para GUI e webui não divergirem).
 ServiceConnectionInfo — Host e URL de conexão **dentro** da rede Docker do projeto (montada no… | daemon: service_connection_info | gui: handlers/services | web: screens/service_detail
 
+## / Projetos autorizados a alcançar um servidor de banco compartilhado.
+SharedAccessList — Projetos autorizados a alcançar um servidor de banco compartilhado. | daemon: shared_access::list | gui: — | web: —
+
+## / Autoriza um projeto: conecta o servidor à rede dele sob o alias global.
+SharedAccessGrant — Autoriza um projeto: conecta o servidor à rede dele sob o alias global… | daemon: shared_access::grant | gui: — | web: —
+SharedAccessRevoke | daemon: shared_access::revoke | gui: — | web: —
+
 ## Webhooks
 GetWebhookUrl | daemon: get_webhook_url | gui: handlers/services | web: —
 RegenerateWebhookToken | daemon: regenerate_webhook_token | gui: handlers/services | web: —
@@ -180,4 +187,4 @@ DeployQueuePause — Pausa (`true`) ou retoma (`false`) a fila global. | daemon:
 
 - Só GUI (5): ProjectList, GetWebhookUrl, RegenerateWebhookToken, JobList, DeployQueueReorder
 - Só webui (2): ServiceCreate, DeployRollback
-- Nem GUI nem webui (24): ServiceList (agente), RecentDeployments (agente), LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SecretList, ManifestApply, ManifestExport, JobListAll, JobRunHistory, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes (agente), IngressReconcile (agente), EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus (agente), RegistryStatus, RegistryRepoList
+- Nem GUI nem webui (27): ServiceList (agente), RecentDeployments (agente), LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, SecretList, ManifestApply, ManifestExport, JobListAll, JobRunHistory, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes (agente), IngressReconcile (agente), EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus (agente), RegistryStatus, RegistryRepoList

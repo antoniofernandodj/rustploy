@@ -13,6 +13,10 @@ pub fn humanize_db_error(err: &(impl std::fmt::Display + ?Sized), subject: &str)
     if s.contains("FOREIGN KEY constraint failed") {
         return format!("Operação inválida no {subject}: referência inexistente.");
     }
+    // Regras de validação do próprio rustploy (já em português, sem SQL).
+    if s.contains("reservado") || s.contains("servidor compartilhado") {
+        return s;
+    }
     // Fallback: mensagem genérica, sem vazar o SQL cru.
     format!("Falha ao salvar o {subject}. Tente novamente.")
 }
@@ -79,4 +83,5 @@ pub mod service_reload;
 pub mod service_stop;
 pub mod service_update;
 pub mod set_daemon_settings;
+pub mod shared_access;
 pub mod wizard;

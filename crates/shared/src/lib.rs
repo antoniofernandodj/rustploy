@@ -93,6 +93,31 @@ pub fn app_network_alias(svc_name: &str) -> String {
     format!("rp_{}", normalize_name(svc_name))
 }
 
+/// Alias DNS **global** de um servidor de banco compartilhado, o único nome dele
+/// que atravessa a rede de outro projeto: `rp-shared-<id8>-<safe>`, com `-` no
+/// lugar de `_` (hostname válido em qualquer parser). Derivado do nome da stack
+/// gravado (`compose_project`), que não muda num rename — então a connection
+/// string de quem já usa o servidor também não muda.
+/// Ver `docs/plano-banco-compartilhado.md` §2.3.
+pub fn shared_alias(compose_project: &str) -> String {
+    let rest = compose_project.strip_prefix("rp_").unwrap_or(compose_project);
+    format!("rp-shared-{}", rest.replace('_', "-"))
+}
+
+/// Prefixo reservado: nenhum serviço/chave de Compose pode começar com ele.
+pub const SHARED_ALIAS_PREFIX: &str = "rp-shared-";
+
+#[cfg(test)]
+mod tests_shared_alias {
+    use super::*;
+
+    #[test]
+    fn alias_global_sem_underscore() {
+        assert_eq!(shared_alias("rp_01j9k2ab_meu_banco"), "rp-shared-01j9k2ab-meu-banco");
+        assert_eq!(shared_alias("rp_01j9k2ab_postgres"), "rp-shared-01j9k2ab-postgres");
+    }
+}
+
 #[cfg(test)]
 mod tests_container_names {
     use super::*;

@@ -77,7 +77,20 @@ async fn new_compose_project(db: &Db, id: &str, name: &str) -> Result<String> {
     })
 }
 
+/// Regras de nome/`shared` (prefixo `rp-shared-` reservado etc.) — ver
+/// `shared::connection::validate_shared_rules`.
+fn check_shared_rules(spec: &ServiceSpec) -> Result<()> {
+    shared::connection::validate_shared_rules(
+        &spec.name,
+        &spec.source,
+        spec.db_kind.as_deref(),
+        spec.shared.is_some(),
+    )
+    .map_err(|e| anyhow::anyhow!(e))
+}
+
 pub async fn create(db: &Db, spec: ServiceSpec) -> Result<Service> {
+    check_shared_rules(&spec)?;
     // Unicidade: dois serviços não podem ter o mesmo nome (normalizado) no
     // mesmo projeto — o nome vira o container/DNS `rp_<safe_name>` e o compose
     // project name, então colidiriam. Comparamos por `normalize_name` para
@@ -154,6 +167,7 @@ pub async fn get(db: &Db, id: &str) -> Result<Option<Service>> {
 }
 
 pub async fn update_spec(db: &Db, id: &str, spec: ServiceSpec) -> Result<Option<Service>> {
+    check_shared_rules(&spec)?;
     // Mesma regra de unicidade de `create`, mas ignorando o próprio serviço:
     // um rename não pode colidir (por nome normalizado) com outro serviço do
     // mesmo projeto.
@@ -279,6 +293,8 @@ pub async fn update_status(
 }
 
 pub async fn delete(db: &Db, id: &str) -> Result<bool> {
+    // Servidor compartilhado removido: os acessos dele não valem mais.
+    super::shared_access::delete_for_server(db, id).await?;
     let rows_affected = sqlx::query("DELETE FROM service WHERE id = ?")
         .bind(id)
         .execute(db)
@@ -348,6 +364,7 @@ mod tests {
             domains: vec![],
             pre_deploy_job_id: None,
             pre_deploy_job_ids: vec![],
+            shared: None,
         }
     }
 
