@@ -71,6 +71,29 @@ pub async fn finish(db: &Db, id: &str, exit_code: i32) -> Result<Option<JobRun>>
     get(db, id).await
 }
 
+/// Há execução deste job **sem fim** — esperando a vez na fila ou rodando? O
+/// agendador usa para não empilhar outra do mesmo job. (Depois do boot, toda
+/// execução sem fim está viva: as de antes do restart são fechadas por
+/// `jobs::recover_interrupted`.)
+pub async fn has_unfinished(db: &Db, job_id: &str) -> Result<bool> {
+    let n: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM job_run WHERE job_id = ? AND finished_at IS NULL")
+            .bind(job_id)
+            .fetch_one(db)
+            .await?;
+    Ok(n > 0)
+}
+
+/// Todas as execuções sem fim, de qualquer job.
+pub async fn list_unfinished(db: &Db) -> Result<Vec<JobRun>> {
+    let rows = sqlx::query_as::<_, JobRunRow>(&format!(
+        "SELECT {SELECT_COLS} FROM job_run WHERE finished_at IS NULL ORDER BY started_at ASC"
+    ))
+    .fetch_all(db)
+    .await?;
+    Ok(rows.into_iter().map(row_to_job_run).collect())
+}
+
 pub async fn get(db: &Db, id: &str) -> Result<Option<JobRun>> {
     let row =
         sqlx::query_as::<_, JobRunRow>(&format!("SELECT {SELECT_COLS} FROM job_run WHERE id = ?"))
@@ -134,5 +157,23 @@ mod tests {
         let run = create(&db, "job_1").await.unwrap();
         let finished = finish(&db, &run.id, 1).await.unwrap().unwrap();
         assert_eq!(finished.success, Some(false));
+    }
+
+    #[tokio::test]
+    async fn has_unfinished_e_list_unfinished_acompanham_o_ciclo_da_execucao() {
+        let db = mem_db().await;
+        assert!(!has_unfinished(&db, "j").await.unwrap());
+        let run = create(&db, "j").await.unwrap();
+        assert!(
+            has_unfinished(&db, "j").await.unwrap(),
+            "esperando ou rodando"
+        );
+        assert!(!has_unfinished(&db, "outro").await.unwrap(), "é por job");
+        let abertas = list_unfinished(&db).await.unwrap();
+        assert_eq!(abertas.len(), 1);
+        assert_eq!(abertas[0].id, run.id);
+        finish(&db, &run.id, 0).await.unwrap();
+        assert!(!has_unfinished(&db, "j").await.unwrap());
+        assert!(list_unfinished(&db).await.unwrap().is_empty());
     }
 }

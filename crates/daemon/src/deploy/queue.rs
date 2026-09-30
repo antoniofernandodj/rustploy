@@ -6,6 +6,13 @@
 //! [`ServiceStatus::Queued`]) e um **único worker** ([`run_worker`]) puxa um por
 //! vez, roda até terminar e só então pega o próximo.
 //!
+//! **Jobs avulsos** (Schedules: agendados ou "Executar agora") dividem a mesma
+//! **vaga única** ([`DeployQueue::acquire_job_slot`]): enquanto um deploy roda, o
+//! job espera a vez, e vice-versa — só uma coisa executa por vez no daemon. O
+//! gate de pré-deploy **não** pega a vaga: roda por dentro do deploy, que já a
+//! tem (pegá-la de novo travaria o deploy esperando a si mesmo). A pausa da fila
+//! segura os dois. Ver `docs/plano-jobs-na-fila-de-deploy.md`.
+//!
 //! A ordem "verdadeira" da fila vive na `VecDeque` em memória (não no banco);
 //! num restart ela é reconstruída da ordem de criação dos `Pending`
 //! (`recovery::recover`). O worker roda o executor como *task* (não `await`
@@ -15,7 +22,7 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 use shared::{Event, ServiceStatus};
-use tokio::sync::Notify;
+use tokio::sync::{Notify, OwnedSemaphorePermit, Semaphore, watch};
 use tracing::{info, warn};
 
 use crate::api::AppState;
@@ -36,6 +43,12 @@ struct QueueInner {
 pub struct DeployQueue {
     inner: Mutex<QueueInner>,
     notify: Notify,
+    /// A vaga única: quem a segura é a "coisa" que está executando (um deploy ou
+    /// um job avulso). Semáforo do tokio é justo: quem pede primeiro entra primeiro.
+    slot: Arc<Semaphore>,
+    /// Espelho de `QueueInner::paused` para os jobs esperarem a retomada sem
+    /// polling (`wait_for`).
+    paused_tx: watch::Sender<bool>,
 }
 
 impl DeployQueue {
@@ -43,6 +56,8 @@ impl DeployQueue {
         Arc::new(Self {
             inner: Mutex::new(QueueInner::default()),
             notify: Notify::new(),
+            slot: Arc::new(Semaphore::new(1)),
+            paused_tx: watch::channel(false).0,
         })
     }
 
@@ -98,12 +113,13 @@ impl DeployQueue {
         g.queued = next;
     }
 
-    /// Pausa/retoma a fila. Ao retomar, acorda o worker.
+    /// Pausa/retoma a fila. Ao retomar, acorda o worker e os jobs que esperavam.
     pub fn set_paused(&self, paused: bool) {
         {
             let mut g = self.inner.lock().unwrap();
             g.paused = paused;
         }
+        self.paused_tx.send_replace(paused);
         if !paused {
             self.notify.notify_one();
         }
@@ -117,6 +133,68 @@ impl DeployQueue {
             g.queued.iter().cloned().collect(),
             g.paused,
         )
+    }
+
+    /// Há algo na fila e ela não está pausada?
+    fn has_ready(&self) -> bool {
+        let g = self.inner.lock().unwrap();
+        !g.paused && !g.queued.is_empty()
+    }
+
+    /// Espera a vaga e o próximo deploy da fila, nesta ordem: só depois de ter a
+    /// vaga o deployment sai da fila e vira `running` — com um job em execução,
+    /// ele segue aparecendo como "na fila" (e ainda pode ser removido, promovido
+    /// ou reordenado), em vez de aparecer como rodando sem estar.
+    pub async fn acquire_next(&self) -> (OwnedSemaphorePermit, String) {
+        loop {
+            // Espera haver algo pronto SEM segurar a vaga (senão os jobs travam).
+            while !self.has_ready() {
+                self.wait().await;
+            }
+            let permit = self
+                .slot
+                .clone()
+                .acquire_owned()
+                .await
+                .expect("semáforo da fila nunca é fechado");
+            // Enquanto esperava a vaga, o item pode ter sido removido ou a fila
+            // pausada: `take_next` reconfere e devolve `None` nesses casos.
+            if let Some(id) = self.take_next() {
+                return (permit, id);
+            }
+            drop(permit);
+        }
+    }
+
+    /// A vaga para um **job avulso**: espera a fila estar despausada e a vaga
+    /// livre, em ordem de chegada. Quem a solta (ao terminar o job) é o `Drop`
+    /// do permit devolvido.
+    pub async fn acquire_job_slot(&self) -> OwnedSemaphorePermit {
+        let mut paused = self.paused_tx.subscribe();
+        loop {
+            // O `Err` só ocorreria com o `Sender` destruído — ele vive na fila.
+            let _ = paused.wait_for(|p| !*p).await;
+            let permit = self
+                .slot
+                .clone()
+                .acquire_owned()
+                .await
+                .expect("semáforo da fila nunca é fechado");
+            // A fila pode ter sido pausada enquanto esperávamos a vaga.
+            if !*paused.borrow() {
+                return permit;
+            }
+            drop(permit);
+        }
+    }
+
+    /// Versão sem espera de [`acquire_job_slot`]: `None` se a vaga está ocupada
+    /// ou a fila pausada (o chamador então avisa "aguardando a vez" e espera).
+    pub fn try_job_slot_now(&self) -> Option<OwnedSemaphorePermit> {
+        if *self.paused_tx.borrow() {
+            return None;
+        }
+        self.slot.clone().try_acquire_owned().ok()
     }
 
     /// Tira o próximo da fila e marca como running. `None` se vazia OU pausada.
@@ -147,20 +225,18 @@ pub async fn run_worker(state: AppState) {
     let queue = state.deploy_queue.clone();
     info!("deploy queue worker iniciado");
     loop {
-        // Espera até ter algo para rodar e a fila não estar pausada. `Notify`
-        // guarda um permit se `notify_one` chegar antes do `wait` — sem wakeup
-        // perdido entre `take_next()` e `wait()`.
-        let dep_id = loop {
-            if let Some(id) = queue.take_next() {
-                break id;
-            }
-            queue.wait().await;
-        };
+        // Espera algo para rodar, a fila não estar pausada e a vaga estar livre
+        // (um job avulso pode estar executando). `Notify` guarda um permit se
+        // `notify_one` chegar antes do `wait` — sem wakeup perdido.
+        let (slot, dep_id) = queue.acquire_next().await;
 
         // running mudou → avisa a GUI.
         state.bus.publish(Event::DeployQueueChanged);
         run_one(&state, &dep_id).await;
         queue.clear_running();
+        // Solta a vaga só depois de limpar `running`: quem entra em seguida (um
+        // job esperando) não enxerga um deploy "rodando" que já terminou.
+        drop(slot);
         state.bus.publish(Event::DeployQueueChanged);
     }
 }
@@ -276,5 +352,156 @@ mod tests {
         assert!(!paused);
         q.clear_running();
         assert!(q.snapshot().0.is_none());
+    }
+
+    // ── vaga única compartilhada entre deploys e jobs avulsos ────────────────
+
+    use std::time::Duration;
+    use tokio::time::{sleep, timeout};
+
+    const ESPERA: Duration = Duration::from_millis(60);
+    const LIMITE: Duration = Duration::from_secs(2);
+
+    #[tokio::test]
+    async fn job_e_deploy_nao_executam_juntos() {
+        let q = DeployQueue::new();
+        q.enqueue("a".into());
+
+        // Um job em execução segura a vaga: o deploy NÃO vira "rodando" e continua
+        // na fila (visível e removível), em vez de aparecer rodando sem estar.
+        let job = q.acquire_job_slot().await;
+        let q2 = q.clone();
+        let worker = tokio::spawn(async move { q2.acquire_next().await });
+        sleep(ESPERA).await;
+        assert!(
+            !worker.is_finished(),
+            "o deploy não pode começar com um job rodando"
+        );
+        let (running, queued, _) = q.snapshot();
+        assert!(running.is_none(), "ainda não está rodando");
+        assert_eq!(queued, vec!["a"], "segue na fila");
+
+        // O job termina: o deploy assume a vaga.
+        drop(job);
+        let (permit, id) = timeout(LIMITE, worker).await.unwrap().unwrap();
+        assert_eq!(id, "a");
+        assert_eq!(q.snapshot().0.as_deref(), Some("a"));
+
+        // E agora é o job que espera o deploy.
+        assert!(q.try_job_slot_now().is_none(), "vaga ocupada pelo deploy");
+        let q3 = q.clone();
+        let job2 = tokio::spawn(async move { q3.acquire_job_slot().await });
+        sleep(ESPERA).await;
+        assert!(
+            !job2.is_finished(),
+            "o job não pode começar com um deploy rodando"
+        );
+        q.clear_running();
+        drop(permit);
+        let _vaga = timeout(LIMITE, job2)
+            .await
+            .expect("o job entra quando o deploy termina")
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn dois_jobs_nao_executam_juntos_e_entram_em_ordem_de_chegada() {
+        let q = DeployQueue::new();
+        let primeiro = q.acquire_job_slot().await;
+        let ordem = Arc::new(Mutex::new(Vec::new()));
+        let mut tarefas = Vec::new();
+        for n in 1..=3 {
+            let (q, ordem) = (q.clone(), ordem.clone());
+            tarefas.push(tokio::spawn(async move {
+                let _vaga = q.acquire_job_slot().await;
+                ordem.lock().unwrap().push(n);
+                sleep(Duration::from_millis(20)).await;
+            }));
+            sleep(Duration::from_millis(20)).await; // garante a ordem de chegada
+        }
+        assert!(
+            ordem.lock().unwrap().is_empty(),
+            "nenhum entra com a vaga ocupada"
+        );
+        drop(primeiro);
+        for t in tarefas {
+            timeout(LIMITE, t).await.unwrap().unwrap();
+        }
+        assert_eq!(*ordem.lock().unwrap(), vec![1, 2, 3]);
+    }
+
+    #[tokio::test]
+    async fn pausa_segura_os_jobs_ate_retomar() {
+        let q = DeployQueue::new();
+        q.set_paused(true);
+        assert!(
+            q.try_job_slot_now().is_none(),
+            "pausada: não entrega, mesmo com a vaga livre"
+        );
+        let q2 = q.clone();
+        let job = tokio::spawn(async move { q2.acquire_job_slot().await });
+        sleep(ESPERA).await;
+        assert!(!job.is_finished(), "o job espera a fila ser retomada");
+        q.set_paused(false);
+        let _vaga = timeout(LIMITE, job)
+            .await
+            .expect("retomada libera o job")
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn pausa_durante_a_espera_da_vaga_devolve_a_vaga() {
+        // O job já está esperando a vaga (ocupada por um deploy) quando a fila é
+        // pausada: ao receber a vaga ele a devolve e espera a retomada.
+        let q = DeployQueue::new();
+        q.enqueue("a".into());
+        let (permit, _) = q.acquire_next().await;
+        let q2 = q.clone();
+        let job = tokio::spawn(async move { q2.acquire_job_slot().await });
+        sleep(ESPERA).await;
+        q.set_paused(true);
+        q.clear_running();
+        drop(permit);
+        sleep(ESPERA).await;
+        assert!(!job.is_finished(), "pausada: não pode começar");
+        assert!(q.try_job_slot_now().is_none());
+        q.set_paused(false);
+        let _vaga = timeout(LIMITE, job).await.expect("retomou").unwrap();
+    }
+
+    #[tokio::test]
+    async fn item_removido_enquanto_espera_a_vaga_nao_e_entregue() {
+        let q = DeployQueue::new();
+        q.enqueue("a".into());
+        let job = q.acquire_job_slot().await;
+        let q2 = q.clone();
+        let worker = tokio::spawn(async move { q2.acquire_next().await });
+        sleep(ESPERA).await;
+        assert!(q.remove_queued("a"), "ainda está na fila, dá para remover");
+        drop(job);
+        sleep(ESPERA).await;
+        assert!(!worker.is_finished(), "sem item, o worker segue esperando");
+        assert!(
+            q.try_job_slot_now().is_some(),
+            "e não fica com a vaga presa"
+        );
+        q.enqueue("b".into());
+        let (_, id) = timeout(LIMITE, worker).await.unwrap().unwrap();
+        assert_eq!(id, "b");
+    }
+
+    #[tokio::test]
+    async fn worker_espera_pausa_e_fila_vazia_sem_segurar_a_vaga() {
+        let q = DeployQueue::new();
+        let q2 = q.clone();
+        let worker = tokio::spawn(async move { q2.acquire_next().await });
+        sleep(ESPERA).await;
+        // Sem nada na fila o worker espera, mas a vaga tem de continuar livre.
+        assert!(!worker.is_finished());
+        assert!(
+            q.try_job_slot_now().is_some(),
+            "vaga livre: jobs não podem ficar presos"
+        );
+        worker.abort();
     }
 }

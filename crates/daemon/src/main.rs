@@ -237,6 +237,18 @@ async fn main() -> Result<()> {
         registry_internal_token.clone(),
     );
 
+    // Execuções de job que ficaram sem fim num restart (rodando, ou esperando a
+    // vez numa fila que só existia em memória): viram "interrompidas". Antes do
+    // agendador, que só dispara um job sem execução em andamento.
+    match jobs::recover_interrupted(&state.db).await {
+        Ok(0) => {}
+        Ok(n) => info!(
+            n,
+            "execuções de job interrompidas pelo restart foram fechadas"
+        ),
+        Err(e) => warn!(error = %e, "falha ao fechar execuções de job interrompidas"),
+    }
+
     // Worker da fila global de deploys (um por vez). Spawnado depois do
     // AppState; re-enfileira os deploys que estavam na fila antes do restart
     // (na ordem de criação devolvida pelo recovery).
