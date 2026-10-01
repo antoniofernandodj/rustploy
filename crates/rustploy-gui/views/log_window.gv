@@ -90,8 +90,8 @@
           <row class="lw_head">
             <text class="lw_title">{lw_title}</text>
             <text class="lw_count">{lw_count} linhas · ao vivo</text>
-            <button class="tab" on_click="textarea_top:lw_logs_text" text="Ao topo" />
-            <button class="tab" on_click="textarea_end:lw_logs_text" text="Ir ao fim" />
+            <button class="tab" on_click="textarea_top:lw_logs_text" text="↑" tooltip="Ir ao topo" />
+            <button class="tab" on_click="textarea_end:lw_logs_text" text="↓" tooltip="Ir ao fim" />
             <button class="tab" on_click="clipboard:lw_logs_text" text="Copiar tudo" />
           </row>
 
@@ -99,10 +99,11 @@
             e copiável (arrastar + Ctrl+C), mas NÃO editável (readonly ignora
             digitação/apagar/colar; seleção e scroll seguem funcionando). Cada linha
             nova é APPENDADA no fim via append_textarea (o motor insere sem recriar
-            o buffer — preserva o scroll). O botão "Ir ao fim" rola até o fundo
+            o buffer — preserva o scroll). O botão ↓ rola até o fundo
             (textarea_end:) sem precisar arrastar a roda por muito tempo. O
-            text_editor do iced 0.14 não desenha barra de rolagem própria; rola por
-            roda do mouse/teclado + o botão. Ver log_window.luau. -->
+            textarea do glacier-ui desenha a própria barra de rolagem (arraste o
+            thumb, clique na trilha); rola também por roda/teclado e pelos botões
+            ↑/↓. Ver log_window.luau. -->
           <textarea
             class="lw_editor"
             font="mono"
