@@ -212,7 +212,7 @@ function M.fetch_service_detail(sid: string): ()
     ctx.svc_internal_url_short = fmt.ellipsis(ctx.svc_internal_url, 20)
     ctx.svc_db_kind = spec.db_kind or "—"
     M.load_shared_state(spec, sid)
-    M.load_migration_state(spec, sid)
+    M.load_migration_state(spec, sid, project_env)
     ctx.svc_hc = fmt.healthcheck_summary(spec.healthcheck)
     ctx.svc_run_command = spec.run_command or "—"
     ctx.svc_run_args = (spec.run_args and #spec.run_args > 0) and table.concat(spec.run_args, " ") or "—"
@@ -472,16 +472,19 @@ end
 
 local STEP_ICON = { ok = "✓", running = "…", failed = "✗", skipped = "–", pending = "·" }
 
-local function default_source_db(spec: any): string
-    for _, key in ipairs({ "POSTGRES_DB", "MYSQL_DATABASE" }) do
-        for _, v in ipairs(spec.env_vars or {}) do
-            if v.key == key and v.value and v.value.Plain then return v.value.Plain end
+local function default_source_db(spec: any, project_env: { any }?): string
+    -- Serviço primeiro, depois o projeto (mesma precedência do deploy).
+    for _, vars in ipairs({ spec.env_vars or {}, project_env or {} }) do
+        for _, key in ipairs({ "POSTGRES_DB", "MYSQL_DATABASE" }) do
+            for _, v in ipairs(vars) do
+                if v.key == key and v.value and v.value.Plain then return v.value.Plain end
+            end
         end
     end
     return ""
 end
 
-function M.load_migration_state(spec: any, sid: string): ()
+function M.load_migration_state(spec: any, sid: string, project_env: { any }?): ()
     local api = State.api
     local kind = spec.db_kind and string.lower(spec.db_kind) or ""
     local can = SHAREABLE[kind] == true and spec.source.Compose ~= nil and spec.shared == nil
@@ -495,7 +498,7 @@ function M.load_migration_state(spec: any, sid: string): ()
     for _, k in ipairs({ "f_mig_dest", "f_mig_env", "mig_status", "mig_id", "mig_msg" }) do
         if ctx[k] == nil then ctx[k] = "" end
     end
-    if ctx.f_mig_db == nil or ctx.f_mig_db == "" then ctx.f_mig_db = default_source_db(spec) end
+    if ctx.f_mig_db == nil or ctx.f_mig_db == "" then ctx.f_mig_db = default_source_db(spec, project_env) end
     local okd, resd = api:rpc("ManagedDatabaseListAll")
     local dests = {}
     if okd and resd.ManagedDatabases then
