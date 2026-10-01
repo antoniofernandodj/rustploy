@@ -2376,9 +2376,9 @@ dependencies = [
 
 [[package]]
 name = "glacier-ui"
-version = "0.109.0"
+version = "0.109.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bca8b15c9b0c7c1e4e9f2ac6d3c53c56184b605c852723547c23bad2dee7c558"
+checksum = "d521355abcaf160be7de3287b597e3adfe02951a760431d050396591df24d2ae"
 dependencies = [
  "base64 0.22.1",
  "console_error_panic_hook",
@@ -2524,7 +2524,7 @@ dependencies = [
  "log",
  "presser",
  "thiserror 1.0.69",
- "windows 0.58.0",
+ "windows 0.57.0",
 ]
 
 [[package]]
@@ -2975,7 +2975,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.57.0",
 ]
 
 [[package]]
@@ -8354,7 +8354,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
