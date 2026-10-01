@@ -902,7 +902,8 @@
         </column>
 
         <!-- Migrar este banco para um servidor compartilhado -->
-        <column if="{tab}" equals="migrar" class="form_panel">
+        <scrollable if="{tab}" equals="migrar" direction="vertical" class="scroll_fill">
+        <column width="fill" spacing="8" class="form_panel">
           <text class="label_cap">MIGRAR PARA BANCO COMPARTILHADO</text>
           <text class="muted">
             Crie antes o database de destino no servidor compartilhado (aba
@@ -944,10 +945,12 @@
               </row>
             </template>
           </template>
-        </column>
+                </column>
+        </scrollable>
 
         <!-- Databases (servidor de banco compartilhado entre projetos) -->
-        <column if="{tab}" equals="databases" class="form_panel">
+        <scrollable if="{tab}" equals="databases" direction="vertical" class="scroll_fill">
+        <column width="fill" spacing="8" class="form_panel">
           <text class="label_cap">DATABASES ({svc_mdbs_count})</text>
           <text class="muted">
             Cada database tem usuário próprio, sem acesso aos demais. O projeto
@@ -990,7 +993,8 @@
             <button class="btn_primary" on_click="mdb_create" text="Criar database" />
             <text class="muted">{svc_action_msg}</text>
           </row>
-        </column>
+                </column>
+        </scrollable>
 
         <!-- Deployments -->
         <column if="{tab}" equals="deployments" class="dep_wrap">
