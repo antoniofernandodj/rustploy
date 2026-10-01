@@ -394,7 +394,7 @@ end
 
 function shared_enable(): ()
     with_spec(function(spec: any): ()
-        spec.shared = json.object{}
+        spec.shared = {} -- tabela vazia serializa como objeto `{}` (SharedServerConfig)
     end)
 end
 
