@@ -79,7 +79,9 @@ document.addEventListener("alpine:init", () => {
       const spec = this.svc.spec;
       const id = this.svc.id;
       if (!this.fMig.db) {
-        const get = (k) => (spec.env_vars || []).find((e) => e.key === k)?.value?.Plain;
+        // Serviço primeiro, depois o projeto (mesma precedência do deploy).
+        const projEnv = (this.store.snap?.projects || []).find((p) => p.id === spec.project_id)?.env_vars || [];
+        const get = (k) => [spec.env_vars || [], projEnv].map((vs) => vs.find((e) => e.key === k)?.value?.Plain).find(Boolean);
         this.fMig.db = get("POSTGRES_DB") || get("MYSQL_DATABASE") || "";
       }
       const [d, m] = await Promise.all([
