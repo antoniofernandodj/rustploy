@@ -9,6 +9,9 @@
   broadcast("job_created") e fecha. -->
 <screen title="Novo job — Rustploy" size="560 700">
   <resources>
+    <component name="SemProjetosParaJob">
+      <text class="muted">Nenhum projeto ainda.</text>
+    </component>
     <link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />
     <link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />
     <link rel="import"      href="components/picker_row.gv" as="PickerRow" />
@@ -60,14 +63,14 @@
             O job sobe um stack docker-compose próprio; o projeto define a rede.
           </text>
           <column class="kv_list">
-            <PickerRow
-              for-each="njob_projects"
-              var="p"
-              title="{p.name}"
-              subtitle=""
-              button_label="Selecionar ›"
-              action="njob_pick_project:{p.id}"
-            />
+            <foreach items="njob_projects" var="p" fallback="SemProjetosParaJob">
+              <PickerRow
+                title="{p.name}"
+                subtitle=""
+                button_label="Selecionar ›"
+                action="njob_pick_project:{p.id}"
+              />
+            </foreach>
           </column>
           <row class="np_actions">
             <column class="np_spacer" />

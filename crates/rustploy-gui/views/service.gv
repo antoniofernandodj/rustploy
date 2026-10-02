@@ -3,6 +3,18 @@
      Advanced. -->
 <component>
   <resources>
+    <component name="SemVariaveisDoServico">
+      <text class="muted">Nenhuma variável.</text>
+    </component>
+    <component name="SemDominios">
+      <text class="muted">Nenhum domínio configurado.</text>
+    </component>
+    <component name="SemDeploysDoServico">
+      <text class="muted">Nenhum deploy ainda.</text>
+    </component>
+    <component name="SemChecks">
+      <text class="muted">Nenhum check configurado — deploy segue direto.</text>
+    </component>
     <!-- Estado vazio da lista de containers (`fallback` do <foreach>). -->
     <component name="SemContainers">
       <text class="muted">Nenhum container em execução.</text>
@@ -741,7 +753,7 @@
                <column>, nunca como irmãos diretos do <scrollable>. -->
           <scrollable direction="vertical" class="env_list_scroll">
             <column class="kv_list">
-              <template for-each="svc_env" var="e" on_reorder="env_reorder" reorder_key="key">
+              <template for-each="svc_env" var="e" on_reorder="env_reorder" reorder_key="key" foreach_fallback="SemVariaveisDoServico">
                 <!-- Comentários (# ...) do .env: arrastáveis como as vars (ao
                      soltar, reancoram na var seguinte da nova ordem), mas sem
                      delete — removem-se editando o .env. A classe da linha muda
@@ -830,13 +842,15 @@
 
           <scrollable direction="vertical" class="env_list_scroll">
             <column class="kv_list">
-              <row class="kv_row" for-each="svc_domains" var="d">
-                <button class="env_del" on_click="dom_del:{d.domain}" text="✕" />
-                <text class="env_sep"> </text>
-                <text class="env_key">{d.domain}</text>
-                <text class="kv_val_fill">→ {d.port}</text>
-                <text class="muted">{d.tls_label}</text>
-              </row>
+              <foreach items="svc_domains" var="d" fallback="SemDominios">
+                <row class="kv_row">
+                  <button class="env_del" on_click="dom_del:{d.domain}" text="✕" />
+                  <text class="env_sep"> </text>
+                  <text class="env_key">{d.domain}</text>
+                  <text class="kv_val_fill">→ {d.port}</text>
+                  <text class="muted">{d.tls_label}</text>
+                </row>
+              </foreach>
             </column>
           </scrollable>
 
@@ -1041,38 +1055,40 @@
           </text>
           <scrollable direction="vertical" class="dep_list_scroll">
             <column class="table_body">
-              <column class="row_wrap" for-each="svc_deployments" var="d">
-                <row class="trow">
-                  <text class="td_key col_dep_id">{d.id}</text>
-                  <StateCell kind="{d.state_kind}" label="{d.state_label}" />
-                  <text class="td col_dur">{d.duration}</text>
-                  <text class="muted col_dep_start">{d.start}</text>
-                  <!-- Ícone + tooltip (eram "Build log ↗" e "Remover" por
-                       extenso): os rótulos quebravam em duas linhas e estouravam a
-                       coluna quando a janela estreitava. Mesmo padrão das linhas de
-                       job e de repo do Registry (home.gv). -->
-                  <row class="dep_actions">
-                    <button
-                      class="dep_logs_btn"
-                      on_click="dep_logs:{d.id_full}"
-                      text="≡"
-                      tooltip="Ver build log"
-                    />
-                    <button
-                      if="{d.can_delete}"
-                      equals="1"
-                      class="dep_del_btn"
-                      on_click="delete_deployment:{d.id_full}"
-                      text="✕"
-                      tooltip="Remover deployment"
-                    />
+              <foreach items="svc_deployments" var="d" fallback="SemDeploysDoServico">
+                <column class="row_wrap">
+                  <row class="trow">
+                    <text class="td_key col_dep_id">{d.id}</text>
+                    <StateCell kind="{d.state_kind}" label="{d.state_label}" />
+                    <text class="td col_dur">{d.duration}</text>
+                    <text class="muted col_dep_start">{d.start}</text>
+                    <!-- Ícone + tooltip (eram "Build log ↗" e "Remover" por
+                         extenso): os rótulos quebravam em duas linhas e estouravam a
+                         coluna quando a janela estreitava. Mesmo padrão das linhas de
+                         job e de repo do Registry (home.gv). -->
+                    <row class="dep_actions">
+                      <button
+                        class="dep_logs_btn"
+                        on_click="dep_logs:{d.id_full}"
+                        text="≡"
+                        tooltip="Ver build log"
+                      />
+                      <button
+                        if="{d.can_delete}"
+                        equals="1"
+                        class="dep_del_btn"
+                        on_click="delete_deployment:{d.id_full}"
+                        text="✕"
+                        tooltip="Remover deployment"
+                      />
+                    </row>
                   </row>
-                </row>
-                <text class="dep_image">
-                  {d.image}
-                </text>
-                <hr />
-              </column>
+                  <text class="dep_image">
+                    {d.image}
+                  </text>
+                  <hr />
+                </column>
+              </foreach>
             </column>
           </scrollable>
           <!-- Build log abre em JANELA isolada (dep_logs → open_window), não inline:
@@ -1297,6 +1313,7 @@
                 <column class="kv_list" height="shrink">
                   <template
                     for-each="pre_deploy_checks"
+                    foreach_fallback="SemChecks"
                     var="c"
                     on_reorder="pdc_reorder"
                     reorder_key="id"

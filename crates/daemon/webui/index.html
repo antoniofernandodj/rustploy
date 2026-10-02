@@ -688,9 +688,17 @@
               <text class="th col_dur">CRIADO</text>
               <text class="th col_act_2">AÇÃO</text>
             </row>
-            <text class="muted" x-fallback="repos" style="padding:16px">
+            <!-- `repos` é FILTRADO pela busca; o snapshot cru não. O fallback do
+                 registry vazio olha o cru, e o de "busca sem resultado" só vale
+                 quando há repositórios. -->
+            <text class="muted" x-fallback="store.snap?.registry_repos" style="padding:16px">
               Nenhum repositório ainda. Faça `docker push` para o registry embutido.
             </text>
+            <template x-if="(store.snap?.registry_repos?.length || 0) > 0">
+              <text class="muted" x-fallback="repos" style="padding:16px">
+                Nenhum repositório corresponde à busca.
+              </text>
+            </template>
             <column class="scroll_fill">
               <column class="table_body">
                 <template x-for="r in repos" :key="r.name">

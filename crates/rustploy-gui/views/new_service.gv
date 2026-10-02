@@ -6,6 +6,9 @@
 -->
 <component>
   <resources>
+    <component name="SemTemplates">
+      <text class="muted">Nenhum template encontrado.</text>
+    </component>
     <style>
       .warn { color: var(--warn); }
     </style>
@@ -324,12 +327,12 @@
         </column>
         <scrollable direction="vertical" class="scroll_fill">
           <column class="kv_list">
-            <TemplateRow
-              for-each="ns_templates"
-              var="t"
-              spread="{t}"
-              action="ns_pick_template:{t.id}"
-            />
+            <foreach items="ns_templates" var="t" fallback="SemTemplates">
+              <TemplateRow
+                spread="{t}"
+                action="ns_pick_template:{t.id}"
+              />
+            </foreach>
           </column>
         </scrollable>
       </column>

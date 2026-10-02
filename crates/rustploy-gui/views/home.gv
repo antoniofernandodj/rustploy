@@ -2,6 +2,32 @@
      Ingress, Deploy Engine, Docker (e Registry), Settings, Schedules e Suporte. -->
 <component>
   <resources>
+    <!-- Vazio das listas Docker/Monitoring e dos repositórios do registry. -->
+    <component name="SemMetricas">
+      <text class="muted">Nenhuma métrica ainda — aguardando o primeiro container em execução.</text>
+    </component>
+    <component name="SemContainersDocker">
+      <text class="muted">Nenhum container.</text>
+    </component>
+    <component name="SemImagens">
+      <text class="muted">Nenhuma imagem.</text>
+    </component>
+    <component name="SemVolumes">
+      <text class="muted">Nenhum volume.</text>
+    </component>
+    <component name="SemNetworks">
+      <text class="muted">Nenhuma network.</text>
+    </component>
+    <!-- `registry_repos` chega FILTRADO pela busca; o count é da lista crua.
+         Por isso o fallback distingue "registry vazio" de "busca sem resultado". -->
+    <component name="SemRepositorios">
+      <text if="{registry_repos_count}" equals="0" class="muted">
+        Nenhum repositório ainda. Faça `docker push` para o registry embutido.
+      </text>
+      <text if="{registry_repos_count}" not_equals="0" class="muted">
+        Nenhum repositório corresponde à busca.
+      </text>
+    </component>
     <!-- Estados vazios das listas: o `fallback` do <foreach> (e o
          `foreach_fallback` do <template>) desenha um destes no lugar da lista. -->
     <component name="SemPortasDeHost">
@@ -93,17 +119,19 @@
           class="scroll_fill"
         >
           <column class="table_body">
-            <column class="row_wrap" for-each="monitoring" var="m">
-              <row class="trow">
-                <text class="td_key col_svc">{m.name}</text>
-                <text class="td col_proj">{m.project}</text>
-                <text class="td col_dur">{m.cpu}</text>
-                <text class="td col_dur">{m.mem}</text>
-                <text class="muted col_dur">{m.rx}</text>
-                <text class="muted col_start">{m.tx}</text>
-              </row>
-              <hr />
-            </column>
+            <foreach items="monitoring" var="m" fallback="SemMetricas">
+              <column class="row_wrap">
+                <row class="trow">
+                  <text class="td_key col_svc">{m.name}</text>
+                  <text class="td col_proj">{m.project}</text>
+                  <text class="td col_dur">{m.cpu}</text>
+                  <text class="td col_dur">{m.mem}</text>
+                  <text class="muted col_dur">{m.rx}</text>
+                  <text class="muted col_start">{m.tx}</text>
+                </row>
+                <hr />
+              </column>
+            </foreach>
           </column>
         </scrollable>
       </column>
@@ -429,24 +457,26 @@
           class="scroll_fill"
         >
           <column class="table_body">
-            <column class="row_wrap" for-each="docker_containers" var="c">
-              <row class="trow">
-                <text class="td_key col_svc">{c.name}</text>
-                <text class="td col_img">{c.image}</text>
-                <text class="muted col_state">{c.owner}</text>
-                <StateCell kind="{c.state_kind}" label="{c.state_label}" />
-                <row class="col_act">
-                  <button
-                    if="{c.can_remove}"
-                    equals="1"
-                    class="dk_rm"
-                    on_click="docker_rm_container:{c.id_full}"
-                    text="Remover"
-                  />
+            <foreach items="docker_containers" var="c" fallback="SemContainersDocker">
+              <column class="row_wrap">
+                <row class="trow">
+                  <text class="td_key col_svc">{c.name}</text>
+                  <text class="td col_img">{c.image}</text>
+                  <text class="muted col_state">{c.owner}</text>
+                  <StateCell kind="{c.state_kind}" label="{c.state_label}" />
+                  <row class="col_act">
+                    <button
+                      if="{c.can_remove}"
+                      equals="1"
+                      class="dk_rm"
+                      on_click="docker_rm_container:{c.id_full}"
+                      text="Remover"
+                    />
+                  </row>
                 </row>
-              </row>
-              <hr />
-            </column>
+                <hr />
+              </column>
+            </foreach>
           </column>
         </scrollable>
       </column>
@@ -498,51 +528,53 @@
             <!-- Sub-aba já vem ordenada por tag (docker_images_json); o checkbox
                  "Somente em uso" só esconde as linhas SEM USO, sem round-trip. -->
             <template if="{docker_images_only_used}" equals="true">
-              <column
-                class="row_wrap"
-                for-each="docker_images"
-                var="i"
-                if="{i.in_use_label}"
-                equals="EM USO"
-              >
-                <row class="trow">
-                  <text class="td_key col_svc">{i.tags}</text>
-                  <text class="td col_proj">{i.owner}</text>
-                  <text class="muted col_dur">{i.size}</text>
-                  <text class="muted col_dur">{i.created}</text>
-                  <StateCell kind="{i.in_use_kind}" label="{i.in_use_label}" />
-                  <row class="col_act">
-                    <button
-                      if="{i.in_use_label}"
-                      equals="SEM USO"
-                      class="dk_rm"
-                      on_click="docker_rm_image:{i.id_full}"
-                      text="Remover"
-                    />
+              <foreach items="docker_images" var="i" fallback="SemImagens">
+                <column
+                  class="row_wrap"
+                  if="{i.in_use_label}"
+                  equals="EM USO"
+                >
+                  <row class="trow">
+                    <text class="td_key col_svc">{i.tags}</text>
+                    <text class="td col_proj">{i.owner}</text>
+                    <text class="muted col_dur">{i.size}</text>
+                    <text class="muted col_dur">{i.created}</text>
+                    <StateCell kind="{i.in_use_kind}" label="{i.in_use_label}" />
+                    <row class="col_act">
+                      <button
+                        if="{i.in_use_label}"
+                        equals="SEM USO"
+                        class="dk_rm"
+                        on_click="docker_rm_image:{i.id_full}"
+                        text="Remover"
+                      />
+                    </row>
                   </row>
-                </row>
-                <hr />
-              </column>
+                  <hr />
+                </column>
+              </foreach>
             </template> <template else>
-              <column class="row_wrap" for-each="docker_images" var="i">
-                <row class="trow">
-                  <text class="td_key col_svc">{i.tags}</text>
-                  <text class="td col_proj">{i.owner}</text>
-                  <text class="muted col_dur">{i.size}</text>
-                  <text class="muted col_dur">{i.created}</text>
-                  <StateCell kind="{i.in_use_kind}" label="{i.in_use_label}" />
-                  <row class="col_act">
-                    <button
-                      if="{i.in_use_label}"
-                      equals="SEM USO"
-                      class="dk_rm"
-                      on_click="docker_rm_image:{i.id_full}"
-                      text="Remover"
-                    />
+              <foreach items="docker_images" var="i" fallback="SemImagens">
+                <column class="row_wrap">
+                  <row class="trow">
+                    <text class="td_key col_svc">{i.tags}</text>
+                    <text class="td col_proj">{i.owner}</text>
+                    <text class="muted col_dur">{i.size}</text>
+                    <text class="muted col_dur">{i.created}</text>
+                    <StateCell kind="{i.in_use_kind}" label="{i.in_use_label}" />
+                    <row class="col_act">
+                      <button
+                        if="{i.in_use_label}"
+                        equals="SEM USO"
+                        class="dk_rm"
+                        on_click="docker_rm_image:{i.id_full}"
+                        text="Remover"
+                      />
+                    </row>
                   </row>
-                </row>
-                <hr />
-              </column>
+                  <hr />
+                </column>
+              </foreach>
             </template>
           </column>
         </scrollable>
@@ -588,7 +620,7 @@
         >
           <column class="table_body">
             <template if="{docker_volumes_only_used}" equals="true">
-              <template for-each="docker_volumes" var="v">
+              <template for-each="docker_volumes" var="v" foreach_fallback="SemVolumes">
                 <column class="row_wrap" if="{v.in_use_label}" equals="EM USO">
                   <row class="trow">
                     <text class="td_key col_svc">{v.name}</text>
@@ -601,24 +633,26 @@
                 </column>
               </template>
             </template> <template else>
-              <column for-each="docker_volumes" var="v" class="row_wrap">
-                <row class="trow">
-                  <text class="td_key col_svc">{v.name}</text>
-                  <text class="td col_proj">{v.driver}</text>
-                  <text class="muted col_dur">{v.size}</text>
-                  <StateCell kind="{v.in_use_kind}" label="{v.in_use_label}" />
-                  <row class="col_act">
-                    <button
-                      if="{v.in_use_label}"
-                      equals="SEM USO"
-                      class="dk_rm"
-                      on_click="docker_rm_volume:{v.name_full}"
-                      text="Remover"
-                    />
+              <foreach items="docker_volumes" var="v" fallback="SemVolumes">
+                <column class="row_wrap">
+                  <row class="trow">
+                    <text class="td_key col_svc">{v.name}</text>
+                    <text class="td col_proj">{v.driver}</text>
+                    <text class="muted col_dur">{v.size}</text>
+                    <StateCell kind="{v.in_use_kind}" label="{v.in_use_label}" />
+                    <row class="col_act">
+                      <button
+                        if="{v.in_use_label}"
+                        equals="SEM USO"
+                        class="dk_rm"
+                        on_click="docker_rm_volume:{v.name_full}"
+                        text="Remover"
+                      />
+                    </row>
                   </row>
-                </row>
-                <hr />
-              </column>
+                  <hr />
+                </column>
+              </foreach>
             </template>
           </column>
         </scrollable>
@@ -663,7 +697,7 @@
         >
           <column class="table_body">
             <template if="{docker_networks_only_used}" equals="true">
-              <template for-each="docker_networks" var="n">
+              <template for-each="docker_networks" var="n" foreach_fallback="SemNetworks">
                 <column class="row_wrap" if="{n.in_use_label}" equals="EM USO">
                   <row class="trow">
                     <text class="td_key col_svc">{n.name}</text>
@@ -685,7 +719,7 @@
                 </column>
               </template>
             </template> <template else>
-              <template for-each="docker_networks" var="n">
+              <template for-each="docker_networks" var="n" foreach_fallback="SemNetworks">
                 <column class="row_wrap">
                   <row class="trow">
                     <text class="td_key col_svc">{n.name}</text>
@@ -749,9 +783,6 @@
                enquanto o count é da lista crua. Trocar faria essa mensagem
                ("Faça docker push...") aparecer quando a busca só não achou
                nada, não quando o registry está genuinamente vazio. -->
-          <text if="{registry_repos_count}" equals="0" class="muted">
-            Nenhum repositório ainda. Faça `docker push` para o registry embutido.
-          </text>
           <scrollable
             if="{data_loading}"
             not_equals="true"
@@ -759,27 +790,29 @@
             class="scroll_fill"
           >
             <column class="table_body">
-              <column class="row_wrap" for-each="registry_repos" var="r">
-                <row class="trow">
-                  <text class="td_key col_svc">{r.name}</text>
-                  <text class="td col_proj">{r.tag_count}</text>
-                  <text class="muted col_dur">{r.size}</text>
-                  <text class="muted col_dur">{r.created}</text>
-                  <row class="col_act_2">
-                    <button
-                      class="copy_btn"
-                      on_click="registry_open_repo:{r.name}" text="≡"
-                      tooltip="Ver tags"
-                    />
-                    <button
-                      class="env_del"
-                      on_click="registry_rm_repo:{r.name}" text="✕"
-                      tooltip="Remover"
-                    />
+              <foreach items="registry_repos" var="r" fallback="SemRepositorios">
+                <column class="row_wrap">
+                  <row class="trow">
+                    <text class="td_key col_svc">{r.name}</text>
+                    <text class="td col_proj">{r.tag_count}</text>
+                    <text class="muted col_dur">{r.size}</text>
+                    <text class="muted col_dur">{r.created}</text>
+                    <row class="col_act_2">
+                      <button
+                        class="copy_btn"
+                        on_click="registry_open_repo:{r.name}" text="≡"
+                        tooltip="Ver tags"
+                      />
+                      <button
+                        class="env_del"
+                        on_click="registry_rm_repo:{r.name}" text="✕"
+                        tooltip="Remover"
+                      />
+                    </row>
                   </row>
-                </row>
-                <hr />
-              </column>
+                  <hr />
+                </column>
+              </foreach>
             </column>
           </scrollable>
 
