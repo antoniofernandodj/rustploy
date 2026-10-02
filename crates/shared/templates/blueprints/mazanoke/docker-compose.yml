@@ -1,5 +1,0 @@
-version: "3.8"
-services:
-  mazanoke:
-    image: ghcr.io/civilblur/mazanoke:latest
-    restart: unless-stopped

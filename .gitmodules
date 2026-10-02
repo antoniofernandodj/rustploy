@@ -1,0 +1,9 @@
+[submodule "rustploy-shared"]
+	path = rustploy-shared
+	url = https://github.com/antoniofernandodj/rustploy-shared.git
+[submodule "rustploy-daemon"]
+	path = rustploy-daemon
+	url = https://github.com/antoniofernandodj/rustploy-daemon.git
+[submodule "rustploy-gui"]
+	path = rustploy-gui
+	url = https://github.com/antoniofernandodj/rustploy-gui.git
