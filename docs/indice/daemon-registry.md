@@ -5,7 +5,7 @@
 > Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
 > `impl A, B for T` = impls de traits comuns (métodos omitidos).
 
-## crates/daemon/src/git_providers/
+## rustploy-daemon/crates/daemon/src/git_providers/
 
 ### gitea.rs — Minimal Gitea API client: OAuth2 token exchange/refresh plus the few REST endpoints the UI needs (cu…
 struct OAuthTokens { access_token, refresh_token } — Tokens returned by the OAuth token endpoint.
@@ -59,7 +59,7 @@ fn callback_path_segment(kind) -> &'static str — Path segment of the OAuth cal
 fn usable_token(secrets, p) -> Result<String> — Decrypts the access token (OAuth) or PAT a provider authenticates with.
 fn refresh_access_token(db, secrets, p) -> Option<String> — Attempts to refresh an expired OAuth access token, persisting the new pair.
 
-## crates/daemon/src/registry/
+## rustploy-daemon/crates/daemon/src/registry/
 
 ### auth.rs — Basic auth do registry OCI embutido — checada em TODA rota (inclusive `GET /v2/`), sem bypass mesmo …
 enum Scope { Pull, Push } — Nível de acesso exigido por uma rota — `Push` satisfaz também exigência de `Pull` (um token de escri…

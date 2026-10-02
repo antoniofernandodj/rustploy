@@ -4,7 +4,7 @@
 > `grep -n "nome" <dir><arquivo>` dá a linha. Cada item: `nome(params) — doc`.
 > Luau: `function x(a)` = global (handler que o `.gv` chama pelo nome), `local x(a)` = privada, `function M.x(a)` = exportada pelo módulo.
 
-## crates/rustploy-gui/views/scripts/handlers/
+## rustploy-gui/views/scripts/handlers/
 
 ### connection.luau — ciclo de vida da sessão: init (semeia o contexto), login/logout, configurações do daemon buscadas um…
 local publish_saved_servers() — Publica só as URLs (o `<ComboEdit>` não precisa do token pra montar a lista — o token vem de `token_…

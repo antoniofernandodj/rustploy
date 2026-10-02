@@ -5,7 +5,7 @@
 > Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
 > `impl A, B for T` = impls de traits comuns (métodos omitidos).
 
-## crates/daemon/src/db/
+## rustploy-daemon/crates/daemon/src/db/
 
 ### build_logs.rs — Tabela `build_log`: linhas do log de build de cada deployment.
 fn append(db, deployment_id, line, timestamp) -> Result<()>

@@ -4,13 +4,13 @@
 > `grep -n "nome" <dir><arquivo>` dá a linha. Cada item: `nome(params) — doc`.
 > Luau: `function x(a)` = global (handler que o `.gv` chama pelo nome), `local x(a)` = privada, `function M.x(a)` = exportada pelo módulo.
 
-## crates/rustploy-gui/views/scripts/
+## rustploy-gui/views/scripts/
 
 ### app.luau — ponto de entrada do `<script>` de app.gv.
 
 ### fmt.luau — fachada: reexporta os builders de views/scripts/fmt_*.luau sob um único módulo, para os handlers seg…
 
-## crates/rustploy-gui/views/scripts/fmt/
+## rustploy-gui/views/scripts/fmt/
 
 ### dashboard.luau — builders de lista do dashboard (deployments/projects/services/docker/ingress/monitoring/deploy engin…
 local grid_cols() — Nº de colunas da grade de cards (services/projects) conforme a largura da janela — glacier não reest…
@@ -117,7 +117,7 @@ function M.pre_deploy_checks(spec) — Fila efetiva de pré-deploy check: `pre_d
 function M.pair_list(services) — `services` do snapshot é uma lista de { project_name, service }.
 types: ColBudgets
 
-## crates/rustploy-gui/views/scripts/
+## rustploy-gui/views/scripts/
 
 ### glacier.d.luau — Definições dos globais que o motor glacier-ui injeta no interpretador Luau em runtime (não existem c…
 types: FetchResult, StreamHandle, Viewport, StreamOptions, DateDelta
@@ -136,7 +136,7 @@ local push_batch(events) — Aplica um lote de eventos novos: appenda no fim (ba
 local to_row(ev) — Um evento do bus: os endpoints já filtram por id; pegamos o LogLine (runtime), BuildLog (build) ou J…
 function init()
 
-## crates/rustploy-gui/views/scripts/net/
+## rustploy-gui/views/scripts/net/
 
 ### api.luau — cliente HTTP/JSON da API do daemon.
 function M.auth_headers(token) — - Só o header `Authorization` (tabela vazia quando não há token).
@@ -147,7 +147,7 @@ function M:upload_archive(service_id, filename, body_base64)
 function M.new(base_url, token)
 types: Client
 
-## crates/rustploy-gui/views/scripts/
+## rustploy-gui/views/scripts/
 
 ### new_job_window.luau — script da JANELA "Novo job", um motor Glacier próprio e ISOLADO do app principal (aberto via open_wi…
 local client()

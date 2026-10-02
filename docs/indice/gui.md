@@ -7,13 +7,13 @@
 > Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
 > `impl A, B for T` = impls de traits comuns (métodos omitidos).
 
-## crates/rustploy-gui/
+## rustploy-gui/
 
 ### build.rs — Build script: 1. Stages os **logos** dos blueprints (só imagens) para `$OUT_DIR` — o `src/embedded.r…
 const LOGO_EXTS — Extensões de imagem que os logos de blueprint usam (o resto da pasta — `docker-compose.yml`/`templat…
 const LOGO_MAX_DIM — Alvo do redimensionamento dos logos raster: a maior dimensão é reduzida para no máximo isto, preserv…
 fn main()
-fn stage_blueprint_logos() — Leva só os logos de `crates/shared/templates/blueprints/**` para `$OUT_DIR/blueprint_logos/**`, **es…
+fn stage_blueprint_logos() — Leva os logos de `assets/blueprint-logos/**` para `$OUT_DIR/blueprint_logos/**`, **espelhando a estr…
 fn copy_images(src, dst) — Percorre recursivamente `src` e leva os logos para `dst`, preservando o caminho relativo.
 fn stage_raster(src, dst) — Lê um logo raster, reduz para no máx [`LOGO_MAX_DIM`] (Lanczos3) re-encodando como PNG, e grava em `…
 fn downscale_png(bytes) -> Option<Vec<u8>> — Decodifica `bytes`, e — se a maior dimensão passar de [`LOGO_MAX_DIM`] — reduz preservando a proporç…
@@ -21,7 +21,7 @@ fn ext_lower(path) -> Option<String>
 fn is_logo(path) -> bool — Qualquer arquivo de logo (raster, vetor ou os formatos raros) — decide o que entra no staging.
 fn is_raster(path) -> bool — Um logo raster que o `image` sabe decodificar (as features habilitadas no `Cargo.toml`).
 
-## crates/rustploy-gui/src/agent/
+## rustploy-gui/src/agent/
 
 ### actions.rs — Índice das ações dispatcháveis da UI.
 struct Acao { nome, origem } — Uma ação e onde ela mora.
@@ -160,7 +160,7 @@ fn keys(session, pedidas) -> Value — Chaves avulsas do contexto, para o que o 
 fn all_keys(session) -> Value — Todas as chaves do contexto, com os segredos redigidos.
 (3 testes)
 
-## crates/rustploy-gui/src/app/
+## rustploy-gui/src/app/
 
 ### mod.rs — Rustploy (glacier-ui) — desktop client whose UI is described in XML templates and rendered by the pu…
 const FONT_REGULAR — Fontes embutidas (JetBrains Mono): registradas no builder do daemon e usadas como `default_font` de …
@@ -169,7 +169,7 @@ fn platform_specific() -> window::settings::PlatformSpecific — `application_id
 fn platform_specific() -> window::settings::PlatformSpecific
 const FONT_BOLD
 
-## crates/rustploy-gui/src/
+## rustploy-gui/src/
 
 ### assets.rs — Runtime asset location.
 const MARKER — A file that must exist under any valid asset base — used as the probe.
@@ -180,8 +180,8 @@ fn has_marker(base) -> bool
 
 ### embedded.rs — Assets embutidos no binário — modo standalone (só em builds de release).
 const VIEWS — `views/`: templates `.gv`, estilos `styles/*.gss`, `styles/theme.json` e os scripts Luau em `scripts…
-const ICONS — `assets/icons/`: ícones SVG referenciados por `<svg src="crates/…/icons/…">`.
-const BLUEPRINTS — Logos dos blueprints, referenciados via o `{logo}` data-driven do catálogo do daemon (`crates/shared…
+const ICONS — `assets/icons/`: ícones SVG referenciados por `<svg src="assets/icons/…">`.
+const BLUEPRINTS — Logos dos blueprints, referenciados via o `{logo}` data-driven do catálogo do daemon (`assets/bluepr…
 fn luau_sources() -> Vec<(String, &'static str)> — Fontes Luau embutidas, como `(caminho relativo, conteúdo)`.
 fn route(path) -> Option<&'static File<'static>> — Roteia um caminho lógico para a árvore embutida + o caminho relativo a ela (a chave que `include_dir…
 fn not_found(path) -> io::Error
@@ -200,7 +200,7 @@ fn install(lua) -> mlua::Result<()> — Instala os globais `manifest_zip_write` 
 const TOML_ENTRY
 (4 testes)
 
-## crates/rustploy-gui/tests/fixtures/
+## rustploy-gui/tests/fixtures/
 
 ### compose_host.gv — Fixture do teste fmt_service_detail.rs: tela mínima que roda o fmt/service_detail.luau e exibe um re…
 <screen "fixture">
@@ -216,7 +216,7 @@ script: tempo.luau
 ### tempo.luau — Fixture do teste `fmt_time.rs`: exercita o `fmt/time.luau` de verdade, através do motor, e deixa cad…
 function init()
 
-## crates/rustploy-gui/tests/
+## rustploy-gui/tests/
 
 ### fmt_service_detail.rs — O `fmt/service_detail.luau` (`compose_host` e `internal_url`) rodando no motor de verdade.
 fn boot() -> GlacierUI
@@ -233,3 +233,147 @@ fn boot() -> GlacierUI — Boots the engine the way `main.rs` does, but from the
 fn cd_ws_root() — Cd's to the workspace root (idempotent — safe alongside `boot`).
 fn comentarios_fora(src) -> String — Remove os blocos `<!-- … -->` para que "a primeira tag" seja a primeira tag de verdade: todo templat…
 (13 testes)
+
+## rustploy-gui/vendor/iced_tiny_skia/src/
+
+### engine.rs
+struct Engine { text_pipeline, raster_pipeline, vector_pipeline }
+impl Engine
+  fn new() -> Self
+  fn draw_quad(quad, background, transformation, pixels, clip_mask, clip_bounds)
+  fn draw_text(text, transformation, pixels, clip_mask, clip_bounds)
+  fn draw_primitive(primitive, transformation, pixels, clip_mask, clip_bounds)
+  fn draw_image(image, _transformation, _pixels, _clip_mask, _clip_bounds)
+  fn trim()
+fn into_color(color) -> tiny_skia::Color
+fn into_transform(transformation) -> tiny_skia::Transform
+fn rounded_rectangle(bounds, border_radius) -> tiny_skia::Path
+fn maybe_line_to(path, x, y)
+fn arc_to(path, x_from, y_from, x_to, y_to, radius)
+fn smoothstep(a, b, x) -> f32
+fn rounded_box_sdf(to_center, size, radii) -> f32
+fn adjust_clip_mask(clip_mask, bounds)
+
+### geometry.rs
+enum Geometry { Live, Cache }
+struct Cache { text, images, primitives, clip_bounds }
+impl Cached for Geometry: load, cache
+struct Frame { clip_bounds, transform, stack, primitives, images, text }
+impl Frame
+  fn new(bounds) -> Self
+impl geometry::frame::Backend for Frame: width, height, size, center, fill, fill_rectangle, stroke, stroke_rectangle, fill_text, stroke_text, push_transform, pop_transform, draft, paste, translate, rotate, scale, scale_nonuniform, into_geometry, draw_image, draw_svg
+fn transform_rectangle(rectangle, transform) -> (Rectangle, Radians)
+fn convert_path(path) -> Option<tiny_skia::Path>
+fn into_paint(style) -> tiny_skia::Paint<'static>
+fn into_fill_rule(rule) -> tiny_skia::FillRule
+fn into_stroke(stroke) -> tiny_skia::Stroke
+
+### layer.rs
+type Stack = layer::Stack<Layer>
+struct Layer { bounds, quads, primitives, images, text }
+impl Layer
+  fn draw_quad(quad, background, transformation)
+  fn draw_paragraph(paragraph, position, color, clip_bounds, transformation)
+  fn draw_editor(editor, position, color, clip_bounds, transformation)
+  fn draw_text(text, position, color, clip_bounds, transformation)
+  fn draw_text_raw(raw, transformation)
+  fn draw_text_group(text, clip_bounds, transformation)
+  fn draw_text_cache(text, clip_bounds, transformation)
+  fn draw_image(image, transformation)
+  fn draw_raster(image, bounds, clip_bounds, transformation)
+  fn draw_svg(svg, bounds, clip_bounds, transformation)
+  fn draw_primitive_group(primitives, clip_bounds, transformation)
+  fn draw_primitive_cache(primitives, clip_bounds, transformation)
+  fn damage(previous, current) -> Vec<Rectangle>
+impl graphics::Layer for Layer: with_bounds, bounds, flush, resize, reset, start, end, merge
+enum Item { Live, Group, Cached }
+impl Item<T>
+  fn transformation() -> Transformation
+  fn clip_bounds() -> Rectangle
+  fn as_slice() -> &[T]
+impl Default for Layer
+
+### lib.rs
+struct Renderer { default_font, default_text_size, layers, engine } — A [`tiny-skia`] graphics renderer for [`iced`].
+impl Renderer
+  fn new(default_font, default_text_size) -> Self
+  fn layers() -> &[Layer]
+  fn draw(pixels, clip_mask, viewport, damage, background_color)
+impl core::Renderer for Renderer: start_layer, end_layer, start_transformation, end_transformation, fill_quad, reset, allocate_image
+impl core::text::Renderer for Renderer: default_font, default_size, fill_paragraph, fill_editor, fill_text
+impl graphics::text::Renderer for Renderer: fill_raw
+impl graphics::geometry::Renderer for Renderer: new_frame, draw_geometry
+impl graphics::mesh::Renderer for Renderer: draw_mesh, draw_mesh_cache
+impl core::image::Renderer for Renderer: load_image, measure_image, draw_image
+impl core::svg::Renderer for Renderer: measure_svg, draw_svg
+impl renderer::Headless for Renderer: new, name, screenshot
+impl compositor::Default for Renderer
+
+### primitive.rs
+enum Primitive { Fill, Stroke }
+impl Primitive
+  fn visible_bounds() -> Rectangle — Returns the visible bounds of the [`Primitive`].
+
+### raster.rs
+struct Pipeline { cache }
+impl Pipeline
+  fn new() -> Self
+  fn load(handle)
+  fn dimensions(handle) -> Option<Size<u32>>
+  fn draw(handle, filter_method, bounds, opacity, pixels, transform, clip_mask)
+  fn trim_cache()
+struct Cache { entries, hits }
+impl Cache
+  fn allocate(handle)
+  fn trim()
+struct Entry { width, height, pixels }
+
+### settings.rs
+struct Settings { default_font, default_text_size } — The settings of a [`Compositor`].
+impl Default, From<graphics::Settings> for Settings
+
+### text.rs
+struct Pipeline { glyph_cache, cache }
+impl Pipeline
+  fn new() -> Self
+  fn load_font(bytes)
+  fn draw_paragraph(paragraph, position, color, pixels, clip_mask, transformation)
+  fn draw_editor(editor, position, color, pixels, clip_mask, transformation)
+  fn draw_cached(content, bounds, color, size, line_height, font, align_x, align_y, shaping, pixels, clip_mask, transformation)
+  fn draw_raw(buffer, position, color, pixels, clip_mask, transformation)
+  fn trim_cache()
+fn draw(font_system, glyph_cache, buffer, position, color, pixels, clip_mask, transformation)
+fn from_color(color) -> Color
+struct GlyphCache { entries, recently_used, trim_count }
+impl GlyphCache
+  fn new() -> Self
+  fn allocate(cache_key, color, font_system, swash) -> Option<(&[u8], cosmic_text::Placement)>
+  fn trim()
+
+### vector.rs
+struct Pipeline { cache }
+impl Pipeline
+  fn new() -> Self
+  fn viewport_dimensions(handle) -> Size<u32>
+  fn draw(handle, color, bounds, opacity, pixels, transform, clip_mask)
+  fn trim_cache()
+struct Cache { trees, tree_hits, rasters, raster_hits, fontdb }
+struct RasterKey { id, color, size }
+impl Cache
+  fn load(handle) -> Option<&usvg::Tree>
+  fn viewport_dimensions(handle) -> Option<Size<u32>>
+  fn draw(handle, color, size) -> Option<tiny_skia::PixmapRef<'_>>
+  fn trim()
+impl std::fmt::Debug for Cache
+
+### window.rs
+
+## rustploy-gui/vendor/iced_tiny_skia/src/window/
+
+### compositor.rs
+struct Compositor { context, settings }
+struct Surface { window, clip_mask, layer_stack, background_color, max_age }
+impl crate::graphics::Compositor for Compositor: with_backend, create_renderer, create_surface, configure_surface, information, present, screenshot
+fn new(settings, display) -> Compositor
+fn present(renderer, surface, viewport, background_color, on_pre_present) -> Result<(), compositor::SurfaceError>
+fn screenshot(renderer, viewport, background_color) -> Vec<u8>

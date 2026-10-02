@@ -5,7 +5,7 @@
 > HTML: `seções` = comentários `── X ──`; `x-data` = componentes Alpine; `chama` = métodos usados em `@click`/`@submit`/….
 > JS: `Alpine.store/data("x")` abre um bloco com seus métodos indentados; `get:` lista os getters; `function x(a)` = função de módulo.
 
-## crates/daemon/webui/
+## rustploy-daemon/crates/daemon/webui/
 
 ### app.css — Rustploy — web UI stylesheet.
 
@@ -185,7 +185,7 @@ seções: Login, Shell (sidebar + topbar + conteúdo), Deploy Engine, Monitoring
 x-data: dashboard, deployEngine, docker, ingress, login, monitoring, newService, projectDetail, projects, schedules, serviceDetail, settings
 chama: String, abortDeployment, addDomain, addEnvVar, cancel, cancelCompose, cancelEdit, clearFinished, closeBuildLog, closeEnvText, closeJobLogs, closeNewJob, closeTokenModal, copyToClipboard, createMdb, dcRunNow, dcSave, delDomain, delEnvVar, deleteMdb, deleteProject, deleteSecret, deleteService, deployRollback, deployStart, discardOldDb, disconnect, dismissToast, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDb, gotoTemplate, gotoType, gpConnect, gpDelete, gpRefresh, iacExport, iacImport, initAdvForm, initGeneralForm, initHcForm, jobDelete, jobRunCancel, jobRunNow, jobToggle, loadMigration, nav, njobBack, njobCreate, njobGitProviderPick, njobGitRepoPick, njobPickNoService, njobPickProject, njobPickService, njobSetSourceTab, ntokCreate, onArchiveFileChange, open, openEditJob, openEnvText, openJobLogs, openNewJob, openNewService, openProject, openService, openTokenModal, pdcAdd, pdcDel, pdcMove, persistPrefs, pickBroker, pickDb, pickTemplate, queueCancel, queuePromote, queueTogglePause, registryCloseRepo, registryGc, registryOpenRepo, registryRmRepo, registryRmTag, registryRmToken, removeDeployment, renameService, rollbackMigration, saveAdvanced, saveCompose, saveEdit, saveEnvText, saveHealthcheck, saveSource, searchChanged, serviceReload, serviceStop, setProvTab, setServiceTab, setShared, settingsSave, showMdb, startEdit, startMigration, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDb, submitNew, submitSecret, submitTemplate, uploadArchive, viewBuildLog, writeText
 
-## crates/daemon/webui/net/
+## rustploy-daemon/crates/daemon/webui/net/
 
 ### api.js — cliente HTTP/JSON do daemon.
 class Api
@@ -198,7 +198,7 @@ class Api
 ### sse.js — consumidor de endpoints SSE do daemon: o firehose `/api/events` (porta de crates/rustploy-gui/views/…
 function openStream(baseUrl, token, path, handlers) — Abre a stream em `path` (relativo a `baseUrl`, ex.
 
-## crates/daemon/webui/screens/
+## rustploy-daemon/crates/daemon/webui/screens/
 
 ### dashboard.js — tela "Deployments" (view padrão do shell).
   Alpine.data("dashboard")
@@ -323,6 +323,6 @@ function primaryContainer(svc) — Container "primário" de um serviço pra exib
   Alpine.data("settings")
     get: store, gitProviderRows
 
-## crates/daemon/webui/
+## rustploy-daemon/crates/daemon/webui/
 
 ### sw.js — service worker do PWA Rustploy.

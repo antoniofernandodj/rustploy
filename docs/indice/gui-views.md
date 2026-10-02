@@ -4,7 +4,7 @@
 > `grep -n "nome" <dir><arquivo>` dá a linha. Cada item: `nome(params) — doc`.
 > `.gv`: `<screen>`/`<component>`, `props`, `imports` (componentes), `script`, `views` (valores de `if="{view}" equals=`) e `handlers` (chamados em `on_*=`).
 
-## crates/rustploy-gui/views/
+## rustploy-gui/views/
 
 ### app.gv — Janela principal da GUI: mostra o Login ou o Shell (app conectado), com a titlebar customizada.
 <screen "Rustploy">
@@ -12,7 +12,7 @@ imports: Login, Shell
 script: scripts/app.luau
 handlers: notifications, tray, window
 
-## crates/rustploy-gui/views/components/
+## rustploy-gui/views/components/
 
 ### badge.gv — Variante "badge" da célula de estado (mesmo ponto + rótulo, mas com o espaçamento/estilo de crachá —…
 <component>
@@ -56,7 +56,7 @@ props: label, current, target, action
 <component>
 props: name, description, logo, logo_kind, action
 
-## crates/rustploy-gui/views/
+## rustploy-gui/views/
 
 ### home.gv — Telas globais da sidebar, cada uma numa seção por valor de view: Monitoring, Ingress, Deploy Engine,…
 <component>
@@ -109,6 +109,6 @@ imports: HomeViews, LoadingRow, NavItem, PickerRow, ProjectCard, ServiceCard, Se
 views: deployments, projects, project_services, service
 handlers: app, cancel_project_edit, delete_project, deployments_clear_finished, disconnect, edit_project_toggle, job_del, job_run_cancel, job_run_now, job_toggle, nav_projects, open_edit_job_window, open_job_logs_window, open_new_job_window, open_new_project_window, open_new_service_window, penv_add, penv_apontar, penv_del, penv_export, penv_import, penv_reorder, penv_secret_toggle, penv_text_cancel, penv_text_toggle, proj_edit_apontar, save_project_edit, search_changed, secret_add, secret_add_apontar, secret_del, secret_use, stop_all
 
-## crates/rustploy-gui/views/styles/
+## rustploy-gui/views/styles/
 
 ### app.gss — Rustploy — glacier-ui stylesheet.

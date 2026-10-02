@@ -1,10 +1,10 @@
 # Índice: Command → handler no daemon → quem chama
 
 > Gerado por `cargo run -p indexer`; não editar à mão. Uma linha por variante do
-> `enum Command` (`crates/shared/src/protocol.rs`), agrupada pelos comentários do enum.
-> `daemon:` = `crates/daemon/src/api/handlers/<arquivo>.rs` (`::fn` quando não é `handle`);
-> `gui:` = arquivos sob `crates/rustploy-gui/views/scripts/`; `web:` = sob `crates/daemon/webui/`; `—` = ninguém;
-> `agente:` (só quando há) = sob `crates/rustploy-gui/src/agent/` (API de agente da GUI; `catalog` = só documentado).
+> `enum Command` (`rustploy-shared/src/protocol.rs`), agrupada pelos comentários do enum.
+> `daemon:` = `rustploy-daemon/crates/daemon/src/api/handlers/<arquivo>.rs` (`::fn` quando não é `handle`);
+> `gui:` = arquivos sob `rustploy-gui/views/scripts/`; `web:` = sob `rustploy-daemon/crates/daemon/webui/`; `—` = ninguém;
+> `agente:` (só quando há) = sob `rustploy-gui/src/agent/` (API de agente da GUI; `catalog` = só documentado).
 
 ## Projects
 ProjectCreate | daemon: project_create | gui: handlers/projects, new_project_window | web: app | agente: catalog

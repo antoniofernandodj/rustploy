@@ -5,7 +5,7 @@
 > Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
 > `impl A, B for T` = impls de traits comuns (métodos omitidos).
 
-## crates/daemon/src/docker/
+## rustploy-daemon/crates/daemon/src/docker/
 
 ### compose.rs — Serviços e jobs Docker Compose: `up` de stack com a rede do projeto injetada, execução one-shot de j…
 fn registry_login(token) -> Result<()> — Loga no registry embutido com o token interno `rp-internal` antes de um `docker compose up` (que pod…
@@ -91,7 +91,7 @@ fn _remove_project_network(docker, name) -> Result<()>
 fn _connect_container(docker, network_name, container_id) -> Result<()>
 fn _disconnect_container(docker, network_name, container_id) -> Result<()>
 
-## crates/daemon/src/ingress/
+## rustploy-daemon/crates/daemon/src/ingress/
 
 ### mod.rs — Ingress: proxy reverso HTTP/HTTPS embutido, tabela de rotas e TLS/ACME.
 

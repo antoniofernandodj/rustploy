@@ -5,20 +5,20 @@
 > Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
 > `impl A, B for T` = impls de traits comuns (métodos omitidos).
 
-## crates/importer/src/
+## rustploy-daemon/crates/importer/src/
 
 ### main.rs — CLI do importer: migra projetos e serviços de outra plataforma (hoje, Dokploy) para o rustploy.
 struct Cli { command }
 enum Commands { Dokploy }
 fn main() -> Result<()>
 
-## crates/importer/src/sink/
+## rustploy-daemon/crates/importer/src/sink/
 
 ### mod.rs — Grava os dados transformados no banco do rustploy (ou num arquivo SQL), casando projetos pelo nome.
 fn write_sql_file(path, data) -> Result<()>
 fn write_to_db(data) -> Result<()> — Grava os dados transformados direto no SQLite do rustploy: atualiza ou cria projetos pelo nome e sub…
 
-## crates/importer/src/source/
+## rustploy-daemon/crates/importer/src/source/
 
 ### dokploy.rs — Leitura dos projetos, aplicações, stacks Compose e domínios direto do Postgres do Dokploy.
 struct DokployProject { id, name, description }
@@ -33,7 +33,7 @@ impl DokploySource
 
 ### mod.rs — Fontes de dados do importer, uma por plataforma de origem.
 
-## crates/importer/src/transform/
+## rustploy-daemon/crates/importer/src/transform/
 
 ### dokploy.rs — Converte os dados do Dokploy em projetos e serviços do rustploy, anotando o que não dá para migrar n…
 fn transform(data, gitea_url) -> (TransformedData, Report)
@@ -43,7 +43,7 @@ fn normalize_path(path) -> String
 ### mod.rs — Conversão dos dados de origem para os modelos do rustploy (`TransformedData`).
 struct TransformedData { projects, services }
 
-## crates/importer/src/
+## rustploy-daemon/crates/importer/src/
 
 ### warnings.rs — `Report` do importer: problemas encontrados na migração, por severidade (bloqueante, aviso, informaç…
 enum Severity { Blocking, Warning, Info }

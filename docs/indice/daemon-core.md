@@ -5,7 +5,7 @@
 > Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
 > `impl A, B for T` = impls de traits comuns (métodos omitidos).
 
-## crates/daemon/
+## rustploy-daemon/crates/daemon/
 
 ### build.rs — Gera, em tempo de compilação, os assets estáticos da web UI/PWA (`crates/daemon/webui/`, ver `docs/`…
 fn main()
@@ -17,7 +17,7 @@ fn gzip(data) -> Vec<u8>
 fn fnv1a(h, data) -> u64
 const FNV_OFFSET, FNV_PRIME
 
-## crates/daemon/src/bin/
+## rustploy-daemon/crates/daemon/src/bin/
 
 ### rustployd-fw.rs — `rustployd-fw` — helper privilegiado de firewall do rustploy.
 struct Request { op, port }
@@ -37,7 +37,7 @@ fn ufw_active() -> Option<bool> — `Some(true)` = ufw instalado e ativo; `Some(
 fn apply_ufw(port, allow) -> Response
 impl Default for PortRange
 
-## crates/daemon/src/
+## rustploy-daemon/crates/daemon/src/
 
 ### env_backup.rs — Backup periódico das env vars de projetos e serviços em snapshots JSON, com listagem, restauração e …
 struct EnvSnapshot { created_at, projects, services } — Conteúdo de um snapshot: todos os projectos e serviços com as suas env vars.

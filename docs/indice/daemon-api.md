@@ -5,7 +5,7 @@
 > Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
 > `impl A, B for T` = impls de traits comuns (métodos omitidos).
 
-## crates/daemon/src/api/handlers/
+## rustploy-daemon/crates/daemon/src/api/handlers/
 
 ### daemon_status.rs — `Command::DaemonStatus`: versão, uptime e contagem de serviços rodando/total.
 fn handle(state) -> RpResponse
@@ -286,7 +286,7 @@ fn revoke(state, server_service_id, project_id) -> RpResponse
 fn catalog(search) -> RpResponse — Catálogos de bancos/brokers/templates prontos como JSON para o contexto do cliente (`ns_dbs`/`ns_bro…
 fn create(state, req) -> RpResponse — Monta o `ServiceSpec` a partir dos campos coletados pelo wizard e cria o serviço — reaproveitando o …
 
-## crates/daemon/src/api/
+## rustploy-daemon/crates/daemon/src/api/
 
 ### http_api.rs — HTTP/JSON + SSE control API — the daemon's remote administrative channel.
 type ApiBody = BoxBody<Bytes, Infallible> — Unified response body: both the buffered (`Full`) replies and the streaming (`StreamBody`) SSE body …

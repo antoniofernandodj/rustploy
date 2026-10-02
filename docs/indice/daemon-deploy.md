@@ -5,7 +5,7 @@
 > Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
 > `impl A, B for T` = impls de traits comuns (métodos omitidos).
 
-## crates/daemon/src/deploy/
+## rustploy-daemon/crates/daemon/src/deploy/
 
 ### env_resolve.rs — Resolução de env vars com secrets decifradas — extraído de `DeployExecutor::resolve_env` pra ser rea…
 fn resolve_project_env(db, secrets, project_id) -> Result<HashMap<String, String>> — Só as env vars do projeto (base), secrets decifradas — sem nenhuma específica de serviço.
@@ -93,7 +93,7 @@ fn connect_to_project(db, docker, svc, container_id, project_id) -> Result<Strin
 fn sync_server(db, docker, svc) -> usize — Garante a conexão do servidor a **todas** as redes autorizadas.
 fn disconnect_from_project(db, docker, svc, project_id) -> Result<()> — Desconecta o servidor da rede de um projeto (revogação de acesso).
 
-## crates/daemon/src/jobs/
+## rustploy-daemon/crates/daemon/src/jobs/
 
 ### mod.rs — Jobs one-shot (Schedules): execução (`runner`) e agendamento (`scheduler`).
 fn recover_interrupted(db) -> anyhow::Result<usize> — Fecha, como **interrompidas**, as execuções que ficaram sem fim: um daemon que acabou de subir não t…
@@ -116,7 +116,7 @@ impl JobRunner
 fn scheduler_loop(state)
 const TICK_SECS
 
-## crates/daemon/src/maintenance/
+## rustploy-daemon/crates/daemon/src/maintenance/
 
 ### mod.rs — Limpeza automática (agendada) de recursos Docker não usados — ver `docs/plano-limpeza-automatica-doc…
 

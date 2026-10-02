@@ -1,11 +1,11 @@
-# Índice: crates/shared — modelos, protocolo, manifest, templates
+# Índice: rustploy-shared — modelos, protocolo, manifest, templates
 
 > Gerado por `cargo run -p indexer`; não editar à mão. Sem números de linha:
 > `grep -n "nome" <dir><arquivo>` dá a linha. Cada item: `nome(params) — doc`.
 > Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
 > `impl A, B for T` = impls de traits comuns (métodos omitidos).
 
-## crates/shared/
+## rustploy-shared/
 
 ### build.rs — Gera, em tempo de compilação, o catálogo estático de templates a partir dos blueprints escritos à mã…
 struct RawTemplate { variables, config }
@@ -13,13 +13,14 @@ struct RawConfig { env, domains, mounts }
 struct RawDomain { service_name, port, host, path }
 fn main()
 fn read_meta(dir, id) -> (String, String) — `meta-entry.json` (só alguns blueprints têm) traz description/logo melhores.
+fn logo_from_list(id) -> Option<String> — Os arquivos de logo NÃO vivem neste crate (pesavam 14 MB e estouravam o limite do crates.io): morara…
 fn json_string_field(s, field) -> Option<String>
 fn find_logo(dir) -> Option<String>
 fn prettify(id) -> String — `gitea_mysql` → "Gitea Mysql"; `open-webui` → "Open Webui".
 fn normalize_env(env) -> Vec<(String, String)> — Normaliza `config.env` (array `"K=V"` ou tabela) para pares `(K, V)`.
 fn lit(s) -> String — Literal Rust `&str` válido (escapado) para `s`.
 
-## crates/shared/src/
+## rustploy-shared/src/
 
 ### config.rs — Configuração do daemon (`config.toml`): structs de cada seção com defaults e o singleton `CONFIG`.
 const CONFIG — Process-wide configuration singleton.
@@ -258,7 +259,7 @@ enum Response { Ok, Project, Projects, Service, Services, Deployment, Deployment
 impl Response
   fn err(code, message) -> Self
 
-## crates/shared/src/templates/
+## rustploy-shared/src/templates/
 
 ### mod.rs — Catálogo de templates de aplicações (formato Dokploy), lido dos blueprints em `templates/blueprints/…
 struct Template { id, name, description, logo, default_port, compose, variables, env, domains, mounts }
@@ -300,7 +301,7 @@ fn base64_with(data, table, pad) -> String
 impl std::fmt::Debug for Template
 (6 testes)
 
-## crates/shared/src/
+## rustploy-shared/src/
 
 ### wizard.rs — Lógica do wizard "Novo serviço" (Application / Database / Broker / Compose /Template): catálogos, ge…
 enum DbKind { MongoDb, Postgres, MariaDb, MySql, Redis }

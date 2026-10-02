@@ -19,6 +19,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -31,7 +33,7 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
+            rustploy-daemon/target
           key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-${{ matrix.target }}-cargo-
 
@@ -39,13 +41,14 @@ jobs:
         run: cargo install cross --git https://github.com/cross-rs/cross
 
       - name: Build daemon
-        run: cross build --release --target ${{ matrix.target }} -p daemon
+        working-directory: rustploy-daemon
+        run: cross build --release --target ${{ matrix.target }} -p rustploy
 
       - name: Package
         run: |
           mkdir dist
-          cp target/${{ matrix.target }}/release/rustployd dist/
-          cp packaging/rustployd.service dist/
+          cp rustploy-daemon/target/${{ matrix.target }}/release/rustployd dist/
+          cp rustploy-daemon/packaging/rustployd.service dist/
           tar -czf rustploy-${{ github.ref_name }}-${{ matrix.artifact }}.tar.gz \
             -C dist rustployd rustployd.service
 
@@ -60,6 +63,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -70,7 +75,7 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
+            rustploy-gui/target
           key: ${{ runner.os }}-gui-deb-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-gui-deb-cargo-
 
@@ -81,12 +86,12 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
 
       # Runtime assets (views/**/*, incl. views/scripts/{app.luau,fmt/,handlers/,
-      # net/}) are declared in crates/rustploy-gui/Cargo.toml's
+      # net/}) are declared in rustploy-gui/Cargo.toml's
       # [package.metadata.deb] assets — cargo-deb globs them into the package
       # automatically; nothing to copy by hand here (unlike the Windows job
       # below, which has no such tool and must assemble the tree manually).
       - name: Build .deb
-        run: cargo deb -p rustploy-gui -o dist/
+        run: cargo deb --manifest-path rustploy-gui/Cargo.toml -o dist/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -101,6 +106,8 @@ jobs:
       unsigned-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -113,7 +120,7 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            target
+            rustploy-gui/target
           key: ${{ runner.os }}-gui-win-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-gui-win-cargo-
 
@@ -123,7 +130,7 @@ jobs:
       - name: Build (cross-compile to Windows via cargo-xwin)
         run: |
           RUSTFLAGS="-C target-feature=+crt-static" \
-            cargo xwin build --release -p rustploy-gui --target x86_64-pc-windows-msvc
+            cargo xwin build --release --manifest-path rustploy-gui/Cargo.toml --target x86_64-pc-windows-msvc
 
       # Publica o .exe cru para o job de assinatura (SignPath) consumir.
       - name: Upload unsigned .exe
@@ -131,7 +138,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rustploy-gui-exe-unsigned
-          path: target/x86_64-pc-windows-msvc/release/rustploy-gui.exe
+          path: rustploy-gui/target/x86_64-pc-windows-msvc/release/rustploy-gui.exe
           if-no-files-found: error
 
   # Assina o .exe com o SignPath (tier OSS, grátis para projetos open source).
@@ -173,6 +180,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Download signed .exe
         if: ${{ needs.sign-gui-windows.result == 'success' }}
@@ -193,21 +202,20 @@ jobs:
       # sync: this is the one packaging path with no glob/manifest tool behind
       # it (unlike the .deb job above), so a renamed/new asset dir has to be
       # added by hand in BOTH places. `views/` is copied WHOLE (there is no
-      # separate `crates/rustploy-gui/styles/` anymore — it moved under
+      # separate `styles/` directory anymore — it moved under
       # `views/styles/`), so it already carries app.gss/theme.json along with
       # the templates and the Luau layer.
       - name: Package
         run: |
           set -e
           DIST=dist/rustploy-gui-windows
-          mkdir -p "$DIST/crates/rustploy-gui" "$DIST/crates/shared/templates"
+          mkdir -p "$DIST/assets"
           cp exe/rustploy-gui.exe "$DIST/"
-          cp -r crates/rustploy-gui/views  "$DIST/crates/rustploy-gui/"
-          mkdir -p "$DIST/crates/rustploy-gui/assets"
-          cp -r crates/rustploy-gui/assets/icons "$DIST/crates/rustploy-gui/assets/"
-          cp -r crates/shared/templates/blueprints "$DIST/crates/shared/templates/"
-          test -f "$DIST/crates/rustploy-gui/views/scripts/app.luau"
-          test -f "$DIST/crates/rustploy-gui/views/styles/app.gss"
+          cp -r rustploy-gui/views "$DIST/"
+          cp -r rustploy-gui/assets/icons "$DIST/assets/"
+          cp -r rustploy-gui/assets/blueprint-logos "$DIST/assets/"
+          test -f "$DIST/views/scripts/app.luau"
+          test -f "$DIST/views/styles/app.gss"
           printf 'Descompacte e rode rustploy-gui.exe (duplo-clique).\r\n' > "$DIST/LEIA-ME.txt"
           cd dist && zip -qr "rustploy-gui-windows-${{ github.ref_name }}.zip" rustploy-gui-windows
 
