@@ -1,6 +1,6 @@
 # Índice: Command → handler no daemon → quem chama
 
-> Gerado por `cargo run -p indexer`; não editar à mão. Uma linha por variante do
+> Gerado por `make index`; não editar à mão. Uma linha por variante do
 > `enum Command` (`rustploy-shared/src/protocol.rs`), agrupada pelos comentários do enum.
 > `daemon:` = `rustploy-daemon/crates/daemon/src/api/handlers/<arquivo>.rs` (`::fn` quando não é `handle`);
 > `gui:` = arquivos sob `rustploy-gui/views/scripts/`; `web:` = sob `rustploy-daemon/crates/daemon/webui/`; `—` = ninguém;

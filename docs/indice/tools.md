@@ -1,11 +1,11 @@
 # Índice: ferramentas do repositório
 
-> Gerado por `cargo run -p indexer`; não editar à mão. Sem números de linha:
+> Gerado por `make index`; não editar à mão. Sem números de linha:
 > `grep -n "nome" <dir><arquivo>` dá a linha. Cada item: `nome(params) — doc`.
 > Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
 > `impl A, B for T` = impls de traits comuns (métodos omitidos).
 
-## rustploy-daemon/tools/indexer/src/
+## tools/indexer/src/
 
 ### commands.rs — `comandos.md`: uma linha por variante de `Command` ligando as três pontas de uma feature: o handler …
 struct Variant { name, group, doc }
@@ -23,7 +23,7 @@ const NAMES_ONLY — Diretórios que o INDEX.md lista só por nome, numa linha: 
 const COMMON_TRAITS — Traits cujos métodos são ditados pela própria trait: listar os métodos só gastaria token.
 fn main() -> ExitCode
 fn run() -> Result<(), Vec<String>> — Primeiro gera tudo em memória e checa; só grava se nada falhou.
-fn repo_root() -> Result<PathBuf, String> — Raiz do **agregador** (onde moram `docs/` e os submodules).
+fn repo_root() -> Result<PathBuf, String> — Raiz do **agregador** (onde moram `docs/` e os submodules): o toplevel git de onde o indexador roda.
 fn submodule_dirs(root) -> Vec<String> — Diretórios dos submodules, lidos do `.gitmodules` do agregador.
 fn ls_files(dir, prefix) -> Result<Vec<String>, String> — `git ls-files` (versionados + novos não ignorados) de um repo, com `prefix/`.
 fn tracked_files(root) -> Result<Vec<String>, String> — Arquivos do agregador **e** dos submodules (com o diretório do submodule como prefixo), para indexar…

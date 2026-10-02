@@ -1,6 +1,6 @@
 # Índice: rustploy-gui (Rust)
 
-> Gerado por `cargo run -p indexer`; não editar à mão. Sem números de linha:
+> Gerado por `make index`; não editar à mão. Sem números de linha:
 > `grep -n "nome" <dir><arquivo>` dá a linha. Cada item: `nome(params) — doc`.
 > `.gv`: `<screen>`/`<component>`, `props`, `imports` (componentes), `script`, `views` (valores de `if="{view}" equals=`) e `handlers` (chamados em `on_*=`).
 > Luau: `function x(a)` = global (handler que o `.gv` chama pelo nome), `local x(a)` = privada, `function M.x(a)` = exportada pelo módulo.

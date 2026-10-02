@@ -1,6 +1,6 @@
 # Índice: rustploy-gui: telas e componentes .gv, estilos
 
-> Gerado por `cargo run -p indexer`; não editar à mão. Sem números de linha:
+> Gerado por `make index`; não editar à mão. Sem números de linha:
 > `grep -n "nome" <dir><arquivo>` dá a linha. Cada item: `nome(params) — doc`.
 > `.gv`: `<screen>`/`<component>`, `props`, `imports` (componentes), `script`, `views` (valores de `if="{view}" equals=`) e `handlers` (chamados em `on_*=`).
 

@@ -1,28 +1,34 @@
 # CLAUDE.md
 
-**A referência deste projeto é o [`rustploy-daemon/AGENTS.md`](rustploy-daemon/AGENTS.md).** Leia-o.
+**A referência deste projeto é o [`AGENTS.md`](AGENTS.md).** Leia-o.
 
-Este repo é só o **agregador**: reúne por git submodules os três repositórios do
-projeto e guarda o que é transversal a eles.
+Este arquivo existia em paralelo com o `AGENTS.md`, os dois descrevendo a
+arquitetura por conta própria — o que garantia que um dos dois estaria
+desatualizado, e por um bom tempo estiveram os dois, cada um de um jeito. Em
+2026-08-28 o conteúdo foi fundido no `AGENTS.md` e este virou um ponteiro.
+Não volte a documentar arquitetura aqui.
 
-```
-rustploy/                     ← este repo
-├── docs/                     planos, relatórios e docs/indice/ (índice gerado)
-├── .github/workflows/        release.yml (checkout recursivo, builda os três)
-├── rustploy-daemon/          daemon, importer, indexer, webui, Makefile, AGENTS.md
-├── rustploy-gui/             cliente glacier-ui
-└── rustploy-shared/          crate publicado no crates.io
-```
+Este repo é o **agregador**: reúne por git submodules `rustploy-daemon`,
+`rustploy-gui` e `rustploy-shared`. Veja "Os três repos" na Parte 2 do `AGENTS.md`
+(clone com `--recurse-submodules`; mudou um submodule → commit lá e depois o novo
+ponteiro aqui).
 
-O que procurar:
+O que procurar lá:
 
 | Assunto | Onde |
 |---|---|
-| **Achar código gastando pouco token: `docs/indice/INDEX.md` antes de qualquer grep/leitura** | aqui, `docs/indice/` (regere com `make index` em `rustploy-daemon/`) |
-| Tudo o mais: API de agente, convenções, build/teste, arquitetura, história | `rustploy-daemon/AGENTS.md` |
-| Os três repos, como publicar o `rustploy-shared`, regra do `glacier-ui` | `rustploy-daemon/AGENTS.md`, Parte 2 — "Os três repos" e Convenções |
+| **Achar código gastando pouco token: `docs/indice/INDEX.md` antes de qualquer grep/leitura** | Parte 2 — Achar código |
+| Os três repos, publicar o `rustploy-shared`, ponteiros dos submodules | Parte 2 — Os três repos |
+| Operar um rustploy por HTTP (a API de agente) | Parte 1 — Manual de Controle por Agente |
+| Regra do `glacier-ui` (nunca `path`/`[patch]`, sempre publicar) | Parte 2 — Convenções |
+| GUI e webui são **dois** clientes; feature de UI entra nos dois | Parte 2 — Convenções |
+| Ferramental e convenções de Luau, armadilhas de `.gv`/GSS | Parte 2 — Convenções |
+| Comandos de build e de teste (os pacotes **não** se chamam `daemon`/`shared`) | Parte 2 — Build & Run |
+| Config (o parse é tudo-ou-nada) | Parte 2 — Configuração |
+| Crates, protocolo, internos do daemon e da GUI | Parte 3 — Arquitetura |
+| Máquina de estados do deploy e onde a causa de uma falha aparece | Parte 3 — Arquitetura |
+| Ingress: tabela de rotas, 502 e o alvo numa stack Compose | Parte 3 — Arquitetura |
+| Decisões já revertidas (SurrealDB, UDS, TUI…) e buracos conhecidos | Parte 4 — História |
 
-Clone com `git clone --recurse-submodules`; sem a flag os submodules ficam vazios.
-Mudou código num submodule? Commit e push **lá**, e depois commite aqui o novo
-ponteiro (`git add rustploy-daemon …`). Planos e relatórios por assunto ficam em
-`docs/`; o cabeçalho de cada um diz se já foi implementado.
+Planos e relatórios por assunto ficam em `docs/`; o cabeçalho de cada um diz se
+já foi implementado.

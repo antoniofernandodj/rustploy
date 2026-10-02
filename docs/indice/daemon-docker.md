@@ -1,6 +1,6 @@
 # Índice: daemon: Docker/Compose e ingress (proxy, TLS)
 
-> Gerado por `cargo run -p indexer`; não editar à mão. Sem números de linha:
+> Gerado por `make index`; não editar à mão. Sem números de linha:
 > `grep -n "nome" <dir><arquivo>` dá a linha. Cada item: `nome(params) — doc`.
 > Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
 > `impl A, B for T` = impls de traits comuns (métodos omitidos).

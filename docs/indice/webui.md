@@ -1,6 +1,6 @@
 # Índice: webui (HTML + Alpine.js) servida pelo daemon
 
-> Gerado por `cargo run -p indexer`; não editar à mão. Sem números de linha:
+> Gerado por `make index`; não editar à mão. Sem números de linha:
 > `grep -n "nome" <dir><arquivo>` dá a linha. Cada item: `nome(params) — doc`.
 > HTML: `seções` = comentários `── X ──`; `x-data` = componentes Alpine; `chama` = métodos usados em `@click`/`@submit`/….
 > JS: `Alpine.store/data("x")` abre um bloco com seus métodos indentados; `get:` lista os getters; `function x(a)` = função de módulo.

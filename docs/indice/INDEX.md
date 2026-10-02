@@ -1,6 +1,6 @@
 # Índice do repositório
 
-> Gerado por `cargo run -p indexer`; não editar à mão. Sem números de linha:
+> Gerado por `make index`; não editar à mão. Sem números de linha:
 > ache o arquivo aqui, o símbolo no índice da área e a linha com
 > `grep -n "fn nome" <arquivo>`. Leia só o trecho, nunca o arquivo grande inteiro.
 
@@ -19,7 +19,7 @@
 - `gui-views.md` — rustploy-gui: telas e componentes .gv, estilos (rustploy-gui/views/)
 - `gui.md` — rustploy-gui (Rust) (rustploy-gui/)
 - `importer.md` — importer (rustploy-daemon/crates/importer/)
-- `tools.md` — ferramentas do repositório (rustploy-daemon/tools/)
+- `tools.md` — ferramentas do repositório (tools/)
 - `comandos.md` — cada `Command`: handler no daemon + quem chama na GUI e na webui, e a paridade
 
 ## Árvore
@@ -27,8 +27,13 @@
 ### (raiz)
 - .gitignore
 - .gitmodules
+- AGENTS.md — Rustploy — guia do projeto
 - CLAUDE.md — CLAUDE.md
+- CONTINUE.md — rustploy-gui — plano de continuação
+- GEMINI.md — Rustploy
+- Makefile
 - README.md — Rustploy
+- TODO.md — TODO
 
 ### .claude/
 - settings.json
@@ -93,14 +98,9 @@
 
 ### rustploy-daemon/
 - .gitignore
-- AGENTS.md — Rustploy — guia do projeto
-- CLAUDE.md — CLAUDE.md
 - Cargo.lock
 - Cargo.toml
-- GEMINI.md — Rustploy
-- Makefile
 - README.md — Rustploy
-- TODO.md — TODO
 - docker-compose.test.yml
 - install.sh
 - rustploy
@@ -264,18 +264,9 @@
 ### rustploy-daemon/scripts/
 - migrate_id_prefixes.sh
 
-### rustploy-daemon/tools/indexer/
-- Cargo.toml — Gera docs/indice/: índice de arquivos e símbolos para busca barata por agentes
-
-### rustploy-daemon/tools/indexer/src/ → tools.md
-- commands.rs — `comandos.md`: uma linha por variante de `Command` ligando as três pontas de uma…
-- main.rs — Gera `docs/indice/`: um mapa de arquivos e símbolos pensado para um agente achar…
-- script.rs — Índice dos arquivos que não são Rust: scripts Luau e JS, templates `.gv`, `index…
-
 ### rustploy-gui/ → gui.md
 - .gitignore
 - .luaurc
-- CONTINUE.md — rustploy-gui — plano de continuação
 - Cargo.lock
 - Cargo.toml — Rustploy — desktop client (glacier-ui) for the Rustploy PaaS daemon
 - build.rs — Build script: 1. Stages os **logos** dos blueprints (só imagens) para `$OUT_DIR`…
@@ -430,3 +421,12 @@
 ### rustploy-shared/templates/
 - logos.txt
 - blueprints/ — catálogo de templates de app (formato Dokploy), compilado pelo build.rs do shared (775 arquivos, não indexados)
+
+### tools/indexer/
+- Cargo.lock
+- Cargo.toml — Gera docs/indice/: índice de arquivos e símbolos para busca barata por agentes
+
+### tools/indexer/src/ → tools.md
+- commands.rs — `comandos.md`: uma linha por variante de `Command` ligando as três pontas de uma…
+- main.rs — Gera `docs/indice/`: um mapa de arquivos e símbolos pensado para um agente achar…
+- script.rs — Índice dos arquivos que não são Rust: scripts Luau e JS, templates `.gv`, `index…

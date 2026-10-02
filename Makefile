@@ -1,0 +1,398 @@
+# Este Makefile mora na raiz do agregador `rustploy`; os três projetos são
+# submodules (clone com --recurse-submodules). Cada um tem o seu Cargo.toml,
+# o seu Cargo.lock e o seu target/.
+DAEMON_DIR ?= rustploy-daemon
+GUI_DIR    ?= rustploy-gui
+SHARED_DIR ?= rustploy-shared
+REPOS      := $(DAEMON_DIR) $(GUI_DIR) $(SHARED_DIR)
+
+VERSION := $(shell grep '^version' $(DAEMON_DIR)/crates/daemon/Cargo.toml | head -1 | cut -d'"' -f2)
+
+DAEMON_BIN := $(DAEMON_DIR)/target/release/rustployd
+
+BOLD  := \033[1m
+RESET := \033[0m
+GREEN := \033[32m
+CYAN  := \033[36m
+RED   := \033[31m
+
+export CARGO_TERM_COLOR := never
+
+# Roda um comando em cada repo (daemon, gui, shared), parando no primeiro erro.
+define for_each_repo
+	@for r in $(REPOS); do echo "$(BOLD)==> $$r$(RESET)"; (cd $$r && $(1)) || exit 1; done
+endef
+
+.DEFAULT_GOAL := help
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+
+.PHONY: build
+build: ## Compila daemon e gui em modo release
+	cargo build --release --manifest-path $(DAEMON_DIR)/Cargo.toml --workspace
+	cargo build --release --manifest-path $(GUI_DIR)/Cargo.toml
+
+.PHONY: check
+check: ## Verifica daemon, gui e shared sem linkar (mais rápido)
+	$(call for_each_repo,cargo check --workspace)
+
+.PHONY: dev-rustploy
+dev-rustploy: ## Roda o rustploy em modo debug (para desenvolvimento)
+	cargo run --manifest-path $(DAEMON_DIR)/Cargo.toml -p rustploy
+
+# ── Qualidade ─────────────────────────────────────────────────────────────────
+
+.PHONY: test
+test: ## Roda os testes de daemon, gui e shared
+	$(call for_each_repo,cargo test --workspace)
+
+.PHONY: fmt
+fmt: ## Formata todo o código com rustfmt (os três repos)
+	$(call for_each_repo,cargo fmt --all)
+
+.PHONY: fmt-check
+fmt-check: ## Verifica formatação sem modificar arquivos
+	$(call for_each_repo,cargo fmt --all -- --check)
+
+.PHONY: clippy
+clippy: ## Roda o clippy nos três repos
+	$(call for_each_repo,cargo clippy --workspace --all-targets -- -D warnings)
+
+.PHONY: lint
+lint: fmt-check clippy ## fmt-check + clippy
+
+.PHONY: index
+index: ## Regenera docs/indice/; checa tudo antes e, se algo falhar, não altera nada
+	cargo run -q --manifest-path tools/indexer/Cargo.toml
+
+# ── Cross-compile (Windows) ───────────────────────────────────────────────────
+
+WIN_TARGET   := x86_64-pc-windows-msvc
+WIN_BIN      := $(GUI_DIR)/target/$(WIN_TARGET)/release/rustploy-gui.exe
+
+.PHONY: rustploy-gui-windows
+rustploy-gui-windows: ## Compila o rustploy-gui para Windows (.exe) via cargo-xwin
+	@command -v cargo-xwin >/dev/null 2>&1 || \
+		(echo "$(BOLD)Instalando cargo-xwin...$(RESET)" && cargo install cargo-xwin)
+	@rustup target list --installed | grep -q '^$(WIN_TARGET)$$' || \
+		rustup target add $(WIN_TARGET)
+	cargo xwin build --release --manifest-path $(GUI_DIR)/Cargo.toml --target $(WIN_TARGET)
+	@echo ""
+	@echo "$(GREEN)Executável Windows gerado:$(RESET)"
+	@ls -lh $(WIN_BIN)
+
+WIN_DIST_DIR := dist/rustploy-gui-windows
+WIN_DIST_ZIP := dist/rustploy-gui-windows.zip
+
+.PHONY: rustploy-gui-windows-dist
+rustploy-gui-windows-dist: ## Pacote .zip do rustploy-gui p/ Windows (apaga dist e regera)
+	@command -v cargo-xwin >/dev/null 2>&1 || \
+		(echo "$(BOLD)Instalando cargo-xwin...$(RESET)" && cargo install cargo-xwin)
+	@rustup target list --installed | grep -q '^$(WIN_TARGET)$$' || \
+		rustup target add $(WIN_TARGET)
+	@command -v zip >/dev/null 2>&1 || \
+		(echo "$(BOLD)Instale 'zip' (sudo apt install zip)$(RESET)" && exit 1)
+	# CRT estática (+crt-static) para não depender do Visual C++ Redistributable
+	# na máquina Windows de destino. O ícone do .exe é embutido pelo build.rs.
+	RUSTFLAGS="-C target-feature=+crt-static" \
+		cargo xwin build --release --manifest-path $(GUI_DIR)/Cargo.toml --target $(WIN_TARGET)
+	@echo "$(BOLD)Apagando dist/ e montando $(WIN_DIST_DIR)...$(RESET)"
+	@rm -rf dist
+	@mkdir -p $(WIN_DIST_DIR)/assets
+	@cp $(WIN_BIN) $(WIN_DIST_DIR)/
+	# Assets lidos em runtime por caminho relativo ao CWD (o exe faz chdir p/ a
+	# própria pasta no startup — ver src/assets.rs no rustploy-gui): mesma
+	# estrutura de pastas do repo da gui. `views/` é copiada INTEIRA (templates,
+	# views/styles/*.gss+*.json, components/ e TODA a camada Luau em views/scripts/):
+	# copiar por sub-pasta faz este target esquecer um pacote novo silenciosamente.
+	@cp -r $(GUI_DIR)/views $(WIN_DIST_DIR)/
+	@cp -r $(GUI_DIR)/assets/icons $(WIN_DIST_DIR)/assets/
+	@cp -r $(GUI_DIR)/assets/blueprint-logos $(WIN_DIST_DIR)/assets/
+	@printf 'Descompacte e rode rustploy-gui.exe (duplo-clique).\r\n' \
+		> $(WIN_DIST_DIR)/LEIA-ME.txt
+	@echo "$(BOLD)Conferindo se a camada Luau foi empacotada...$(RESET)"
+	@test -f $(WIN_DIST_DIR)/views/scripts/app.luau || \
+		(echo "$(BOLD)ERRO: views/scripts/app.luau não foi copiado — pacote incompleto$(RESET)" && exit 1)
+	@echo "  $$(find $(WIN_DIST_DIR)/views/scripts -name '*.luau' | wc -l) arquivos .luau empacotados"
+	@test -f $(WIN_DIST_DIR)/views/styles/app.gss || \
+		(echo "$(BOLD)ERRO: views/styles/app.gss não foi copiado — pacote incompleto$(RESET)" && exit 1)
+	@cd dist && zip -qr rustploy-gui-windows.zip rustploy-gui-windows
+	@echo ""
+	@echo "$(GREEN)Pacote Windows gerado:$(RESET)"
+	@ls -lh $(WIN_DIST_ZIP)
+
+# ── Assinatura Windows (Authenticode) ─────────────────────────────────────────
+# IMPORTANTE sobre o teto disto: o Smart App Control (Win 11) NÃO é resolvido
+# por auto-assinatura. Um cert self-signed só remove avisos em máquinas que
+# importarem o .cer no "Trusted Root" + "Trusted Publishers" (cenário de
+# time/interno). Para o público, o caminho grátis de verdade é o SignPath
+# (tier OSS) rodando no CI — ver .github/workflows/release.yml e
+# docs/windows-code-signing.md. Este alvo serve para testes locais/internos.
+
+WIN_SIGN_CERT   := dist/rustploy-selfsign.pfx
+WIN_SIGN_CER    := dist/rustploy-selfsign.cer
+WIN_SIGN_PASS   := rustploy
+WIN_SIGN_TS_URL := http://timestamp.digicert.com
+
+.PHONY: win-selfsign-cert
+win-selfsign-cert: ## Gera um certificado self-signed p/ testes (dist/*.pfx e *.cer)
+	@command -v openssl >/dev/null 2>&1 || \
+		(echo "$(BOLD)Instale openssl$(RESET)" && exit 1)
+	@mkdir -p dist
+	@if [ -f $(WIN_SIGN_CERT) ]; then \
+		echo "$(WIN_SIGN_CERT) já existe — apague-o para regerar."; \
+	else \
+		echo "$(BOLD)Gerando cert self-signed (code signing)...$(RESET)"; \
+		openssl req -x509 -newkey rsa:3072 -keyout dist/_key.pem -out dist/_crt.pem \
+			-days 1095 -nodes -subj "/CN=Chiquitos/O=Chiquitos" \
+			-addext "extendedKeyUsage=codeSigning" 2>/dev/null; \
+		openssl pkcs12 -export -out $(WIN_SIGN_CERT) -inkey dist/_key.pem \
+			-in dist/_crt.pem -passout pass:$(WIN_SIGN_PASS); \
+		openssl x509 -in dist/_crt.pem -outform DER -out $(WIN_SIGN_CER); \
+		rm -f dist/_key.pem dist/_crt.pem; \
+		echo "$(GREEN)  $(WIN_SIGN_CERT) (senha: $(WIN_SIGN_PASS))$(RESET)"; \
+		echo "$(GREEN)  $(WIN_SIGN_CER)  — importe no Windows p/ o app ser aceito$(RESET)"; \
+	fi
+
+.PHONY: rustploy-gui-windows-sign
+rustploy-gui-windows-sign: win-selfsign-cert ## Assina o .exe (self-signed) com osslsigncode + timestamp
+	@command -v osslsigncode >/dev/null 2>&1 || \
+		(echo "$(BOLD)Instale osslsigncode (sudo apt install osslsigncode)$(RESET)" && exit 1)
+	@test -f $(WIN_BIN) || \
+		(echo "$(BOLD)$(WIN_BIN) não existe — rode 'make rustploy-gui-windows' antes$(RESET)" && exit 1)
+	@echo "$(BOLD)Assinando $(WIN_BIN)...$(RESET)"
+	osslsigncode sign \
+		-pkcs12 $(WIN_SIGN_CERT) -pass $(WIN_SIGN_PASS) \
+		-h sha256 -t $(WIN_SIGN_TS_URL) \
+		-n "Rustploy GUI" -i https://github.com/antoniofernandodj/rustploy-gui \
+		-in  $(WIN_BIN) \
+		-out $(WIN_BIN).signed
+	@mv $(WIN_BIN).signed $(WIN_BIN)
+	@echo "$(GREEN)Assinado. Verificando...$(RESET)"
+	@osslsigncode verify $(WIN_BIN) 2>&1 | grep -E 'Signature|Timestamp|CN' || true
+
+.PHONY: deb-gui
+deb-gui: ## Pacote .deb do remote-gui p/ Linux (apaga dist e regera)
+	@command -v cargo-deb >/dev/null 2>&1 || \
+		(echo "$(BOLD)Instalando cargo-deb...$(RESET)" && cargo install cargo-deb)
+	@echo "$(BOLD)Apagando dist/ e gerando .deb do rustploy-gui...$(RESET)"
+	@rm -rf dist
+	@mkdir -p dist
+	# O pacote leva SÓ o binário + .desktop + ícones (ver `[package.metadata.deb]`
+	# no Cargo.toml do rustploy-gui): os assets de runtime (views/estilos/scripts Luau) são
+	# EMBUTIDOS no executável em release via `include_dir` (src/embedded.rs, que
+	# só compila sob `cfg(not(debug_assertions))`), então não existe
+	# /usr/share/rustploy e o binário roda de qualquer CWD.
+	cargo deb --manifest-path $(GUI_DIR)/Cargo.toml -o $(CURDIR)/dist/
+	@echo ""
+	@echo "$(GREEN)Pacote Linux (.deb) gerado:$(RESET)"
+	@ls -lh dist/*.deb
+
+# ── Packaging ─────────────────────────────────────────────────────────────────
+
+.PHONY: deb-rustploy
+deb-rustploy: ## Compila e gera apenas o .deb do rustploy
+	cargo build --release --manifest-path $(DAEMON_DIR)/Cargo.toml -p rustploy
+	cargo deb --manifest-path $(DAEMON_DIR)/crates/daemon/Cargo.toml --no-build
+	@echo ""
+	@echo "$(GREEN)Pacote gerado:$(RESET)"
+	@ls -lh $(DAEMON_DIR)/target/debian/rustployd_*.deb
+
+
+.PHONY: install-rustploy
+install-rustploy: deb-rustploy ## Compila, empacota e instala apenas o rustploy
+	sudo dpkg -i $$(ls $(DAEMON_DIR)/target/debian/rustployd_*.deb | tail -1)
+	sudo systemctl daemon-reload
+	# Explícito (não só via postinst, que silencia falhas com `|| true`):
+	# helper de firewall — allow/deny de porta externa via /run/rustploy/fw.sock.
+	sudo systemctl enable --now rustployd-fw.socket
+	sudo systemctl restart rustployd
+	sudo journalctl --rotate
+	sudo journalctl --vacuum-time=1s --unit=rustployd
+	@echo ""
+	@echo "$(BOLD)Status do helper de firewall:$(RESET)"
+	@sudo systemctl status rustployd-fw.socket --no-pager -l || true
+	@sudo test -S /run/rustploy/fw.sock \
+		&& echo "$(GREEN)/run/rustploy/fw.sock ok$(RESET)" \
+		|| echo "$(RED)AVISO: /run/rustploy/fw.sock não existe — liberação automática de porta externa vai falhar$(RESET)"
+
+.PHONY: install
+install: deb ## Instala os pacotes .deb via dpkg
+	sudo dpkg -i $$(ls $(DAEMON_DIR)/target/debian/rustployd_*.deb       | tail -1)
+	sudo dpkg -i $$(ls $(DAEMON_DIR)/target/debian/rustploy-remote_*.deb | tail -1)
+	@command -v update-desktop-database >/dev/null 2>&1 && sudo update-desktop-database /usr/share/applications || true
+
+.PHONY: install-gui
+install-gui: deb-gui ## Compila, empacota e instala o rustploy-gui
+	sudo dpkg -i $$(ls ./dist/rustploy-gui_*.deb | tail -1)
+	sudo rm -f $$(ls ./dist/rustploy-gui_*.deb | tail -1)
+	@command -v update-desktop-database >/dev/null 2>&1 && sudo update-desktop-database /usr/share/applications || true
+
+.PHONY: uninstall
+uninstall: ## Remove os pacotes instalados
+	sudo dpkg -r rustployd rustploy || true
+
+.PHONY: reinstall
+reinstall: uninstall install ## Remove e reinstala ambos os pacotes
+
+# ── Serviço systemd ───────────────────────────────────────────────────────────
+
+.PHONY: start
+start: ## Inicia o serviço rustployd via systemctl
+	sudo systemctl start rustployd
+
+.PHONY: stop
+stop: ## Para o serviço rustployd
+	sudo systemctl stop rustployd
+
+.PHONY: restart
+restart: ## Reinicia o serviço rustployd
+	sudo systemctl restart rustployd
+
+.PHONY: status
+status: ## Exibe o status do serviço rustployd
+	systemctl status rustployd
+
+.PHONY: enable
+enable: ## Habilita o serviço rustployd para iniciar com o sistema
+	sudo systemctl enable rustployd
+
+.PHONY: disable
+disable: ## Desabilita o serviço rustployd do boot
+	sudo systemctl disable rustployd
+
+.PHONY: logs
+logs: ## Segue os logs do daemon via journalctl
+	journalctl -fu rustployd
+
+.PHONY: logs-boot
+logs-boot: ## Exibe logs desde o último boot
+	journalctl -u rustployd -b
+
+# ── Setup ─────────────────────────────────────────────────────────────────────
+
+# Vazio quando já se está como root (container/CI); senão usa sudo.
+SUDO := $(shell [ "$$(id -u)" = 0 ] || command -v sudo)
+
+# Garante que o cargo recém-instalado pelo rustup seja encontrado nas receitas
+# seguintes (cada linha do make roda num shell novo, sem o ~/.cargo/env).
+export PATH := $(HOME)/.cargo/bin:$(PATH)
+
+.PHONY: setup
+setup: ## Instala todas as dependências necessárias
+	@echo "$(BOLD)==> Instalando dependências de build (build-essential, pkg-config, libssl-dev)$(RESET)"
+
+	$(SUDO) apt-get update
+	$(SUDO) apt-get install -y build-essential pkg-config libssl-dev
+	$(SUDO) apt-get install -y pkg-config libssl-dev
+	@echo "$(GREEN)  pkg-config: $$(pkg-config --version)$(RESET)"
+
+	@echo "$(BOLD)==> Verificando rustup / cargo$(RESET)"
+	@command -v cargo >/dev/null 2>&1 || \
+		(echo "Instalando rustup..." && \
+		curl -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable && \
+		. "$$HOME/.cargo/env")
+	@echo "$(GREEN)  cargo: $$(cargo --version)$(RESET)"
+
+	@echo "$(BOLD)==> Verificando cargo-deb$(RESET)"
+	@command -v cargo-deb >/dev/null 2>&1 || \
+		(echo "  Instalando cargo-deb..." && cargo install cargo-deb)
+	@command -v cargo-deb >/dev/null 2>&1 || \
+		{ echo "$(RED)  falha ao instalar cargo-deb (necessário para 'make deb')$(RESET)"; exit 1; }
+	@echo "$(GREEN)  cargo-deb: $$(cargo-deb --version)$(RESET)"
+
+	@echo "$(BOLD)==> Verificando cargo-watch (opcional, para dev)$(RESET)"
+	@command -v cargo-watch >/dev/null 2>&1 || cargo install cargo-watch || \
+		echo "  cargo-watch não instalado (opcional)"
+
+	@echo "$(BOLD)==> Verificando wl-clipboard (Wayland clipboard)$(RESET)"
+	@command -v wl-copy >/dev/null 2>&1 || \
+		(echo "  Instalando wl-clipboard..." && $(SUDO) apt-get install -y wl-clipboard)
+	@echo "$(GREEN)  wl-copy: $$(which wl-copy)$(RESET)"
+
+	@echo "$(BOLD)==> Verificando Docker$(RESET)"
+	@$(MAKE) --no-print-directory install-docker
+
+	@echo "$(BOLD)==> Verificando dpkg (para install)$(RESET)"
+	@command -v dpkg >/dev/null 2>&1 && \
+		echo "$(GREEN)  dpkg: OK$(RESET)" || \
+		echo "  dpkg não encontrado (necessário para make install)"
+
+	@echo ""
+	@echo "$(GREEN)$(BOLD)Setup concluído!$(RESET) Próximos passos:"
+	@echo "  make build    — compila em release"
+	@echo "  make deb      — gera os .deb"
+	@echo "  make install  — instala"
+
+# Pacotes do repositório oficial do Docker (docs.docker.com/engine/install/ubuntu).
+DOCKER_PKGS := docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+.PHONY: install-docker
+install-docker: ## Instala o Docker Engine pelo repositório oficial (Ubuntu/Debian)
+	@set -e; \
+	if command -v docker >/dev/null 2>&1; then \
+		echo "$(GREEN)  docker já instalado: $$(docker --version)$(RESET)"; \
+	else \
+		command -v apt-get >/dev/null 2>&1 || { \
+			echo "$(RED)  apt-get não encontrado — instale o Docker manualmente:$(RESET)"; \
+			echo "  https://docs.docker.com/engine/install/"; exit 1; }; \
+		. /etc/os-release; \
+		case "$$ID" in \
+			ubuntu|debian) distro=$$ID ;; \
+			*) case "$$ID_LIKE" in *ubuntu*) distro=ubuntu ;; *) distro=debian ;; esac ;; \
+		esac; \
+		codename=$${UBUNTU_CODENAME:-$$VERSION_CODENAME}; \
+		echo "  repositório: $$distro/$$codename ($$(dpkg --print-architecture))"; \
+		$(SUDO) apt-get update; \
+		$(SUDO) apt-get install -y ca-certificates curl; \
+		$(SUDO) install -m 0755 -d /etc/apt/keyrings; \
+		$(SUDO) curl -fsSL https://download.docker.com/linux/$$distro/gpg \
+			-o /etc/apt/keyrings/docker.asc; \
+		$(SUDO) chmod a+r /etc/apt/keyrings/docker.asc; \
+		printf 'Types: deb\nURIs: https://download.docker.com/linux/%s\nSuites: %s\nComponents: stable\nArchitectures: %s\nSigned-By: /etc/apt/keyrings/docker.asc\n' \
+			"$$distro" "$$codename" "$$(dpkg --print-architecture)" \
+			| $(SUDO) tee /etc/apt/sources.list.d/docker.sources >/dev/null; \
+		$(SUDO) apt-get update; \
+		$(SUDO) apt-get install -y $(DOCKER_PKGS); \
+		echo "$(GREEN)  docker: $$(docker --version)$(RESET)"; \
+	fi; \
+	if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then \
+		$(SUDO) systemctl enable --now docker.service containerd.service; \
+	fi; \
+	user=$$(id -un); \
+	if [ "$$user" != root ]; then \
+		getent group docker >/dev/null || $(SUDO) groupadd docker; \
+		id -nG "$$user" | tr ' ' '\n' | grep -qx docker || { \
+			$(SUDO) usermod -aG docker "$$user"; \
+			echo "  $(BOLD)$$user adicionado ao grupo 'docker'$(RESET) — refaça o login (ou 'newgrp docker') para valer"; \
+		}; \
+	fi; \
+	docker info >/dev/null 2>&1 \
+		&& echo "$(GREEN)  daemon docker: OK$(RESET)" \
+		|| echo "  daemon docker inacessível (provável falta de re-login para o grupo 'docker')"
+
+# ── Limpeza ───────────────────────────────────────────────────────────────────
+
+.PHONY: clean
+clean: ## Remove artefatos de build (target/ dos três repos)
+	$(call for_each_repo,cargo clean)
+
+.PHONY: clean-deb
+clean-deb: ## Remove apenas os .deb gerados
+	rm -f $(DAEMON_DIR)/target/debian/*.deb
+
+# ── Info ──────────────────────────────────────────────────────────────────────
+
+.PHONY: version
+version: ## Exibe a versão atual do projeto
+	@echo "$(VERSION)"
+
+.PHONY: help
+help: ## Lista todos os targets disponíveis
+	@echo ""
+	@echo "$(BOLD)Rustploy $(VERSION) — targets disponíveis$(RESET)"
+	@echo ""
+	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ { \
+		printf "  $(CYAN)%-18s$(RESET) %s\n", $$1, $$2 \
+	}' $(MAKEFILE_LIST)
+	@echo ""
