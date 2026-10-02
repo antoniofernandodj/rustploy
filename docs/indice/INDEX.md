@@ -27,16 +27,8 @@
 ### (raiz)
 - .gitignore
 - .gitmodules
-- .luaurc
-- AGENTS.md — Rustploy — guia do projeto
 - CLAUDE.md — CLAUDE.md
-- GEMINI.md — Rustploy
-- Makefile
 - README.md — Rustploy
-- TODO.md — TODO
-- install.sh
-- rustploy
-- rustployd
 
 ### .claude/
 - settings.json
@@ -99,23 +91,8 @@
 - migration.md — Migração de Outras Plataformas
 - notificacao-so.md — Notificação nativa do SO ao concluir um deploy
 
-### packaging/
-- config.toml
-- rustployd-fw.service
-- rustployd-fw.socket
-- rustployd.service
-
-### packaging/debian/
-- postinst
-- prerm
-
-### packaging/rustploy-gui/
-- postinst
-- rustploy-gui.desktop
-
 ### rustploy-daemon/
 - .gitignore
-- .luaurc
 - AGENTS.md — Rustploy — guia do projeto
 - CLAUDE.md — CLAUDE.md
 - Cargo.lock
@@ -130,12 +107,6 @@
 - rustployd
 
 ### rustploy-daemon/.claude/
-- settings.json
-
-### rustploy-daemon/.github/workflows/
-- release.yml
-
-### rustploy-daemon/.vscode/
 - settings.json
 
 ### rustploy-daemon/crates/daemon/ → daemon-core.md
@@ -279,76 +250,6 @@
 ### rustploy-daemon/crates/importer/src/transform/ → importer.md
 - dokploy.rs — Converte os dados do Dokploy em projetos e serviços do rustploy, anotando o que …
 - mod.rs — Conversão dos dados de origem para os modelos do rustploy (`TransformedData`).
-
-### rustploy-daemon/docs/
-- api-agente-no-gui.md — A API de agente vive no app, não no daemon
-- correcao-persistencia-geometria-janela.md — Correção: a janela não reabria no último tamanho (glacier 0.49.0 → 0.49.1)
-- empacotamento-styles-e-cross-compile-windows.md — Empacotamento do rustploy-gui: mover styles/ e cross-compile Windows (cargo-xwin…
-- env-backup.md — Backup automático de env vars
-- ingress-proxy.md — Como funciona o ingress proxy e o zero-downtime deploy
-- internal-networking.md — Comunicação interna entre serviços do projeto
-- inventario-paridade-telas.md — Inventário de paridade — GUI iced × webui
-- licoes-aprendidas.md — Lições aprendidas — erros, causas e soluções
-- memoria-threads-e-runtime.md — Memória de threads e runtime async — base teórica
-- plano-acao-banco-compartilhado.md — Plano de ação: implementar o banco compartilhado (Postgres) e migrar rdo-itemize…
-- plano-banco-compartilhado.md — Plano: banco compartilhado entre projetos + migração dos bancos antigos
-- plano-cancelamento-de-jobs.md — Cancelamento de `job_run` em andamento
-- plano-colisao-nome-container.md — Plano: colisão de nome de container entre projetos
-- plano-convergencia-templates-gui-webui.md — Plano: convergência dos templates (GUI iced ↔ web UI)
-- plano-dependencias-e-autostart.md — Dependências entre serviços + auto-restart no boot do daemon
-- plano-erro-de-deploy-invisivel.md — Erro de deploy invisível: a causa da falha é gravada, mas nunca chega no log que…
-- plano-fila-deploys.md — Plano: fila global de deploys (um por vez), visível e gerenciável
-- plano-file-io-luau-e-geometria.md — Plano: I/O de arquivo no Luau + geometria da janela fora do Rust
-- plano-indice-de-codigo.md — Plano: índice de código para busca barata
-- plano-jobs-na-fila-de-deploy.md — Plano: jobs e deploys na mesma fila (uma coisa por vez)
-- plano-limpeza-automatica-docker.md — Limpeza automática do Docker: liberar espaço em disco sozinho, todos os dias
-- plano-multi-login-clients.md — Plano: login multi-servidor no client iced + login simplificado na webui
-- plano-nome-gravado-rede-e-stack.md — Plano: nome de rede e de stack Compose gravados, não derivados
-- plano-pre-deploy-gate.md — Pré-deploy gate: rodar um check antes do deploy, e só prosseguir se ele passar
-- plano-reforma-gui-glacier-0.102.md — Plano: reforma do `rustploy-gui` sobre o glacier-ui moderno (0.87 → 0.102)
-- plano-registry-embutido.md — Registry Docker embutido no rustployd
-- plano-tray-bandeja-e-ciclo-de-vida.md — Plano — ícone de bandeja e o app que sobrevive à última janela
-- plano-unificacao-webhook-api.md — Plano: unificar o webhook na porta da API
-- plano-widgets-glacier-0.68.md — Widgets novos do glacier-ui (0.63 → 0.68): o que dá pra aproveitar no rustploy
-- relatorio-porta-externa-automatica.md — Relatório: URL de conexão externa sem burocracia — porta automática + firewall g…
-- secrets.md — Secrets — Gerenciamento de Credenciais
-- services.md
-- status-2026-05-26.md — Status do Projeto — 26 de maio de 2026
-- tls-acme.md — TLS automático via ACME (Let's Encrypt)
-- webhooks-exemplos.md — Webhooks: exemplos de requisição e resposta
-- webhooks.md — Webhooks de Deploy
-- windows-code-signing.md — Assinatura de código no Windows (rustploy-gui)
-
-### rustploy-daemon/docs/arquivo/
-- 2026-07-13-remocao-tui-e-registry-fase2.md — 2026-07-13 — Remoção do TUI + Registry Docker embutido (Fase 2)
-- compressao-gzip-api.md — Compressão gzip da API (daemon → GUI)
-- conceitos-tls-csr-acme.md — Conceitos: TLS, Certificados, CSR, CN, SANs, ACME e rcgen
-- embedded-docker-registry.md — Rustploy — Registry Docker embutido, Fase 3 (integração com o deploy executor)
-- example-iced-system-tray.md
-- infra-as-code-organizacao-repo.md — Infra-as-Code — Onde versionar os manifestos
-- infra-as-code.md — Infra-as-Code — Manifestos YAML declarativos
-- luau-modularizacao-pacotes.md — Modularização da camada Luau em pacotes (`fmt/`, `handlers/`, `net/`)
-- migracao-http-luau.md — Plano: migrar RWP → HTTP/SSE + lógica de rede em Luau (rustploy.chiquitos.tech)
-- migration.md — Migração de Outras Plataformas
-- notificacao-so.md — Notificação nativa do SO ao concluir um deploy
-
-### rustploy-daemon/docs/indice/
-- INDEX.md — Índice do repositório
-- comandos.md — Índice: Command → handler no daemon → quem chama
-- daemon-api.md — Índice: daemon: API HTTP e handlers de Command
-- daemon-core.md — Índice: daemon: main, bins, event bus, secrets, métricas e o resto
-- daemon-db.md — Índice: daemon: persistência (db/)
-- daemon-deploy.md — Índice: daemon: deploy, jobs e manutenção
-- daemon-docker.md — Índice: daemon: Docker/Compose e ingress (proxy, TLS)
-- daemon-registry.md — Índice: daemon: registry embutido e provedores git
-- gui-handlers.md — Índice: rustploy-gui: handlers Luau (as ações que os .gv disparam)
-- gui-scripts.md — Índice: rustploy-gui: demais scripts Luau (estado, rede, formatação, janelas)
-- gui-views.md — Índice: rustploy-gui: telas e componentes .gv, estilos
-- gui.md — Índice: rustploy-gui (Rust)
-- importer.md — Índice: importer
-- shared.md — Índice: crates/shared — modelos, protocolo, manifest, templates
-- tools.md — Índice: ferramentas do repositório
-- webui.md — Índice: webui (HTML + Alpine.js) servida pelo daemon
 
 ### rustploy-daemon/packaging/
 - config.toml
@@ -529,6 +430,3 @@
 ### rustploy-shared/templates/
 - logos.txt
 - blueprints/ — catálogo de templates de app (formato Dokploy), compilado pelo build.rs do shared (775 arquivos, não indexados)
-
-### scripts/
-- migrate_id_prefixes.sh
