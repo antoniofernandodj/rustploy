@@ -6,7 +6,7 @@
   wizard emite broadcast("service_created") e chama close_window(). Borderless
   (aberta com decorations=false, como as demais): titlebar custom abaixo. Relinka
   theme + app.gss (motor isolado — não herda o stylesheet do app principal). -->
-<screen title="Novo serviço — Rustploy" size="560 700">
+<screen decorations="false" icon="crates/rustploy-gui/views/assets/rustploy.png" title="Novo serviço — Rustploy" size="560 700">
   <resources>
     <link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />
     <link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />

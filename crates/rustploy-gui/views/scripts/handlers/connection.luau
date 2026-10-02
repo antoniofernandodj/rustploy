@@ -19,7 +19,7 @@ local Settings = require("settings")
 -- salvo. `storage` grava num arquivo local que sobrevive a restart (fora do
 -- `ctx`, que é só memória), em
 -- `~/.local/share/rustploy/.glacier-storage/app.json` (raiz definida por
--- `.storage_dir(...)` no Rust).
+-- `<app id="rustploy">` do `views/app.gv`).
 local saved_servers: { { url: string, token: string } } = {}
 
 -- Publica só as URLs (o `<ComboEdit>` não precisa do token pra montar a

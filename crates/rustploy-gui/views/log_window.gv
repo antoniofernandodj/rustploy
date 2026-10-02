@@ -17,7 +17,7 @@
 <!-- Sem `title` no cabeçalho de propósito: o título desta janela é dinâmico
   ("Logs — nginx", "Build — abc123", "Job — …") e quem o sabe é quem a abre, no
   `open_window{ title = … }`. O `size`, esse é sempre o mesmo, e mora aqui. -->
-<screen size="900 560">
+<screen decorations="false" icon="crates/rustploy-gui/views/assets/rustploy.png" size="900 560">
   <resources>
     <link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />
     <link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />

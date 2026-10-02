@@ -1,7 +1,21 @@
 <!-- Janela principal da GUI: mostra o Login ou o Shell (app conectado), com a
      titlebar customizada. Script: scripts/app.luau. -->
-<screen title="Rustploy" size="1280 820" min-size="480 680">
+<screen decorations="false" icon="crates/rustploy-gui/views/assets/rustploy.png" title="Rustploy" size="1280 820" min-size="480 680">
   <resources>
+    <!-- Aplicativo (glacier-ui 0.107+): `id` nomeia o diretório de dados
+      (`~/.local/share/rustploy`, onde moram o `storage` do Luau — login lembrado
+      — e a geometria da janela) e é a chave da instância única. Com a bandeja
+      abaixo, fechar a janela recolhe o app em vez de encerrá-lo; uma segunda
+      execução foca a primeira. -->
+    <app id="rustploy" single_instance="true" remember_geometry="true" />
+
+    <tray icon="crates/rustploy-gui/views/assets/rustploy.png" tooltip="Rustploy">
+      <item label="Open Rustploy" on_click="tray:open" />
+      <check label="Notifications" checked="{__notifications}" on_click="notifications:toggle" />
+      <separator />
+      <item label="Quit Rustploy" on_click="tray:quit" />
+    </tray>
+
     <link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />
     <link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />
     <link rel="import"      href="login.gv" as="Login" />

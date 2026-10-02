@@ -6,7 +6,7 @@
   (cada janela é um motor isolado; o stylesheet não vem "de graça"). Borderless
   (a janela é aberta com decorations=false, como a principal): o titlebar abaixo
   é custom, e suas ações window:* são tratadas no runtime (app/mod.rs). -->
-<screen title="Novo projeto — Rustploy" size="460 340">
+<screen decorations="false" icon="crates/rustploy-gui/views/assets/rustploy.png" title="Novo projeto — Rustploy" size="460 340">
   <resources>
     <link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />
     <link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />

@@ -11,7 +11,7 @@
   perder o valor. O broadcast("registry_token_created") já dispara na hora da
   criação (não só ao fechar), pra lista da janela principal atualizar mesmo
   se o usuário nunca clicar em "Fechar". -->
-<screen title="Novo token — Rustploy" size="480 420">
+<screen decorations="false" icon="crates/rustploy-gui/views/assets/rustploy.png" title="Novo token — Rustploy" size="480 420">
   <resources>
     <link rel="theme"       href="crates/rustploy-gui/views/styles/theme.json" />
     <link rel="stylesheet"  href="crates/rustploy-gui/views/styles/app.gss" />

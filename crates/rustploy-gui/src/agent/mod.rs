@@ -68,9 +68,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Se esta execução chegou a subir o servidor.
 ///
-/// Duas razões, ambas concretas: o gancho `.main()` do `GlacierDaemon` (de onde
-/// [`spawn`] é chamado) roda de novo quando a janela principal é REABERTA pela
-/// bandeja, e um segundo lançamento do app — que o `single_instance` faz sair
+/// Duas razões, ambas concretas: o gancho `.on_message()` do `GlacierDaemon` (de onde
+/// [`spawn`] é chamado) roda a CADA dispatch da principal, e um segundo lançamento do app — que o `single_instance` faz sair
 /// sem abrir janela — não pode limpar o handoff da instância que está viva.
 static STARTED: AtomicBool = AtomicBool::new(false);
 
@@ -95,8 +94,8 @@ const ENV_VAR: &str = "RUSTPLOY_AGENT_API";
 /// Não devolve erro: falhar aqui não pode impedir o app de abrir. Qualquer
 /// problema vira aviso no stderr e a GUI segue como sempre foi.
 pub(crate) fn spawn(session: SharedSession, ui: ExternalSender) {
-    // Idempotente: reabrir a janela pela bandeja reexecuta o `.main()` do
-    // glacier, e uma segunda thread tentaria bind na mesma porta e reescreveria
+    // Idempotente: o `.on_message()` do glacier chama isto a cada dispatch,
+    // e uma segunda thread tentaria bind na mesma porta e reescreveria
     // o handoff com um token novo — invalidando o que o agente já tem em mãos.
     if STARTED.swap(true, Ordering::SeqCst) {
         return;

@@ -1,32 +1,27 @@
 //! Rustploy (glacier-ui) — desktop client whose UI is described in XML
 //! templates and rendered by the published `glacier-ui` engine. Toda a lógica de
 //! rede vive em Luau (`views/scripts/app.luau`), falando HTTP/JSON + SSE com o
-//! daemon; este módulo Rust é só a casca da janela (chrome + persistência local).
+//! daemon; este módulo Rust é só a casca da janela.
 //!
-//! Desde glacier-ui 0.38 este arquivo é **só configuração**: o runner
-//! [`GlacierDaemon`] cuida do loop `iced::daemon`, de um motor por janela, das
-//! janelas-filhas (`open_window(...)` na Luau), dos broadcasts entre elas e das
-//! ações `window:*` da titlebar custom. O que é específico do rustploy entra por
-//! ganchos: `main_window`/`child_window` (chrome borderless, ícone, geometria),
-//! `on_message` (persistir o login lembrado) e `on_close` (persistir a
-//! geometria).
+//! Desde glacier-ui 0.107 a configuração de janela e de aplicativo mora no
+//! **markup** de `views/app.gv`: `<screen decorations icon>` (chrome borderless e
+//! ícone, também nas janelas-filhas), `<app id single_instance
+//! remember_geometry>` (instância única, geometria lembrada e diretório de dados
+//! do `storage` do Luau) e `<tray>` (menu da bandeja). O runner
+//! [`GlacierDaemon`] os lê antes de abrir qualquer janela.
 //!
-//! Até a 0.37 nada disso era alcançável pelo builder, e a casca aqui era um
-//! runtime `iced::daemon` **inteiro reimplementado** — ~250 linhas duplicando o
-//! roteamento por janela, os listeners globais e a abertura de filhas, só para
-//! poder embutir uma fonte e desenhar a própria titlebar.
+//! Sobra aqui só o que o markup não expressa: as fontes embutidas, o
+//! antialiasing, o período dos toasts, a extensão Luau do `.zip`, o espelho da
+//! sessão para a API de agente, o `application_id` do Linux e a fonte de assets
+//! embutida em release.
+//!
+//! Atenção: um `.main(|motor| …)` escrito à mão **desliga** a leitura de `<app>`
+//! e `<tray>` (o runner não sabe qual template ele abre) — por isso a principal
+//! é registrada por `.main_template(…)`.
 
 use std::time::Duration;
 
-use glacier_ui::{
-    Font, GlacierDaemon, TrayActions, TrayConfig, TrayItem, notifications_enabled,
-    set_notifications_enabled, window,
-};
-
-/// Ícone da bandeja: os mesmos bytes PNG embutidos usados no ícone da janela
-/// (`main_window_settings`), para o app ter a mesma identidade na área de
-/// notificação.
-const TRAY_ICON: &[u8] = include_bytes!("../../assets/rustploy.png");
+use glacier_ui::{Font, GlacierDaemon, window};
 
 /// Fontes embutidas (JetBrains Mono): registradas no builder do daemon e usadas
 /// como `default_font` de todas as janelas.
@@ -47,80 +42,48 @@ pub(crate) fn run() -> iced::Result {
     let ui_agente = glacier_ui::external::sender();
 
     let daemon = GlacierDaemon::new()
-        // Sem `.title()`/`.main_size()`: desde o glacier-ui 0.59 quem declara
-        // título e tamanho é o `<screen>` do `views/app.gv`, junto da tela que
-        // eles descrevem — e o título recarrega a quente, sem recompilar. O que
-        // sobra aqui (`main_window` abaixo) é o chrome que o template não
-        // descreve: borderless, ícone, id de aplicação.
+        // Título, tamanho, decorations e ícone: `<screen>` de `views/app.gv`.
+        // Instância única, geometria e diretório de dados: `<app>`. Bandeja:
+        // `<tray>`. O `.main_template` (e não `.main`) mantém o `<app>`/`<tray>`
+        // lidos; o caminho é relativo ao workspace, onde `assets::locate_and_chdir`
+        // deixa o CWD.
+        .main_template("crates/rustploy-gui/views/app.gv")
         .font(FONT_REGULAR)
         .font(FONT_BOLD)
         .default_font(Font::with_name("JetBrains Mono"))
-        // Raiz gravável do global `storage` do Luau (persistência do login
-        // lembrado, ver `connection.luau`). Sem isto o `storage` gravaria
-        // relativo aos assets — read-only no pacote `.deb` (`/usr/share`). Aponta
-        // para o mesmo data dir do usuário que o resto da persistência local usa,
-        // então o arquivo cai em `~/.local/share/rustploy/.glacier-storage/`.
-        .storage_dir(shared::fallback_data_dir())
         // Extensão da camada Luau: `manifest_zip_read` / `manifest_zip_write`,
         // usadas pelo Infra as Code (Settings). O motor tem `zip_dir` mas não o
         // inverso, e a camada Lua não abre um `.zip` — ver `src/manifest_zip.rs`.
         .lua_extension(crate::manifest_zip::install)
-        // Persistência automática da geometria da principal (glacier 0.49+):
-        // grava tamanho/posição ao fechar e restaura ao abrir, sob o
-        // `storage_dir` acima. Substituiu a antiga `src/app/store.rs` (WindowState
-        // em JSON à mão) + o gancho `on_close`. No Wayland só o tamanho volta.
-        .remember_window_geometry(true)
-        // Ícone de bandeja: com ele, fechar a última janela NÃO encerra o app —
-        // ele recolhe para a bandeja, e o menu controla o ciclo de vida. Ver
-        // `docs/plano-tray-bandeja-e-ciclo-de-vida.md`.
-        .tray(tray_config())
-        .on_tray(handle_tray)
-        // Instância única (glacier-ui 0.57+): com bandeja, o app sobrevive ao
-        // fechar a janela — sem isto, clicar no launcher de novo enquanto ele
-        // já está recolhido na bandeja abre uma segunda instância, e o usuário
-        // acumula N processos sem perceber. Uma segunda tentativa pinga esta e
-        // sai sem abrir janela; a instância já viva reabre/foca a principal
-        // (mesmo `application_id` do `platform_specific` abaixo).
-        .single_instance("rustploy-gui")
         // Espelha a sessão da GUI (api_url/api_token/connected, escritos no
         // contexto por `handlers/connection.luau`) para a API de agente. O
         // gancho roda depois de CADA dispatch da janela principal, então cobre
         // login, logout e troca de servidor sem precisar conhecer nenhum dos
         // três — e a escrita só acontece quando algo de fato mudou.
+        //
+        // É também aqui que a API de agente sobe: o `.main()` que a subia saiu
+        // (ver o aviso no topo do arquivo). Este gancho só roda na instância
+        // PRIMÁRIA — a instância única encerra a segunda antes de qualquer
+        // dispatch, então um segundo lançamento não reescreve o handoff da
+        // viva — e `spawn` é idempotente (um `AtomicBool`), então chamá-lo a
+        // cada dispatch custa uma troca atômica.
         .on_message({
             let sessao = sessao_agente.clone();
+            let ui = ui_agente.clone();
             move |_msg, motor| {
+                crate::agent::spawn(sessao.clone(), ui.clone());
                 sessao.sync_from_context(motor.context());
             }
         })
-        .main_window(main_window_settings())
-        // Janelas-filhas (ex.: "Novo projeto") também são borderless: o template
-        // delas traz a própria titlebar, e sem isto o SO desenharia a nativa por
-        // baixo e a janela destoaria da principal.
-        .child_window(|_spec, settings| {
-            settings.decorations = false;
-            settings.platform_specific = platform_specific();
+        // Só o `application_id` (Linux) mora aqui: o glacier não o lê do
+        // markup. O resto do chrome (borderless, ícone) vem do `<screen>`, que
+        // se aplica por cima destas settings.
+        .main_window(window::Settings {
+            platform_specific: platform_specific(),
+            ..Default::default()
         })
-        .main({
-            let sessao = sessao_agente.clone();
-            let ui = ui_agente.clone();
-            move |motor| {
-                // A API de agente sobe AQUI, e não antes de `run()`, porque o
-                // `.main()` só roda na instância PRIMÁRIA: o `single_instance`
-                // encerra a segunda antes disto. Subindo antes, um segundo
-                // lançamento reescreveria o handoff da instância viva com um token
-                // que morre em seguida. `spawn` é idempotente porque este gancho
-                // roda de novo ao reabrir a janela pela bandeja.
-                crate::agent::spawn(sessao.clone(), ui.clone());
-
-                if let Err(e) = motor.register_component("app", "crates/rustploy-gui/views/app.gv")
-                {
-                    // O Display do GlacierError já traz arquivo:linha:coluna, o
-                    // trecho e a dica — não vale reembrulhar.
-                    eprintln!("{e}");
-                }
-                motor.set_initial_screen("app");
-            }
+        .child_window(|_spec, settings| {
+            settings.platform_specific = platform_specific();
         })
         .toast_period(Duration::from_millis(250))
         // O MSAAx4 default do iced custa caro num fallback 100% por software
@@ -142,71 +105,6 @@ pub(crate) fn run() -> iced::Result {
     let resultado = daemon.run();
     crate::agent::cleanup();
     resultado
-}
-
-/// Menu da bandeja. Os ids (`open`/`notifications`/`quit`) são o que chega ao
-/// [`handle_tray`]. O item de notificações começa como "Disable…" porque as
-/// notificações começam ligadas (default do glacier).
-fn tray_config() -> TrayConfig {
-    TrayConfig {
-        icon: TRAY_ICON.to_vec(),
-        tooltip: "Rustploy".to_string(),
-        items: vec![
-            TrayItem::button("open", "Open Rustploy"),
-            TrayItem::button("notifications", "Disable notifications"),
-            TrayItem::separator(),
-            TrayItem::button("quit", "Quit Rustploy"),
-        ],
-    }
-}
-
-/// Trata um clique num item da bandeja (ou o clique esquerdo no ícone, no
-/// Windows, que o glacier roteia como "abrir"). `open`/`quit` são ações do
-/// runner; `notifications` alterna o interruptor global do SO e reflete o novo
-/// estado no rótulo do próprio item.
-fn handle_tray(id: &str, tray: &mut TrayActions) {
-    match id {
-        "open" => tray.open_main(),
-        "quit" => tray.quit(),
-        "notifications" => {
-            let on = !notifications_enabled();
-            set_notifications_enabled(on);
-            tray.set_label(
-                "notifications",
-                if on {
-                    "Disable notifications"
-                } else {
-                    "Enable notifications"
-                },
-            );
-        }
-        _ => {}
-    }
-}
-
-/// Builds the main window's static chrome. Nem tamanho nem posição saem daqui:
-/// o tamanho de primeira abertura e o mínimo são declarados no `<screen>` de
-/// `views/app.gv` (glacier-ui 0.59+), e a geometria lembrada
-/// (`remember_window_geometry`, glacier-ui 0.49+) ganha dos dois no boot.
-/// Borderless (`decorations: false`) — the OS titlebar is replaced by a custom
-/// one in `views/app.gv`, whose `window:*` actions the daemon drives against
-/// this window's own id. `exit_on_close_request: false` routes the WM's own close
-/// through the daemon so the geometry is saved before the window actually closes.
-fn main_window_settings() -> window::Settings {
-    window::Settings {
-        // `size`/`min_size` vêm do `<screen>` de `views/app.gv` (glacier-ui
-        // 0.59+); a geometria lembrada ainda ganha dos dois no boot.
-        position: window::Position::Default,
-        // Taskbar / dock icon while the app runs (Windows taskbar, X11 dock).
-        // Embedded so it works regardless of CWD; on Wayland the dock icon
-        // instead comes from the `.desktop` file matched by app id, see the
-        // Debian package assets in `Cargo.toml`.
-        icon: window::icon::from_file_data(include_bytes!("../../assets/rustploy.png"), None).ok(),
-        decorations: false,
-        exit_on_close_request: false,
-        platform_specific: platform_specific(),
-        ..Default::default()
-    }
 }
 
 /// `application_id` only exists on the Linux (X11/Wayland) variant of

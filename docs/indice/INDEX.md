@@ -34,6 +34,7 @@
 - GEMINI.md — Rustploy
 - Makefile
 - README.md — Rustploy
+- TODO.md — TODO
 - docker-compose.test.yml
 - install.sh
 - rustploy
@@ -148,6 +149,7 @@
 ### crates/daemon/webui/ → webui.md
 - app.css — Rustploy — web UI stylesheet.
 - app.js — único <script type="module"> carregado por index.html.
+- directives.js — diretivas Alpine próprias da webui.
 - fmt.js — timestamps, durações e paleta de estado.
 - index.html — Casca única da webui (Alpine.js): login, shell e todas as telas, uma seção por v…
 - manifest.webmanifest
@@ -197,7 +199,7 @@
 ### crates/rustploy-gui/assets/
 - application.manifest
 - rustploy.rc
-- (+3 imagens/fontes)
+- (+2 imagens/fontes)
 
 ### crates/rustploy-gui/src/ → gui.md
 - assets.rs — Runtime asset location.
@@ -394,3 +396,24 @@
 - commands.rs — `comandos.md`: uma linha por variante de `Command` ligando as três pontas de uma…
 - main.rs — Gera `docs/indice/`: um mapa de arquivos e símbolos pensado para um agente achar…
 - script.rs — Índice dos arquivos que não são Rust: scripts Luau e JS, templates `.gv`, `index…
+
+### vendor/
+- README.md — vendor/
+
+### vendor/iced_tiny_skia/
+- Cargo.toml — A software renderer for iced on top of tiny-skia
+
+### vendor/iced_tiny_skia/src/
+- engine.rs
+- geometry.rs
+- layer.rs
+- lib.rs
+- primitive.rs
+- raster.rs
+- settings.rs
+- text.rs
+- vector.rs
+- window.rs
+
+### vendor/iced_tiny_skia/src/window/
+- compositor.rs

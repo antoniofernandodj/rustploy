@@ -10,7 +10,7 @@
 <screen "Rustploy">
 imports: Login, Shell
 script: scripts/app.luau
-handlers: window
+handlers: notifications, tray, window
 
 ## crates/rustploy-gui/views/components/
 

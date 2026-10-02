@@ -115,6 +115,9 @@ function savePrefs(p)
     setServiceTab(tab)
     get: gpRedirect, njobProjects, njobServicesFiltered
 
+### directives.js — diretivas Alpine próprias da webui.
+function registerDirectives(Alpine) — directives.js — diretivas Alpine próprias da webui.
+
 ### fmt.js — timestamps, durações e paleta de estado.
 function toEpochMs(iso) — epoch (ms) de um RFC3339 ("...Z" ou offset).
 function timeHms(iso) — "HH:MM:SS" local.

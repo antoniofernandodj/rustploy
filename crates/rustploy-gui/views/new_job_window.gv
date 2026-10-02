@@ -7,7 +7,7 @@
   escolher projeto → escolher serviço gatilho (rede + env vars de base) →
   formulário (nome, compose, main_service, recorrência). Ao concluir, emite
   broadcast("job_created") e fecha. -->
-<screen title="Novo job — Rustploy" size="560 700">
+<screen decorations="false" icon="crates/rustploy-gui/views/assets/rustploy.png" title="Novo job — Rustploy" size="560 700">
   <resources>
     <component name="SemProjetosParaJob">
       <text class="muted">Nenhum projeto ainda.</text>

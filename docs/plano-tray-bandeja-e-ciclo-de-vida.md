@@ -9,7 +9,7 @@
 >   notificações), `src/daemon.rs` (`.tray()`/`.on_tray()`, sobreviver à última
 >   janela, **destacar/religar o motor da principal** — `main_shown`/`open_main`),
 >   `examples/bandeja`. Feature `tray` (opt-in).
-> - rustploy-gui: `src/app/mod.rs` (`tray_config()` + `handle_tray()`),
+> - rustploy-gui: `src/app/mod.rs` (`tray_config()` + `handle_tray()`, hoje a `<tray>` de `views/app.gv`),
 >   `Cargo.toml` (dep `features=["tray"]` + `Depends` do `.deb`).
 >
 > **Motor headless (0.48.0):** fechar a janela principal passou a **recolher o

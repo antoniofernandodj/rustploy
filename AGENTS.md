@@ -865,12 +865,15 @@ resolve, não necessariamente ao diretório de lançamento.
   da janela em roteamento, **não** via `window::latest()` — no Wayland o
   round-trip perde o serial do pointer-grab e `window:drag` vira no-op
   silencioso). O que é específico do rustploy entra por ganchos:
-  `.font()`/`.default_font()` (JetBrains Mono embutida), `.main_window()`
-  (borderless, ícone, `min_size`, tamanho de primeiro lançamento,
-  `exit_on_close_request: false`), `.child_window()` (filhas também borderless),
-  `.main()` (registra `app.gv`, sobe a API de agente, define a tela),
-  `.on_message()` (espelha sessão e contexto para a API de agente),
-  `.remember_window_geometry(true)` e `.tray()`/`.on_tray()`.
+  `.font()`/`.default_font()` (JetBrains Mono embutida), `.main_template()`
+  (registra `app.gv`), `.on_message()` (espelha sessão e contexto para a API de
+  agente **e sobe a API de agente**, de forma idempotente), `.main_window()`/
+  `.child_window()` (só o `application_id` do Linux), `.lua_extension()`,
+  `.toast_period()` e `.antialiasing(false)`. O resto mora no **markup** do
+  `views/app.gv` (glacier 0.107+): `<screen decorations icon>` (também nas cinco
+  janelas-filhas), `<app id="rustploy" single_instance remember_geometry>` e
+  `<tray>`. **Não volte a usar `.main(|motor| …)`**: um `.main` escrito à mão
+  desliga a leitura de `<app>` e `<tray>`.
 - **Bandeja e ciclo de vida** (glacier **0.47+**, feature `tray`): fechar a
   última janela **recolhe para a bandeja** em vez de encerrar. Desde a **0.48**
   o motor da principal é **recolhido headless**, não descartado — SSE e login
