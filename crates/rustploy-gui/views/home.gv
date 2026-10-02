@@ -2,6 +2,32 @@
      Ingress, Deploy Engine, Docker (e Registry), Settings, Schedules e Suporte. -->
 <component>
   <resources>
+    <!-- Estados vazios das listas: o `fallback` do <foreach> (e o
+         `foreach_fallback` do <template>) desenha um destes no lugar da lista. -->
+    <component name="SemPortasDeHost">
+      <text class="muted">Nenhum serviço com porta de host configurada.</text>
+    </component>
+    <component name="FilaVazia">
+      <text class="empty_state">Nenhum deploy na fila.</text>
+    </component>
+    <component name="SemDeployAtivo">
+      <text class="empty_state">Nenhum deploy em andamento.</text>
+    </component>
+    <component name="SemDeployRecente">
+      <text class="empty_state">Nenhum deploy concluído nas últimas 24h.</text>
+    </component>
+    <component name="SemTokens">
+      <text class="muted">
+        Nenhum token ainda. Sem token nenhum push/pull é autenticado —
+        crie um antes de usar o registry.
+      </text>
+    </component>
+    <component name="SemContasGit">
+      <text class="muted">Nenhuma conta Git conectada ainda.</text>
+    </component>
+    <component name="SemJobs">
+      <text class="muted">Nenhum job cadastrado ainda.</text>
+    </component>
     <style>
       .col_icon       { width: 28; }
       .content_center { width: fill; height: fill; align-x: center; align-y: center; }
@@ -139,11 +165,8 @@
           <text class="th col_dur">PORTA HOST</text>
           <text class="th col_start">PORTA CONTAINER</text>
         </row>
-        <text if="{host_ports}" empty class="muted">
-          Nenhum serviço com porta de host configurada.
-        </text>
         <column class="table_body">
-          <template for-each="host_ports" var="hp">
+          <template for-each="host_ports" var="hp" foreach_fallback="SemPortasDeHost">
             <column class="row_wrap">
               <row class="trow">
                 <text class="td_key col_svc">{hp.service}</text>
@@ -211,12 +234,10 @@
           <text if="{eng_paused}" equals="true" class="banner_warn">
             Fila pausada — deploys esperam até você retomar.
           </text>
-          <text if="{eng_queued}" empty class="empty_state">
-            Nenhum deploy na fila.
-          </text>
           <column class="table_body">
             <template
               for-each="eng_queued"
+              foreach_fallback="FilaVazia"
               var="q"
               on_reorder="queue_reorder"
               reorder_key="deployment_id"
@@ -262,26 +283,25 @@
             <LoadingRow />
           </template>
           <column if="{data_loading}" not_equals="true" class="table_body">
-            <text if="{eng_active}" empty class="empty_state">
-              Nenhum deploy em andamento.
-            </text>
-            <column class="row_wrap" for-each="eng_active" var="a">
-              <row class="trow">
-                <text class="td_key col_svc">{a.service}</text>
-                <text class="td col_proj">{a.project}</text>
-                <StateCell kind="{a.state_kind}" label="{a.state_label}" />
-                <progressbar
-                  class="col_dur"
-                  value="{a.pct_key}"
-                  min="0"
-                  max="100"
-                  showValue="true"
-                />
-                <text class="muted col_dur">{a.total}</text>
-                <text class="muted col_start">{a.phase}</text>
-              </row>
-              <hr />
-            </column>
+            <foreach items="eng_active" var="a" fallback="SemDeployAtivo">
+              <column class="row_wrap">
+                <row class="trow">
+                  <text class="td_key col_svc">{a.service}</text>
+                  <text class="td col_proj">{a.project}</text>
+                  <StateCell kind="{a.state_kind}" label="{a.state_label}" />
+                  <progressbar
+                    class="col_dur"
+                    value="{a.pct_key}"
+                    min="0"
+                    max="100"
+                    showValue="true"
+                  />
+                  <text class="muted col_dur">{a.total}</text>
+                  <text class="muted col_start">{a.phase}</text>
+                </row>
+                <hr />
+              </column>
+            </foreach>
           </column>
         </column>
       </column>
@@ -302,29 +322,24 @@
             <text class="th col_start">INÍCIO</text>
           </row>
         </column>
-        <row if="{eng_recent}" empty class="empty_wrap">
-          <text class="empty_state">
-            Nenhum deploy concluído nas últimas 24h.
-          </text>
-        </row>
         <scrollable
-          if="{eng_recent}"
-          not_empty
           direction="vertical"
           class="section_scroll"
         >
           <column class="table_body">
-            <column class="row_wrap" for-each="eng_recent" var="r">
-              <row class="trow">
-                <text class="td col_icon">{r.icon}</text>
-                <text class="td_key col_svc">{r.service}</text>
-                <text class="td col_proj">{r.project}</text>
-                <StateCell kind="{r.state_kind}" label="{r.state_label}" />
-                <text class="muted col_dur">{r.duration}</text>
-                <text class="muted col_start">{r.start}</text>
-              </row>
-              <hr />
-            </column>
+            <foreach items="eng_recent" var="r" fallback="SemDeployRecente">
+              <column class="row_wrap">
+                <row class="trow">
+                  <text class="td col_icon">{r.icon}</text>
+                  <text class="td_key col_svc">{r.service}</text>
+                  <text class="td col_proj">{r.project}</text>
+                  <StateCell kind="{r.state_kind}" label="{r.state_label}" />
+                  <text class="muted col_dur">{r.duration}</text>
+                  <text class="muted col_start">{r.start}</text>
+                </row>
+                <hr />
+              </column>
+            </foreach>
           </column>
         </scrollable>
       </column>
@@ -777,10 +792,6 @@
             </text>
             <button class="btn_primary" on_click="registry_open_token_window" text="+ Novo token" />
           </row>
-          <text if="{registry_tokens}" empty class="muted">
-            Nenhum token ainda. Sem token nenhum push/pull é autenticado —
-            crie um antes de usar o registry.
-          </text>
           <row class="thead" if="{registry_tokens}" not_empty>
             <text class="th col_svc">NOME</text>
             <text class="th col_proj">ESCOPO</text>
@@ -788,23 +799,25 @@
             <text class="th col_dur">ÚLTIMO USO</text>
             <text class="th col_act">AÇÃO</text>
           </row>
-          <column class="table_body" for-each="registry_tokens" var="tk">
-            <row class="trow">
-              <text class="td_key col_svc">{tk.name}</text>
-              <text class="td col_proj">{tk.scope}</text>
-              <text class="muted col_dur">{tk.created}</text>
-              <text class="muted col_dur">{tk.last_used}</text>
-              <row class="col_act">
-                <button
-                  class="env_del"
-                  on_click="registry_rm_token:{tk.name}"
-                  text="✕"
-                  tooltip="Revogar"
-                />
+          <foreach items="registry_tokens" var="tk" fallback="SemTokens">
+            <column class="table_body">
+              <row class="trow">
+                <text class="td_key col_svc">{tk.name}</text>
+                <text class="td col_proj">{tk.scope}</text>
+                <text class="muted col_dur">{tk.created}</text>
+                <text class="muted col_dur">{tk.last_used}</text>
+                <row class="col_act">
+                  <button
+                    class="env_del"
+                    on_click="registry_rm_token:{tk.name}"
+                    text="✕"
+                    tooltip="Revogar"
+                  />
+                </row>
               </row>
-            </row>
-            <hr />
-          </column>
+              <hr />
+            </column>
+          </foreach>
         </column>
 
         <column class="panel_fill" if="{registry_selected_repo}" not_equals="">
@@ -953,12 +966,9 @@
             <text class="label_cap">
               CONTAS CONECTADAS ({gitea_count})
             </text>
-            <text if="{gitea_providers}" empty class="muted">
-              Nenhuma conta Git conectada ainda.
-            </text>
 
             <column class="kv_list">
-              <template for-each="gitea_providers" var="p">
+              <template for-each="gitea_providers" var="p" foreach_fallback="SemContasGit">
                 <row class="kv_row">
                   <column class="header_titles">
                     <text class="env_key">{p.name}</text>
@@ -1412,12 +1422,9 @@
           <text class="th col_dur">PRÓXIMA EXECUÇÃO</text>
           <text class="th col_act_5">AÇÕES</text>
         </row>
-        <text if="{jobs_summary}" empty class="muted">
-          Nenhum job cadastrado ainda.
-        </text>
         <scrollable direction="vertical" class="scroll_fill">
           <column class="table_body">
-            <template for-each="jobs_summary" var="j">
+            <template for-each="jobs_summary" var="j" foreach_fallback="SemJobs">
               <column class="row_wrap">
                 <row class="trow">
                   <text class="td_key col_svc">{j.name}</text>

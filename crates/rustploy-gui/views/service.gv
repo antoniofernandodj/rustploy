@@ -3,6 +3,10 @@
      Advanced. -->
 <component>
   <resources>
+    <!-- Estado vazio da lista de containers (`fallback` do <foreach>). -->
+    <component name="SemContainers">
+      <text class="muted">Nenhum container em execução.</text>
+    </component>
     <style>
       /* Cabeçalho + ações */
       .svc_head      { width: fill; align-y: start; }
@@ -677,16 +681,15 @@
           <!-- Containers reais em execução para este serviço (id + nome + estado). -->
           <hr />
           <text class="label_cap">CONTAINERS ({svc_containers_count})</text>
-          <text class="muted" if="{svc_containers}" empty>
-            Nenhum container em execução.
-          </text>
-          <row class="kv_row" for-each="svc_containers" var="c">
-            <rp-badge color="{c.state_color}" label="{c.state}" />
-            <text class="kv_val_fill">&nbsp;&nbsp;</text>
-            <text class="kv_val_fill">{c.name}</text>
-            <text class="kv_val_fill">&nbsp;&nbsp;</text>
-            <text class="muted">{c.id_short}</text>
-          </row>
+          <foreach items="svc_containers" var="c" fallback="SemContainers">
+            <row class="kv_row">
+              <rp-badge color="{c.state_color}" label="{c.state}" />
+              <text class="kv_val_fill">&nbsp;&nbsp;</text>
+              <text class="kv_val_fill">{c.name}</text>
+              <text class="kv_val_fill">&nbsp;&nbsp;</text>
+              <text class="muted">{c.id_short}</text>
+            </row>
+          </foreach>
         </column>
 
         <!-- Environment -->

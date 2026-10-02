@@ -186,7 +186,7 @@
                   <hr class="rule" />
                 </column>
               </template>
-              <text class="muted" x-show="rows.length === 0" style="padding:16px">
+              <text class="muted" x-fallback="rows" style="padding:16px">
                 Nenhum deployment ainda.
               </text>
             </column>
@@ -238,7 +238,7 @@
           </row>
           <column class="section_body">
             <text class="banner_warn" x-show="paused">Fila pausada — deploys esperam até você retomar.</text>
-            <text class="empty_state" x-show="queued.length === 0">Nenhum deploy na fila.</text>
+            <text class="empty_state" x-fallback="queued">Nenhum deploy na fila.</text>
             <column class="table_body">
               <template x-for="q in queued" :key="q.deploymentId">
                 <column class="row_wrap">
@@ -270,7 +270,7 @@
               <text class="th col_start">FASE</text>
             </row>
             <column class="table_body">
-              <text class="empty_state" x-show="active.length === 0">Nenhum deploy em andamento.</text>
+              <text class="empty_state" x-fallback="active">Nenhum deploy em andamento.</text>
               <template x-for="a in active" :key="a.serviceId">
                 <column class="row_wrap">
                   <row class="trow">
@@ -307,7 +307,7 @@
               <text class="th col_start">INÍCIO</text>
             </row>
           </column>
-          <row class="empty_wrap" x-show="recent.length === 0">
+          <row class="empty_wrap" x-fallback="recent">
             <text class="empty_state">Nenhum deploy concluído nas últimas 24h.</text>
           </row>
           <column class="section_scroll" x-show="recent.length > 0">
@@ -383,7 +383,7 @@
                   <hr class="rule" />
                 </column>
               </template>
-              <text class="muted" x-show="rows.length === 0" style="padding:16px">
+              <text class="muted" x-fallback="rows" style="padding:16px">
                 Nenhuma métrica ainda — aguardando o primeiro container em execução.
               </text>
             </column>
@@ -439,7 +439,7 @@
             <text class="th col_dur">PORTA HOST</text>
             <text class="th col_start">PORTA CONTAINER</text>
           </row>
-          <text class="muted" x-show="hostPorts.length === 0" style="padding:12px">
+          <text class="muted" x-fallback="hostPorts" style="padding:12px">
             Nenhum serviço com porta de host configurada.
           </text>
           <column class="table_body">
@@ -532,7 +532,7 @@
                   <hr class="rule" />
                 </column>
               </template>
-              <text class="muted" x-show="containers.length === 0" style="padding:16px">Nenhum container.</text>
+              <text class="muted" x-fallback="containers" style="padding:16px">Nenhum container.</text>
             </column>
           </column>
         </column>
@@ -578,7 +578,7 @@
                   <hr class="rule" />
                 </column>
               </template>
-              <text class="muted" x-show="images.length === 0" style="padding:16px">Nenhuma imagem.</text>
+              <text class="muted" x-fallback="images" style="padding:16px">Nenhuma imagem.</text>
             </column>
           </column>
         </column>
@@ -622,7 +622,7 @@
                   <hr class="rule" />
                 </column>
               </template>
-              <text class="muted" x-show="volumes.length === 0" style="padding:16px">Nenhum volume.</text>
+              <text class="muted" x-fallback="volumes" style="padding:16px">Nenhum volume.</text>
             </column>
           </column>
         </column>
@@ -665,7 +665,7 @@
                   <hr class="rule" />
                 </column>
               </template>
-              <text class="muted" x-show="networks.length === 0" style="padding:16px">Nenhuma network.</text>
+              <text class="muted" x-fallback="networks" style="padding:16px">Nenhuma network.</text>
             </column>
           </column>
         </column>
@@ -688,7 +688,7 @@
               <text class="th col_dur">CRIADO</text>
               <text class="th col_act_2">AÇÃO</text>
             </row>
-            <text class="muted" x-show="repos.length === 0" style="padding:16px">
+            <text class="muted" x-fallback="repos" style="padding:16px">
               Nenhum repositório ainda. Faça `docker push` para o registry embutido.
             </text>
             <column class="scroll_fill">
@@ -718,7 +718,7 @@
               <text class="muted_fill">Basic auth (docker login) — o segredo só aparece uma vez, na criação.</text>
               <button class="btn_primary" type="button" @click="openTokenModal()">+ Novo token</button>
             </row>
-            <text class="muted" x-show="tokens.length === 0" style="padding:12px">
+            <text class="muted" x-fallback="tokens" style="padding:12px">
               Nenhum token ainda. Sem token nenhum push/pull é autenticado — crie um antes de usar o registry.
             </text>
             <row class="thead" x-show="tokens.length > 0">
@@ -850,7 +850,7 @@
             <text class="th col_dur">PRÓXIMA EXECUÇÃO</text>
             <text class="th col_act_5">AÇÕES</text>
           </row>
-          <text class="muted" x-show="rows.length === 0" style="padding:16px">Nenhum job cadastrado ainda.</text>
+          <text class="muted" x-fallback="rows" style="padding:16px">Nenhum job cadastrado ainda.</text>
           <column class="scroll_fill">
             <column class="table_body">
               <template x-for="j in rows" :key="j.id">
@@ -915,7 +915,7 @@
                   <button class="card_open" type="button" @click="$store.app.njobPickProject(p.id, p.name)">Selecionar ›</button>
                 </column>
               </template>
-              <text class="muted" x-show="$store.app.njobProjects.length === 0" style="padding:16px">Nenhum projeto ainda.</text>
+              <text class="muted" x-fallback="$store.app.njobProjects" style="padding:16px">Nenhum projeto ainda.</text>
             </column>
 
             <!-- Passo 2: serviço gatilho (ou autônomo) -->
@@ -1077,7 +1077,7 @@
                     <text class="log_text" :style="l.stream === 'Stderr' ? 'color:#F85149' : ''" x-text="l.line"></text>
                   </row>
                 </template>
-                <text class="muted" x-show="$store.app.jobLogLines.length === 0" style="padding:12px">
+                <text class="muted" x-fallback="$store.app.jobLogLines" style="padding:12px">
                   Aguardando linhas de log…
                 </text>
               </column>
@@ -1141,7 +1141,7 @@
         <column class="scroll_fill" x-show="store.settingsTab === 'git'">
           <column class="form_panel">
             <text class="label_cap" x-text="'CONTAS CONECTADAS (' + gitProviderRows.length + ')'"></text>
-            <text class="muted" x-show="gitProviderRows.length === 0">Nenhuma conta Git conectada ainda.</text>
+            <text class="muted" x-fallback="gitProviderRows">Nenhuma conta Git conectada ainda.</text>
             <column class="kv_list">
               <template x-for="p in gitProviderRows" :key="p.id">
                 <row class="kv_row">
@@ -1460,7 +1460,7 @@
                 </template>
               </column>
             </template>
-            <text class="muted" x-show="rows.length === 0" style="padding:16px">Nenhum projeto ainda.</text>
+            <text class="muted" x-fallback="rows" style="padding:16px">Nenhum projeto ainda.</text>
           </column>
         </column>
       </column>
@@ -1550,7 +1550,7 @@
                 </row>
               </column>
             </template>
-            <text class="muted" x-show="services.length === 0" style="padding:16px">
+            <text class="muted" x-fallback="services" style="padding:16px">
               Nenhum serviço neste projeto ainda.
             </text>
           </column>
@@ -1584,7 +1584,7 @@
                     </row>
                   </column>
                 </template>
-                <text class="muted" x-show="envVars.length === 0" style="padding:12px">Nenhuma variável.</text>
+                <text class="muted" x-fallback="envVars" style="padding:12px">Nenhuma variável.</text>
               </column>
             </column>
           </template>
@@ -1622,7 +1622,7 @@
                 <text class="kv_val_fill">cifrado</text>
               </row>
             </template>
-            <text class="muted" x-show="secrets.length === 0" style="padding:12px">
+            <text class="muted" x-fallback="secrets" style="padding:12px">
               Nenhum secret neste projeto ainda.
             </text>
           </column>
@@ -1636,7 +1636,7 @@
             <text class="muted_fill" x-text="jobs.length + ' job(s)'"></text>
             <button class="btn_sm_primary" type="button" @click="store.openNewJob()">+ Novo job</button>
           </row>
-          <text class="muted" x-show="jobs.length === 0" style="padding:12px">
+          <text class="muted" x-fallback="jobs" style="padding:12px">
             Nenhum job cadastrado ainda.
           </text>
           <column class="kv_list">
@@ -1824,7 +1824,7 @@
                 <button class="card_open" type="button" @click="pickTemplate(t)">Selecionar ›</button>
               </column>
             </template>
-            <text class="muted" x-show="filteredTemplates.length === 0" style="padding:16px">
+            <text class="muted" x-fallback="filteredTemplates" style="padding:16px">
               Nenhum template encontrado.
             </text>
           </column>
@@ -2146,7 +2146,7 @@
 
               <hr class="rule" />
               <text class="label_cap" x-text="'CONTAINERS (' + liveContainers.length + ')'"></text>
-              <text class="muted" x-show="liveContainers.length === 0">Nenhum container em execução.</text>
+              <text class="muted" x-fallback="liveContainers">Nenhum container em execução.</text>
               <row class="kv_row" x-show="liveContainers.length > 0" style="flex-wrap:wrap">
                 <template x-for="c in liveContainers" :key="c.id">
                   <row class="badge" style="margin-right:18px">
@@ -2189,7 +2189,7 @@
                         </row>
                       </column>
                     </template>
-                    <text class="muted" x-show="envVars.length === 0" style="padding:12px">Nenhuma variável.</text>
+                    <text class="muted" x-fallback="envVars" style="padding:12px">Nenhuma variável.</text>
                   </column>
                 </column>
               </template>
@@ -2222,7 +2222,7 @@
                     <text class="kv_val_fill" x-text="(d.tls ? 'https' : 'http') + ' → :' + d.port"></text>
                   </row>
                 </template>
-                <text class="muted" x-show="domains.length === 0" style="padding:12px">
+                <text class="muted" x-fallback="domains" style="padding:12px">
                   Nenhum domínio configurado.
                 </text>
               </column>
@@ -2330,7 +2330,7 @@
                     <hr class="rule" />
                   </column>
                 </template>
-                <text class="muted" x-show="deployments.length === 0" style="padding:16px">Nenhum deploy ainda.</text>
+                <text class="muted" x-fallback="deployments" style="padding:16px">Nenhum deploy ainda.</text>
               </column>
             </column>
 
@@ -2387,7 +2387,7 @@
                       <text class="log_text" :style="l.stream === 'Stderr' ? 'color:#F85149' : ''" x-text="l.line"></text>
                     </row>
                   </template>
-                  <text class="muted" x-show="store.serviceLogLines.length === 0" style="padding:12px">
+                  <text class="muted" x-fallback="store.serviceLogLines" style="padding:12px">
                     Aguardando linhas de log…
                   </text>
                 </column>
@@ -2425,7 +2425,7 @@
                     <button class="btn_ghost" type="button" :disabled="i === preDeployChecks.length - 1" @click="pdcMove(c.id, 1)">↓</button>
                   </row>
                 </template>
-                <text class="muted" x-show="preDeployChecks.length === 0" style="padding:12px">
+                <text class="muted" x-fallback="preDeployChecks" style="padding:12px">
                   Nenhum check configurado — deploy segue direto.
                 </text>
               </column>

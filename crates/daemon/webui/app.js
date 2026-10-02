@@ -26,6 +26,7 @@ import "./screens/service_detail.js";
 import Alpine from "https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/module.esm.js";
 import { Api } from "./net/api.js";
 import { openStream } from "./net/sse.js";
+import { registerDirectives } from "./directives.js";
 import {
   fmtUptime,
   fmtBytes,
@@ -43,6 +44,7 @@ import {
 } from "./fmt.js";
 
 window.Alpine = Alpine;
+registerDirectives(Alpine);
 
 const PREFS_KEY = "rustploy.prefs";
 

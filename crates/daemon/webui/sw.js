@@ -13,6 +13,7 @@ const APP_SHELL = [
   "/app.css",
   "/app.js",
   "/fmt.js",
+  "/directives.js",
   "/net/api.js",
   "/net/sse.js",
   "/screens/login.js",
