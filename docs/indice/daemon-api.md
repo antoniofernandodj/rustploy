@@ -5,6 +5,75 @@
 > Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
 > `impl A, B for T` = impls de traits comuns (métodos omitidos).
 
+## rustploy-daemon/crates/daemon/src/api/
+
+### http_api.rs — HTTP/JSON + SSE control API — the daemon's remote administrative channel.
+type ApiBody = BoxBody<Bytes, Infallible> — Unified response body: both the buffered (`Full`) replies and the streaming (`StreamBody`) SSE body …
+fn run(state, cfg, tls) — Starts the API listener.
+fn serve_conn(io, state, token, peer) — Serves one HTTP/1.1 connection over `io` (plain TCP or a TLS stream).
+fn handle(req, state, token, peer) -> Result<Response<ApiBody>, Infallible> — Roteia uma requisição HTTP da API: rotas públicas (webhook, callback OAuth) antes do gate do token B…
+fn service_archive_upload(req, state, service_id) -> Response<ApiBody>
+fn rpc(req, state) -> Response<ApiBody> — `POST /api/rpc`: decode a `Command`, run it through `dispatch`, encode the `Response` back as JSON.
+fn events(state) -> Response<ApiBody> — `GET /api/events`: SSE stream.
+fn service_logs(state, service_id) -> Response<ApiBody> — `GET /api/services/{id}/logs`: SSE dedicado aos logs de container de UM serviço.
+fn deployment_build_logs(state, deployment_id) -> Response<ApiBody> — `GET /api/deployments/{id}/build-logs`: SSE dedicado à saída de `docker build` de UM deployment.
+fn job_run_logs(state, job_run_id) -> Response<ApiBody> — `GET /api/jobs/runs/{id}/logs`: SSE dedicado à saída de UMA execução de job one-shot.
+fn sse_response(rx) -> Response<ApiBody> — Response body comum dos endpoints SSE (`events`/`service_logs`/`deployment_build_logs`): drena o `rx…
+fn snapshot(state) -> String — Builds the full dashboard snapshot as one JSON object, reusing `dispatch` for each piece — the same …
+fn sse_frame(event, data) -> Bytes — Formats one SSE record.
+fn send_log_batch(tx, batch) -> Result<(), ()> — Envia um lote coalescido de eventos de log como uma única frame SSE `bus_batch` (ver o produtor em […
+fn auth_check(req, expected) -> Result<(), String> — Checks the `Authorization: Bearer <token>` header against `expected`.
+fn boxed(resp) -> Response<ApiBody> — As rotas públicas (`public_routes`) devolvem `Full<Bytes>`; o listener unificado fala `ApiBody`.
+fn text(status, body) -> Response<ApiBody>
+fn json_ok(bytes) -> Response<ApiBody>
+const GZIP_MIN — Corpo mínimo (bytes) para valer a pena comprimir: abaixo disto o overhead do cabeçalho gzip + o cust…
+fn accepts_gzip(req) -> bool — O cliente aceita gzip? (`Accept-Encoding` contém "gzip").
+fn json_response(bytes, accept_gzip) -> Response<ApiBody> — Resposta JSON, comprimida com gzip quando o cliente aceita e o corpo passa de [`GZIP_MIN`].
+fn gzip(data) -> std::io::Result<Vec<u8>> — Comprime `data` em gzip (flate2, mesmo crate do tar do build Docker).
+fn constant_time_eq(a, b) -> bool — Short-circuits on length mismatch but is otherwise constant-time over the compared bytes.
+(2 testes)
+
+### mod.rs — API do daemon: `AppState` (estado compartilhado por todos os handlers) e os caches do inventário Doc…
+type OAuthStates = Arc<Mutex<HashMap<String, String>>> — Pending OAuth handshakes: CSRF `state` → `provider_id`, consumed by the `/oauth/gitea/callback` rout…
+type ActiveDeploys = Arc<Mutex<HashMap<String, tokio::task::AbortHandle… — Handles de abort para deploys activos: deployment_id → AbortHandle.
+type ActiveJobs = Arc<Mutex<HashMap<String, tokio::sync::watch::Send… — Sinais de cancelamento para `job_run`s em execução: job_run_id → sender de um `watch<bool>` (valor `…
+const DOCKER_CACHE_TTL — How long the host-wide Docker inventory (`docker system df` + the network cross-reference) stays cac…
+struct TtlCache { ttl, slot } — Single-slot value cache with a TTL.
+impl TtlCache<T>
+  fn new(ttl) -> Self
+  fn get_or_refresh(refresh) -> Result<T, E> — Returns the cached value if still within the TTL, otherwise runs `refresh`, stores and returns it.
+  fn invalidate() — Drops the cached value so the next `get_or_refresh` fetches fresh.
+struct DockerCache { df, networks } — Caches the slow host-wide Docker inventory calls so the 2s status poll (and every Docker-tab refresh…
+impl DockerCache
+  fn new() -> Self
+struct AppState { db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, started_at, oauth_states, active_deploys, active_jobs, deploy_queue, docker_cache, registry_storage, registry_internal_token }
+impl AppState
+  fn new(db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, registry_storage, registry_internal_token) -> Self
+  fn public_base_url() -> String — URL pública do daemon, sem barra final: base do webhook (`{base}/webhook/{service_id}/{token}`) e do…
+fn outbound_ip() -> String — Detecta o IP de saída da máquina conectando um socket UDP em 8.8.8.8:80 (sem enviar dados) e lendo o…
+
+### public_routes.rs — Rotas HTTP **públicas** (sem Bearer): o webhook de deploy e o callback OAuth do Gitea.
+fn webhook(req, state) -> Response<Full<Bytes>> — `POST /webhook/{service_id}/{token}` — valida o token e dispara um deploy, a menos que o serviço sej…
+fn extract_push_branch(body) -> Option<String> — Extrai o nome curto da branch de um payload de push GitHub/Gitea/Gogs (`{"ref": "refs/heads/main", .…
+fn constant_time_eq(a, b) -> bool
+fn resp(status, body) -> Response<Full<Bytes>>
+fn html(status, title, body) -> Response<Full<Bytes>>
+fn oauth_callback(req, state) -> Response<Full<Bytes>> — `GET /oauth/{gitea,github}/callback` — completes an OAuth2 authorization-code flow: validates the CS…
+fn callback_redirect_uri(state, kind) -> Option<String> — Builds `{public_base_url}/oauth/{gitea,github}/callback` — a base sai de `[api]` (domínio/porta do l…
+fn url_decode_pairs(query) -> Vec<(String, String)> — Tiny `application/x-www-form-urlencoded` query parser (percent-decoding).
+fn percent_decode(s) -> String
+(5 testes)
+
+### routes.rs — `dispatch`: o `match` que manda cada `Command` para o seu handler em `handlers/`.
+fn dispatch(state, cmd) -> RpResponse
+
+### web_ui.rs — Servidor de estáticos da web UI/PWA (`crates/daemon/webui/`) — alternativa ao client iced (`rustploy…
+type ApiBody = BoxBody<Bytes, std::convert::Infallible>
+struct Asset { route, content_type, etag, no_cache, gz } — Um arquivo do app shell, já processado (minificado + gzipado) em tempo de build — ver `Asset` gerado…
+fn serve(path) -> Option<Response<ApiBody>> — Serve `path` se casar com algum asset embutido do app shell; `None` se a rota não pertencer à web UI…
+const ASSETS
+(7 testes)
+
 ## rustploy-daemon/crates/daemon/src/api/handlers/
 
 ### daemon_status.rs — `Command::DaemonStatus`: versão, uptime e contagem de serviços rodando/total.
@@ -285,72 +354,3 @@ fn revoke(state, server_service_id, project_id) -> RpResponse
 ### wizard.rs — Wizard "Novo serviço" server-side: catálogos (`WizardCatalog`) e criação (`WizardCreate`).
 fn catalog(search) -> RpResponse — Catálogos de bancos/brokers/templates prontos como JSON para o contexto do cliente (`ns_dbs`/`ns_bro…
 fn create(state, req) -> RpResponse — Monta o `ServiceSpec` a partir dos campos coletados pelo wizard e cria o serviço — reaproveitando o …
-
-## rustploy-daemon/crates/daemon/src/api/
-
-### http_api.rs — HTTP/JSON + SSE control API — the daemon's remote administrative channel.
-type ApiBody = BoxBody<Bytes, Infallible> — Unified response body: both the buffered (`Full`) replies and the streaming (`StreamBody`) SSE body …
-fn run(state, cfg, tls) — Starts the API listener.
-fn serve_conn(io, state, token, peer) — Serves one HTTP/1.1 connection over `io` (plain TCP or a TLS stream).
-fn handle(req, state, token, peer) -> Result<Response<ApiBody>, Infallible> — Roteia uma requisição HTTP da API: rotas públicas (webhook, callback OAuth) antes do gate do token B…
-fn service_archive_upload(req, state, service_id) -> Response<ApiBody>
-fn rpc(req, state) -> Response<ApiBody> — `POST /api/rpc`: decode a `Command`, run it through `dispatch`, encode the `Response` back as JSON.
-fn events(state) -> Response<ApiBody> — `GET /api/events`: SSE stream.
-fn service_logs(state, service_id) -> Response<ApiBody> — `GET /api/services/{id}/logs`: SSE dedicado aos logs de container de UM serviço.
-fn deployment_build_logs(state, deployment_id) -> Response<ApiBody> — `GET /api/deployments/{id}/build-logs`: SSE dedicado à saída de `docker build` de UM deployment.
-fn job_run_logs(state, job_run_id) -> Response<ApiBody> — `GET /api/jobs/runs/{id}/logs`: SSE dedicado à saída de UMA execução de job one-shot.
-fn sse_response(rx) -> Response<ApiBody> — Response body comum dos endpoints SSE (`events`/`service_logs`/`deployment_build_logs`): drena o `rx…
-fn snapshot(state) -> String — Builds the full dashboard snapshot as one JSON object, reusing `dispatch` for each piece — the same …
-fn sse_frame(event, data) -> Bytes — Formats one SSE record.
-fn send_log_batch(tx, batch) -> Result<(), ()> — Envia um lote coalescido de eventos de log como uma única frame SSE `bus_batch` (ver o produtor em […
-fn auth_check(req, expected) -> Result<(), String> — Checks the `Authorization: Bearer <token>` header against `expected`.
-fn boxed(resp) -> Response<ApiBody> — As rotas públicas (`public_routes`) devolvem `Full<Bytes>`; o listener unificado fala `ApiBody`.
-fn text(status, body) -> Response<ApiBody>
-fn json_ok(bytes) -> Response<ApiBody>
-const GZIP_MIN — Corpo mínimo (bytes) para valer a pena comprimir: abaixo disto o overhead do cabeçalho gzip + o cust…
-fn accepts_gzip(req) -> bool — O cliente aceita gzip? (`Accept-Encoding` contém "gzip").
-fn json_response(bytes, accept_gzip) -> Response<ApiBody> — Resposta JSON, comprimida com gzip quando o cliente aceita e o corpo passa de [`GZIP_MIN`].
-fn gzip(data) -> std::io::Result<Vec<u8>> — Comprime `data` em gzip (flate2, mesmo crate do tar do build Docker).
-fn constant_time_eq(a, b) -> bool — Short-circuits on length mismatch but is otherwise constant-time over the compared bytes.
-(2 testes)
-
-### mod.rs — API do daemon: `AppState` (estado compartilhado por todos os handlers) e os caches do inventário Doc…
-type OAuthStates = Arc<Mutex<HashMap<String, String>>> — Pending OAuth handshakes: CSRF `state` → `provider_id`, consumed by the `/oauth/gitea/callback` rout…
-type ActiveDeploys = Arc<Mutex<HashMap<String, tokio::task::AbortHandle… — Handles de abort para deploys activos: deployment_id → AbortHandle.
-type ActiveJobs = Arc<Mutex<HashMap<String, tokio::sync::watch::Send… — Sinais de cancelamento para `job_run`s em execução: job_run_id → sender de um `watch<bool>` (valor `…
-const DOCKER_CACHE_TTL — How long the host-wide Docker inventory (`docker system df` + the network cross-reference) stays cac…
-struct TtlCache { ttl, slot } — Single-slot value cache with a TTL.
-impl TtlCache<T>
-  fn new(ttl) -> Self
-  fn get_or_refresh(refresh) -> Result<T, E> — Returns the cached value if still within the TTL, otherwise runs `refresh`, stores and returns it.
-  fn invalidate() — Drops the cached value so the next `get_or_refresh` fetches fresh.
-struct DockerCache { df, networks } — Caches the slow host-wide Docker inventory calls so the 2s status poll (and every Docker-tab refresh…
-impl DockerCache
-  fn new() -> Self
-struct AppState { db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, started_at, oauth_states, active_deploys, active_jobs, deploy_queue, docker_cache, registry_storage, registry_internal_token }
-impl AppState
-  fn new(db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, registry_storage, registry_internal_token) -> Self
-  fn public_base_url() -> String — URL pública do daemon, sem barra final: base do webhook (`{base}/webhook/{service_id}/{token}`) e do…
-fn outbound_ip() -> String — Detecta o IP de saída da máquina conectando um socket UDP em 8.8.8.8:80 (sem enviar dados) e lendo o…
-
-### public_routes.rs — Rotas HTTP **públicas** (sem Bearer): o webhook de deploy e o callback OAuth do Gitea.
-fn webhook(req, state) -> Response<Full<Bytes>> — `POST /webhook/{service_id}/{token}` — valida o token e dispara um deploy, a menos que o serviço sej…
-fn extract_push_branch(body) -> Option<String> — Extrai o nome curto da branch de um payload de push GitHub/Gitea/Gogs (`{"ref": "refs/heads/main", .…
-fn constant_time_eq(a, b) -> bool
-fn resp(status, body) -> Response<Full<Bytes>>
-fn html(status, title, body) -> Response<Full<Bytes>>
-fn oauth_callback(req, state) -> Response<Full<Bytes>> — `GET /oauth/{gitea,github}/callback` — completes an OAuth2 authorization-code flow: validates the CS…
-fn callback_redirect_uri(state, kind) -> Option<String> — Builds `{public_base_url}/oauth/{gitea,github}/callback` — a base sai de `[api]` (domínio/porta do l…
-fn url_decode_pairs(query) -> Vec<(String, String)> — Tiny `application/x-www-form-urlencoded` query parser (percent-decoding).
-fn percent_decode(s) -> String
-(5 testes)
-
-### routes.rs — `dispatch`: o `match` que manda cada `Command` para o seu handler em `handlers/`.
-fn dispatch(state, cmd) -> RpResponse
-
-### web_ui.rs — Servidor de estáticos da web UI/PWA (`crates/daemon/webui/`) — alternativa ao client iced (`rustploy…
-type ApiBody = BoxBody<Bytes, std::convert::Infallible>
-struct Asset { route, content_type, etag, no_cache, gz } — Um arquivo do app shell, já processado (minificado + gzipado) em tempo de build — ver `Asset` gerado…
-fn serve(path) -> Option<Response<ApiBody>> — Serve `path` se casar com algum asset embutido do app shell; `None` se a rota não pertencer à web UI…
-const ASSETS
-(7 testes)

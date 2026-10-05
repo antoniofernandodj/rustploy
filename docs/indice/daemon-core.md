@@ -17,26 +17,6 @@ fn gzip(data) -> Vec<u8>
 fn fnv1a(h, data) -> u64
 const FNV_OFFSET, FNV_PRIME
 
-## rustploy-daemon/crates/daemon/src/bin/
-
-### rustployd-fw.rs — `rustployd-fw` — helper privilegiado de firewall do rustploy.
-struct Request { op, port }
-struct Response { ok, backend, error }
-impl Response
-  fn ok(backend) -> Self
-  fn err(msg) -> Self
-struct PortRange { range_start, range_end }
-fn default_range_start() -> u16
-fn default_range_end() -> u16
-fn load_range() -> PortRange — Lê só a seção `[external_ports]` da config do rustploy — o resto do arquivo não interessa ao helper …
-fn listener() -> UnixListener — Socket herdado do systemd (LISTEN_FDS, fd 3) ou, em dev, criado pelo próprio helper em `$RUSTPLOY_FW…
-fn main()
-fn handle_conn(stream, range)
-fn handle_request(req, range) -> Response
-fn ufw_active() -> Option<bool> — `Some(true)` = ufw instalado e ativo; `Some(false)` = instalado e inativo; `None` = não instalado.
-fn apply_ufw(port, allow) -> Response
-impl Default for PortRange
-
 ## rustploy-daemon/crates/daemon/src/
 
 ### env_backup.rs — Backup periódico das env vars de projetos e serviços em snapshots JSON, com listagem, restauração e …
@@ -170,3 +150,23 @@ fn get_container_ip(docker, container_id) -> Option<String>
 fn container_is_running(docker, container_id) -> bool
 fn mark_service(db, bus, service_id, status, container_id)
 const BASE_TICK, MAX_RESTART_ATTEMPTS, RESTART_WAIT
+
+## rustploy-daemon/crates/daemon/src/bin/
+
+### rustployd-fw.rs — `rustployd-fw` — helper privilegiado de firewall do rustploy.
+struct Request { op, port }
+struct Response { ok, backend, error }
+impl Response
+  fn ok(backend) -> Self
+  fn err(msg) -> Self
+struct PortRange { range_start, range_end }
+fn default_range_start() -> u16
+fn default_range_end() -> u16
+fn load_range() -> PortRange — Lê só a seção `[external_ports]` da config do rustploy — o resto do arquivo não interessa ao helper …
+fn listener() -> UnixListener — Socket herdado do systemd (LISTEN_FDS, fd 3) ou, em dev, criado pelo próprio helper em `$RUSTPLOY_FW…
+fn main()
+fn handle_conn(stream, range)
+fn handle_request(req, range) -> Response
+fn ufw_active() -> Option<bool> — `Some(true)` = ufw instalado e ativo; `Some(false)` = instalado e inativo; `None` = não instalado.
+fn apply_ufw(port, allow) -> Response
+impl Default for PortRange

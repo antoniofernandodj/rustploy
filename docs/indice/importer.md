@@ -12,6 +12,17 @@ struct Cli { command }
 enum Commands { Dokploy }
 fn main() -> Result<()>
 
+### warnings.rs — `Report` do importer: problemas encontrados na migração, por severidade (bloqueante, aviso, informaç…
+enum Severity { Blocking, Warning, Info }
+struct Issue { severity, scope, code, message, hint }
+struct Report { issues }
+impl Report
+  fn blocking(scope, code, msg)
+  fn warn(scope, code, msg, hint)
+  fn push(severity, scope, code, msg, hint)
+  fn has_blocking() -> bool
+  fn print()
+
 ## rustploy-daemon/crates/importer/src/sink/
 
 ### mod.rs — Grava os dados transformados no banco do rustploy (ou num arquivo SQL), casando projetos pelo nome.
@@ -42,16 +53,3 @@ fn normalize_path(path) -> String
 
 ### mod.rs — Conversão dos dados de origem para os modelos do rustploy (`TransformedData`).
 struct TransformedData { projects, services }
-
-## rustploy-daemon/crates/importer/src/
-
-### warnings.rs — `Report` do importer: problemas encontrados na migração, por severidade (bloqueante, aviso, informaç…
-enum Severity { Blocking, Warning, Info }
-struct Issue { severity, scope, code, message, hint }
-struct Report { issues }
-impl Report
-  fn blocking(scope, code, msg)
-  fn warn(scope, code, msg, hint)
-  fn push(severity, scope, code, msg, hint)
-  fn has_blocking() -> bool
-  fn print()

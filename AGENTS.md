@@ -391,7 +391,7 @@ em memória antes de gravar: se um arquivo não parseia, se o `enum Command` som
 ou se uma área fica vazia (diretório movido), ele sai com erro dizendo o quê e
 **não altera nada**, para o índice nunca ficar pela metade. Os arquivos são gerados:
 não edite à mão. A descrição de cada item vem do `//!`/`///` (ou do comentário
-de cabeçalho, em Luau/JS/`.gv`), então documentar o código melhora o índice.
+de cabeçalho, em Luau/JS/`.gv`/`.gvb` — neste, as linhas `//` do topo), então documentar o código melhora o índice.
 O gerador fica em `tools/indexer/` (um pacote cargo avulso, sem workspace), e o
 porquê de cada decisão está em `docs/plano-indice-de-codigo.md`.
 
@@ -490,7 +490,8 @@ Qual casca usar (glacier-ui 0.117+):
   (`new_*_window.gvb`, `new_project_form.gvb`, `log_window.gvb`), apontados por
   `screen(name = …, src = …)` no `app`. Levam só `title`.
 - **`component`** — todo o resto, e é a maioria: `shell.gvb`, `home.gvb`,
-  `service.gvb`, `login.gvb`, `new_service.gvb` e os dez de `views/components/`.
+  `service.gvb`, `login.gvb`, `new_service.gvb`, os dez de `views/components/` e
+  os pedaços de `views/shell/`, `views/service/` e `views/home/`.
   Todos eles são importados por outro template (`link(rel = import, …)`), então
   não há janela a que título ou tamanho se aplicariam — e o `component` não
   aceita esses atributos, erra na cara explicando a diferença.
@@ -566,6 +567,56 @@ poderia dispensar parênteses, mas **não** adotamos essa forma.
   `<template if="{x}" equals="y">` envolve **vários** filhos sem criar caixa;
   `if="{x}"` **como atributo** num elemento real condiciona **só aquele
   elemento**. Não reintroduza `<if>`/`<foreach>`.
+
+### Dividir um template grande em arquivos (`.gvb`)
+
+Um arquivo de view passa de ~300 linhas → divida. Todo `if @view/@tab == …` com
+corpo maior que ~40 linhas vira arquivo. O padrão que `shell.gvb` e
+`service.gvb` seguem: o arquivo grande fica só com o cabeçalho e o **roteador**
+(os `if`/`else if` que escolhem o corpo), e cada ramo vira
+`views/<area>/<nome>.gvb`, um `component { … }` importado por
+`link(rel = import, href = "…", as = Nome)` e instanciado sem argumentos — ele
+lê o estado global (`@view`, `@svc_*`…) como o resto. Foi assim que o
+`shell.gvb` foi de 904 para ~200 linhas, o `service.gvb` de 1860 para ~315 e o
+`home.gvb` de 1900 para ~80, sem mudar o comportamento. Os `component(name = SemX)`
+de estado vazio (`fallback`) vão para o arquivo que os usa. O que aprendemos fazendo:
+
+- **A condição vai na CHAMADA, nunca na raiz do arquivo extraído.** Um
+  `column(if = @tab, equals = logs)` na raiz do `component` **não é aplicado** —
+  o painel aparece em todas as abas, sem erro nenhum. Deixe a raiz sem `if` e
+  escreva `ServiceLogsTab(if = @tab, equals = logs)` no ponto de uso (o atributo
+  `if` na chamada funciona e preserva a estrutura da árvore). Se o ramo original
+  era um `if @x == "y" { … }` com vários filhos, extraia o **corpo** do bloco:
+  o `component` aceita várias raízes.
+- **O `href` do `link(rel = import)` é relativo ao arquivo que importa**, não à
+  raiz de `views/`: de `service.gvb` é `"service/logs.gvb"`, mas de dentro de
+  `service/general.gvb` é só `"general_git.gvb"`.
+- **Os nomes importados são globais.** Quem importou primeiro registra; os
+  arquivos extraídos usam `StatCard`, `LoadingRow`, `StateCell`… sem reimportar.
+  O `<style>` inline também é **global** (só `scoped="true"` restringe), então o
+  CSS pode ficar no arquivo-mãe. Já os `component(name = SemX)` de estado vazio
+  (`fallback`) migram para o arquivo que os usa.
+- **O prefixo de dono das ações muda** (`ServiceDetail::open_logs_window` →
+  `ServiceLogsTab::open_logs_window`). É inócuo: o dispatch só trata o prefixo
+  como dono se ele for um componente registrado com script; senão cai na tela
+  atual.
+- **String com quebra de linha dentro** (placeholder de textarea com YAML, hoje em
+  `service/general_compose.gvb` e `new_job_window.gvb`): no glacier-ui 0.118 o
+  `"…"` só aceita a quebra **literal** (não interpreta `\n`) e `"""` dobra linhas
+  em espaços; as linhas de continuação ficam coladas na margem **de propósito** —
+  reindentar muda o texto, e uma ferramenta de recorte que dedenta o arquivo tem
+  de pular essas linhas. O glacier-ui ganhou o **`l"""…"""`** (`l` de *linhas*, não
+  de raw: mantém as quebras, tira o recuo comum e continua interpolando `@nome`);
+  assim que a dependência for a versão que o traz (publicada depois da 0.118),
+  troque esses dois placeholders por `l"""` e apague o aviso de "NÃO reindente".
+- **Prove que nada mudou.** O `templates_render` só checa `render().is_ok()`: ele
+  não pega conteúdo que sumiu ou apareceu na aba errada (foi assim que o `if` na
+  raiz passou despercebido). Antes de mover markup, despeje a árvore avaliada
+  (`m.evaluated("app")`, `{:#?}`) de cada view/aba — um fator por vez: lista
+  vazia/cheia, flags, `prov_tab`… — a partir do HEAD, repita depois e compare
+  normalizando `node_id` (contador global) e o prefixo `Dono::`. O ideal é
+  que seja **idêntico**. Cubra os estados vazios (`fallback`): os dados "de
+  exemplo" não os exercitam.
 
 ### Descartar ≠ apagar
 
@@ -951,9 +1002,17 @@ resolve, não necessariamente ao diretório de lançamento.
   `docs/api-agente-no-gui.md`.
 - **`views/`** (todos `.gvb`) — `app.gvb` (o manifesto: `app(...)`, a titlebar +
   handles de resize da principal, que chaveia em `screen`), `login.gvb`,
-  `shell.gvb` (sidebar + topbar, chaveia em `view`), `home.gvb`
-  (Deployments/Projects/Monitoring/Ingress/Docker/Settings), `service.gvb`
-  (detalhe do serviço, com suas sub-abas), `new_service.gvb` (wizard), as telas das
+  `shell.gvb` (sidebar + topbar + o roteador `if @view`; o corpo de cada view mora
+  em `views/shell/`: `deployments`, `projects`, `project_services` e, dele, as
+  sub-abas `project_env`/`project_secrets`/`project_jobs`), `home.gvb`
+  (só o roteador `if @view` das telas globais: Monitoring/Ingress/Deploy Engine/
+  Docker/Settings/Schedules; cada uma é um arquivo em `views/home/`, e o Docker e o
+  Settings ainda se dividem por sub-aba em `views/home/docker/` e
+  `views/home/settings/`), `service.gvb`
+  (cabeçalho do serviço, a fileira de abas e o roteador `if @tab`; **cada aba é
+  um arquivo em `views/service/`**, e a `general` ainda se divide em
+  `general_git`/`general_zip`/`general_gitea`/`general_compose`),
+  `new_service.gvb` (wizard), as telas das
   janelas separadas (`new_project_form.gvb`, `log_window.gvb`, `new_job_window.gvb`,
   `new_registry_token_window.gvb`, `new_service_window.gvb`) e `components/*.gvb`.
   Estilizados por `views/styles/app.gss`, linkado **uma vez** no `resources`

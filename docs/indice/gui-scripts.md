@@ -6,14 +6,69 @@
 
 ## rustploy-gui/views/scripts/
 
-### app.luau — ponto de entrada do `<script>` de app.gv.
+### app.luau — ponto de entrada do `<script>` de app.gvb.
 
 ### fmt.luau — fachada: reexporta os builders de views/scripts/fmt_*.luau sob um único módulo, para os handlers seg…
+
+### glacier.d.luau — Definições dos globais que o motor glacier-ui injeta no interpretador Luau em runtime (não existem c…
+types: FetchResult, StreamHandle, Viewport, StreamOptions, DateDelta
+
+### helpers.luau — utilitários puros compartilhados pelos handlers_*.luau (sem estado, sem I/O).
+function M.trim(s)
+function M.parse_secret_ref(v) — Referência a secret num valor de env var → nome do secret (ou nil se o valor for texto comum).
+function M.parse_dotenv(text) — Parseia um blob .env em (vars, comments).
+function M.oauth_redirect_uri(base, seg) — URI de callback OAuth que o usuário registra no app do provedor.
+function M.looks_like_git_url(u) — Heurística: a URL denota um repo Git (clonar+buildar) e não uma imagem.
+function M.normalize_url(raw) — Normaliza a entrada de URL do login para uma base HTTP(S) sem barra final.
+
+### log_window.luau — script da JANELA de logs (runtime OU build) de um serviço/deployment, um motor Glacier próprio e ISO…
+local set_full() — Set COMPLETO do textarea a partir do buf (usado no seed e no corte).
+local push_batch(events) — Aplica um lote de eventos novos: appenda no fim (barato) ou, se estourou o teto, corta a cauda e rec…
+local to_row(ev) — Um evento do bus: os endpoints já filtram por id; pegamos o LogLine (runtime), BuildLog (build) ou J…
+function init()
+
+### new_job_window.luau — script da JANELA "Novo job", um motor Glacier próprio e ISOLADO do app principal (aberto via open_wi…
+local client()
+local decode(s)
+local unpack_recurrence(r) — Recorrência (Option<Recurrence>, externally-tagged) → (kind, hours, hour, minute, weekday), pro form…
+function init()
+function field(key, v) — onChange dos inputs (mesma convenção `field:<chave>` do app principal).
+function njob_source(kind)
+function njob_git_provider_pick(id)
+function njob_git_repo_pick(full_name)
+function njob_pick_project(id)
+function njob_pick_service(id)
+function njob_pick_no_service() — Job 100% autônomo: sem serviço gatilho, só as env vars do projeto.
+function njob_back()
+function njob_kind(k)
+function njob_create()
+function cancel()
+
+### new_project_window.luau — script da JANELA de "Novo projeto", um motor Glacier próprio e ISOLADO do app principal (aberto via …
+local client() — Reconstrói o cliente da API a partir da conexão semeada no contexto.
+function init()
+function np_apontar(_erros_json) — on_validation_error do <form>: as falhas já vêm prontas em JSON (`[{campo,msg}]`) e os `{erro_<campo…
+function submit_project() — on_submit do <form>: só roda quando a validação (rules="required" no campo NOME) passou, então `np_n…
+function cancel() — Botão "Cancelar": fecha ESTA janela (close_window fecha a janela dona deste motor com precisão, sem …
+
+### new_registry_token_window.luau — script da JANELA "Novo token do registry", um motor Glacier próprio e ISOLADO do app principal (aber…
+local client()
+function init()
+function ntok_scope(s)
+function ntok_apontar(_erros_json) — on_validation_error do <form> — NOME é `rules="required"`; o motor já publicou {erro_ntok_name} e ac…
+function ntok_create()
+
+### new_service_window.luau — script da JANELA do wizard "Novo serviço", um motor Glacier próprio e ISOLADO do app principal (aber…
+function init()
+function field(key, v) — Setter genérico de campo (on_change="field:<chave>" dos inputs do wizard).
+
+### state.luau — estado mutável compartilhado entre todos os handlers/*.luau (mesmo interpretador, mesma tabela: `req…
+types: DeployTrack, State
 
 ## rustploy-gui/views/scripts/fmt/
 
 ### dashboard.luau — builders de lista do dashboard (deployments/projects/services/docker/ingress/monitoring/deploy engin…
-local grid_cols() — Nº de colunas da grade de cards (services/projects) conforme a largura da janela — glacier não reest…
+local grid_cols()
 function M.deployments(list, term) — Deployments (aba Deployments).
 local primary_container(svc) — Escolhe o container "primário" de um serviço p/ exibir no card: o live, senão o primeiro em execução…
 local service_card(svc, proj, metrics) — Card de serviço (com CPU/mem mesclados de `metrics_by_id[svc.id]`).
@@ -117,25 +172,6 @@ function M.pre_deploy_checks(spec) — Fila efetiva de pré-deploy check: `pre_d
 function M.pair_list(services) — `services` do snapshot é uma lista de { project_name, service }.
 types: ColBudgets
 
-## rustploy-gui/views/scripts/
-
-### glacier.d.luau — Definições dos globais que o motor glacier-ui injeta no interpretador Luau em runtime (não existem c…
-types: FetchResult, StreamHandle, Viewport, StreamOptions, DateDelta
-
-### helpers.luau — utilitários puros compartilhados pelos handlers_*.luau (sem estado, sem I/O).
-function M.trim(s)
-function M.parse_secret_ref(v) — Referência a secret num valor de env var → nome do secret (ou nil se o valor for texto comum).
-function M.parse_dotenv(text) — Parseia um blob .env em (vars, comments).
-function M.oauth_redirect_uri(base, seg) — URI de callback OAuth que o usuário registra no app do provedor.
-function M.looks_like_git_url(u) — Heurística: a URL denota um repo Git (clonar+buildar) e não uma imagem.
-function M.normalize_url(raw) — Normaliza a entrada de URL do login para uma base HTTP(S) sem barra final.
-
-### log_window.luau — script da JANELA de logs (runtime OU build) de um serviço/deployment, um motor Glacier próprio e ISO…
-local set_full() — Set COMPLETO do textarea a partir do buf (usado no seed e no corte).
-local push_batch(events) — Aplica um lote de eventos novos: appenda no fim (barato) ou, se estourou o teto, corta a cauda e rec…
-local to_row(ev) — Um evento do bus: os endpoints já filtram por id; pegamos o LogLine (runtime), BuildLog (build) ou J…
-function init()
-
 ## rustploy-gui/views/scripts/net/
 
 ### api.luau — cliente HTTP/JSON da API do daemon.
@@ -146,43 +182,3 @@ function M:rpc_checked(cmd) — - Como `rpc`, mas trata `Response::Err { code, m
 function M:upload_archive(service_id, filename, body_base64)
 function M.new(base_url, token)
 types: Client
-
-## rustploy-gui/views/scripts/
-
-### new_job_window.luau — script da JANELA "Novo job", um motor Glacier próprio e ISOLADO do app principal (aberto via open_wi…
-local client()
-local decode(s)
-local unpack_recurrence(r) — Recorrência (Option<Recurrence>, externally-tagged) → (kind, hours, hour, minute, weekday), pro form…
-function init()
-function field(key, v) — onChange dos inputs (mesma convenção `field:<chave>` do app principal).
-function njob_source(kind)
-function njob_git_provider_pick(id)
-function njob_git_repo_pick(full_name)
-function njob_pick_project(id)
-function njob_pick_service(id)
-function njob_pick_no_service() — Job 100% autônomo: sem serviço gatilho, só as env vars do projeto.
-function njob_back()
-function njob_kind(k)
-function njob_create()
-function cancel()
-
-### new_project_window.luau — script da JANELA de "Novo projeto", um motor Glacier próprio e ISOLADO do app principal (aberto via …
-local client() — Reconstrói o cliente da API a partir da conexão semeada no contexto.
-function init()
-function np_apontar(_erros_json) — on_validation_error do <form>: as falhas já vêm prontas em JSON (`[{campo,msg}]`) e os `{erro_<campo…
-function submit_project() — on_submit do <form>: só roda quando a validação (rules="required" no campo NOME) passou, então `np_n…
-function cancel() — Botão "Cancelar": fecha ESTA janela (close_window fecha a janela dona deste motor com precisão, sem …
-
-### new_registry_token_window.luau — script da JANELA "Novo token do registry", um motor Glacier próprio e ISOLADO do app principal (aber…
-local client()
-function init()
-function ntok_scope(s)
-function ntok_apontar(_erros_json) — on_validation_error do <form> — NOME é `rules="required"`; o motor já publicou {erro_ntok_name} e ac…
-function ntok_create()
-
-### new_service_window.luau — script da JANELA do wizard "Novo serviço", um motor Glacier próprio e ISOLADO do app principal (aber…
-function init()
-function field(key, v) — Setter genérico de campo (on_change="field:<chave>" dos inputs do wizard).
-
-### state.luau — estado mutável compartilhado entre todos os handlers/*.luau (mesmo interpretador, mesma tabela: `req…
-types: DeployTrack, State

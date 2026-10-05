@@ -50,7 +50,7 @@ fn doc_summary(attrs) -> Option<String> — Primeira frase da doc (`///` ou `//!
 fn summarize(lines) -> Option<String> — Primeira frase do primeiro parágrafo de um comentário, limitada, numa linha só.
 const OUT_DIR, BINARY_EXT, RUST_NOTATION
 
-### script.rs — Índice dos arquivos que não são Rust: scripts Luau e JS, templates `.gv`, `index.html` da webui e fo…
+### script.rs — Índice dos arquivos que não são Rust: scripts Luau e JS, templates `.gv`/`.gvb`, `index.html` da web…
 fn notation(ext) -> Option<&'static str> — Uma linha de notação por tipo de arquivo, para o cabeçalho da área.
 fn re(pattern) -> Regex
 fn describe(path, text) -> Option<String> — Primeira frase do comentário que abre o arquivo, sem o prefixo `nome.ext — ` que vários arquivos rep…
@@ -66,6 +66,9 @@ fn param_names(params) -> String — `a: string, b: number?` → `a, b`; `kind =
 fn render_luau(text) -> String
 fn render_js(text) -> String
 fn render_gv(text) -> String
+fn strip_gvb_comments(text) -> String — Tira os comentários (`//` e `/* */`) de um `.gvb` sem tocar no que está dentro de uma string (`"…"`,…
+fn render_gvb(text) -> String
 fn render_html(text) -> String
 fn strip_blocks(text, open, close) -> String
-const EXTENSIONS, LUAU_FN, LUAU_ASSIGN_FN, LUAU_TYPE, JS_CONTAINER, JS_TOP_FN, JS_TOP_ARROW, JS_METHOD, JS_GETTER, JS_KEYWORDS, GV_ROOT, GV_PROP, GV_IMPORT, GV_SCRIPT, GV_VIEW, GV_HANDLER, HTML_SECTION, HTML_XDATA, HTML_EVENT, CALL
+const EXTENSIONS, LUAU_FN, LUAU_ASSIGN_FN, LUAU_TYPE, JS_CONTAINER, JS_TOP_FN, JS_TOP_ARROW, JS_METHOD, JS_GETTER, JS_KEYWORDS, GV_ROOT, GV_PROP, GV_IMPORT, GV_SCRIPT, GV_VIEW, GV_HANDLER, GVB_ROOT, GVB_SCREEN_TITLE, GVB_SCREEN_NAME, GVB_PROP, GVB_IMPORT, GVB_SCRIPT, GVB_VIEW, GVB_TAB, GVB_HANDLER, HTML_SECTION, HTML_XDATA, HTML_EVENT, CALL
+(2 testes)

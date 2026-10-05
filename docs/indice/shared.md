@@ -259,50 +259,6 @@ enum Response { Ok, Project, Projects, Service, Services, Deployment, Deployment
 impl Response
   fn err(code, message) -> Self
 
-## rustploy-shared/src/templates/
-
-### mod.rs — Catálogo de templates de aplicações (formato Dokploy), lido dos blueprints em `templates/blueprints/…
-struct Template { id, name, description, logo, default_port, compose, variables, env, domains, mounts }
-struct Var { key, raw }
-struct Kv { key, raw }
-struct Domain { service_name, port, host, path }
-struct Mount { file_path, content }
-fn all() -> &'static [Template]
-fn find(id) -> Option<&'static Template>
-fn filtered(search) -> Vec<&'static Template> — Templates cujo nome/descrição/id batem com o termo de busca, ordenados por nome.
-fn editable_vars(t) -> Vec<&'static Var> — Variáveis que o usuário edita no wizard: as que são um domínio (`${domain}`).
-struct Rendered { compose, env, domain, port, mounts }
-fn render(t, user) -> Rendered — Resolve as variáveis (usando `user` para as editáveis) e devolve o compose + env + domínio prontos.
-fn resolve_vars(t, user, rng) -> BTreeMap<String, String> — Resolve o mapa `variable -> valor`, semeando com os valores do usuário.
-fn try_resolve(raw, resolved, rng) -> Option<String> — Tenta resolver um valor bruto; devolve `None` se depender de uma referência ainda não resolvida (par…
-fn single_token(s) -> Option<&str> — `${x}` (e só isso, sem texto ao redor) → `Some("x")`.
-fn all_refs_available(s, resolved) -> bool — Toda referência `${k}` de `s` a uma variável (não-gerador) já está resolvida? Geradores que apontam …
-enum Unknown { Drop, Keep } — O que fazer com um `${...}` que não é variável resolvida nem gerador.
-fn substitute(s, resolved, rng) -> String — Substitui todos os `${...}` de `s`: variável resolvida → valor; gerador → valor gerado; desconhecido…
-fn substitute_mode(s, resolved, rng, unknown) -> String
-fn tokens(s) -> impl Iterator<Item = &str> — Itera os miolos de todos os `${...}` em `s`.
-enum Gen { Domain, Password, Base64, Jwt, Hash, Email, Username, Uuid, Timestamp, Timestamps, Timezone, JwtSigned }
-fn parse_gen(inner) -> Option<Gen<'_>> — Interpreta um miolo de token (`"password:32"`, `"domain"`, …) como gerador.
-impl Gen<'_>
-  fn refs_available(resolved) -> bool — As variáveis referenciadas pelo gerador já estão resolvidas? Só `${jwt:<segredo>:<payload>}` referen…
-  fn generate(rng, resolved) -> String
-fn jwt_hs256(secret, payload_json) -> String — JWS compacto `header.payload.assinatura` em HS256.
-struct Rng { state }
-impl Rng
-  fn new() -> Self
-  fn next_u64() -> u64
-  fn bytes(n) -> Vec<u8>
-  fn hex(n) -> String
-  fn uuid_v4() -> String — UUID v4 (bits de versão/variante fixados) — `POOLER_TENANT_ID` e afins.
-  fn password(n) -> String
-fn base64(data) -> String — Base64 padrão (com padding), sem dependência externa.
-fn base64_url(data) -> String — Base64url **sem** padding (RFC 4648 §5) — o alfabeto que o JWS exige.
-fn base64_with(data, table, pad) -> String
-impl std::fmt::Debug for Template
-(6 testes)
-
-## rustploy-shared/src/
-
 ### wizard.rs — Lógica do wizard "Novo serviço" (Application / Database / Broker / Compose /Template): catálogos, ge…
 enum DbKind { MongoDb, Postgres, MariaDb, MySql, Redis }
 impl DbKind
@@ -348,3 +304,45 @@ impl WizardCreateReq
   fn effective_name() -> String — Nome efetivo: `app_name` tem precedência sobre `name` (ambos trimados).
 fn build_spec(req) -> Result<ServiceSpec, String> — Monta o `ServiceSpec` a partir da requisição do wizard.
 fn build_spec_inner(req) -> Result<ServiceSpec, String>
+
+## rustploy-shared/src/templates/
+
+### mod.rs — Catálogo de templates de aplicações (formato Dokploy), lido dos blueprints em `templates/blueprints/…
+struct Template { id, name, description, logo, default_port, compose, variables, env, domains, mounts }
+struct Var { key, raw }
+struct Kv { key, raw }
+struct Domain { service_name, port, host, path }
+struct Mount { file_path, content }
+fn all() -> &'static [Template]
+fn find(id) -> Option<&'static Template>
+fn filtered(search) -> Vec<&'static Template> — Templates cujo nome/descrição/id batem com o termo de busca, ordenados por nome.
+fn editable_vars(t) -> Vec<&'static Var> — Variáveis que o usuário edita no wizard: as que são um domínio (`${domain}`).
+struct Rendered { compose, env, domain, port, mounts }
+fn render(t, user) -> Rendered — Resolve as variáveis (usando `user` para as editáveis) e devolve o compose + env + domínio prontos.
+fn resolve_vars(t, user, rng) -> BTreeMap<String, String> — Resolve o mapa `variable -> valor`, semeando com os valores do usuário.
+fn try_resolve(raw, resolved, rng) -> Option<String> — Tenta resolver um valor bruto; devolve `None` se depender de uma referência ainda não resolvida (par…
+fn single_token(s) -> Option<&str> — `${x}` (e só isso, sem texto ao redor) → `Some("x")`.
+fn all_refs_available(s, resolved) -> bool — Toda referência `${k}` de `s` a uma variável (não-gerador) já está resolvida? Geradores que apontam …
+enum Unknown { Drop, Keep } — O que fazer com um `${...}` que não é variável resolvida nem gerador.
+fn substitute(s, resolved, rng) -> String — Substitui todos os `${...}` de `s`: variável resolvida → valor; gerador → valor gerado; desconhecido…
+fn substitute_mode(s, resolved, rng, unknown) -> String
+fn tokens(s) -> impl Iterator<Item = &str> — Itera os miolos de todos os `${...}` em `s`.
+enum Gen { Domain, Password, Base64, Jwt, Hash, Email, Username, Uuid, Timestamp, Timestamps, Timezone, JwtSigned }
+fn parse_gen(inner) -> Option<Gen<'_>> — Interpreta um miolo de token (`"password:32"`, `"domain"`, …) como gerador.
+impl Gen<'_>
+  fn refs_available(resolved) -> bool — As variáveis referenciadas pelo gerador já estão resolvidas? Só `${jwt:<segredo>:<payload>}` referen…
+  fn generate(rng, resolved) -> String
+fn jwt_hs256(secret, payload_json) -> String — JWS compacto `header.payload.assinatura` em HS256.
+struct Rng { state }
+impl Rng
+  fn new() -> Self
+  fn next_u64() -> u64
+  fn bytes(n) -> Vec<u8>
+  fn hex(n) -> String
+  fn uuid_v4() -> String — UUID v4 (bits de versão/variante fixados) — `POOLER_TENANT_ID` e afins.
+  fn password(n) -> String
+fn base64(data) -> String — Base64 padrão (com padding), sem dependência externa.
+fn base64_url(data) -> String — Base64url **sem** padding (RFC 4648 §5) — o alfabeto que o JWS exige.
+fn base64_with(data, table, pad) -> String
+impl std::fmt::Debug for Template
+(6 testes)

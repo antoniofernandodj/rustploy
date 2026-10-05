@@ -75,7 +75,7 @@ const AREAS: &[(&str, &str, &[&str])] = &[
     ),
     (
         "gui-handlers.md",
-        "rustploy-gui: handlers Luau (as ações que os .gv disparam)",
+        "rustploy-gui: handlers Luau (as ações que os .gvb disparam)",
         &["rustploy-gui/views/scripts/handlers/"],
     ),
     (
@@ -85,7 +85,7 @@ const AREAS: &[(&str, &str, &[&str])] = &[
     ),
     (
         "gui-views.md",
-        "rustploy-gui: telas e componentes .gv, estilos",
+        "rustploy-gui: telas e componentes .gvb, estilos",
         &["rustploy-gui/views/"],
     ),
     ("gui.md", "rustploy-gui (Rust)", &["rustploy-gui/"]),
@@ -454,6 +454,10 @@ const RUST_NOTATION: &str = "> Rust: métodos indentados sob `impl Tipo`; `struc
 /// Um arquivo que não dá para ler ou parsear vai para `errors` (e o índice
 /// não é gravado), em vez de virar uma entrada quebrada no meio do índice.
 fn render_area(root: &Path, title: &str, paths: &[&String], errors: &mut Vec<String>) -> String {
+    // Por diretório e depois por nome: ordenar pela string do caminho põe
+    // `components/x` no meio dos arquivos do diretório pai e repete o cabeçalho.
+    let mut paths = paths.to_vec();
+    paths.sort_by(|a, b| split_dir(a).cmp(&split_dir(b)));
     let mut s = String::new();
     let _ = writeln!(s, "# Índice: {title}\n");
     s.push_str(

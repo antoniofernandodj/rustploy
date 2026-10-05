@@ -2,7 +2,7 @@
 
 > Gerado por `make index`; não editar à mão. Sem números de linha:
 > `grep -n "nome" <dir><arquivo>` dá a linha. Cada item: `nome(params) — doc`.
-> `.gv`: `<screen>`/`<component>`, `props`, `imports` (componentes), `script`, `views` (valores de `if="{view}" equals=`) e `handlers` (chamados em `on_*=`).
+> `.gvb`: `<app>`/`<screen>`/`<component>`, `props`, `imports` (`link(rel = import)`), `script`, `telas` (as `screen(name = …)` do app), `views` (valores de `@view ==`), `abas` (valores de `@tab`/`@*_tab`) e `handlers` (`on_*` e `action`).
 > Luau: `function x(a)` = global (handler que o `.gv` chama pelo nome), `local x(a)` = privada, `function M.x(a)` = exportada pelo módulo.
 > Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
 > `impl A, B for T` = impls de traits comuns (métodos omitidos).
@@ -20,6 +20,37 @@ fn downscale_png(bytes) -> Option<Vec<u8>> — Decodifica `bytes`, e — se a ma
 fn ext_lower(path) -> Option<String>
 fn is_logo(path) -> bool — Qualquer arquivo de logo (raster, vetor ou os formatos raros) — decide o que entra no staging.
 fn is_raster(path) -> bool — Um logo raster que o `image` sabe decodificar (as features habilitadas no `Cargo.toml`).
+
+## rustploy-gui/src/
+
+### assets.rs — Runtime asset location.
+const MARKER — A file that must exist under any valid asset base — used as the probe.
+const SYSTEM_PREFIX — System-wide install prefix used by the Debian package (see the `deb` metadata in `Cargo.toml`).
+fn locate_and_chdir() — Finds the asset base directory and `chdir`s into it so all the CWD-relative asset paths resolve.
+fn find_base() -> Option<PathBuf>
+fn has_marker(base) -> bool
+
+### embedded.rs — Assets embutidos no binário — modo standalone (só em builds de release).
+const VIEWS — `views/`: templates `.gvb`, estilos `styles/*.gss`, `styles/theme.json` e os scripts Luau em `script…
+const ICONS — `assets/icons/`: ícones SVG referenciados por `<svg src="assets/icons/…">`.
+const BLUEPRINTS — Logos dos blueprints, referenciados via o `{logo}` data-driven do catálogo do daemon (`assets/bluepr…
+fn luau_sources() -> Vec<(String, &'static str)> — Fontes Luau embutidas, como `(caminho relativo, conteúdo)`.
+fn route(path) -> Option<&'static File<'static>> — Roteia um caminho lógico para a árvore embutida + o caminho relativo a ela (a chave que `include_dir…
+fn not_found(path) -> io::Error
+struct EmbeddedAssets — [`AssetSource`] servindo a árvore de assets embutida no binário.
+impl AssetSource for EmbeddedAssets: read_bytes, read_to_string, exists, modified, supports_reload
+(2 testes)
+
+### main.rs — Rustploy (glacier-ui) — desktop client whose UI is described in XML templates and rendered by the pu…
+fn main() -> iced::Result
+
+### manifest_zip.rs — Ponte Lua ↔ Rust para o `.zip` do Infra as Code.
+const YML_ENTRY — Os dois nomes de entrada que o export grava e o import espera na raiz do zip.
+fn write_manifest_zip(path, yaml, toml) -> std::io::Result<()> — Cria um `.zip` em `path` com exatamente `rustploy.yml` e `rustploy.vars.toml` na raiz — sem diretóri…
+fn read_manifest_zip(path) -> Result<(String, String), String> — Valida e lê o `.zip` importado: **exatamente** um `*.yml`/`*.yaml` e um `*.toml`, na raiz, e nada ma…
+fn install(lua) -> mlua::Result<()> — Instala os globais `manifest_zip_write` e `manifest_zip_read` na VM Luau.
+const TOML_ENTRY
+(4 testes)
 
 ## rustploy-gui/src/agent/
 
@@ -169,53 +200,6 @@ fn platform_specific() -> window::settings::PlatformSpecific — `application_id
 fn platform_specific() -> window::settings::PlatformSpecific
 const FONT_BOLD
 
-## rustploy-gui/src/
-
-### assets.rs — Runtime asset location.
-const MARKER — A file that must exist under any valid asset base — used as the probe.
-const SYSTEM_PREFIX — System-wide install prefix used by the Debian package (see the `deb` metadata in `Cargo.toml`).
-fn locate_and_chdir() — Finds the asset base directory and `chdir`s into it so all the CWD-relative asset paths resolve.
-fn find_base() -> Option<PathBuf>
-fn has_marker(base) -> bool
-
-### embedded.rs — Assets embutidos no binário — modo standalone (só em builds de release).
-const VIEWS — `views/`: templates `.gv`, estilos `styles/*.gss`, `styles/theme.json` e os scripts Luau em `scripts…
-const ICONS — `assets/icons/`: ícones SVG referenciados por `<svg src="assets/icons/…">`.
-const BLUEPRINTS — Logos dos blueprints, referenciados via o `{logo}` data-driven do catálogo do daemon (`assets/bluepr…
-fn luau_sources() -> Vec<(String, &'static str)> — Fontes Luau embutidas, como `(caminho relativo, conteúdo)`.
-fn route(path) -> Option<&'static File<'static>> — Roteia um caminho lógico para a árvore embutida + o caminho relativo a ela (a chave que `include_dir…
-fn not_found(path) -> io::Error
-struct EmbeddedAssets — [`AssetSource`] servindo a árvore de assets embutida no binário.
-impl AssetSource for EmbeddedAssets: read_bytes, read_to_string, exists, modified, supports_reload
-(2 testes)
-
-### main.rs — Rustploy (glacier-ui) — desktop client whose UI is described in XML templates and rendered by the pu…
-fn main() -> iced::Result
-
-### manifest_zip.rs — Ponte Lua ↔ Rust para o `.zip` do Infra as Code.
-const YML_ENTRY — Os dois nomes de entrada que o export grava e o import espera na raiz do zip.
-fn write_manifest_zip(path, yaml, toml) -> std::io::Result<()> — Cria um `.zip` em `path` com exatamente `rustploy.yml` e `rustploy.vars.toml` na raiz — sem diretóri…
-fn read_manifest_zip(path) -> Result<(String, String), String> — Valida e lê o `.zip` importado: **exatamente** um `*.yml`/`*.yaml` e um `*.toml`, na raiz, e nada ma…
-fn install(lua) -> mlua::Result<()> — Instala os globais `manifest_zip_write` e `manifest_zip_read` na VM Luau.
-const TOML_ENTRY
-(4 testes)
-
-## rustploy-gui/tests/fixtures/
-
-### compose_host.gv — Fixture do teste fmt_service_detail.rs: tela mínima que roda o fmt/service_detail.luau e exibe um re…
-<screen "fixture">
-script: compose_host.luau
-
-### compose_host.luau — Fixture do teste `fmt_service_detail.rs`: exercita `compose_host` e `internal_url` de `fmt/service_d…
-function init()
-
-### tempo.gv — Fixture do teste fmt_time.rs: tela mínima que roda o fmt/time.luau e exibe o resultado.
-<screen "fixture">
-script: tempo.luau
-
-### tempo.luau — Fixture do teste `fmt_time.rs`: exercita o `fmt/time.luau` de verdade, através do motor, e deixa cad…
-function init()
-
 ## rustploy-gui/tests/
 
 ### fmt_service_detail.rs — O `fmt/service_detail.luau` (`compose_host` e `internal_url`) rodando no motor de verdade.
@@ -231,8 +215,24 @@ fn hora_deslocada(hms, offset) -> String — `HH:MM:SS` + offset, com a virada d
 ### templates_render.rs — Headless validation: every template parses, every screen/tab evaluates and builds an iced element tr…
 fn boot() -> GlacierUI — Boots the engine the way `main.rs` does, but from the workspace root so the workspace-relative templ…
 fn cd_ws_root() — Cd's to the workspace root (idempotent — safe alongside `boot`).
-fn comentarios_fora(src) -> String — Remove os blocos `<!-- … -->` para que "a primeira tag" seja a primeira tag de verdade: todo templat…
+fn comentarios_fora(src) -> String — Remove os comentários (`//` e `/* … */`) para que "a primeira tag" seja a primeira tag de verdade: t…
 (13 testes)
+
+## rustploy-gui/tests/fixtures/
+
+### compose_host.gvb — Fixture do teste fmt_service_detail.rs: tela mínima que roda o fmt/service_detail.luau e exibe um re…
+<screen "fixture">
+script: compose_host.luau
+
+### compose_host.luau — Fixture do teste `fmt_service_detail.rs`: exercita `compose_host` e `internal_url` de `fmt/service_d…
+function init()
+
+### tempo.gvb — Fixture do teste fmt_time.rs: tela mínima que roda o fmt/time.luau e exibe o resultado.
+<screen "fixture">
+script: tempo.luau
+
+### tempo.luau — Fixture do teste `fmt_time.rs`: exercita o `fmt/time.luau` de verdade, através do motor, e deixa cad…
+function init()
 
 ## rustploy-gui/vendor/iced_tiny_skia/src/
 

@@ -185,6 +185,8 @@ seções: Login, Shell (sidebar + topbar + conteúdo), Deploy Engine, Monitoring
 x-data: dashboard, deployEngine, docker, ingress, login, monitoring, newService, projectDetail, projects, schedules, serviceDetail, settings
 chama: String, abortDeployment, addDomain, addEnvVar, cancel, cancelCompose, cancelEdit, clearFinished, closeBuildLog, closeEnvText, closeJobLogs, closeNewJob, closeTokenModal, copyToClipboard, createMdb, dcRunNow, dcSave, delDomain, delEnvVar, deleteMdb, deleteProject, deleteSecret, deleteService, deployRollback, deployStart, discardOldDb, disconnect, dismissToast, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDb, gotoTemplate, gotoType, gpConnect, gpDelete, gpRefresh, iacExport, iacImport, initAdvForm, initGeneralForm, initHcForm, jobDelete, jobRunCancel, jobRunNow, jobToggle, loadMigration, nav, njobBack, njobCreate, njobGitProviderPick, njobGitRepoPick, njobPickNoService, njobPickProject, njobPickService, njobSetSourceTab, ntokCreate, onArchiveFileChange, open, openEditJob, openEnvText, openJobLogs, openNewJob, openNewService, openProject, openService, openTokenModal, pdcAdd, pdcDel, pdcMove, persistPrefs, pickBroker, pickDb, pickTemplate, queueCancel, queuePromote, queueTogglePause, registryCloseRepo, registryGc, registryOpenRepo, registryRmRepo, registryRmTag, registryRmToken, removeDeployment, renameService, rollbackMigration, saveAdvanced, saveCompose, saveEdit, saveEnvText, saveHealthcheck, saveSource, searchChanged, serviceReload, serviceStop, setProvTab, setServiceTab, setShared, settingsSave, showMdb, startEdit, startMigration, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDb, submitNew, submitSecret, submitTemplate, uploadArchive, viewBuildLog, writeText
 
+### sw.js — service worker do PWA Rustploy.
+
 ## rustploy-daemon/crates/daemon/webui/net/
 
 ### api.js — cliente HTTP/JSON do daemon.
@@ -322,7 +324,3 @@ function primaryContainer(svc) — Container "primário" de um serviço pra exib
 ### settings.js — tela "Settings": Web Server / Git / Infra as Code.
   Alpine.data("settings")
     get: store, gitProviderRows
-
-## rustploy-daemon/crates/daemon/webui/
-
-### sw.js — service worker do PWA Rustploy.
