@@ -269,7 +269,8 @@
 - .luaurc
 - Cargo.lock
 - Cargo.toml — Rustploy — desktop client (glacier-ui) for the Rustploy PaaS daemon
-- build.rs — Build script: 1. Stages os **logos** dos blueprints (só imagens) para `$OUT_DIR`…
+- README.md — rustploy-gui por dentro
+- build.rs — Build script: logos dos blueprints para o release e recursos do `.exe` no Window…
 
 ### rustploy-gui/assets/
 - application.manifest

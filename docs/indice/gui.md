@@ -9,7 +9,7 @@
 
 ## rustploy-gui/
 
-### build.rs — Build script: 1. Stages os **logos** dos blueprints (só imagens) para `$OUT_DIR` — o `src/embedded.r…
+### build.rs — Build script: logos dos blueprints para o release e recursos do `.exe` no Windows.
 const LOGO_EXTS — Extensões de imagem que os logos de blueprint usam (o resto da pasta — `docker-compose.yml`/`templat…
 const LOGO_MAX_DIM — Alvo do redimensionamento dos logos raster: a maior dimensão é reduzida para no máximo isto, preserv…
 fn main()
@@ -33,6 +33,7 @@ fn has_marker(base) -> bool
 ### embedded.rs — Assets embutidos no binário — modo standalone (só em builds de release).
 const VIEWS — `views/`: templates `.gvb`, estilos `styles/*.gss`, `styles/theme.json` e os scripts Luau em `script…
 const ICONS — `assets/icons/`: ícones SVG referenciados por `<svg src="assets/icons/…">`.
+const FONTS — `assets/fonts/`: as fontes que o `app(...)` declara com `font(src = …)`.
 const BLUEPRINTS — Logos dos blueprints, referenciados via o `{logo}` data-driven do catálogo do daemon (`assets/bluepr…
 fn luau_sources() -> Vec<(String, &'static str)> — Fontes Luau embutidas, como `(caminho relativo, conteúdo)`.
 fn route(path) -> Option<&'static File<'static>> — Roteia um caminho lógico para a árvore embutida + o caminho relativo a ela (a chave que `include_dir…
@@ -135,9 +136,9 @@ fn resolve_service(ctx, corpo) -> Result<String, ApiFail> — Descobre o `servic
 fn wait_for_outcome(ctx, service_id, deployment_id, limite) -> Result<(Value, bool), ApiFail> — Poll até o deployment chegar a um estado terminal (ou o prazo acabar).
 fn build_logs(ctx, deployment_id, query) -> Result<Response<Full<Bytes>>, ApiFail> — `GET /agent/deploys/<id>/logs` — build log com cursor.
 fn build_log_lines(ctx, deployment_id) -> Result<Vec<String>, ApiFail> — Texto de cada linha do build log, na ordem em que foi gravada.
-fn ingress_routes(ctx) -> Result<Response<Full<Bytes>>, ApiFail> — `POST /agent/rpc` — qualquer `Command` do protocolo, sem tradução.
+fn ingress_routes(ctx) -> Result<Response<Full<Bytes>>, ApiFail> — `GET /agent/ingress` — a tabela de rotas viva do proxy reverso.
 fn ingress_reconcile(ctx, req) -> Result<Response<Full<Bytes>>, ApiFail> — `POST /agent/ingress/reconcile` — recalcula as rotas a partir dos containers que existem de fato, se…
-fn rpc_passthrough(ctx, req) -> Result<Response<Full<Bytes>>, ApiFail>
+fn rpc_passthrough(ctx, req) -> Result<Response<Full<Bytes>>, ApiFail> — `POST /agent/rpc` — qualquer `Command` do protocolo, sem tradução.
 fn connect(ctx, req) -> Result<Response<Full<Bytes>>, ApiFail> — `POST /agent/connect` — entra na sessão pela própria tela de login.
 fn disconnect(ctx) -> Result<Response<Full<Bytes>>, ApiFail> — `POST /agent/disconnect` — sai da sessão.
 fn ui_state(ctx, query) -> Response<Full<Bytes>> — `GET /agent/ui` — o que a janela está mostrando agora.
@@ -194,11 +195,7 @@ fn all_keys(session) -> Value — Todas as chaves do contexto, com os segredos r
 ## rustploy-gui/src/app/
 
 ### mod.rs — Rustploy (glacier-ui) — desktop client whose UI is described in XML templates and rendered by the pu…
-const FONT_REGULAR — Fontes embutidas (JetBrains Mono): registradas no builder do daemon e usadas como `default_font` de …
 fn run() -> iced::Result — Sobe o daemon multi-janela e roda o loop do iced até a última janela fechar.
-fn platform_specific() -> window::settings::PlatformSpecific — `application_id` only exists on the Linux (X11/Wayland) variant of `PlatformSpecific`; other platfor…
-fn platform_specific() -> window::settings::PlatformSpecific
-const FONT_BOLD
 
 ## rustploy-gui/tests/
 
@@ -216,7 +213,7 @@ fn hora_deslocada(hms, offset) -> String — `HH:MM:SS` + offset, com a virada d
 fn boot() -> GlacierUI — Boots the engine the way `main.rs` does, but from the workspace root so the workspace-relative templ…
 fn cd_ws_root() — Cd's to the workspace root (idempotent — safe alongside `boot`).
 fn comentarios_fora(src) -> String — Remove os comentários (`//` e `/* … */`) para que "a primeira tag" seja a primeira tag de verdade: t…
-(13 testes)
+(14 testes)
 
 ## rustploy-gui/tests/fixtures/
 

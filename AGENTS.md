@@ -552,6 +552,15 @@ chamadas com mais de um argumento (`prune({...}, "msg")`,
 `setmetatable({...}, mt)`) mantêm os parênteses. String literal única também
 poderia dispensar parênteses, mas **não** adotamos essa forma.
 
+### Rust do `rustploy-gui`: sem comentário de bloco, o porquê vai no README
+
+O código Rust do `rustploy-gui` é mantido **enxuto de propósito**: nada de
+comentário `//` e, nos itens, **uma frase** de `///`/`//!` (é a que o `make index`
+usa como descrição). O contexto, o raciocínio e as decisões descartadas moram no
+`rustploy-gui/README.md`, escrito como um artigo por assunto. Ao mexer no código,
+não devolva comentários para ele: se algo precisa de explicação, acrescente-a ao
+README (citando `arquivo.rs::item`) e deixe no código só a frase de doc.
+
 ### Armadilhas de template (`.gv`)
 
 - **Nunca escreva uma tag literal dentro de um comentário** (nem dentro de
