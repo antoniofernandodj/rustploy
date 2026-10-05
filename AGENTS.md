@@ -463,28 +463,36 @@ próprio template — não procure isso no `main.rs`/`app/mod.rs`:
 
 Onde cada coisa vive hoje:
 
-- **`views/app.gv`** declara `title`, `size` e `min-size` da janela principal.
-  O `main_window_settings()` em `app/mod.rs` ficou só com o chrome que o
-  template não descreve (borderless, ícone, `application_id`,
-  `exit_on_close_request`), e o builder não chama mais `.title()`/`.main_size()`.
-- **As janelas-filhas** (`new_*_window.gv`, `new_project_form.gv`,
-  `log_window.gv`) declaram as suas, e as chamadas `open_window{…}` dos
-  handlers Luau passam só o `file` (mais `data`). Duas exceções propositais, em
-  que só quem abre sabe o título: `log_window.gv` (título dinâmico — "Logs —
-  nginx", "Build — abc123") e a edição de job, que sobrepõe o "Novo job" do
-  arquivo.
+- **`views/app.gvb`** — a raiz é o **`app(...)`** (glacier 0.117+): `id`,
+  `single_instance`, `remember_geometry`, a janela **principal** (`size`,
+  `min_size`, `decorations`, `icon`) e a `tray`. O `main_window_settings()` em
+  `app/mod.rs` ficou só com o que o markup não descreve (`application_id`), e o
+  builder não chama `.title()`/`.main_size()`.
+- **As telas são filhas do `app`**: `screen(name = app, initial = true)` é a
+  principal (inline, com o script `app.luau`) e as cinco janelas auxiliares são
+  `screen(name = log | new_job | new_service | new_project | new_registry_token,
+  src = "…gvb")`. A `screen` é **só conteúdo** (`title`; `size`/`icon` nela são erro
+  de parse): o **tamanho** de cada janela filha vai na chamada dos handlers Luau —
+  `open_window{ component = "log", size = "900 560", decorations = false, data = … }`
+  (a moldura borderless também vai na chamada) —, e o ícone vem do `app`. Uma janela aberta numa tela do app registra
+  **só aquela tela** (e as declarações globais: tema e `app.gss`), então o `init`
+  das outras não roda nela. Duas exceções propositais em que só quem abre sabe o
+  título: a janela de logs (título dinâmico — "Logs — nginx", "Build — abc123") e
+  a edição de job, que sobrepõe o "Novo job" do arquivo.
 - A **geometria lembrada** (`remember_window_geometry`) continua ganhando do
   `size` declarado: ele é o tamanho de *primeira* abertura.
 
-Qual casca usar (glacier-ui 0.60+):
+Qual casca usar (glacier-ui 0.117+):
 
-- **`<screen>`** — só os arquivos abertos como **janela**: `views/app.gv` e as
-  cinco `*_window.gv`/`new_project_form.gv`. São os únicos que declaram
-  `title`/`size`.
-- **`<component>`** — todo o resto, e é a maioria: `shell.gv`, `home.gv`,
-  `service.gv`, `login.gv`, `new_service.gv` e os dez de `views/components/`.
-  Todos eles são importados por outro template (`<link rel="import">`), então
-  não há janela a que título ou tamanho se aplicariam — e o `<component>` não
+- **`app`** — só `views/app.gvb`: o manifesto (o aplicativo, a janela principal,
+  a bandeja, o `resources` global e as telas).
+- **`screen`** — os arquivos abertos como **tela de outra janela**
+  (`new_*_window.gvb`, `new_project_form.gvb`, `log_window.gvb`), apontados por
+  `screen(name = …, src = …)` no `app`. Levam só `title`.
+- **`component`** — todo o resto, e é a maioria: `shell.gvb`, `home.gvb`,
+  `service.gvb`, `login.gvb`, `new_service.gvb` e os dez de `views/components/`.
+  Todos eles são importados por outro template (`link(rel = import, …)`), então
+  não há janela a que título ou tamanho se aplicariam — e o `component` não
   aceita esses atributos, erra na cara explicando a diferença.
 
 O `<resources>` agrupa o que não desenha (`<style>`, `<script>`, `<link>`,
@@ -492,7 +500,7 @@ O `<resources>` agrupa o que não desenha (`<style>`, `<script>`, `<link>`,
 nenhuma leva só a casca). Um engano no cabeçalho é erro de parse — atributo
 desconhecido, tamanho que não seja par de números, widget dentro do
 `<resources>` — e não passa em silêncio. O teste
-`janelas_declaram_titulo_e_tamanho_no_proprio_template`
+`janelas_declaram_titulo_e_tamanho`
 (`tests/templates_render.rs`) trava os valores das janelas.
 
 ### Toda feature de UI vive em dois lugares
@@ -884,8 +892,9 @@ segundos depois de subir.
 
 ## `rustploy-gui` (repo `rustploy-gui`, `src/`)
 
-UI declarada em templates de sintaxe XML (`views/*.gv` — tags XML, extensão
-`.gv`, **não** `.xml`), renderizados pela crate publicada `glacier-ui`. Toda
+UI declarada em templates **`.gvb`** (markup de blocos: `tag(atributo = valor) { filhos }`,
+ligação com `:`, glacier-ui 0.117+), renderizados pela crate publicada
+`glacier-ui`. Toda
 responsabilidade de rede e de negócio (login, consumidor SSE, navegação, cada
 mutação) vive em **Luau** (`views/scripts/`), **não** neste Rust — o `src/` daqui
 é o runtime `iced::daemon`, a moldura da janela, a persistência local e a **API
@@ -902,7 +911,7 @@ resolve, não necessariamente ao diretório de lançamento.
   para toda referência relativa resolver igual independente de como o app foi
   lançado. Ordem: `$RUSTPLOY_UI_ASSETS` → diretório do próprio executável
   (layout portátil/Windows) → `/usr/share/rustploy` (pacote Debian) → diretório
-  atual (dev). Confirma a base sondando `views/app.gv`. Só
+  atual (dev). Confirma a base sondando `views/app.gvb`. Só
   existe em debug: em release os assets são embutidos no binário
   (`embedded.rs`, `include_dir`) e o executável é standalone.
 - **`app/mod.rs`** — desde o glacier **0.38**, apenas **configuração do
@@ -913,14 +922,13 @@ resolve, não necessariamente ao diretório de lançamento.
   round-trip perde o serial do pointer-grab e `window:drag` vira no-op
   silencioso). O que é específico do rustploy entra por ganchos:
   `.font()`/`.default_font()` (JetBrains Mono embutida), `.main_template()`
-  (registra `app.gv`), `.on_message()` (espelha sessão e contexto para a API de
+  (carrega o manifesto `app.gvb`), `.on_message()` (espelha sessão e contexto para a API de
   agente **e sobe a API de agente**, de forma idempotente), `.main_window()`/
-  `.child_window()` (só o `application_id` do Linux), `.lua_extension()`,
-  `.toast_period()` e `.antialiasing(false)`. O resto mora no **markup** do
-  `views/app.gv` (glacier 0.107+): `<screen decorations icon>` (também nas cinco
-  janelas-filhas), `<app id="rustploy" single_instance remember_geometry>` e
-  `<tray>`. **Não volte a usar `.main(|motor| …)`**: um `.main` escrito à mão
-  desliga a leitura de `<app>` e `<tray>`.
+  `.child_window()` (só o `application_id` do Linux), `.lua_extension()`, `.toast_period()` e `.antialiasing(false)`. O
+  resto mora no **markup** do `views/app.gvb`: `app(id = rustploy,
+  single_instance, remember_geometry, size, min_size, decorations, icon)`, a
+  `tray` e as `screen`s. Um `.main(|motor| …)` só serve para registrar um
+  `impl Component` em Rust (este app não tem); ele roda **depois** do manifesto.
 - **Bandeja e ciclo de vida** (glacier **0.47+**, feature `tray`): fechar a
   última janela **recolhe para a bandeja** em vez de encerrar. Desde a **0.48**
   o motor da principal é **recolhido headless**, não descartado — SSE e login
@@ -941,15 +949,16 @@ resolve, não necessariamente ao diretório de lançamento.
   (`ExternalSender` injeta no motor o mesmo `EngineMessage` de um clique).
   hyper dos dois lados de propósito — nada de axum, nada de reqwest. Desenho em
   `docs/api-agente-no-gui.md`.
-- **`views/`** (todos `.gv`) — `app.gv` (titlebar + handles de resize, chaveia
-  em `screen`), `login.gv`, `shell.gv` (sidebar + topbar, chaveia em `view`),
-  `home.gv` (Deployments/Projects/Monitoring/Ingress/Docker/Settings), 
-  `service.gv` (detalhe do serviço, com suas sub-abas), `new_service.gv`
-  (wizard), janelas separadas (`new_project_form.gv`, `log_window.gv`,
-  `new_job_window.gv`, `new_registry_token_window.gv`) e `components/*.gv`.
-  Estilizados por `views/styles/app.gss`, linkado globalmente do `app.gv` —
-  janelas separadas precisam **relinká-lo**, porque cada janela é um motor
-  isolado.
+- **`views/`** (todos `.gvb`) — `app.gvb` (o manifesto: `app(...)`, a titlebar +
+  handles de resize da principal, que chaveia em `screen`), `login.gvb`,
+  `shell.gvb` (sidebar + topbar, chaveia em `view`), `home.gvb`
+  (Deployments/Projects/Monitoring/Ingress/Docker/Settings), `service.gvb`
+  (detalhe do serviço, com suas sub-abas), `new_service.gvb` (wizard), as telas das
+  janelas separadas (`new_project_form.gvb`, `log_window.gvb`, `new_job_window.gvb`,
+  `new_registry_token_window.gvb`, `new_service_window.gvb`) e `components/*.gvb`.
+  Estilizados por `views/styles/app.gss`, linkado **uma vez** no `resources`
+  global do `app` — as janelas separadas o recebem de graça (cada uma é um motor
+  isolado que carrega as declarações globais do manifesto).
 - **Multi-janela** (glacier 0.37+): `open_window{ file = …, data = {…} }` abre um
   motor Glacier próprio, que recebe a conexão via `data`; ele responde com
   `broadcast(evento, payload)` + `close_window()`, e o runner entrega o
