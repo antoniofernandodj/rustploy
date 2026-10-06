@@ -74,6 +74,7 @@
 - plano-tray-bandeja-e-ciclo-de-vida.md — Plano — ícone de bandeja e o app que sobrevive à última janela
 - plano-unificacao-webhook-api.md — Plano: unificar o webhook na porta da API
 - plano-widgets-glacier-0.68.md — Widgets novos do glacier-ui (0.63 → 0.68): o que dá pra aproveitar no rustploy
+- prompt-depurar-infra-com-agente.md — Prompt: depurar a infra pela API de agente
 - relatorio-porta-externa-automatica.md — Relatório: URL de conexão externa sem burocracia — porta automática + firewall g…
 - secrets.md — Secrets — Gerenciamento de Credenciais
 - services.md

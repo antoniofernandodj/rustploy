@@ -552,14 +552,18 @@ chamadas com mais de um argumento (`prune({...}, "msg")`,
 `setmetatable({...}, mt)`) mantêm os parênteses. String literal única também
 poderia dispensar parênteses, mas **não** adotamos essa forma.
 
-### Rust do `rustploy-gui`: sem comentário de bloco, o porquê vai no README
+### `rustploy-gui`: sem comentário de bloco, o porquê vai no README
 
-O código Rust do `rustploy-gui` é mantido **enxuto de propósito**: nada de
-comentário `//` e, nos itens, **uma frase** de `///`/`//!` (é a que o `make index`
-usa como descrição). O contexto, o raciocínio e as decisões descartadas moram no
-`rustploy-gui/README.md`, escrito como um artigo por assunto. Ao mexer no código,
-não devolva comentários para ele: se algo precisa de explicação, acrescente-a ao
-README (citando `arquivo.rs::item`) e deixe no código só a frase de doc.
+O código do `rustploy-gui` é mantido **enxuto de propósito**. No **Rust**: nada de
+comentário `//` e, nos itens, **uma frase** de `///`/`//!` (é a que o `make index` usa
+como descrição). Nos **`.gvb`**: no cabeçalho de cada arquivo só a **primeira frase** (o
+indexador a usa como descrição do arquivo) e, no corpo, no máximo comentários discretos de
+uma linha (divisores `// ── Seção ──`, rótulos curtos) — nada de bloco explicativo de 3 ou
+mais linhas, nem em `//` nem em `/* */` dentro do `<style>`. O contexto, o raciocínio e as
+decisões descartadas moram no `rustploy-gui/README.md`, escrito como um artigo por assunto
+(seção 6 para os templates). Ao mexer no código, não devolva comentários para ele: se algo
+precisa de explicação, acrescente-a ao README (citando `arquivo.rs::item` ou
+`views/x.gvb`) e deixe no código só a frase.
 
 ### Armadilhas de template (`.gv`)
 
@@ -613,11 +617,11 @@ de estado vazio (`fallback`) vão para o arquivo que os usa. O que aprendemos fa
   `service/general_compose.gvb` e `new_job_window.gvb`): no glacier-ui 0.118 o
   `"…"` só aceita a quebra **literal** (não interpreta `\n`) e `"""` dobra linhas
   em espaços; as linhas de continuação ficam coladas na margem **de propósito** —
-  reindentar muda o texto, e uma ferramenta de recorte que dedenta o arquivo tem
-  de pular essas linhas. O glacier-ui ganhou o **`l"""…"""`** (`l` de *linhas*, não
+  reindentar muda o texto (o aviso que estava no arquivo foi para o README), e uma
+  ferramenta de recorte que dedenta o arquivo tem de pular essas linhas. O glacier-ui ganhou o **`l"""…"""`** (`l` de *linhas*, não
   de raw: mantém as quebras, tira o recuo comum e continua interpolando `@nome`);
   assim que a dependência for a versão que o traz (publicada depois da 0.118),
-  troque esses dois placeholders por `l"""` e apague o aviso de "NÃO reindente".
+  troque esses dois placeholders por `l"""`.
 - **Prove que nada mudou.** O `templates_render` só checa `render().is_ok()`: ele
   não pega conteúdo que sumiu ou apareceu na aba errada (foi assim que o `if` na
   raiz passou despercebido). Antes de mover markup, despeje a árvore avaliada
