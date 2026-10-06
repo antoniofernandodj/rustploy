@@ -198,7 +198,6 @@ struct Deployment { id, service_id, image, state, states_log, started_at, finish
 enum DeployState { Pending, PreDeployCheck, ResolvingDeps, PullingImage, CloningRepo, BuildingImage, Staging, HealthcheckPolling, SwappingIn, Draining, Promoting, Live, Stopped, RollingBack, Failed, Pruning, ComposingUp }
 impl DeployState
   fn is_terminal() -> bool
-  fn to_percent() -> u8
   fn label() -> &'static str
 struct StateTransition { from, to, at, message }
 struct EnvVar { key, value }
@@ -210,7 +209,7 @@ enum HealthcheckKind { None, Http, Tcp, DockerNative }
 struct DeploymentSummary { deployment, service_name, project_name }
 struct ResourceLimits { cpu_shares, mem_limit_bytes }
 struct DaemonStatus { version, uptime_secs, services_running, services_total }
-struct ActiveDeployInfo { deployment_id, service_id, service_name, project_name, state, percent, started_at, elapsed_secs, current_state_secs, states }
+struct ActiveDeployInfo { deployment_id, service_id, service_name, project_name, state, started_at, elapsed_secs, current_state_secs, states }
 struct DeployEngineSummary { version, uptime_secs, active, recent, total_24h, successful_24h, failed_24h, queued, paused }
 struct ContainerMetricsPoint { service_id, container_id, cpu_percent, mem_used_bytes, mem_limit_bytes, net_rx_bytes, net_tx_bytes, timestamp }
 struct SystemMetricsPoint { cpu_percent, mem_used_bytes, mem_total_bytes, disk_used_bytes, disk_total_bytes, load_avg_1, load_avg_5, load_avg_15, timestamp }
