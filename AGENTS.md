@@ -613,15 +613,12 @@ de estado vazio (`fallback`) vão para o arquivo que os usa. O que aprendemos fa
   `ServiceLogsTab::open_logs_window`). É inócuo: o dispatch só trata o prefixo
   como dono se ele for um componente registrado com script; senão cai na tela
   atual.
-- **String com quebra de linha dentro** (placeholder de textarea com YAML, hoje em
-  `service/general_compose.gvb` e `new_job_window.gvb`): no glacier-ui 0.118 o
-  `"…"` só aceita a quebra **literal** (não interpreta `\n`) e `"""` dobra linhas
-  em espaços; as linhas de continuação ficam coladas na margem **de propósito** —
-  reindentar muda o texto (o aviso que estava no arquivo foi para o README), e uma
-  ferramenta de recorte que dedenta o arquivo tem de pular essas linhas. O glacier-ui ganhou o **`l"""…"""`** (`l` de *linhas*, não
-  de raw: mantém as quebras, tira o recuo comum e continua interpolando `@nome`);
-  assim que a dependência for a versão que o traz (publicada depois da 0.118),
-  troque esses dois placeholders por `l"""`.
+- **String com quebra de linha dentro** (placeholder de textarea com YAML, em
+  `service/general_compose.gvb` e `new_job_window.gvb`): use o **`l"""…"""`**
+  (glacier-ui 0.119+; `l` de *linhas*, não de raw: mantém as quebras, tira o recuo
+  comum e continua interpolando `@nome`). Os outros dois jeitos não servem: `"…"`
+  só aceita a quebra **literal** (não interpreta `\n`, e as linhas de continuação
+  teriam de ficar coladas na margem), e `"""` dobra as linhas em espaços.
 - **Prove que nada mudou.** O `templates_render` só checa `render().is_ok()`: ele
   não pega conteúdo que sumiu ou apareceu na aba errada (foi assim que o `if` na
   raiz passou despercebido). Antes de mover markup, despeje a árvore avaliada
