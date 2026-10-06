@@ -22,6 +22,8 @@ function queue_cancel(deployment_id) — Cancela um deploy que ainda está esper
 function queue_promote(deployment_id) — Move um deploy enfileirado para o topo da fila ("furar fila").
 function queue_reorder(v) — Reordena a fila (arraste): `v` é um JSON array de deployment_ids na nova ordem (mesma forma que o en…
 function queue_toggle_pause() — Pausa/retoma a fila.
+function eng_open_detail(service_id)
+function eng_close_detail()
 
 ### docker.luau — limpeza de recursos Docker sem uso (imagens, volumes, redes).
 local prune(cmd, label)
@@ -188,6 +190,7 @@ function dc_run_now() — Botão "Executar agora": roda os recursos marcados for
 local rebuild_lists() — Reconstrói as listas filtradas pela busca a partir do último snapshot — sem rede, para a busca filtr…
 local update_open_project() — Cabeçalho + grade de serviços do projeto aberto (view=project_services).
 local refresh_jobs_summary_local() — Recomputa SÓ `ctx.jobs_summary`/`ctx.jobs_count` (tela global "Schedules") a partir do último snapsh…
+local refresh_eng_detail(active)
 local apply_snapshot(msg)
 local refresh_now() — Refresh imediato após uma mutação: pega o snapshot completo num único RPC (o mesmo builder do SSE) e…
 function deployments_clear_finished() — Limpeza em massa da tela Deployments: apaga (DeployDelete) todo deployment em estado terminal Stoppe…

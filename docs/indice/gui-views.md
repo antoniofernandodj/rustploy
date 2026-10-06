@@ -114,7 +114,7 @@ props: name, description, logo, logo_kind, action
 
 ### deploy_engine.gvb — Seção `deploy_engine` (view = deploy_engine) das telas globais; importada por home.gvb.
 <component>
-handlers: queue_cancel, queue_promote, queue_reorder, queue_toggle_pause
+handlers: eng_close_detail, eng_open_detail, queue_cancel, queue_promote, queue_reorder, queue_toggle_pause
 
 ### docker.gvb — Seção `docker` (view = docker) das telas globais; importada por home.gvb.
 <component>

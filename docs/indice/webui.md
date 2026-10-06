@@ -158,7 +158,9 @@ function domainRoutes(spec) — `spec.domains` se houver, senão o legado `domai
 function ingressRows(pairs) — Ingress: uma linha por rota de domínio (não filtrado pela busca).
 function hostPortRows(pairs) — Portas TCP de host: uma linha por serviço com `host_port` configurado.
 function monitoringRows(pairs, metricsById) — Monitoring: uma linha por serviço COM métricas vivas (`metricsById[id]` só existe depois do primeiro…
-function progressBar(percent, width) — Barra de progresso em blocos (`█`/`░`).
+function stepOf(state)
+function deployStepper(info) — Linha de passos: [{label, status}] com status done|current|failed|pending.
+function deployDetailRows(info) — Detalhe do deploy para o modal: uma linha por transição (estado em que entrou, quanto durou, mensage…
 function engActiveRows(active) — Deploy Engine: "Executando agora".
 function engQueuedRows(queued) — Deploy Engine: "Na fila" (o primeiro é o próximo a rodar).
 function dockerContainerRows(list, term) — Containers do host (rodando + parados).
@@ -183,7 +185,7 @@ function engRecentRows(recent) — Deploy Engine: "Histórico 24h".
 ### index.html — Casca única da webui (Alpine.js): login, shell e todas as telas, uma seção por view, cada uma com o …
 seções: Login, Shell (sidebar + topbar + conteúdo), Deploy Engine, Monitoring, Ingress, Docker, Schedules, Modais globais de Jobs, Settings, Projects, Projeto aberto, Novo serviço (wizard por passos, porta de new_service.gv), Detalhe de serviço
 x-data: dashboard, deployEngine, docker, ingress, login, monitoring, newService, projectDetail, projects, schedules, serviceDetail, settings
-chama: String, abortDeployment, addDomain, addEnvVar, cancel, cancelCompose, cancelEdit, clearFinished, closeBuildLog, closeEnvText, closeJobLogs, closeNewJob, closeTokenModal, copyToClipboard, createMdb, dcRunNow, dcSave, delDomain, delEnvVar, deleteMdb, deleteProject, deleteSecret, deleteService, deployRollback, deployStart, discardOldDb, disconnect, dismissToast, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDb, gotoTemplate, gotoType, gpConnect, gpDelete, gpRefresh, iacExport, iacImport, initAdvForm, initGeneralForm, initHcForm, jobDelete, jobRunCancel, jobRunNow, jobToggle, loadMigration, nav, njobBack, njobCreate, njobGitProviderPick, njobGitRepoPick, njobPickNoService, njobPickProject, njobPickService, njobSetSourceTab, ntokCreate, onArchiveFileChange, open, openEditJob, openEnvText, openJobLogs, openNewJob, openNewService, openProject, openService, openTokenModal, pdcAdd, pdcDel, pdcMove, persistPrefs, pickBroker, pickDb, pickTemplate, queueCancel, queuePromote, queueTogglePause, registryCloseRepo, registryGc, registryOpenRepo, registryRmRepo, registryRmTag, registryRmToken, removeDeployment, renameService, rollbackMigration, saveAdvanced, saveCompose, saveEdit, saveEnvText, saveHealthcheck, saveSource, searchChanged, serviceReload, serviceStop, setProvTab, setServiceTab, setShared, settingsSave, showMdb, startEdit, startMigration, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDb, submitNew, submitSecret, submitTemplate, uploadArchive, viewBuildLog, writeText
+chama: String, abortDeployment, addDomain, addEnvVar, cancel, cancelCompose, cancelEdit, clearFinished, closeBuildLog, closeDetail, closeEnvText, closeJobLogs, closeNewJob, closeTokenModal, copyToClipboard, createMdb, dcRunNow, dcSave, delDomain, delEnvVar, deleteMdb, deleteProject, deleteSecret, deleteService, deployRollback, deployStart, discardOldDb, disconnect, dismissToast, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDb, gotoTemplate, gotoType, gpConnect, gpDelete, gpRefresh, iacExport, iacImport, initAdvForm, initGeneralForm, initHcForm, jobDelete, jobRunCancel, jobRunNow, jobToggle, loadMigration, nav, njobBack, njobCreate, njobGitProviderPick, njobGitRepoPick, njobPickNoService, njobPickProject, njobPickService, njobSetSourceTab, ntokCreate, onArchiveFileChange, open, openDetail, openEditJob, openEnvText, openJobLogs, openNewJob, openNewService, openProject, openService, openTokenModal, pdcAdd, pdcDel, pdcMove, persistPrefs, pickBroker, pickDb, pickTemplate, queueCancel, queuePromote, queueTogglePause, registryCloseRepo, registryGc, registryOpenRepo, registryRmRepo, registryRmTag, registryRmToken, removeDeployment, renameService, rollbackMigration, saveAdvanced, saveCompose, saveEdit, saveEnvText, saveHealthcheck, saveSource, searchChanged, serviceReload, serviceStop, setProvTab, setServiceTab, setShared, settingsSave, showMdb, startEdit, startMigration, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDb, submitNew, submitSecret, submitTemplate, uploadArchive, viewBuildLog, writeText
 
 ### sw.js — service worker do PWA Rustploy.
 
@@ -208,7 +210,9 @@ function openStream(baseUrl, token, path, handlers) — Abre a stream em `path` 
 
 ### deploy_engine.js — tela "Deploy Engine": fila global (um deploy por vez), execução em andamento e histórico das últimas…
   Alpine.data("deployEngine")
-    get: store, engine, active, queued, recent, paused, uptime, successCount, failedCount, totalCount
+    openDetail(id)
+    closeDetail()
+    get: store, engine, active, detail, queued, recent, paused, uptime, successCount, failedCount, totalCount
 
 ### docker.js — tela "Docker": containers/imagens/volumes/networks do host inteiro (não só recursos geridos pelo rus…
   Alpine.data("docker")

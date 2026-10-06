@@ -85,6 +85,11 @@ function M.docker_containers(list, term) — Containers do host (DockerContainer
 function M.ingress(pairs_) — Ingress: uma linha por rota de domínio (não filtrado pela busca).
 function M.host_ports(pairs_) — Portas TCP de host: uma linha por serviço com `host_port` configurado — exposição direta de porta TC…
 function M.monitoring(pairs_, metrics) — Monitoring: uma linha por serviço COM métricas vivas.
+local step_of(state)
+local deploy_stepper(info)
+local iso_epoch(iso)
+function M.eng_detail(info)
+function M.eng_detail_steps(info)
 function M.eng_active(active) — Deploy Engine: "Executando agora".
 function M.eng_queued(queued) — Deploy Engine: "Na fila" (deploys esperando; o primeiro é o próximo a rodar).
 function M.eng_recent(recent) — Deploy Engine: "Histórico 24h".
@@ -137,7 +142,7 @@ local pct(s) — Percent-encode de um componente de userinfo (user/password) —
 local userinfo(user, password) — Monta a parte de userinfo `user:pass@` de uma URI RFC 3986. Casos: user+pass → "user:pass@"  |  só p…
 local external_scheme(k) — Esquema de URI externo por banco (userinfo).
 
-### time.luau — timestamps, durações e barra de progresso.
+### time.luau — timestamps e durações.
 function M.time_hms(iso) — HH:MM:SS local de um timestamp do daemon.
 function M.date_dm_hm(iso) — "dd/mm HH:MM" local.
 function M.date_dm_hms(iso) — "dd/mm HH:MM:SS" local.
@@ -147,7 +152,6 @@ function M.fmt_bytes(b) — Tamanho de bytes legível ("—" para 0), igual a vi
 function M.fmt_duration(dep) — Duração de um deployment (finished_at ou agora) − started_at, em fmt_secs.
 function M.hm_join(hour, minute) — (hour, minute) -> "HH:MM".
 function M.hm_split(hm) — "HH:MM" -> hour, minute (números).
-function M.progress_bar(percent, width) — Barra de progresso em blocos.
 
 ### types.luau — tipos compartilhados entre os submódulos fmt_*.luau (as formas dos modelos que chegam via `json.deco…
 types: EnvValue, EnvVar, EnvComment, DomainRoute, ServiceSpec, ManagedContainer, Service, MetricEntry, ServicePair, GridCard, MetricsMap
