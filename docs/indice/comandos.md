@@ -76,8 +76,8 @@ MigrationRollback — Volta a app para o banco antigo (env var + serviços). | d
 MigrationDiscard — Remove o banco antigo (**apaga os dados dele**) após o período de obse… | daemon: migration::discard | gui: handlers/services | web: screens/service_detail
 
 ## Webhooks
-GetWebhookUrl | daemon: get_webhook_url | gui: handlers/services | web: —
-RegenerateWebhookToken | daemon: regenerate_webhook_token | gui: handlers/services | web: —
+GetWebhookUrl | daemon: get_webhook_url | gui: handlers/services | web: screens/service_detail
+RegenerateWebhookToken | daemon: regenerate_webhook_token | gui: handlers/services | web: screens/service_detail
 GetDaemonSettings | daemon: get_daemon_settings | gui: handlers/connection | web: app
 SetDaemonSettings | daemon: set_daemon_settings | gui: handlers/settings | web: app
 
@@ -203,11 +203,11 @@ RegistryTokenRevoke | daemon: registry::token_revoke | gui: handlers/registry | 
 
 ## / Resposta: `Ok`.
 DeployQueuePromote — Move um deploy enfileirado para o início da fila ("furar fila"). | daemon: deploy_queue_promote | gui: handlers/deploy_queue | web: app
-DeployQueueReorder — Reordena a fila para exatamente a ordem dada (ids de deployment). | daemon: deploy_queue_reorder | gui: handlers/deploy_queue | web: —
+DeployQueueReorder — Reordena a fila para exatamente a ordem dada (ids de deployment). | daemon: deploy_queue_reorder | gui: handlers/deploy_queue | web: app
 DeployQueuePause — Pausa (`true`) ou retoma (`false`) a fila global. | daemon: deploy_queue_pause | gui: handlers/deploy_queue | web: app
 
 ## Paridade
 
-- Só GUI (4): GetWebhookUrl, RegenerateWebhookToken, JobList, DeployQueueReorder
+- Só GUI (1): JobList
 - Só webui (2): ServiceCreate, DeployRollback
 - Nem GUI nem webui (28): ServiceList (agente), RecentDeployments (agente), LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, SecretList, ManifestApply, ManifestExport, JobListAll, JobRunHistory, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes (agente), IngressReconcile (agente), EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus (agente), RegistryStatus, RegistryRepoList

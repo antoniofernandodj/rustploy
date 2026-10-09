@@ -35,6 +35,7 @@ local remove_one(cmd, doing)
 function docker_rm_container(id) — Cada par confirm→do_* espelha o padrão de delete_deployment: o `confirm` suspende e, se o usuário co…
 function docker_rm_image(id)
 function docker_rm_volume(name)
+function docker_only_used(key, v) — "Somente em uso" (on_toggle="docker_only_used:<chave>"): grava a chave e remonta as listas — o filtr…
 function docker_rm_network(id)
 
 ### jobs.luau — ações da tela global "Schedules" (sidebar) e da aba "Jobs" do projeto: rodar agora, pausar/ativar, r…
@@ -60,10 +61,10 @@ function nav_support()
 function nav(v) — Genérico p/ NavItem que usa action="nav" com value=target (se algum usar).
 function proj_tab(t) — Abas (TabButton dispara `proj_tab:services`, `docker_tab:images`, …).
 function docker_tab(t)
+function eng_tab(t)
 function deploy_tab(t)
 function tab(t) — Abas do service detail e do healthcheck kind.
 function prov(t)
-function hckind(k)
 function field(key, v) — Setter genérico de campo (on_change="field:<chave>").
 function search_changed(v)
 
@@ -75,11 +76,11 @@ function create_project() — NOTA: create_project (formulário inline, removido
 function delete_project(id)
 function edit_project_toggle()
 function cancel_project_edit()
-function proj_edit_apontar(_erros_json) — on_validation_error do <form name="edit_project"> — o motor já publicou {erro_edit_proj_name} e acen…
+function proj_edit_apontar(_erros_json) — on_validation_error do form(name = edit_project) — o motor já publicou {erro_edit_proj_name} e acend…
 function save_project_edit() — on_submit: só roda com a validação (rules="required" no NOME) aprovada.
 local with_project_env(mutate)
 local parse_project_dotenv(text) — Parser .env (KEY=VALUE, # comentário, <secret:nome>) → (env_vars, comments).
-function penv_apontar(_erros_json) — on_validation_error do <form name="penv_add"> (a chave é obrigatória via rules="required").
+function penv_apontar(_erros_json) — on_validation_error do form(name = penv_add) — a chave é `rules="required"`; o motor publica {erro_p…
 function penv_add()
 function penv_del(key)
 function penv_reorder(v)
@@ -103,7 +104,7 @@ function registry_rm_token(name)
 
 ### secrets.luau — aba "Secrets" do projeto: criar/sobrescrever e apagar valores cifrados, e o atalho "usar secret" da …
 local known_names() — Nomes atualmente conhecidos (do snapshot já renderizado), para saber se um SecretSet cria ou substit…
-function secret_add_apontar(_erros_json) — on_validation_error do <form name="secret_add"> — NOME e valor são `rules="required"` no <form>; o m…
+function secret_add_apontar(_erros_json) — on_validation_error do form(name = secret_add) — NOME e valor são `rules="required"` no form(...); o…
 function secret_add()
 function secret_del(name)
 function secret_use(name) — Chip "usar secret" (aba Variáveis): arma o form de adicionar var em modo secret com o nome escolhido…
@@ -126,7 +127,7 @@ function mig_refresh()
 function mig_start()
 function mig_rollback()
 function mig_discard()
-function svc_rename_apontar(_erros_json) — on_validation_error do <form name="svc_rename">: o motor já acendeu o :invalid e publicou {erro_edit…
+function svc_rename_apontar(_erros_json) — on_validation_error do form(name = svc_rename): o motor já acendeu o :invalid e publicou {erro_edit_…
 function save_service_name() — on_submit: só roda com a validação (rules="required") aprovada.
 local materialize_domains(spec) — Move o domínio legado (domain/tls_enabled) para a lista `domains`.
 function dom_add()
@@ -144,6 +145,7 @@ function pdc_reorder(v) — Reordena a fila (arraste): `v` é um JSON array de j
 function gen_save()
 function archive_upload()
 local reorder_env(vars, comments, keys) — Aplica uma ordem de keys (vars + linhas `__c<idx>`) a vars/comments: vars reordenadas; cada comentár…
+function env_apontar(_erros_json) — on_validation_error do form(name = env_add) — a chave é `rules="required"`; o motor publica {erro_en…
 function env_add()
 function env_del(key)
 function env_import()
@@ -166,9 +168,7 @@ function gitea_repo_pick(full_name)
 function open_logs_window() — Abre os logs ao vivo do serviço numa JANELA à parte (motor Glacier isolado e leve — ver log_window.g…
 
 ### settings.luau — Settings (Web Server) e Settings → Git (provedores Gitea: conectar via OAuth/PAT, atualizar lista, r…
-function settings_tab(t)
 function settings_save()
-function gp_mode(m)
 function gp_kind(k) — Alterna o tipo de provedor (gitea | github) e recomputa a redirect URI, que tem path por provedor (/…
 local gp_refresh_list()
 function gp_refresh()
@@ -181,7 +181,6 @@ function iac_import()
 local dc_unpack_recurrence(r) — Recorrência (Option<Recurrence>, externally-tagged) → (kind, hours, hour, minute, weekday) — mesmo f…
 local dc_apply_config(cfg)
 function M.dc_load() — Carregado uma vez na conexão (handlers/connection.luau::load_settings) — não faz parte do snapshot d…
-function dc_kind(k)
 local dc_build_recurrence()
 function dc_save()
 function dc_run_now() — Botão "Executar agora": roda os recursos marcados fora do horário agendado, independente do interrup…

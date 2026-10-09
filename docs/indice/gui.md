@@ -20,6 +20,12 @@ fn downscale_png(bytes) -> Option<Vec<u8>> — Decodifica `bytes`, e — se a ma
 fn ext_lower(path) -> Option<String>
 fn is_logo(path) -> bool — Qualquer arquivo de logo (raster, vetor ou os formatos raros) — decide o que entra no staging.
 fn is_raster(path) -> bool — Um logo raster que o `image` sabe decodificar (as features habilitadas no `Cargo.toml`).
+fn install_desktop_entry()
+fn is_cargo_install() -> bool
+fn write_desktop_entry() -> Result<(), String>
+fn exec_com(desktop, exe) -> String — Mesmo escape de `src/desktop.rs::exec_com` (duplicado: o build script não enxerga o crate).
+fn write_file(path, bytes) -> Result<(), String>
+fn copy_tree(src, dst) -> Result<(), String>
 
 ## rustploy-gui/src/
 
@@ -29,6 +35,17 @@ const SYSTEM_PREFIX — System-wide install prefix used by the Debian package (s
 fn locate_and_chdir() — Finds the asset base directory and `chdir`s into it so all the CWD-relative asset paths resolve.
 fn find_base() -> Option<PathBuf>
 fn has_marker(base) -> bool
+
+### desktop.rs — `rustploy-gui --install-desktop`: integração com o desktop para quem instalou por `cargo install` (o…
+const ICONS — `(subdiretório hicolor, bytes)` — espelha `packaging/icons/hicolor/`.
+fn handle_args() -> Option<i32> — Trata `--install-desktop`.
+fn install() -> Result<(), String>
+fn install() -> Result<(), String>
+fn data_home() -> Result<PathBuf, String>
+fn exec_com(desktop, exe) -> String — Troca a linha `Exec=` pelo caminho absoluto deste executável (entre aspas, como exige a spec do Desk…
+fn write(path, bytes) -> Result<(), String>
+const DESKTOP, ICON_SVG
+(2 testes)
 
 ### embedded.rs — Assets embutidos no binário — modo standalone (só em builds de release).
 const VIEWS — `views/`: templates `.gvb`, estilos `styles/*.gss`, `styles/theme.json` e os scripts Luau em `script…
@@ -211,9 +228,10 @@ fn hora_deslocada(hms, offset) -> String — `HH:MM:SS` + offset, com a virada d
 
 ### templates_render.rs — Headless validation: every template parses, every screen/tab evaluates and builds an iced element tr…
 fn boot() -> GlacierUI — Boots the engine the way `main.rs` does, but from the workspace root so the workspace-relative templ…
+fn textos_avaliados(n) -> Vec<String> — Todo texto de uma árvore avaliada, em ordem.
 fn cd_ws_root() — Cd's to the workspace root (idempotent — safe alongside `boot`).
 fn comentarios_fora(src) -> String — Remove os comentários (`//` e `/* … */`) para que "a primeira tag" seja a primeira tag de verdade: t…
-(14 testes)
+(15 testes)
 
 ## rustploy-gui/tests/fixtures/
 

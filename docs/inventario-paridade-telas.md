@@ -21,11 +21,11 @@ o que existe de um lado e não do outro, tela a tela. Base para decidir o que
 | Settings — Web/Git/IaC/Maintenance | `home.gv` (`settings_tab`) | `index.html` (`store.settingsTab`) | paridade nas 4 sub-abas |
 | Serviço — General/Connection/Environment/Domains/Deployments/Healthcheck/Logs/Advanced | `service.gv` (`tab`) | `index.html` (`store.serviceTab`) | **General era só-leitura na webui — corrigido nesta sessão** (ver abaixo) |
 | Support | `shell.gv` (`nav_support`) | — | **só no iced** — divergência de propósito, não implementada na webui |
-| Janela "Novo projeto" | `new_project_form.gv` (janela separada) | form inline em `screens/projects.js` | 5. cromo de plataforma |
-| Janela "Novo job" | `new_job_window.gv` (janela separada) | modal no store (`njob*`) | 5. cromo de plataforma |
-| Janela "Novo serviço" (wizard) | `new_service_window.gv` + `new_service.gv` | `screens/new_service.js` inline | 5. cromo de plataforma |
+| Janela "Novo projeto" | `new_project_form.gv` (janela separada) | janela flutuante (`wm.js`, `projectWin`) | paridade (2026-10-07) |
+| Janela "Novo job" | `new_job_window.gv` (janela separada) | janela flutuante (`njob*`) | paridade (2026-10-07) |
+| Janela "Novo serviço" (wizard) | `new_service_window.gv` + `new_service.gv` | janela flutuante (`showNewService`) | paridade (2026-10-07) |
 | Janela "Novo token de registry" | `new_registry_token_window.gv` | modal em `screens/docker.js` | 5. cromo de plataforma |
-| Janela de logs ao vivo | `log_window.gv` | painel inline (`serviceLogLines`) | 5. cromo de plataforma |
+| Janela de logs ao vivo | `log_window.gv` | aba Logs + janela destacável (`logWin`) | paridade (2026-10-07) |
 
 ## Lacuna funcional encontrada e corrigida nesta sessão
 
@@ -113,3 +113,12 @@ comentários do código:
 feature `fetcher`) — o projeto evita `reqwest` deliberadamente (ver
 CLAUDE.md/memória), mas aqui é só `dev-dependency` de `crates/daemon`
 (nunca no binário publicado); usuário aprovou explicitamente essa exceção.
+
+
+## Atualização 2026-10-07 (webui: janelas e polimento)
+
+Fechadas nesta data (ver `docs/plano-webui-janelas-e-polimento.md`): webhook de
+deploy na aba Deployments (`GetWebhookUrl`/`RegenerateWebhookToken`), Deploy
+Engine em 3 abas e reordenação da fila por arrastar (`DeployQueueReorder`), e as
+janelas flutuantes acima. Única divergência intencional que resta: **Support**
+(na GUI é só um título placeholder).

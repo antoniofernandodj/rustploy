@@ -40,6 +40,9 @@ function savePrefs(p)
     addSecret(name, value)
     deleteSecret(name)
     openNewService()
+    closeNewService()
+    openProjectWin(p)
+    closeProjectWin()
     fetchWizardCatalog(search) — Catálogos do wizard (bancos/brokers/templates) — buscados uma vez ao abrir a tela "Novo serviço" (ve…
     wizardCreate(req) — `req` é o `WizardCreateReq` completo (ver screens/new_service.js) — o daemon (shared::wizard::build_…
     createServiceDirect(name, source, port, domain) — `source` já é o `ServiceSource` externally-tagged.
@@ -55,6 +58,7 @@ function savePrefs(p)
     deleteDeployment(deploymentId)
     queueCancel(deploymentId) — Cancela um deploy que ainda espera na fila — reaproveita DeployAbort (o daemon já trata remoção da f…
     queuePromote(deploymentId)
+    queueReorder(order)
     queueTogglePause()
     toastPrune(r) — Toast de um prune, com o Response::PruneResult{count,reclaimed_bytes} quando o daemon o devolve; sem…
     dockerPruneContainers()
@@ -114,6 +118,14 @@ function savePrefs(p)
     stopServiceLogs()
     setServiceTab(tab)
     get: gpRedirect, njobProjects, njobServicesFiltered
+
+### busy.js — feedback imediato e trava de clique para toda ação assíncrona.
+const isBusy(el)
+function arm(btn)
+function lock(btn)
+function wrap(fn)
+function track(obj)
+function registerBusy(Alpine)
 
 ### directives.js — diretivas Alpine próprias da webui.
 function registerDirectives(Alpine) — directives.js — diretivas Alpine próprias da webui.
@@ -182,16 +194,29 @@ function dockerCleanupResourceLabel(name)
 function dockerCleanupLastRunSummary(lr) — `lr`: `DockerCleanupLastRun?` (`{ at, results: [{ resource, count, reclaimed_bytes, error }] }`).
 function engRecentRows(recent) — Deploy Engine: "Histórico 24h".
 
+### icons.js — conjunto de ícones SVG inline (traço 1.75, estilo Lucide) e a diretiva `x-icon="'nome'"`.
+function iconSvg(name, size)
+function registerIcons(Alpine)
+
 ### index.html — Casca única da webui (Alpine.js): login, shell e todas as telas, uma seção por view, cada uma com o …
-seções: Login, Shell (sidebar + topbar + conteúdo), Deploy Engine, Monitoring, Ingress, Docker, Schedules, Modais globais de Jobs, Settings, Projects, Projeto aberto, Novo serviço (wizard por passos, porta de new_service.gv), Detalhe de serviço
-x-data: dashboard, deployEngine, docker, ingress, login, monitoring, newService, projectDetail, projects, schedules, serviceDetail, settings
-chama: String, abortDeployment, addDomain, addEnvVar, cancel, cancelCompose, cancelEdit, clearFinished, closeBuildLog, closeDetail, closeEnvText, closeJobLogs, closeNewJob, closeTokenModal, copyToClipboard, createMdb, dcRunNow, dcSave, delDomain, delEnvVar, deleteMdb, deleteProject, deleteSecret, deleteService, deployRollback, deployStart, discardOldDb, disconnect, dismissToast, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDb, gotoTemplate, gotoType, gpConnect, gpDelete, gpRefresh, iacExport, iacImport, initAdvForm, initGeneralForm, initHcForm, jobDelete, jobRunCancel, jobRunNow, jobToggle, loadMigration, nav, njobBack, njobCreate, njobGitProviderPick, njobGitRepoPick, njobPickNoService, njobPickProject, njobPickService, njobSetSourceTab, ntokCreate, onArchiveFileChange, open, openDetail, openEditJob, openEnvText, openJobLogs, openNewJob, openNewService, openProject, openService, openTokenModal, pdcAdd, pdcDel, pdcMove, persistPrefs, pickBroker, pickDb, pickTemplate, queueCancel, queuePromote, queueTogglePause, registryCloseRepo, registryGc, registryOpenRepo, registryRmRepo, registryRmTag, registryRmToken, removeDeployment, renameService, rollbackMigration, saveAdvanced, saveCompose, saveEdit, saveEnvText, saveHealthcheck, saveSource, searchChanged, serviceReload, serviceStop, setProvTab, setServiceTab, setShared, settingsSave, showMdb, startEdit, startMigration, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDb, submitNew, submitSecret, submitTemplate, uploadArchive, viewBuildLog, writeText
+seções: Login, Shell (sidebar + topbar + conteúdo), Deploy Engine, Monitoring, Ingress, Docker, Schedules, Modais globais de Jobs, Settings, Projects, Projeto aberto, Novo serviço (wizard por passos, porta de new_service.gv), Janela: novo/editar projeto (wm.js), Janela: logs ao vivo do serviço (destacável da aba Logs), Detalhe de serviço
+x-data: dashboard, deployEngine, docker, ingress, login, monitoring, newService, projectDetail, projectWin, projects, schedules, serviceDetail, settings
+chama: String, abortDeployment, addDomain, addEnvVar, cancel, cancelCompose, clearFinished, closeBuildLog, closeDetail, closeEnvText, closeJobLogs, closeNewJob, closeProjectWin, closeTokenModal, copyToClipboard, createMdb, dcRunNow, dcSave, delDomain, delEnvVar, deleteMdb, deleteProject, deleteSecret, deleteService, deployRollback, deployStart, discardOldDb, disconnect, dismissToast, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, dragEnd, dragStart, dropOn, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDb, gotoTemplate, gotoType, gpConnect, gpDelete, gpRefresh, iacExport, iacImport, initAdvForm, initGeneralForm, initHcForm, jobDelete, jobRunCancel, jobRunNow, jobToggle, loadMigration, nav, njobBack, njobCreate, njobGitProviderPick, njobGitRepoPick, njobPickNoService, njobPickProject, njobPickService, njobSetSourceTab, ntokCreate, onArchiveFileChange, open, openDetail, openEditJob, openEnvText, openJobLogs, openNewJob, openNewService, openProject, openProjectWin, openService, openTokenModal, pdcAdd, pdcDel, pdcMove, persistPrefs, pickBroker, pickDb, pickTemplate, queueCancel, queuePromote, queueTogglePause, regenWebhook, registryCloseRepo, registryGc, registryOpenRepo, registryRmRepo, registryRmTag, registryRmToken, removeDeployment, renameService, reset, rollbackMigration, saveAdvanced, saveCompose, saveEnvText, saveHealthcheck, saveSource, searchChanged, select, serviceReload, serviceStop, setProvTab, setServiceTab, setShared, settingsSave, showMdb, startMigration, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDb, submitSecret, submitTemplate, uploadArchive, viewBuildLog, writeText
 
 ### sw.js — service worker do PWA Rustploy.
+
+### wm.js — gerenciador de janelas da webui (diretiva Alpine `x-win`).
+function lsGet(key)
+function lsSet(key, v)
+function bringToFront(layer)
+function clamp(box) — Mantém a janela alcançável: ao menos a barra de título dentro da tela.
+function pin(box)
+function registerWindows(Alpine)
 
 ## rustploy-daemon/crates/daemon/webui/net/
 
 ### api.js — cliente HTTP/JSON do daemon.
+function fetchTimeout(url, init, ms) — `fetch` com timeout cobrindo cabeçalho E corpo; o erro de timeout vira mensagem legível.
 class Api
   constructor(baseUrl, token)
   headers()
@@ -210,6 +235,9 @@ function openStream(baseUrl, token, path, handlers) — Abre a stream em `path` 
 
 ### deploy_engine.js — tela "Deploy Engine": fila global (um deploy por vez), execução em andamento e histórico das últimas…
   Alpine.data("deployEngine")
+    dragStart(ev, id)
+    dragEnd()
+    dropOn(targetId)
     openDetail(id)
     closeDetail()
     get: store, engine, active, detail, queued, recent, paused, uptime, successCount, failedCount, totalCount
@@ -247,6 +275,7 @@ function openStream(baseUrl, token, path, handlers) — Abre a stream em `path` 
     gotoTemplate()
     pickTemplate(t)
     cancel()
+    reset() — Janela reaberta: volta ao passo 1 sem lixo do uso anterior (o catálogo dos bancos/brokers/templates …
     baseReq(kind, id) — ── Submissões ────────────────────────────────────────────────────
     submitApp()
     submitCompose()
@@ -276,6 +305,10 @@ function primaryContainer(svc) — Container "primário" de um serviço pra exib
     cancelEdit()
     saveEdit()
     get: store, rows
+  Alpine.data("projectWin") — Janela "Novo projeto"/"Editar projeto" (wm.js).
+    init()
+    submit()
+    get: store, editing
 
 ### schedules.js — tela "Schedules": jobs one-shot (docker-compose) agendados ou manuais, de todos os projetos.
   Alpine.data("schedules")
@@ -284,6 +317,8 @@ function primaryContainer(svc) — Container "primário" de um serviço pra exib
 ### service_detail.js — detalhe de um serviço.
   Alpine.data("serviceDetail")
     init() — `x-show` mantém este componente montado por toda a sessão — abrir um serviço não recria o Alpine.dat…
+    loadWebhook()
+    regenWebhook()
     loadMigration()
     startMigration()
     rollbackMigration()
@@ -323,7 +358,7 @@ function primaryContainer(svc) — Container "primário" de um serviço pra exib
     closeBuildLog()
     abortDeployment(deploymentId)
     removeDeployment(deploymentId)
-    get: store, canMigrate, migSteps, canShare, isShared, svc, statusLabel, statusKind, sourceText, isCompose, renameNote, liveContainers, connectionInfo, envVars, domains, runArgsText, preDeployQueueIds, preDeployChecks, preDeployAvailableJobs, deployments
+    get: store, webhookSupported, canMigrate, migSteps, canShare, isShared, svc, statusLabel, statusKind, sourceText, isCompose, renameNote, liveContainers, connectionInfo, envVars, domains, runArgsText, preDeployQueueIds, preDeployChecks, preDeployAvailableJobs, deployments
 
 ### settings.js — tela "Settings": Web Server / Git / Infra as Code.
   Alpine.data("settings")

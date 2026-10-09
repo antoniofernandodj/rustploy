@@ -397,6 +397,20 @@ porquê de cada decisão está em `docs/plano-indice-de-codigo.md`.
 
 ## Convenções
 
+### Botão que dispara requisição fica travado até a resposta
+
+Nos DOIS clientes, todo botão que gera uma requisição ao daemon é bloqueado no
+clique e liberado quando a requisição termina — sucesso, erro na resposta ou
+timeout (60 s no rpc, 10 min no upload de zip). Não se faz à mão por botão:
+
+- **webui**: `webui/busy.js` embrulha os métodos do `Alpine.store`/`Alpine.data`;
+  se o método devolve Promise, o botão clicado fica `data-busy` até ela assentar
+  (CSS em `app.css`). Handler novo só precisa ser `async`/devolver a Promise.
+- **GUI**: `scripts/busy.luau` embrulha as funções globais listadas em
+  `scripts/busy_actions.luau` (mantida por `tools/busy_actions.py --check`) e
+  mantém `ctx.busy_<ação>`; o template liga `disabled = @busy_<ação>` no botão.
+  Ação nova em `on_click`/`on_submit` → adicionar à lista e o `disabled`.
+
 ### glacier-ui: nunca `path`, nunca `[patch]`
 
 A crate `rustploy-gui` consome `glacier-ui` **do crates.io** (versão fixada no
@@ -518,6 +532,20 @@ card novo.
 
 A webui é servida com `Cache-Control: immutable` por um ano — testar na mesma
 porta reaproveita o JS velho do cache do navegador. Use ctrl+shift+r.
+
+**Janelas na webui (`wm.js`).** O equivalente das janelas separadas da GUI
+(Novo projeto, Novo serviço, Novo job, logs, token de registry, detalhe de
+deploy) são janelas flutuantes: arrastáveis pela barra de título, redimensionáveis
+(alça no canto), com foco por clique, maximizar (duplo clique ou ponto verde),
+Esc fecha a de cima e posição/tamanho lembrados em `localStorage`
+(`rustploy.win.<chave>`). Para criar uma: `modal_backdrop` (só a camada, não
+bloqueia a página) > `modal_box` com `x-win="'chave'" data-w data-h` > `modal_head`
+(título em `.label_cap` + um botão "Fechar", que a diretiva esconde e liga ao ponto
+vermelho) + `modal_body`. Estado de abertura mora no store (`showNewJob`,
+`projectWin`, `showNewService`, `logWin`…). `icons.js` traz os ícones SVG
+(`x-icon="'nome'"`); `x-follow` (directives.js) faz o "tail -f" de logs. Para
+desenvolver sem recompilar o daemon a cada edição, sirva `webui/` do disco com um
+proxy para `/api` (ver `docs/plano-webui-janelas-e-polimento.md`).
 
 ### Luau
 

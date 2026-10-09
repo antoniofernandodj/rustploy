@@ -73,6 +73,7 @@
 - plano-registry-embutido.md — Registry Docker embutido no rustployd
 - plano-tray-bandeja-e-ciclo-de-vida.md — Plano — ícone de bandeja e o app que sobrevive à última janela
 - plano-unificacao-webhook-api.md — Plano: unificar o webhook na porta da API
+- plano-webui-janelas-e-polimento.md — Plano: webui com acabamento da GUI, janelas arrastáveis e paridade total
 - plano-widgets-glacier-0.68.md — Widgets novos do glacier-ui (0.63 → 0.68): o que dá pra aproveitar no rustploy
 - prompt-depurar-infra-com-agente.md — Prompt: depurar a infra pela API de agente
 - relatorio-porta-externa-automatica.md — Relatório: URL de conexão externa sem burocracia — porta automática + firewall g…
@@ -210,11 +211,14 @@
 ### rustploy-daemon/crates/daemon/webui/ → webui.md
 - app.css — Rustploy — web UI stylesheet.
 - app.js — único <script type="module"> carregado por index.html.
+- busy.js — feedback imediato e trava de clique para toda ação assíncrona.
 - directives.js — diretivas Alpine próprias da webui.
 - fmt.js — timestamps, durações e paleta de estado.
+- icons.js — conjunto de ícones SVG inline (traço 1.75, estilo Lucide) e a diretiva `x-icon="…
 - index.html — Casca única da webui (Alpine.js): login, shell e todas as telas, uma seção por v…
 - manifest.webmanifest
 - sw.js — service worker do PWA Rustploy.
+- wm.js — gerenciador de janelas da webui (diretiva Alpine `x-win`).
 
 ### rustploy-daemon/crates/daemon/webui/net/ → webui.md
 - api.js — cliente HTTP/JSON do daemon.
@@ -284,6 +288,7 @@
 
 ### rustploy-gui/src/ → gui.md
 - assets.rs — Runtime asset location.
+- desktop.rs — `rustploy-gui --install-desktop`: integração com o desktop para quem instalou po…
 - embedded.rs — Assets embutidos no binário — modo standalone (só em builds de release).
 - main.rs — Rustploy (glacier-ui) — desktop client whose UI is described in XML templates an…
 - manifest_zip.rs — Ponte Lua ↔ Rust para o `.zip` do Infra as Code.
@@ -367,6 +372,11 @@
 - schedules.gvb — Seção `schedules` (view = schedules) das telas globais; importada por home.gvb.
 - settings.gvb — Seção `settings` (view = settings) das telas globais; importada por home.gvb.
 
+### rustploy-gui/views/home/deploy_engine/ → gui-views.md
+- executando.gvb — Aba "Executando" do Deploy Engine; importada por deploy_engine.gvb.
+- fila.gvb — Aba "Fila" do Deploy Engine; importada por deploy_engine.gvb.
+- historico.gvb — Aba "Histórico" do Deploy Engine; importada por deploy_engine.gvb.
+
 ### rustploy-gui/views/home/docker/ → gui-views.md
 - containers.gvb — Containers — um por serviço gerido pelo Rustploy (ligação com projeto/serviço é …
 - images.gvb — Images — projeto/serviço é melhor esforço (inferido pela tag; imagens manuais/de…
@@ -382,6 +392,8 @@
 
 ### rustploy-gui/views/scripts/ → gui-scripts.md
 - app.luau — ponto de entrada do `<script>` de app.gvb.
+- busy.luau — trava de "ação em andamento" para os handlers de on_click/on_submit.
+- busy_actions.luau — ações (on_click/on_submit) que ganham a trava de busy.luau.
 - fmt.luau — fachada: reexporta os builders de views/scripts/fmt_*.luau sob um único módulo, …
 - glacier.d.luau — Definições dos globais que o motor glacier-ui injeta no interpretador Luau em ru…
 - helpers.luau — utilitários puros compartilhados pelos handlers_*.luau (sem estado, sem I/O).
@@ -468,6 +480,9 @@
 ### rustploy-shared/templates/
 - logos.txt
 - blueprints/ — catálogo de templates de app (formato Dokploy), compilado pelo build.rs do shared (775 arquivos, não indexados)
+
+### tools/
+- busy_actions.py
 
 ### tools/indexer/
 - Cargo.lock

@@ -40,9 +40,8 @@ handlers: cancel, np_apontar, submit_project, window
 
 ### new_registry_token_window.gvb — Janela "Novo token do registry": motor Glacier próprio, aberto por open_window a partir do app princ…
 <screen "Novo token — Rustploy">
-imports: TabButton
 script: scripts/new_registry_token_window.luau
-handlers: clipboard, ntok_apontar, ntok_create, ntok_scope, window
+handlers: clipboard, ntok_apontar, ntok_create, window
 
 ### new_service.gvb — Wizard "Novo serviço" (view=new_service): tipo → formulário por tipo, espelhando o fluxo do antigo r…
 <component>
@@ -114,7 +113,9 @@ props: name, description, logo, logo_kind, action
 
 ### deploy_engine.gvb — Seção `deploy_engine` (view = deploy_engine) das telas globais; importada por home.gvb.
 <component>
-handlers: eng_close_detail, eng_open_detail, queue_cancel, queue_promote, queue_reorder, queue_toggle_pause
+imports: EngineExecutandoTab, EngineFilaTab, EngineHistoricoTab
+abas: fila, executando, historico
+handlers: eng_tab
 
 ### docker.gvb — Seção `docker` (view = docker) das telas globais; importada por home.gvb.
 <component>
@@ -136,7 +137,19 @@ handlers: job_del, job_run_cancel, job_run_now, job_toggle, open_edit_job_window
 <component>
 imports: SettingsGitTab, SettingsIacTab, SettingsMaintenanceTab, SettingsWebTab
 abas: web, git, iac, maintenance
-handlers: settings_tab
+
+## rustploy-gui/views/home/deploy_engine/
+
+### executando.gvb — Aba "Executando" do Deploy Engine; importada por deploy_engine.gvb.
+<component>
+handlers: eng_close_detail, eng_open_detail
+
+### fila.gvb — Aba "Fila" do Deploy Engine; importada por deploy_engine.gvb.
+<component>
+handlers: queue_cancel, queue_promote, queue_reorder, queue_toggle_pause
+
+### historico.gvb — Aba "Histórico" do Deploy Engine; importada por deploy_engine.gvb.
+<component>
 
 ## rustploy-gui/views/home/docker/
 
@@ -146,11 +159,11 @@ handlers: docker_prune_containers, docker_rm_container
 
 ### images.gvb — Images — projeto/serviço é melhor esforço (inferido pela tag; imagens manuais/de terceiros ficam com…
 <component>
-handlers: docker_prune_images, docker_rm_image, field
+handlers: docker_only_used, docker_prune_images, docker_rm_image, field
 
 ### networks.gvb — Networks — projeto reconhecido pela convenção rp_net_&lt;id curto&gt;.
 <component>
-handlers: docker_prune_networks, docker_rm_network, field
+handlers: docker_only_used, docker_prune_networks, docker_rm_network
 
 ### registry.gvb — Registry — repositórios/tags do registry OCI embutido (Fase 1: só push/pull via docker CLI; sem auth…
 <component>
@@ -158,13 +171,13 @@ handlers: registry_close_repo, registry_gc, registry_open_repo, registry_open_to
 
 ### volumes.gvb — Volumes — Rustploy só usa bind mounts, então volumes nomeados aqui são sempre externos ao Rustploy (…
 <component>
-handlers: docker_prune_volumes, docker_rm_volume, field
+handlers: docker_only_used, docker_prune_volumes, docker_rm_volume, field
 
 ## rustploy-gui/views/home/settings/
 
 ### git.gvb — Git: contas conectadas + formulário de conexão
 <component>
-handlers: clipboard, field, gp_connect, gp_delete, gp_kind, gp_mode, gp_refresh, open
+handlers: clipboard, field, gp_connect, gp_delete, gp_kind, gp_refresh, open
 
 ### iac.gvb — Infra as Code: o manifesto é um `.zip` com exatamente rustploy.yml (projetos/serviços, env vars semp…
 <component>
@@ -172,7 +185,7 @@ handlers: field, iac_export, iac_import
 
 ### maintenance.gvb — Manutenção: limpeza automática de recursos Docker sem uso (ver docs/plano-limpeza-automatica-docker.…
 <component>
-handlers: dc_kind, dc_run_now, dc_save, field
+handlers: dc_run_now, dc_save, field
 
 ### web.gvb — Web Server (default)
 <component>
@@ -202,7 +215,7 @@ handlers: dom_add, dom_del, dom_hostport_auto, dom_hostport_save, field
 
 ### environment.gvb — Environment
 <component>
-handlers: env_add, env_del, env_export, env_import, env_reorder, env_text_cancel, env_text_toggle
+handlers: env_add, env_apontar, env_del, env_export, env_import, env_reorder, env_text_cancel, env_text_toggle
 
 ### general.gvb — General (source / build, editável)
 <component>
@@ -228,7 +241,7 @@ handlers: archive_upload, field, gen_save
 
 ### healthcheck.gvb — Healthcheck (editável)
 <component>
-handlers: field, hc_save, hckind
+handlers: field, hc_save
 
 ### logs.gvb — Aba Logs do detalhe do serviço (importada por service.gvb).
 <component>
