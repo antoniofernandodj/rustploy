@@ -11,6 +11,7 @@
 ### busy.luau — trava de "ação em andamento" para os handlers de on_click/on_submit.
 function M.key(name)
 local seed(names) — Semeia `busy_<nome> = "false"` para toda ação instalada.
+local release(th)
 function M.install(names)
 
 ### busy_actions.luau — ações (on_click/on_submit) que ganham a trava de busy.luau.

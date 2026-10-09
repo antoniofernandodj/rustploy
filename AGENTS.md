@@ -401,7 +401,10 @@ porquê de cada decisão está em `docs/plano-indice-de-codigo.md`.
 
 Nos DOIS clientes, todo botão que gera uma requisição ao daemon é bloqueado no
 clique e liberado quando a requisição termina — sucesso, erro na resposta ou
-timeout (60 s no rpc, 10 min no upload de zip). Não se faz à mão por botão:
+timeout (60 s no rpc, 10 min no upload de zip). O botão libera no PRIMEIRO toast
+da própria ação (a resposta chegou), não no fim do handler: depois do toast os
+handlers ainda releem serviço/snapshot, e esperar isso travaria o botão segundos
+a mais. Não se faz à mão por botão:
 
 - **webui**: `webui/busy.js` embrulha os métodos do `Alpine.store`/`Alpine.data`;
   se o método devolve Promise, o botão clicado fica `data-busy` até ela assentar

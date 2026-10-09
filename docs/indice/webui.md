@@ -124,6 +124,8 @@ const isBusy(el)
 function arm(btn)
 function lock(btn)
 function wrap(fn)
+function wrapToast(fn) — Toast de resposta: libera os botões ocupados (fora de eventos do stream).
+function wrapStream(fn) — Evento SSE: os toasts de dentro não são resposta a um clique.
 function track(obj)
 function registerBusy(Alpine)
 

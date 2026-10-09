@@ -216,6 +216,9 @@ fn run() -> iced::Result — Sobe o daemon multi-janela e roda o loop do iced at
 
 ## rustploy-gui/tests/
 
+### busy.rs — busy.luau no motor de verdade: o botão libera no toast da própria ação, não só quando o handler inte…
+(1 testes)
+
 ### fmt_service_detail.rs — O `fmt/service_detail.luau` (`compose_host` e `internal_url`) rodando no motor de verdade.
 fn boot() -> GlacierUI
 (2 testes)
@@ -234,6 +237,15 @@ fn comentarios_fora(src) -> String — Remove os comentários (`//` e `/* … */
 (15 testes)
 
 ## rustploy-gui/tests/fixtures/
+
+### acao_salva.gvb — Fixture do teste busy.rs: um botão cuja ação toasta e depois ainda faz outro fetch (o "reler o servi…
+<screen "fixture">
+script: acao_salva.luau
+handlers: salvar
+
+### acao_salva.luau — Fixture do teste `busy.rs`.
+function init() — Fixture do teste `busy.rs`.
+function salvar()
 
 ### compose_host.gvb — Fixture do teste fmt_service_detail.rs: tela mínima que roda o fmt/service_detail.luau e exibe um re…
 <screen "fixture">
