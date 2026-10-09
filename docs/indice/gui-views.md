@@ -96,7 +96,7 @@ handlers: delete_project, open_project
 ### service_card.gvb — Card de serviço da aba "Serviços" de um projeto — o análogo do ProjectCard.
 <component>
 props: id, name, port, status_color, status_label, cpu, mem, filler, container_name, container_id, container_extra
-handlers: open_service, stop_delete_service, svc_stop_id
+handlers: open_export_window, open_service, stop_delete_service, svc_stop_id
 
 ### stat_card.gvb — Tile de KPI do cabeçalho (STATUS/UPTIME/SERVICES/CPU/…).
 <component>

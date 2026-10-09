@@ -7,7 +7,7 @@
 ## rustploy-gui/views/scripts/handlers/
 
 ### bundle.luau — copiar um serviço para outro servidor (lado do app principal): o botão "Exportar serviço" da tela do…
-function open_export_window()
+function open_export_window(id) — `id` vem do card de serviço (`open_export_window:@id`); sem ele, é o serviço aberto na tela do servi…
 
 ### bundle_import.luau — passo "Importar" do wizard "Novo serviço": recria aqui um serviço exportado de outro servidor.
 local choice_label(s, c)
