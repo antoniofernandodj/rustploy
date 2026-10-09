@@ -39,7 +39,7 @@ function savePrefs(p)
     saveProjectEnv(envVars, envComments)
     addSecret(name, value)
     deleteSecret(name)
-    openNewService()
+    openNewService(step) — `step` opcional: "import" abre direto no passo Importar (ícone do card).
     closeNewService()
     openExportWin(serviceId)
     closeExportWin()
@@ -280,7 +280,7 @@ function openStream(baseUrl, token, path, handlers) — Abre a stream em `path` 
     gotoTemplate()
     pickTemplate(t)
     cancel()
-    reset() — Janela reaberta: volta ao passo 1 sem lixo do uso anterior (o catálogo dos bancos/brokers/templates …
+    reset(ev) — Janela reaberta: volta ao passo 1 sem lixo do uso anterior (o catálogo dos bancos/brokers/templates …
     baseReq(kind, id) — ── Submissões ────────────────────────────────────────────────────
     submitApp()
     submitCompose()

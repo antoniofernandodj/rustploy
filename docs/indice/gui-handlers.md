@@ -220,7 +220,7 @@ function M.open_stream()
 ### wizard.luau — wizard "Novo serviço".
 local token_urlsafe(n)
 local ns_is_broker(id)
-function open_new_service_window() — Botão "+ Novo serviço" (cabeçalho do projeto): abre o wizard numa JANELA à parte (motor Glacier próp…
+function open_new_service_window(start) — Botão "+ Novo serviço" (cabeçalho do projeto): abre o wizard numa JANELA à parte (motor Glacier próp…
 function ns_cancel() — "Cancelar": fecha a janela do wizard.
 function ns_back() — "‹ Voltar": num passo interno volta à escolha de tipo; no passo inicial (pick_type) fecha a janela.
 function ns_kind(k)
