@@ -321,8 +321,30 @@ fn handle(state, spec) -> RpResponse
 ### service_delete.rs — `Command::ServiceDelete`: apaga um serviço, tira suas rotas do ingress e fecha a porta externa no fi…
 fn handle(state, id) -> RpResponse
 
+### service_export.rs — `Command::ServiceExportPlan` e `Command::ServiceExport`: o lado de cá de copiar um serviço para outr…
+fn load(state, service_id) -> Result<(Service, Project), RpResponse> — Carrega o serviço e o projeto dele, ou já a resposta de erro.
+fn plan_var(key, value, suggested) -> PlanVar
+fn plan(state, service_id) -> RpResponse — O que dá para levar: as variáveis do serviço (todas vão) e as do projeto (o usuário marca; as citada…
+fn export(state, service_id, include_values, project_env_keys) -> RpResponse — Gera o pacote.
+
 ### service_get.rs — `Command::ServiceGet`: um serviço pelo id.
 fn handle(state, id) -> RpResponse
+
+### service_import.rs — `Command::ServiceImport`: cria UM serviço novo a partir de um [`shared::ServiceBundle`] (ver `docs/p…
+const MAX_YAML_BYTES — Um pacote maior que isto não é um pacote de serviço.
+type Fail = (&'static str, String) — Erro de pedido: `(code, mensagem)` já no formato de `Response::err`.
+fn warn_item(code, message) -> ImportWarning
+struct Analysis { report, project, spec, project_env_writes, secrets_to_set } — Tudo o que a análise concluiu — o relatório e o necessário para aplicar.
+fn is_placeholder(key, value) -> bool — `${CHAVE}` sob a PRÓPRIA chave é o marcador de "valor não exportado".
+fn resolve_placeholders(map, provided) -> Vec<String> — Resolve os marcadores de `map` com `provided`; devolve as chaves sem valor.
+fn secret_names(map) -> BTreeSet<String>
+fn rename_compose_alias(content, old, new) -> String — Em um serviço Compose de banco/broker o nome do serviço interno é `rp_<nome>` (é o DNS da connection…
+fn analyze(state, req) -> Result<Analysis, Fail>
+fn apply(state, req, a) -> RpResponse — Grava o que a análise decidiu.
+fn write_all(state, req, a) -> Result<(), RpResponse>
+fn handle(state, req) -> RpResponse
+const SECRET_PREFIX
+(12 testes)
 
 ### service_list.rs — `Command::ServiceList`: serviços de um projeto.
 fn handle(state, project_id) -> RpResponse

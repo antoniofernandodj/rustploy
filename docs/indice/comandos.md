@@ -98,6 +98,15 @@ ManifestExportAll — Exporta TODOS os projetos+serviços num único manifesto r
 ## / padrão; `prune`/`deploy` com a mesma semântica).
 ManifestImport — Importa um manifesto raiz (`projects:`) ou de projeto único (`project:… | daemon: manifest_import | gui: handlers/settings | web: app | agente: catalog
 
+## / `ServiceExportPlan`.
+ServiceExportPlan — O que dá para levar do serviço: suas variáveis e as do projeto (com a … | daemon: service_export::plan | gui: handlers/bundle | web: screens/service_bundle
+
+## / `ServiceBundleYaml`.
+ServiceExport — Gera o pacote (YAML) do serviço. | daemon: service_export::export | gui: service_export_window | web: screens/service_bundle
+
+## / `dry_run` só devolve o relatório. Resposta: `ServiceImportReport`.
+ServiceImport — Cria UM serviço novo a partir de um pacote, sem sobrescrever nada. | daemon: service_import | gui: handlers/bundle_import | web: screens/service_bundle
+
 ## Jobs (tarefas one-shot via docker-compose, agendadas ou manuais)
 JobCreate | daemon: job_create | gui: new_job_window | web: app
 JobUpdate | daemon: job_update | gui: handlers/jobs, new_job_window | web: app
@@ -168,7 +177,7 @@ DaemonStatus | daemon: daemon_status | gui: handlers/connection | web: app | age
 DeployEngineStatus | daemon: deploy_engine_status | gui: — | web: — | agente: catalog, routes
 
 ## Git providers (Gitea OAuth2 / PAT)
-GitProviderList | daemon: git_provider_list | gui: handlers/connection, handlers/jobs, handlers/services, handlers/settings, new_job_window | web: app, screens/service_detail
+GitProviderList | daemon: git_provider_list | gui: handlers/bundle_import, handlers/connection, handlers/jobs, handlers/services, handlers/settings, new_job_window | web: app, screens/service_bundle, screens/service_detail
 GitProviderCreate | daemon: git_provider_create | gui: handlers/settings | web: app
 GitProviderDelete | daemon: git_provider_delete | gui: handlers/settings | web: app
 

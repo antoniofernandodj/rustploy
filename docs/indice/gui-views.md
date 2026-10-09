@@ -10,7 +10,7 @@
 <app>
 imports: Login, Shell
 script: scripts/app.luau
-telas: app, log, new_job, new_service, new_project, new_registry_token
+telas: app, log, new_job, new_service, new_project, new_registry_token, service_export
 handlers: notifications, tray, window
 
 ### home.gvb — Telas globais da sidebar, cada uma numa seção por valor de view: Monitoring, Ingress, Deploy Engine,…
@@ -45,7 +45,7 @@ handlers: clipboard, ntok_apontar, ntok_create, window
 
 ### new_service.gvb — Wizard "Novo serviço" (view=new_service): tipo → formulário por tipo, espelhando o fluxo do antigo r…
 <component>
-handlers: field, ns_back, ns_broker, ns_cancel, ns_create, ns_db, ns_kind, ns_pick_template, ns_tsearch
+handlers: field, imp_analyze, imp_choice, imp_clear, imp_create, imp_pick_file, imp_use_provider, ns_back, ns_broker, ns_cancel, ns_create, ns_db, ns_kind, ns_pick_template, ns_tsearch
 
 ### new_service_window.gvb — Janela do wizard "Novo serviço": motor Glacier próprio, aberto por open_window (handlers/wizard.luau…
 <screen "Novo serviço — Rustploy">
@@ -57,7 +57,12 @@ handlers: window
 <component>
 imports: ServiceAdvancedTab, ServiceConnectionTab, ServiceDatabasesTab, ServiceDeploymentsTab, ServiceDomainsTab, ServiceEnvironmentTab, ServiceGeneralTab, ServiceHealthcheckTab, ServiceLogsTab, ServiceMigrarTab
 abas: general, connection, environment, domains, migrar, databases, deployments, healthcheck, logs, advanced
-handlers: open_logs_window, open_project, svc_deploy, svc_rebuild, svc_reload, svc_stop, tab
+handlers: open_export_window, open_logs_window, open_project, svc_deploy, svc_rebuild, svc_reload, svc_stop, tab
+
+### service_export_window.gvb — Janela "Exportar serviço": motor Glacier próprio, aberto por open_window a partir do app principal (…
+<screen "Exportar serviço — Rustploy">
+script: scripts/service_export_window.luau
+handlers: clipboard, ex_all, ex_none, ex_save, ex_show, ex_suggested, ex_toggle, field, window
 
 ### shell.gvb — Casca do app conectado: sidebar, topbar e as views de projeto (Deployments, Projects, serviços de um…
 <component>

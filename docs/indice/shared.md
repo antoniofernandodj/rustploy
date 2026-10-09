@@ -99,7 +99,7 @@ struct ServiceEnvDoc { env }
 enum ProjectEntry { Include, Inline } — Uma entrada do manifesto raiz: projeto inline OU referência a um arquivo.
 struct ProjectManifest { api_version, project, services } — Manifesto de um único projeto (`project:` + `services:`).
 struct ProjectMeta { name, description, env }
-struct ServiceManifest { name, source, port, host_port, domain, tls, env, volumes, healthcheck, replicas, resources, command, args, db, shared }
+struct ServiceManifest { name, source, port, host_port, domain, tls, domains, env, env_comments, volumes, healthcheck, replicas, resources, command, args, db, shared }
 struct SourceManifest { registry, git, compose, compose_ingress } — Origem do serviço: exatamente uma das três chaves deve estar presente.
 struct GitManifest { url, branch, root_path, dockerfile, context, build_stage, submodules, watch_paths, username, credentials, provider }
 struct HealthcheckManifest { kind, path, status, interval, timeout, retries, start_period }
@@ -247,16 +247,37 @@ impl std::fmt::Display for ServiceStatus
 (21 testes)
 
 ### protocol.rs — Protocolo da API: `Command` (o que o cliente pede), `Response` e `Event` (o que o SSE entrega).
-enum Command { ProjectCreate, ProjectDelete, ProjectUpdate, ProjectList, ProjectEnvSet, ServiceCreate, ServiceUpdate, ServiceDelete, ServiceList, ServiceGet, DeployStart, DeployAbort, DeployRollback, DeployHistory, DeployDelete, ServiceStop, ServiceReload, RecentDeployments, GetBuildLogs, LogsGet, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, ServiceConnectionInfo, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, ManagedDatabaseList, ManagedDatabaseCreate, ManagedDatabaseDelete, ManagedDatabaseListAll, MigrationStart, MigrationGet, MigrationList, MigrationRollback, MigrationDiscard, GetWebhookUrl, RegenerateWebhookToken, GetDaemonSettings, SetDaemonSettings, SecretSet, SecretDelete, SecretList, ManifestApply, ManifestExport, ManifestExportAll, ManifestImport, JobCreate, JobUpdate, JobDelete, JobList, JobListAll, JobRunNow, JobRunCancel, JobRunHistory, GetJobLogs, PruneContainers, PruneVolumes, PruneImages, PruneBuildCache, PruneNetworks, DockerCleanupConfigGet, DockerCleanupConfigSet, DockerCleanupRunNow, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, RemoveContainer, RemoveImage, RemoveVolume, RemoveNetwork, StopAllManaged, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DaemonStatus, DeployEngineStatus, GitProviderList, GitProviderCreate, GitProviderDelete, GitOAuthStart, GitRepoList, GitBranchList, WizardCatalog, WizardCreate, Snapshot, RegistryStatus, RegistryRepoList, RegistryTagList, RegistryTagDelete, RegistryRepoDelete, RegistryGc, RegistryTokenCreate, RegistryTokenList, RegistryTokenRevoke, DeployQueuePromote, DeployQueueReorder, DeployQueuePause }
+enum Command { ProjectCreate, ProjectDelete, ProjectUpdate, ProjectList, ProjectEnvSet, ServiceCreate, ServiceUpdate, ServiceDelete, ServiceList, ServiceGet, DeployStart, DeployAbort, DeployRollback, DeployHistory, DeployDelete, ServiceStop, ServiceReload, RecentDeployments, GetBuildLogs, LogsGet, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, ServiceConnectionInfo, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, ManagedDatabaseList, ManagedDatabaseCreate, ManagedDatabaseDelete, ManagedDatabaseListAll, MigrationStart, MigrationGet, MigrationList, MigrationRollback, MigrationDiscard, GetWebhookUrl, RegenerateWebhookToken, GetDaemonSettings, SetDaemonSettings, SecretSet, SecretDelete, SecretList, ManifestApply, ManifestExport, ManifestExportAll, ManifestImport, ServiceExportPlan, ServiceExport, ServiceImport, JobCreate, JobUpdate, JobDelete, JobList, JobListAll, JobRunNow, JobRunCancel, JobRunHistory, GetJobLogs, PruneContainers, PruneVolumes, PruneImages, PruneBuildCache, PruneNetworks, DockerCleanupConfigGet, DockerCleanupConfigSet, DockerCleanupRunNow, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, RemoveContainer, RemoveImage, RemoveVolume, RemoveNetwork, StopAllManaged, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DaemonStatus, DeployEngineStatus, GitProviderList, GitProviderCreate, GitProviderDelete, GitOAuthStart, GitRepoList, GitBranchList, WizardCatalog, WizardCreate, Snapshot, RegistryStatus, RegistryRepoList, RegistryTagList, RegistryTagDelete, RegistryRepoDelete, RegistryGc, RegistryTokenCreate, RegistryTokenList, RegistryTokenRevoke, DeployQueuePromote, DeployQueueReorder, DeployQueuePause }
 enum Event { DeployStateChanged, DeployProgress, BuildLog, LogLine, ContainerMetrics, SystemMetrics, ServiceStatusChanged, DaemonReady, Error, JobLogLine, JobRunStateChanged, DeployQueueChanged, DockerCleanupCompleted }
 impl Event
   fn matches(service_id) -> bool
 enum LogStream { Stdout, Stderr }
 struct LogEntry { stream, line, timestamp }
 struct BuildLogLine { stream, line, timestamp }
-enum Response { Ok, Project, Projects, Service, Services, Deployment, Deployments, Logs, BuildLogs, DeploymentSummaries, DaemonStatus, DeployEngineStatus, Pong, WebhookUrl, SharedAccessList, Migration, Migrations, ManagedDatabases, ConnectionInfo, DaemonSettings, SecretNames, ManifestReport, Manifest, ManifestBundle, MissingEnvVars, GitProviders, GitProviderInfo, OAuthUrl, GitRepos, GitBranches, PruneResult, DockerCleanupConfig, EnvBackupSnapshots, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, StopAllResult, IngressRoutes, WizardCatalog, Snapshot, Job, Jobs, JobSummaries, JobRun, JobRuns, JobLogs, RegistryStatus, RegistryRepos, RegistryTags, RegistryGcResult, RegistryTokenCreated, RegistryTokens, Err }
+enum Response { Ok, Project, Projects, Service, Services, Deployment, Deployments, Logs, BuildLogs, DeploymentSummaries, DaemonStatus, DeployEngineStatus, Pong, WebhookUrl, SharedAccessList, Migration, Migrations, ManagedDatabases, ConnectionInfo, DaemonSettings, SecretNames, ManifestReport, Manifest, ManifestBundle, ServiceExportPlan, ServiceBundleYaml, ServiceImportReport, MissingEnvVars, GitProviders, GitProviderInfo, OAuthUrl, GitRepos, GitBranches, PruneResult, DockerCleanupConfig, EnvBackupSnapshots, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, StopAllResult, IngressRoutes, WizardCatalog, Snapshot, Job, Jobs, JobSummaries, JobRun, JobRuns, JobLogs, RegistryStatus, RegistryRepos, RegistryTags, RegistryGcResult, RegistryTokenCreated, RegistryTokens, Err }
 impl Response
   fn err(code, message) -> Self
+
+### service_bundle.rs — Pacote de serviço: UM serviço (mais as variáveis do projeto que o usuário escolheu levar) num arquiv…
+const BUNDLE_KIND — Valor de `kind` num pacote de serviço (o IaC do servidor não tem `kind`).
+struct BundleOrigin { server, project, exported_at, daemon } — De onde o pacote saiu.
+struct ServiceBundle { api_version, kind, origin, service, project_env } — O arquivo.
+impl ServiceBundle
+  fn from_service(svc, providers, project_env, include_values, origin) -> Result<Self, String> — Monta o pacote a partir de um serviço do banco.
+  fn validate() -> Result<(), String> — Confere um pacote JÁ desserializado (o parse do YAML é de quem chama — o `rustploy-shared` não depen…
+  fn project_env_vars() -> Vec<EnvVar> — Variáveis do projeto do pacote, já como `EnvVar` (para gravar no destino).
+struct PlanVar { key, is_secret, suggested } — Uma variável listada na tela de checkboxes do export.
+struct ServiceExportPlan { service_name, project_name, service_env, project_env, blocked } — Resposta de `ServiceExportPlan`: o que dá para levar, para a tela marcar.
+enum ProjectEnvChoice { Keep, Overwrite, ServiceOnly, Ignore } — O que fazer, no destino, com UMA variável de projeto trazida no pacote.
+struct ServiceImportReq { yaml, project_id, name, drop_domains, git_provider_id, vars, project_vars, secrets, project_env, deploy, dry_run } — Pedido de `ServiceImport`.
+struct ImportWarning { code, message }
+enum ProjectEnvState { New, Same, Conflict }
+struct ProjectEnvStatus { key, state, is_secret, choice }
+struct ServiceImportReport { dry_run, service_id, service_name, project_name, name_conflict, warnings, missing_service_vars, missing_project_vars, missing_secrets, missing_git_provider, project_env, deployed } — Resposta de `ServiceImport` (também no `dry_run`).
+fn redact_values(map) — Todo valor `Plain` vira `${CHAVE}`; `secret:` passa intacto.
+fn referenced_names(text, out) — Nomes de variáveis citados em `text` como `${NOME}`, `${NOME:-padrão}` ou `$NOME` (sintaxe de shell/…
+fn suggested_project_vars(spec, project_keys) -> BTreeSet<String> — Quais variáveis DO PROJETO este serviço provavelmente usa: as citadas como `${VAR}`/`$VAR` nos valor…
+(6 testes)
 
 ### wizard.rs — Lógica do wizard "Novo serviço" (Application / Database / Broker / Compose /Template): catálogos, ge…
 enum DbKind { MongoDb, Postgres, MariaDb, MySql, Redis }

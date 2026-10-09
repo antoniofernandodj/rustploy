@@ -11,6 +11,7 @@
 ### busy.luau — trava de "ação em andamento" para os handlers de on_click/on_submit.
 function M.key(name)
 local seed(names) — Semeia `busy_<nome> = "false"` para toda ação instalada.
+local owner()
 local release(th)
 function M.install(names)
 
@@ -68,6 +69,20 @@ function ntok_create()
 ### new_service_window.luau — script da JANELA do wizard "Novo serviço", um motor Glacier próprio e ISOLADO do app principal (aber…
 function init()
 function field(key, v) — Setter genérico de campo (on_change="field:<chave>" dos inputs do wizard).
+
+### service_export_window.luau — script da JANELA "Exportar serviço", um motor Glacier próprio e ISOLADO do app principal (aberto via…
+local client()
+local render() — Reconstrói a lista exibida (☑/☐ por variável do projeto) a partir de `picked`.
+local pick(rule)
+function init()
+function field(key, v)
+function ex_toggle(key)
+function ex_suggested()
+function ex_all()
+function ex_none()
+local generate() — Pede o pacote ao daemon com as escolhas da tela.
+function ex_save()
+function ex_show() — Mostra o pacote como texto (com o botão Copiar) para quem não quer arquivo.
 
 ### state.luau — estado mutável compartilhado entre todos os handlers/*.luau (mesmo interpretador, mesma tabela: `req…
 types: DeployTrack, State

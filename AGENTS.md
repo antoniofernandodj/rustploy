@@ -397,6 +397,17 @@ porquê de cada decisão está em `docs/plano-indice-de-codigo.md`.
 
 ## Convenções
 
+### Copiar um serviço entre servidores (exportar/importar)
+
+Dentro de um projeto, "Exportar serviço" (tela do serviço) gera um arquivo YAML
+(`ServiceBundle`, `rustploy-shared/src/service_bundle.rs`) e "Novo serviço →
+Importar" o recria em OUTRO servidor, sempre no projeto aberto, sem deploy e sem
+sobrescrever nada. Comandos: `ServiceExportPlan`, `ServiceExport`, `ServiceImport`
+(`dry_run` para pré-visualizar). Variáveis do projeto vão só as que o usuário
+marca; `secret:NOME` nunca é decifrado. Desenho e o que NÃO atravessa:
+`docs/plano-copiar-servico-entre-servidores.md`. Feature de UI: entrou na webui
+(`screens/service_bundle.js`) **e** na GUI (`handlers/bundle*.luau`).
+
 ### Botão que dispara requisição fica travado até a resposta
 
 Nos DOIS clientes, todo botão que gera uma requisição ao daemon é bloqueado no

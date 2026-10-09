@@ -41,6 +41,8 @@ function savePrefs(p)
     deleteSecret(name)
     openNewService()
     closeNewService()
+    openExportWin(serviceId)
+    closeExportWin()
     openProjectWin(p)
     closeProjectWin()
     fetchWizardCatalog(search) — Catálogos do wizard (bancos/brokers/templates) — buscados uma vez ao abrir a tela "Novo serviço" (ve…
@@ -201,9 +203,9 @@ function iconSvg(name, size)
 function registerIcons(Alpine)
 
 ### index.html — Casca única da webui (Alpine.js): login, shell e todas as telas, uma seção por view, cada uma com o …
-seções: Login, Shell (sidebar + topbar + conteúdo), Deploy Engine, Monitoring, Ingress, Docker, Schedules, Modais globais de Jobs, Settings, Projects, Projeto aberto, Novo serviço (wizard por passos, porta de new_service.gv), Janela: novo/editar projeto (wm.js), Janela: logs ao vivo do serviço (destacável da aba Logs), Detalhe de serviço
-x-data: dashboard, deployEngine, docker, ingress, login, monitoring, newService, projectDetail, projectWin, projects, schedules, serviceDetail, settings
-chama: String, abortDeployment, addDomain, addEnvVar, cancel, cancelCompose, clearFinished, closeBuildLog, closeDetail, closeEnvText, closeJobLogs, closeNewJob, closeProjectWin, closeTokenModal, copyToClipboard, createMdb, dcRunNow, dcSave, delDomain, delEnvVar, deleteMdb, deleteProject, deleteSecret, deleteService, deployRollback, deployStart, discardOldDb, disconnect, dismissToast, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, dragEnd, dragStart, dropOn, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDb, gotoTemplate, gotoType, gpConnect, gpDelete, gpRefresh, iacExport, iacImport, initAdvForm, initGeneralForm, initHcForm, jobDelete, jobRunCancel, jobRunNow, jobToggle, loadMigration, nav, njobBack, njobCreate, njobGitProviderPick, njobGitRepoPick, njobPickNoService, njobPickProject, njobPickService, njobSetSourceTab, ntokCreate, onArchiveFileChange, open, openDetail, openEditJob, openEnvText, openJobLogs, openNewJob, openNewService, openProject, openProjectWin, openService, openTokenModal, pdcAdd, pdcDel, pdcMove, persistPrefs, pickBroker, pickDb, pickTemplate, queueCancel, queuePromote, queueTogglePause, regenWebhook, registryCloseRepo, registryGc, registryOpenRepo, registryRmRepo, registryRmTag, registryRmToken, removeDeployment, renameService, reset, rollbackMigration, saveAdvanced, saveCompose, saveEnvText, saveHealthcheck, saveSource, searchChanged, select, serviceReload, serviceStop, setProvTab, setServiceTab, setShared, settingsSave, showMdb, startMigration, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDb, submitSecret, submitTemplate, uploadArchive, viewBuildLog, writeText
+seções: Login, Shell (sidebar + topbar + conteúdo), Deploy Engine, Monitoring, Ingress, Docker, Schedules, Modais globais de Jobs, Settings, Projects, Projeto aberto, Novo serviço (wizard por passos, porta de new_service.gv), Janela: novo/editar projeto (wm.js), Janela: exportar serviço (screens/service_bundle.js), Janela: logs ao vivo do serviço (destacável da aba Logs), Detalhe de serviço
+x-data: dashboard, deployEngine, docker, ingress, login, monitoring, newService, projectDetail, projectWin, projects, schedules, serviceDetail, serviceExport, serviceImport, settings
+chama: String, abortDeployment, addDomain, addEnvVar, analyze, cancel, cancelCompose, chooseEnv, clear, clearFinished, close, closeBuildLog, closeDetail, closeEnvText, closeJobLogs, closeNewJob, closeNewService, closeProjectWin, closeTokenModal, copy, copyToClipboard, create, createMdb, dcRunNow, dcSave, delDomain, delEnvVar, deleteMdb, deleteProject, deleteSecret, deleteService, deployRollback, deployStart, discardOldDb, disconnect, dismissToast, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, download, dragEnd, dragStart, dropOn, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDb, gotoImport, gotoTemplate, gotoType, gpConnect, gpDelete, gpRefresh, iacExport, iacImport, initAdvForm, initGeneralForm, initHcForm, jobDelete, jobRunCancel, jobRunNow, jobToggle, loadMigration, nav, njobBack, njobCreate, njobGitProviderPick, njobGitRepoPick, njobPickNoService, njobPickProject, njobPickService, njobSetSourceTab, ntokCreate, onArchiveFileChange, open, openDetail, openEditJob, openEnvText, openExportWin, openJobLogs, openNewJob, openNewService, openProject, openProjectWin, openService, openTokenModal, pdcAdd, pdcDel, pdcMove, persistPrefs, pickAll, pickBroker, pickDb, pickFile, pickNone, pickSuggested, pickTemplate, queueCancel, queuePromote, queueTogglePause, regenWebhook, registryCloseRepo, registryGc, registryOpenRepo, registryRmRepo, registryRmTag, registryRmToken, removeDeployment, renameService, reset, rollbackMigration, saveAdvanced, saveCompose, saveEnvText, saveHealthcheck, saveSource, searchChanged, select, serviceReload, serviceStop, setProvTab, setServiceTab, setShared, settingsSave, showMdb, startMigration, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDb, submitSecret, submitTemplate, uploadArchive, viewBuildLog, writeText
 
 ### sw.js — service worker do PWA Rustploy.
 
@@ -269,6 +271,7 @@ function openStream(baseUrl, token, path, handlers) — Abre a stream em `path` 
     ensureCatalog()
     gotoType() — ── Navegação por passos ─────────────────────────────────────────
     gotoApp()
+    gotoImport()
     gotoCompose()
     gotoDb()
     pickDb(db)
@@ -315,6 +318,32 @@ function primaryContainer(svc) — Container "primário" de um serviço pra exib
 ### schedules.js — tela "Schedules": jobs one-shot (docker-compose) agendados ou manuais, de todos os projetos.
   Alpine.data("schedules")
     get: store, rows
+
+### service_bundle.js — copiar um serviço entre servidores (docs/plano-copiar-servico-entre-servidores.md).
+  Alpine.data("serviceExport") — ── Exportar ─────────────────────────────────────────────────────────
+    init()
+    reset()
+    load(serviceId)
+    pickSuggested()
+    pickAll()
+    pickNone()
+    generate() — Pede o pacote ao daemon com as escolhas da tela.
+    download()
+    copy()
+    close()
+    get: store, projectVars, pickedKeys
+  Alpine.data("serviceImport") — ── Importar ─────────────────────────────────────────────────────────
+    pickFile(ev)
+    clear()
+    nonEmpty(map)
+    buildReq(dryRun)
+    analyze(first) — Pré-visualização (nada é gravado).
+    chooseEnv(key, choice) — Sobrescrever mexe no projeto e vale para os outros serviços dele.
+    stateLabel(s)
+    choiceLabel(s, choice)
+    choicesFor(s)
+    create()
+    get: store, hasMissing, canCreate
 
 ### service_detail.js — detalhe de um serviço.
   Alpine.data("serviceDetail")

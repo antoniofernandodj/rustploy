@@ -6,6 +6,27 @@
 
 ## rustploy-gui/views/scripts/handlers/
 
+### bundle.luau — copiar um serviço para outro servidor (lado do app principal): o botão "Exportar serviço" da tela do…
+function open_export_window()
+
+### bundle_import.luau — passo "Importar" do wizard "Novo serviço": recria aqui um serviço exportado de outro servidor.
+local choice_label(s, c)
+local options_for(s)
+local parse_kv(text, into) — "CHAVE=valor" por linha ⇄ tabela.
+local kv_text(keys, vals)
+local nonempty(m)
+local build_req(dry)
+local load_providers(api)
+local render_providers()
+local show_report(r)
+local analyze_core() — Pré-visualização (nada é gravado).
+function imp_analyze()
+function imp_pick_file() — "Escolher arquivo…": lê o .yml e já analisa.
+function imp_clear() — "Trocar pacote": volta ao início, sem lixo do pacote anterior.
+function imp_choice(key) — Passa para a próxima escolha da variável do projeto (ciclo).
+function imp_use_provider(id)
+function imp_create() — Analisa de novo com o que foi digitado e só cria se estiver limpo.
+
 ### connection.luau — ciclo de vida da sessão: init (semeia o contexto), login/logout, configurações do daemon buscadas um…
 local publish_saved_servers() — Publica só as URLs (o `<ComboEdit>` não precisa do token pra montar a lista — o token vem de `token_…
 local token_for(url)
