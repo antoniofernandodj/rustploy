@@ -23,6 +23,7 @@ O que procurar lá:
 | Regra do `glacier-ui` (nunca `path`/`[patch]`, sempre publicar) | Parte 2 — Convenções |
 | GUI e webui são **dois** clientes; feature de UI entra nos dois | Parte 2 — Convenções |
 | Ferramental e convenções de Luau, armadilhas de `.gv`/GSS | Parte 2 — Convenções |
+| **Como nomear** chaves, handlers, variáveis e classes (por extenso, inglês, BEM) | Parte 2 — Convenções → Nomes |
 | Comandos de build e de teste (os pacotes **não** se chamam `daemon`/`shared`) | Parte 2 — Build & Run |
 | Config (o parse é tudo-ou-nada) | Parte 2 — Configuração |
 | Crates, protocolo, internos do daemon e da GUI | Parte 3 — Arquitetura |

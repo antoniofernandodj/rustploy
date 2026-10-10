@@ -561,6 +561,66 @@ vermelho) + `modal_body`. Estado de abertura mora no store (`showNewJob`,
 desenvolver sem recompilar o daemon a cada edição, sirva `webui/` do disco com um
 proxy para `/api` (ver `docs/plano-webui-janelas-e-polimento.md`).
 
+### Nomes: tudo por extenso, em inglês, sem sigla
+
+Vale para a GUI (Luau, `.gvb`) e para a webui (JS, `index.html`), e a regra é a
+mesma nos dois lados: **o nome se explica sozinho, sem glossário**. Quem lê
+`ctx.docker_cleanup_kinds` não precisa abrir outro arquivo para saber o que é;
+com `ctx.dc_kinds` precisaria. Antes de criar um nome, confira se ele passa nas
+regras abaixo.
+
+1. **Sem sigla.** Palavra inteira ou composta: `service_form_healthcheck_retries`,
+   não `f_hc_retries`; `message`, não `msg`; `delete`, não `del`.
+2. **Inglês nos identificadores.** Só o texto mostrado ao usuário fica em
+   português (`erro_`, `apontar`, `hora`, `limpa` não existem mais).
+3. **O prefixo da tela fica sempre** nas chaves de `ctx` e nos handlers, mesmo
+   dentro do arquivo da própria tela: o `ctx` é um espaço de nomes **plano** por
+   janela, então `new_job_name` não encurta para `name`.
+4. **Webui = o mesmo nome em camelCase** (`docker_cleanup_kind` →
+   `dockerCleanupKind`). Se mudar um lado, mude o outro.
+5. **Sufixos com significado fixo:** `*_count` (contagem), `*_label` (texto pronto
+   para exibir), `*_message` (mensagem de status), `*_error` (erro),
+   `is_*`/`has_*`/`can_*` (booleano), `*_id` (identificador — diga **de quê**:
+   `project_id`, `provider_id`, nunca `pid`/`id` solto).
+6. **Locais seguem a mesma ideia:** nada de `k`, `v`, `r`, `s`, `p`, `ok`, `res`.
+   Laço = singular da coleção (`for _, project in ipairs(projects)`); par
+   `ok`/`res` de uma chamada = nome da chamada (`service_get_ok`,
+   `service_get_response`; no JS, `serviceGetResponse`); parâmetro de
+   comparador = `left`/`right`. Índice de laço = `index` (ou algo mais específico).
+   Exceção aceita: `_` para valor descartado, `M` para a tabela do módulo.
+
+**Vocabulário dos prefixos** (use exatamente estes, não invente variantes):
+
+| Prefixo | Assunto |
+|---|---|
+| `new_job_` · `new_service_` · `new_project_` · `new_registry_token_` | janelas/wizards de criação |
+| `service_form_` | formulário do serviço (aba General e afins) |
+| `service_` · `project_` · `deployment_` · `provider_` | dados do serviço / projeto / deploy / provedor |
+| `git_provider_` | cadastro de GitHub/Gitea |
+| `healthcheck_` | healthcheck |
+| `import_` · `export_` | importar/exportar serviço (bundle) |
+| `manifest_` | exportar/importar o manifesto (IaC) |
+| `project_env_` · `project_secret_` | variáveis e segredos do projeto |
+| `docker_cleanup_` | limpeza automática do Docker |
+| `deploy_engine_` | tela da fila de deploys |
+| `log_window_` | janela de logs |
+| `migration_` | migração de banco |
+| `shared_database_` | banco do servidor compartilhado |
+| `pre_deploy_check_` | gate de pré-deploy |
+| `server_settings_` | Settings → Web |
+| `host_` | CPU/memória/disco do host |
+
+**Derivados que nascem do nome do handler** — renomeie os dois juntos:
+`busy_<handler>` (trava de botão) e `error_<campo>` (o motor deriva de
+`form_control`). `tools/busy_actions.py --check` confere a lista de handlers.
+
+**Como renomear com segurança.** Nunca por busca-e-troca de texto. Para Luau,
+confira com `luau-lsp analyze` em modo strict (pega nome inexistente) e rode
+`cargo test` no `rustploy-gui`; para a webui, `cargo test -p rustploy web_ui`
+(Chrome headless). Um renomeador de escopo (que não toca em campo de tabela
+`x.nome`, chave de construtor `{ nome = … }` nem string) é o caminho; o histórico e
+o mapa completo estão em `docs/plano-nomes-descritivos.md`.
+
 ### Luau
 
 **Ferramental.** Type-check toda mudança antes de considerá-la pronta:
@@ -611,15 +671,6 @@ precisa de explicação, acrescente-a ao README (citando `arquivo.rs::item` ou
 
 - **Nunca escreva uma tag literal dentro de um comentário** (nem dentro de
   `<style>`): o parser quebra e o erro aponta para a linha errada.
-- **Nomes de chave de contexto e de handler são palavras inteiras, em inglês, sem
-  sigla** (`docker_cleanup_kinds`, não `dc_kinds`): o prefixo da tela fica sempre
-  (o `ctx` é um espaço de nomes plano por janela). Vocabulário: `new_job_`, `new_service_`,
-  `new_project_`, `new_registry_token_`, `service_form_` (formulário do serviço),
-  `git_provider_`, `healthcheck_`, `import_`/`export_`, `manifest_` (export/import de
-  manifesto), `project_env_`, `project_secret_`, `log_window_`, `migration_`,
-  `shared_database_`, `pre_deploy_check_`, `server_settings_`, `host_` (CPU/mem/disco),
-  `deploy_engine_`. Na webui o mesmo nome em camelCase (`dockerCleanupKinds`).
-  Histórico e glossário completo: `docs/plano-nomes-descritivos.md`.
 - **Classes seguem BEM** (`bloco`, `bloco__elemento`, `bloco--modificador`, `u-*`
   para utilitário de uma propriedade) — a convenção completa, e onde um seletor
   composto simplifica, está no cabeçalho de `rustploy-gui/views/styles/app.gss`.
