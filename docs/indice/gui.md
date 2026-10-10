@@ -234,7 +234,7 @@ fn boot() -> GlacierUI — Boots the engine the way `main.rs` does, but from the
 fn textos_avaliados(n) -> Vec<String> — Todo texto de uma árvore avaliada, em ordem.
 fn cd_ws_root() — Cd's to the workspace root (idempotent — safe alongside `boot`).
 fn comentarios_fora(src) -> String — Remove os comentários (`//` e `/* … */`) para que "a primeira tag" seja a primeira tag de verdade: t…
-(17 testes)
+(18 testes)
 
 ## rustploy-gui/tests/fixtures/
 

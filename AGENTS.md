@@ -611,6 +611,24 @@ precisa de explicação, acrescente-a ao README (citando `arquivo.rs::item` ou
 
 - **Nunca escreva uma tag literal dentro de um comentário** (nem dentro de
   `<style>`): o parser quebra e o erro aponta para a linha errada.
+- **Nomes de chave de contexto e de handler são palavras inteiras, em inglês, sem
+  sigla** (`docker_cleanup_kinds`, não `dc_kinds`): o prefixo da tela fica sempre
+  (o `ctx` é um espaço de nomes plano por janela). Vocabulário: `new_job_`, `new_service_`,
+  `new_project_`, `new_registry_token_`, `service_form_` (formulário do serviço),
+  `git_provider_`, `healthcheck_`, `import_`/`export_`, `manifest_` (export/import de
+  manifesto), `project_env_`, `project_secret_`, `log_window_`, `migration_`,
+  `shared_database_`, `pre_deploy_check_`, `server_settings_`, `host_` (CPU/mem/disco),
+  `deploy_engine_`. Na webui o mesmo nome em camelCase (`dockerCleanupKinds`).
+  Histórico e glossário completo: `docs/plano-nomes-descritivos.md`.
+- **Classes seguem BEM** (`bloco`, `bloco__elemento`, `bloco--modificador`, `u-*`
+  para utilitário de uma propriedade) — a convenção completa, e onde um seletor
+  composto simplifica, está no cabeçalho de `rustploy-gui/views/styles/app.gss`.
+  O modificador vai **junto** do base no markup (`class = "btn btn--danger"`).
+  Desde o glacier-ui 0.122 o `.gss` aceita `.a > .b` (filho direto), `.a .b`
+  (descendente), `row.a` e `.a.b`; `+`, `~`, `[attr]`, `::x`, `:not()` e `:estado`
+  num ancestral são **erro de parse**. Uso real: `.nav-item--active > .nav-item__icon`
+  (nav_item.gvb) e `.state-cell--ok > text` (state_cell.gvb); o teste
+  `nav_item_aceso_recolore_os_filhos_por_combinador` guarda o efeito.
 - **O GSS não suporta seletor por vírgula** (`.a, .b { }`, nem dentro de
   `@media`): vira uma chave só, errada, e falha em silêncio. Uma declaração por
   seletor.
@@ -665,7 +683,7 @@ de estado vazio (`fallback`) vão para o arquivo que os usa. O que aprendemos fa
   não pega conteúdo que sumiu ou apareceu na aba errada (foi assim que o `if` na
   raiz passou despercebido). Antes de mover markup, despeje a árvore avaliada
   (`m.evaluated("app")`, `{:#?}`) de cada view/aba — um fator por vez: lista
-  vazia/cheia, flags, `prov_tab`… — a partir do HEAD, repita depois e compare
+  vazia/cheia, flags, `provider_tab`… — a partir do HEAD, repita depois e compare
   normalizando `node_id` (contador global) e o prefixo `Dono::`. O ideal é
   que seja **idêntico**. Cubra os estados vazios (`fallback`): os dados "de
   exemplo" não os exercitam.

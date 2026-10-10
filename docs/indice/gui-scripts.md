@@ -42,29 +42,29 @@ local decode(s)
 local unpack_recurrence(r) — Recorrência (Option<Recurrence>, externally-tagged) → (kind, hours, hour, minute, weekday), pro form…
 function init()
 function field(key, v) — onChange dos inputs (mesma convenção `field:<chave>` do app principal).
-function njob_source(kind)
-function njob_git_provider_pick(id)
-function njob_git_repo_pick(full_name)
-function njob_pick_project(id)
-function njob_pick_service(id)
-function njob_pick_no_service() — Job 100% autônomo: sem serviço gatilho, só as env vars do projeto.
-function njob_back()
-function njob_kind(k)
-function njob_create()
+function new_job_source(kind)
+function new_job_git_provider_pick(id)
+function new_job_git_repo_pick(full_name)
+function new_job_pick_project(id)
+function new_job_pick_service(id)
+function new_job_pick_no_service() — Job 100% autônomo: sem serviço gatilho, só as env vars do projeto.
+function new_job_back()
+function new_job_kind(k)
+function new_job_create()
 function cancel()
 
 ### new_project_window.luau — script da JANELA de "Novo projeto", um motor Glacier próprio e ISOLADO do app principal (aberto via …
 local client() — Reconstrói o cliente da API a partir da conexão semeada no contexto.
 function init()
-function np_apontar(_erros_json) — on_validation_error do form(...): as falhas já vêm prontas em JSON (`[{campo,msg}]`) e os `{erro_<ca…
+function new_project_show_validation_errors(_erros_json) — on_validation_error do form(...): as falhas já vêm prontas em JSON (`[{campo,msg}]`) e os `{erro_<ca…
 function submit_project() — on_submit do form(...): só roda quando a validação (rules="required" no campo NOME) passou, então `n…
 function cancel() — Botão "Cancelar": fecha ESTA janela (close_window fecha a janela dona deste motor com precisão, sem …
 
 ### new_registry_token_window.luau — script da JANELA "Novo token do registry", um motor Glacier próprio e ISOLADO do app principal (aber…
 local client()
 function init()
-function ntok_apontar(_erros_json) — on_validation_error do form(...) — NOME é `rules="required"`; o motor já publicou {erro_ntok_name} e…
-function ntok_create()
+function new_registry_token_show_validation_errors(_erros_json) — on_validation_error do form(...) — NOME é `rules="required"`; o motor já publicou {error_new_registr…
+function new_registry_token_create()
 
 ### new_service_window.luau — script da JANELA do wizard "Novo serviço", um motor Glacier próprio e ISOLADO do app principal (aber…
 function init()
@@ -76,13 +76,13 @@ local render() — Reconstrói a lista exibida (☑/☐ por variável do projeto
 local pick(rule)
 function init()
 function field(key, v)
-function ex_toggle(key)
-function ex_suggested()
-function ex_all()
-function ex_none()
+function export_toggle(key)
+function export_suggested()
+function export_all()
+function export_none()
 local generate() — Pede o pacote ao daemon com as escolhas da tela.
-function ex_save()
-function ex_show() — Mostra o pacote como texto (com o botão Copiar) para quem não quer arquivo.
+function export_save()
+function export_show() — Mostra o pacote como texto (com o botão Copiar) para quem não quer arquivo.
 
 ### state.luau — estado mutável compartilhado entre todos os handlers/*.luau (mesmo interpretador, mesma tabela: `req…
 types: DeployTrack, State
@@ -110,11 +110,11 @@ function M.monitoring(pairs_, metrics) — Monitoring: uma linha por serviço CO
 local step_of(state)
 local deploy_stepper(info)
 local iso_epoch(iso)
-function M.eng_detail(info)
-function M.eng_detail_steps(info)
-function M.eng_active(active) — Deploy Engine: "Executando agora".
-function M.eng_queued(queued) — Deploy Engine: "Na fila" (deploys esperando; o primeiro é o próximo a rodar).
-function M.eng_recent(recent) — Deploy Engine: "Histórico 24h".
+function M.deploy_engine_detail(info)
+function M.deploy_engine_detail_steps(info)
+function M.deploy_engine_active(active) — Deploy Engine: "Executando agora".
+function M.deploy_engine_queued(queued) — Deploy Engine: "Na fila" (deploys esperando; o primeiro é o próximo a rodar).
+function M.deploy_engine_recent(recent) — Deploy Engine: "Histórico 24h".
 
 ### docker_cleanup.luau — resumo textual da limpeza automática de Docker (Settings → Manutenção).
 function M.resource_label(name)
@@ -205,6 +205,5 @@ function M.auth_headers(token) — - Só o header `Authorization` (tabela vazia 
 function M:headers()
 function M:rpc(cmd) — - Executa um Command.
 function M:rpc_checked(cmd) — - Como `rpc`, mas trata `Response::Err { code, message }` como falha.
-function M:upload_archive(service_id, filename, body_base64)
 function M.new(base_url, token)
 types: Client

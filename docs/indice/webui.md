@@ -15,7 +15,7 @@ function savePrefs(p)
   Alpine.store("app")
     toast(message, kind, durationMs)
     toastOk(message)
-    toastErr(message)
+    toastError(message)
     toastWarn(message)
     toastResult(r, okMessage) — Desfecho de um rpc num passo só: `okMessage` omitido = sucesso silencioso (a tela já mostra o result…
     dismissToast(id)
@@ -50,7 +50,7 @@ function savePrefs(p)
     createServiceDirect(name, source, port, domain) — `source` já é o `ServiceSource` externally-tagged.
     openService(id)
     fetchServiceDetail(id)
-    saveServiceSpec(spec, okMsg)
+    saveServiceSpec(spec, okMessage)
     deleteService(id)
     stopService(id) — Botão "Parar" do card de serviço (grid do projeto) — porta de handlers/projects.luau::svc_stop_id.
     stopAndDeleteService(id) — Botão "Remover" do card de serviço (grid do projeto) — porta de handlers/projects.luau::stop_delete_…
@@ -75,10 +75,10 @@ function savePrefs(p)
     registryOpenRepo(name)
     registryCloseRepo()
     registryRefreshTokens() — Sem rpcChecked de propósito (mesmo comportamento silencioso do Luau — falha aqui não é acionável pel…
-    registryRmTag(tag)
-    registryRmRepo(name)
+    registryRemoveTag(tag)
+    registryRemoveRepo(name)
     registryGc()
-    registryRmToken(name)
+    registryRemoveToken(name)
     registryCreateToken(name, scope) — Devolve {ok, secret} pro modal de "novo token" — o segredo só existe nesta resposta, nunca mais é re…
     jobRunNow(id)
     jobRunCancel(jobRunId) — Cancela um job_run em execução (ver docs/plano-cancelamento-de-jobs.md): mata o processo `docker com…
@@ -87,15 +87,15 @@ function savePrefs(p)
     jobCreate(payload) — `payload` = { project_id, trigger_service_id, name, compose, main_service, recurrence }.
     openNewJob()
     closeNewJob()
-    njobPickProject(id, name)
-    njobPickService(id, name)
-    njobPickNoService()
-    njobBack()
-    njobSetSourceTab(kind) — ── Fonte do compose: aba "Compose" x aba "Git" (picker conta→repo→branch) ── Porta de njob_source/nj…
-    njobGitProviderPick(id)
-    njobGitRepoPick(fullName)
-    buildNjobRecurrence() — Monta `recurrence` (Option<Recurrence>, externally-tagged) a partir de njobKind.
-    njobCreate()
+    newJobPickProject(id, name)
+    newJobPickService(id, name)
+    newJobPickNoService()
+    newJobBack()
+    newJobSetSourceTab(kind) — ── Fonte do compose: aba "Compose" x aba "Git" (picker conta→repo→branch) ── Porta de njob_source/nj…
+    newJobGitProviderPick(id)
+    newJobGitRepoPick(fullName)
+    buildNewJobRecurrence() — Monta `recurrence` (Option<Recurrence>, externally-tagged) a partir de newJobKind.
+    newJobCreate()
     openEditJob(id) — Abre o mesmo modal do wizard, mas em modo edição: pula pro passo "form" já preenchido com o job exis…
     openJobLogs(jobRunId)
     closeJobLogs()
@@ -103,23 +103,23 @@ function savePrefs(p)
     stopJobLogs()
     loadSettings()
     settingsSave()
-    gpRefresh()
-    gpConnect() — Mesmas validações de handlers/settings.luau::gp_connect: GitHub cai pro github.com se a Base URL vie…
-    gpDelete(id)
-    iacExport()
-    iacImport() — 3 formas de resposta possíveis (mesma distinção de handlers/settings.luau::iac_import): MissingEnvVa…
-    dcApplyConfig(cfg) — Recorrência (Option<Recurrence>, externally-tagged) → campos do formulário — mesmo formato do unpack…
-    dcLoad()
-    dcBuildRecurrence()
-    dcSave()
-    dcRunNow() — Botão "Executar agora": roda os recursos marcados fora do horário agendado, independente do interrup…
+    gitProviderRefresh()
+    gitProviderConnect() — Mesmas validações de handlers/settings.luau::gp_connect: GitHub cai pro github.com se a Base URL vie…
+    gitProviderDelete(id)
+    manifestExport()
+    manifestImport() — 3 formas de resposta possíveis (mesma distinção de handlers/settings.luau::iac_import): MissingEnvVa…
+    dockerCleanupApplyConfig(cfg) — Recorrência (Option<Recurrence>, externally-tagged) → campos do formulário — mesmo formato do unpack…
+    dockerCleanupLoad()
+    dockerCleanupBuildRecurrence()
+    dockerCleanupSave()
+    dockerCleanupRunNow() — Botão "Executar agora": roda os recursos marcados fora do horário agendado, independente do interrup…
     serviceStop()
     serviceReload()
     cleanLogEntry(e) — LogEntry/LogLine cru → { stream, line, timestamp } com ANSI limpo e truncado (defesa contra uma linh…
     startServiceLogs()
     stopServiceLogs()
     setServiceTab(tab)
-    get: gpRedirect, njobProjects, njobServicesFiltered
+    get: gitProviderRedirect, newJobProjects, newJobServicesFiltered
 
 ### busy.js — feedback imediato e trava de clique para toda ação assíncrona.
 const isBusy(el)
@@ -157,18 +157,18 @@ function envRowsWithComments(vars, comments) — env_vars + env_comments → lin
 function stripAnsi(s) — Remove sequências de escape ANSI (cor/cursor/erase) de uma linha de log.
 function parseDotenv(text) — Texto `.env` → { vars, comments } (env_vars/env_comments do ServiceSpec/Project).
 function safeName(name) — Normaliza um nome de serviço para `[a-z0-9_]`, mesmo algoritmo de `crate::normalize_name` (Rust) / `…
-function internalScheme(dbKind)
+function internalScheme(databaseKind)
 function composeHost(content, ingressService) — Chave do serviço que recebe o tráfego dentro de um compose: `ingress_service` se declarado, senão a …
-function internalUrl(dbKind, safe, port, composeHostName) — URL de conexão dentro da rede Docker do daemon (`rp_<safe>:<porta>`, com esquema por tipo de banco).
+function internalUrl(databaseKind, safe, port, composeHostName) — URL de conexão dentro da rede Docker do daemon (`rp_<safe>:<porta>`, com esquema por tipo de banco).
 function envPlain(vars, key)
-function dbCredentials(dbKind, vars) — (database, user, password) lidos das env vars conhecidas do banco.
-function withDbCredentials(base, database, user, password)
+function databaseCredentials(databaseKind, vars) — (database, user, password) lidos das env vars conhecidas do banco.
+function withDatabaseCredentials(base, database, user, password)
 function pct(s)
 function userinfo(user, password)
 function externalScheme(k)
-function dbConnectionUrl(dbKind, host, port, database, user, password)
+function databaseConnectionUrl(databaseKind, host, port, database, user, password)
 function urlHost(apiUrl)
-function externalUrl(domain, tls, hostPort, dbKind, apiUrl, envVars) — URL de conexão externa: domínio HTTP tem prioridade; sem domínio, cai pro passthrough TCP (host_port…
+function externalUrl(domain, tls, hostPort, databaseKind, apiUrl, envVars) — URL de conexão externa: domínio HTTP tem prioridade; sem domínio, cai pro passthrough TCP (host_port…
 function pairList(services) — `msg.services` (`[{project_name, service}]`) → `[{svc, proj}]`.
 function domainRoutes(spec) — `spec.domains` se houver, senão o legado `domain`/`tls_enabled`.
 function ingressRows(pairs) — Ingress: uma linha por rota de domínio (não filtrado pela busca).
@@ -177,8 +177,8 @@ function monitoringRows(pairs, metricsById) — Monitoring: uma linha por servi�
 function stepOf(state)
 function deployStepper(info) — Linha de passos: [{label, status}] com status done|current|failed|pending.
 function deployDetailRows(info) — Detalhe do deploy para o modal: uma linha por transição (estado em que entrou, quanto durou, mensage…
-function engActiveRows(active) — Deploy Engine: "Executando agora".
-function engQueuedRows(queued) — Deploy Engine: "Na fila" (o primeiro é o próximo a rodar).
+function deployEngineActiveRows(active) — Deploy Engine: "Executando agora".
+function deployEngineQueuedRows(queued) — Deploy Engine: "Na fila" (o primeiro é o próximo a rodar).
 function dockerContainerRows(list, term) — Containers do host (rodando + parados).
 function containerStateLabel(state) — Rótulo/kind de um estado bruto do Docker ("running","exited",...).
 function containerStopped(state) — Porta literal de fmt/util.luau::container_stopped — só os parados podem ser removidos (o Docker recu…
@@ -196,7 +196,7 @@ function gitKindLabel(kind)
 function gitProviderRows(list) — Porta literal de fmt/git.luau::git_providers.
 function dockerCleanupResourceLabel(name)
 function dockerCleanupLastRunSummary(lr) — `lr`: `DockerCleanupLastRun?` (`{ at, results: [{ resource, count, reclaimed_bytes, error }] }`).
-function engRecentRows(recent) — Deploy Engine: "Histórico 24h".
+function deployEngineRecentRows(recent) — Deploy Engine: "Histórico 24h".
 
 ### icons.js — conjunto de ícones SVG inline (traço 1.75, estilo Lucide) e a diretiva `x-icon="'nome'"`.
 function iconSvg(name, size)
@@ -205,7 +205,7 @@ function registerIcons(Alpine)
 ### index.html — Casca única da webui (Alpine.js): login, shell e todas as telas, uma seção por view, cada uma com o …
 seções: Login, Shell (sidebar + topbar + conteúdo), Deploy Engine, Monitoring, Ingress, Docker, Schedules, Modais globais de Jobs, Settings, Projects, Projeto aberto, Novo serviço (wizard por passos, porta de new_service.gv), Janela: novo/editar projeto (wm.js), Janela: exportar serviço (screens/service_bundle.js), Janela: logs ao vivo do serviço (destacável da aba Logs), Detalhe de serviço
 x-data: dashboard, deployEngine, docker, ingress, login, monitoring, newService, projectDetail, projectWin, projects, schedules, serviceDetail, serviceExport, serviceImport, settings
-chama: String, abortDeployment, addDomain, addEnvVar, analyze, cancel, cancelCompose, chooseEnv, clear, clearFinished, close, closeBuildLog, closeDetail, closeEnvText, closeJobLogs, closeNewJob, closeNewService, closeProjectWin, closeTokenModal, copy, copyToClipboard, create, createMdb, dcRunNow, dcSave, delDomain, delEnvVar, deleteMdb, deleteProject, deleteSecret, deleteService, deployRollback, deployStart, discardOldDb, disconnect, dismissToast, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, download, dragEnd, dragStart, dropOn, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDb, gotoImport, gotoTemplate, gotoType, gpConnect, gpDelete, gpRefresh, iacExport, iacImport, initAdvForm, initGeneralForm, initHcForm, jobDelete, jobRunCancel, jobRunNow, jobToggle, loadMigration, nav, njobBack, njobCreate, njobGitProviderPick, njobGitRepoPick, njobPickNoService, njobPickProject, njobPickService, njobSetSourceTab, ntokCreate, onArchiveFileChange, open, openDetail, openEditJob, openEnvText, openExportWin, openJobLogs, openNewJob, openNewService, openProject, openProjectWin, openService, openTokenModal, pdcAdd, pdcDel, pdcMove, persistPrefs, pickAll, pickBroker, pickDb, pickFile, pickNone, pickSuggested, pickTemplate, queueCancel, queuePromote, queueTogglePause, regenWebhook, registryCloseRepo, registryGc, registryOpenRepo, registryRmRepo, registryRmTag, registryRmToken, removeDeployment, renameService, reset, rollbackMigration, saveAdvanced, saveCompose, saveEnvText, saveHealthcheck, saveSource, searchChanged, select, serviceReload, serviceStop, setProvTab, setServiceTab, setShared, settingsSave, showMdb, startMigration, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDb, submitSecret, submitTemplate, uploadArchive, viewBuildLog, writeText
+chama: String, abortDeployment, addDomain, addEnvVar, analyze, cancel, cancelCompose, chooseEnv, clear, clearFinished, close, closeBuildLog, closeDetail, closeEnvText, closeJobLogs, closeNewJob, closeNewService, closeProjectWin, closeTokenModal, copy, copyToClipboard, create, createSharedDatabase, deleteDomain, deleteEnvVar, deleteProject, deleteSecret, deleteService, deleteSharedDatabase, deployRollback, deployStart, discardOldDatabase, disconnect, dismissToast, dockerCleanupRunNow, dockerCleanupSave, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, download, dragEnd, dragStart, dropOn, gitProviderConnect, gitProviderDelete, gitProviderRefresh, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDatabase, gotoImport, gotoTemplate, gotoType, initAdvancedForm, initGeneralForm, initHealthcheckForm, jobDelete, jobRunCancel, jobRunNow, jobToggle, loadMigration, manifestExport, manifestImport, nav, newJobBack, newJobCreate, newJobGitProviderPick, newJobGitRepoPick, newJobPickNoService, newJobPickProject, newJobPickService, newJobSetSourceTab, newRegistryTokenCreate, onArchiveFileChange, open, openDetail, openEditJob, openEnvText, openExportWin, openJobLogs, openNewJob, openNewService, openProject, openProjectWin, openService, openTokenModal, persistPrefs, pickAll, pickBroker, pickDatabase, pickFile, pickNone, pickSuggested, pickTemplate, preDeployCheckAdd, preDeployCheckDelete, preDeployCheckMove, queueCancel, queuePromote, queueTogglePause, regenWebhook, registryCloseRepo, registryGc, registryOpenRepo, registryRemoveRepo, registryRemoveTag, registryRemoveToken, removeDeployment, renameService, reset, rollbackMigration, saveAdvanced, saveCompose, saveEnvText, saveHealthcheck, saveSource, searchChanged, select, serviceReload, serviceStop, setProviderTab, setServiceTab, setShared, settingsSave, showSharedDatabase, startMigration, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDatabase, submitSecret, submitTemplate, uploadArchive, viewBuildLog, writeText
 
 ### sw.js — service worker do PWA Rustploy.
 
@@ -250,7 +250,7 @@ function openStream(baseUrl, token, path, handlers) — Abre a stream em `path` 
   Alpine.data("docker")
     openTokenModal()
     closeTokenModal()
-    ntokCreate()
+    newRegistryTokenCreate()
     get: store, containers, images, volumes, networks, repos, tags, tokens, registryHost, registryStatusLabel
 
 ### ingress.js — tela "Ingress": rotas ativas no reverse proxy (por domínio) e portas TCP de host expostas diretament…
@@ -273,8 +273,8 @@ function openStream(baseUrl, token, path, handlers) — Abre a stream em `path` 
     gotoApp()
     gotoImport()
     gotoCompose()
-    gotoDb()
-    pickDb(db)
+    gotoDatabase()
+    pickDatabase(db)
     gotoBroker()
     pickBroker(b)
     gotoTemplate()
@@ -284,7 +284,7 @@ function openStream(baseUrl, token, path, handlers) — Abre a stream em `path` 
     baseReq(kind, id) — ── Submissões ────────────────────────────────────────────────────
     submitApp()
     submitCompose()
-    submitDb()
+    submitDatabase()
     submitBroker()
     submitTemplate()
     get: store, filteredTemplates
@@ -296,7 +296,7 @@ function primaryContainer(svc) — Container "primário" de um serviço pra exib
     cancelEdit()
     saveEdit()
     addEnvVar()
-    delEnvVar(key)
+    deleteEnvVar(key)
     openEnvText()
     closeEnvText()
     saveEnvText()
@@ -309,7 +309,7 @@ function primaryContainer(svc) — Container "primário" de um serviço pra exib
     startEdit(row)
     cancelEdit()
     saveEdit()
-    get: store, rows
+    get: store, servicesCount, rows
   Alpine.data("projectWin") — Janela "Novo projeto"/"Editar projeto" (wm.js).
     init()
     submit()
@@ -353,18 +353,18 @@ function primaryContainer(svc) — Container "primário" de um serviço pra exib
     loadMigration()
     startMigration()
     rollbackMigration()
-    discardOldDb()
+    discardOldDatabase()
     loadSharedState()
     setShared(on)
-    showMdb(d)
-    createMdb()
-    deleteMdb(d)
-    loadConnUrl()
+    showSharedDatabase(d)
+    createSharedDatabase()
+    deleteSharedDatabase(d)
+    loadConnectionUrl()
     initGeneralForm()
     renameService() — Unicidade dentro do projeto é checada no daemon (a mensagem volta no toast).
     saveCompose()
     cancelCompose()
-    setProvTab(tab)
+    setProviderTab(tab)
     giteaProviderPick(id)
     giteaRepoPick(fullName)
     saveSource() — Porta de handlers/services.luau::gen_save — mesma heurística looksLikeGitUrl decide Git vs Registry …
@@ -372,24 +372,24 @@ function primaryContainer(svc) — Container "primário" de um serviço pra exib
     uploadArchive()
     copyToClipboard(text)
     addEnvVar()
-    delEnvVar(key)
+    deleteEnvVar(key)
     openEnvText()
     closeEnvText()
     saveEnvText()
     addDomain()
-    delDomain(domain)
-    initHcForm() — Popula o form local a partir do spec atual — chamado ao abrir a aba (o form é editável, não reativo …
+    deleteDomain(domain)
+    initHealthcheckForm() — Popula o form local a partir do spec atual — chamado ao abrir a aba (o form é editável, não reativo …
     saveHealthcheck()
-    initAdvForm()
+    initAdvancedForm()
     saveAdvanced()
-    pdcAdd()
-    pdcDel(jobId)
-    pdcMove(jobId, delta) — Sem drag-and-drop na web UI (sem lib de DnD): reordena com botões mover-pra-cima/baixo — mesmo resul…
+    preDeployCheckAdd()
+    preDeployCheckDelete(jobId)
+    preDeployCheckMove(jobId, delta) — Sem drag-and-drop na web UI (sem lib de DnD): reordena com botões mover-pra-cima/baixo — mesmo resul…
     viewBuildLog(deploymentId)
     closeBuildLog()
     abortDeployment(deploymentId)
     removeDeployment(deploymentId)
-    get: store, webhookSupported, canMigrate, migSteps, canShare, isShared, svc, statusLabel, statusKind, sourceText, isCompose, renameNote, liveContainers, connectionInfo, envVars, domains, runArgsText, preDeployQueueIds, preDeployChecks, preDeployAvailableJobs, deployments
+    get: store, webhookSupported, canMigrate, migrationSteps, canShare, isShared, svc, projectName, statusLabel, statusKind, sourceText, isCompose, renameNote, liveContainers, connectionInfo, envVars, domains, runArgsText, preDeployQueueIds, preDeployChecks, preDeployAvailableJobs, deployments
 
 ### settings.js — tela "Settings": Web Server / Git / Infra as Code.
   Alpine.data("settings")

@@ -27,7 +27,6 @@
 ### (raiz)
 - .gitignore
 - .gitmodules
-- .swp
 - AGENTS.md — Rustploy — guia do projeto
 - CLAUDE.md — CLAUDE.md
 - CONTINUE.md — rustploy-gui — plano de continuação
@@ -70,6 +69,7 @@
 - plano-limpeza-automatica-docker.md — Limpeza automática do Docker: liberar espaço em disco sozinho, todos os dias
 - plano-multi-login-clients.md — Plano: login multi-servidor no client iced + login simplificado na webui
 - plano-nome-gravado-rede-e-stack.md — Plano: nome de rede e de stack Compose gravados, não derivados
+- plano-nomes-descritivos.md — Plano: nomes descritivos em toda a base (GUI glacier + webui)
 - plano-pre-deploy-gate.md — Pré-deploy gate: rodar um check antes do deploy, e só prosseguir se ele passar
 - plano-reforma-gui-glacier-0.102.md — Plano: reforma do `rustploy-gui` sobre o glacier-ui moderno (0.87 → 0.102)
 - plano-registry-embutido.md — Registry Docker embutido no rustployd
@@ -450,8 +450,8 @@
 - domains.gvb — Domains (editável): lista de rotas HTTP (domínio → porta de container, TLS por r…
 - environment.gvb — Environment
 - general.gvb — General (source / build, editável)
-- general_compose.gvb — Editor do YAML de um serviço Compose (bancos/brokers); o corpo do `if @svc_sourc…
-- general_git.gvb — Sub-aba Git do provider: URL/imagem crua; corpo do `if @prov_tab == "git"` de ge…
+- general_compose.gvb — Editor do YAML de um serviço Compose (bancos/brokers); o corpo do `if @service_s…
+- general_git.gvb — Sub-aba Git do provider: URL/imagem crua; corpo do `if @provider_tab == "git"` d…
 - general_gitea.gvb — Sub-aba conta conectada (Gitea/GitHub): picker conta/repo/branch; corpo do `if @…
 - general_zip.gvb — Sub-aba Zip do provider: upload local com Dockerfile na raiz; corpo do `if @prov…
 - healthcheck.gvb — Healthcheck (editável)
