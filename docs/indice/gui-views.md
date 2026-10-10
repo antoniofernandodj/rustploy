@@ -25,7 +25,7 @@ handlers: clipboard, textarea_end, textarea_top, window
 
 ### login.gvb — Tela de login: URL do daemon e token, com a lista de servidores lembrados.
 <component>
-handlers: connect, esquecer_servidor
+handlers: connect, forget_server
 
 ### new_job_window.gvb — Janela "Novo job": motor Glacier próprio, aberto por open_window a partir do app principal (handlers…
 <screen "Novo job — Rustploy">
@@ -212,7 +212,7 @@ handlers: clipboard, field, shared_database_create, shared_database_delete, shar
 
 ### deployments.gvb — Deployments
 <component>
-handlers: clipboard, delete_deployment, deployment_logs, regen_webhook
+handlers: clipboard, delete_deployment, deployment_logs, regenerate_webhook
 
 ### domains.gvb — Domains (editável): lista de rotas HTTP (domínio → porta de container, TLS por rota), mais o form de…
 <component>
@@ -226,7 +226,7 @@ handlers: env_add, env_delete, env_export, env_import, env_reorder, env_show_val
 <component>
 imports: GeneralCompose, GeneralGit, GeneralGitea, GeneralZip
 abas: git, zip, gitea
-handlers: general_save, prov, save_service_name, service_rename_show_validation_errors
+handlers: general_save, save_service_name, select_provider_tab, service_rename_show_validation_errors
 
 ### general_compose.gvb — Editor do YAML de um serviço Compose (bancos/brokers); o corpo do `if @service_source_kind == "Compo…
 <component>

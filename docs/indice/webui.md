@@ -11,31 +11,31 @@
 
 ### app.js — único <script type="module"> carregado por index.html.
 function loadPrefs()
-function savePrefs(p)
+function savePrefs(preferences)
   Alpine.store("app")
     toast(message, kind, durationMs)
     toastOk(message)
     toastError(message)
     toastWarn(message)
-    toastResult(r, okMessage) — Desfecho de um rpc num passo só: `okMessage` omitido = sucesso silencioso (a tela já mostra o result…
-    dismissToast(id)
-    serviceNameById(id)
+    toastResult(result, okMessage) — Desfecho de um rpc num passo só: `okMessage` omitido = sucesso silencioso (a tela já mostra o result…
+    dismissToast(toastId)
+    serviceNameById(serviceId)
     nav(view)
     persistPrefs()
     connect()
     disconnect()
     openStream()
-    onStreamEvent(msg)
-    applyBusEvent(ev) — Um evento do bus (mesmo formato que stream.luau::apply_bus trata) — unit variants chegam como string…
-    applySnapshot(msg)
-    searchChanged(v)
+    onStreamEvent(streamMessage)
+    applyBusEvent(busEvent) — Um evento do bus (mesmo formato que stream.luau::apply_bus trata) — unit variants chegam como string…
+    applySnapshot(snapshot)
+    searchChanged(searchText)
     stopAll()
     clearFinished()
     refreshNow()
     createProject(name, description)
-    updateProject(id, name, description)
-    deleteProject(id)
-    openProject(id)
+    updateProject(projectId, name, description)
+    deleteProject(projectId)
+    openProject(projectId)
     saveProjectEnv(envVars, envComments)
     addSecret(name, value)
     deleteSecret(name)
@@ -43,17 +43,17 @@ function savePrefs(p)
     closeNewService()
     openExportWin(serviceId)
     closeExportWin()
-    openProjectWin(p)
+    openProjectWin(project)
     closeProjectWin()
     fetchWizardCatalog(search) — Catálogos do wizard (bancos/brokers/templates) — buscados uma vez ao abrir a tela "Novo serviço" (ve…
-    wizardCreate(req) — `req` é o `WizardCreateReq` completo (ver screens/new_service.js) — o daemon (shared::wizard::build_…
+    wizardCreate(createRequest) — `req` é o `WizardCreateReq` completo (ver screens/new_service.js) — o daemon (shared::wizard::build_…
     createServiceDirect(name, source, port, domain) — `source` já é o `ServiceSource` externally-tagged.
-    openService(id)
-    fetchServiceDetail(id)
+    openService(serviceId)
+    fetchServiceDetail(serviceId)
     saveServiceSpec(spec, okMessage)
-    deleteService(id)
-    stopService(id) — Botão "Parar" do card de serviço (grid do projeto) — porta de handlers/projects.luau::svc_stop_id.
-    stopAndDeleteService(id) — Botão "Remover" do card de serviço (grid do projeto) — porta de handlers/projects.luau::stop_delete_…
+    deleteService(serviceId)
+    stopService(serviceId) — Botão "Parar" do card de serviço (grid do projeto) — porta de handlers/projects.luau::svc_stop_id.
+    stopAndDeleteService(serviceId) — Botão "Remover" do card de serviço (grid do projeto) — porta de handlers/projects.luau::stop_delete_…
     deployStart()
     deployAbort(deploymentId)
     deployRollback()
@@ -62,15 +62,15 @@ function savePrefs(p)
     queuePromote(deploymentId)
     queueReorder(order)
     queueTogglePause()
-    toastPrune(r) — Toast de um prune, com o Response::PruneResult{count,reclaimed_bytes} quando o daemon o devolve; sem…
+    toastPrune(result) — Toast de um prune, com o Response::PruneResult{count,reclaimed_bytes} quando o daemon o devolve; sem…
     dockerPruneContainers()
     dockerPruneImages()
     dockerPruneVolumes()
     dockerPruneNetworks()
-    dockerRemoveContainer(id)
-    dockerRemoveImage(id)
+    dockerRemoveContainer(containerId)
+    dockerRemoveImage(imageId)
     dockerRemoveVolume(name)
-    dockerRemoveNetwork(id)
+    dockerRemoveNetwork(networkId)
     dockerSetTab(tab) — Troca a sub-aba Docker; ao entrar em "registry" busca os tokens (não vêm no snapshot periódico, dife…
     registryOpenRepo(name)
     registryCloseRepo()
@@ -80,23 +80,23 @@ function savePrefs(p)
     registryGc()
     registryRemoveToken(name)
     registryCreateToken(name, scope) — Devolve {ok, secret} pro modal de "novo token" — o segredo só existe nesta resposta, nunca mais é re…
-    jobRunNow(id)
+    jobRunNow(jobId)
     jobRunCancel(jobRunId) — Cancela um job_run em execução (ver docs/plano-cancelamento-de-jobs.md): mata o processo `docker com…
-    jobToggle(id) — Reenvia o Job inteiro (só `enabled` inverte) — o daemon não tem um PATCH parcial; mesma limitação do…
-    jobDelete(id)
+    jobToggle(jobId) — Reenvia o Job inteiro (só `enabled` inverte) — o daemon não tem um PATCH parcial; mesma limitação do…
+    jobDelete(jobId)
     jobCreate(payload) — `payload` = { project_id, trigger_service_id, name, compose, main_service, recurrence }.
     openNewJob()
     closeNewJob()
-    newJobPickProject(id, name)
-    newJobPickService(id, name)
+    newJobPickProject(projectId, name)
+    newJobPickService(serviceId, name)
     newJobPickNoService()
     newJobBack()
     newJobSetSourceTab(kind) — ── Fonte do compose: aba "Compose" x aba "Git" (picker conta→repo→branch) ── Porta de njob_source/nj…
-    newJobGitProviderPick(id)
+    newJobGitProviderPick(providerId)
     newJobGitRepoPick(fullName)
     buildNewJobRecurrence() — Monta `recurrence` (Option<Recurrence>, externally-tagged) a partir de newJobKind.
     newJobCreate()
-    openEditJob(id) — Abre o mesmo modal do wizard, mas em modo edição: pula pro passo "form" já preenchido com o job exis…
+    openEditJob(jobId) — Abre o mesmo modal do wizard, mas em modo edição: pula pro passo "form" já preenchido com o job exis…
     openJobLogs(jobRunId)
     closeJobLogs()
     startJobLogs(jobRunId) — Logs ao vivo de UMA execução de job — mesmo par seed+SSE de startServiceLogs/stopServiceLogs, aponta…
@@ -105,56 +105,56 @@ function savePrefs(p)
     settingsSave()
     gitProviderRefresh()
     gitProviderConnect() — Mesmas validações de handlers/settings.luau::gp_connect: GitHub cai pro github.com se a Base URL vie…
-    gitProviderDelete(id)
+    gitProviderDelete(providerId)
     manifestExport()
     manifestImport() — 3 formas de resposta possíveis (mesma distinção de handlers/settings.luau::iac_import): MissingEnvVa…
-    dockerCleanupApplyConfig(cfg) — Recorrência (Option<Recurrence>, externally-tagged) → campos do formulário — mesmo formato do unpack…
+    dockerCleanupApplyConfig(config) — Recorrência (Option<Recurrence>, externally-tagged) → campos do formulário — mesmo formato do unpack…
     dockerCleanupLoad()
     dockerCleanupBuildRecurrence()
     dockerCleanupSave()
     dockerCleanupRunNow() — Botão "Executar agora": roda os recursos marcados fora do horário agendado, independente do interrup…
     serviceStop()
     serviceReload()
-    cleanLogEntry(e) — LogEntry/LogLine cru → { stream, line, timestamp } com ANSI limpo e truncado (defesa contra uma linh…
+    cleanLogEntry(logEntry) — LogEntry/LogLine cru → { stream, line, timestamp } com ANSI limpo e truncado (defesa contra uma linh…
     startServiceLogs()
     stopServiceLogs()
     setServiceTab(tab)
     get: gitProviderRedirect, newJobProjects, newJobServicesFiltered
 
 ### busy.js — feedback imediato e trava de clique para toda ação assíncrona.
-const isBusy(el)
-function arm(btn)
-function lock(btn)
-function wrap(fn)
-function wrapToast(fn) — Toast de resposta: libera os botões ocupados (fora de eventos do stream).
-function wrapStream(fn) — Evento SSE: os toasts de dentro não são resposta a um clique.
+const isBusy(element)
+function arm(button)
+function lock(button)
+function wrap(originalFunction)
+function wrapToast(originalFunction) — Toast de resposta: libera os botões ocupados (fora de eventos do stream).
+function wrapStream(originalFunction) — Evento SSE: os toasts de dentro não são resposta a um clique.
 function track(obj)
 function registerBusy(Alpine)
 
 ### directives.js — diretivas Alpine próprias da webui.
 function registerDirectives(Alpine) — directives.js — diretivas Alpine próprias da webui.
 
-### fmt.js — timestamps, durações e paleta de estado.
-function toEpochMs(iso) — epoch (ms) de um RFC3339 ("...Z" ou offset).
-function timeHms(iso) — "HH:MM:SS" local.
-function dateDmHms(iso) — "dd/mm HH:MM:SS" local.
-function dateDmHm(iso) — "dd/mm HH:MM" local (sem segundos — usado em listas Docker/Registry).
+### format.js — timestamps, durações e paleta de estado.
+function toEpochMs(isoTimestamp) — epoch (ms) de um RFC3339 ("...Z" ou offset).
+function timeHms(isoTimestamp) — "HH:MM:SS" local.
+function dateDayMonthHourMinuteSecond(isoTimestamp) — "dd/mm HH:MM:SS" local.
+function dateDayMonthHourMinute(isoTimestamp) — "dd/mm HH:MM" local (sem segundos — usado em listas Docker/Registry).
 function matchesTerm(term, fields) — `term` já em minúsculas; casa se algum campo (string) contém `term` (substring, case-insensitive).
-function hmJoin(hour, minute) — (hour, minute) -> "HH:MM", saturando na faixa válida.
-function hmSplit(hm) — "HH:MM" -> [hour, minute].
-function fmtSecs(secs) — Ns ou Mm Ns.
-function fmtUptime(secs) — dd hh mm / hh mm / mm ss, o maior campo não-zero primeiro.
-function fmtDuration(dep) — Duração de um deployment (finished_at ou agora) − started_at.
+function hourMinuteJoin(hour, minute) — (hour, minute) -> "HH:MM", saturando na faixa válida.
+function hourMinuteSplit(hourMinuteText) — "HH:MM" -> [hour, minute].
+function formatSeconds(secs) — Ns ou Mm Ns.
+function formatUptime(secs) — dd hh mm / hh mm / mm ss, o maior campo não-zero primeiro.
+function formatDuration(deployment) — Duração de um deployment (finished_at ou agora) − started_at.
 function stateLabelKind(state) — DeployState → (rótulo, kind semântico p/ .state_<kind>).
 function serviceStatusLabelKind(status) — ServiceStatus (string ou `{Error: "..."}`) → (rótulo, kind).
-function shortReason(msg, max) — Tamanho de bytes legível ("—" para 0/ausente).
-function fmtBytes(b)
+function shortReason(message, max) — Tamanho de bytes legível ("—" para 0/ausente).
+function formatBytes(bytes)
 function sourceSummary(source) — Resumo curto da origem de um serviço (ServiceSource externally-tagged).
-function looksLikeGitUrl(u) — Heurística "isso parece uma URL de Git, não uma imagem de registry".
-function parseSecretRef(v) — `<secret:NOME>` ou `secret:NOME` → "NOME" (ou null se não for referência).
+function looksLikeGitUrl(url) — Heurística "isso parece uma URL de Git, não uma imagem de registry".
+function parseSecretRef(text) — `<secret:NOME>` ou `secret:NOME` → "NOME" (ou null se não for referência).
 function dotenvFromVars(vars, comments) — env_vars + env_comments → texto `.env` (KEY=VALUE, secrets como `<secret:NOME>`, comentários `# ...`…
 function envRowsWithComments(vars, comments) — env_vars + env_comments → linhas pra exibição na lista normal (fora do editor `.env` bruto), comentá…
-function stripAnsi(s) — Remove sequências de escape ANSI (cor/cursor/erase) de uma linha de log.
+function stripAnsi(text) — Remove sequências de escape ANSI (cor/cursor/erase) de uma linha de log.
 function parseDotenv(text) — Texto `.env` → { vars, comments } (env_vars/env_comments do ServiceSpec/Project).
 function safeName(name) — Normaliza um nome de serviço para `[a-z0-9_]`, mesmo algoritmo de `crate::normalize_name` (Rust) / `…
 function internalScheme(databaseKind)
@@ -163,39 +163,39 @@ function internalUrl(databaseKind, safe, port, composeHostName) — URL de conex
 function envPlain(vars, key)
 function databaseCredentials(databaseKind, vars) — (database, user, password) lidos das env vars conhecidas do banco.
 function withDatabaseCredentials(base, database, user, password)
-function pct(s)
+function percentEncode(text)
 function userinfo(user, password)
-function externalScheme(k)
+function externalScheme(databaseKind)
 function databaseConnectionUrl(databaseKind, host, port, database, user, password)
 function urlHost(apiUrl)
 function externalUrl(domain, tls, hostPort, databaseKind, apiUrl, envVars) — URL de conexão externa: domínio HTTP tem prioridade; sem domínio, cai pro passthrough TCP (host_port…
-function pairList(services) — `msg.services` (`[{project_name, service}]`) → `[{svc, proj}]`.
+function servicePairList(services) — `msg.services` (`[{project_name, service}]`) → `[{svc, proj}]`.
 function domainRoutes(spec) — `spec.domains` se houver, senão o legado `domain`/`tls_enabled`.
 function ingressRows(pairs) — Ingress: uma linha por rota de domínio (não filtrado pela busca).
 function hostPortRows(pairs) — Portas TCP de host: uma linha por serviço com `host_port` configurado.
 function monitoringRows(pairs, metricsById) — Monitoring: uma linha por serviço COM métricas vivas (`metricsById[id]` só existe depois do primeiro…
-function stepOf(state)
+function deployStepIndex(state)
 function deployStepper(info) — Linha de passos: [{label, status}] com status done|current|failed|pending.
 function deployDetailRows(info) — Detalhe do deploy para o modal: uma linha por transição (estado em que entrou, quanto durou, mensage…
 function deployEngineActiveRows(active) — Deploy Engine: "Executando agora".
 function deployEngineQueuedRows(queued) — Deploy Engine: "Na fila" (o primeiro é o próximo a rodar).
 function dockerContainerRows(list, term) — Containers do host (rodando + parados).
 function containerStateLabel(state) — Rótulo/kind de um estado bruto do Docker ("running","exited",...).
-function containerStopped(state) — Porta literal de fmt/util.luau::container_stopped — só os parados podem ser removidos (o Docker recu…
+function containerStopped(state) — Porta literal de format/util.luau::container_stopped — só os parados podem ser removidos (o Docker r…
 function dockerImageRows(list, term)
 function dockerVolumeRows(list, term)
 function dockerNetworkRows(list, term)
 function registryRepoRows(list, term) — Lista de repositórios (filtrada pela busca global).
 function registryTagRows(list) — Tags de UM repositório (sem filtro — lista pequena, buscada sob demanda).
 function registryTokenRows(list) — Tokens de acesso Basic auth (sem filtro — lista pequena).
-function recurrenceLabel(r) — Resumo textual de uma `Recurrence?` (nil = só manual).
+function recurrenceLabel(recurrence) — Resumo textual de uma `Recurrence?` (nil = só manual).
 function jobRunStateLabel(run) — Rótulo/kind da última execução de um job.
 function jobSummaryRows(list, term, inflight) — Tela global "Schedules": uma linha por job, de todos os projetos.
 function oauthRedirectUri(base, kind) — Redirect URI do OAuth (`{base}/oauth/{gitea|github}/callback`).
 function gitKindLabel(kind)
-function gitProviderRows(list) — Porta literal de fmt/git.luau::git_providers.
+function gitProviderRows(list) — Porta literal de format/git.luau::git_providers.
 function dockerCleanupResourceLabel(name)
-function dockerCleanupLastRunSummary(lr) — `lr`: `DockerCleanupLastRun?` (`{ at, results: [{ resource, count, reclaimed_bytes, error }] }`).
+function dockerCleanupLastRunSummary(lastRun) — `lr`: `DockerCleanupLastRun?` (`{ at, results: [{ resource, count, reclaimed_bytes, error }] }`).
 function deployEngineRecentRows(recent) — Deploy Engine: "Histórico 24h".
 
 ### icons.js — conjunto de ícones SVG inline (traço 1.75, estilo Lucide) e a diretiva `x-icon="'nome'"`.
@@ -211,7 +211,7 @@ chama: String, abortDeployment, addDomain, addEnvVar, analyze, cancel, cancelCom
 
 ### wm.js — gerenciador de janelas da webui (diretiva Alpine `x-win`).
 function lsGet(key)
-function lsSet(key, v)
+function lsSet(key, value)
 function bringToFront(layer)
 function clamp(box) — Mantém a janela alcançável: ao menos a barra de título dentro da tela.
 function pin(box)
@@ -220,12 +220,12 @@ function registerWindows(Alpine)
 ## rustploy-daemon/crates/daemon/webui/net/
 
 ### api.js — cliente HTTP/JSON do daemon.
-function fetchTimeout(url, init, ms) — `fetch` com timeout cobrindo cabeçalho E corpo; o erro de timeout vira mensagem legível.
+function fetchTimeout(url, init, timeoutMs) — `fetch` com timeout cobrindo cabeçalho E corpo; o erro de timeout vira mensagem legível.
 class Api
   constructor(baseUrl, token)
   headers()
-  rpc(cmd) — Executa um Command.
-  rpcChecked(cmd) — Como rpc(), mas trata `Response::Err { code, message }` como falha.
+  rpc(command) — Executa um Command.
+  rpcChecked(command) — Como rpc(), mas trata `Response::Err { code, message }` como falha.
   uploadArchive(serviceId, file) — `POST /api/services/<id>/archive` — corpo binário cru (não é RPC JSON).
 
 ### sse.js — consumidor de endpoints SSE do daemon: o firehose `/api/events` (porta de crates/rustploy-gui/views/…
@@ -239,10 +239,10 @@ function openStream(baseUrl, token, path, handlers) — Abre a stream em `path` 
 
 ### deploy_engine.js — tela "Deploy Engine": fila global (um deploy por vez), execução em andamento e histórico das últimas…
   Alpine.data("deployEngine")
-    dragStart(ev, id)
+    dragStart(dragEvent, deploymentId)
     dragEnd()
     dropOn(targetId)
-    openDetail(id)
+    openDetail(deploymentId)
     closeDetail()
     get: store, engine, active, detail, queued, recent, paused, uptime, successCount, failedCount, totalCount
 
@@ -274,14 +274,14 @@ function openStream(baseUrl, token, path, handlers) — Abre a stream em `path` 
     gotoImport()
     gotoCompose()
     gotoDatabase()
-    pickDatabase(db)
+    pickDatabase(database)
     gotoBroker()
-    pickBroker(b)
+    pickBroker(broker)
     gotoTemplate()
-    pickTemplate(t)
+    pickTemplate(template)
     cancel()
-    reset(ev) — Janela reaberta: volta ao passo 1 sem lixo do uso anterior (o catálogo dos bancos/brokers/templates …
-    baseReq(kind, id) — ── Submissões ────────────────────────────────────────────────────
+    reset(resetEvent) — Janela reaberta: volta ao passo 1 sem lixo do uso anterior (o catálogo dos bancos/brokers/templates …
+    baseReq(kind, selectedId) — ── Submissões ────────────────────────────────────────────────────
     submitApp()
     submitCompose()
     submitDatabase()
@@ -290,7 +290,7 @@ function openStream(baseUrl, token, path, handlers) — Abre a stream em `path` 
     get: store, filteredTemplates
 
 ### project_detail.js — projeto aberto (view=project_services no client iced): sub-abas Serviços/Variáveis/Secrets/Jobs.
-function primaryContainer(svc) — Container "primário" de um serviço pra exibir no card: o live, senão o primeiro em execução, senão o…
+function primaryContainer(service) — Container "primário" de um serviço pra exibir no card: o live, senão o primeiro em execução, senão o…
   Alpine.data("projectDetail")
     startEdit()
     cancelEdit()
@@ -333,15 +333,15 @@ function primaryContainer(svc) — Container "primário" de um serviço pra exib
     close()
     get: store, projectVars, pickedKeys
   Alpine.data("serviceImport") — ── Importar ─────────────────────────────────────────────────────────
-    pickFile(ev)
+    pickFile(changeEvent)
     clear()
     nonEmpty(map)
     buildReq(dryRun)
     analyze(first) — Pré-visualização (nada é gravado).
     chooseEnv(key, choice) — Sobrescrever mexe no projeto e vale para os outros serviços dele.
-    stateLabel(s)
-    choiceLabel(s, choice)
-    choicesFor(s)
+    stateLabel(state)
+    choiceLabel(statusEntry, choice)
+    choicesFor(statusEntry)
     create()
     get: store, hasMissing, canCreate
 
@@ -356,16 +356,16 @@ function primaryContainer(svc) — Container "primário" de um serviço pra exib
     discardOldDatabase()
     loadSharedState()
     setShared(on)
-    showSharedDatabase(d)
+    showSharedDatabase(database)
     createSharedDatabase()
-    deleteSharedDatabase(d)
+    deleteSharedDatabase(database)
     loadConnectionUrl()
     initGeneralForm()
     renameService() — Unicidade dentro do projeto é checada no daemon (a mensagem volta no toast).
     saveCompose()
     cancelCompose()
     setProviderTab(tab)
-    giteaProviderPick(id)
+    giteaProviderPick(providerId)
     giteaRepoPick(fullName)
     saveSource() — Porta de handlers/services.luau::gen_save — mesma heurística looksLikeGitUrl decide Git vs Registry …
     onArchiveFileChange(event)

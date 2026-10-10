@@ -582,7 +582,7 @@ editor o interpreta como script comum e levanta ~40 erros falsos. Ver
 chama, como Node.js):
 
 - irmão no mesmo diretório → nome nu: `require("stream")`;
-- pacote pai a partir de dentro de `handlers/` ou `fmt/` → `require("../state")`;
+- pacote pai a partir de dentro de `handlers/` ou `format/` → `require("../state")`;
 - do script de entrada (`app.luau`, na raiz) → caminho completo:
   `require("handlers/connection")`.
 

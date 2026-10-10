@@ -219,46 +219,46 @@ fn run() -> iced::Result — Sobe o daemon multi-janela e roda o loop do iced at
 ### busy.rs — busy.luau no motor de verdade: o botão libera no toast da própria ação, não só quando o handler inte…
 (1 testes)
 
-### fmt_service_detail.rs — O `fmt/service_detail.luau` (`compose_host` e `internal_url`) rodando no motor de verdade.
+### format_service_detail.rs — O `format/service_detail.luau` (`compose_host` e `internal_url`) rodando no motor de verdade.
 fn boot() -> GlacierUI
 (2 testes)
 
-### fmt_time.rs — O `fmt/time.luau` rodando no motor de verdade.
+### format_time.rs — O `format/time.luau` rodando no motor de verdade.
 fn boot() -> GlacierUI
 fn offset_local_segundos() -> i64 — Offset local em segundos, perguntado ao sistema — a mesma fonte que o `localtime` do Luau consulta.
-fn hora_deslocada(hms, offset) -> String — `HH:MM:SS` + offset, com a virada de dia descartada (só as horas importam).
+fn shifted_time(hms, offset) -> String — `HH:MM:SS` + offset, com a virada de dia descartada (só as horas importam).
 (3 testes)
 
 ### templates_render.rs — Headless validation: every template parses, every screen/tab evaluates and builds an iced element tr…
 fn boot() -> GlacierUI — Boots the engine the way `main.rs` does, but from the workspace root so the workspace-relative templ…
 fn textos_avaliados(n) -> Vec<String> — Todo texto de uma árvore avaliada, em ordem.
 fn cd_ws_root() — Cd's to the workspace root (idempotent — safe alongside `boot`).
-fn comentarios_fora(src) -> String — Remove os comentários (`//` e `/* … */`) para que "a primeira tag" seja a primeira tag de verdade: t…
+fn comments_outside(src) -> String — Remove os comentários (`//` e `/* … */`) para que "a primeira tag" seja a primeira tag de verdade: t…
 (18 testes)
 
 ## rustploy-gui/tests/fixtures/
 
-### acao_salva.gvb — Fixture do teste busy.rs: um botão cuja ação toasta e depois ainda faz outro fetch (o "reler o servi…
-<screen "fixture">
-script: acao_salva.luau
-handlers: salvar
-
-### acao_salva.luau — Fixture do teste `busy.rs`.
-function init() — Fixture do teste `busy.rs`.
-function salvar()
-
-### compose_host.gvb — Fixture do teste fmt_service_detail.rs: tela mínima que roda o fmt/service_detail.luau e exibe um re…
+### compose_host.gvb — Fixture do teste format_service_detail.rs: tela mínima que roda o format/service_detail.luau e exibe…
 <screen "fixture">
 script: compose_host.luau
 
-### compose_host.luau — Fixture do teste `fmt_service_detail.rs`: exercita `compose_host` e `internal_url` de `fmt/service_d…
+### compose_host.luau — Fixture do teste `format_service_detail.rs`: exercita `compose_host` e `internal_url` de `format/ser…
 function init()
 
-### tempo.gvb — Fixture do teste fmt_time.rs: tela mínima que roda o fmt/time.luau e exibe o resultado.
+### saved_action.gvb — Fixture do teste busy.rs: um botão cuja ação toasta e depois ainda faz outro fetch (o "reler o servi…
 <screen "fixture">
-script: tempo.luau
+script: saved_action.luau
+handlers: salvar
 
-### tempo.luau — Fixture do teste `fmt_time.rs`: exercita o `fmt/time.luau` de verdade, através do motor, e deixa cad…
+### saved_action.luau — Fixture do teste `busy.rs`.
+function init() — Fixture do teste `busy.rs`.
+function salvar()
+
+### time.gvb — Fixture do teste format_time.rs: tela mínima que roda o format/time.luau e exibe o resultado.
+<screen "fixture">
+script: time.luau
+
+### time.luau — Fixture do teste `format_time.rs`: exercita o `format/time.luau` de verdade, através do motor, e dei…
 function init()
 
 ## rustploy-gui/vendor/iced_tiny_skia/src/
