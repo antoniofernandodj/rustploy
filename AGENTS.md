@@ -24,6 +24,8 @@ Como este guia está organizado:
 > Desde 2026-10-13 o acesso de agente é servido **pelo próprio daemon**. A
 > ponte local que morava no app GUI (`127.0.0.1:9800`, `agent-api.json`) foi
 > removida. Desenho e decisões: `docs/plano-chave-de-acesso-e-mcp.md`.
+> **Conectar o Claude Code de outra máquina** (comando pronto, prompt para o
+> agente, problemas comuns): `docs/conectar-agente-mcp.md`.
 
 **A fonte da verdade é o manual que o daemon serve** —
 `rustploy-daemon/crates/daemon/src/api/agent/manual.md`, o mesmo texto de
