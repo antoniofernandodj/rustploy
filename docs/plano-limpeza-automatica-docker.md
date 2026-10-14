@@ -108,6 +108,8 @@ pub struct DockerCleanupConfig {
     pub volumes_all: bool,
     pub networks: bool,
     pub build_cache: bool,
+    pub build_cache_older_than_hours: u32, // 0 = tudo
+    pub images_older_than_hours: u32,      // 0 = sem filtro
     pub last_run_at: Option<DateTime<Utc>>,
 }
 ```
@@ -144,6 +146,41 @@ formulário que já existe) + `views/scripts/handlers/settings.luau` (ou
 similar) na GUI iced; espelho em `crates/daemon/webui/screens/settings.js` +
 `index.html` na web UI — os dois clientes falam o mesmo protocolo, então a
 lógica é a mesma, só a marcação muda.
+
+## Retenção por idade e limpeza na fila (implementado em 2026-10-14)
+
+**Problema.** A limpeza noturna apagava todo o cache de build e, com "incluir todas
+as não usadas", as imagens base e as imagens `rp_*` dos deploys anteriores (o
+rollback). O primeiro deploy ou job do dia pagava tudo de novo: pull das bases,
+camadas do apt, dependências. E nada impedia a limpeza de rodar no meio de um build.
+
+**Retenção.** Dois campos novos em `DockerCleanupConfig`, ambos com padrão de 168 h
+(uma semana) e `0` para o comportamento antigo:
+
+- `build_cache_older_than_hours` vira `docker builder prune -f --filter until=<N>h`.
+  O BuildKit guarda o cache usado nas últimas N horas. Usa-se só `until`, que é
+  estável entre versões (`--keep-storage` virou `--reserved-space` no docker 29).
+- `images_older_than_hours` vira o filtro `until` do prune de imagens. Esse filtro
+  olha a data de **criação** da imagem, não a do último uso: protege as imagens
+  `rp_*` recentes (o rollback da semana), mas uma imagem base antiga continua
+  elegível. Quem precisa proteger bases deve evitar "incluir todas as não usadas".
+
+Os botões manuais da aba **Docker** continuam limpando tudo (corte `0`). Os campos
+têm `#[serde(default)]`: sem isso, a config já salva falharia o parse e voltaria
+ao padrão (desligada). A limpeza do cache registra quando rodou e com qual corte
+(`build_cache_last_prune`), e é isso que o aquecimento de jobs usa para saber se o
+cache sobreviveu (`docs/plano-aquecer-job.md`).
+
+**Na fila.** A limpeza agora segura a **vaga única** da fila de deploy
+(`docs/plano-jobs-na-fila-de-deploy.md`), então nunca sobrepõe um deploy, o
+pre-deploy dele nem um job:
+
+- o agendador usa `try_job_slot_now()`; vaga ocupada ou fila pausada, ele só loga e
+  tenta de novo no tick seguinte (o `next_run_at` continua vencido);
+- "Executar agora" usa `acquire_job_slot()` e espera a vez;
+- um teto de 15 min (e de 10 min no `docker builder prune`, com `kill_on_drop`)
+  solta a vaga se o Docker pendurar; na falha por tempo o `next_run_at` avança e o
+  evento `DockerCleanupCompleted` leva o erro.
 
 ## Fora de escopo (por agora)
 

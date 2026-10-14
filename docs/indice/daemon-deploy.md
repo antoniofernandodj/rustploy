@@ -117,11 +117,34 @@ impl JobRunner
 fn scheduler_loop(state)
 const TICK_SECS
 
+### source.rs — Checkout do repositório de um job git-sourced, compartilhado pela execução (`runner`) e pelo aquecim…
+fn clone_git_source(db, secrets, job, git, build_dir, on_progress) -> Result<()> — Clona `git` para dentro de `build_dir` (vira o checkout do job).
+
+### warm.rs — Aquecimento de jobs: deixar no host as imagens e o cache de build que um job usa, para a próxima exe…
+const WARM_TIMEOUT — Teto de um aquecimento: ele segura a vaga única da fila de deploy.
+struct WarmRecord { fingerprint, warmed_at, pulled_images, has_build }
+fn fingerprint(job) -> String — O que identifica "o mesmo job" para o cache: o compose colado, ou o repositório, a branch e o caminh…
+fn record_key(job_id) -> String
+fn load(db, job_id) -> Option<WarmRecord>
+fn record(db, job, images) — Marca o job como aquecido agora, com o que o compose dele precisa ter no host.
+fn forget(db, job_id) — Esquece o aquecimento de um job apagado.
+enum Verdict { Warm, Cold }
+fn cache_pruned_since(warmed_at, prune) -> bool — O corte de idade da limpeza poupa o cache usado nas últimas N horas: o aquecimento sobreviveu se aco…
+fn judge(job, record, missing_image, prune) -> Verdict — A decisão, sem tocar em Docker nem no banco: `missing_image` é a primeira imagem do registro ausente…
+fn status(state, job) -> JobWarmStatus — Fonte única da verdade: se o job está quente agora, e por que não, se frio.
+fn request(state, job) -> Result<bool, String> — Pede o aquecimento de `job`.
+fn warm_once(state, job) -> Result<()> — Aquece com a vaga já em mãos.
+fn warm_in_dir(state, job, project_name, network_name, env_vars, build_dir) -> Result<ComposeImages>
+(9 testes)
+
 ## rustploy-daemon/crates/daemon/src/maintenance/
 
 ### mod.rs — Limpeza automática (agendada) de recursos Docker não usados — ver `docs/plano-limpeza-automatica-doc…
 
 ### run.rs — Execução de uma limpeza (agendada ou "Executar agora"): roda os recursos marcados em `DockerCleanupC…
+const RUN_TIMEOUT — Teto de uma limpeza inteira: ela segura a vaga única da fila de deploy, e uma limpeza pendurada trav…
+fn run_holding_slot(state, config, permit) -> DockerCleanupConfig — Roda a limpeza segurando a vaga única da fila (`permit`): enquanto ela executa, nenhum deploy, pre-d…
+fn finish_timed_out(state, config) -> DockerCleanupConfig
 fn run(state, config) -> DockerCleanupConfig — Ordem importa: containers primeiro (libera imagens/redes em uso por eles), depois imagens, depois vo…
 fn record(resource, result) -> DockerCleanupResourceResult
 fn save_config(state, config) -> anyhow::Result<()>

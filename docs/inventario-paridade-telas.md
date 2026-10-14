@@ -24,6 +24,7 @@ o que existe de um lado e não do outro, tela a tela. Base para decidir o que
 | Janela "Novo projeto" | `new_project_form.gv` (janela separada) | janela flutuante (`wm.js`, `projectWin`) | paridade (2026-10-07) |
 | Janela "Novo job" | `new_job_window.gv` (janela separada) | janela flutuante (`njob*`) | paridade (2026-10-07) |
 | Janela "Novo serviço" (wizard) | `new_service_window.gv` + `new_service.gv` | janela flutuante (`showNewService`) | paridade (2026-10-07) |
+| Painel "Ações do job" (⋯ da linha, em Schedules e na aba Jobs do projeto) | `<popup>` do componente `job_actions.gvb` (`job_actions_open_<job_id>`) | janela flutuante (`wm.js`, `jobActionsJobId`) | paridade (2026-10-14); a GUI usa overlay do motor, a webui uma janela flutuante, ver `docs/plano-aquecer-job.md` |
 | Janela "Novo token de registry" | `new_registry_token_window.gv` | modal em `screens/docker.js` | 5. cromo de plataforma |
 | Janela de logs ao vivo | `log_window.gv` | aba Logs + janela destacável (`logWin`) | paridade (2026-10-07) |
 

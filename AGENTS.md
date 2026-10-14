@@ -386,6 +386,7 @@ regras abaixo.
 | `project_env_` · `project_secret_` | variáveis e segredos do projeto |
 | `docker_cleanup_` | limpeza automática do Docker |
 | `deploy_engine_` | tela da fila de deploys |
+| `job_actions_` | painel "Ações do job" (aquecer, rodar, editar…) de uma linha de job |
 | `log_window_` | janela de logs |
 | `migration_` | migração de banco |
 | `shared_database_` | banco do servidor compartilhado |

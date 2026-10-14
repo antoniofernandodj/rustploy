@@ -19,6 +19,8 @@ fn delete(db, key) -> Result<()>
 const KEY_WEBHOOK_BASE_URL — DEPRECADA: a base pública passou a ser derivada de `[api] domain`/`port` (ver `AppState::public_base…
 const KEY_DOCKER_CLEANUP_CONFIG — JSON de `shared::DockerCleanupConfig` — ver `crate::maintenance`.
 const KEY_DOCKER_CLEANUP_LAST_RUN — JSON de `shared::DockerCleanupLastRun`, ausente até a primeira execução.
+const KEY_BUILD_CACHE_LAST_PRUNE — JSON de `BuildCachePrune`: quando o cache de build foi limpo pela última vez e com qual corte de ida…
+const KEY_JOB_WARM_PREFIX — Prefixo das chaves `job_warm:<job_id>` (JSON de `jobs::warm::WarmRecord`).
 const KEY_ACME_EMAIL, KEY_REGISTRY_DOMAIN
 
 ### deployments.rs — Tabela `deployment`: criar, transicionar de estado, histórico por serviço e estatísticas de 24h.

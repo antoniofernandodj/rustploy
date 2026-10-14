@@ -66,7 +66,7 @@ handlers: clipboard, export_all, export_none, export_save, export_show, export_s
 
 ### shell.gvb — Casca do app conectado: sidebar, topbar e as views de projeto (Deployments, Projects, serviços de um…
 <component>
-imports: DeploymentsView, HomeViews, LoadingRow, NavItem, PickerRow, ProjectCard, ProjectServicesView, ProjectsView, ServiceCard, ServiceDetail, StatCard, StateCell, TabButton, TemplateRow, rp-badge
+imports: DeploymentsView, HomeViews, JobActions, LoadingRow, NavItem, PickerRow, ProjectCard, ProjectServicesView, ProjectsView, ServiceCard, ServiceDetail, StatCard, StateCell, TabButton, TemplateRow, rp-badge
 views: deployments, projects, project_services, service
 handlers: disconnect, drawer, nav_deploy_engine, nav_deployments, nav_docker, nav_ingress, nav_monitoring, nav_projects, nav_schedules, nav_settings, nav_support, search_changed, stop_all
 
@@ -75,6 +75,11 @@ handlers: disconnect, drawer, nav_deploy_engine, nav_deployments, nav_docker, na
 ### badge.gvb — Variante "badge" da célula de estado (mesmo ponto + rótulo, mas com o espaçamento/estilo de crachá —…
 <component>
 props: color, label
+
+### job_actions.gvb — Botão "⋯" de uma linha de job, que abre o painel sobreposto com todas as ações do job.
+<component>
+props: job_id, job_name, running, enabled, enabled_label, last_run_id, is_warm, is_warming, warm_kind, warm_label, warm_reason, warmed_at_label
+handlers: job_delete, job_run_cancel, job_run_now, job_toggle, job_warm, open_edit_job_window, open_job_logs_window
 
 ### loading_row.gvb — Linha "Carregando dados…" com spinner.
 <component>
@@ -136,7 +141,7 @@ handlers: docker_tab
 
 ### schedules.gvb — Seção `schedules` (view = schedules) das telas globais; importada por home.gvb.
 <component>
-handlers: job_delete, job_run_cancel, job_run_now, job_toggle, open_edit_job_window, open_job_logs_window, open_new_job_window
+handlers: open_new_job_window
 
 ### settings.gvb — Seção `settings` (view = settings) das telas globais; importada por home.gvb.
 <component>
@@ -147,7 +152,7 @@ abas: web, git, iac, maintenance
 
 ### executando.gvb — Aba "Executando" do Deploy Engine; importada por deploy_engine.gvb.
 <component>
-handlers: deploy_engine_close_detail, deploy_engine_open_detail
+handlers: deploy_engine_close_detail, deploy_engine_open_detail, queue_cancel
 
 ### fila.gvb — Aba "Fila" do Deploy Engine; importada por deploy_engine.gvb.
 <component>
@@ -268,7 +273,7 @@ handlers: project_env_add, project_env_delete, project_env_export, project_env_i
 
 ### project_jobs.gvb — Aba Jobs do projeto.
 <component>
-handlers: job_delete, job_run_cancel, job_run_now, job_toggle, open_edit_job_window, open_job_logs_window, open_new_job_window
+handlers: open_new_job_window
 
 ### project_secrets.gvb — Aba Secrets do projeto; a condição de carregamento vai na chamada.
 <component>

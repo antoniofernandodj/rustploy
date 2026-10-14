@@ -126,6 +126,12 @@ JobRunCancel — Cancela um `job_run` em andamento: mata o processo `docker comp
 JobRunHistory | daemon: job_run_history | gui: — | web: —
 GetJobLogs | daemon: get_job_logs | gui: handlers/jobs | web: app
 
+## / e o cache de build dele ainda estão no host. Resposta: `JobWarmStatus`.
+JobWarmStatus — Fonte única da verdade de "este job está quente?": confere se as image… | daemon: job_warm_status | gui: — | web: —
+
+## / Resposta: `JobWarmRequested`.
+JobWarm — Aquece o job (baixa as imagens que faltam e popula o cache de build) s… | daemon: job_warm | gui: handlers/jobs | web: app
+
 ## Docker cleanup
 PruneContainers | daemon: docker_prune::prune_containers | gui: handlers/docker | web: app
 
@@ -219,4 +225,4 @@ DeployQueuePause — Pausa (`true`) ou retoma (`false`) a fila global. | daemon:
 
 - Só GUI (1): JobList
 - Só webui (2): ServiceCreate, DeployRollback
-- Nem GUI nem webui (28): ServiceList, RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, SecretList, ManifestApply, ManifestExport, JobListAll, JobRunHistory, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList
+- Nem GUI nem webui (29): ServiceList, RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, SecretList, ManifestApply, ManifestExport, JobListAll, JobRunHistory, JobWarmStatus, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList
