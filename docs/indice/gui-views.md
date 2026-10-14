@@ -23,7 +23,7 @@ views: monitoring, ingress, deploy_engine, docker, settings, schedules
 script: scripts/log_window.luau
 handlers: clipboard, textarea_end, textarea_top, window
 
-### login.gvb — Tela de login: URL do daemon e token, com a lista de servidores lembrados.
+### login.gvb — Tela de login: um campo, a chave de acesso `rpk1_…` (endereço + token), com a lista de servidores le…
 <component>
 handlers: connect, forget_server
 

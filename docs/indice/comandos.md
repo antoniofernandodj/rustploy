@@ -7,36 +7,36 @@
 > `agente:` (só quando há) = sob `rustploy-gui/src/agent/` (API de agente da GUI; `catalog` = só documentado).
 
 ## Projects
-ProjectCreate | daemon: project_create | gui: handlers/projects, new_project_window | web: app | agente: catalog
+ProjectCreate | daemon: project_create | gui: handlers/projects, new_project_window | web: app
 ProjectDelete | daemon: project_delete | gui: handlers/projects | web: app
 ProjectUpdate | daemon: project_update | gui: handlers/projects | web: app
-ProjectList | daemon: project_list | gui: handlers/projects, handlers/services | web: screens/service_detail | agente: catalog
+ProjectList | daemon: project_list | gui: handlers/projects, handlers/services | web: screens/service_detail
 ProjectEnvSet | daemon: project_env_set | gui: handlers/projects | web: app
 
 ## Services
 ServiceCreate | daemon: service_create | gui: — | web: app
-ServiceUpdate | daemon: service_update | gui: handlers/services | web: app | agente: catalog
+ServiceUpdate | daemon: service_update | gui: handlers/services | web: app
 ServiceDelete | daemon: service_delete | gui: handlers/projects | web: app
-ServiceList | daemon: service_list | gui: — | web: — | agente: catalog
-ServiceGet | daemon: service_get | gui: handlers/services | web: app | agente: catalog
+ServiceList | daemon: service_list | gui: — | web: —
+ServiceGet | daemon: service_get | gui: handlers/services | web: app
 
 ## Deployments
-DeployStart | daemon: deploy_start | gui: handlers/services | web: app | agente: catalog, routes
+DeployStart | daemon: deploy_start | gui: handlers/services | web: app
 DeployAbort | daemon: deploy_abort | gui: handlers/deploy_queue | web: app
-DeployRollback | daemon: deploy_rollback | gui: — | web: app | agente: catalog
-DeployHistory | daemon: deploy_history | gui: handlers/services | web: app | agente: catalog, routes
+DeployRollback | daemon: deploy_rollback | gui: — | web: app
+DeployHistory | daemon: deploy_history | gui: handlers/services | web: app
 DeployDelete | daemon: deploy_delete | gui: handlers/services, handlers/stream | web: app
 
 ## Service lifecycle
-ServiceStop | daemon: service_stop | gui: handlers/projects, handlers/services | web: app | agente: catalog
+ServiceStop | daemon: service_stop | gui: handlers/projects, handlers/services | web: app
 ServiceReload | daemon: service_reload | gui: handlers/services | web: app
 
 ## Global views
-RecentDeployments | daemon: recent_deployments | gui: — | web: — | agente: routes
-GetBuildLogs | daemon: get_build_logs | gui: handlers/services | web: screens/service_detail | agente: catalog, routes
+RecentDeployments | daemon: recent_deployments | gui: — | web: —
+GetBuildLogs | daemon: get_build_logs | gui: handlers/services | web: screens/service_detail
 
 ## Observability
-LogsGet | daemon: logs_get | gui: handlers/services | web: app | agente: catalog
+LogsGet | daemon: logs_get | gui: handlers/services | web: app
 LogsSubscribe | daemon: (inline em routes.rs) | gui: — | web: —
 LogsUnsubscribe | daemon: (inline em routes.rs) | gui: — | web: —
 MetricsSubscribe | daemon: (inline em routes.rs) | gui: — | web: —
@@ -82,7 +82,7 @@ GetDaemonSettings | daemon: get_daemon_settings | gui: handlers/connection | web
 SetDaemonSettings | daemon: set_daemon_settings | gui: handlers/settings | web: app
 
 ## Secrets
-SecretSet | daemon: secret_set | gui: handlers/secrets | web: app | agente: catalog
+SecretSet | daemon: secret_set | gui: handlers/secrets | web: app
 SecretDelete | daemon: secret_delete | gui: handlers/secrets | web: app
 SecretList | daemon: secret_list | gui: — | web: —
 
@@ -93,10 +93,10 @@ ManifestApply — Reconcilia projetos/serviços a partir de manifestos YAML já 
 ManifestExport — Exporta o estado atual de um projeto como manifesto YAML (secrets redi… | daemon: manifest_export | gui: — | web: —
 
 ## / com os valores reais das vars `Plain`).
-ManifestExportAll — Exporta TODOS os projetos+serviços num único manifesto raiz (`ServerMa… | daemon: manifest_export_all | gui: handlers/settings | web: app | agente: catalog
+ManifestExportAll — Exporta TODOS os projetos+serviços num único manifesto raiz (`ServerMa… | daemon: manifest_export_all | gui: handlers/settings | web: app
 
 ## / padrão; `prune`/`deploy` com a mesma semântica).
-ManifestImport — Importa um manifesto raiz (`projects:`) ou de projeto único (`project:… | daemon: manifest_import | gui: handlers/settings | web: app | agente: catalog
+ManifestImport — Importa um manifesto raiz (`projects:`) ou de projeto único (`project:… | daemon: manifest_import | gui: handlers/settings | web: app
 
 ## / `ServiceExportPlan`.
 ServiceExportPlan — O que dá para levar do serviço: suas variáveis e as do projeto (com a … | daemon: service_export::plan | gui: handlers/bundle | web: screens/service_bundle
@@ -160,10 +160,10 @@ RemoveNetwork | daemon: docker_remove::remove_network | gui: handlers/docker | w
 StopAllManaged — Stops every container labeled `rustploy.managed=true`, regardless of w… | daemon: docker_inventory::stop_all_managed | gui: handlers/projects | web: app
 
 ## / 502: a rota existe? para qual `ip:porta` ela aponta?
-IngressRoutes — Lê a tabela de rotas do ingress (domínios + portas). | daemon: ingress::routes | gui: — | web: — | agente: routes
+IngressRoutes — Lê a tabela de rotas do ingress (domínios + portas). | daemon: ingress::routes | gui: — | web: —
 
 ## / É o mesmo caminho do reconcile de boot, exposto sob demanda.
-IngressReconcile — Recalcula as rotas a partir dos containers que realmente existem no Do… | daemon: ingress::reconcile | gui: — | web: — | agente: routes
+IngressReconcile — Recalcula as rotas a partir dos containers que realmente existem no Do… | daemon: ingress::reconcile | gui: — | web: —
 
 ## / Lista os snapshots disponíveis (retorna Vec<String> com nomes de ficheiro).
 EnvBackupList — Lista os snapshots disponíveis (retorna Vec<String> com nomes de fiche… | daemon: env_backup::list | gui: — | web: —
@@ -173,8 +173,8 @@ EnvBackupRestore — Restaura o snapshot com o nome dado (caminho relativo ao ba
 
 ## Infrastructure
 Ping | daemon: ping | gui: — | web: —
-DaemonStatus | daemon: daemon_status | gui: handlers/connection | web: app | agente: catalog, routes
-DeployEngineStatus | daemon: deploy_engine_status | gui: — | web: — | agente: catalog, routes
+DaemonStatus | daemon: daemon_status | gui: handlers/connection | web: app
+DeployEngineStatus | daemon: deploy_engine_status | gui: — | web: —
 
 ## Git providers (Gitea OAuth2 / PAT)
 GitProviderList | daemon: git_provider_list | gui: handlers/bundle_import, handlers/connection, handlers/jobs, handlers/services, handlers/settings, new_job_window | web: app, screens/service_bundle, screens/service_detail
@@ -191,7 +191,7 @@ WizardCatalog | daemon: wizard::catalog | gui: handlers/wizard | web: app
 WizardCreate | daemon: wizard::create | gui: handlers/wizard | web: app
 
 ## / mudança na hora, sem esperar o próximo tick. Resposta: `Snapshot(String)`.
-Snapshot — Snapshot completo do dashboard como JSON (o mesmo que o SSE `/api/even… | daemon: (inline em routes.rs) | gui: handlers/stream | web: app | agente: routes
+Snapshot — Snapshot completo do dashboard como JSON (o mesmo que o SSE `/api/even… | daemon: (inline em routes.rs) | gui: handlers/stream | web: app
 
 ## delete; criar conteúdo só acontece via `docker push` externo).
 RegistryStatus | daemon: registry::status | gui: — | web: —
@@ -219,4 +219,4 @@ DeployQueuePause — Pausa (`true`) ou retoma (`false`) a fila global. | daemon:
 
 - Só GUI (1): JobList
 - Só webui (2): ServiceCreate, DeployRollback
-- Nem GUI nem webui (28): ServiceList (agente), RecentDeployments (agente), LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, SecretList, ManifestApply, ManifestExport, JobListAll, JobRunHistory, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes (agente), IngressReconcile (agente), EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus (agente), RegistryStatus, RegistryRepoList
+- Nem GUI nem webui (28): ServiceList, RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, SecretList, ManifestApply, ManifestExport, JobListAll, JobRunHistory, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList

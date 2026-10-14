@@ -1,5 +1,9 @@
 # A API de agente vive no app, não no daemon
 
+> **Substituído em 2026-10-13** por `docs/plano-chave-de-acesso-e-mcp.md`: a
+> ponte saiu do app GUI e o acesso de agente passou a ser servido pelo daemon
+> (`POST /api/login` + MCP em `POST /mcp`). Este documento fica como histórico.
+
 > Implementado em 2026-08-27, junto com as correções da Parte 1 de
 > `plano-erro-de-deploy-invisivel.md`.
 

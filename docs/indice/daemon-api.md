@@ -12,6 +12,9 @@ type ApiBody = BoxBody<Bytes, Infallible> — Unified response body: both the bu
 fn run(state, cfg, tls) — Starts the API listener.
 fn serve_conn(io, state, token, peer) — Serves one HTTP/1.1 connection over `io` (plain TCP or a TLS stream).
 fn handle(req, state, token, peer) -> Result<Response<ApiBody>, Infallible> — Roteia uma requisição HTTP da API: rotas públicas (webhook, callback OAuth) antes do gate do token B…
+fn login(req, expected, peer) -> Response<ApiBody> — `POST /api/login`: troca a chave `rpk1_…` pelo token (ver `agent::login`).
+fn mcp(req, state) -> Response<ApiBody> — `POST /mcp`: o servidor MCP do agente (ver `agent::mcp`).
+fn json_value(status, body) -> Response<ApiBody>
 fn service_archive_upload(req, state, service_id) -> Response<ApiBody>
 fn rpc(req, state) -> Response<ApiBody> — `POST /api/rpc`: decode a `Command`, run it through `dispatch`, encode the `Response` back as JSON.
 fn events(state) -> Response<ApiBody> — `GET /api/events`: SSE stream.
@@ -72,7 +75,73 @@ type ApiBody = BoxBody<Bytes, std::convert::Infallible>
 struct Asset { route, content_type, etag, no_cache, gz } — Um arquivo do app shell, já processado (minificado + gzipado) em tempo de build — ver `Asset` gerado…
 fn serve(path) -> Option<Response<ApiBody>> — Serve `path` se casar com algum asset embutido do app shell; `None` se a rota não pertencer à web UI…
 const ASSETS
-(7 testes)
+(8 testes)
+
+## rustploy-daemon/crates/daemon/src/api/agent/
+
+### access_key.rs — Chave de acesso `rpk1_…`: o endereço do daemon e o token numa string só.
+const PREFIX — Prefixo da versão 1 do formato.
+struct AccessKey { url, token }
+enum KeyFormatError { Empty, MissingPrefix, NotBase64, NotJson, MissingField } — Qual parte da chave não confere — cada uma tem uma correção diferente, e é isso que deixa um agente …
+impl KeyFormatError
+  fn code() -> &'static str
+  fn message() -> String
+impl AccessKey
+  fn encode() -> String
+  fn decode(raw) -> Result<Self, KeyFormatError>
+(3 testes)
+
+### mcp.rs — Servidor MCP em `POST /mcp` — transporte Streamable HTTP, sempre respondendo `application/json` (o s…
+const PROTOCOL_VERSIONS — Versões do protocolo que este servidor fala, da mais nova para a mais velha.
+fn handle(state, body) -> Option<(StatusCode, Value)> — Atende um corpo de `POST /mcp`.
+fn error(id, code, message) -> Value
+fn initialize(params) -> Value
+fn tools_list() -> Value
+fn tools_call(state, params) -> Result<Value, (i64, String)> — Falha de ferramenta vai no **resultado** (`isError`), não como erro JSON-RPC: é assim que o modelo d…
+fn resources_read(params) -> Result<Value, (i64, String)>
+const MANUAL_URI
+(3 testes)
+
+### mod.rs — Acesso de agente servido pelo próprio daemon: a chave `rpk1_…`, o `POST /api/login`, o manual e o se…
+const MANUAL — O manual do agente — fonte única do texto servido em `GET /api/agent/manual`, nas `instructions` do …
+fn login(body, expected, host) -> (StatusCode, Value) — `POST /api/login`: troca a chave `rpk1_…` pelo token de acesso.
+fn server_url(key_url, host) -> String — O esquema vem da chave (o listener não sabe se há TLS na frente dele); o host, do header quando houv…
+fn extract_key(body) -> Result<String, KeyFormatError> — Tira a chave do corpo do login.
+fn format_error(fail) -> Value — O `400` do login: o que falhou **e** o formato certo, para um agente acertar na tentativa seguinte s…
+fn access_key_for(base_url, token) -> Option<String> — Monta a chave deste servidor a partir da config: o endereço público do daemon (o mesmo do webhook) e…
+fn print_access_key_and_exit(config) -> ! — Imprime a chave de acesso e sai — `rustployd access-key`.
+(6 testes)
+
+### tools.rs — As ferramentas do agente: os caminhos frequentes já resolvidos ("deployou? por quê não?", "qual é o …
+const POLL_INTERVAL — De quanto em quanto tempo o `wait` de um deploy reconsulta o histórico.
+const MAX_WAIT — Teto do `timeout_s` aceito em `deploy`.
+struct ToolError { code, message }
+impl ToolError
+  fn new(code, message) -> Self
+  fn bad_request(message) -> Self
+struct ToolSpec { name, description, input_schema } — Uma ferramenta: nome, descrição para o agente e o JSON Schema dos argumentos.
+fn no_arguments() -> Value
+fn call(state, name, args) -> Result<Value, ToolError> — Executa a ferramenta `name`.
+fn rpc(state, command) -> Result<Value, ToolError> — Executa um `Command` (em JSON) e converte `Response::Err` em falha.
+fn rpc_expect(state, command, variante) -> Result<Value, ToolError> — Como [`rpc`], mas exige a variante `variante` e devolve só o payload dela.
+fn status(state) -> Result<Value, ToolError>
+fn snapshot(state) -> Result<Value, ToolError> — `Snapshot` devolve JSON **dentro** de uma string.
+fn list_deploys(state, args) -> Result<Value, ToolError>
+fn deploy(state, args) -> Result<Value, ToolError>
+fn resolve_service(state, args) -> Result<String, ToolError> — Aceita o id direto (`service_id`) ou o nome (`service`).
+fn wait_for_outcome(state, service_id, deployment_id, limite) -> Result<(Value, bool), ToolError> — Reconsulta o histórico até o deployment chegar a um estado terminal (ou o prazo acabar).
+fn build_logs(state, args) -> Result<Value, ToolError>
+fn build_log_lines(state, deployment_id) -> Result<Vec<String>, ToolError>
+fn compact_summary(sum) -> Value — `DeploymentSummary` → linha compacta com o desfecho resolvido.
+fn compact_deployment(dep) -> Value — `Deployment` → o que interessa a quem só quer saber como acabou.
+fn outcome_ok(estado) -> Value — `true` = no ar, `false` = falhou, `null` = ainda não decidiu.
+fn is_terminal(dep) -> bool
+fn failure_reason(dep) -> Value — A causa da falha, tirada do `states_log`.
+fn service_index(snapshot) -> Vec<Value> — Achata o snapshot no índice de serviços que um agente precisa para agir.
+fn status_label(status) -> Value — `ServiceStatus` é externally-tagged e só `Error` tem campo — vira `"Running"` ou `"Error: <causa>"`.
+fn source_label(source) -> Value — `ServiceSource` achatado no que identifica a origem, sem arrastar o `compose.content` inteiro (dezen…
+const TOOLS
+(4 testes)
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/
 

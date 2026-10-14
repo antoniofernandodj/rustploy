@@ -221,6 +221,9 @@ function registerWindows(Alpine)
 
 ### api.js — cliente HTTP/JSON do daemon.
 function fetchTimeout(url, init, timeoutMs) — `fetch` com timeout cobrindo cabeçalho E corpo; o erro de timeout vira mensagem legível.
+function decodeAccessKey(accessKey) — Decodifica `rpk1_<base64url de {"u","t"}>` em `{ url, token }`, ou `null` se a string não estiver ne…
+function encodeAccessKey(url, token) — Monta a chave de um par endereço + token (o inverso de `decodeAccessKey`).
+function login(baseUrl, accessKey) — `POST /api/login`: troca a chave pelo token de acesso.
 class Api
   constructor(baseUrl, token)
   headers()
@@ -260,7 +263,7 @@ function openStream(baseUrl, token, path, handlers) — Abre a stream em `path` 
 ### login.js — tela de login.
   Alpine.data("login")
     submit()
-    get: store
+    get: store, otherServerWarning
 
 ### monitoring.js — tela "Monitoring": uso de CPU/memória do host e por container.
   Alpine.data("monitoring")

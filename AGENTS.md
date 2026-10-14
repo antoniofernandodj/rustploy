@@ -21,302 +21,67 @@ Como este guia está organizado:
 
 # Parte 1 — Manual de Controle por Agente
 
-> A API de agente foi implementada em 2026-08-28. As decisões de desenho por
-> trás dela estão em `docs/api-agente-no-gui.md`; a implementação, em
-> `rustploy-gui/src/agent/` (repo da gui).
-
-## O modelo mental
-
-Um agente **não fala com o daemon**. Fala com o **app GUI**, que já está logado
-no daemon e empresta a própria sessão:
-
-```
-  agente local ──HTTP──> 127.0.0.1:9800 ──HTTPS──> rustploy remoto
-                           (rustploy-gui)            POST /api/rpc
-                                 │
-                                 └─ sessão (url + token) da janela
-```
-
-Três consequências que são o motivo do desenho:
-
-1. **O agente nunca vê o token do daemon.** Usa um token local, próprio, que
-   morre com o processo.
-2. **O agente não precisa saber onde o daemon está.** Fala com `localhost`.
-3. **Trocar de servidor na GUI troca o alvo do agente junto.** Não há estado
-   paralelo para sair de sincronia.
-
-O alcance é exatamente o da janela — nem mais, nem menos.
-
-## Descoberta (comece aqui)
-
-Um arquivo, escrito quando o app sobe:
-
-```bash
-cat ~/.local/share/rustploy/agent-api.json
-```
-
-```json
-{
-  "version": 1,
-  "url": "http://127.0.0.1:9800",
-  "token": "…64 hex…",
-  "pid": 48213,
-  "remote_url": "https://rustploy.exemplo.com",
-  "connected": true,
-  "docs": "GET /agent/schema (Authorization: Bearer <token>)"
-}
-```
-
-É o passo de descoberta inteiro. `GET /agent/schema` conta o resto em JSON.
-
-```bash
-export RP=$(python3 -c "import json;print(json.load(open('$HOME/.local/share/rustploy/agent-api.json'))['url'])")
-export RPT=$(python3 -c "import json;print(json.load(open('$HOME/.local/share/rustploy/agent-api.json'))['token'])")
-alias rp='curl -s -H "Authorization: Bearer $RPT"'
-```
-
-O arquivo nasce `0600` — quem lê o token opera o rustploy remoto inteiro. O
-token é novo a cada execução, então um handoff velho no disco não vale nada
-(confira o `pid`, ou simplesmente chame `/agent/health`).
-
-## Todas as rotas
-
-Autenticação: `Authorization: Bearer <token do handoff>` em tudo, exceto
-`GET /agent/health`. Toda falha é JSON:
-`{"error":{"code":"…","message":"…"}}`.
-
-### Dados (encaminhados ao daemon)
-
-| Rota | Para quê |
-|---|---|
-| `GET /agent/health` | a ponte está no ar? a janela está conectada? (sem token) |
-| `GET /agent/schema` | o catálogo completo, legível por máquina |
-| `GET /agent/status` | versão/uptime do daemon + fila de deploys |
-| `GET /agent/services` | índice achatado projeto→serviço |
-| `GET /agent/deploys?limit=` | últimos deploys **com o desfecho resolvido** |
-| `POST /agent/deploys` | dispara um deploy e **espera** o resultado |
-| `GET /agent/deploys/<id>/logs?after=&limit=` | build log paginado por cursor |
-| `POST /agent/services/<id>/archive` | sobe um `.zip` local (por caminho) |
-| `GET /agent/ingress` | tabela de rotas **viva** do proxy — o diagnóstico de um 502 |
-| `POST /agent/ingress/reconcile` | recalcula as rotas sem redeploy |
-| `POST /agent/rpc` | passthrough: qualquer `Command` do protocolo |
-
-### Janela (controlam a GUI em si)
-
-| Rota | Para quê |
-|---|---|
-| `GET /agent/servers` | servidores já usados nesta máquina |
-| `POST /agent/connect` | **entra na sessão** pela tela de login |
-| `POST /agent/disconnect` | sai da sessão |
-| `GET /agent/ui` | o que a janela está mostrando agora |
-| `GET /agent/ui/actions` | **todas** as ações que a GUI aceita |
-| `POST /agent/ui/action` | dispara qualquer ação, como um clique |
-| `POST /agent/ui/context` | escreve chaves no contexto da janela |
-
-Códigos: `400` pedido malformado ou comando recusado pelo daemon · `401` token
-desta API errado · `404` rota/serviço inexistente · `502` daemon inalcançável ou
-recusou · `503` a janela não está conectada a daemon nenhum.
-
-## Receitas
-
-### 1. Conectar sem ninguém na frente do app
-
-Era o único ponto que exigia um humano. Hoje:
-
-```bash
-rp $RP/agent/servers          # o que já foi usado aqui
-rp $RP/agent/connect -d '{"url":"https://rustploy.exemplo.com"}'
-# → {"connected":true,"remote_url":"https://rustploy.exemplo.com"}
-```
-
-Sem `token` no corpo, a ponte usa o **salvo** para aquela URL — o segredo não
-atravessa a rede em nenhum sentido. Com um servidor novo, mande
-`{"url":"…","token":"…"}`.
-
-A rota **espera o desfecho** (até 30 s) e a janela acompanha de verdade: valida
-com um `DaemonStatus`, abre o SSE, carrega as configurações e vai para a tela
-`shell`. Token errado → `502 connect_refused`.
-
-### 2. Deployar e saber se funcionou
-
-A rota que existe para responder as duas perguntas de uma vez:
-
-```bash
-rp $RP/agent/deploys -d '{"service":"stand-imob","wait":true}'
-```
-
-```json
-{
-  "deployment_id": "dep_01M11Z99…",
-  "state": "Failed",
-  "ok": false,
-  "error": "docker build error: Cannot locate specified Dockerfile: Dockerfile",
-  "log_tail": ["…", "==> Erro em [BuildingImage]: …", "==> Deploy falhou — iniciando rollback"],
-  "log_cursor": 6,
-  "waited": true,
-  "timed_out": false
-}
-```
-
-- `ok`: `true` = Live, `false` = Failed, `null` = ainda rodando, ou terminal sem
-  desfecho (`Stopped` = parado de propósito, `Pruning` = substituído por um
-  deploy mais novo). Chamar esses dois de falha seria mentira.
-- Aceita `"service"` (nome) ou `"service_id"`. Nome é único **por projeto**, não
-  globalmente: com ambiguidade a rota recusa e lista os candidatos.
-- `wait:false` devolve `202` na hora, e você acompanha por `GET /agent/deploys`.
-- `timeout_s` (padrão 900, teto 3600), `log_tail` (padrão 40, teto 500).
-
-### 3. Acompanhar um build longo sem rebaixar tudo
-
-```bash
-rp "$RP/agent/deploys/dep_…/logs?after=120"
-# → {"total":1402,"after":120,"next_after":620,"has_more":true,"lines":[…]}
-```
-
-Passe o `next_after` da resposta anterior. O `GetBuildLogs` do daemon só sabe
-devolver o log inteiro; a fatia acontece na ponte.
-
-### 4. Subir um zip
-
-```bash
-rp $RP/agent/services/svc_…/archive -d '{"path":"/home/user/app.zip"}'
-```
-
-Recebe o **caminho local**, não os bytes — a ponte é loopback, mandar dezenas de
-MB em base64 seria custo puro. No daemon isto é rota HTTP com corpo binário,
-**não** um `Command`: não dá para descobrir lendo `protocol.rs`.
-
-### 5. Dirigir a janela
-
-```bash
-rp $RP/agent/ui
-# → {"screen":"shell","view":"deployments","selected_service":"", …}
-
-rp $RP/agent/ui/actions          # o chaveiro: 144 ações, com o arquivo de origem
-rp $RP/agent/ui/action  -d '{"action":"nav_docker"}'                  # clique
-rp $RP/agent/ui/action  -d '{"action":"docker_tab","value":"images"}' # onChange
-rp $RP/agent/ui/context -d '{"search":"nginx"}'                       # campo
-```
-
-**A chave-mestra é `ui/action`.** Todo botão, aba e formulário da GUI é uma
-função global do Luau (`views/scripts/handlers/*.luau`), e essa rota chama
-qualquer uma delas pelo mesmo caminho de um clique. Cobre a superfície inteira
-por construção — inclusive telas que ainda não existem. `GET /agent/ui/actions`
-lista os nomes lidos da árvore em execução, então não há lista para envelhecer.
-
-Ações com valor (`value`) são o `onChange` de um campo; sem valor, um clique.
-Abrir janela-filha (novo projeto, wizard, logs) também é ação — ex.:
-`open_new_project_window`.
-
-Para ler chaves fora do resumo: `GET /agent/ui?keys=screen,view,docker_tab` ou
-`?all=1` para o contexto inteiro (resposta grande).
-
-### 6. Domínio respondendo 502
-
-O 502 do rustploy vem do proxy dele, não do seu app: quer dizer que a rota
-existe e o backend não respondeu. A tabela de rotas é o que decide isso, e ela
-vive **em memória** no daemon — não no banco:
-
-```bash
-rp $RP/agent/ingress
-```
-
-```json
-{
-  "domains": [
-    {"domain":"db.exemplo.com","backends":["172.23.0.9:8000"],"service_id":"svc_01M11Z0G…"}
-  ],
-  "ports": [{"host_port":8081,"backends":["172.23.0.4:8081"]}]
-}
-```
-
-Como ler:
-
-- **domínio ausente da lista** → nenhum deploy registrou rota. O serviço está
-  parado, ou o deploy falhou antes de promover.
-- **`backends` vazio** → rota registrada sem destino. É 502 garantido.
-- **`backends` apontando para a porta errada** → o caso clássico em stack
-  Compose (ver a armadilha do alvo de ingress, na Parte 3).
-
-Para consertar sem redeployar — o daemon relê os containers que existem de fato
-e reescreve as rotas:
-
-```bash
-rp $RP/agent/ingress/reconcile -d '{}'      # devolve a tabela já corrigida
-```
-
-É o mesmo caminho do reconcile de boot, disparado sob demanda. Não recria
-container nenhum: se a rota continua errada depois dele, o problema está no
-spec (alvo de ingress, porta do domínio), não na tabela.
-
-### 7. Qualquer outra coisa
-
-```bash
-rp $RP/agent/rpc -d '{"DeployHistory":{"service_id":"svc_…","limit":3}}'
-```
-
-Aceita qualquer `Command`, esteja no catálogo ou não. É a válvula que mantém as
-rotas de conveniência honestas: elas existem para os caminhos frequentes, não
-para virarem a única porta.
-
-Codificação serde **externally-tagged**: variante com campos é objeto de uma
-chave (`{"ProjectCreate":{…}}`), variante sem campos é a string nua
-(`"ProjectList"`). Vale para `Command` **e** para `Response`. Fonte da verdade:
-`rustploy-shared/src/protocol.rs` e `models.rs`.
-
-## Armadilhas
-
-- **`202` não é `200`.** Ações de UI (`ui/action`, `ui/context`) são
-  *entregues*, não confirmadas — o efeito é assíncrono. Confirme em
-  `GET /agent/ui` ou na rota de dado correspondente. `POST /agent/connect` é a
-  exceção: essa espera o desfecho.
-- **Método errado dá `404`, não `405`.** `curl` sem `-d` manda GET; use
-  `-X POST` nas rotas sem corpo (`/agent/disconnect`).
-- **`ServiceUpdate` é substituição total, não patch.** Faça `ServiceGet`, mude o
-  campo, devolva o spec inteiro. Campo omitido é campo apagado.
-- **`api_token` e `token` saem sempre como `"<redigido>"`** em `/agent/ui` — o
-  desenho inteiro é o agente operar sem vê-los.
-- **A janela pode estar recolhida na bandeja.** O motor segue vivo e aceitando
-  ações; não é preciso abri-la para operar.
-- **Log de container não é persistido.** `LogsGet` lê do Docker ao vivo, e o
-  swap de deploy destrói o container antigo com o log junto. Build log
-  (`build_log`) esse sim é persistido.
-- **`503 not_connected`** quer dizer que a janela não está logada — use
-  `POST /agent/connect`, não é erro de rede.
-
-## Configuração e limites
-
-| Variável | Efeito |
-|---|---|
-| *(nada)* | liga em `127.0.0.1:9800` |
-| `RUSTPLOY_AGENT_API=off` | desliga a ponte |
-| `RUSTPLOY_AGENT_API=127.0.0.1:9910` | outra porta |
-
-Endereço não-loopback é **recusado** e cai no default: isto é uma ponte para
-processos da mesma máquina, não um segundo daemon. Porta ocupada → porta
-efêmera, e o handoff diz qual (por isso leia o arquivo, não assuma a porta).
-
-**Sem escopo.** Quem tem o token do handoff tem o alcance da janela, que é o
-bearer do daemon — hoje sem escopo nenhum. Não há modo somente-leitura.
-Enquanto o daemon não tiver tokens com escopo (read-only / deploy / admin),
-esta ponte não tem como inventar um. Ver a nota de segurança em
-`docs/plano-erro-de-deploy-invisivel.md`.
-
-## Como isto funciona por dentro
-
-Relevante quando algo não responde como esperado:
-
-- O servidor é **hyper** (não axum), numa thread com runtime tokio próprio — o
-  loop do iced é dono da thread principal. Vive em
-  `rustploy-gui/src/agent/` (repo da gui).
-- A sessão é **observada**, não notificada: o gancho `on_message` do
-  `GlacierDaemon` roda depois de cada dispatch da janela principal, e a ponte
-  relê o contexto ali. Cobre login, logout e troca de servidor sem conhecer
-  nenhum dos três fluxos.
-- O caminho de volta (ponte → janela) é o canal `external` do **glacier-ui
-  0.58.6+**: `ExternalSender` injeta no motor o mesmo `EngineMessage` que um
-  clique produz. É o que tornou `connect`/`ui/action`/`ui/context` possíveis —
-  antes disso a GUI só se movia por evento do loop do iced.
+> Desde 2026-10-13 o acesso de agente é servido **pelo próprio daemon**. A
+> ponte local que morava no app GUI (`127.0.0.1:9800`, `agent-api.json`) foi
+> removida. Desenho e decisões: `docs/plano-chave-de-acesso-e-mcp.md`.
+
+**A fonte da verdade é o manual que o daemon serve** —
+`rustploy-daemon/crates/daemon/src/api/agent/manual.md`, o mesmo texto de
+`GET /api/agent/manual`, das `instructions` do MCP e do recurso
+`rustploy://manual`. Esta parte só resume; não duplique o manual aqui.
+
+## Em três passos
+
+1. **Pegue a chave de acesso** `rpk1_…` — endereço do daemon + token numa
+   string só. Na VPS: `rustployd access-key`. Numa sessão aberta: Settings →
+   Web Server → Copiar chave (GUI ou webui).
+2. **Troque-a pelo token:**
+
+   ```bash
+   curl -s https://SERVIDOR:PORTA/api/login -d '{"key":"rpk1_…"}'
+   # → {"access_token":"…","token_type":"Bearer","ai_agent":{"mcp":"…/mcp","manual":"…/api/agent/manual"}}
+   ```
+
+   Formato errado → `400` dizendo qual parte falhou e qual é o formato certo.
+   Token de outra instalação → `401`.
+3. **Opere**, com `Authorization: Bearer <access_token>`:
+   - **MCP** em `POST /mcp` (Streamable HTTP, respostas JSON):
+     `claude mcp add --transport http rustploy https://SERVIDOR:PORTA/mcp --header "Authorization: Bearer <token>"`;
+   - ou o mesmo MCP por `curl`, que é só JSON-RPC num POST;
+   - ou `POST /api/rpc` direto com qualquer `Command`.
+
+## As ferramentas MCP
+
+`status` · `list_services` · `list_deploys` · `deploy` (dispara e **espera**,
+devolvendo `ok`/`error`/fim do log) · `build_logs` (cursor) · `ingress_routes`
+(diagnóstico de 502) · `ingress_reconcile` · `rpc` (qualquer `Command`) ·
+`manual`. Implementação: `api/agent/tools.rs`, chamando `dispatch()` em
+processo.
+
+## O que mudou em relação à ponte da GUI
+
+- O agente **não precisa** do app desktop aberto, nem estar na mesma máquina.
+- O agente **vê o token** (é ele que autentica). O token continua sendo o
+  bearer único e sem escopo do daemon — ver "Segurança" na Parte 3.
+- As rotas que **dirigiam a janela** (`/agent/ui*`, `/agent/connect`) não
+  existem mais: o daemon não tem janela, e o `rpc` cobre tudo o que é dado.
+- Upload de zip: `POST /api/services/<id>/archive` com o corpo **binário**
+  (não mais um caminho local).
+
+## Por dentro
+
+- `api/agent/access_key.rs` — o codec da chave (`rpk1_` + base64url de
+  `{"u","t"}`). Esconde o endereço, não o criptografa. A GUI
+  (`views/scripts/access_key.luau`) e a webui (`net/api.js`) têm cópias do
+  codec; as três geram bytes idênticos.
+- `api/agent/mod.rs` — `/api/login` (público, antes do gate de bearer). O token
+  devolvido **é** o `[api].token`: não há sessões. As URLs de `ai_agent` usam o
+  header `Host` da requisição, não o endereço gravado na chave.
+- `api/agent/mcp.rs` — MCP feito à mão sobre hyper (sem crate de MCP, sem SSE):
+  `initialize`, `ping`, `tools/*`, `resources/*`. `GET /mcp` → `405`.
+- O future do `dispatch` é enorme; aninhado em outro (o `Snapshot` despacha
+  comandos por dentro) estoura a pilha da thread tokio em debug. Por isso
+  `tools.rs` o chama com `Box::pin`.
 
 ------
 
@@ -769,7 +534,7 @@ resolve. O daemon não tem lib target, então seus testes ficam sob `--bins`.
 # em rustploy-daemon/: cargo test -p rustploy --bins <nome_do_teste>
 #                       cargo check --workspace
 # em rustploy-shared/:  cargo test
-# em rustploy-gui/:     cargo test --bins          # inclui a API de agente
+# em rustploy-gui/:     cargo test --bins
 #                       cargo test --test templates_render   # runtime mlua real
 ```
 
@@ -784,8 +549,8 @@ mapeia, em silêncio), e `WAYLAND_DISPLAY` precisa ser removido do ambiente
 (`env -u WAYLAND_DISPLAY DISPLAY=:99 …`) ou o winit tenta Wayland e trava sem
 logar nada. A trava de instância única (`single_instance`) ocupa uma porta fixa
 derivada do app id — com o app instalado rodando, o build de dev **sai em
-silêncio**. Desde a API de agente, quase nada disso é necessário: para conferir
-*comportamento*, use as rotas da Parte 1; Xvfb só para conferir pixel.
+silêncio**. Para conferir *comportamento* do daemon, use o MCP/`/api/rpc` da
+Parte 1; Xvfb só para conferir a tela.
 
 ## Configuração
 
@@ -834,8 +599,7 @@ termina TLS com certificado ACME.
              ▲                                ▲
              │ HTTP/JSON + SSE                │ HTTP/JSON + SSE
       rustploy-gui (desktop)            navegador (webui)
-             │
-             └── API de agente em 127.0.0.1:9800 (Parte 1)
+                  agentes de IA: POST /api/login + POST /mcp (Parte 1)
 ```
 
 ## Crates
@@ -1032,8 +796,8 @@ banco. Consequências que valem lembrar:
   (`recovery::restore_routes`) e no reconcile de 30 em 30 segundos
   (`recovery::reconcile`);
 - reiniciar o daemon a reconstrói a partir do Docker — não do banco;
-- `GET /agent/ingress` mostra o que ela contém agora, e
-  `POST /agent/ingress/reconcile` (`Command::IngressReconcile`) a recalcula sob
+- a ferramenta MCP `ingress_routes` mostra o que ela contém agora, e
+  `ingress_reconcile` (`Command::IngressReconcile`) a recalcula sob
   demanda. Antes disso um 502 não tinha diagnóstico nem conserto sem redeploy.
 
 ### Armadilha: qual container de uma stack Compose recebe o domínio
@@ -1069,8 +833,8 @@ ligação com `:`, glacier-ui 0.117+), renderizados pela crate publicada
 `glacier-ui`. Toda
 responsabilidade de rede e de negócio (login, consumidor SSE, navegação, cada
 mutação) vive em **Luau** (`views/scripts/`), **não** neste Rust — o `src/` daqui
-é o runtime `iced::daemon`, a moldura da janela, a persistência local e a **API
-de agente** (`src/agent/`, a única parte do Rust daqui que fala rede).
+é o runtime `iced::daemon`, a moldura da janela e a persistência local. (A API
+de agente que morava em `src/agent/` saiu em 2026-10-13 — ver Parte 1.)
 
 Rode da raiz do repo `rustploy-gui` (`cargo run`) ou de um layout
 empacotado: caminhos de template/script são relativos ao CWD que o glacier
@@ -1094,8 +858,7 @@ resolve, não necessariamente ao diretório de lançamento.
   round-trip perde o serial do pointer-grab e `window:drag` vira no-op
   silencioso). O que é específico do rustploy entra por ganchos:
   `.font()`/`.default_font()` (JetBrains Mono embutida), `.main_template()`
-  (carrega o manifesto `app.gvb`), `.on_message()` (espelha sessão e contexto para a API de
-  agente **e sobe a API de agente**, de forma idempotente), `.main_window()`/
+  (carrega o manifesto `app.gvb`), `.main_window()`/
   `.child_window()` (só o `application_id` do Linux), `.lua_extension()`, `.toast_period()` e `.antialiasing(false)`. O
   resto mora no **markup** do `views/app.gvb`: `app(id = rustploy,
   single_instance, remember_geometry, size, min_size, decorations, icon)`, a
@@ -1115,12 +878,6 @@ resolve, não necessariamente ao diretório de lançamento.
   sempre `None` no Wayland (o protocolo não a expõe ao cliente; não é
   contornável), então só o tamanho volta lá. Ver
   `docs/plano-file-io-luau-e-geometria.md`.
-- **`src/agent/`** — a API de agente da Parte 1. Servidor hyper em loopback numa
-  thread com runtime tokio próprio; `on_message` é o caminho de ida (espelha
-  sessão e contexto), o canal `external` do glacier **0.58.6+** é o de volta
-  (`ExternalSender` injeta no motor o mesmo `EngineMessage` de um clique).
-  hyper dos dois lados de propósito — nada de axum, nada de reqwest. Desenho em
-  `docs/api-agente-no-gui.md`.
 - **`views/`** (todos `.gvb`) — `app.gvb` (o manifesto: `app(...)`, a titlebar +
   handles de resize da principal, que chaveia em `screen`), `login.gvb`,
   `shell.gvb` (sidebar + topbar + o roteador `if @view`; o corpo de cada view mora
@@ -1162,8 +919,8 @@ streams — sem `EventSource`, que não permite mandar o header `Authorization`.
 - Secrets são cifrados em repouso com `age`; o plaintext nunca vai ao disco.
 - `api.token` é um **bearer único, sem escopo**. Quem o tem cria projeto, lê
   secret decifrado (`resolve_env` devolve texto puro), sobe container e derruba
-  stack. A API de agente herda exatamente esse alcance e não tem como inventar
-  um escopo que o daemon não tem — se um agente vai operar isso de forma
+  stack. A API de agente (Parte 1) **entrega esse token** ao agente no
+  `/api/login` — não há como inventar um escopo que o daemon não tem — se um agente vai operar isso de forma
   autônoma, o token com escopo (read-only / deploy / admin) precisa vir antes de
   ampliar o alcance, não depois. O gate de bearer é um `if` só, em
   `api/http_api.rs`: é o ponto único onde escopo entraria.
@@ -1198,7 +955,7 @@ Buracos conhecidos, todos com o porquê registrado em
   esforço em aberto.
 - **`ServiceUpdate` é substituição total, não patch.** Um round-trip mal feito
   apaga configuração sem aviso.
-- **Não há schema do protocolo.** O catálogo em `GET /agent/schema` é curado à
-  mão; gerar de verdade exigiria `schemars` sobre a crate `shared`.
+- **Não há schema do protocolo.** A lista de comandos do manual do agente
+  (`api/agent/manual.md`) é curada à mão; gerar de verdade exigiria `schemars` sobre a crate `shared`.
 - **Não há CLI.** O binário `rustploy` na raiz é um shell script de uma linha
   apontando para um alvo que não é mais construído.
