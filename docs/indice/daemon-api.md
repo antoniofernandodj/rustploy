@@ -94,9 +94,9 @@ fn split_address(text) -> Option<(&str, &str)> — Parte `<endereço>::<token>` 
 
 ### mcp.rs — Servidor MCP em `POST /mcp` — transporte Streamable HTTP, sempre respondendo `application/json` (o s…
 const PROTOCOL_VERSIONS — Versões do protocolo que este servidor fala, da mais nova para a mais velha.
-fn handle(state, body) -> Option<(StatusCode, Value)> — Atende um corpo de `POST /mcp`.
+fn handle(state, body, server) -> Option<(StatusCode, Value)> — Atende um corpo de `POST /mcp`.
 fn error(id, code, message) -> Value
-fn initialize(params) -> Value
+fn initialize(params, server) -> Value
 fn tools_list() -> Value
 fn tools_call(state, params) -> Result<Value, (i64, String)> — Falha de ferramenta vai no **resultado** (`isError`), não como erro JSON-RPC: é assim que o modelo d…
 fn resources_read(params) -> Result<Value, (i64, String)>

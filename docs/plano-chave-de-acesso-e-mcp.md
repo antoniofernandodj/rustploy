@@ -347,3 +347,9 @@ O código fica no histórico do git.
   - **Token vazio passou a valer** nos decodificadores da GUI e da webui (é o
     caso legítimo da API aberta). O do daemon continua exigindo token: o
     `/api/login` sem token não teria o que devolver.
+- **O handshake MCP diz qual servidor é** (2026-10-14). Com vários rustploy
+  registrados, todos se apresentavam como `rustploy` com o mesmo manual. Agora
+  o `serverInfo.title` é `Rustploy daemon em <host:porta>`, e as
+  `instructions` começam dizendo o servidor e pedindo confirmação antes de
+  alterar algo quando houver mais de um. O `host:porta` vem do header `Host`
+  (ou do endereço público, sem ele). O `serverInfo.name` continua `rustploy`.

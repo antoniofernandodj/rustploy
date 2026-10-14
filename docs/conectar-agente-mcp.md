@@ -99,8 +99,36 @@ Regras:
 ## Mais de um servidor
 
 O nome `rustploy` no `claude mcp add` é só um rótulo. Para operar vários
-daemons da mesma máquina, dê um nome por servidor (`rustploy-producao`,
-`rustploy-staging`…) e diga ao agente qual usar.
+daemons da mesma máquina, dê um nome por servidor e diga ao agente qual usar:
+
+```bash
+claude mcp add --transport http --scope user rustploy-producao https://prod.exemplo.com:9797/mcp --header "Authorization: Bearer <token A>"
+claude mcp add --transport http --scope user rustploy-staging  https://stg.exemplo.com:9797/mcp  --header "Authorization: Bearer <token B>"
+```
+
+As ferramentas viram `mcp__rustploy-producao__deploy`,
+`mcp__rustploy-staging__deploy` etc. Além do nome, cada daemon se identifica
+no handshake. O `serverInfo.title` é `Rustploy daemon em <host:porta>`, e a
+primeira linha das `instructions` diz em qual servidor o agente está e pede
+confirmação antes de alterar algo quando houver mais de um registrado. O
+`host:porta` é o do header `Host` pelo qual o agente chegou.
+
+Se cada repositório de app sobe num servidor diferente, dá para amarrar o
+servidor ao projeto com `--scope project`. O registro vai para um `.mcp.json`
+na raiz do repo, que é commitado, então o token entra por variável de
+ambiente:
+
+```json
+{
+  "mcpServers": {
+    "rustploy": {
+      "type": "http",
+      "url": "https://prod.exemplo.com:9797/mcp",
+      "headers": { "Authorization": "Bearer ${RUSTPLOY_TOKEN}" }
+    }
+  }
+}
+```
 
 ## Problemas comuns
 

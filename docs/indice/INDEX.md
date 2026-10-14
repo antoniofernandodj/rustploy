@@ -46,6 +46,7 @@
 
 ### docs/
 - api-agente-no-gui.md — A API de agente vive no app, não no daemon
+- conectar-agente-mcp.md — Conectar um agente (Claude Code) ao MCP de um rustploy
 - correcao-persistencia-geometria-janela.md — Correção: a janela não reabria no último tamanho (glacier 0.49.0 → 0.49.1)
 - empacotamento-styles-e-cross-compile-windows.md — Empacotamento do rustploy-gui: mover styles/ e cross-compile Windows (cargo-xwin…
 - env-backup.md — Backup automático de env vars
