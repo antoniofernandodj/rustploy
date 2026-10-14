@@ -7,3 +7,6 @@
 [submodule "rustploy-gui"]
 	path = rustploy-gui
 	url = https://github.com/antoniofernandodj/rustploy-gui.git
+[submodule "rustploy-docs"]
+	path = rustploy-docs
+	url = https://github.com/antoniofernandodj/rustploy-docs.git
