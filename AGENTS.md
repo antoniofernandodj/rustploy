@@ -32,13 +32,13 @@ Como este guia está organizado:
 
 ## Em três passos
 
-1. **Pegue a chave de acesso** `rpk1_…` — endereço do daemon + token numa
-   string só. Na VPS: `rustployd access-key`. Numa sessão aberta: Settings →
-   Web Server → Copiar chave (GUI ou webui).
+1. **Pegue a chave de acesso** — base64 de `host:porta::token`: endereço do
+   daemon + token numa string só. Na VPS: `rustployd access-key`. Numa
+   sessão aberta: Settings → Web Server → Copiar chave (GUI ou webui).
 2. **Troque-a pelo token:**
 
    ```bash
-   curl -s https://SERVIDOR:PORTA/api/login -d '{"key":"rpk1_…"}'
+   curl -s https://SERVIDOR:PORTA/api/login -d '{"key":"<chave>"}'
    # → {"access_token":"…","token_type":"Bearer","ai_agent":{"mcp":"…/mcp","manual":"…/api/agent/manual"}}
    ```
 
@@ -73,8 +73,9 @@ processo.
 
 ## Por dentro
 
-- `api/agent/access_key.rs` — o codec da chave (`rpk1_` + base64url de
-  `{"u","t"}`). Esconde o endereço, não o criptografa. A GUI
+- `api/agent/access_key.rs` — o codec da chave (base64url de
+  `host:porta::token`; o esquema só entra quando a porta não o deduz).
+  Esconde o endereço, não o criptografa. A GUI
   (`views/scripts/access_key.luau`) e a webui (`net/api.js`) têm cópias do
   codec; as três geram bytes idênticos.
 - `api/agent/mod.rs` — `/api/login` (público, antes do gate de bearer). O token

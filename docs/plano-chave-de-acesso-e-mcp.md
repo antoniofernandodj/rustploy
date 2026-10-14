@@ -32,17 +32,28 @@ O que você pediu resolve as duas coisas de uma vez:
 ### Como ela é
 
 ```
-rpk1_eyJ1IjoiaHR0cHM6Ly9ydXN0cGxveS5leGVtcGxvLmNvbTo5Nzk3IiwidCI6ImEzZjku…
+cnVzdHBsb3kuZXhlbXBsby5jb206OTc5Nzo6YTNmOS4uLg
 ```
 
-- `rpk1_` — prefixo fixo ("rustploy key, versão 1"). **Por quê:** quem vê a
-  chave sabe o que ela é (como os `ghp_` do GitHub), scanners de segredo
-  conseguem achá-la num commit vazado, e se um dia o formato mudar, `rpk2_`
-  convive com o antigo sem ambiguidade.
-- o resto — `base64url` de um JSON pequeno: `{"u":"https://host:porta","t":"token"}`.
-  **Por quê JSON e não `host:porta:token`:** URL tem `:` e `/` dentro; um JSON
-  não precisa de regra de escape inventada, e dá para acrescentar campo depois
-  sem quebrar chave antiga.
+É o base64url (sem padding) de `host:porta::token`, no exemplo
+`rustploy.exemplo.com:9797::a3f9...`.
+
+- `::` separa o endereço do token. **Por quê dois pontos duplos:** o endereço
+  já tem um `:` (o da porta); `::` não aparece em `host:porta`. O único
+  endereço que tem `::` é IPv6, e esse vem entre colchetes (`[::1]:9797`), então
+  a busca pelo separador começa depois do `]`. O token pode ter `::` à vontade:
+  vale o primeiro separador.
+- **O esquema não vai na chave** quando dá para deduzi-lo: porta 443 (ou sem
+  porta) é `https`, qualquer outra é `http`. Quando a dedução erraria (`https`
+  na 9797, `http` na 443), a chave leva o esquema por extenso:
+  `https://host:9797::token`.
+- Os decodificadores aceitam também o base64 padrão com padding, então dá para
+  montar uma chave à mão: `echo -n 'host:9797::token' | base64`.
+
+> Primeira versão (substituída no mesmo dia, ver seção 10): `rpk1_` + base64url
+> de `{"u":"https://host:porta","t":"token"}`. O prefixo fixo e o `eyJ1…` de
+> todo JSON em base64 deixavam a chave com cara de "endereço e token
+> embrulhados", e o pedido foi justamente `base64(host:port::server_token)`.
 
 ### O que ela **não** é
 
@@ -72,7 +83,7 @@ para montar a URL de webhook (domínio da API, ou IP de saída + porta).
 
 ```
 POST https://servidor:porta/api/login
-{"key": "rpk1_…"}
+{"key": "<chave>"}
 ```
 
 (aceita também o corpo como texto puro, só a chave — o mínimo que um agente
@@ -83,20 +94,21 @@ precisa acertar.)
 ```json
 {
   "error": {
-    "code": "bad_key_format",
-    "message": "a chave não começa com rpk1_",
+    "code": "missing_separator",
+    "message": "a chave decodificada não tem o formato host:porta::token — cole a chave de acesso inteira, não só o token",
     "expected": {
       "method": "POST",
       "path": "/api/login",
-      "body": {"key": "rpk1_<base64url de {\"u\":\"https://host:porta\",\"t\":\"<token>\"}>"},
-      "example": "curl -s https://host:porta/api/login -d '{\"key\":\"rpk1_…\"}'",
+      "body": {"key": "<base64 de host:porta::token>"},
+      "key_format": "base64 (url-safe sem padding, ou o padrão) de `host:porta::token`; …",
+      "example": "curl -s https://host:porta/api/login -d '{\"key\":\"<chave>\"}'",
       "where_to_get_one": "rustployd access-key, na VPS; ou Configurações → Copiar chave de acesso"
     }
   }
 }
 ```
 
-Cada erro diz **qual** parte falhou (prefixo, base64, JSON, campo faltando),
+Cada erro diz **qual** parte falhou (base64, separador `::`, endereço ou token vazio),
 porque é isso que deixa um agente se corrigir sozinho na tentativa seguinte.
 
 ### Token certo → `200` com o token e o caminho do agente
@@ -140,8 +152,8 @@ certo para emiti-los — o formato da resposta não muda.
   que você pediu:
 
   ```
-  rustploy.exemplo.com:9797   rpk1_eyJ1…Ijo9
-  10.0.0.5:9797               rpk1_eyJ1…X0=
+  rustploy.exemplo.com:9797 · cnVzdH…LjEyMw
+  10.0.0.5:9797 · MTAuMC…LjQ1Ng
   ```
 
   Escolher um preenche o campo com a chave inteira.
@@ -294,3 +306,9 @@ O código fica no histórico do git.
 - **Codec da chave fora do `rustploy-shared`**, para não exigir publicar uma
   versão nova no crates.io: Rust no daemon, Luau na GUI, JS na webui — os três
   geram bytes idênticos.
+- **Formato da chave trocado** (mesmo dia, depois do primeiro uso real): de
+  `rpk1_` + base64url de `{"u","t"}` para base64url de `host:porta::token`
+  (seção 2), a pedido. Nenhuma compatibilidade com a `rpk1_`: o formato tinha
+  horas de vida, e as listas de servidores lembrados guardam `{url, token}`,
+  não a chave — elas são remontadas no formato novo sozinhas. O rótulo do
+  dropdown perdeu os espaços de alinhamento: `host:porta · cnVzdH…OnRvaw`.

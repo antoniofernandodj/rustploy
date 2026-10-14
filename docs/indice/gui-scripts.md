@@ -6,12 +6,14 @@
 
 ## rustploy-gui/views/scripts/
 
-### access_key.luau — a chave de acesso `rpk1_…`: endereço do daemon + token numa string só, para o login ter um campo.
+### access_key.luau — a chave de acesso: endereço do daemon + token numa string só, para o login ter um campo.
 local base64url_encode(input)
 local base64url_decode(input) — Aceita também o alfabeto padrão (`+`/`/`) e `=` no fim: a chave às vezes passa por um encoder que nã…
+local trim(text)
+local implied_scheme(authority) — Esquema deduzido de um endereço sem esquema: só a porta 443 (ou nenhuma porta) é https.
 function M.encode(url, token) — - Monta a chave de um par salvo `{url, token}`.
 function M.decode(raw_key) — - `{ url, token }` da chave, ou `nil` + o motivo (para o erro do campo).
-function M.hint(url, key) — - Rótulo do item na lista de servidores lembrados: `host:porta  rpk1_eyJ1…Ijo9`.
+function M.hint(url, key) — - Rótulo do item na lista de servidores lembrados: `host:porta · cnVzdH…OnRvaw`.
 
 ### app.luau — ponto de entrada do `<script>` de app.gvb.
 
@@ -210,7 +212,7 @@ types: ColBudgets
 ### api.luau — cliente HTTP/JSON da API do daemon.
 function M.auth_headers(token) — - Só o header `Authorization` (tabela vazia quando não há token).
 function M:headers()
-function M.login(base_url, access_key) — - `POST /api/login`: troca a chave `rpk1_…` pelo token de acesso.
+function M.login(base_url, access_key) — - `POST /api/login`: troca a chave de acesso pelo token de acesso.
 function M:rpc(command) — - Executa um Command.
 function M:rpc_checked(command) — - Como `rpc`, mas trata `Response::Err { code, message }` como falha.
 function M.new(base_url, token)

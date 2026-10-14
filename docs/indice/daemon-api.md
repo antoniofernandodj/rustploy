@@ -12,7 +12,7 @@ type ApiBody = BoxBody<Bytes, Infallible> — Unified response body: both the bu
 fn run(state, cfg, tls) — Starts the API listener.
 fn serve_conn(io, state, token, peer) — Serves one HTTP/1.1 connection over `io` (plain TCP or a TLS stream).
 fn handle(req, state, token, peer) -> Result<Response<ApiBody>, Infallible> — Roteia uma requisição HTTP da API: rotas públicas (webhook, callback OAuth) antes do gate do token B…
-fn login(req, expected, peer) -> Response<ApiBody> — `POST /api/login`: troca a chave `rpk1_…` pelo token (ver `agent::login`).
+fn login(req, expected, peer) -> Response<ApiBody> — `POST /api/login`: troca a chave de acesso pelo token (ver `agent::login`).
 fn mcp(req, state) -> Response<ApiBody> — `POST /mcp`: o servidor MCP do agente (ver `agent::mcp`).
 fn json_value(status, body) -> Response<ApiBody>
 fn service_archive_upload(req, state, service_id) -> Response<ApiBody>
@@ -79,17 +79,19 @@ const ASSETS
 
 ## rustploy-daemon/crates/daemon/src/api/agent/
 
-### access_key.rs — Chave de acesso `rpk1_…`: o endereço do daemon e o token numa string só.
-const PREFIX — Prefixo da versão 1 do formato.
+### access_key.rs — Chave de acesso: o endereço do daemon e o token numa string só.
+const SEPARATOR — Separa o endereço do token dentro da chave decodificada.
 struct AccessKey { url, token }
-enum KeyFormatError { Empty, MissingPrefix, NotBase64, NotJson, MissingField } — Qual parte da chave não confere — cada uma tem uma correção diferente, e é isso que deixa um agente …
+enum KeyFormatError { Empty, NotBase64, MissingSeparator, MissingField } — Qual parte da chave não confere — cada uma tem uma correção diferente, e é isso que deixa um agente …
 impl KeyFormatError
   fn code() -> &'static str
   fn message() -> String
+fn implied_scheme(authority) -> &'static str — Esquema deduzido de um endereço sem esquema: só a porta 443 (ou nenhuma porta) é `https`.
 impl AccessKey
   fn encode() -> String
   fn decode(raw) -> Result<Self, KeyFormatError>
-(3 testes)
+fn split_address(text) -> Option<(&str, &str)> — Parte `<endereço>::<token>` no primeiro `::` que não seja do próprio endereço — o esquema (`https://…
+(5 testes)
 
 ### mcp.rs — Servidor MCP em `POST /mcp` — transporte Streamable HTTP, sempre respondendo `application/json` (o s…
 const PROTOCOL_VERSIONS — Versões do protocolo que este servidor fala, da mais nova para a mais velha.
@@ -102,9 +104,9 @@ fn resources_read(params) -> Result<Value, (i64, String)>
 const MANUAL_URI
 (3 testes)
 
-### mod.rs — Acesso de agente servido pelo próprio daemon: a chave `rpk1_…`, o `POST /api/login`, o manual e o se…
+### mod.rs — Acesso de agente servido pelo próprio daemon: a chave de acesso, o `POST /api/login`, o manual e o s…
 const MANUAL — O manual do agente — fonte única do texto servido em `GET /api/agent/manual`, nas `instructions` do …
-fn login(body, expected, host) -> (StatusCode, Value) — `POST /api/login`: troca a chave `rpk1_…` pelo token de acesso.
+fn login(body, expected, host) -> (StatusCode, Value) — `POST /api/login`: troca a chave de acesso pelo token.
 fn server_url(key_url, host) -> String — O esquema vem da chave (o listener não sabe se há TLS na frente dele); o host, do header quando houv…
 fn extract_key(body) -> Result<String, KeyFormatError> — Tira a chave do corpo do login.
 fn format_error(fail) -> Value — O `400` do login: o que falhou **e** o formato certo, para um agente acertar na tentativa seguinte s…
