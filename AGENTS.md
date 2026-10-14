@@ -47,6 +47,9 @@ Como este guia está organizado:
 3. **Opere**, com `Authorization: Bearer <access_token>`:
    - **MCP** em `POST /mcp` (Streamable HTTP, respostas JSON):
      `claude mcp add --transport http rustploy https://SERVIDOR:PORTA/mcp --header "Authorization: Bearer <token>"`;
+     (pronto, com o token, em Settings → Web Server → "Conectar um agente" →
+     Copiar, na GUI e na webui; a topbar das duas mostra a qual servidor a
+     sessão está ligada);
    - ou o mesmo MCP por `curl`, que é só JSON-RPC num POST;
    - ou `POST /api/rpc` direto com qualquer `Command`.
 
