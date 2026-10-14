@@ -6,14 +6,14 @@
 
 ## rustploy-gui/views/scripts/
 
-### access_key.luau — a chave de acesso: endereço do daemon + token numa string só, para o login ter um campo.
-local base64url_encode(input)
-local base64url_decode(input) — Aceita também o alfabeto padrão (`+`/`/`) e `=` no fim: a chave às vezes passa por um encoder que nã…
+### access_key.luau — o token de conexão: endereço do daemon + token da API numa string só, para o login ter um campo.
+local base64_encode(input) — base64 padrão com padding (`=`).
+local base64_decode(input) — Aceita os dois alfabetos (`+`/`/` e `-`/`_`), com ou sem `=` no fim.
 local trim(text)
-local implied_scheme(authority) — Esquema deduzido de um endereço sem esquema: só a porta 443 (ou nenhuma porta) é https.
-function M.encode(url, token) — - Monta a chave de um par salvo `{url, token}`.
-function M.decode(raw_key) — - `{ url, token }` da chave, ou `nil` + o motivo (para o erro do campo).
-function M.hint(url, key) — - Rótulo do item na lista de servidores lembrados: `host:porta · cnVzdH…OnRvaw`.
+function M.address_of(url) — - `host:porta` de uma URL salva (`https://h:9797` → `h:9797`).
+function M.encode(url, token) — - Monta o token de conexão de um par salvo `{url, token}`.
+function M.decode(raw_key) — - `{ address, token }` do token de conexão (`address` = `host:porta`), ou - `nil` + o motivo (para o…
+function M.hint(url, key) — - Dica `host:porta · cnVzdH…TjQ=` de a qual servidor um token se refere.
 
 ### app.luau — ponto de entrada do `<script>` de app.gvb.
 
@@ -212,7 +212,7 @@ types: ColBudgets
 ### api.luau — cliente HTTP/JSON da API do daemon.
 function M.auth_headers(token) — - Só o header `Authorization` (tabela vazia quando não há token).
 function M:headers()
-function M.login(base_url, access_key) — - `POST /api/login`: troca a chave de acesso pelo token de acesso.
+function M.login(base_url, access_key) — - `POST /api/login`: troca o token de conexão pelo token da API.
 function M:rpc(command) — - Executa um Command.
 function M:rpc_checked(command) — - Como `rpc`, mas trata `Response::Err { code, message }` como falha.
 function M.new(base_url, token)

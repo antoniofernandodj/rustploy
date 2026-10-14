@@ -221,10 +221,9 @@ function registerWindows(Alpine)
 
 ### api.js — cliente HTTP/JSON do daemon.
 function fetchTimeout(url, init, timeoutMs) — `fetch` com timeout cobrindo cabeçalho E corpo; o erro de timeout vira mensagem legível.
-function impliedScheme(authority)
-function decodeAccessKey(accessKey) — Decodifica a chave em `{ url, token }`, ou `null` se a string não estiver nesse formato.
-function encodeAccessKey(url, token) — Monta a chave de um par endereço + token (o inverso de `decodeAccessKey`).
-function login(baseUrl, accessKey) — `POST /api/login`: troca a chave pelo token de acesso.
+function decodeAccessKey(accessKey) — Decodifica o token de conexão em `{ address, token }` (`address` = `host:porta`), ou `null` se a str…
+function encodeAccessKey(url, token) — Monta o token de conexão de um endereço (URL ou `host:porta`) + token da API — o inverso de `decodeA…
+function login(baseUrl, accessKey) — `POST /api/login`: troca o token de conexão pelo token da API.
 class Api
   constructor(baseUrl, token)
   headers()

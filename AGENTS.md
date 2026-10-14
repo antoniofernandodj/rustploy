@@ -32,13 +32,18 @@ Como este guia está organizado:
 
 ## Em três passos
 
-1. **Pegue a chave de acesso** — base64 de `host:porta::token`: endereço do
-   daemon + token numa string só. Na VPS: `rustployd access-key`. Numa
-   sessão aberta: Settings → Web Server → Copiar chave (GUI ou webui).
-2. **Troque-a pelo token:**
+1. **Pegue o token de conexão** — base64 padrão (com `=`) de
+   `host:porta::token`, sem esquema: endereço do daemon + token da API numa
+   string só. Fica pronto no `config.toml` do daemon, em
+   `[api].connection_token` (regravado a cada boot, logo abaixo do `token`);
+   também sai de `rustployd access-key` e de Settings → Web Server → Copiar
+   (GUI ou webui).
+2. **Tire o token da API dele** — `echo '<token de conexão>' | base64 -d` dá
+   `host:porta::token`, e o que vem depois do `::` já é o Bearer. Ou deixe o
+   daemon fazer a troca:
 
    ```bash
-   curl -s https://SERVIDOR:PORTA/api/login -d '{"key":"<chave>"}'
+   curl -s https://SERVIDOR:PORTA/api/login -d '{"key":"<token de conexão>"}'
    # → {"access_token":"…","token_type":"Bearer","ai_agent":{"mcp":"…/mcp","manual":"…/api/agent/manual"}}
    ```
 
@@ -73,14 +78,21 @@ processo.
 
 ## Por dentro
 
-- `api/agent/access_key.rs` — o codec da chave (base64url de
-  `host:porta::token`; o esquema só entra quando a porta não o deduz).
-  Esconde o endereço, não o criptografa. A GUI
-  (`views/scripts/access_key.luau`) e a webui (`net/api.js`) têm cópias do
-  codec; as três geram bytes idênticos.
-- `api/agent/mod.rs` — `/api/login` (público, antes do gate de bearer). O token
-  devolvido **é** o `[api].token`: não há sessões. As URLs de `ai_agent` usam o
-  header `Host` da requisição, não o endereço gravado na chave.
+- `api/agent/access_key.rs` — o codec do token de conexão (base64 padrão de
+  `host:porta::token`, o mesmo do `base64.b64encode` do Python; decodifica
+  também url-safe e sem padding). Esconde o endereço, não o criptografa. A
+  GUI (`views/scripts/access_key.luau`) e a webui (`net/api.js`) têm cópias
+  do codec; as três geram bytes idênticos.
+- **Os clientes não passam pelo `/api/login`**: GUI e webui decodificam o
+  token de conexão e usam o token da API direto como Bearer. O esquema não
+  está no token — a GUI sonda `GET /api/version` por https e depois por http
+  (o de um servidor salvo vem primeiro); a webui usa a própria origem.
+- `api/agent/mod.rs` — `/api/login` (público, antes do gate de bearer), para
+  agentes. O token devolvido **é** o `[api].token`: não há sessões. As URLs de
+  `ai_agent` usam o header `Host` e o esquema do listener (https quando há
+  `[api].domain`). `write_connection_token` grava o `connection_token` no
+  `config.toml` no boot (o serde ignora a chave desconhecida, então o parse
+  tudo-ou-nada não quebra; não grava se o token veio de `RUSTPLOY_API_TOKEN`).
 - `api/agent/mcp.rs` — MCP feito à mão sobre hyper (sem crate de MCP, sem SSE):
   `initialize`, `ping`, `tools/*`, `resources/*`. `GET /mcp` → `405`.
 - O future do `dispatch` é enorme; aninhado em outro (o `Snapshot` despacha

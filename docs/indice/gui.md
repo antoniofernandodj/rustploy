@@ -76,7 +76,7 @@ fn run() -> iced::Result — Sobe o daemon multi-janela e roda o loop do iced at
 
 ## rustploy-gui/tests/
 
-### access_key.rs — O `access_key.luau` (chave de acesso do login) rodando no motor de verdade.
+### access_key.rs — O `access_key.luau` (token de conexão do login) rodando no motor de verdade.
 fn boot() -> GlacierUI
 (2 testes)
 

@@ -12,7 +12,7 @@ type ApiBody = BoxBody<Bytes, Infallible> — Unified response body: both the bu
 fn run(state, cfg, tls) — Starts the API listener.
 fn serve_conn(io, state, token, peer) — Serves one HTTP/1.1 connection over `io` (plain TCP or a TLS stream).
 fn handle(req, state, token, peer) -> Result<Response<ApiBody>, Infallible> — Roteia uma requisição HTTP da API: rotas públicas (webhook, callback OAuth) antes do gate do token B…
-fn login(req, expected, peer) -> Response<ApiBody> — `POST /api/login`: troca a chave de acesso pelo token (ver `agent::login`).
+fn login(req, expected, peer, scheme) -> Response<ApiBody> — `POST /api/login`: troca o token de conexão pelo token da API (ver `agent::login`).
 fn mcp(req, state) -> Response<ApiBody> — `POST /mcp`: o servidor MCP do agente (ver `agent::mcp`).
 fn json_value(status, body) -> Response<ApiBody>
 fn service_archive_upload(req, state, service_id) -> Response<ApiBody>
@@ -79,19 +79,18 @@ const ASSETS
 
 ## rustploy-daemon/crates/daemon/src/api/agent/
 
-### access_key.rs — Chave de acesso: o endereço do daemon e o token numa string só.
-const SEPARATOR — Separa o endereço do token dentro da chave decodificada.
-struct AccessKey { url, token }
-enum KeyFormatError { Empty, NotBase64, MissingSeparator, MissingField } — Qual parte da chave não confere — cada uma tem uma correção diferente, e é isso que deixa um agente …
+### access_key.rs — Token de conexão: o endereço do daemon e o token da API numa string só.
+const SEPARATOR — Separa o endereço do token dentro do token de conexão decodificado.
+struct AccessKey { address, token }
+enum KeyFormatError { Empty, NotBase64, MissingSeparator, MissingField } — Qual parte do token de conexão não confere — cada uma tem uma correção diferente, e é isso que deixa…
 impl KeyFormatError
   fn code() -> &'static str
   fn message() -> String
-fn implied_scheme(authority) -> &'static str — Esquema deduzido de um endereço sem esquema: só a porta 443 (ou nenhuma porta) é `https`.
 impl AccessKey
   fn encode() -> String
   fn decode(raw) -> Result<Self, KeyFormatError>
-fn split_address(text) -> Option<(&str, &str)> — Parte `<endereço>::<token>` no primeiro `::` que não seja do próprio endereço — o esquema (`https://…
-(5 testes)
+fn split_address(text) -> Option<(&str, &str)> — Parte `<endereço>::<token>` no primeiro `::` que não seja do próprio endereço — um IPv6 entre colche…
+(4 testes)
 
 ### mcp.rs — Servidor MCP em `POST /mcp` — transporte Streamable HTTP, sempre respondendo `application/json` (o s…
 const PROTOCOL_VERSIONS — Versões do protocolo que este servidor fala, da mais nova para a mais velha.
@@ -106,13 +105,17 @@ const MANUAL_URI
 
 ### mod.rs — Acesso de agente servido pelo próprio daemon: a chave de acesso, o `POST /api/login`, o manual e o s…
 const MANUAL — O manual do agente — fonte única do texto servido em `GET /api/agent/manual`, nas `instructions` do …
-fn login(body, expected, host) -> (StatusCode, Value) — `POST /api/login`: troca a chave de acesso pelo token.
-fn server_url(key_url, host) -> String — O esquema vem da chave (o listener não sabe se há TLS na frente dele); o host, do header quando houv…
-fn extract_key(body) -> Result<String, KeyFormatError> — Tira a chave do corpo do login.
+fn login(body, expected, host, scheme) -> (StatusCode, Value) — `POST /api/login`: troca o token de conexão pelo token da API.
+fn extract_key(body) -> Result<String, KeyFormatError> — Tira o token de conexão do corpo do login.
 fn format_error(fail) -> Value — O `400` do login: o que falhou **e** o formato certo, para um agente acertar na tentativa seguinte s…
-fn access_key_for(base_url, token) -> Option<String> — Monta a chave deste servidor a partir da config: o endereço público do daemon (o mesmo do webhook) e…
-fn print_access_key_and_exit(config) -> ! — Imprime a chave de acesso e sai — `rustployd access-key`.
-(6 testes)
+fn public_address(api, fallback_host) -> String — `host:porta` público deste daemon: `[api].domain` quando definido, senão o IP de saída; a porta é se…
+fn access_key_for(address, token) -> Option<String> — Monta o token de conexão a partir do endereço e do `[api].token`.
+fn print_access_key_and_exit(config) -> ! — Imprime o token de conexão e sai — `rustployd access-key`.
+const CONNECTION_TOKEN_KEY — Chave do `config.toml` onde o daemon deixa o token de conexão pronto.
+fn write_connection_token(config) -> anyhow::Result<()> — Grava `connection_token = "<token de conexão>"` logo abaixo do `token` da seção `[api]` do `config.t…
+fn config_file_in_use() -> Option<std::path::PathBuf> — O mesmo arquivo que `RustployConfig::load` escolhe: o primeiro da lista que existe **e** faz parse.
+fn with_connection_token(contents, api_token, key) -> Option<String> — O texto do `config.toml` com a linha do token de conexão no lugar (logo abaixo do `token` de `[api]`…
+(9 testes)
 
 ### tools.rs — As ferramentas do agente: os caminhos frequentes já resolvidos ("deployou? por quê não?", "qual é o …
 const POLL_INTERVAL — De quanto em quanto tempo o `wait` de um deploy reconsulta o histórico.

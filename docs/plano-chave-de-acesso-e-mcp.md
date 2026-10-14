@@ -1,6 +1,6 @@
 # Plano: chave de acesso única + API de agente no daemon (via MCP)
 
-> **Status: implementado** (2026-10-13). Decisões aprovadas: token devolvido =
+> **Status: implementado** (2026-10-13; formato do token revisto em 2026-10-14). Decisões aprovadas: token devolvido =
 > o próprio `[api].token` (opção A), MCP **e** manual HTTP lado a lado, rotas de
 > janela removidas. Desvios do plano durante a execução estão na seção 10.
 
@@ -29,31 +29,38 @@ O que você pediu resolve as duas coisas de uma vez:
 
 ## 2. A chave de acesso
 
-### Como ela é
+### Como ela é (o "token de conexão")
 
 ```
-cnVzdHBsb3kuZXhlbXBsby5jb206OTc5Nzo6YTNmOS4uLg
+cnVzdHBsb3kuZXhlbXBsby5jb206OTc5Nzo6YTNmOS4uLg==
 ```
 
-É o base64url (sem padding) de `host:porta::token`, no exemplo
-`rustploy.exemplo.com:9797::a3f9...`.
+É o base64 **padrão, com padding**, de `host:porta::token` — no exemplo,
+`rustploy.exemplo.com:9797::a3f9...`. Exatamente o que sai de
+`base64.b64encode(b"host:porta::token")` no Python.
 
-- `::` separa o endereço do token. **Por quê dois pontos duplos:** o endereço
-  já tem um `:` (o da porta); `::` não aparece em `host:porta`. O único
-  endereço que tem `::` é IPv6, e esse vem entre colchetes (`[::1]:9797`), então
-  a busca pelo separador começa depois do `]`. O token pode ter `::` à vontade:
-  vale o primeiro separador.
-- **O esquema não vai na chave** quando dá para deduzi-lo: porta 443 (ou sem
-  porta) é `https`, qualquer outra é `http`. Quando a dedução erraria (`https`
-  na 9797, `http` na 443), a chave leva o esquema por extenso:
-  `https://host:9797::token`.
-- Os decodificadores aceitam também o base64 padrão com padding, então dá para
-  montar uma chave à mão: `echo -n 'host:9797::token' | base64`.
+- `::` separa o endereço do token. O endereço já tem um `:` (o da porta); `::`
+  não aparece em `host:porta`. O único endereço com `::` é IPv6, que vem entre
+  colchetes (`[::1]:9797`), então a busca pelo separador começa depois do `]`.
+  O token pode ter `::` à vontade: vale o primeiro separador.
+- **Sem esquema.** Quem conecta decide: a GUI sonda `GET /api/version` por
+  https e depois por http (o esquema de um servidor já salvo com o mesmo
+  endereço vai primeiro); a webui é servida pelo próprio daemon e usa a
+  origem; o `/api/login` usa o do listener (https quando há `[api].domain`).
+- **A porta sempre vai**, mesmo a padrão (`h:443`).
+- Os decodificadores aceitam também o alfabeto url-safe e a falta de padding.
+- **O daemon deixa o token pronto no `config.toml`**: a cada boot ele grava
+  `connection_token = "…"` logo abaixo do `token` de `[api]` (host =
+  `[api].domain`, ou o IP de saída). O daemon não lê esse campo — o serde
+  ignora chave desconhecida, então o parse tudo-ou-nada continua valendo. Não
+  grava quando o token veio de `RUSTPLOY_API_TOKEN`.
+- **GUI e webui não passam pelo `/api/login`**: decodificam o token de conexão
+  e usam o token da API direto como Bearer. O `/api/login` fica para agentes.
 
-> Primeira versão (substituída no mesmo dia, ver seção 10): `rpk1_` + base64url
-> de `{"u":"https://host:porta","t":"token"}`. O prefixo fixo e o `eyJ1…` de
-> todo JSON em base64 deixavam a chave com cara de "endereço e token
-> embrulhados", e o pedido foi justamente `base64(host:port::server_token)`.
+> Versões anteriores, substituídas no mesmo dia (ver seção 10): `rpk1_` +
+> base64url de `{"u":"https://host:porta","t":"token"}`; depois base64url sem
+> padding de `host:porta::token` com o esquema por extenso quando a porta não
+> o deduzia.
 
 ### O que ela **não** é
 
@@ -148,12 +155,12 @@ certo para emiti-los — o formato da resposta não muda.
 ### GUI (glacier)
 
 - **Um campo**: "CHAVE DE ACESSO". Some o campo de URL.
-- O **dropdown de servidores lembrados** continua, e cada item mostra a dica
-  que você pediu:
+- O **dropdown de servidores lembrados** continua. Cada item é o próprio
+  token de conexão (a dica `host:porta · …` planejada saiu — ver seção 10):
 
   ```
-  rustploy.exemplo.com:9797 · cnVzdH…LjEyMw
-  10.0.0.5:9797 · MTAuMC…LjQ1Ng
+  cnVzdHBsb3kuZXhlbXBsby5jb206OTc5Nzo6YTNmOS4uLg==
+  MTAuMC4wLjU6OTc5Nzo6YjdjMS4uLg==
   ```
 
   Escolher um preenche o campo com a chave inteira.
@@ -312,3 +319,16 @@ O código fica no histórico do git.
   horas de vida, e as listas de servidores lembrados guardam `{url, token}`,
   não a chave — elas são remontadas no formato novo sozinhas. O rótulo do
   dropdown perdeu os espaços de alinhamento: `host:porta · cnVzdH…OnRvaw`.
+- **Segunda troca de formato, e o rótulo do dropdown** (2026-10-14). O pedido
+  foi literal: `base64(host:port::server_token)`, igual ao `b64encode` do
+  Python — base64 padrão com padding, sem esquema nenhum dentro. Junto:
+  - o daemon grava o token pronto no `config.toml` (`[api].connection_token`);
+  - GUI e webui deixam de chamar o `/api/login` e usam o token da API direto;
+  - a GUI descobre o esquema sondando `/api/version` (https, depois http), e a
+    lista de servidores lembrados deduplica por `host:porta`, não pela URL.
+  - **O rótulo do dropdown virou o próprio token.** O `<ComboEdit>` do glacier
+    usa o `combo_box` do iced, que mostra **no campo** o rótulo da opção
+    escolhida — então a dica `host:porta · cnVzdH…` aparecia no lugar do token,
+    com o endereço à mostra. Voltar com a dica só na lista exige o glacier
+    separar o texto do campo do texto da lista (`AccessKey.hint` ficou no
+    `access_key.luau`, sem uso, esperando isso).
