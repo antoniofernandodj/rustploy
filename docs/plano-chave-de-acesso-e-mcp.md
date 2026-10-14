@@ -155,15 +155,17 @@ certo para emiti-los — o formato da resposta não muda.
 ### GUI (glacier)
 
 - **Um campo**: "CHAVE DE ACESSO". Some o campo de URL.
-- O **dropdown de servidores lembrados** continua. Cada item é o próprio
-  token de conexão (a dica `host:porta · …` planejada saiu — ver seção 10):
+- Os **servidores lembrados** viram um `<select>` acima do campo, com o
+  `host:porta` de cada um:
 
   ```
-  cnVzdHBsb3kuZXhlbXBsby5jb206OTc5Nzo6YTNmOS4uLg==
-  MTAuMC4wLjU6OTc5Nzo6YjdjMS4uLg==
+  rustploy.exemplo.com:9797
+  10.0.0.5:9797
   ```
 
-  Escolher um preenche o campo com a chave inteira.
+  Escolher um preenche o campo com o token de conexão dele, e sob o campo
+  aparece `→ conecta em host:porta` (decodificado do que está no campo, então
+  vale também para um token colado).
 - Por baixo: a GUI decodifica a chave para saber **onde** mandar o
   `POST /api/login`, e usa o `access_token` devolvido nas chamadas seguintes
   (o resto do app não muda: continua guardando `url` + `token` da sessão).
@@ -332,3 +334,16 @@ O código fica no histórico do git.
     com o endereço à mostra. Voltar com a dica só na lista exige o glacier
     separar o texto do campo do texto da lista (`AccessKey.hint` ficou no
     `access_key.luau`, sem uso, esperando isso).
+
+- **Select + campo, em vez do `<ComboEdit>`** (2026-10-14, logo depois). Com o
+  rótulo = token, a lista não dizia mais para onde cada item conectava (e os
+  tokens longos vazavam da caixa). Como o combo não separa o texto do campo do
+  texto da lista, a tela virou dois widgets: `<select>` com `host:porta` e um
+  `input` com o token, mais a linha `→ conecta em host:porta`. Junto:
+  - **"Esquecer" casa pelo token inteiro** (e pelo `host:porta` quando ele
+    decodifica). Um par salvo sem token — daemon sem `[api].token` — gera
+    `host:porta::`, que o decodificador recusava por token vazio; por isso o
+    botão não o removia e ele "voltava".
+  - **Token vazio passou a valer** nos decodificadores da GUI e da webui (é o
+    caso legítimo da API aberta). O do daemon continua exigindo token: o
+    `/api/login` sem token não teria o que devolver.

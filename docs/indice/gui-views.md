@@ -23,9 +23,9 @@ views: monitoring, ingress, deploy_engine, docker, settings, schedules
 script: scripts/log_window.luau
 handlers: clipboard, textarea_end, textarea_top, window
 
-### login.gvb — Tela de login: um campo, o token de conexão (endereço + token), com a lista de servidores lembrados …
+### login.gvb — Tela de login: um campo, o token de conexão (base64 de host:porta::token), com um select dos servido…
 <component>
-handlers: connect, forget_server
+handlers: access_key_input, choose_saved_server, connect, forget_server
 
 ### new_job_window.gvb — Janela "Novo job": motor Glacier próprio, aberto por open_window a partir do app principal (handlers…
 <screen "Novo job — Rustploy">

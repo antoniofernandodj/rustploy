@@ -93,6 +93,10 @@ fn offset_local_segundos() -> i64 — Offset local em segundos, perguntado ao si
 fn shifted_time(hms, offset) -> String — `HH:MM:SS` + offset, com a virada de dia descartada (só as horas importam).
 (3 testes)
 
+### login_saved_servers.rs — Tela de login com servidores lembrados: o `<select>` mostra `host:porta`, o campo recebe o token de …
+const SAVED
+(1 testes)
+
 ### templates_render.rs — Headless validation: every template parses, every screen/tab evaluates and builds an iced element tr…
 fn boot() -> GlacierUI — Boots the engine the way `main.rs` does, but from the workspace root so the workspace-relative templ…
 fn textos_avaliados(n) -> Vec<String> — Todo texto de uma árvore avaliada, em ordem.
