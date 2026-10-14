@@ -1,8 +1,18 @@
 # Plano: site de documentação do Rustploy (SSG, SEO e GEO)
 
-> **Status: proposta, nada implementado** (2026-10-14). Aguarda decisão nas
-> "Perguntas em aberto". Este arquivo não é a documentação: é o plano de como
-> ela será feita.
+> **Status: em implementação** (2026-10-14). O site vive no submódulo
+> `rustploy-docs/` (Astro + Starlight, pt-BR). Feitas as fases 0 e 1, a trilha
+> de MCP (fase 2) e parte dos guias da fase 3 (Git, zip, Compose, variáveis e
+> secrets, healthcheck, domínios/TLS, 502, webhooks, fila). Faltam: templates,
+> bancos/brokers, jobs, IaC, registry, banco compartilhado, operação, tours das
+> interfaces, referência gerada e inglês. Este arquivo não é a documentação: é o
+> plano de como ela será feita.
+>
+> **Achados ao documentar** (viram trabalho de produto): o botão Rollback não
+> redeploya; os campos watch paths, build path, build stage e submódulos Git
+> estão na tela mas o deploy os ignora; o clone exige `git` no servidor, que o
+> `.deb` não declara como dependência; não há GitHub Release, então o
+> `install.sh` não funciona; o `AGENTS.md` ainda cita nomes de container antigos.
 
 ## 1. Por que fazer, e para quem
 
