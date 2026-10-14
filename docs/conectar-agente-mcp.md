@@ -48,24 +48,28 @@ na sessão em que o comando rodou. Para conferir, use `/mcp`.
 ## Caminho com validação: o prompt para o agente
 
 Use este caminho quando você só tem o token de conexão em mãos. Cole o prompt
-abaixo no Claude Code da outra máquina, trocando `<TOKEN_DE_CONEXAO>`. O
-agente decodifica o token, valida no servidor, registra o MCP e faz um teste
-só de leitura.
+abaixo no Claude Code da outra máquina, trocando `<TOKEN_DE_CONEXAO>`,
+`<HOST>` e `<PORT>` (o `host:porta` é o mesmo que vai dentro do token). O
+agente confere o token contra o endereço, valida no servidor, registra o MCP
+e faz um teste só de leitura.
 
 ```text
 Quero conectar este Claude Code ao MCP do meu servidor Rustploy (um PaaS).
 
 Token de conexão: <TOKEN_DE_CONEXAO>
+HOST: <HOST>
+PORT: <PORT>
 
 É o base64 de `host:porta::token_da_api`. Faça nesta ordem:
 
 1. Decodifique o token de conexão (`echo '<token>' | base64 -d`). Separe o
-   `host:porta` e o token da API pelo primeiro `::`. Para conferir, me mostre
-   só o `host:porta`; não repita o token da API na conversa.
+   `host:porta` e o token da API pelo primeiro `::`. Confira que o `host:porta`
+   bate com HOST:PORT acima; se diferir, me avise e pare. Não repita o token
+   da API na conversa.
 
 2. Valide o acesso com o login do servidor. Tente https primeiro e use http
    só se o https falhar na conexão (erro de TLS ou sem resposta):
-   curl -s https://HOST:PORTA/api/login -d '{"key":"<token de conexão>"}'
+   curl -s https://<HOST>:<PORT>/api/login -d '{"key":"<TOKEN_DE_CONEXAO>"}'
    - 200: a resposta traz `server` (a URL base certa) e `ai_agent.mcp`.
    - 400: o token de conexão está malformado. A resposta explica o formato
      esperado. Me avise e pare.
