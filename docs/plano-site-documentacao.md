@@ -6,16 +6,21 @@
 > secrets, healthcheck, domínios/TLS, 502, webhooks, fila, pré-deploy, jobs,
 > bancos/brokers, templates, banco compartilhado e migração, IaC, registry,
 > limpeza do Docker, backup) e a referência gerada do código (386 templates,
-> comandos, respostas, eventos, paridade). Faltam: monitoramento, segurança do
-> servidor, tours das interfaces, migração do Dokploy, referência de `config.toml`
-> e do manifesto gerada, e inglês. Este arquivo não é a documentação: é o
+> comandos, respostas, eventos, paridade). Também: resolução de variáveis, `config.toml` conferido contra o código e migração do
+> Dokploy. Faltam: monitoramento, segurança do servidor, tours das interfaces,
+> referência do manifesto gerada e inglês. Este arquivo não é a documentação: é o
 > plano de como ela será feita.
 >
 > **Achados ao documentar** (viram trabalho de produto): o botão Rollback não
 > redeploya; os campos watch paths, build path, build stage e submódulos Git
 > estão na tela mas o deploy os ignora; o clone exige `git` no servidor, que o
 > `.deb` não declara como dependência; não há GitHub Release, então o
-> `install.sh` não funciona; o `AGENTS.md` ainda cita nomes de container antigos;
+> `install.sh` não funciona; o `AGENTS.md` ainda cita nomes de container antigos; `config.toml` com erro é
+> ignorado em silêncio (sem log) e o daemon sobe com os padrões; o `.env` do
+> Compose guarda secrets decifrados em disco durante o deploy; não há variáveis
+> de build (`docker build` sem build args); o importer do Dokploy apaga serviços
+> de mesmo nome em qualquer projeto e zera as variáveis de projeto homônimo, não
+> converte aplicações de imagem Docker e não vai no `.deb`;
 > o horário de jobs e da limpeza automática é UTC e a tela não avisa; a opção de
 > expor banco externamente só existe na GUI, não na webui; o cache de build não
 > tem botão de limpeza manual em nenhum cliente.
