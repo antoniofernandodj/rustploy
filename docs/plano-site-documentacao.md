@@ -7,8 +7,10 @@
 > bancos/brokers, templates, banco compartilhado e migração, IaC, registry,
 > limpeza do Docker, backup) e a referência gerada do código (386 templates,
 > comandos, respostas, eventos, paridade). Também: resolução de variáveis, `config.toml` conferido contra o código e migração do
-> Dokploy. Também: monitoramento e watchdog, segurança do servidor. Faltam: tours das
-> interfaces (screenshots), referência do manifesto gerada e inglês. Este arquivo não é a documentação: é o
+> Dokploy. Também: monitoramento e watchdog, segurança do servidor. Seção "Interface desktop" com 6 páginas e 19 screenshots (host e segredos borrados).
+> Faltam: tela do serviço, Deploy Engine, Monitoring, Schedules, Ingress e a janela de
+> logs na GUI (precisam de mais screenshots), tour da web UI, referência do manifesto
+> gerada e inglês. Este arquivo não é a documentação: é o
 > plano de como ela será feita.
 >
 > **Achados ao documentar** (viram trabalho de produto): o botão Rollback não
