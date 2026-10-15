@@ -7,8 +7,8 @@
 > bancos/brokers, templates, banco compartilhado e migração, IaC, registry,
 > limpeza do Docker, backup) e a referência gerada do código (386 templates,
 > comandos, respostas, eventos, paridade). Também: resolução de variáveis, `config.toml` conferido contra o código e migração do
-> Dokploy. Faltam: monitoramento, segurança do servidor, tours das interfaces,
-> referência do manifesto gerada e inglês. Este arquivo não é a documentação: é o
+> Dokploy. Também: monitoramento e watchdog, segurança do servidor. Faltam: tours das
+> interfaces (screenshots), referência do manifesto gerada e inglês. Este arquivo não é a documentação: é o
 > plano de como ela será feita.
 >
 > **Achados ao documentar** (viram trabalho de produto): o botão Rollback não
@@ -18,7 +18,10 @@
 > `install.sh` não funciona; o `AGENTS.md` ainda cita nomes de container antigos; `config.toml` com erro é
 > ignorado em silêncio (sem log) e o daemon sobe com os padrões; o `.env` do
 > Compose guarda secrets decifrados em disco durante o deploy; não há variáveis
-> de build (`docker build` sem build args); o importer do Dokploy apaga serviços
+> de build (`docker build` sem build args); `[metrics].history_points` não tem efeito e as métricas não têm histórico; os
+> containers têm restart policy `no` e, pelo código, os serviços não voltam
+> sozinhos depois de reiniciar a máquina (autostart não implementado); o importer
+> do Dokploy apaga serviços
 > de mesmo nome em qualquer projeto e zera as variáveis de projeto homônimo, não
 > converte aplicações de imagem Docker e não vai no `.deb`;
 > o horário de jobs e da limpeza automática é UTC e a tela não avisa; a opção de
