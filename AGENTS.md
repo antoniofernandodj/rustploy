@@ -118,6 +118,7 @@ rustploy/                     ← agregador (VOCÊ ESTÁ AQUI)
 ├── .github/workflows/        release.yml (checkout recursivo, builda os três)
 ├── rustploy-daemon/          daemon, importer, webui, packaging/, scripts/, install.sh
 ├── rustploy-gui/             cliente glacier-ui (views/, src/, assets/, packaging/)
+├── rustploy-docs/            site de documentação (Astro Starlight), deploy na Cloudflare
 └── rustploy-shared/          crate publicado no crates.io: modelos, protocolo, templates
 ```
 
@@ -528,6 +529,28 @@ de estado vazio (`fallback`) vão para o arquivo que os usa. O que aprendemos fa
 Código reutilizável que sai de uso vira comentário com `TODO` no lugar, não
 deleção — o histórico do git existe, mas o contexto de "por que isso estava
 aqui" se perde.
+
+## Documentação pública (`rustploy-docs/`) e deploy
+
+Quarto submódulo: o site (Astro 7 + Starlight, pt-BR, SSG), publicado na
+Cloudflare Workers em `https://rustploy-docs.antoniofernandodj.workers.dev`.
+O conteúdo escrito à mão fica em `src/content/docs/**.mdx`; `sync-manual`,
+`gen-templates` e `gen-protocol` (rodados por `npm run build`) geram o resto —
+páginas geradas não se editam à mão.
+
+**Publicar** (de `rustploy-docs/`):
+
+```bash
+export PATH=$HOME/.nvm/versions/node/v24.3.0/bin:$PATH   # Astro 7 exige Node >= 22.12; o padrão da máquina é 20
+npm run build          # gera dist/ (~25 s, ~446 páginas)
+npx wrangler deploy    # sobe dist/ conforme wrangler.jsonc
+```
+
+- Sem o `wrangler.jsonc` o wrangler tenta `astro add cloudflare` e quebra o build.
+- Depois: commit + push **no submódulo** e, no agregador, commite o novo
+  ponteiro (`git add rustploy-docs`), como nos outros repos.
+- Instalação documentada em `src/content/docs/instalacao/`: `cargo install
+  rustploy` (daemon, binário `rustployd`) e `cargo install rustploy-gui`.
 
 ## Build & Run
 
