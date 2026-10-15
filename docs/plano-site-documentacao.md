@@ -5,8 +5,10 @@
 > de MCP (fase 2) e parte dos guias da fase 3 (Git, zip, Compose, variáveis e
 > secrets, healthcheck, domínios/TLS, 502, webhooks, fila, pré-deploy, jobs,
 > bancos/brokers, templates, banco compartilhado e migração, IaC, registry,
-> limpeza do Docker, backup). Faltam: monitoramento, segurança do servidor, tours
-> das interfaces, migração do Dokploy, referência gerada e inglês. Este arquivo não é a documentação: é o
+> limpeza do Docker, backup) e a referência gerada do código (386 templates,
+> comandos, respostas, eventos, paridade). Faltam: monitoramento, segurança do
+> servidor, tours das interfaces, migração do Dokploy, referência de `config.toml`
+> e do manifesto gerada, e inglês. Este arquivo não é a documentação: é o
 > plano de como ela será feita.
 >
 > **Achados ao documentar** (viram trabalho de produto): o botão Rollback não
