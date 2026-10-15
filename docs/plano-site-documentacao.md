@@ -7,17 +7,19 @@
 > bancos/brokers, templates, banco compartilhado e migração, IaC, registry,
 > limpeza do Docker, backup) e a referência gerada do código (386 templates,
 > comandos, respostas, eventos, paridade). Também: resolução de variáveis, `config.toml` conferido contra o código e migração do
-> Dokploy. Também: monitoramento e watchdog, segurança do servidor. Seção "Interface desktop" com 6 páginas e 19 screenshots (host e segredos borrados).
-> Faltam: tela do serviço, Deploy Engine, Monitoring, Schedules, Ingress e a janela de
-> logs na GUI (precisam de mais screenshots), tour da web UI, referência do manifesto
-> gerada e inglês. Este arquivo não é a documentação: é o
+> Dokploy. Também: monitoramento e watchdog, segurança do servidor. Seção "Interface desktop" com 10 páginas e 32 screenshots (host e segredos borrados): login,
+> projetos, assistente de serviço, tela do serviço, domínios/healthcheck/avançado, Docker e
+> registry, Settings, Monitoring e Schedules. Faltam: Deploy Engine, Ingress e a janela de logs
+> na GUI (sem screenshot), tour da web UI, referência do manifesto gerada e inglês. Este arquivo não é a documentação: é o
 > plano de como ela será feita.
 >
 > **Achados ao documentar** (viram trabalho de produto): o botão Rollback não
 > redeploya; os campos watch paths, build path, build stage e submódulos Git
 > estão na tela mas o deploy os ignora; o clone exige `git` no servidor, que o
 > `.deb` não declara como dependência; não há GitHub Release, então o
-> `install.sh` não funciona; o `AGENTS.md` ainda cita nomes de container antigos; `config.toml` com erro é
+> `install.sh` não funciona; o `AGENTS.md` ainda cita nomes de container antigos; no app desktop o botão Rebuild
+> chama a mesma função que Deploy e o UPTIME/SERVICES do painel lateral do serviço são do
+> daemon, não do serviço; `config.toml` com erro é
 > ignorado em silêncio (sem log) e o daemon sobe com os padrões; o `.env` do
 > Compose guarda secrets decifrados em disco durante o deploy; não há variáveis
 > de build (`docker build` sem build args); `[metrics].history_points` não tem efeito e as métricas não têm histórico; os
