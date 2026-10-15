@@ -9,15 +9,19 @@
 > comandos, respostas, eventos, paridade). Também: resolução de variáveis, `config.toml` conferido contra o código e migração do
 > Dokploy. Também: monitoramento e watchdog, segurança do servidor. Seção "Interface desktop" com 13 páginas e 38 screenshots (host, domínios e UUIDs borrados): login,
 > projetos, assistente de serviço, tela do serviço, domínios/healthcheck/avançado, Deploy Engine,
-> Ingress, Schedules, Monitoring, janelas de logs, Docker e registry, Settings. Faltam: tour da web UI,
-> referência do manifesto gerada, FAQ/comparativos, CI de qualidade e inglês. Este arquivo não é a documentação: é o
+> Ingress, Schedules, Monitoring, janelas de logs, Docker e registry, Settings. Referência do manifesto gerada (validada contra o parser). Faltam: tour da web UI,
+> FAQ/comparativos, CI de qualidade e inglês. Este arquivo não é a documentação: é o
 > plano de como ela será feita.
 >
 > **Achados ao documentar** (viram trabalho de produto): o botão Rollback não
 > redeploya; os campos watch paths, build path, build stage e submódulos Git
 > estão na tela mas o deploy os ignora; o clone exige `git` no servidor, que o
 > `.deb` não declara como dependência; não há GitHub Release, então o
-> `install.sh` não funciona; o `AGENTS.md` ainda cita nomes de container antigos; abortar um deploy em execução
+> `install.sh` não funciona; o `AGENTS.md` ainda cita nomes de container antigos; o parser do manifesto ignora campos
+> com erro de digitação em silêncio, e na forma raiz qualquer erro dentro de um projeto vira
+> "data did not match any variant of untagged enum ProjectEntry"; importar sobre um serviço
+> existente zera a fila de pré-deploy (o manifesto não a representa); a exportação grava serviços
+> de origem zip como `registry: ""`; `include:` só funcionava no CLI removido; abortar um deploy em execução
 > não faz rollback e deixa o serviço em `Error`, e cancelar um enfileirado marca o serviço
 > `Stopped` mesmo com o container antigo no ar; no app desktop o botão Rebuild
 > chama a mesma função que Deploy e o UPTIME/SERVICES do painel lateral do serviço são do
