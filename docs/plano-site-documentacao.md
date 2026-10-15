@@ -3,16 +3,20 @@
 > **Status: em implementação** (2026-10-14). O site vive no submódulo
 > `rustploy-docs/` (Astro + Starlight, pt-BR). Feitas as fases 0 e 1, a trilha
 > de MCP (fase 2) e parte dos guias da fase 3 (Git, zip, Compose, variáveis e
-> secrets, healthcheck, domínios/TLS, 502, webhooks, fila). Faltam: templates,
-> bancos/brokers, jobs, IaC, registry, banco compartilhado, operação, tours das
-> interfaces, referência gerada e inglês. Este arquivo não é a documentação: é o
+> secrets, healthcheck, domínios/TLS, 502, webhooks, fila, pré-deploy, jobs,
+> bancos/brokers, templates, banco compartilhado e migração, IaC, registry,
+> limpeza do Docker, backup). Faltam: monitoramento, segurança do servidor, tours
+> das interfaces, migração do Dokploy, referência gerada e inglês. Este arquivo não é a documentação: é o
 > plano de como ela será feita.
 >
 > **Achados ao documentar** (viram trabalho de produto): o botão Rollback não
 > redeploya; os campos watch paths, build path, build stage e submódulos Git
 > estão na tela mas o deploy os ignora; o clone exige `git` no servidor, que o
 > `.deb` não declara como dependência; não há GitHub Release, então o
-> `install.sh` não funciona; o `AGENTS.md` ainda cita nomes de container antigos.
+> `install.sh` não funciona; o `AGENTS.md` ainda cita nomes de container antigos;
+> o horário de jobs e da limpeza automática é UTC e a tela não avisa; a opção de
+> expor banco externamente só existe na GUI, não na webui; o cache de build não
+> tem botão de limpeza manual em nenhum cliente.
 
 ## 1. Por que fazer, e para quem
 
