@@ -38,8 +38,8 @@
 > converte aplicações de imagem Docker e não vai no `.deb`;
 > o horário de jobs e da limpeza automática é UTC e a tela não avisa; a opção de
 > expor banco externamente só existe na GUI, não na webui; o cache de build não
-> tem botão de limpeza manual em nenhum cliente; no app desktop o Remover de job apaga sem confirmação (a web UI
-> confirma); o guia de banco compartilhado cita a URL com botão Copiar na lista de databases, que a tela do desktop não
+> tem botão de limpeza manual em nenhum cliente; o Remover de job do app desktop apagava sem confirmação (a web UI
+> confirmava; o desktop passou a confirmar em 2026-10-16); o guia de banco compartilhado cita a URL com botão Copiar na lista de databases, que a tela do desktop não
 > mostrou; o assistente de Compose do desktop pede só o nome (a web UI pede também porta, domínio e YAML); a aba Infra as
 > Code da web UI estava defasada do desktop (agora importa e exporta o mesmo `.zip`) e o relatório do import no desktop
 > lia campos de prune que não existem (ambos corrigidos em 2026-10-16).
