@@ -13,3 +13,35 @@ de qualquer assunto. Sem cabeçalho de status por item (isso é para
   `vendor/README.md` e o `[patch.crates-io]` do `Cargo.toml`; (4) abrir a
   janela de logs e conferir que o recorte continua certo. Contexto em
   `vendor/README.md`.
+
+- [ ] **Capturar o diálogo "Remover job?" do app desktop e usar em
+  `interface/schedules` (pt e en).** O desktop passou a pedir confirmação ao
+  remover um job (`rustploy-gui`, `handlers/jobs.luau::job_delete`, commit
+  `05bd708`), e a página já diz isso, mas sem imagem. Só dá para capturar depois
+  de compilar e instalar o app novo. Borrar host, projeto e nome do job. Depois,
+  refazer o deploy do site (`wrangler deploy` em `rustploy-docs/`). A confirmação
+  em si nunca foi exercitada numa janela real (só os testes de renderização
+  passaram): conferir Cancelar (painel ⋯ continua aberto) e Remover.
+
+- [ ] **A web UI segura o CSS/JS antigo depois que o daemon atualiza.** Visto em
+  2026-10-16: o servidor já servia o `app.css` novo (54055 bytes, conferido por
+  `curl`), mas o navegador continuou com o antigo mesmo depois de desregistrar o
+  service worker e apagar os caches. Hipótese, não confirmada: `sw.js` faz
+  `cache.addAll()` do app shell pelo cache HTTP, que é `immutable` por 1 ano, e as
+  URLs não levam hash (`/app.css`, `/app.js`). Olhar `webui/sw.js`, o
+  `Cache-Control` em `src/api/web_ui.rs`/`build.rs` e se faz sentido versionar as
+  URLs dos assets (ou o SW buscar com `cache: 'reload'`). Hoje o remédio é
+  Ctrl+Shift+R, às vezes mais de uma vez, e o texto de `interface/web-ui` já avisa.
+
+- [ ] **Página "Para quem vai contribuir" no site de docs.** Última seção do
+  `docs/plano-site-documentacao.md` (§4, item 15) que não existe. Adiada de
+  propósito: o projeto continua **fechado a contribuições** por enquanto (decisão
+  de 2026-10-16). Quando retomar, a página só condensa a Parte 3 do `AGENTS.md`
+  (arquitetura, build, testes, convenções) e aponta para ele, que continua sendo a
+  fonte. Não copiar o texto inteiro, para não envelhecer em paralelo.
+
+- [ ] **Resto do plano do site (`docs/plano-site-documentacao.md`).** Falta a
+  captura de instalar a web UI como PWA (a barra do navegador não sai na
+  extensão do Chrome: tem que ser tirada à mão), o CI de qualidade do site
+  (links, exemplos executáveis, Lighthouse) e o domínio definitivo (canonical,
+  sitemap e `Sitemap:` do `public/robots.txt`).
