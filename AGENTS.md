@@ -555,6 +555,54 @@ npx wrangler deploy    # sobe dist/ conforme wrangler.jsonc
   (daemon, binário `rustployd`) e `cargo install rustploy-gui` ficam como
   alternativa. Como publicar uma release: `docs/release.md`.
 
+## "Publish": o que fazer quando o pedido for publicar
+
+Quando o usuário pedir **publish** (ou "publica", "lança", "sobe tudo"), isso significa **o conjunto
+abaixo, na ordem, sem pedir confirmação de cada passo** (o pedido autoriza todos). Não pare no commit.
+No fim, **relate** o que foi feito, o que foi verificado de verdade e o que **não** deu para testar
+(falta de máquina real, credencial…). Se descobrir que falta algo que não está na lista (um teste, uma
+página, um bump esquecido), **faça também**: "e tudo mais que faltar" faz parte do pedido.
+
+1. **Estado limpo e atualizado.** `git status` nos cinco repos (agregador e os quatro submódulos) e
+   `git fetch` comparando **nos dois sentidos** com o `origin` (já houve divergência entre máquinas).
+2. **Checagens.** `make lint` e `make test`; no site, `npm run build` e `node scripts/check-links.mjs`
+   (0 links quebrados). Se algo falhar, corrija e repita; não publique em cima de falha.
+3. **Indexação.** `make index` e commite `docs/indice/` junto dos ponteiros.
+4. **Documentação em dia.** Mudou comportamento, tela, comando ou instalador? Atualize as páginas **em pt e
+   em en**, as capturas (**borre** host, nomes, ids e segredos; veja a nota do site), o FAQ e, se couber,
+   `TODO.md` e o cabeçalho de `docs/plano-*.md`. Páginas geradas não se editam à mão.
+5. **Bump de versão** de tudo que mudou, e só do que mudou: `rustploy-shared/Cargo.toml` (0.4.0),
+   `rustploy-daemon/crates/daemon/Cargo.toml` (pacote `rustploy`, 0.1.1) e `rustploy-gui/Cargo.toml`
+   (0.1.5). Os `.deb` e a release herdam essas versões. Mudou o **shared**: bump → commit → push →
+   `cargo publish` (`--dry-run` antes) → subir a versão no `Cargo.toml` do daemon e da gui → `cargo update
+   -p rustploy-shared`. O `glacier-ui` segue a regra de nunca `path`: publicado e subido por versão.
+6. **Commit e push**, **completos e antes de qualquer `cargo publish`** (o crate publicado tem que bater com
+   a `main`). Ordem: `rustploy-shared` → `rustploy-daemon` e `rustploy-gui` → `rustploy-docs` → **agregador**
+   (com os ponteiros novos, `docs/indice/` e `TODO.md`). Mensagens no padrão do repo, com a linha
+   `Co-Authored-By` do ambiente.
+7. **crates.io.** `cargo publish` (com `--dry-run` antes) do que mudou: `rustploy-shared`, depois `rustploy`
+   (daemon) e `rustploy-gui`. A documentação oferece `cargo install` como alternativa, então ele tem que
+   refletir a `main`.
+8. **CI & CD completos (o deploy dos apps).** O deploy do daemon e do app desktop é a **release no GitHub**,
+   feita por `.github/workflows/release.yml`. Siga `docs/release.md`: primeiro
+   `gh workflow run release.yml --ref main` (compila tudo e **não publica**), confira os artefatos
+   (`gh run download`, `dpkg-deb -I`) e só com tudo verde crie a tag `vX.Y.Z` no agregador. Falhou? Corrija,
+   dispare de novo e **não** crie a tag. Uma tag cuja release não saiu pode ser movida; depois de
+   publicada, não: crie outra.
+9. **Conferir a release de verdade.** `gh release view vX.Y.Z` (os cinco arquivos: `.deb` do daemon
+   amd64 e arm64, `.deb` do app, zip do Windows, `checksums.sha256`). Rode **o comando de uma linha exatamente
+   como está na documentação**, pela URL pública do GitHub, num Debian limpo (`docker run debian:12`): daemon e
+   `gui`; o `install.ps1` num PowerShell (`mcr.microsoft.com/powershell`). Testes só com JSON ou arquivos
+   falsos já enganaram uma vez.
+10. **Deploy das docs**, depois da release (as páginas citam a versão): em `rustploy-docs/`, com o Node 24 no
+    `PATH`, `rm -rf dist .astro && npm run build && npx wrangler deploy`. Confira com `curl` que as páginas
+    novas respondem 200 e têm o conteúdo novo.
+11. **Fechamento.** Todos os repos limpos e em dia com o `origin`; avisos de "ainda não há release" ou de
+    versão antiga removidos das páginas; `docs/release.md` com o que aprendeu; relatório final ao usuário.
+
+O que **não** entra no "publish": instalar no servidor do usuário (ele mesmo roda o `git pull` e o
+`make install-rustploy` lá) e rotacionar credenciais.
+
 ## Build & Run
 
 Cada repo compila **sozinho** (o `rustploy-shared` vem do crates.io). Da raiz do
