@@ -259,7 +259,9 @@ jobs:
 
   release:
     needs: [build-daemon-deb, build-gui-linux, package-gui-windows]
-    if: startsWith(github.ref, 'refs/tags/')
+    # `always()` porque o job de assinatura (opcional) é pulado quando o SignPath não está configurado, e um
+    # ancestral pulado faz o `if` padrão (success()) pular este job. As condições abaixo fazem a checagem certa.
+    if: ${{ always() && startsWith(github.ref, 'refs/tags/') && needs.build-daemon-deb.result == 'success' && needs.build-gui-linux.result == 'success' && needs.package-gui-windows.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
