@@ -145,9 +145,16 @@ jobs:
           key: ${{ runner.os }}-gui-win-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-gui-win-cargo-
 
-      # ring pede llvm-lib e aws-lc-sys pede NASM ao compilar para o alvo MSVC.
-      - name: Install LLVM toolchain and NASM
-        run: sudo apt-get update && sudo apt-get install -y llvm lld clang nasm
+      # ring pede llvm-lib e aws-lc-sys pede NASM ao compilar para o alvo MSVC. Os headers do
+      # MSVC STL baixados pelo cargo-xwin exigem Clang >= 19 (o do runner é o 18): LLVM 20 do apt.llvm.org.
+      - name: Install LLVM 20 toolchain and NASM
+        run: |
+          curl -fsSL https://apt.llvm.org/llvm.sh -o llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 20
+          sudo apt-get install -y llvm-20 lld-20 nasm
+          echo "/usr/lib/llvm-20/bin" >> "$GITHUB_PATH"
+          ls /usr/lib/llvm-20/bin | grep -E '^(clang-cl|lld-link|llvm-lib)$'
 
       - name: Install cargo-xwin
         run: cargo install cargo-xwin
