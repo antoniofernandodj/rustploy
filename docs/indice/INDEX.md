@@ -76,6 +76,7 @@
 - plano-pre-deploy-gate.md — Pré-deploy gate: rodar um check antes do deploy, e só prosseguir se ele passar
 - plano-reforma-gui-glacier-0.102.md — Plano: reforma do `rustploy-gui` sobre o glacier-ui moderno (0.87 → 0.102)
 - plano-registry-embutido.md — Registry Docker embutido no rustployd
+- plano-site-documentacao.md — Plano: site de documentação do Rustploy (SSG, SEO e GEO)
 - plano-tray-bandeja-e-ciclo-de-vida.md — Plano — ícone de bandeja e o app que sobrevive à última janela
 - plano-unificacao-webhook-api.md — Plano: unificar o webhook na porta da API
 - plano-webui-janelas-e-polimento.md — Plano: webui com acabamento da GUI, janelas arrastáveis e paridade total
@@ -233,6 +234,7 @@
 - manifest.webmanifest
 - sw.js — service worker do PWA Rustploy.
 - wm.js — gerenciador de janelas da webui (diretiva Alpine `x-win`).
+- zip.js — o `.zip` do Infra as Code no navegador.
 
 ### rustploy-daemon/crates/daemon/webui/net/ → webui.md
 - api.js — cliente HTTP/JSON do daemon.
@@ -283,6 +285,1009 @@
 
 ### rustploy-daemon/scripts/
 - migrate_id_prefixes.sh
+
+### rustploy-docs/
+- .gitignore
+- .nvmrc
+- README.md — rustploy-docs
+- astro.config.mjs
+- package-lock.json
+- package.json
+- wrangler.jsonc
+
+### rustploy-docs/public/
+- robots.txt
+- (+3 imagens/fontes)
+
+### rustploy-docs/scripts/
+- check-links.mjs
+- gen-faq.mjs
+- gen-manifest.mjs
+- gen-protocol.mjs
+- gen-templates.mjs
+- sync-manual.mjs
+
+### rustploy-docs/scripts/data/
+- faq.mjs
+- protocol-en.mjs
+- template-descriptions-en.tsv
+
+### rustploy-docs/scripts/lib/
+- i18n.mjs
+
+### rustploy-docs/src/
+- content.config.ts
+
+### rustploy-docs/src/components/
+- Shot.astro
+
+### rustploy-docs/src/content/docs/
+- faq.mdx
+- index.mdx
+
+### rustploy-docs/src/content/docs/agentes/
+- conectar-claude-code.mdx
+- ferramentas.mdx
+- manual.md
+- receitas.mdx
+- seguranca.mdx
+- visao-geral.mdx
+
+### rustploy-docs/src/content/docs/comece/
+- docker-para-rustploy.mdx
+- glossario.mdx
+- o-que-e.mdx
+
+### rustploy-docs/src/content/docs/comparativos/
+- rustploy-vs-caprover.mdx
+- rustploy-vs-coolify.mdx
+- rustploy-vs-dokploy.mdx
+- visao-geral.mdx
+
+### rustploy-docs/src/content/docs/conceitos/
+- ciclo-de-vida.mdx
+- projeto.mdx
+- rede-e-nomes.mdx
+- servico-e-fontes.mdx
+- variaveis-de-ambiente.mdx
+
+### rustploy-docs/src/content/docs/en/
+- faq.mdx
+- index.mdx
+
+### rustploy-docs/src/content/docs/en/agentes/
+- conectar-claude-code.mdx
+- ferramentas.mdx
+- receitas.mdx
+- seguranca.mdx
+- visao-geral.mdx
+
+### rustploy-docs/src/content/docs/en/comece/
+- docker-para-rustploy.mdx
+- glossario.mdx
+- o-que-e.mdx
+
+### rustploy-docs/src/content/docs/en/comparativos/
+- rustploy-vs-caprover.mdx
+- rustploy-vs-coolify.mdx
+- rustploy-vs-dokploy.mdx
+- visao-geral.mdx
+
+### rustploy-docs/src/content/docs/en/conceitos/
+- ciclo-de-vida.mdx
+- projeto.mdx
+- rede-e-nomes.mdx
+- servico-e-fontes.mdx
+- variaveis-de-ambiente.mdx
+
+### rustploy-docs/src/content/docs/en/guias/
+- backup.mdx
+- banco-compartilhado.mdx
+- bancos-e-brokers.mdx
+- compose.mdx
+- copiar-servico.mdx
+- diagnosticar-502.mdx
+- dominios-e-tls.mdx
+- fila-de-deploys.mdx
+- git.mdx
+- healthcheck.mdx
+- infra-as-code.mdx
+- jobs.mdx
+- limpeza-docker.mdx
+- migrar-banco.mdx
+- pre-deploy.mdx
+- registry.mdx
+- templates.mdx
+- variaveis-e-secrets.mdx
+- webhooks.mdx
+- zip.mdx
+
+### rustploy-docs/src/content/docs/en/instalacao/
+- atualizar.mdx
+- config-toml.mdx
+- instalar-clientes.mdx
+- instalar-daemon.mdx
+- primeiro-acesso.mdx
+- requisitos.mdx
+
+### rustploy-docs/src/content/docs/en/interface/
+- configuracoes.mdx
+- deploy-engine.mdx
+- docker-e-registry.mdx
+- entrar.mdx
+- ingress.mdx
+- logs.mdx
+- monitoring.mdx
+- novo-servico.mdx
+- projetos.mdx
+- schedules.mdx
+- servico-configuracao.mdx
+- servico.mdx
+- visao-geral.mdx
+- web-ui.mdx
+
+### rustploy-docs/src/content/docs/en/migracao/
+- dokploy.mdx
+
+### rustploy-docs/src/content/docs/en/operacao/
+- monitoramento-e-saude.mdx
+- seguranca-do-servidor.mdx
+
+### rustploy-docs/src/content/docs/en/referencia/
+- api-http.mdx
+- comandos.md — no fields
+- eventos.md
+- manifesto.mdx
+- paridade.md
+- respostas.md
+
+### rustploy-docs/src/content/docs/en/templates/
+- ackee.md
+- activepieces.md
+- actualbudget.md
+- adguardhome.md
+- adminer.md
+- adventurelog.md
+- affinepro.md
+- agentdvr.md
+- akaunting.md
+- alist.md
+- alltube.md
+- ampache.md
+- anonupload.md
+- anse.md
+- answer.md
+- anubis.md — Unconmment in case you want to connect the anubis container to dokploy-network
+- anythingllm.md
+- anytype.md — Example: Any-Sync-Bundle with embedded MongoDB and Redis (all-in-one image)
+- appflowy.md
+- apprise-api.md
+- appsmith.md
+- appwrite.md
+- aptabase.md
+- arangodb.md
+- argilla.md
+- audiobookshelf.md
+- authelia.md
+- authentik.md
+- authorizer.md
+- autobase.md
+- automatisch.md
+- azuracast.md
+- babybuddy.md
+- backrest.md
+- baikal.md
+- barrage.md
+- baserow.md
+- bazarr.md
+- bentopdf.md
+- beszel.md
+- bigcapital.md
+- blender.md
+- blinko.md
+- bluesky-pds.md
+- bolt-diy.md
+- booklore.md
+- bookstack.md
+- borgitory.md
+- botpress.md
+- browserless.md
+- budget-board.md
+- budibase.md
+- bugsink.md
+- bytebase.md
+- bytestash.md
+- calcom.md
+- calibre-web.md
+- calibre.md
+- capso.md
+- carbone.md
+- casdoor.md
+- changedetection.md
+- chatwoot.md
+- checkcle.md
+- checkmate.md
+- chevereto.md
+- chibisafe.md — https://chibisafe.app/docs/intro
+- chiefonboarding.md
+- chirpstack.md
+- chromium.md
+- classicpress.md
+- clickhouse.md
+- cloud9.md
+- cloudcommander.md
+- cloudflare-ddns.md — For more details, see:
+- cloudflared.md
+- cloudreve.md
+- cockpit.md
+- coder.md
+- codex-docs.md
+- colanode.md
+- collabora-office.md
+- commafeed.md
+- commento.md
+- commentoplusplus.md
+- conduit.md — From Conduit's official documentation: https://docs.conduit.rs/deploying/docker.…
+- conduwuit.md — conduwuit
+- confluence.md
+- convertx.md
+- convex.md
+- cookie-cloud.md
+- coralproject.md
+- couchdb.md
+- crawl4ai.md
+- crowdsec.md — --------------------------------------------------------------------------------
+- cup.md
+- cyberchef.md
+- dashy.md
+- datalens.md
+- directory-lister.md
+- directus.md
+- discord-tickets.md
+- discourse.md
+- docling-serve.md
+- docmost.md
+- documenso.md
+- docuseal.md
+- dokploy-prom-monitoring-extension.md
+- dolibarr.md
+- domain-locker.md
+- doublezero.md
+- dozzle.md
+- dragonfly-db.md
+- drawio.md
+- drawnix.md
+- drizzle-gateway.md
+- dumbassets.md
+- dumbbudget.md
+- dumbdrop.md
+- dumbpad.md
+- easyappointments.md
+- elastic-search.md
+- emby.md
+- emqx.md — This templates requires additional traefik port mapping and entry point
+- enshrouded.md
+- erpnext.md
+- etherpad.md
+- evershop.md
+- evolutionapi.md
+- excalidraw.md
+- ezbookkeeping.md
+- filebrowser.md
+- filestash.md
+- firecrawl.md
+- fivem.md — docker-compose.yml
+- flagsmith.md — See https://docs.flagsmith.com/deployment/docker for more information on running…
+- flaresolverr.md
+- flatnotes-totp.md
+- flatnotes.md
+- flowise.md
+- fmd-server.md
+- focalboard.md
+- fonoster.md
+- forgejo.md
+- formbricks.md
+- frappe-hr.md
+- freescout.md
+- freshrss.md
+- garage-with-ui.md
+- garage.md
+- ghost.md
+- gitea-mirror.md
+- gitea-mysql.md
+- gitea-postgres.md
+- gitea-sqlite.md
+- gitingest.md
+- gitlab-ce.md
+- glance.md
+- glitchtip.md
+- glpi.md
+- go-whatsapp-web-multidevice.md
+- gotenberg.md
+- grafana.md
+- grimoire.md
+- grist.md
+- habitica.md
+- heyform.md
+- hi-events.md
+- hoarder.md
+- homarr.md
+- homeassistant.md
+- homebridge.md
+- hoppscotch.md
+- hortusfox.md
+- huly.md
+- i18n-blog.md
+- ihatemoney.md
+- imgproxy.md
+- immich.md
+- index.md
+- infisical.md
+- influxdb.md
+- inngest.md
+- instantdb.md
+- invoiceshelf.md
+- ipfs.md
+- it-tools.md
+- java.md
+- jellyfin.md
+- jenkins.md
+- kaneo.md
+- karakeep.md
+- kener.md
+- kestra.md
+- keycloak.md
+- kimai.md
+- kitchenowl.md
+- kokoro-tts.md
+- kokoro-web.md
+- komari-monitor.md
+- kutt.md
+- langflow.md
+- lavalink.md
+- letterfeed.md
+- librechat.md — LibreChat Docker Compose for Dokploy Template
+- libredesk.md
+- libretranslate.md
+- linkding.md
+- linkstack.md
+- linkwarden.md
+- listmonk.md
+- litellm.md
+- livekit.md
+- lobe-chat.md
+- lodestone.md
+- logto.md
+- lowcoder.md
+- macos.md
+- mage-ai.md — https://docs.mage.ai/getting-started/setup#docker-compose
+- mailpit.md
+- mattermost.md
+- mautic.md
+- maybe.md
+- mazanoke.md
+- mcsmanager.md
+- mealie.md
+- mediacms.md
+- mediafetch.md
+- meilisearch.md
+- memos.md
+- metabase.md
+- metube.md
+- minepanel.md
+- minio.md — comment the line below if you specified a local directory in the volumes section…
+- misaka-danmu-server.md
+- mixpost.md
+- moltbot.md
+- morphos.md
+- movary.md
+- mulesoft-esb.md
+- mumble.md
+- n8n-runner-postgres-ollama.md
+- n8n-with-postgres.md
+- n8n.md
+- navidrome.md
+- neko.md
+- netdata.md
+- networking-toolbox.md
+- nextcloud-aio.md
+- nginx.md
+- nocodb.md
+- notifuse.md
+- ntfy.md
+- obsidian-livesync.md
+- odoo_17.md
+- odoo_18.md
+- odoo_19.md
+- ojs.md
+- omni-tools.md
+- onedev.md
+- onetimesecret.md
+- ontime.md
+- open-fiesta.md
+- open-webui.md — This is the main service for the Open WebUI interface.
+- open_notebook.md
+- openclaw.md
+- opengist.md — docker-compose.yml
+- openhands.md — The 'version' attribute is obsolete and has been removed.
+- openinary.md
+- openpanel.md
+- openresty-manager.md
+- openspeedtest.md
+- otterwiki.md
+- outline.md
+- owncast.md
+- palmr.md
+- parseable.md
+- passbolt.md — =============================================================================
+- pastefy.md
+- paymenter.md
+- peerdb.md
+- penpot.md — demo-users
+- peppermint.md
+- pgadmin.md
+- photoprism.md
+- phpmyadmin.md
+- picsur.md
+- pinchflat.md
+- plane.md
+- plark.md
+- plausible.md
+- plunk.md — IMPORTANT: Plunk requires HTTPS to work properly
+- pocket-id.md
+- pocketbase.md — IMPORTANT: Please update the admin credentials in your .env file
+- poke.md
+- portainer.md
+- poste-io.md
+- postgres-pgdog.md
+- postgresus.md
+- postiz.md
+- prometheus.md
+- pterodactyl.md
+- pulse.md
+- pyrodactyl.md
+- qbittorrent.md — docker-compose.yml
+- qbitwebui.md
+- qdrant.md
+- quant-ux.md
+- rabbitmq.md
+- reactive-resume.md
+- registry.md
+- rocketchat.md
+- rote.md
+- roundcube.md
+- rss-bridge.md
+- rsshub.md
+- rustdesk.md
+- rustfs.md
+- rutorrent.md
+- rybbit.md — https://www.rybbit.io/docs/self-hosting-advanced
+- ryot.md
+- scrutiny.md — PROXMOX USERS: Proxmox LXCs don't have access to S.M.A.R.T data, while this may …
+- scrypted.md
+- seafile.md — https://manual.seafile.com/12.0/setup/setup_ce_by_docker
+- searxng.md
+- seaweedfs.md
+- shlink.md
+- signoz.md
+- silverbullet.md
+- slash.md
+- snapp.md
+- soketi.md
+- spacedrive.md
+- stack-auth.md
+- stalwart.md
+- statping-ng.md
+- stirling.md
+- storyden.md
+- strapi.md — Self-host guide:
+- streamflow.md
+- supabase.md — Self-hosted Supabase, tracking the official compose from
+- superset.md — This is an UNOFFICIAL production docker image build for Superset:
+- surrealdb.md
+- syncthing.md
+- tailscale-exitnode.md
+- teable.md
+- tianji.md
+- tolgee.md
+- tooljet.md
+- tor-browser.md
+- trailbase.md — IMPORTANT: The initial admin credentials will be printed in the logs after the c…
+- triggerdotdev.md
+- trilium-next.md — Running `docker-compose up` will create/use the "trilium-data" directory in the …
+- trilium.md
+- trmnl-byos-laravel.md
+- tuwunel.md
+- twenty.md
+- typebot.md
+- typecho.md
+- typesense.md
+- umami.md
+- unifi.md
+- unleash.md — The default users credentials are:
+- upsnap.md
+- uptime-kuma.md
+- usesend.md
+- valkey.md
+- vault.md
+- vaultwarden.md — the webserver can take a while to start up, so don't be alarmed if it takes a fe…
+- verdaccio.md
+- vikunja.md
+- wallos.md
+- wanderer.md
+- web-check.md
+- wg-easy.md
+- wikijs.md
+- windmill.md
+- windows.md
+- wordpress.md
+- wuzapi.md
+- xsshunter.md
+- yamtrack.md
+- yourls.md
+- yt-dlp-webui.md
+- zabbix.md
+- zipline.md
+- zitadel.md
+
+### rustploy-docs/src/content/docs/en/tutorial/
+- primeiro-deploy.mdx
+
+### rustploy-docs/src/content/docs/guias/
+- backup.mdx
+- banco-compartilhado.mdx
+- bancos-e-brokers.mdx
+- compose.mdx
+- copiar-servico.mdx
+- diagnosticar-502.mdx
+- dominios-e-tls.mdx
+- fila-de-deploys.mdx
+- git.mdx
+- healthcheck.mdx
+- infra-as-code.mdx
+- jobs.mdx
+- limpeza-docker.mdx
+- migrar-banco.mdx
+- pre-deploy.mdx
+- registry.mdx
+- templates.mdx
+- variaveis-e-secrets.mdx
+- webhooks.mdx
+- zip.mdx
+
+### rustploy-docs/src/content/docs/instalacao/
+- atualizar.mdx
+- config-toml.mdx
+- instalar-clientes.mdx
+- instalar-daemon.mdx
+- primeiro-acesso.mdx
+- requisitos.mdx
+
+### rustploy-docs/src/content/docs/interface/
+- configuracoes.mdx
+- deploy-engine.mdx
+- docker-e-registry.mdx
+- entrar.mdx
+- ingress.mdx
+- logs.mdx
+- monitoring.mdx
+- novo-servico.mdx
+- projetos.mdx
+- schedules.mdx
+- servico-configuracao.mdx
+- servico.mdx
+- visao-geral.mdx
+- web-ui.mdx
+
+### rustploy-docs/src/content/docs/migracao/
+- dokploy.mdx
+
+### rustploy-docs/src/content/docs/operacao/
+- monitoramento-e-saude.mdx
+- seguranca-do-servidor.mdx
+
+### rustploy-docs/src/content/docs/referencia/
+- api-http.mdx
+- comandos.md — sem campos
+- eventos.md
+- manifesto.mdx
+- paridade.md
+- respostas.md
+
+### rustploy-docs/src/content/docs/templates/
+- ackee.md
+- activepieces.md
+- actualbudget.md
+- adguardhome.md
+- adminer.md
+- adventurelog.md
+- affinepro.md
+- agentdvr.md
+- akaunting.md
+- alist.md
+- alltube.md
+- ampache.md
+- anonupload.md
+- anse.md
+- answer.md
+- anubis.md — Unconmment in case you want to connect the anubis container to dokploy-network
+- anythingllm.md
+- anytype.md — Example: Any-Sync-Bundle with embedded MongoDB and Redis (all-in-one image)
+- appflowy.md
+- apprise-api.md
+- appsmith.md
+- appwrite.md
+- aptabase.md
+- arangodb.md
+- argilla.md
+- audiobookshelf.md
+- authelia.md
+- authentik.md
+- authorizer.md
+- autobase.md
+- automatisch.md
+- azuracast.md
+- babybuddy.md
+- backrest.md
+- baikal.md
+- barrage.md
+- baserow.md
+- bazarr.md
+- bentopdf.md
+- beszel.md
+- bigcapital.md
+- blender.md
+- blinko.md
+- bluesky-pds.md
+- bolt-diy.md
+- booklore.md
+- bookstack.md
+- borgitory.md
+- botpress.md
+- browserless.md
+- budget-board.md
+- budibase.md
+- bugsink.md
+- bytebase.md
+- bytestash.md
+- calcom.md
+- calibre-web.md
+- calibre.md
+- capso.md
+- carbone.md
+- casdoor.md
+- changedetection.md
+- chatwoot.md
+- checkcle.md
+- checkmate.md
+- chevereto.md
+- chibisafe.md — https://chibisafe.app/docs/intro
+- chiefonboarding.md
+- chirpstack.md
+- chromium.md
+- classicpress.md
+- clickhouse.md
+- cloud9.md
+- cloudcommander.md
+- cloudflare-ddns.md — For more details, see:
+- cloudflared.md
+- cloudreve.md
+- cockpit.md
+- coder.md
+- codex-docs.md
+- colanode.md
+- collabora-office.md
+- commafeed.md
+- commento.md
+- commentoplusplus.md
+- conduit.md — From Conduit's official documentation: https://docs.conduit.rs/deploying/docker.…
+- conduwuit.md — conduwuit
+- confluence.md
+- convertx.md
+- convex.md
+- cookie-cloud.md
+- coralproject.md
+- couchdb.md
+- crawl4ai.md
+- crowdsec.md — --------------------------------------------------------------------------------
+- cup.md
+- cyberchef.md
+- dashy.md
+- datalens.md
+- directory-lister.md
+- directus.md
+- discord-tickets.md
+- discourse.md
+- docling-serve.md
+- docmost.md
+- documenso.md
+- docuseal.md
+- dokploy-prom-monitoring-extension.md
+- dolibarr.md
+- domain-locker.md
+- doublezero.md
+- dozzle.md
+- dragonfly-db.md
+- drawio.md
+- drawnix.md
+- drizzle-gateway.md
+- dumbassets.md
+- dumbbudget.md
+- dumbdrop.md
+- dumbpad.md
+- easyappointments.md
+- elastic-search.md
+- emby.md
+- emqx.md — This templates requires additional traefik port mapping and entry point
+- enshrouded.md
+- erpnext.md
+- etherpad.md
+- evershop.md
+- evolutionapi.md
+- excalidraw.md
+- ezbookkeeping.md
+- filebrowser.md
+- filestash.md
+- firecrawl.md
+- fivem.md — docker-compose.yml
+- flagsmith.md — See https://docs.flagsmith.com/deployment/docker for more information on running…
+- flaresolverr.md
+- flatnotes-totp.md
+- flatnotes.md
+- flowise.md
+- fmd-server.md
+- focalboard.md
+- fonoster.md
+- forgejo.md
+- formbricks.md
+- frappe-hr.md
+- freescout.md
+- freshrss.md
+- garage-with-ui.md
+- garage.md
+- ghost.md
+- gitea-mirror.md
+- gitea-mysql.md
+- gitea-postgres.md
+- gitea-sqlite.md
+- gitingest.md
+- gitlab-ce.md
+- glance.md
+- glitchtip.md
+- glpi.md
+- go-whatsapp-web-multidevice.md
+- gotenberg.md
+- grafana.md
+- grimoire.md
+- grist.md
+- habitica.md
+- heyform.md
+- hi-events.md
+- hoarder.md
+- homarr.md
+- homeassistant.md
+- homebridge.md
+- hoppscotch.md
+- hortusfox.md
+- huly.md
+- i18n-blog.md
+- ihatemoney.md
+- imgproxy.md
+- immich.md
+- index.md
+- infisical.md
+- influxdb.md
+- inngest.md
+- instantdb.md
+- invoiceshelf.md
+- ipfs.md
+- it-tools.md
+- java.md
+- jellyfin.md
+- jenkins.md
+- kaneo.md
+- karakeep.md
+- kener.md
+- kestra.md
+- keycloak.md
+- kimai.md
+- kitchenowl.md
+- kokoro-tts.md
+- kokoro-web.md
+- komari-monitor.md
+- kutt.md
+- langflow.md
+- lavalink.md
+- letterfeed.md
+- librechat.md — LibreChat Docker Compose for Dokploy Template
+- libredesk.md
+- libretranslate.md
+- linkding.md
+- linkstack.md
+- linkwarden.md
+- listmonk.md
+- litellm.md
+- livekit.md
+- lobe-chat.md
+- lodestone.md
+- logto.md
+- lowcoder.md
+- macos.md
+- mage-ai.md — https://docs.mage.ai/getting-started/setup#docker-compose
+- mailpit.md
+- mattermost.md
+- mautic.md
+- maybe.md
+- mazanoke.md
+- mcsmanager.md
+- mealie.md
+- mediacms.md
+- mediafetch.md
+- meilisearch.md
+- memos.md
+- metabase.md
+- metube.md
+- minepanel.md
+- minio.md — comment the line below if you specified a local directory in the volumes section…
+- misaka-danmu-server.md
+- mixpost.md
+- moltbot.md
+- morphos.md
+- movary.md
+- mulesoft-esb.md
+- mumble.md
+- n8n-runner-postgres-ollama.md
+- n8n-with-postgres.md
+- n8n.md
+- navidrome.md
+- neko.md
+- netdata.md
+- networking-toolbox.md
+- nextcloud-aio.md
+- nginx.md
+- nocodb.md
+- notifuse.md
+- ntfy.md
+- obsidian-livesync.md
+- odoo_17.md
+- odoo_18.md
+- odoo_19.md
+- ojs.md
+- omni-tools.md
+- onedev.md
+- onetimesecret.md
+- ontime.md
+- open-fiesta.md
+- open-webui.md — This is the main service for the Open WebUI interface.
+- open_notebook.md
+- openclaw.md
+- opengist.md — docker-compose.yml
+- openhands.md — The 'version' attribute is obsolete and has been removed.
+- openinary.md
+- openpanel.md
+- openresty-manager.md
+- openspeedtest.md
+- otterwiki.md
+- outline.md
+- owncast.md
+- palmr.md
+- parseable.md
+- passbolt.md — =============================================================================
+- pastefy.md
+- paymenter.md
+- peerdb.md
+- penpot.md — demo-users
+- peppermint.md
+- pgadmin.md
+- photoprism.md
+- phpmyadmin.md
+- picsur.md
+- pinchflat.md
+- plane.md
+- plark.md
+- plausible.md
+- plunk.md — IMPORTANT: Plunk requires HTTPS to work properly
+- pocket-id.md
+- pocketbase.md — IMPORTANT: Please update the admin credentials in your .env file
+- poke.md
+- portainer.md
+- poste-io.md
+- postgres-pgdog.md
+- postgresus.md
+- postiz.md
+- prometheus.md
+- pterodactyl.md
+- pulse.md
+- pyrodactyl.md
+- qbittorrent.md — docker-compose.yml
+- qbitwebui.md
+- qdrant.md
+- quant-ux.md
+- rabbitmq.md
+- reactive-resume.md
+- registry.md
+- rocketchat.md
+- rote.md
+- roundcube.md
+- rss-bridge.md
+- rsshub.md
+- rustdesk.md
+- rustfs.md
+- rutorrent.md
+- rybbit.md — https://www.rybbit.io/docs/self-hosting-advanced
+- ryot.md
+- scrutiny.md — PROXMOX USERS: Proxmox LXCs don't have access to S.M.A.R.T data, while this may …
+- scrypted.md
+- seafile.md — https://manual.seafile.com/12.0/setup/setup_ce_by_docker
+- searxng.md
+- seaweedfs.md
+- shlink.md
+- signoz.md
+- silverbullet.md
+- slash.md
+- snapp.md
+- soketi.md
+- spacedrive.md
+- stack-auth.md
+- stalwart.md
+- statping-ng.md
+- stirling.md
+- storyden.md
+- strapi.md — Self-host guide:
+- streamflow.md
+- supabase.md — Self-hosted Supabase, tracking the official compose from
+- superset.md — This is an UNOFFICIAL production docker image build for Superset:
+- surrealdb.md
+- syncthing.md
+- tailscale-exitnode.md
+- teable.md
+- tianji.md
+- tolgee.md
+- tooljet.md
+- tor-browser.md
+- trailbase.md — IMPORTANT: The initial admin credentials will be printed in the logs after the c…
+- triggerdotdev.md
+- trilium-next.md — Running `docker-compose up` will create/use the "trilium-data" directory in the …
+- trilium.md
+- trmnl-byos-laravel.md
+- tuwunel.md
+- twenty.md
+- typebot.md
+- typecho.md
+- typesense.md
+- umami.md
+- unifi.md
+- unleash.md — The default users credentials are:
+- upsnap.md
+- uptime-kuma.md
+- usesend.md
+- valkey.md
+- vault.md
+- vaultwarden.md — the webserver can take a while to start up, so don't be alarmed if it takes a fe…
+- verdaccio.md
+- vikunja.md
+- wallos.md
+- wanderer.md
+- web-check.md
+- wg-easy.md
+- wikijs.md
+- windmill.md
+- windows.md
+- wordpress.md
+- wuzapi.md
+- xsshunter.md
+- yamtrack.md
+- yourls.md
+- yt-dlp-webui.md
+- zabbix.md
+- zipline.md
+- zitadel.md
+
+### rustploy-docs/src/content/docs/tutorial/
+- primeiro-deploy.mdx
+
+### rustploy-docs/src/styles/
+- custom.css
 
 ### rustploy-gui/ → gui.md
 - .gitignore

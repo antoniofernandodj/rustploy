@@ -75,7 +75,7 @@ type ApiBody = BoxBody<Bytes, std::convert::Infallible>
 struct Asset { route, content_type, etag, no_cache, gz } — Um arquivo do app shell, já processado (minificado + gzipado) em tempo de build — ver `Asset` gerado…
 fn serve(path) -> Option<Response<ApiBody>> — Serve `path` se casar com algum asset embutido do app shell; `None` se a rota não pertencer à web UI…
 const ASSETS
-(9 testes)
+(10 testes)
 
 ## rustploy-daemon/crates/daemon/src/api/agent/
 
