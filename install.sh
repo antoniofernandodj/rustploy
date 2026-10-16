@@ -75,8 +75,10 @@ if [ "$DRY" != "1" ] && [ "$(id -u)" -ne 0 ]; then
     die "rode como root: curl -fsSL <url>/install.sh | sudo sh   (ou: sudo sh install.sh)"
 fi
 
-# O .deb exige glibc >= 2.34 (Debian 12+, Ubuntu 22.04+). Melhor avisar aqui do que deixar o apt falhar.
+# O .deb do daemon exige glibc >= 2.34 e o do app >= 2.35 (Debian 12+, Ubuntu 22.04+ nos dois casos).
+# Melhor avisar aqui do que deixar o apt falhar.
 MIN_GLIBC="2.34"
+[ "$WHAT" = "gui" ] && MIN_GLIBC="2.35"
 GLIBC="$(getconf GNU_LIBC_VERSION 2>/dev/null | awk '{print $2}')"
 if [ -z "$GLIBC" ]; then
     warn "não consegui descobrir a versão da glibc (sistema sem glibc, como o Alpine, não é suportado)"
