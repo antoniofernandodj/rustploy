@@ -1,8 +1,14 @@
 # Copiar um serviço de um servidor para outro
 
-> **Status (2026-10-09): PROJETO, nada implementado.** Este doc existe para você
-> aprovar (ou corrigir) o desenho antes de qualquer código. As decisões já
-> tomadas e o que ainda está em aberto estão na seção 8.
+> **Status (2026-10-16): IMPLEMENTADO e documentado.** Os cinco passos da seção 9
+> estão feitos: `shared` (0.3.0 em diante), daemon (`ServiceExportPlan`,
+> `ServiceExport`, `ServiceImport`), webui, GUI e paridade/índice, com a parte de uso
+> no `AGENTS.md`. O visual da GUI, que a nota do passo 4 dizia não conferido, foi
+> visto numa janela real em 2026-10-16 (janela "Exportar serviço" e passo "Importar"
+> do assistente, este com texto colado e botão Analisar, como na webui). Guia para
+> quem usa: `rustploy-docs`, página `guias/copiar-servico`. O texto abaixo é o
+> desenho original, mantido pelo porquê das decisões; onde ele difere do código, vale
+> o código e a nota "Diferenças em relação ao desenho" da seção 9.
 
 ## 1. O que você quer fazer
 

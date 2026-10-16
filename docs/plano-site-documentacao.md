@@ -1,16 +1,18 @@
 # Plano: site de documentação do Rustploy (SSG, SEO e GEO)
 
-> **Status: em implementação** (2026-10-14). O site vive no submódulo
+> **Status: em implementação** (2026-10-16). O site vive no submódulo
 > `rustploy-docs/` (Astro + Starlight, pt-BR). Feitas as fases 0 e 1, a trilha
 > de MCP (fase 2) e parte dos guias da fase 3 (Git, zip, Compose, variáveis e
 > secrets, healthcheck, domínios/TLS, 502, webhooks, fila, pré-deploy, jobs,
 > bancos/brokers, templates, banco compartilhado e migração, IaC, registry,
 > limpeza do Docker, backup) e a referência gerada do código (386 templates,
 > comandos, respostas, eventos, paridade). Também: resolução de variáveis, `config.toml` conferido contra o código e migração do
-> Dokploy. Também: monitoramento e watchdog, segurança do servidor. Seção "Interface desktop" com 13 páginas e 38 screenshots (host, domínios e UUIDs borrados): login,
+> Dokploy. Também: monitoramento e watchdog, segurança do servidor. Seção de interface com 14 páginas (as 13 do app desktop e o tour da web UI) e 61 screenshots (host, domínios, nomes de projeto e UUIDs borrados; dados de exemplo onde a tela real mostraria segredos): login,
 > projetos, assistente de serviço, tela do serviço, domínios/healthcheck/avançado, Deploy Engine,
-> Ingress, Schedules, Monitoring, janelas de logs, Docker e registry, Settings. Referência do manifesto gerada (validada contra o parser). FAQ (41 perguntas), comparativos (Dokploy, Coolify, CapRover, datados) e a versão em inglês de todo o site, inclusive as páginas geradas (templates, manifesto, protocolo), estão feitos. Faltam: tour da web UI,
-> CI de qualidade e domínio definitivo. Este arquivo não é a documentação: é o
+> Ingress, Schedules, Monitoring, janelas de logs, Docker e registry, Settings. Referência do manifesto gerada (validada contra o parser). FAQ (41 perguntas), comparativos (Dokploy, Coolify, CapRover, datados) e a versão em inglês de todo o site, inclusive as páginas geradas (templates, manifesto, protocolo), estão feitos. Também feitos em 2026-10-16: tour da web UI, referência da API HTTP,
+> guia de cópia de serviço entre servidores e as telas do desktop que faltavam (abas Databases, Migrar, Environment, Logs e
+> Deployments, janela Exportar serviço, formulários do assistente, menu ⋯ dos jobs e bandeja). Faltam: página "Para quem vai
+> contribuir", a captura de instalar a web UI como PWA, CI de qualidade e domínio definitivo. Este arquivo não é a documentação: é o
 > plano de como ela será feita.
 >
 > **Achados ao documentar** (viram trabalho de produto): o botão Rollback não
@@ -36,7 +38,11 @@
 > converte aplicações de imagem Docker e não vai no `.deb`;
 > o horário de jobs e da limpeza automática é UTC e a tela não avisa; a opção de
 > expor banco externamente só existe na GUI, não na webui; o cache de build não
-> tem botão de limpeza manual em nenhum cliente.
+> tem botão de limpeza manual em nenhum cliente; no app desktop o Remover de job apaga sem confirmação (a web UI
+> confirma); o guia de banco compartilhado cita a URL com botão Copiar na lista de databases, que a tela do desktop não
+> mostrou; o assistente de Compose do desktop pede só o nome (a web UI pede também porta, domínio e YAML); a aba Infra as
+> Code da web UI estava defasada do desktop (agora importa e exporta o mesmo `.zip`) e o relatório do import no desktop
+> lia campos de prune que não existem (ambos corrigidos em 2026-10-16).
 
 ## 1. Por que fazer, e para quem
 
