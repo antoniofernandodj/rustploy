@@ -4,28 +4,42 @@ on:
   push:
     tags:
       - 'v*'
+  # Disparo manual: compila e guarda os pacotes como artefatos, mas NÃO publica release
+  # (o job `release` só roda em tag). Serve para testar o pipeline sem criar tag.
+  workflow_dispatch:
 
 jobs:
-  build:
-    name: Build (${{ matrix.artifact }})
-    runs-on: ubuntu-latest
+  # .deb do daemon, o caminho de instalação suportado (install.sh baixa dele).
+  # Compila dentro de um Ubuntu 22.04 (glibc 2.35) para o binário rodar também em
+  # Debian 12 e Ubuntu 22.04/24.04; um build no runner mais novo exigiria glibc nova.
+  # O arm64 compila nativo no runner ARM, sem cross.
+  build-daemon-deb:
+    name: Build rustployd (.deb ${{ matrix.arch }})
     strategy:
       matrix:
         include:
-          - target: x86_64-unknown-linux-musl
-            artifact: x86_64
-          - target: aarch64-unknown-linux-musl
-            artifact: aarch64
-
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    container: ubuntu:22.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
     steps:
+      - name: Install system packages
+        run: |
+          apt-get update
+          apt-get install -y curl build-essential pkg-config libssl-dev git dpkg-dev ca-certificates
+
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+        run: |
+          curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -34,40 +48,48 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             rustploy-daemon/target
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-${{ matrix.target }}-cargo-
+          key: daemon-deb-${{ matrix.arch }}-${{ hashFiles('rustploy-daemon/Cargo.lock') }}
+          restore-keys: daemon-deb-${{ matrix.arch }}-
 
-      - name: Install cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
+      - name: Install cargo-deb
+        run: cargo install cargo-deb --locked
 
+      # `-p rustploy` compila os dois binários do pacote: rustployd e rustployd-fw.
       - name: Build daemon
         working-directory: rustploy-daemon
-        run: cross build --release --target ${{ matrix.target }} -p rustploy
+        run: cargo build --release --locked -p rustploy
 
-      - name: Package
-        run: |
-          mkdir dist
-          cp rustploy-daemon/target/${{ matrix.target }}/release/rustployd dist/
-          cp rustploy-daemon/packaging/rustployd.service dist/
-          tar -czf rustploy-${{ github.ref_name }}-${{ matrix.artifact }}.tar.gz \
-            -C dist rustployd rustployd.service
+      - name: Build .deb
+        run: cargo deb --manifest-path rustploy-daemon/crates/daemon/Cargo.toml --no-build -o dist/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rustploy-${{ matrix.artifact }}
-          path: rustploy-*.tar.gz
+          name: rustployd-deb-${{ matrix.arch }}
+          path: dist/rustployd_*.deb
 
+  # .deb do app desktop. Compila no mesmo Ubuntu 22.04 do daemon: um build no runner
+  # mais novo (24.04, glibc 2.39) não instalaria em Ubuntu 22.04 nem Debian 12.
   build-gui-linux:
     name: Build rustploy-gui (.deb)
     runs-on: ubuntu-latest
+    container: ubuntu:22.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
     steps:
+      - name: Install system packages
+        run: |
+          apt-get update
+          apt-get install -y curl build-essential pkg-config git dpkg-dev ca-certificates libfontconfig1-dev
+
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        run: |
+          curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -76,14 +98,11 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             rustploy-gui/target
-          key: ${{ runner.os }}-gui-deb-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-gui-deb-cargo-
+          key: gui-deb-amd64-${{ hashFiles('rustploy-gui/Cargo.lock') }}
+          restore-keys: gui-deb-amd64-
 
       - name: Install cargo-deb
-        run: cargo install cargo-deb
-
-      - name: Install native deps (fontconfig, for iced/wgpu text rendering)
-        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
+        run: cargo install cargo-deb --locked
 
       # Runtime assets (views/**/*, incl. views/scripts/{app.luau,fmt/,handlers/,
       # net/}) are declared in rustploy-gui/Cargo.toml's
@@ -226,7 +245,8 @@ jobs:
           path: dist/rustploy-gui-windows-*.zip
 
   release:
-    needs: [build, build-gui-linux, package-gui-windows]
+    needs: [build-daemon-deb, build-gui-linux, package-gui-windows]
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -238,13 +258,18 @@ jobs:
         with:
           merge-multiple: true
 
+      - name: List artifacts
+        run: ls -la
+
       - name: Generate checksums
-        run: sha256sum rustploy-*.tar.gz > checksums.sha256
+        run: sha256sum *.deb rustploy-gui-windows-*.zip > checksums.sha256
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            rustploy-*.tar.gz
+            rustployd_*.deb
+            rustploy-gui_*.deb
+            rustploy-gui-windows-*.zip
             checksums.sha256
           generate_release_notes: true
