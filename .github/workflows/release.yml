@@ -80,7 +80,9 @@ jobs:
       - name: Install system packages
         run: |
           apt-get update
-          apt-get install -y curl build-essential pkg-config git dpkg-dev ca-certificates libfontconfig1-dev
+          # GTK e glib (diálogos e bandeja), appindicator (bandeja), xdo, fontconfig (texto do iced/wgpu).
+          apt-get install -y curl build-essential pkg-config git dpkg-dev ca-certificates \
+            libgtk-3-dev libayatana-appindicator3-dev libxdo-dev libfontconfig1-dev
 
       - uses: actions/checkout@v4
         with:
@@ -142,6 +144,10 @@ jobs:
             rustploy-gui/target
           key: ${{ runner.os }}-gui-win-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-gui-win-cargo-
+
+      # ring pede llvm-lib e aws-lc-sys pede NASM ao compilar para o alvo MSVC.
+      - name: Install LLVM toolchain and NASM
+        run: sudo apt-get update && sudo apt-get install -y llvm lld clang nasm
 
       - name: Install cargo-xwin
         run: cargo install cargo-xwin
