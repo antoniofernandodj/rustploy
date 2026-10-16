@@ -45,3 +45,11 @@ de qualquer assunto. Sem cabeçalho de status por item (isso é para
   extensão do Chrome: tem que ser tirada à mão), o CI de qualidade do site
   (links, exemplos executáveis, Lighthouse) e o domínio definitivo (canonical,
   sitemap e `Sitemap:` do `public/robots.txt`).
+
+- [ ] **Testar em máquinas de verdade o que só rodou em container.** (1) `install.ps1` num Windows real,
+  principalmente o atalho do Menu Iniciar e o aviso do SmartScreen; (2) o `.deb` arm64 numa VPS arm64;
+  (3) `install.sh` numa VPS com systemd (subir `rustployd` e o `rustployd-fw.socket` e confirmar com
+  `systemctl status`). Detalhes em `docs/release.md`, seção "Ainda sem teste real".
+
+- [ ] **Assinar o `.exe` do Windows** (SignPath, tier OSS): o job `sign-gui-windows` é pulado enquanto a variável de
+  repositório `SIGNPATH_ORGANIZATION_ID` não existe. Passos em `docs/windows-code-signing.md`.

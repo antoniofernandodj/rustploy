@@ -115,17 +115,21 @@ HTTP="$(curl -sSL -H 'Accept: application/vnd.github+json' -H 'User-Agent: rustp
     -w '%{http_code}' -o "$TMP/release.json" "$URL" || true)"
 case "$HTTP" in
     200) ;;
-    404) die "nenhuma release ${VERSION:-publicada} em github.com/$REPO.
+    404) if [ -n "$VERSION" ]; then
+           die "a release $VERSION não existe em github.com/$REPO. Veja as disponíveis em https://github.com/$REPO/releases"
+       fi
+       die "nenhuma release publicada em github.com/$REPO.
        Enquanto não houver, instale pelo crates.io: cargo install $( [ "$WHAT" = gui ] && echo rustploy-gui || echo rustploy )
        (mais detalhes em $DOCS/instalar-$( [ "$WHAT" = gui ] && echo clientes || echo daemon )/)" ;;
     403|429) die "o GitHub limitou as consultas à API (HTTP $HTTP). Espere alguns minutos ou defina RUSTPLOY_VERSION=vX.Y.Z" ;;
     *) die "não consegui consultar $URL (HTTP ${HTTP:-sem resposta})" ;;
 esac
 
-TAG="$(sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' "$TMP/release.json" | head -n 1)"
+# A API devolve o JSON numa linha só (minificado): por isso grep -o, e não sed por linha.
+TAG="$(grep -o '"tag_name": *"[^"]*"' "$TMP/release.json" | head -n 1 | sed 's/.*: *"\(.*\)"/\1/')"
 [ -n "$TAG" ] || die "resposta inesperada do GitHub (sem tag_name)"
 
-assets() { sed -n 's/.*"browser_download_url": *"\([^"]*\)".*/\1/p' "$TMP/release.json"; }
+assets() { grep -o '"browser_download_url": *"[^"]*"' "$TMP/release.json" | sed 's/.*: *"\(.*\)"/\1/'; }
 DEB_URL="$(assets | grep "/${PREFIX}[^/]*_${ARCH}\.deb\$" | head -n 1 || true)"
 SUMS_URL="$(assets | grep '/checksums\.sha256$' | head -n 1 || true)"
 [ -n "$DEB_URL" ] || die "a release $TAG não tem pacote ${PREFIX}*_${ARCH}.deb"

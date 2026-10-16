@@ -34,6 +34,9 @@ try {
     $Release = Invoke-RestMethod -Uri $Url -Headers @{ 'User-Agent' = 'rustploy-installer'; 'Accept' = 'application/vnd.github+json' }
 } catch {
     $Code = if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 }
+    if ($Code -eq 404 -and $env:RUSTPLOY_VERSION) {
+        Fail "a release $($env:RUSTPLOY_VERSION) não existe em github.com/$Repo. Veja as disponíveis em https://github.com/$Repo/releases"
+    }
     if ($Code -eq 404) {
         Fail "nenhuma release publicada em github.com/$Repo. Enquanto não houver, instale pelo crates.io (cargo install rustploy-gui); veja $Docs/instalar-clientes/"
     }

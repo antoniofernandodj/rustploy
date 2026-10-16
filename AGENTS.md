@@ -549,8 +549,11 @@ npx wrangler deploy    # sobe dist/ conforme wrangler.jsonc
 - Sem o `wrangler.jsonc` o wrangler tenta `astro add cloudflare` e quebra o build.
 - Depois: commit + push **no submódulo** e, no agregador, commite o novo
   ponteiro (`git add rustploy-docs`), como nos outros repos.
-- Instalação documentada em `src/content/docs/instalacao/`: `cargo install
-  rustploy` (daemon, binário `rustployd`) e `cargo install rustploy-gui`.
+- Instalação documentada em `src/content/docs/instalacao/`: o caminho principal
+  são os instaladores de uma linha (`install.sh` e `install.ps1`, na raiz do
+  agregador, que baixam da última release do GitHub); `cargo install rustploy`
+  (daemon, binário `rustployd`) e `cargo install rustploy-gui` ficam como
+  alternativa. Como publicar uma release: `docs/release.md`.
 
 ## Build & Run
 
