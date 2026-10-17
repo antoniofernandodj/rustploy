@@ -36,7 +36,7 @@ equivalente para (2).
 ## Como usar (host)
 
 ```
-sudo apt install podman docker-compose-v2 uidmap
+sudo apt install podman uidmap slirp4netns   # + docker-compose-plugin (já presente)
 sudo systemctl enable --now podman.socket     # /run/podman/podman.sock (rootful)
 # config.toml:  [docker] socket_path = "/run/podman/podman.sock"
 # opcional:     RUSTPLOY_CONTAINER_ENGINE=podman
