@@ -34,6 +34,8 @@
 - Makefile
 - README.md — Rustploy
 - TODO.md — TODO
+- install.ps1
+- install.sh
 
 ### .claude/
 - settings.json
@@ -83,6 +85,7 @@
 - plano-widgets-glacier-0.68.md — Widgets novos do glacier-ui (0.63 → 0.68): o que dá pra aproveitar no rustploy
 - prompt-depurar-infra-com-agente.md — Prompt: depurar a infra pela API de agente
 - relatorio-porta-externa-automatica.md — Relatório: URL de conexão externa sem burocracia — porta automática + firewall g…
+- release.md — Como publicar uma release
 - secrets.md — Secrets — Gerenciamento de Credenciais
 - services.md
 - status-2026-05-26.md — Status do Projeto — 26 de maio de 2026
@@ -405,6 +408,7 @@
 ### rustploy-docs/src/content/docs/en/instalacao/
 - atualizar.mdx
 - config-toml.mdx
+- instalacao-rapida.mdx
 - instalar-clientes.mdx
 - instalar-daemon.mdx
 - primeiro-acesso.mdx
@@ -858,6 +862,7 @@
 ### rustploy-docs/src/content/docs/instalacao/
 - atualizar.mdx
 - config-toml.mdx
+- instalacao-rapida.mdx
 - instalar-clientes.mdx
 - instalar-daemon.mdx
 - primeiro-acesso.mdx
