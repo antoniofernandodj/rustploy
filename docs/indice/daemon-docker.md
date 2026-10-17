@@ -88,10 +88,18 @@ fn append_dir_filtered(tar, src, prefix) -> Result<()> — Adiciona `src` ao tar
 fn _prune_unused(docker, keep_tags) -> Result<()>
 
 ### mod.rs — Cliente Docker (`DockerClient`, via bollard) e os submódulos por recurso.
+enum Engine { Docker, Podman } — Motor de containers por trás do socket configurado.
+impl Engine
+  fn detect(socket_path) -> Self — `RUSTPLOY_CONTAINER_ENGINE=podman|docker` manda; sem ele, um socket com "podman" no caminho (`/run/p…
+  fn binary() -> &'static str
+fn engine() -> Engine — Motor ativo (Docker até o `connect` dizer o contrário).
+fn cli() -> Command — `Command` do CLI do motor ativo, já apontado para o socket configurado.
 struct DockerClient { inner, _socket_path }
 impl DockerClient
   fn connect(socket_path) -> Result<Self>
   fn ping() -> Result<()>
+const ENGINE
+(1 testes)
 
 ### networks.rs — Rede Docker por projeto: nome e criação sob demanda.
 fn legacy_project_net_for(project_id) -> String — Nome de rede no formato **legado** (`rp_net_` + 8 primeiros chars do ID), derivado a cada uso e sem …

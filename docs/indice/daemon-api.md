@@ -211,6 +211,7 @@ fn prune_images_core(state, all, older_than_hours) -> Result<PruneStat, String> 
 fn prune_build_cache(state) -> RpResponse — Usa `docker builder prune -f` via subprocess — a API REST do BuildKit não está exposta pelo bollard …
 fn image_prune_filters(all, older_than_hours)
 fn build_cache_prune_args(older_than_hours) -> Vec<String>
+fn build_cache_prune_args_for(engine, older_than_hours) -> Vec<String> — O Podman não tem `builder prune`: o cache do Buildah sai por `system prune --build`.
 fn prune_build_cache_core(state, older_than_hours) -> Result<PruneStat, String> — `older_than_hours > 0` mantém o cache usado nas últimas N horas (BuildKit guarda o que foi usado há …
 struct BuildCachePrune { at, older_than_hours } — Última limpeza do cache de build, gravada em `daemon_settings`.
 fn record_build_cache_prune(db, older_than_hours)
@@ -218,7 +219,7 @@ fn last_build_cache_prune(db) -> Option<BuildCachePrune>
 fn parse_reclaimed_space(output) -> u64
 fn prune_networks(state) -> RpResponse
 fn prune_networks_core(state) -> Result<PruneStat, String>
-(3 testes)
+(4 testes)
 
 ### docker_remove.rs — Remoção INDIVIDUAL de um recurso Docker (o par por-item dos `docker_prune`): um container, imagem, v…
 fn remove_container(state, id) -> RpResponse — `docker rm <id>` (sem `-f`): remove um container PARADO.

@@ -1,6 +1,6 @@
 # Plano: backend Podman (alternativa ao Docker)
 
-> Status: **em implementação** (branch `feat/backend-podman`, 2026-10-17).
+> Status: **implementado e validado em rootful** (branch `feat/backend-podman`, 2026-10-17). Falta só decidir o instalador/unit (ver "Fora de escopo").
 
 ## Por quê
 
@@ -25,8 +25,12 @@ equivalente para (2).
   `docker::Engine::detect`: `RUSTPLOY_CONTAINER_ENGINE=podman|docker` ou, sem
   ele, "podman" no `socket_path`.
 - **Todo subprocesso passa por `docker::cli()`**: escolhe o binário e exporta
-  `DOCKER_HOST=unix://<socket>` (o `podman compose` delega ao provider
-  `docker-compose`, que lê essa variável).
+  `DOCKER_HOST=unix://<socket>`. No Podman acrescenta `--remote --url
+  unix://<socket>`: o `podman` local **ignora** o `DOCKER_HOST` e operaria no
+  storage rootless do usuário do daemon, não no do socket (bug achado no smoke
+  test). O `podman compose` delega ao provider `docker-compose` (o plugin
+  `docker-compose-plugin` serve; o pacote `docker-compose-v2` do apt conflita
+  com ele e não é necessário).
 - `builder prune` não existe no Podman → `system prune -f --build`.
 
 ## Como usar (host)
@@ -41,7 +45,19 @@ sudo systemctl enable --now podman.socket     # /run/podman/podman.sock (rootful
 Rootful é o caminho suportado (o ingress/registry usam portas baixas e o IP do
 container é roteado pelo host). Rootless fica fora de escopo.
 
-## Riscos a validar (smoke test)
+## Resultado do smoke test (Podman 5.7.0 rootful, netavark, daemon real)
+
+Passaram: deploy de imagem de registry até `Live`; redeploy (rename + alias de
+rede, container velho em `Pruning`); rota do ingress aponta para o IP do
+container na bridge `podman1` (10.89.0.x) e o backend responde 200; troca de IP
+no redeploy acompanhada pela rota; stack Compose de 2 serviços `Live`; DNS por
+nome entre serviços; label `com.docker.compose.project`; build de imagem pela
+API (`/build`, Buildah). Rootless: tudo igual, mas o teardown de compose avisa
+`rootless netns: kill network process: permission denied` (não afeta o rootful).
+Não coberto: build de Git/Archive de ponta a ponta, registry embutido
+(`login` no `podman`), `logs` de compose pela GUI, jobs one-shot.
+
+## Riscos (antes do smoke test)
 
 - DNS entre containers: o Podman usa `netavark` + `aardvark-dns`; o alias
   `rp_<safe_name>` e `attach_network_alias` (disconnect+connect) precisam
