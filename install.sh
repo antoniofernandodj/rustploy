@@ -8,8 +8,9 @@
 #   daemon | gui        o que instalar (padrão: daemon)
 #   --remote            (daemon) a API aceita conexões de fora da VPS (bind 0.0.0.0, com token).
 #                       Sem isso, ela escuta só em 127.0.0.1 (use um túnel SSH ou rode de novo com --remote).
-#   --engine podman     (daemon) usa o Podman no lugar do Docker (padrão: docker). Instala o Podman,
-#                       liga o podman.socket, dá acesso ao usuário rustploy e aponta o config.toml.
+#   --engine docker|podman  (daemon) o motor de containers (padrão: docker). Em ambos o instalador instala
+#                       o motor se faltar: docker = Docker Engine pelo repositório oficial da Docker;
+#                       podman = Podman + compose, podman.socket, acesso do usuário rustploy e config.toml.
 #   --version vX.Y.Z    uma release específica (padrão: a última)
 #   --dry-run           só mostra o que baixaria e instalaria
 #   -h | --help         esta ajuda
@@ -45,7 +46,8 @@ Uso: sudo sh install.sh [daemon|gui] [--remote] [--engine docker|podman] [--vers
   gui               instala o app desktop (amd64)
   --remote          (daemon) a API aceita conexões de fora da VPS (bind 0.0.0.0, com token);
                     sem isso, escuta só em 127.0.0.1
-  --engine podman   (daemon) usa o Podman no lugar do Docker: instala, liga o socket e configura tudo
+  --engine docker   (daemon) motor de containers = Docker (padrão); instala o Docker Engine se faltar
+  --engine podman   (daemon) motor de containers = Podman; instala o Podman e configura tudo
   --version vX.Y.Z  uma release específica (padrão: a última)
   --dry-run         só mostra o que baixaria e instalaria
 HELP
@@ -68,7 +70,7 @@ done
 
 case "$ENGINE" in
     docker) ;;
-    podman) [ "$WHAT" = "daemon" ] || die "--engine vale só para o daemon" ;;
+    podman) [ "$WHAT" = "daemon" ] || die "--engine podman vale só para o daemon" ;;
     *) die "--engine inválido: $ENGINE (use docker ou podman)" ;;
 esac
 
@@ -152,6 +154,7 @@ say "Release $TAG: $DEB"
 if [ "$DRY" = "1" ]; then
     say "--dry-run: baixaria $DEB_URL"
     [ -n "$SUMS_URL" ] && say "--dry-run: conferiria o SHA-256 em $SUMS_URL"
+    [ "$WHAT" = "daemon" ] && [ "$ENGINE" = "docker" ] && ! command -v docker >/dev/null 2>&1 && say "--dry-run: instalaria o Docker Engine pelo repositório oficial (download.docker.com)"
     [ "$ENGINE" = "podman" ] && say "--dry-run: instalaria o Podman (+ provider do compose), ligaria o podman.socket e apontaria o config.toml para $PODMAN_SOCKET"
     say "--dry-run: e instalaria com: apt-get install -y ./$DEB"
     exit 0
@@ -172,6 +175,70 @@ if [ -n "$SUMS_URL" ]; then
 else
     warn "a release não tem checksums.sha256; não consegui conferir o SHA-256"
 fi
+
+# ── Docker (padrão: --engine docker) ──────────────────────────────────────────
+
+# Instala o Docker Engine pelo repositório apt oficial da Docker, seguindo
+# https://docs.docker.com/engine/install/ubuntu/ (e a página equivalente do Debian).
+# Se o `docker` já existe, não mexe em nada.
+install_docker() {
+    if command -v docker >/dev/null 2>&1; then
+        say "Docker já instalado ($(docker --version 2>/dev/null | head -n 1)); mantido como está."
+        return 0
+    fi
+    say "Instalando o Docker Engine (repositório oficial da Docker)..."
+
+    # Subshell: o /etc/os-release define VERSION, ID etc. e não pode sobrescrever as variáveis daqui.
+    DIST_INFO="$( . /etc/os-release; echo "${ID:-} ${ID_LIKE:-}|${UBUNTU_CODENAME:-}|${VERSION_CODENAME:-}" )"
+    DIST_IDS="${DIST_INFO%%|*}"
+    REST="${DIST_INFO#*|}"
+    UB_CODENAME="${REST%%|*}"
+    DEB_CODENAME="${REST#*|}"
+    case " $DIST_IDS " in
+        *" ubuntu "*) DOCKER_DIST="ubuntu"; CODENAME="${UB_CODENAME:-$DEB_CODENAME}" ;;
+        *" debian "*) DOCKER_DIST="debian"; CODENAME="$DEB_CODENAME" ;;
+        *) DOCKER_DIST="" ;;
+    esac
+    if [ -z "$DOCKER_DIST" ] || [ -z "$CODENAME" ]; then
+        warn "não reconheci a distribuição ($DIST_IDS); instalando o docker.io do repositório da própria distribuição."
+        DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io || die "não consegui instalar o Docker"
+        return 0
+    fi
+
+    # 1. Pacotes que conflitam com o docker-ce (só os que estão instalados).
+    CONFLICTS="$(dpkg --get-selections docker.io docker-compose docker-compose-v2 docker-doc docker-buildx \
+        podman-docker containerd runc 2>/dev/null | awk '$2 == "install" {print $1}' | tr '\n' ' ')"
+    # shellcheck disable=SC2086
+    [ -n "$CONFLICTS" ] && DEBIAN_FRONTEND=noninteractive apt-get remove -y $CONFLICTS
+
+    # 2. Repositório apt da Docker (chave GPG + deb822).
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL "https://download.docker.com/linux/$DOCKER_DIST/gpg" -o /etc/apt/keyrings/docker.asc \
+        || die "não consegui baixar a chave GPG da Docker"
+    chmod a+r /etc/apt/keyrings/docker.asc
+    cat > /etc/apt/sources.list.d/docker.sources <<DOCKERSRC
+Types: deb
+URIs: https://download.docker.com/linux/$DOCKER_DIST
+Suites: $CODENAME
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+DOCKERSRC
+    apt-get update || die "não consegui ler o repositório da Docker (suites '$CODENAME' pode não ser suportada; veja https://docs.docker.com/engine/install/$DOCKER_DIST/)"
+
+    # 3. Os pacotes.
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
+        || die "não consegui instalar o docker-ce"
+
+    # 4. Ligado e conferido.
+    if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
+        systemctl enable --now docker >/dev/null 2>&1 || warn "não consegui ativar o serviço docker"
+    fi
+    command -v docker >/dev/null 2>&1 && say "Docker instalado: $(docker --version)"
+}
 
 # ── Podman (opcional: --engine podman) ───────────────────────────────────────
 
@@ -268,9 +335,12 @@ UNIT
 
 # ── Instalar ──────────────────────────────────────────────────────────────────
 
-# Com o Podman já instalado, a dependência "docker.io | docker-ce | podman" do .deb fica
-# satisfeita e o apt não puxa o Docker.
-[ "$ENGINE" = "podman" ] && install_podman
+# Com o motor já instalado, a dependência "docker.io | docker-ce | podman" do .deb fica
+# satisfeita e o apt não puxa outro.
+if [ "$WHAT" = "daemon" ]; then
+    [ "$ENGINE" = "podman" ] && install_podman
+    [ "$ENGINE" = "docker" ] && install_docker
+fi
 
 say "Instalando (apt resolve as dependências, inclusive o motor de containers, se faltar)..."
 # --force-confold: numa atualização, mantém o config.toml (com o token) em vez de perguntar.

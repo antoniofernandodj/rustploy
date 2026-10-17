@@ -41,8 +41,14 @@ equivalente para (2).
 curl -fsSL https://raw.githubusercontent.com/antoniofernandodj/rustploy/main/install.sh | sudo sh -s -- --engine podman
 ```
 
-(`--engine podman` combina com `--remote`.) Sem a flag, nada muda: o Docker
-continua sendo o padrão. **Só funciona com uma release que já tenha o código do
+(`--engine podman` combina com `--remote`.) Sem a flag vale `--engine docker`,
+o padrão: se o `docker` não existir, o instalador instala o Docker Engine
+(`docker-ce`) pelo repositório oficial da Docker, seguindo
+https://docs.docker.com/engine/install/ubuntu/ (no Debian usa o repositório
+`debian`; em derivados, o codinome do Ubuntu/Debian base; em distro desconhecida,
+cai no `docker.io`). Se o `docker` já existe, não mexe nele. A documentação do
+site (`instalacao/instalar-daemon`, pt e en) traz os dois caminhos, automático e
+manual. **Só funciona com uma release que já tenha o código do
 Podman** — as releases anteriores à branch `feat/backend-podman` ignoram a
 variável e ainda dependem do `docker.io`.
 
