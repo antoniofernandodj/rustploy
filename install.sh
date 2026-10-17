@@ -8,11 +8,13 @@
 #   daemon | gui        o que instalar (padrão: daemon)
 #   --remote            (daemon) a API aceita conexões de fora da VPS (bind 0.0.0.0, com token).
 #                       Sem isso, ela escuta só em 127.0.0.1 (use um túnel SSH ou rode de novo com --remote).
+#   --engine podman     (daemon) usa o Podman no lugar do Docker (padrão: docker). Instala o Podman,
+#                       liga o podman.socket, dá acesso ao usuário rustploy e aponta o config.toml.
 #   --version vX.Y.Z    uma release específica (padrão: a última)
 #   --dry-run           só mostra o que baixaria e instalaria
 #   -h | --help         esta ajuda
 #
-# Variáveis: RUSTPLOY_VERSION (igual a --version), RUSTPLOY_DRY_RUN=1,
+# Variáveis: RUSTPLOY_VERSION (igual a --version), RUSTPLOY_ENGINE (igual a --engine), RUSTPLOY_DRY_RUN=1,
 #            RUSTPLOY_REPO (padrão antoniofernandodj/rustploy), RUSTPLOY_API_URL (só para testes).
 #
 # Windows: veja install.ps1 (irm .../install.ps1 | iex).
@@ -25,6 +27,8 @@ WHAT="daemon"
 VERSION="${RUSTPLOY_VERSION:-}"
 DRY="${RUSTPLOY_DRY_RUN:-0}"
 REMOTE=0
+ENGINE="${RUSTPLOY_ENGINE:-docker}"
+PODMAN_SOCKET="/run/podman/podman.sock"
 CONFIG="/etc/rustploy/config.toml"
 
 say() { printf '==> %s\n' "$*"; }
@@ -35,12 +39,13 @@ usage() {
     cat <<'HELP'
 Instalador do Rustploy (Debian, Ubuntu e derivados), a partir da última release do GitHub.
 
-Uso: sudo sh install.sh [daemon|gui] [--remote] [--version vX.Y.Z] [--dry-run]
+Uso: sudo sh install.sh [daemon|gui] [--remote] [--engine docker|podman] [--version vX.Y.Z] [--dry-run]
 
   daemon            instala o rustployd na VPS (padrão)
   gui               instala o app desktop (amd64)
   --remote          (daemon) a API aceita conexões de fora da VPS (bind 0.0.0.0, com token);
                     sem isso, escuta só em 127.0.0.1
+  --engine podman   (daemon) usa o Podman no lugar do Docker: instala, liga o socket e configura tudo
   --version vX.Y.Z  uma release específica (padrão: a última)
   --dry-run         só mostra o que baixaria e instalaria
 HELP
@@ -53,11 +58,19 @@ while [ $# -gt 0 ]; do
         --version=*) VERSION="${1#--version=}" ;;
         --dry-run) DRY=1 ;;
         --remote) REMOTE=1 ;;
+        --engine) shift; [ $# -gt 0 ] || die "--engine precisa de um valor (docker ou podman)"; ENGINE="$1" ;;
+        --engine=*) ENGINE="${1#--engine=}" ;;
         -h|--help) usage; exit 0 ;;
         *) die "argumento desconhecido: $1 (use --help)" ;;
     esac
     shift
 done
+
+case "$ENGINE" in
+    docker) ;;
+    podman) [ "$WHAT" = "daemon" ] || die "--engine vale só para o daemon" ;;
+    *) die "--engine inválido: $ENGINE (use docker ou podman)" ;;
+esac
 
 # ── Verificações ──────────────────────────────────────────────────────────────
 
@@ -139,6 +152,7 @@ say "Release $TAG: $DEB"
 if [ "$DRY" = "1" ]; then
     say "--dry-run: baixaria $DEB_URL"
     [ -n "$SUMS_URL" ] && say "--dry-run: conferiria o SHA-256 em $SUMS_URL"
+    [ "$ENGINE" = "podman" ] && say "--dry-run: instalaria o Podman (+ provider do compose), ligaria o podman.socket e apontaria o config.toml para $PODMAN_SOCKET"
     say "--dry-run: e instalaria com: apt-get install -y ./$DEB"
     exit 0
 fi
@@ -159,9 +173,106 @@ else
     warn "a release não tem checksums.sha256; não consegui conferir o SHA-256"
 fi
 
+# ── Podman (opcional: --engine podman) ───────────────────────────────────────
+
+# O Podman não tem daemon residente (o dockerd + containerd custam ~100 MB de RAM parados).
+# O rustployd fala com ele pela API compatível com Docker, no socket do podman.socket.
+
+# Algum provider do `podman compose` (é ele que de fato executa o docker-compose.yml)?
+has_compose_provider() {
+    command -v docker-compose >/dev/null 2>&1 && return 0
+    for d in /usr/local/lib/docker/cli-plugins /usr/local/libexec/docker/cli-plugins \
+             /usr/lib/docker/cli-plugins /usr/libexec/docker/cli-plugins; do
+        [ -x "$d/docker-compose" ] && return 0
+    done
+    return 1
+}
+
+# Candidato instalável de um pacote apt (vazio se o pacote não existe nos repositórios).
+apt_candidate() {
+    apt-cache policy "$1" 2>/dev/null | awk '/Candidate:/ && $2 != "(none)" {print $2}'
+}
+
+install_podman() {
+    say "Preparando o Podman (no lugar do Docker)..."
+    DEBIAN_FRONTEND=noninteractive apt-get install -y podman || die "não consegui instalar o podman pelo apt"
+    # `podman compose` só existe a partir da 4.7 (Debian 12 traz a 4.3 — use Debian 13+/Ubuntu 24.04+).
+    PV="$(podman --version | awk '{print $3}')"
+    if [ "$(printf '%s\n%s\n' "4.7" "$PV" | sort -V | head -n 1)" != "4.7" ]; then
+        die "podman $PV é antigo demais: o rustploy precisa do 'podman compose' (>= 4.7). Use Debian 13+ ou Ubuntu 24.04+, ou fique no Docker."
+    fi
+    if ! has_compose_provider; then
+        say "Instalando um provider para o 'podman compose'..."
+        for pkg in docker-compose-v2 docker-compose-plugin docker-compose; do
+            [ -n "$(apt_candidate "$pkg")" ] || continue
+            if DEBIAN_FRONTEND=noninteractive apt-get install -y "$pkg"; then break; fi
+        done
+        has_compose_provider || die "não achei nenhum provider de compose (docker-compose-v2, docker-compose-plugin ou docker-compose). Instale um e rode de novo."
+    fi
+}
+
+# Depois do .deb (que cria o usuário e o grupo rustploy): liga o socket, libera o acesso
+# do usuário rustploy, troca o unit para depender do Podman e aponta o config.toml.
+configure_podman() {
+    say "Configurando o rustployd para usar o Podman..."
+
+    # O socket nasce root:root (0660). O usuário rustploy precisa do grupo dele; num drop-in
+    # isso vale para sempre (um chgrp à mão se perde quando o systemd recria o socket).
+    mkdir -p /etc/systemd/system/podman.socket.d /etc/systemd/system/rustployd.service.d
+    cat > /etc/systemd/system/podman.socket.d/rustploy.conf <<'UNIT'
+# Gerado por install.sh --engine podman: deixa o usuário rustploy falar com o socket.
+[Socket]
+SocketGroup=rustploy
+SocketMode=0660
+UNIT
+
+    # O unit original manda esperar (e ligar) o docker.service: aqui isso vira o podman.socket.
+    # Os "=" vazios zeram a lista do unit original antes de definir a nova.
+    cat > /etc/systemd/system/rustployd.service.d/podman.conf <<'UNIT'
+# Gerado por install.sh --engine podman: o motor é o Podman, não o Docker.
+[Unit]
+After=
+Wants=
+After=network.target podman.socket
+Wants=podman.socket
+
+[Service]
+Environment=RUSTPLOY_CONTAINER_ENGINE=podman
+UNIT
+
+    # [docker] socket_path -> socket do Podman (a chave mantém o nome por compatibilidade).
+    if [ -f "$CONFIG" ]; then
+        if awk '/^\[/{s=($0=="[docker]")} s && /^socket_path[ \t]*=/{f=1} END{exit !f}' "$CONFIG"; then
+            awk -v p="$PODMAN_SOCKET" '/^\[/{s=($0=="[docker]")} s && /^socket_path[ \t]*=/{print "socket_path = \"" p "\""; next} {print}' "$CONFIG" > "$CONFIG.tmp" \
+                && cat "$CONFIG.tmp" > "$CONFIG" && rm -f "$CONFIG.tmp"
+        else
+            printf '\n[docker]\nsocket_path = "%s"\n' "$PODMAN_SOCKET" >> "$CONFIG"
+        fi
+        say "$CONFIG: [docker] socket_path = \"$PODMAN_SOCKET\""
+    else
+        warn "$CONFIG não existe; aponte [docker] socket_path para $PODMAN_SOCKET à mão."
+    fi
+
+    if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
+        systemctl daemon-reload || true
+        systemctl enable --now podman.socket || warn "não consegui ativar o podman.socket"
+        # O socket já existia (de uma execução anterior): o drop-in só vale na próxima ativação.
+        systemctl restart podman.socket || true
+    fi
+
+    if [ -S /var/run/docker.sock ]; then
+        warn "há um Docker instalado nesta máquina. Containers e imagens dele NÃO são movidos para o Podman:"
+        warn "faça um novo deploy dos serviços (e recrie bancos/volumes, se for o caso). Depois, 'systemctl disable --now docker' libera a RAM."
+    fi
+}
+
 # ── Instalar ──────────────────────────────────────────────────────────────────
 
-say "Instalando (apt resolve as dependências, inclusive o Docker, se faltar)..."
+# Com o Podman já instalado, a dependência "docker.io | docker-ce | podman" do .deb fica
+# satisfeita e o apt não puxa o Docker.
+[ "$ENGINE" = "podman" ] && install_podman
+
+say "Instalando (apt resolve as dependências, inclusive o motor de containers, se faltar)..."
 # --force-confold: numa atualização, mantém o config.toml (com o token) em vez de perguntar.
 DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::=--force-confold "$TMP/$DEB"
 
@@ -214,6 +325,7 @@ CFG
     say "Token da API gerado e gravado em $CONFIG (API em $BIND:9797)."
 }
 setup_api
+[ "$ENGINE" = "podman" ] && configure_podman
 
 if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
