@@ -131,15 +131,13 @@ sudo systemctl daemon-reload && sudo systemctl enable --now podman.socket && sud
 motor quando há terminal; sem terminal mantém o atual. A escolha "Docker" fica em
 `/etc/rustploy/engine`. Escolhendo Podman numa VPS em Docker:
 
-1. `install_podman` (antes de qualquer coisa).
-2. Lista os serviços `Running`/`Degraded` pela API do próprio rustploy (precisa de
-   `python3`; sem ele, avisa e o deploy fica manual).
-3. Backup de `/etc/rustploy` + banco (sem o registry) em `/var/backups/`.
-4. Confere espaço em disco no destino.
-5. Para o `rustployd`, depois os containers `rp_*`; `docker update --restart=no`.
-6. Copia cada volume (nome e labels iguais) para o Podman com `cp -a`; não sobrescreve
-   volume que já tenha dados.
-7. `configure_podman`, reinicia o rustployd, refaz o deploy dos serviços do passo 2.
+Reaproveita TUDO do Docker (as 9 etapas estão em `instalacao/instalar-daemon` nas docs):
+`install_podman`; serviços no ar (API, precisa de `python3`); backup (sem o registry);
+espaço; **imagens** (`docker save | podman load` + `podman tag` para o nome completo,
+ANTES de parar nada); parar `rustployd` e `rp_*` (+ `--restart=no`); **todos os volumes**
+(`cp -a`; opções NFS/bind são recriadas sem copiar; anônimo órfão fica de fora); **redes**
+de usuário/compose (bridge, sem sub-rede fixa); `configure_podman`; reinicia; redeploy.
+Não reaproveitado: cache de build, containers (o deploy recria), containers não-`rp_*`.
 
 Falha antes da troca do motor = `rollback_docker` (religa o que parou, rustployd volta
 no Docker). O Docker nunca é desligado nem apagado. Testado de ponta a ponta com

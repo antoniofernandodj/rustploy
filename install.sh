@@ -78,15 +78,36 @@ ask() {
     [ -n "$ANSWER" ] || ANSWER="$2"
 }
 
-# Containers do rustploy no Docker (todos se chamam rp_*): ids, rodando ou não.
-docker_rp_containers() { docker ps -aq --filter 'name=^rp_' 2>/dev/null; }
 
-# Volumes montados por esses containers (um por linha, sem repetição).
-docker_rp_volumes() {
-    for c in $(docker_rp_containers); do
-        docker inspect -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' "$c" 2>/dev/null
-    done | sort -u
+# TODOS os volumes do Docker que vale copiar: os nomeados (com ou sem container) e os anônimos
+# ainda em uso. Fica de fora só o lixo: volume anônimo (nome de 64 hex) sem nenhum container.
+vol_is_dangling_anon() {
+    case "$1" in
+        [0-9a-f]*) [ "${#1}" -eq 64 ] && [ -z "$(docker ps -aq --filter "volume=$1" 2>/dev/null)" ] ;;
+        *) return 1 ;;
+    esac
 }
+docker_vols_to_copy() {
+    for _v in $(docker volume ls -q 2>/dev/null); do vol_is_dangling_anon "$_v" || echo "$_v"; done
+}
+
+# Redes criadas por usuário/compose/rustploy (exclui bridge, host e none).
+docker_custom_networks() { docker network ls --filter type=custom --format '{{.Name}}' 2>/dev/null; }
+
+# Imagens com nome (sem <none>), uma referência por linha.
+docker_image_refs() { docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -v '<none>' | sort -u; }
+
+# Nome completo que o Podman usa para uma referência curta do Docker (nginx:alpine ->
+# docker.io/library/nginx:alpine), igual ao que um build/pull novo gera.
+norm_ref() {
+    case "$1" in
+        */*) case "${1%%/*}" in *.*|*:*|localhost) echo "$1" ;; *) echo "docker.io/$1" ;; esac ;;
+        *) echo "docker.io/library/$1" ;;
+    esac
+}
+
+# Tamanho de um diretório em KB.
+dir_kb() { du -sk "$1" 2>/dev/null | cut -f1; }
 
 # Decide ENGINE (pergunta se não foi dado) e se isso é uma TROCA docker -> podman (SWITCH=1).
 choose_engine() {
@@ -130,23 +151,28 @@ ASK
 # Mostra o que a troca vai fazer e pede confirmação (sem terminal: exige --yes).
 confirm_switch() {
     if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
-        say "Troca Docker -> Podman: o Docker não responde (ou não está instalado); não há containers para migrar."
+        say "Troca Docker -> Podman: o Docker não responde (ou não está instalado); não há o que migrar."
         return 0
     fi
-    NC="$(docker_rp_containers | wc -l | tr -d ' ')"
+    NC="$(docker ps -aq --filter 'name=^rp_' | wc -l | tr -d ' ')"
     NR="$(docker ps -q --filter 'name=^rp_' | wc -l | tr -d ' ')"
-    VOLS="$(docker_rp_volumes)"
+    VOLS="$(docker_vols_to_copy)"
     NV="$(printf '%s\n' "$VOLS" | grep -c . || true)"
-    say "Troca Docker -> Podman. O que vai acontecer:"
+    NETS="$(docker_custom_networks)"
+    NN="$(printf '%s\n' "$NETS" | grep -c . || true)"
+    REFS="$(docker_image_refs)"
+    NI="$(printf '%s\n' "$REFS" | grep -c . || true)"
+    say "Troca Docker -> Podman. TUDO do Docker é reaproveitado no Podman; o que vai acontecer:"
     say "  1. backup de /etc/rustploy e do banco do rustploy em /var/backups/"
-    say "  2. parar o rustployd e os $NR container(s) rodando de $NC do rustploy (o Docker NÃO é desligado nem apagado)"
-    say "  3. copiar $NV volume(s) do Docker para o Podman (cópia: o original fica intacto):"
+    say "  2. transferir $NI imagem(ns) do Docker para o Podman (sem parar nada; o Docker fica intacto)"
+    say "  3. parar o rustployd e os $NR container(s) rodando de $NC do rustploy (o Docker NÃO é desligado nem apagado)"
+    say "  4. copiar $NV volume(s) (cópia: o original fica intacto):"
     for v in $VOLS; do
-        sz="$(du -sh "$(docker volume inspect -f '{{.Mountpoint}}' "$v" 2>/dev/null)" 2>/dev/null | cut -f1)"
-        say "       - $v (${sz:-?})"
+        say "       - $v ($(du -sh "$(docker volume inspect -f '{{.Mountpoint}}' "$v" 2>/dev/null)" 2>/dev/null | cut -f1))"
     done
-    say "  4. apontar o rustploy para o Podman e refazer o deploy dos serviços que estavam rodando"
-    say "     (indisponíveis durante a cópia e o deploy; imagens e builds são refeitos do zero)"
+    say "  5. recriar $NN rede(s) criadas por usuário/compose (as do próprio rustploy são recriadas no deploy)"
+    say "  6. apontar o rustploy para o Podman e refazer o deploy dos serviços que estavam rodando"
+    say "     (ficam indisponíveis durante a cópia e o deploy; o cache de build é refeito)"
     [ "$DRY" = "1" ] && return 0
     if [ "$YES" = "1" ]; then return 0; fi
     can_prompt || die "a troca de motor precisa de confirmação: rode de novo com --yes (ou num terminal)."
@@ -523,8 +549,8 @@ rollback_docker() {
     die "migração para o Podman interrompida; o rustploy segue no Docker. Os volumes já copiados ficam no Podman (inofensivos)."
 }
 
-# Passos 1-5 da troca (o rustployd ainda roda no Docker quando isto começa). NÃO reinicia o
-# rustployd nem refaz o deploy: quem chamou faz isso (finish_switch) depois de reiniciá-lo.
+# Passos da troca (o rustployd ainda roda no Docker quando isto começa). NÃO reinicia o rustployd
+# nem refaz o deploy: quem chamou faz isso (finish_switch) depois de reiniciá-lo.
 migrate_to_podman() {
     say "Migrando do Docker para o Podman..."
     command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 || {
@@ -550,20 +576,40 @@ migrate_to_podman() {
     chmod 600 "$BK"
     say "Backup: $BK"
 
-    # (3) espaço no destino
+    # (3) espaço no destino: volumes + imagens (com 10% de folga)
+    VOLS="$(docker_vols_to_copy)"
+    REFS="$(docker_image_refs)"
     NEED=0
-    VOLS="$(docker_rp_volumes)"
-    for v in $VOLS; do
-        k="$(du -sk "$(docker volume inspect -f '{{.Mountpoint}}' "$v")" 2>/dev/null | cut -f1)"; NEED=$((NEED + ${k:-0}))
-    done
+    for v in $VOLS; do NEED=$((NEED + $(dir_kb "$(docker volume inspect -f '{{.Mountpoint}}' "$v")" || echo 0))); done
+    if [ -n "$REFS" ]; then
+        # shellcheck disable=SC2086
+        IMGB="$(docker image inspect -f '{{.Size}}' $REFS 2>/dev/null | awk '{s+=$1} END{print s+0}')"
+        NEED=$((NEED + IMGB / 1024))
+    fi
     GR="$(podman info --format '{{.Store.GraphRoot}}' 2>/dev/null)"; GR="${GR:-/var/lib/containers/storage}"
     mkdir -p "$GR"
     FREE="$(df -Pk "$GR" | awk 'NR==2{print $4}')"
     if [ "$NEED" -gt 0 ] && [ "${FREE:-0}" -lt $((NEED + NEED / 10)) ]; then
-        die "espaço insuficiente em $GR para copiar os volumes (precisa de ~$((NEED / 1024)) MB, há $((FREE / 1024)) MB). Nada foi alterado."
+        die "espaço insuficiente em $GR para copiar volumes e imagens (precisa de ~$((NEED / 1024)) MB, há $((FREE / 1024)) MB). Nada foi alterado."
     fi
 
-    # (4) parar: primeiro o rustployd (não deixa nada religar), depois os containers
+    # (4) imagens: NÃO exige parar nada, então vai primeiro (menos tempo fora do ar). O `podman load`
+    # nomeia as de nome curto como localhost/...; cada uma ganha também o nome completo
+    # (docker.io/library/...) que um build/pull novo geraria. Se falhar, só se perde cache.
+    if [ -n "$REFS" ]; then
+        say "Transferindo $(printf '%s\n' "$REFS" | grep -c .) imagem(ns) para o Podman (pode levar um tempo)..."
+        # shellcheck disable=SC2086
+        if docker save $REFS | podman load >/dev/null 2>&1; then
+            for r in $REFS; do
+                q="$(norm_ref "$r")"
+                [ "$q" = "$r" ] || podman tag "localhost/$r" "$q" >/dev/null 2>&1 || true
+            done
+        else
+            warn "não consegui transferir as imagens; elas serão baixadas/construídas de novo no deploy (rollback para versões antigas só depois de um novo deploy)."
+        fi
+    fi
+
+    # (5) parar: primeiro o rustployd (não deixa nada religar), depois os containers do rustploy
     STOPPED_FILE="$(mktemp)"
     systemctl stop rustployd >/dev/null 2>&1 || true
     docker ps -q --filter 'name=^rp_' > "$STOPPED_FILE"
@@ -574,11 +620,16 @@ migrate_to_podman() {
     fi
     # Sem religar sozinhos se alguém reiniciar o Docker (política de reinício do compose do usuário).
     # shellcheck disable=SC2046
-    docker update --restart=no $(docker_rp_containers) >/dev/null 2>&1 || true
+    docker update --restart=no $(docker ps -aq --filter 'name=^rp_') >/dev/null 2>&1 || true
 
-    # (5) copiar cada volume para um volume de mesmo nome (e mesmos labels) no Podman
+    # (6) volumes: mesmo nome, mesmos labels. Volume com opções (NFS, bind...) é RECRIADO com as mesmas
+    # opções, sem copiar (os dados moram fora do volume). Os demais são copiados com cp -a.
     for v in $VOLS; do
-        src="$(docker volume inspect -f '{{.Mountpoint}}' "$v")"
+        drv="$(docker volume inspect -f '{{.Driver}}' "$v")"
+        if [ "$drv" != "local" ]; then
+            warn "volume $v usa o driver '$drv', que o Podman não tem: NÃO foi copiado."
+            continue
+        fi
         if podman volume exists "$v" 2>/dev/null; then
             dst="$(podman volume inspect -f '{{.Mountpoint}}' "$v")"
             if [ -n "$(ls -A "$dst" 2>/dev/null)" ]; then
@@ -586,13 +637,35 @@ migrate_to_podman() {
                 continue
             fi
         else
-            LABELS="$(docker volume inspect -f '{{range $k, $v := .Labels}}--label {{$k}}={{$v}} {{end}}' "$v")"
+            LABELS="$(docker volume inspect -f '{{range $k, $x := .Labels}}--label {{$k}}={{$x}} {{end}}' "$v")"
+            OPTS="$(docker volume inspect -f '{{range $k, $x := .Options}}-o {{$k}}={{$x}} {{end}}' "$v")"
             # shellcheck disable=SC2086
-            podman volume create $LABELS "$v" >/dev/null || rollback_docker
+            podman volume create $LABELS $OPTS "$v" >/dev/null || rollback_docker
+            if [ -n "$OPTS" ]; then
+                say "Volume $v recriado com as mesmas opções ($OPTS)."
+                continue
+            fi
             dst="$(podman volume inspect -f '{{.Mountpoint}}' "$v")"
         fi
+        # Um container que NÃO é do rustploy ainda usando o volume = cópia "a quente".
+        [ -z "$(docker ps -q --filter "volume=$v" 2>/dev/null)" ] \
+            || warn "o volume $v está em uso por um container que não é do rustploy; a cópia pode ficar inconsistente."
+        src="$(docker volume inspect -f '{{.Mountpoint}}' "$v")"
         say "Copiando o volume $v..."
         cp -a "$src/." "$dst/" || rollback_docker
+    done
+
+    # (7) redes de usuário/compose: mesmo nome e labels. Sub-rede automática (a do Docker continua
+    # ocupada enquanto ele rodar). Só o driver bridge; as do rustploy (rp_net_*) o deploy recria.
+    for n in $(docker_custom_networks); do
+        podman network exists "$n" 2>/dev/null && continue
+        [ "$(docker network inspect -f '{{.Driver}}' "$n")" = "bridge" ] || { warn "rede $n não é bridge; não recriada."; continue; }
+        FLAGS=""
+        [ "$(docker network inspect -f '{{.Internal}}' "$n")" = "true" ] && FLAGS="$FLAGS --internal"
+        [ "$(docker network inspect -f '{{.EnableIPv6}}' "$n")" = "true" ] && FLAGS="$FLAGS --ipv6"
+        LABELS="$(docker network inspect -f '{{range $k, $x := .Labels}}--label {{$k}}={{$x}} {{end}}' "$n")"
+        # shellcheck disable=SC2086
+        podman network create $FLAGS $LABELS "$n" >/dev/null 2>&1 && say "Rede $n recriada." || warn "não consegui recriar a rede $n."
     done
 
     configure_podman
