@@ -171,6 +171,9 @@ confirm_switch() {
         say "       - $v ($(du -sh "$(docker volume inspect -f '{{.Mountpoint}}' "$v" 2>/dev/null)" 2>/dev/null | cut -f1))"
     done
     say "  5. recriar $NN rede(s) criadas por usuário/compose (as do próprio rustploy são recriadas no deploy)"
+    if [ -s /etc/docker/daemon.json ] && [ "$(tr -d ' \n\t{}' < /etc/docker/daemon.json)" != "" ]; then
+        warn "/etc/docker/daemon.json tem configurações (log-opts, registry-mirrors, insecure-registries, dns, default-address-pools...) que NÃO passam para o Podman. Revise depois: /etc/containers/registries.conf.d/ e containers.conf.d/."
+    fi
     say "  6. apontar o rustploy para o Podman e refazer o deploy dos serviços que estavam rodando"
     say "     (ficam indisponíveis durante a cópia e o deploy; o cache de build é refeito)"
     [ "$DRY" = "1" ] && return 0
@@ -494,9 +497,32 @@ UNIT
         warn "$CONFIG não existe; aponte [docker] socket_path para $PODMAN_SOCKET à mão."
     fi
 
+    # Paridade com o Docker (cada item abaixo quebraria algo que no Docker funciona sozinho):
+    mkdir -p /etc/containers/registries.conf.d /etc/containers/containers.conf.d
+    # (a) imagem de nome curto (postgres:17, redis:alpine) na CLI: o Docker assume docker.io, o Podman
+    #     da distribuição não tem registry padrão e recusa o `pull` ("short-name did not resolve").
+    cat > /etc/containers/registries.conf.d/rustploy.conf <<'CONF'
+# Gerado por install.sh --engine podman: igual ao Docker, nome curto = docker.io.
+unqualified-search-registries = ["docker.io"]
+CONF
+    # (b) o Podman limita cada container a 2048 processos; o Docker não limita (um Node/Postgres/JVM
+    #     com muitas conexões estouraria o limite).
+    cat > /etc/containers/containers.conf.d/rustploy.conf <<'CONF'
+# Gerado por install.sh --engine podman: sem limite de processos, como no Docker.
+[containers]
+pids_limit = 0
+CONF
+
     if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
         systemctl daemon-reload || true
         systemctl enable --now podman.socket || warn "não consegui ativar o podman.socket"
+        # (c) `restart: always|unless-stopped` do Compose: no Docker quem religa esses containers no boot é o
+        #     dockerd; no Podman é este serviço. Sem ele, depois de um reboot os bancos NÃO voltam.
+        if systemctl list-unit-files podman-restart.service >/dev/null 2>&1; then
+            systemctl enable --now podman-restart.service >/dev/null 2>&1 || warn "não consegui ativar o podman-restart.service: containers com 'restart:' não voltam sozinhos no boot."
+        else
+            warn "podman-restart.service não existe neste Podman: containers com 'restart:' não voltam sozinhos depois de um reboot."
+        fi
         # O socket já existia (de uma execução anterior): o drop-in só vale na próxima ativação.
         systemctl restart podman.socket || true
     fi
@@ -697,7 +723,8 @@ engine_only() {
         systemctl daemon-reload || true
         systemctl restart rustployd || true
         finish_switch
-    elif [ "$ENGINE" = "podman" ] && [ -z "$CURRENT" ]; then
+    elif [ "$ENGINE" = "podman" ]; then
+        # Instalação nova ou Podman já em uso: (re)aplica os ajustes, que são idempotentes.
         install_podman
         configure_podman
         systemctl restart rustployd || true

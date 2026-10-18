@@ -60,6 +60,10 @@ de qualquer assunto. Sem cabeçalho de status por item (isso é para
   dados de bancos; jobs one-shot e registry embutido; subir os serviços reais (todos
   `Stopped`); `install.sh --engine docker` e `--engine podman` de ponta a ponta numa
   VPS limpa, depois da release.
+- [ ] **Depois de migrar a VPS, conferir**: (1) `reboot` e ver se os containers com `restart:` voltam
+  (`systemctl is-enabled podman-restart.service`); (2) de dentro de um container, `curl` para fora
+  (saída pelo netavark/ufw); (3) portas publicadas pelo Compose (Supabase) e as `host_port` 20000-20004,
+  de fora da VPS; (4) o que estava no `/etc/docker/daemon.json`.
 - [ ] **Migração Docker -> Podman com dados reais** (`install.sh`/`make install-rustploy`): só
   foi testada com stubs. Rodar primeiro com `--dry-run`; o backup fica em `/var/backups/`.
 - [ ] **Comando para remover/parar um container solto pela API.** `ServiceDelete` já para e remove os

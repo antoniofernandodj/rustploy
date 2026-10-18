@@ -146,6 +146,29 @@ rollback, recusa sem `--yes`, `--dry-run` sem alterações, pergunta interativa 
 escolha lembrada. **Não testado com um Docker de verdade e dados de verdade** (ver
 "Pendências").
 
+## Lacunas achadas ao olhar a infra real do usuário (2026-10-18)
+
+O export da VPS (`rustploy-infra.zip`: 20 serviços, 13 Git + 7 Compose, 5 `host_port`) mostrou
+o que o smoke test não cobria. Corrigido no `configure_podman`:
+
+- **`restart:` no Compose (6 de 7 stacks)**: no Docker quem religa no boot é o `dockerd`; no
+  Podman é o `podman-restart.service`, que vem **desligado**. Sem ele, reboot = bancos fora.
+- **Nome curto na CLI** (`podman pull postgres:17`): falha, o Podman da distro não tem
+  `unqualified-search-registries`. O caminho do daemon (API compat) já normalizava. Arquivo
+  `registries.conf.d/rustploy.conf`.
+- **`pids_limit`**: Podman 2048 por container, Docker ilimitado. `containers.conf.d/rustploy.conf`.
+- **`/etc/docker/daemon.json`** (logs, mirrors, DNS) não migra: o instalador avisa.
+
+Testado no Podman rootful real: Compose com `healthcheck` + `depends_on: service_healthy`,
+`ports` publicadas, `configs` com `content:` e `restart:` -> Live (o app esperou o banco);
+serviço Application com limite de memória/CPU e imagem de nome curto -> Live; `exec -i`,
+`run --rm --network -e VAR`, `compose config --format json` e `system prune --build` pela CLI remota.
+
+Ainda sem teste (a VPS tem e eu não consegui reproduzir): interação com **ufw** (portas
+publicadas por Compose, como o Supabase 8000, e FORWARD), saída para a internet de dentro dos
+containers no netavark, conflito do **aardvark-dns** se o host já usa a porta 53, capacidades
+padrão (o Podman não dá NET_RAW), e o **reboot** com `restart:` de verdade.
+
 ## Resultado do smoke test (Podman 5.7.0 rootful, netavark, daemon real)
 
 Passaram: deploy de imagem de registry até `Live`; redeploy (rename + alias de
