@@ -11,6 +11,7 @@
 #   --engine docker|podman  (daemon) o motor de containers (padrão: docker). Em ambos o instalador instala
 #                       o motor se faltar: docker = Docker Engine pelo repositório oficial da Docker;
 #                       podman = Podman + compose, podman.socket, acesso do usuário rustploy e config.toml.
+#   --deb ARQUIVO       instala um .deb local (ex.: make deb-rustploy) em vez de baixar a release
 #   --version vX.Y.Z    uma release específica (padrão: a última)
 #   --dry-run           só mostra o que baixaria e instalaria
 #   -h | --help         esta ajuda
@@ -29,6 +30,7 @@ VERSION="${RUSTPLOY_VERSION:-}"
 DRY="${RUSTPLOY_DRY_RUN:-0}"
 REMOTE=0
 ENGINE="${RUSTPLOY_ENGINE:-docker}"
+LOCAL_DEB=""
 PODMAN_SOCKET="/run/podman/podman.sock"
 CONFIG="/etc/rustploy/config.toml"
 
@@ -48,6 +50,7 @@ Uso: sudo sh install.sh [daemon|gui] [--remote] [--engine docker|podman] [--vers
                     sem isso, escuta só em 127.0.0.1
   --engine docker   (daemon) motor de containers = Docker (padrão); instala o Docker Engine se faltar
   --engine podman   (daemon) motor de containers = Podman; instala o Podman e configura tudo
+  --deb ARQUIVO     instala um .deb local em vez de baixar a release (teste de um build seu)
   --version vX.Y.Z  uma release específica (padrão: a última)
   --dry-run         só mostra o que baixaria e instalaria
 HELP
@@ -60,6 +63,8 @@ while [ $# -gt 0 ]; do
         --version=*) VERSION="${1#--version=}" ;;
         --dry-run) DRY=1 ;;
         --remote) REMOTE=1 ;;
+        --deb) shift; [ $# -gt 0 ] || die "--deb precisa de um arquivo"; LOCAL_DEB="$1" ;;
+        --deb=*) LOCAL_DEB="${1#--deb=}" ;;
         --engine) shift; [ $# -gt 0 ] || die "--engine precisa de um valor (docker ou podman)"; ENGINE="$1" ;;
         --engine=*) ENGINE="${1#--engine=}" ;;
         -h|--help) usage; exit 0 ;;
@@ -116,6 +121,20 @@ esac
 
 # ── Resolver a release ────────────────────────────────────────────────────────
 
+# --deb ARQUIVO: instala um .deb local (ex.: gerado por `make deb-rustploy`), sem consultar o GitHub.
+# O bloco abaixo (resolver, baixar e conferir) só roda sem --deb; o resto do script é igual.
+if [ -n "$LOCAL_DEB" ]; then
+[ -f "$LOCAL_DEB" ] || die "--deb: arquivo não encontrado: $LOCAL_DEB"
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT INT TERM
+DEB="${LOCAL_DEB##*/}"
+say "Usando o pacote local $LOCAL_DEB (sem consultar o GitHub, sem conferir SHA-256)."
+if [ "$DRY" = "1" ]; then
+    say "--dry-run: instalaria com: apt-get install -y $LOCAL_DEB"
+    exit 0
+fi
+cp "$LOCAL_DEB" "$TMP/$DEB"
+else
 if [ -n "$VERSION" ]; then
     URL="$API/tags/$VERSION"
 else
@@ -174,6 +193,8 @@ if [ -n "$SUMS_URL" ]; then
     say "SHA-256 conferido."
 else
     warn "a release não tem checksums.sha256; não consegui conferir o SHA-256"
+fi
+
 fi
 
 # ── Docker (padrão: --engine docker) ──────────────────────────────────────────
@@ -293,14 +314,13 @@ SocketGroup=rustploy
 SocketMode=0660
 UNIT
 
-    # O unit original manda esperar (e ligar) o docker.service: aqui isso vira o podman.socket.
-    # Os "=" vazios zeram a lista do unit original antes de definir a nova.
+    # Acrescenta o podman.socket às dependências do unit (que só ordena depois do docker.service,
+    # sem puxá-lo). Atenção: zerar `Wants=` com "=" vazio num drop-in NÃO remove o que o unit
+    # original declara (testado), por isso o unit do pacote já não tem `Wants=docker.service`.
     cat > /etc/systemd/system/rustployd.service.d/podman.conf <<'UNIT'
 # Gerado por install.sh --engine podman: o motor é o Podman, não o Docker.
 [Unit]
-After=
-Wants=
-After=network.target podman.socket
+After=podman.socket
 Wants=podman.socket
 
 [Service]

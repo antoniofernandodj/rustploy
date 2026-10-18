@@ -87,11 +87,13 @@ conversar com ele são precisas quatro coisas, e o instalador faz as quatro:
 
 4. **Troca o motor no rustploy**, em dois lugares:
    - `/etc/systemd/system/rustployd.service.d/podman.conf` (outro drop-in, sobre
-     o `rustployd.service`): o unit original diz "inicie depois do
-     `docker.service` e peça para ele subir" (`After=`/`Wants=`). O drop-in zera
-     essas duas linhas e põe `podman.socket` no lugar — assim o rustploy não
-     acorda o Docker à toa, e só sobe depois de o socket do Podman existir.
-     Também define `RUSTPLOY_CONTAINER_ENGINE=podman`.
+     o `rustployd.service`): acrescenta `After=`/`Wants=podman.socket`,
+     para o rustploy só subir depois de o socket do Podman existir (e pedir que
+     ele exista). O unit do pacote só *ordena* depois do `docker.service`
+     (`After=`), sem `Wants=`: o rustploy nunca puxa o Docker. (Tentei antes
+     zerar o `Wants=docker.service` do unit original com um `Wants=` vazio no
+     drop-in; **não funciona**, o systemd mantém a dependência — por isso o
+     unit do pacote foi mudado.) Também define `RUSTPLOY_CONTAINER_ENGINE=podman`.
    - `/etc/rustploy/config.toml`: a linha `socket_path` da seção `[docker]`
      passa a ser `"/run/podman/podman.sock"`. (A chave continua se chamando
      `[docker]` por compatibilidade; o rustploy identifica o Podman por esse
@@ -119,7 +121,7 @@ atualização, e os drop-ins ficam em `/etc/` e sobrevivem a ela.
 sudo apt install podman docker-compose-v2     # ou docker-compose-plugin / docker-compose
 sudo mkdir -p /etc/systemd/system/podman.socket.d /etc/systemd/system/rustployd.service.d
 printf '[Socket]\nSocketGroup=rustploy\nSocketMode=0660\n' | sudo tee /etc/systemd/system/podman.socket.d/rustploy.conf
-printf '[Unit]\nAfter=\nWants=\nAfter=network.target podman.socket\nWants=podman.socket\n[Service]\nEnvironment=RUSTPLOY_CONTAINER_ENGINE=podman\n' | sudo tee /etc/systemd/system/rustployd.service.d/podman.conf
+printf '[Unit]\nAfter=podman.socket\nWants=podman.socket\n[Service]\nEnvironment=RUSTPLOY_CONTAINER_ENGINE=podman\n' | sudo tee /etc/systemd/system/rustployd.service.d/podman.conf
 sudo sed -i 's|^socket_path *=.*|socket_path = "/run/podman/podman.sock"|' /etc/rustploy/config.toml
 sudo systemctl daemon-reload && sudo systemctl enable --now podman.socket && sudo systemctl restart podman.socket rustployd
 ```
