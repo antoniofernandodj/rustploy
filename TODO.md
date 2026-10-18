@@ -69,3 +69,33 @@ de qualquer assunto. Sem cabeçalho de status por item (isso é para
 - [ ] **Comando para remover/parar um container solto pela API.** `ServiceDelete` já para e remove os
   containers do serviço (corrigido); mas `RemoveContainer` (aba Containers) continua sem `force` e não há como
   parar um container que não pertence a um serviço.
+
+- [ ] **Migração Podman -> Docker.** Hoje só existe Docker -> Podman; voltar ao Docker é manual
+  (o `install.sh` recusa: "voltar ao Docker não é automático"). Fazer o caminho inverso com as mesmas
+  garantias: backup, `podman save | docker load` das imagens (antes de parar nada), cópia de TODOS os
+  volumes (`cp -a`; opções NFS/bind recriadas sem copiar), redes de usuário/compose, parar o
+  `rustployd` e os `rp_*`, rollback se falhar, trocar `[docker] socket_path` para
+  `/var/run/docker.sock`, remover os drop-ins do Podman (`rustployd.service.d/podman.conf` e
+  `podman.socket.d/rustploy.conf`), reiniciar e refazer o deploy dos serviços que estavam no ar. O
+  esqueleto de `migrate_to_podman` em `install.sh` serve de base (espelhar `docker`/`podman`). Lembrar
+  que o `podman-restart.service` e os arquivos de `/etc/containers/*.conf.d/rustploy.conf` não têm
+  equivalente no Docker (o `dockerd` já religa e já tem docker.io como padrão), e que os
+  nomes de imagem voltam a ser curtos.
+- [ ] **Exportar e importar DADOS de um container ou volume, para subir em outro banco/servidor.**
+  O export atual (`rustploy.yml` + `rustploy.vars.toml`) leva só a configuração: volumes e bancos
+  ficam de fora, então não dá para reproduzir a infra de uma VPS em outra máquina (nem testar uma
+  migração com dados reais a partir do zip). Achar uma forma de baixar os dados e subi-los em outro
+  lugar. Pontos a decidir:
+  - **Volumes (qualquer coisa):** exportar um volume nomeado como `.tar.gz` (container descartável
+    montando o volume: `tar czf - -C /data .`) e importar noutro volume/servidor; pela API do
+    rustploy (stream) e pela GUI/webui ("Baixar volume" / "Enviar para volume"). Parar o serviço
+    (ou usar snapshot) para o dado ficar consistente.
+  - **Bancos (preferir dump lógico a copiar o diretório):** `pg_dump`/`pg_restore` (Postgres),
+    `mysqldump`/`mysql` (MySQL/MariaDB), `mongodump`/`mongorestore`, `redis-cli --rdb`/RDB; escolhendo
+    o engine pelo `db_kind` do serviço. Existe a migração entre servidores em `migration.rs`
+    (`docker run ... pipe_script`) para bancos: reaproveitar, e estender para "exportar para arquivo"
+    e "importar de arquivo", além de servidor -> servidor.
+  - **Banco compartilhado** (`infra/pg-central`, `shared: true`): exportar/importar por banco/usuário.
+  - Incluir no export da infra um modo "com dados" (opcional, pesado) ou um bundle à parte, com
+    aviso de tamanho e de segredos; `secret:NOME` nunca é decifrado (regra do `ServiceBundle`).
+  - Depois disso, o teste de migração Docker <-> Podman pode usar dados reais exportados da VPS.
