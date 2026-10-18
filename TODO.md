@@ -53,3 +53,13 @@ de qualquer assunto. Sem cabeçalho de status por item (isso é para
 
 - [ ] **Assinar o `.exe` do Windows** (SignPath, tier OSS): o job `sign-gui-windows` é pulado enquanto a variável de
   repositório `SIGNPATH_ORGANIZATION_ID` não existe. Passos em `docs/windows-code-signing.md`.
+
+- [ ] **Testar o backend Podman no que ficou de fora do smoke test** (o usuário vai
+  fazer, 2026-10-18; detalhes em `docs/plano-backend-podman.md`, seção
+  "Pendências"): upload de zip (Archive); TLS/ACME com domínio real; volumes e
+  dados de bancos; jobs one-shot e registry embutido; subir os serviços reais (todos
+  `Stopped`); `install.sh --engine docker` e `--engine podman` de ponta a ponta numa
+  VPS limpa, depois da release.
+- [ ] **`ServiceDelete` deveria parar e remover os containers do serviço** (hoje só
+  apaga o registro e as rotas, e os containers ficam rodando órfãos). Também falta um
+  comando para remover container em execução (`RemoveContainer` não tem `force`).

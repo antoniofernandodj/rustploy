@@ -1,6 +1,6 @@
 # Plano: backend Podman (alternativa ao Docker)
 
-> Status: **implementado e validado em rootful** (branch `feat/backend-podman`, 2026-10-17). Falta só decidir o instalador/unit (ver "Fora de escopo").
+> Status: **implementado e publicado** (daemon 0.1.2, shared 0.4.1; mergeado na `main` em 2026-10-18), validado em Podman rootful, **com pendências de teste** (seção "Pendências", também no `TODO.md`).
 
 ## Por quê
 
@@ -152,6 +152,29 @@ Não coberto: build de Git/Archive de ponta a ponta, registry embutido
   `# syntax=` custom não).
 - Unit de systemd: `After=docker.service` → `podman.socket` (hoje não alterado:
   ajuste manual na VPS).
+
+## Pendências (o usuário vai testar depois, 2026-10-18)
+
+O que **não** foi coberto no smoke test com o Podman rootful e fica por testar:
+
+- Upload de **zip (Archive)**: o build usa o mesmo caminho do Git (que passou),
+  mas o upload em si não foi exercitado.
+- **TLS/ACME com domínio real** (o domínio de teste só provou o redirect 301 e a
+  falta de certificado; o encaminhamento ao container foi provado pela rota de
+  porta TCP).
+- **Volumes** (bind e nomeados) e a persistência de dados de **bancos**; os
+  volumes do Docker antigo foram apagados na migração.
+- **Jobs one-shot (Schedules)** e o **registry embutido** (`login` pelo `podman`).
+- Subir os serviços reais do usuário (todos `Stopped`) e conferir que tudo volta.
+- `install.sh --engine docker` e `--engine podman` de ponta a ponta numa VPS
+  limpa (o `install_docker` e o `install_podman` foram testados isolados num
+  Ubuntu 24.04 limpo, mas o script inteiro, com download da release, não).
+
+Defeitos do rustploy (não do Podman) vistos de passagem, sem correção:
+
+- `ServiceDelete` não para nem remove os containers do serviço.
+- Não há comando para remover container em execução (sem `force`) nem para
+  parar um container solto pela API.
 
 ## Fora de escopo
 
