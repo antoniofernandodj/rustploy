@@ -62,6 +62,6 @@ de qualquer assunto. Sem cabeçalho de status por item (isso é para
   VPS limpa, depois da release.
 - [ ] **Migração Docker -> Podman com dados reais** (`install.sh`/`make install-rustploy`): só
   foi testada com stubs. Rodar primeiro com `--dry-run`; o backup fica em `/var/backups/`.
-- [ ] **`ServiceDelete` deveria parar e remover os containers do serviço** (hoje só
-  apaga o registro e as rotas, e os containers ficam rodando órfãos). Também falta um
-  comando para remover container em execução (`RemoveContainer` não tem `force`).
+- [ ] **Comando para remover/parar um container solto pela API.** `ServiceDelete` já para e remove os
+  containers do serviço (corrigido); mas `RemoveContainer` (aba Containers) continua sem `force` e não há como
+  parar um container que não pertence a um serviço.

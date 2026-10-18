@@ -194,7 +194,9 @@ O que **não** foi coberto no smoke test com o Podman rootful e fica por testar:
 
 Defeitos do rustploy (não do Podman) vistos de passagem, sem correção:
 
-- `ServiceDelete` não para nem remove os containers do serviço.
+- ~~`ServiceDelete` não para nem remove os containers do serviço~~ (corrigido: ele
+  reaproveita o `ServiceStop` e remove o que sobrar; Compose usa `compose down`, que
+  preserva os volumes nomeados).
 - Não há comando para remover container em execução (sem `force`) nem para
   parar um container solto pela API.
 
