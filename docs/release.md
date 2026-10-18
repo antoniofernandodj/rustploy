@@ -50,10 +50,27 @@ compatibilidade em `rustploy-docs` (`instalacao/requisitos`). Mudou o container?
 - **O pacote sobe sem `[api]`** (loopback e sem token), o que não deixa nenhum cliente entrar. O instalador gera o token
   e grava o `[api]`; `--remote` abre o bind. Numa atualização mantém o `config.toml` (`--force-confold`).
 
+## v0.1.3 (2026-10-18): backend Podman
+
+- **`make lint` já não passava na `main`** (fmt sujo nos três repos e ~60 erros de clippy 1.95). Foi
+  corrigido de uma vez (fmt, `clippy --fix`, uns `#[allow]` em `from_str`/`Response`/funções com muitos
+  argumentos): daí o `rustploy-shared` 0.4.1 e o `rustploy-gui` 0.1.7, sem mudança de comportamento.
+- **Três testes de `web_ui::headless_tests` falham por ambiente** (também na `main` anterior); o `make test`
+  para no primeiro repo que falha, então rode `cargo test` no `shared` e `cargo test --bins` + `--test
+  templates_render` no `gui` à parte.
+- **O `cargo publish` do daemon demora** (recompila o pacote); se a chamada for interrompida, confira no
+  crates.io (`cargo search rustploy`) antes de repetir.
+- **`install.sh --deb ARQUIVO`** instala um `.deb` local (teste de um build antes de existir release) e
+  **`install.sh engine`** só escolhe/troca o motor de um rustployd já instalado (é o que o `make
+  install-rustploy` chama). O instalador é servido da `main`, então mudá-lo não exige nova release.
+- O comando de uma linha foi testado pela URL pública em `debian:12` (daemon com Docker, e o app) e em
+  `debian:13` (`--engine podman`); o `install.ps1` chegou até a extração num PowerShell no Linux.
+
 ## Ainda sem teste real
 
 - `install.ps1`: o atalho do Menu Iniciar (COM do Windows). O resto (consulta, download, SHA-256, extração, cópia)
   rodou num PowerShell no Linux.
 - O `.deb` arm64 instalado numa máquina arm64 (só foi compilado).
+- A migração Docker -> Podman com dados reais (só testada com stubs; ver `TODO.md`).
 - O `install.sh` numa VPS com systemd de verdade (os testes foram em container, sem systemd): subir o serviço e o
   helper de firewall.
