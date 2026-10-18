@@ -105,10 +105,9 @@ atualização, e os drop-ins ficam em `/etc/` e sobrevivem a ela.
 
 ### O que o instalador NÃO faz (e você precisa saber)
 
-- **Não move o que já roda no Docker.** Containers, imagens e volumes do Docker
-  continuam lá; o Podman começa vazio. Depois de instalar, refaça o deploy de
-  cada serviço (bancos precisam de atenção: os dados estão em volumes do Docker).
-  O instalador avisa se achar um Docker na máquina.
+- **Numa instalação nova não há o que migrar.** Já numa VPS que roda em Docker, a
+  atualização **pergunta** o motor e, se escolher Podman, MIGRA (ver "Migração
+  Docker -> Podman" abaixo). Só containers `rp_*` são tratados.
 - **Não desliga o Docker.** Para de fato liberar a memória:
   `sudo systemctl disable --now docker docker.socket` — só depois de migrar tudo.
 - Só **rootful** (Podman rodando como root, o socket em `/run/podman/`). Rootless
@@ -125,6 +124,29 @@ printf '[Unit]\nAfter=podman.socket\nWants=podman.socket\n[Service]\nEnvironment
 sudo sed -i 's|^socket_path *=.*|socket_path = "/run/podman/podman.sock"|' /etc/rustploy/config.toml
 sudo systemctl daemon-reload && sudo systemctl enable --now podman.socket && sudo systemctl restart podman.socket rustployd
 ```
+
+## Migração Docker -> Podman na atualização (2026-10-18)
+
+`install.sh` (e o `make install-rustploy`, que chama `install.sh engine`) pergunta o
+motor quando há terminal; sem terminal mantém o atual. A escolha "Docker" fica em
+`/etc/rustploy/engine`. Escolhendo Podman numa VPS em Docker:
+
+1. `install_podman` (antes de qualquer coisa).
+2. Lista os serviços `Running`/`Degraded` pela API do próprio rustploy (precisa de
+   `python3`; sem ele, avisa e o deploy fica manual).
+3. Backup de `/etc/rustploy` + banco (sem o registry) em `/var/backups/`.
+4. Confere espaço em disco no destino.
+5. Para o `rustployd`, depois os containers `rp_*`; `docker update --restart=no`.
+6. Copia cada volume (nome e labels iguais) para o Podman com `cp -a`; não sobrescreve
+   volume que já tenha dados.
+7. `configure_podman`, reinicia o rustployd, refaz o deploy dos serviços do passo 2.
+
+Falha antes da troca do motor = `rollback_docker` (religa o que parou, rustployd volta
+no Docker). O Docker nunca é desligado nem apagado. Testado de ponta a ponta com
+`docker`/`podman`/`systemctl` falsos e uma API falsa num Ubuntu 24.04: caminho feliz,
+rollback, recusa sem `--yes`, `--dry-run` sem alterações, pergunta interativa (pty) e a
+escolha lembrada. **Não testado com um Docker de verdade e dados de verdade** (ver
+"Pendências").
 
 ## Resultado do smoke test (Podman 5.7.0 rootful, netavark, daemon real)
 
@@ -165,6 +187,8 @@ O que **não** foi coberto no smoke test com o Podman rootful e fica por testar:
 - **Volumes** (bind e nomeados) e a persistência de dados de **bancos**; os
   volumes do Docker antigo foram apagados na migração.
 - **Jobs one-shot (Schedules)** e o **registry embutido** (`login` pelo `podman`).
+- **A migração Docker -> Podman com dados reais** (`install.sh` e `make install-rustploy`):
+  só foi exercitada com stubs. Comece com `--dry-run` e confira o backup em `/var/backups/`.
 - Subir os serviços reais do usuário (todos `Stopped`) e conferir que tudo volta.
 - `install.sh --engine docker` e `--engine podman` de ponta a ponta numa VPS
   limpa (o `install_docker` e o `install_podman` foram testados isolados num

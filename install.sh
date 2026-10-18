@@ -6,17 +6,23 @@
 #
 # Opções (depois de `sh -s --`, ou direto: `sudo sh install.sh gui --version v0.1.1`):
 #   daemon | gui        o que instalar (padrão: daemon)
+#   engine              só escolhe/troca o motor de containers de um rustployd JÁ instalado (usado
+#                       pelo `make install-rustploy`); não baixa nem instala pacote do rustploy
 #   --remote            (daemon) a API aceita conexões de fora da VPS (bind 0.0.0.0, com token).
 #                       Sem isso, ela escuta só em 127.0.0.1 (use um túnel SSH ou rode de novo com --remote).
-#   --engine docker|podman  (daemon) o motor de containers (padrão: docker). Em ambos o instalador instala
-#                       o motor se faltar: docker = Docker Engine pelo repositório oficial da Docker;
-#                       podman = Podman + compose, podman.socket, acesso do usuário rustploy e config.toml.
+#   --engine docker|podman  o motor de containers. Sem a opção, PERGUNTA (se houver terminal) e o padrão é o
+#                       motor que o rustploy já usa (ou docker, numa instalação nova). Em ambos o
+#                       instalador instala o motor se faltar: docker = Docker Engine pelo repositório
+#                       oficial da Docker; podman = Podman + compose, podman.socket, acesso do usuário
+#                       rustploy e config.toml. Docker -> Podman numa VPS que já roda serviços MIGRA:
+#                       copia os volumes (sem apagar o original) e refaz o deploy dos serviços.
+#   --yes | -y          confirma a troca de motor sem perguntar (para scripts)
 #   --deb ARQUIVO       instala um .deb local (ex.: make deb-rustploy) em vez de baixar a release
 #   --version vX.Y.Z    uma release específica (padrão: a última)
 #   --dry-run           só mostra o que baixaria e instalaria
 #   -h | --help         esta ajuda
 #
-# Variáveis: RUSTPLOY_VERSION (igual a --version), RUSTPLOY_ENGINE (igual a --engine), RUSTPLOY_DRY_RUN=1,
+# Variáveis: RUSTPLOY_VERSION (igual a --version), RUSTPLOY_ENGINE (igual a --engine), RUSTPLOY_YES=1, RUSTPLOY_DRY_RUN=1,
 #            RUSTPLOY_REPO (padrão antoniofernandodj/rustploy), RUSTPLOY_API_URL (só para testes).
 #
 # Windows: veja install.ps1 (irm .../install.ps1 | iex).
@@ -29,27 +35,140 @@ WHAT="daemon"
 VERSION="${RUSTPLOY_VERSION:-}"
 DRY="${RUSTPLOY_DRY_RUN:-0}"
 REMOTE=0
-ENGINE="${RUSTPLOY_ENGINE:-docker}"
+ENGINE="${RUSTPLOY_ENGINE:-}"
+YES="${RUSTPLOY_YES:-0}"
+SWITCH=0
+CURRENT=""
+REDEPLOY_FILE=""
 LOCAL_DEB=""
 PODMAN_SOCKET="/run/podman/podman.sock"
+ENGINE_CHOICE="/etc/rustploy/engine"
 CONFIG="/etc/rustploy/config.toml"
 
 say() { printf '==> %s\n' "$*"; }
 warn() { printf 'aviso: %s\n' "$*" >&2; }
 die() { printf 'erro: %s\n' "$*" >&2; exit 1; }
 
+# ── Escolha do motor de containers ────────────────────────────────────────────
+
+# Valor de uma chave de uma seção do config.toml (vazio se não houver).
+cfg_get() {
+    [ -r "$CONFIG" ] || return 0
+    awk -v sec="[$1]" -v key="$2" '/^\[/{s=($0==sec)} s && $1==key {sub(/^[^=]*=[ \t]*/,""); gsub(/"/,""); print; exit}' "$CONFIG"
+}
+
+# Motor que o rustploy usa hoje: docker | podman | vazio (instalação nova, sem config).
+current_engine() {
+    [ -r "$CONFIG" ] || return 0
+    case "$(cfg_get docker socket_path)" in
+        "") echo "" ;;
+        *podman*) echo podman ;;
+        *) echo docker ;;
+    esac
+}
+
+# Há um terminal para perguntar? Com `curl | sh` o stdin é o próprio script, então a
+# pergunta lê de /dev/tty.
+can_prompt() { [ -r /dev/tty ] && ( : </dev/tty ) 2>/dev/null; }
+
+# ask "pergunta" "padrão" -> resposta em $ANSWER (lida do terminal)
+ask() {
+    printf '%s ' "$1" > /dev/tty
+    read -r ANSWER < /dev/tty || ANSWER=""
+    [ -n "$ANSWER" ] || ANSWER="$2"
+}
+
+# Containers do rustploy no Docker (todos se chamam rp_*): ids, rodando ou não.
+docker_rp_containers() { docker ps -aq --filter 'name=^rp_' 2>/dev/null; }
+
+# Volumes montados por esses containers (um por linha, sem repetição).
+docker_rp_volumes() {
+    for c in $(docker_rp_containers); do
+        docker inspect -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}}{{"\n"}}{{end}}{{end}}' "$c" 2>/dev/null
+    done | sort -u
+}
+
+# Decide ENGINE (pergunta se não foi dado) e se isso é uma TROCA docker -> podman (SWITCH=1).
+choose_engine() {
+    CURRENT="$(current_engine)"
+    # Quem escolheu "Docker" já foi perguntado: lembra a escolha para não repetir a pergunta a cada
+    # atualização. Para ser perguntado de novo, apague o arquivo (ou passe --engine).
+    if [ -z "$ENGINE" ] && [ -r "$ENGINE_CHOICE" ]; then
+        ENGINE="$(head -n 1 "$ENGINE_CHOICE")"
+        case "$ENGINE" in docker) say "Motor de containers: docker (escolha salva em $ENGINE_CHOICE; apague o arquivo para ser perguntado de novo).";; *) ENGINE="";; esac
+    fi
+    if [ -z "$ENGINE" ]; then
+        DEFAULT="${CURRENT:-docker}"
+        if can_prompt; then
+            [ -n "$CURRENT" ] && printf '\nO rustploy desta máquina usa hoje: %s\n' "$CURRENT" > /dev/tty
+            cat > /dev/tty <<'ASK'
+
+Qual motor de containers usar?
+  1) Docker  - o padrão; dockerd + containerd ficam sempre rodando (~150 MB de RAM parados)
+  2) Podman  - sem daemon residente: economiza ~150 MB de RAM parado (precisa de Debian 13+/Ubuntu 24.04+)
+ASK
+            [ "$DEFAULT" = "podman" ] && D=2 || D=1
+            ask "Escolha [1/2] (padrão $D):" "$D"
+            case "$ANSWER" in 2|podman|Podman) ENGINE=podman ;; *) ENGINE=docker ;; esac
+            # Escolheu continuar no Docker: grava para não perguntar de novo (só com o rustploy já instalado).
+            if [ "$ENGINE" = "docker" ] && [ -n "$CURRENT" ] && [ "$DRY" != "1" ] && [ -d /etc/rustploy ]; then
+                echo docker > "$ENGINE_CHOICE" 2>/dev/null || true
+            fi
+        else
+            ENGINE="$DEFAULT"
+        fi
+    fi
+    if [ "$CURRENT" = "podman" ] && [ "$ENGINE" = "docker" ]; then
+        die "este rustploy já usa o Podman; voltar ao Docker não é automático (apague /etc/systemd/system/rustployd.service.d/podman.conf e aponte [docker] socket_path de $CONFIG para /var/run/docker.sock)."
+    fi
+    if [ "$CURRENT" = "docker" ] && [ "$ENGINE" = "podman" ]; then
+        SWITCH=1
+        confirm_switch
+    fi
+}
+
+# Mostra o que a troca vai fazer e pede confirmação (sem terminal: exige --yes).
+confirm_switch() {
+    if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
+        say "Troca Docker -> Podman: o Docker não responde (ou não está instalado); não há containers para migrar."
+        return 0
+    fi
+    NC="$(docker_rp_containers | wc -l | tr -d ' ')"
+    NR="$(docker ps -q --filter 'name=^rp_' | wc -l | tr -d ' ')"
+    VOLS="$(docker_rp_volumes)"
+    NV="$(printf '%s\n' "$VOLS" | grep -c . || true)"
+    say "Troca Docker -> Podman. O que vai acontecer:"
+    say "  1. backup de /etc/rustploy e do banco do rustploy em /var/backups/"
+    say "  2. parar o rustployd e os $NR container(s) rodando de $NC do rustploy (o Docker NÃO é desligado nem apagado)"
+    say "  3. copiar $NV volume(s) do Docker para o Podman (cópia: o original fica intacto):"
+    for v in $VOLS; do
+        sz="$(du -sh "$(docker volume inspect -f '{{.Mountpoint}}' "$v" 2>/dev/null)" 2>/dev/null | cut -f1)"
+        say "       - $v (${sz:-?})"
+    done
+    say "  4. apontar o rustploy para o Podman e refazer o deploy dos serviços que estavam rodando"
+    say "     (indisponíveis durante a cópia e o deploy; imagens e builds são refeitos do zero)"
+    [ "$DRY" = "1" ] && return 0
+    if [ "$YES" = "1" ]; then return 0; fi
+    can_prompt || die "a troca de motor precisa de confirmação: rode de novo com --yes (ou num terminal)."
+    ask "Continuar? [s/N]:" "N"
+    case "$ANSWER" in s|S|sim|Sim|y|Y|yes) ;; *) die "troca cancelada; nada foi alterado." ;; esac
+}
+
 usage() {
     cat <<'HELP'
 Instalador do Rustploy (Debian, Ubuntu e derivados), a partir da última release do GitHub.
 
-Uso: sudo sh install.sh [daemon|gui] [--remote] [--engine docker|podman] [--version vX.Y.Z] [--dry-run]
+Uso: sudo sh install.sh [daemon|gui|engine] [--remote] [--yes] [--engine docker|podman] [--version vX.Y.Z] [--dry-run]
 
   daemon            instala o rustployd na VPS (padrão)
   gui               instala o app desktop (amd64)
   --remote          (daemon) a API aceita conexões de fora da VPS (bind 0.0.0.0, com token);
                     sem isso, escuta só em 127.0.0.1
-  --engine docker   (daemon) motor de containers = Docker (padrão); instala o Docker Engine se faltar
-  --engine podman   (daemon) motor de containers = Podman; instala o Podman e configura tudo
+  engine            só escolhe/troca o motor de um rustployd já instalado (sem baixar pacote)
+  --engine docker   motor de containers = Docker; instala o Docker Engine se faltar
+  --engine podman   motor de containers = Podman; instala e configura tudo. Numa VPS que já roda
+                    em Docker, MIGRA (copia os volumes, refaz o deploy). Sem --engine, pergunta.
+  --yes, -y         confirma a troca de motor sem perguntar
   --deb ARQUIVO     instala um .deb local em vez de baixar a release (teste de um build seu)
   --version vX.Y.Z  uma release específica (padrão: a última)
   --dry-run         só mostra o que baixaria e instalaria
@@ -58,10 +177,11 @@ HELP
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        daemon|gui) WHAT="$1" ;;
+        daemon|gui|engine) WHAT="$1" ;;
         --version) shift; [ $# -gt 0 ] || die "--version precisa de um valor (ex.: v0.1.1)"; VERSION="$1" ;;
         --version=*) VERSION="${1#--version=}" ;;
         --dry-run) DRY=1 ;;
+        --yes|-y) YES=1 ;;
         --remote) REMOTE=1 ;;
         --deb) shift; [ $# -gt 0 ] || die "--deb precisa de um arquivo"; LOCAL_DEB="$1" ;;
         --deb=*) LOCAL_DEB="${1#--deb=}" ;;
@@ -74,10 +194,11 @@ while [ $# -gt 0 ]; do
 done
 
 case "$ENGINE" in
-    docker) ;;
-    podman) [ "$WHAT" = "daemon" ] || die "--engine podman vale só para o daemon" ;;
+    ""|docker) ;;
+    podman) [ "$WHAT" = "gui" ] && die "--engine podman vale só para o daemon" ;;
     *) die "--engine inválido: $ENGINE (use docker ou podman)" ;;
 esac
+[ "$WHAT" = "engine" ] && [ "$ENGINE" = "" ] && [ ! -r /dev/tty ] && die "engine: sem terminal para perguntar; passe --engine docker ou --engine podman"
 
 # ── Verificações ──────────────────────────────────────────────────────────────
 
@@ -95,6 +216,10 @@ if [ "$DRY" != "1" ] && [ "$(id -u)" -ne 0 ]; then
     die "rode como root: curl -fsSL <url>/install.sh | sudo sh   (ou: sudo sh install.sh)"
 fi
 
+# Daemon/engine: decide o motor (pergunta, se preciso) ANTES de baixar qualquer coisa.
+[ "$WHAT" = "gui" ] || choose_engine
+[ "$DRY" = "1" ] && [ "$WHAT" = "engine" ] && exit 0
+
 # O .deb do daemon exige glibc >= 2.34 e o do app >= 2.35 (Debian 12+, Ubuntu 22.04+ nos dois casos).
 # Melhor avisar aqui do que deixar o apt falhar.
 MIN_GLIBC="2.34"
@@ -109,13 +234,13 @@ fi
 
 ARCH="$(dpkg --print-architecture)"
 case "$WHAT:$ARCH" in
-    daemon:amd64|daemon:arm64|gui:amd64) ;;
+    daemon:amd64|daemon:arm64|gui:amd64|engine:*) ;;
     gui:*) die "o app desktop só tem pacote para amd64 por enquanto (esta máquina é $ARCH)" ;;
     *) die "arquitetura sem pacote: $ARCH (suportadas: amd64 e arm64)" ;;
 esac
 
 case "$WHAT" in
-    daemon) PREFIX="rustployd_" ;;
+    daemon|engine) PREFIX="rustployd_" ;;
     gui)    PREFIX="rustploy-gui_" ;;
 esac
 
@@ -123,7 +248,10 @@ esac
 
 # --deb ARQUIVO: instala um .deb local (ex.: gerado por `make deb-rustploy`), sem consultar o GitHub.
 # O bloco abaixo (resolver, baixar e conferir) só roda sem --deb; o resto do script é igual.
-if [ -n "$LOCAL_DEB" ]; then
+# No modo `engine` não há pacote nenhum para baixar.
+if [ "$WHAT" = "engine" ]; then
+:
+elif [ -n "$LOCAL_DEB" ]; then
 [ -f "$LOCAL_DEB" ] || die "--deb: arquivo não encontrado: $LOCAL_DEB"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT INT TERM
@@ -347,13 +475,170 @@ UNIT
         systemctl restart podman.socket || true
     fi
 
-    if [ -S /var/run/docker.sock ]; then
+    if [ "$SWITCH" != "1" ] && [ -S /var/run/docker.sock ]; then
         warn "há um Docker instalado nesta máquina. Containers e imagens dele NÃO são movidos para o Podman:"
         warn "faça um novo deploy dos serviços (e recrie bancos/volumes, se for o caso). Depois, 'systemctl disable --now docker' libera a RAM."
     fi
 }
 
+
+# ── Migração Docker -> Podman (VPS que já roda serviços) ──────────────────────
+
+# Chamada à API do próprio rustployd (/api/rpc), pelo token do config.toml. Tenta http e depois
+# https (com [api].domain a porta fala TLS). Corpo JSON em $1; resposta em stdout.
+rp_api() {
+    _port="$(cfg_get api port)"; _port="${_port:-9797}"
+    _token="$(cfg_get api token)"
+    for _scheme in http https; do
+        _out="$(curl -sk --max-time 30 -H "Authorization: Bearer $_token" -d "$1" "$_scheme://127.0.0.1:$_port/api/rpc")" \
+            && [ -n "$_out" ] && { printf '%s' "$_out"; return 0; }
+    done
+    return 1
+}
+
+# Ids dos serviços que estavam no ar (Running ou Degraded), um por linha. Precisa de python3
+# para ler o JSON; sem ele devolve erro e o deploy fica por conta do usuário.
+running_service_ids() {
+    command -v python3 >/dev/null 2>&1 || return 1
+    _projects="$(rp_api '"ProjectList"')" || return 1
+    for _p in $(printf '%s' "$_projects" | python3 -c 'import sys,json; print(" ".join(p["id"] for p in json.load(sys.stdin)["Projects"]))'); do
+        _svcs="$(rp_api "{\"ServiceList\":{\"project_id\":\"$_p\"}}")" || continue
+        printf '%s' "$_svcs" | python3 -c '
+import sys, json
+for s in json.load(sys.stdin).get("Services", []):
+    if s.get("status") in ("Running", "Degraded"):
+        print(s["id"])'
+    done
+}
+
+# Desfaz uma migração que falhou ANTES de trocar o motor: sobe de novo os containers parados e o
+# rustployd, ainda no Docker. Nada do Docker foi apagado, então é só religar.
+rollback_docker() {
+    warn "falhou: voltando ao Docker (religando o que foi parado)..."
+    if [ -s "$STOPPED_FILE" ]; then
+        # shellcheck disable=SC2046
+        docker start $(cat "$STOPPED_FILE") >/dev/null 2>&1 || true
+    fi
+    systemctl start rustployd >/dev/null 2>&1 || true
+    die "migração para o Podman interrompida; o rustploy segue no Docker. Os volumes já copiados ficam no Podman (inofensivos)."
+}
+
+# Passos 1-5 da troca (o rustployd ainda roda no Docker quando isto começa). NÃO reinicia o
+# rustployd nem refaz o deploy: quem chamou faz isso (finish_switch) depois de reiniciá-lo.
+migrate_to_podman() {
+    say "Migrando do Docker para o Podman..."
+    command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 || {
+        say "O Docker não responde: nada a migrar, só apontando o rustploy para o Podman."
+        configure_podman
+        return 0
+    }
+
+    # (1) o que estava no ar, ANTES de parar tudo (a API só responde com o rustployd de pé)
+    REDEPLOY_FILE="$(mktemp)"
+    if running_service_ids > "$REDEPLOY_FILE" 2>/dev/null; then
+        say "Serviços que estavam no ar: $(grep -c . "$REDEPLOY_FILE" || true)"
+    else
+        warn "não consegui listar os serviços no ar (precisa de python3 e do rustployd respondendo); refaça o deploy à mão depois."
+        : > "$REDEPLOY_FILE"
+    fi
+
+    # (2) backup do que é do rustploy (o registry embutido, que pode ser grande, fica de fora)
+    BK="/var/backups/rustploy-antes-do-podman-$(date +%Y%m%d-%H%M%S).tar.gz"
+    mkdir -p /var/backups
+    DBP="$(cfg_get daemon db_path)"; DBP="${DBP:-/var/lib/rustploy/db}"
+    tar czf "$BK" --exclude="$DBP/registry" /etc/rustploy "$DBP" 2>/dev/null || warn "o backup teve avisos (arquivos que mudaram durante a cópia)"
+    chmod 600 "$BK"
+    say "Backup: $BK"
+
+    # (3) espaço no destino
+    NEED=0
+    VOLS="$(docker_rp_volumes)"
+    for v in $VOLS; do
+        k="$(du -sk "$(docker volume inspect -f '{{.Mountpoint}}' "$v")" 2>/dev/null | cut -f1)"; NEED=$((NEED + ${k:-0}))
+    done
+    GR="$(podman info --format '{{.Store.GraphRoot}}' 2>/dev/null)"; GR="${GR:-/var/lib/containers/storage}"
+    mkdir -p "$GR"
+    FREE="$(df -Pk "$GR" | awk 'NR==2{print $4}')"
+    if [ "$NEED" -gt 0 ] && [ "${FREE:-0}" -lt $((NEED + NEED / 10)) ]; then
+        die "espaço insuficiente em $GR para copiar os volumes (precisa de ~$((NEED / 1024)) MB, há $((FREE / 1024)) MB). Nada foi alterado."
+    fi
+
+    # (4) parar: primeiro o rustployd (não deixa nada religar), depois os containers
+    STOPPED_FILE="$(mktemp)"
+    systemctl stop rustployd >/dev/null 2>&1 || true
+    docker ps -q --filter 'name=^rp_' > "$STOPPED_FILE"
+    if [ -s "$STOPPED_FILE" ]; then
+        say "Parando $(grep -c . "$STOPPED_FILE") container(s) do rustploy no Docker (para os dados ficarem consistentes)..."
+        # shellcheck disable=SC2046
+        docker stop -t 30 $(cat "$STOPPED_FILE") >/dev/null || rollback_docker
+    fi
+    # Sem religar sozinhos se alguém reiniciar o Docker (política de reinício do compose do usuário).
+    # shellcheck disable=SC2046
+    docker update --restart=no $(docker_rp_containers) >/dev/null 2>&1 || true
+
+    # (5) copiar cada volume para um volume de mesmo nome (e mesmos labels) no Podman
+    for v in $VOLS; do
+        src="$(docker volume inspect -f '{{.Mountpoint}}' "$v")"
+        if podman volume exists "$v" 2>/dev/null; then
+            dst="$(podman volume inspect -f '{{.Mountpoint}}' "$v")"
+            if [ -n "$(ls -A "$dst" 2>/dev/null)" ]; then
+                warn "volume $v já existe no Podman e tem dados; mantido, NÃO copiei por cima."
+                continue
+            fi
+        else
+            LABELS="$(docker volume inspect -f '{{range $k, $v := .Labels}}--label {{$k}}={{$v}} {{end}}' "$v")"
+            # shellcheck disable=SC2086
+            podman volume create $LABELS "$v" >/dev/null || rollback_docker
+            dst="$(podman volume inspect -f '{{.Mountpoint}}' "$v")"
+        fi
+        say "Copiando o volume $v..."
+        cp -a "$src/." "$dst/" || rollback_docker
+    done
+
+    configure_podman
+}
+
+# Depois do rustployd reiniciado (já no Podman): espera a API e refaz o deploy dos serviços.
+finish_switch() {
+    [ -n "$REDEPLOY_FILE" ] && [ -s "$REDEPLOY_FILE" ] || {
+        say "Troca concluída. Refaça o deploy dos seus serviços (não consegui listá-los automaticamente)."
+        return 0
+    }
+    i=0
+    while [ "$i" -lt 30 ]; do rp_api '"ProjectList"' >/dev/null 2>&1 && break; i=$((i + 1)); sleep 1; done
+    say "Refazendo o deploy dos serviços que estavam no ar..."
+    for id in $(cat "$REDEPLOY_FILE"); do
+        rp_api "{\"DeployStart\":{\"service_id\":\"$id\"}}" >/dev/null 2>&1 \
+            && say "  deploy enfileirado: $id" || warn "  não consegui enfileirar $id; faça o deploy à mão."
+    done
+    say "Troca concluída. Acompanhe os deploys na GUI ou na web UI. O Docker segue instalado e intacto:"
+    say "depois de conferir que tudo voltou, libere a RAM com: sudo systemctl disable --now docker docker.socket"
+}
+
+# Modo `engine`: só escolhe/troca o motor de um rustployd já instalado.
+engine_only() {
+    command -v rustployd >/dev/null 2>&1 || die "rustployd não está instalado; rode sem o modo 'engine' para instalar."
+    if [ "$ENGINE" = "podman" ] && [ "$SWITCH" = "1" ]; then
+        install_podman
+        migrate_to_podman
+        systemctl daemon-reload || true
+        systemctl restart rustployd || true
+        finish_switch
+    elif [ "$ENGINE" = "podman" ] && [ -z "$CURRENT" ]; then
+        install_podman
+        configure_podman
+        systemctl restart rustployd || true
+    elif [ "$ENGINE" = "docker" ]; then
+        install_docker
+        say "Motor: Docker (sem mudanças)."
+    else
+        say "Motor: $ENGINE (sem mudanças)."
+    fi
+}
+
 # ── Instalar ──────────────────────────────────────────────────────────────────
+
+if [ "$WHAT" = "engine" ]; then engine_only; exit 0; fi
 
 # Com o motor já instalado, a dependência "docker.io | docker-ce | podman" do .deb fica
 # satisfeita e o apt não puxa outro.
@@ -415,7 +700,9 @@ CFG
     say "Token da API gerado e gravado em $CONFIG (API em $BIND:9797)."
 }
 setup_api
-[ "$ENGINE" = "podman" ] && configure_podman
+if [ "$ENGINE" = "podman" ]; then
+    if [ "$SWITCH" = "1" ]; then migrate_to_podman; else configure_podman; fi
+fi
 
 if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload || true
@@ -429,6 +716,7 @@ if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
     done
     if systemctl is-active --quiet rustployd; then
         say "rustployd está ativo."
+        [ "$SWITCH" = "1" ] && finish_switch
     else
         warn "rustployd não subiu. Veja: journalctl -u rustployd -n 50 --no-pager"
     fi

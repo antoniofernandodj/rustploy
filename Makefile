@@ -200,6 +200,8 @@ deb-rustploy: ## Compila e gera apenas o .deb do rustploy
 
 
 .PHONY: install-rustploy
+ENGINE_ARGS = $(if $(ENGINE),--engine $(ENGINE)) $(if $(YES),--yes)
+
 install-rustploy: deb-rustploy ## Compila, empacota e instala apenas o rustploy
 	sudo dpkg -i $$(ls $(DAEMON_DIR)/target/debian/rustployd_*.deb | tail -1)
 	sudo systemctl daemon-reload
@@ -207,6 +209,10 @@ install-rustploy: deb-rustploy ## Compila, empacota e instala apenas o rustploy
 	# helper de firewall — allow/deny de porta externa via /run/rustploy/fw.sock.
 	sudo systemctl enable --now rustployd-fw.socket
 	sudo systemctl restart rustployd
+	# Motor de containers: pergunta (num terminal) se continua no Docker ou troca para o Podman e,
+	# se trocar, migra os volumes e refaz o deploy. `make install-rustploy ENGINE=podman YES=1`
+	# decide sem perguntar. Detalhes: install.sh --help.
+	sudo sh ./install.sh engine $(ENGINE_ARGS)
 	sudo journalctl --rotate
 	sudo journalctl --vacuum-time=1s --unit=rustployd
 	@echo ""

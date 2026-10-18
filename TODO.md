@@ -60,6 +60,8 @@ de qualquer assunto. Sem cabeçalho de status por item (isso é para
   dados de bancos; jobs one-shot e registry embutido; subir os serviços reais (todos
   `Stopped`); `install.sh --engine docker` e `--engine podman` de ponta a ponta numa
   VPS limpa, depois da release.
+- [ ] **Migração Docker -> Podman com dados reais** (`install.sh`/`make install-rustploy`): só
+  foi testada com stubs. Rodar primeiro com `--dry-run`; o backup fica em `/var/backups/`.
 - [ ] **`ServiceDelete` deveria parar e remover os containers do serviço** (hoje só
   apaga o registro e as rotas, e os containers ficam rodando órfãos). Também falta um
   comando para remover container em execução (`RemoveContainer` não tem `force`).
