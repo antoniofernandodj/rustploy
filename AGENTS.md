@@ -762,10 +762,15 @@ api  →  features  →  engine · store · platform  →  rustploy-shared
         (bootstrap monta tudo e entrega o AppState)
 ```
 
-`engine/`, `store/` e `platform/` não importam `api`, `features` nem `bootstrap`
-(o compilador reclama se alguém voltar a fazer isso). As `features/` ainda recebem o
-`AppState` inteiro de `bootstrap/state.rs`; recortá-lo em contextos menores por
-feature é o passo seguinte, ainda não feito. A raiz tem só `main.rs` e as pastas.
+`engine/`, `store/`, `platform/` e `features/` não importam `api` nem `bootstrap`
+(o compilador reclama se alguém voltar a fazer isso; a única exceção são dois testes de
+`features/iac/`, que montam um `AppState` de verdade). Cada feature recebe só o que usa:
+`DeployContext`, `JobsContext`, `MaintenanceContext`, `WatchdogContext`, `ServicesContext`,
+`MigrationContext` e `IacContext` (um `context.rs` em cada pasta). O `AppState`
+(`bootstrap/state.rs`) guarda tudo e entrega o contexto pedido com `state.deploy_ctx()`,
+`state.jobs_ctx()`… — o handler da `api` faz essa conversão na chamada. Feature nova que
+precise de algo do `AppState`: acrescente o campo ao contexto dela, não importe o `AppState`.
+A raiz tem só `main.rs` e as pastas.
 
 - **`main.rs`** — entrada de ~20 linhas; chama `bootstrap::run()`.
 - **`bootstrap/`** — monta o sistema: `mod.rs` (a sequência de boot), `config.rs`
@@ -775,7 +780,7 @@ feature é o passo seguinte, ainda não feito. A raiz tem só `main.rs` e as pas
   `handlers/<assunto>/` (projects, services, deploys, jobs, docker, git, databases,
   iac, registry, secrets, observability, settings — cada pasta com o seu
   `dispatch`; um arquivo por comando, finos), `http/` (axum/hyper, SSE, auth e
-  `public_routes.rs` com webhook e OAuth), `web_ui/` (a webui embutida) e `agent/`
+  `public_routes.rs` com webhook e OAuth), `web_ui/` (a webui embutida; `headless_tests.rs` tem os testes com Chrome) e `agent/`
   (MCP e API de agente).
 - **`store/`** — SQLite (via `sqlx`): projetos, serviços, deployments, jobs,
   secrets, certificados. Tabelas de log persistidas: `build_log` e `job_log`

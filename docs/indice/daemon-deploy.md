@@ -7,6 +7,10 @@
 
 ## rustploy-daemon/crates/daemon/src/features/deploy/
 
+### context.rs — O que o motor de deploy (fila, executor, start, stop) precisa do resto do daemon.
+type ActiveDeploys = Arc<Mutex<HashMap<String, tokio::task::AbortHandle… — Handles de abort para deploys activos: deployment_id → AbortHandle.
+struct DeployContext { db, docker, ingress, bus, secrets, tls, db_path, drain_secs, registry_internal_token, active_deploys, deploy_queue }
+
 ### env_resolve.rs — Resolução de env vars com secrets decifradas — extraído de `DeployExecutor::resolve_env` pra ser rea…
 fn resolve_project_env(db, secrets, project_id) -> Result<HashMap<String, String>> — Só as env vars do projeto (base), secrets decifradas — sem nenhuma específica de serviço.
 fn resolve(db, secrets, svc) -> Result<Vec<(String, String)>> — Funde env vars do projeto (base) com as do serviço (sobrescreve por chave), decifrando `EnvVarValue:…
@@ -27,7 +31,7 @@ fn extract_percent(line) -> u8 — Extracts the integer percentage from a git pr
 
 ### queue.rs — Fila **global** de deploys: no máximo um deploy rodando por vez no daemon.
 struct QueueInner { queued, running, paused }
-struct DeployQueue { inner, notify, slot, paused_tx } — Handle compartilhado da fila (fica no `AppState`).
+struct DeployQueue { inner, notify, slot, paused_tx } — Handle compartilhado da fila (fica no `DeployContext`).
 impl DeployQueue
   fn new() -> Arc<Self>
   fn enqueue(dep_id) — Enfileira um deployment e acorda o worker.
@@ -148,6 +152,10 @@ fn failure_log_lines(state_label, err) -> Vec<String> — Quebra a causa de um s
 
 ## rustploy-daemon/crates/daemon/src/features/jobs/
 
+### context.rs — O que os jobs (runner, agendador, aquecimento) precisam do resto do daemon.
+type ActiveJobs = Arc<Mutex<HashMap<String, tokio::sync::watch::Send… — Sinais de cancelamento para `job_run`s em execução: job_run_id → sender de um `watch<bool>` (valor `…
+struct JobsContext { db, docker, bus, secrets, db_path, registry_internal_token, active_jobs, warming_jobs, deploy_queue }
+
 ### mod.rs — Jobs one-shot (Schedules): execução (`runner`) e agendamento (`scheduler`).
 fn recover_interrupted(db) -> anyhow::Result<usize> — Fecha, como **interrompidas**, as execuções que ficaram sem fim: um daemon que acabou de subir não t…
 const INTERRUPTED_EXIT_CODE — Exit code de uma execução interrompida por reinício (o mesmo `-1` que o runner grava quando a execuç…
@@ -191,6 +199,9 @@ fn warm_in_dir(state, job, project_name, network_name, env_vars, build_dir) -> R
 
 ## rustploy-daemon/crates/daemon/src/features/maintenance/
 
+### context.rs — O que a limpeza do Docker precisa do resto do daemon.
+struct MaintenanceContext { db, docker, bus, docker_cache, deploy_queue }
+
 ### mod.rs — Limpeza automática (agendada) de recursos Docker não usados — ver `docs/plano-limpeza-automatica-doc…
 
 ### prune.rs — Limpeza de containers, volumes, imagens, build cache e redes do Docker: o miolo que o botão manual (…
@@ -225,6 +236,9 @@ fn scheduler_loop(state)
 const TICK_SECS
 
 ## rustploy-daemon/crates/daemon/src/features/services/
+
+### context.rs — O que criar, atualizar e remover um serviço precisam do resto do daemon.
+struct ServicesContext { db, docker, ingress, tls, deploy }
 
 ### create.rs — `Command::ServiceCreate`: cria um serviço, alocando a porta externa automática e liberando-a no fire…
 fn handle(state, spec) -> RpResponse

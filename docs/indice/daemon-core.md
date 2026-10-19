@@ -77,22 +77,17 @@ fn run() -> Result<()> — Sobe o daemon inteiro e segura o processo (encerramen
 
 ### state.rs — Estado compartilhado do daemon (`AppState`) e os caches do inventário Docker.
 type OAuthStates = Arc<Mutex<HashMap<String, String>>> — Pending OAuth handshakes: CSRF `state` → `provider_id`, consumed by the `/oauth/gitea/callback` rout…
-type ActiveDeploys = Arc<Mutex<HashMap<String, tokio::task::AbortHandle… — Handles de abort para deploys activos: deployment_id → AbortHandle.
-type ActiveJobs = Arc<Mutex<HashMap<String, tokio::sync::watch::Send… — Sinais de cancelamento para `job_run`s em execução: job_run_id → sender de um `watch<bool>` (valor `…
-const DOCKER_CACHE_TTL — How long the host-wide Docker inventory (`docker system df` + the network cross-reference) stays cac…
-struct TtlCache { ttl, slot } — Single-slot value cache with a TTL.
-impl TtlCache<T>
-  fn new(ttl) -> Self
-  fn get_or_refresh(refresh) -> Result<T, E> — Returns the cached value if still within the TTL, otherwise runs `refresh`, stores and returns it.
-  fn invalidate() — Drops the cached value so the next `get_or_refresh` fetches fresh.
-struct DockerCache { df, networks } — Caches the slow host-wide Docker inventory calls so the 2s status poll (and every Docker-tab refresh…
-impl DockerCache
-  fn new() -> Self
 struct AppState { db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, started_at, oauth_states, active_deploys, active_jobs, warming_jobs, deploy_queue, docker_cache, registry_storage, registry_internal_token }
 impl AppState
   fn new(db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, registry_storage, registry_internal_token) -> Self
+  fn deploy_ctx() -> DeployContext
+  fn jobs_ctx() -> JobsContext
+  fn maintenance_ctx() -> MaintenanceContext
+  fn watchdog_ctx() -> WatchdogContext
+  fn services_ctx() -> ServicesContext
+  fn migration_ctx() -> MigrationContext
+  fn iac_ctx() -> IacContext
   fn public_base_url() -> String — URL pública do daemon, sem barra final: base do webhook (`{base}/webhook/{service_id}/{token}`) e do…
-fn outbound_ip() -> String — Detecta o IP de saída da máquina conectando um socket UDP em 8.8.8.8:80 (sem enviar dados) e lendo o…
 
 ### workers.rs — Tarefas de fundo do daemon: backup de env, métricas, logs, GC do registry, watchdog, agendadores e r…
 fn spawn_standalone(config, db, docker, bus, backup_dir) — Laços que só precisam de banco, Docker e barramento (sobem antes do `AppState`).
@@ -134,6 +129,7 @@ impl RustployConfig
 fn user_home() -> Option<String> — The single place the process reads `$HOME`.
 fn fallback_data_dir() -> PathBuf — `~/.local/share/rustploy`, falling back to `/tmp` when `$HOME` is unset.
 fn dirs_config_path() -> Option<PathBuf>
+fn outbound_ip() -> String — Detecta o IP de saída da máquina conectando um socket UDP em 8.8.8.8:80 (sem enviar dados) e lendo o…
 impl Default for ApiConfig
 impl Default for EnvBackupConfig
 impl Default for ExternalPortsConfig
@@ -189,3 +185,10 @@ impl SecretsManager
   fn delete(project_id, name) -> Result<()>
   fn list_names(project_id) -> Result<Vec<String>>
 fn generate_key() -> Result<String>
+
+### ttl_cache.rs — Cache de um valor só, com TTL, que junta chamadas concorrentes numa só ida à fonte lenta.
+struct TtlCache { ttl, slot } — Single-slot value cache with a TTL.
+impl TtlCache<T>
+  fn new(ttl) -> Self
+  fn get_or_refresh(refresh) -> Result<T, E> — Returns the cached value if still within the TTL, otherwise runs `refresh`, stores and returns it.
+  fn invalidate() — Drops the cached value so the next `get_or_refresh` fetches fresh.

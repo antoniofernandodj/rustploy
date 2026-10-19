@@ -15,6 +15,12 @@ fn create_tar_gz(context_path, _dockerfile) -> Result<Vec<u8>>
 fn append_dir_filtered(tar, src, prefix) -> Result<()> — Adiciona `src` ao tar sob `prefix`, pulando entradas cujo nome seja `.git`.
 fn _prune_unused(docker, keep_tags) -> Result<()>
 
+### inventory_cache.rs — Cache do inventário do host (imagens, volumes, redes), que é lento de consultar.
+const DOCKER_CACHE_TTL — How long the host-wide Docker inventory (`docker system df` + the network cross-reference) stays cac…
+struct DockerCache { df, networks } — Caches the slow host-wide Docker inventory calls so the 2s status poll (and every Docker-tab refresh…
+impl DockerCache
+  fn new() -> Self
+
 ### mod.rs — Cliente Docker (`DockerClient`, via bollard) e os submódulos por recurso.
 enum Engine { Docker, Podman } — Motor de containers por trás do socket configurado.
 impl Engine

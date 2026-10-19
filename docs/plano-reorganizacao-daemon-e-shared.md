@@ -268,14 +268,18 @@ passam — os 31 a mais são os testes que vieram do shared — e os **mesmos** 
   `features/maintenance/prune.rs`; `deploy_start`/`service_stop` viraram `features/deploy/{start,stop}.rs`;
   `to_view` de banco gerenciado foi para `features/databases/managed_view.rs`; o `engine` grava log por um trait
   (`platform/log_sink.rs`, implementado para o `Db` em `store/log_sink.rs`) e não conhece mais o banco;
-  `legacy_project_net_for` e `EnvChange` foram para o `shared`. **Não feito:** cada feature receber um
-  *contexto* próprio em vez do `AppState` inteiro — as features ainda importam `bootstrap::state::AppState`.
-  Fica como passo seguinte, se as camadas voltarem a vazar.
+  `legacy_project_net_for` e `EnvChange` foram para o `shared`. **Contextos (feito depois, no mesmo dia):** cada
+  feature passou a receber um contexto próprio em vez do `AppState` inteiro — `DeployContext`, `JobsContext`,
+  `MaintenanceContext`, `WatchdogContext`, `ServicesContext`, `MigrationContext` e `IacContext`, cada um no
+  `context.rs` da sua pasta e com os campos que a feature de fato usa. O `AppState` os monta
+  (`state.deploy_ctx()`…); `TtlCache` foi para `platform/ttl_cache.rs`, `DockerCache` para
+  `engine/inventory_cache.rs` e `ActiveDeploys`/`ActiveJobs` para as suas features. Agora `features/` não importa
+  mais `bootstrap` (só dois testes de `features/iac/`, que montam um `AppState`).
 - **Fase 3.** `api/handlers/` em 12 pastas por assunto (projects, services, deploys, jobs, docker, git,
   databases, iac, registry, secrets, observability, settings), cada uma com o seu `dispatch`; `api/dispatch.rs`
   (era `routes.rs`) só escolhe a pasta. A lógica de criar/atualizar/remover serviço foi para
   `features/services/` e a de `service_import`/`manifest_*`/`service_export` para `features/iac/`. `http_api.rs` e
-  `public_routes.rs` viraram `api/http/`; `web_ui.rs` virou `api/web_ui/mod.rs` (não foi quebrado em partes).
+  `public_routes.rs` viraram `api/http/`; `web_ui.rs` virou `api/web_ui/` (`mod.rs` com o servidor de estáticos e `headless_tests.rs` com os testes de Chrome).
 - **Fase 4.** `docker/` → `engine/`, `db/` → `store/`; `containers.rs` em `containers/{naming,query,lifecycle,inspect}`
   e `compose.rs` em `compose/{up,down,jobs,logs}`.
 - **Fase 5.** `deploy/executor.rs` (2 143 linhas) virou `executor/`: `state_machine.rs` (laço + despacho),

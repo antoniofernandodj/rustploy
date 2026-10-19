@@ -69,6 +69,9 @@ const _
 
 ## rustploy-daemon/crates/daemon/src/features/databases/
 
+### context.rs — O que a migração de banco precisa do resto do daemon.
+struct MigrationContext { db, docker, secrets, deploy }
+
 ### env_switch.rs — Troca de uma env var de conexão (`DATABASE_URL`…) num projeto, com o valor antigo guardado para roll…
 fn is_defined(db, project_id, key) -> Result<bool> — A chave já está definida no projeto ou em algum serviço dele?
 fn switch(db, project_id, key, value) -> Result<Vec<EnvChange>> — Grava `value` (Plain) em todo lugar onde `key` existe; se em nenhum, no projeto.
@@ -118,6 +121,11 @@ fn exec_sh(e, container, sh, script) -> Result<String> — Como [`exec`], com o 
 (3 testes)
 
 ## rustploy-daemon/crates/daemon/src/features/iac/
+
+### context.rs — O que o manifesto e o pacote de serviço (export/import) precisam do resto do daemon.
+struct IacContext { db, secrets, api, services, deploy }
+impl IacContext
+  fn public_base_url() -> String — URL pública do daemon, sem barra final (base do webhook de cada serviço).
 
 ### manifest.rs — Infra-as-Code: structs do manifesto declarativo (`rustploy.yml`).
 struct ServerManifest { api_version, projects } — Manifesto raiz (agregador): vários projetos, inline ou via `include:`.
@@ -238,6 +246,9 @@ fn stream_loop(docker, db, bus)
 fn stream_container(docker, container_id, service_id, bus) — Transmite os logs de um container para o event bus até o stream acabar, ou até ficar parado por `STR…
 fn publish_log(bus, service_id, container_id, is_stderr, bytes)
 const STREAM_IDLE_TIMEOUT
+
+### context.rs — O que o watchdog precisa do resto do daemon.
+struct WatchdogContext { db, docker, bus, deploy_queue }
 
 ### metrics.rs — Coleta periódica de métricas de CPU/memória/disco do host e por container, publicadas no event bus.
 fn collect_loop(docker, db, bus, interval_secs)

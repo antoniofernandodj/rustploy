@@ -100,6 +100,10 @@ de qualquer assunto. Sem cabeçalho de status por item (isso é para
     aviso de tamanho e de segredos; `secret:NOME` nunca é decifrado (regra do `ServiceBundle`).
   - Depois disso, o teste de migração Docker <-> Podman pode usar dados reais exportados da VPS.
 
+- [ ] **Tirar o glacier-ui de dentro do iced (proposta, nada feito).** Dois caminhos, o A primeiro:
+  (A) o glacier-ui passa a mandar no layout (Taffy) e nos eventos, e o iced vira só o backend de desenho e
+  entrada; (B) depois, spikes de outros backends (Vello+Parley, Slint, egui) atrás do mesmo `trait Backend`.
+  Fases, medições e decisões em aberto: `docs/plano-evolucao-do-backend-grafico.md`.
+
 - [x] **Reorganizar o daemon e o `shared`** — feito em 2026-10-18 (`docs/plano-reorganizacao-daemon-e-shared.md`,
-  seção "Como ficou"). Sobrou um passo opcional: cada feature receber um contexto próprio em vez do `AppState`
-  inteiro (hoje importam `bootstrap::state::AppState`).
+  seção "Como ficou"). O passo seguinte (contextos por feature) e a `web_ui` também já foram feitos.
