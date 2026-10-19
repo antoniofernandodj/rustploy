@@ -72,6 +72,7 @@ fn handle(state, service_id) -> RpResponse
 
 ### stop.rs — Parar um serviço (`Command::ServiceStop`): para um serviço (todas as réplicas live, ou a stack Compo…
 fn handle(state, service_id) -> RpResponse
+fn stop(state, service_id) -> RpResponse
 fn stop_compose(state, service_id, project_name, content, network_name, env_vars) -> RpResponse
 fn finish_stop(state, service_id, container_id) -> RpResponse
 
@@ -192,9 +193,9 @@ enum Verdict { Warm, Cold }
 fn cache_pruned_since(warmed_at, prune) -> bool — O corte de idade da limpeza poupa o cache usado nas últimas N horas: o aquecimento sobreviveu se aco…
 fn judge(job, record, missing_image, prune) -> Verdict — A decisão, sem tocar em Docker nem no banco: `missing_image` é a primeira imagem do registro ausente…
 fn status(state, job) -> JobWarmStatus — Fonte única da verdade: se o job está quente agora, e por que não, se frio.
-fn request(state, job) -> Result<bool, String> — Pede o aquecimento de `job`.
-fn warm_once(state, job) -> Result<()> — Aquece com a vaga já em mãos.
-fn warm_in_dir(state, job, project_name, network_name, env_vars, build_dir) -> Result<ComposeImages>
+fn request(state, job, force) -> Result<bool, String> — Pede o aquecimento de `job`.
+fn warm_once(state, job, force) -> Result<()> — Aquece com a vaga já em mãos.
+fn warm_in_dir(state, job, project_name, network_name, env_vars, build_dir, force) -> Result<ComposeImages>
 (9 testes)
 
 ## rustploy-daemon/crates/daemon/src/features/maintenance/

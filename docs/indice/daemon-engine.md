@@ -31,6 +31,7 @@ fn cli() -> Command — `Command` do CLI do motor ativo, já apontado para o soc
 struct DockerClient { inner, _socket_path }
 impl DockerClient
   fn connect(socket_path) -> Result<Self>
+  fn for_tests() -> Self — Cliente para testes que não falam com o motor: o bollard só exige que o caminho do socket exista, en…
   fn ping() -> Result<()>
 const ENGINE
 (1 testes)
@@ -46,6 +47,8 @@ fn _disconnect_container(docker, network_name, container_id) -> Result<()>
 
 ### down.rs — `compose down` de uma stack.
 fn down(content, project_name, _network_name, env_vars) -> Result<()>
+fn strip_ansi(text) -> String — Tira as sequências de cor (`ESC [ … m`) que o compose escreve no stderr, para a mensagem ficar legív…
+(1 testes)
 
 ### jobs.rs — Execução de jobs one-shot via compose: arquivos, imagens, aquecimento e cancelamento.
 enum JobBuildSource { Compose, Git } — Sobe um stack docker-compose UMA VEZ (job one-shot, não um serviço de vida longa): usa `--abort-on-c…
@@ -58,10 +61,12 @@ fn write_job_files(source, network_name, env_vars, build_dir) -> Result<JobFiles
 struct ComposeImages { pulled_images, has_build } — O que o compose de um job precisa ter no host para rodar sem baixar nem compilar do zero.
 fn parse_compose_images(config_json) -> Result<ComposeImages> — Extrai `ComposeImages` da saída de `docker compose config --format json` (já com variáveis interpola…
 fn resolve_compose_images(project_name, compose_rel_path, build_dir) -> Result<ComposeImages>
-fn warm(source, project_name, network_name, env_vars, build_dir, registry_internal_token, docker) -> Result<ComposeImages> — Aquece um job sem executá-lo: baixa as imagens de registry que faltam (`docker pull`, só das ausente…
-fn warm_images(project_name, compose_rel_path, build_dir, docker) -> Result<ComposeImages>
+fn warm(source, project_name, network_name, env_vars, build_dir, registry_internal_token, docker, force) -> Result<ComposeImages> — Aquece um job sem executá-lo: baixa as imagens de registry que faltam (`docker pull`, só das ausente…
+fn warm_images(project_name, compose_rel_path, build_dir, docker, force) -> Result<ComposeImages>
+fn warm_build_args(project_name, compose_rel_path, force) -> Vec<String> — Argumentos do `compose build` do aquecimento.
 fn run_once(source, project_name, network_name, main_service, job_id, job_run_id, bus, db, env_vars, build_dir, registry_internal_token, mirror_deployment, cancel_rx) -> Result<(i32, Option<ComposeImages>)> — Executa um job uma vez: prepara o compose (colado ou do repositório git) com a rede do projeto, roda…
 fn run_once_up(project_name, compose_rel_path, main_service, job_id, job_run_id, bus, db, build_dir, mirror_deployment, cancel_rx) -> Result<i32> — Roda o `docker compose up` de um job até o `main_service` sair, transmitindo stdout/stderr para o lo…
+(2 testes)
 
 ### logs.rs — Leitura e limpeza da saída do compose, linha a linha, para o log do job/deploy.
 const COMPOSE_TAIL_MAX — Quantas linhas do próprio `docker compose` (build, pull, erros de container) o job guarda pra despej…

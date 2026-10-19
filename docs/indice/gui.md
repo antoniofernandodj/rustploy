@@ -9,65 +9,17 @@
 
 ## rustploy-gui/
 
-### build.rs — Build script: logos dos blueprints para o release e recursos do `.exe` no Windows.
-const LOGO_EXTS — Extensões de imagem que os logos de blueprint usam (o resto da pasta — `docker-compose.yml`/`templat…
-const LOGO_MAX_DIM — Alvo do redimensionamento dos logos raster: a maior dimensão é reduzida para no máximo isto, preserv…
+### build.rs — Build script: logos dos blueprints para o release, `.desktop` no `cargo install` e recursos do `.exe…
 fn main()
-fn stage_blueprint_logos() — Leva os logos de `assets/blueprint-logos/**` para `$OUT_DIR/blueprint_logos/**`, **espelhando a estr…
-fn copy_images(src, dst) — Percorre recursivamente `src` e leva os logos para `dst`, preservando o caminho relativo.
-fn stage_raster(src, dst) — Lê um logo raster, reduz para no máx [`LOGO_MAX_DIM`] (Lanczos3) re-encodando como PNG, e grava em `…
-fn downscale_png(bytes) -> Option<Vec<u8>> — Decodifica `bytes`, e — se a maior dimensão passar de [`LOGO_MAX_DIM`] — reduz preservando a proporç…
-fn ext_lower(path) -> Option<String>
-fn is_logo(path) -> bool — Qualquer arquivo de logo (raster, vetor ou os formatos raros) — decide o que entra no staging.
-fn is_raster(path) -> bool — Um logo raster que o `image` sabe decodificar (as features habilitadas no `Cargo.toml`).
-fn install_desktop_entry()
-fn is_cargo_install() -> bool
-fn write_desktop_entry() -> Result<(), String>
-fn exec_com(desktop, exe) -> String — Mesmo escape de `src/desktop.rs::exec_com` (duplicado: o build script não enxerga o crate).
-fn write_file(path, bytes) -> Result<(), String>
-fn copy_tree(src, dst) -> Result<(), String>
 
 ## rustploy-gui/src/
 
-### assets.rs — Runtime asset location.
-const MARKER — A file that must exist under any valid asset base — used as the probe.
-const SYSTEM_PREFIX — System-wide install prefix used by the Debian package (see the `deb` metadata in `Cargo.toml`).
-fn locate_and_chdir() — Finds the asset base directory and `chdir`s into it so all the CWD-relative asset paths resolve.
-fn find_base() -> Option<PathBuf>
-fn has_marker(base) -> bool
-
-### desktop.rs — `rustploy-gui --install-desktop`: integração com o desktop para quem instalou por `cargo install` (o…
-const ICONS — `(subdiretório hicolor, bytes)` — espelha `packaging/icons/hicolor/`.
-fn handle_args() -> Option<i32> — Trata `--install-desktop`.
-fn install() -> Result<(), String>
-fn install() -> Result<(), String>
-fn data_home() -> Result<PathBuf, String>
-fn exec_com(desktop, exe) -> String — Troca a linha `Exec=` pelo caminho absoluto deste executável (entre aspas, como exige a spec do Desk…
-fn write(path, bytes) -> Result<(), String>
-const DESKTOP, ICON_SVG
-(2 testes)
-
 ### embedded.rs — Assets embutidos no binário — modo standalone (só em builds de release).
-const VIEWS — `views/`: templates `.gvb`, estilos `styles/*.gss`, `styles/theme.json` e os scripts Luau em `script…
-const ICONS — `assets/icons/`: ícones SVG referenciados por `<svg src="assets/icons/…">`.
-const FONTS — `assets/fonts/`: as fontes que o `app(...)` declara com `font(src = …)`.
-const BLUEPRINTS — Logos dos blueprints, referenciados via o `{logo}` data-driven do catálogo do daemon (`assets/bluepr…
-fn route(path) -> Option<&'static File<'static>> — Roteia um caminho lógico para a árvore embutida + o caminho relativo a ela (a chave que `include_dir…
-fn not_found(path) -> io::Error
-struct EmbeddedAssets — [`AssetSource`] servindo a árvore de assets embutida no binário.
-impl AssetSource for EmbeddedAssets: read_bytes, read_to_string, exists, modified, supports_reload
+fn assets() -> EmbeddedDirs — Cada pasta sob o prefixo lógico que o markup usa: `views/` (templates `.gvb`, estilos e scripts Luau…
 (2 testes)
 
 ### main.rs — Rustploy (glacier-ui) — desktop client whose UI is described in XML templates and rendered by the pu…
 fn main() -> iced::Result
-
-### manifest_zip.rs — Ponte Lua ↔ Rust para o `.zip` do Infra as Code.
-const YML_ENTRY — Os dois nomes de entrada que o export grava e o import espera na raiz do zip.
-fn write_manifest_zip(path, yaml, toml) -> std::io::Result<()> — Cria um `.zip` em `path` com exatamente `rustploy.yml` e `rustploy.vars.toml` na raiz — sem diretóri…
-fn read_manifest_zip(path) -> Result<(String, String), String> — Valida e lê o `.zip` importado: **exatamente** um `*.yml`/`*.yaml` e um `*.toml`, na raiz, e nada ma…
-fn install(lua) -> mlua::Result<()> — Instala os globais `manifest_zip_write` e `manifest_zip_read` na VM Luau.
-const TOML_ENTRY
-(4 testes)
 
 ## rustploy-gui/src/app/
 
@@ -96,6 +48,8 @@ fn shifted_time(hms, offset) -> String — `HH:MM:SS` + offset, com a virada de 
 ### login_saved_servers.rs — Tela de login com servidores lembrados: o `<select>` mostra `host:porta`, o campo recebe o token de …
 const SAVED
 (1 testes)
+
+### manifest_zip.test.luau
 
 ### templates_render.rs — Headless validation: every template parses, every screen/tab evaluates and builds an iced element tr…
 fn boot() -> GlacierUI — Boots the engine the way `main.rs` does, but from the workspace root so the workspace-relative templ…

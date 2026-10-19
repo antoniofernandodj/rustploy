@@ -189,6 +189,9 @@ fn prune_networks(state) -> RpResponse
 ### docker_remove.rs — Remoção INDIVIDUAL de um recurso Docker (o par por-item dos `docker_prune`): um container, imagem, v…
 fn remove_container(state, id) -> RpResponse — `docker rm <id>` (sem `-f`): remove um container PARADO.
 fn remove_image(state, id) -> RpResponse — `docker rmi <id>` (sem `-f`): remove uma imagem sem uso.
+fn remove_image_by_name(state, name) -> Result<(), bollard::errors::Error>
+fn remove_image_tag_by_tag(state, id) -> Result<(), bollard::errors::Error>
+fn needs_untag(e) -> bool — A recusa por ID de imagem com várias tags: o Podman diz "more than one tag", o Docker "referenced in…
 fn remove_volume(state, name) -> RpResponse — `docker volume rm <name>` (sem `-f`): remove um volume sem uso.
 fn remove_network(state, id) -> RpResponse — `docker network rm <id>`: remove uma rede sem uso.
 
@@ -254,7 +257,7 @@ fn handle(state, id) -> RpResponse
 fn handle(state, id, name, compose, git_source, main_service, env_vars, env_comments, enabled, recurrence) -> RpResponse
 
 ### job_warm.rs — `Command::JobWarm`: aquece um job (baixa as imagens que faltam e popula o cache de build) sem execut…
-fn handle(state, job_id) -> RpResponse
+fn handle(state, job_id, force) -> RpResponse
 
 ### job_warm_status.rs — `Command::JobWarmStatus`: se as imagens e o cache de build de um job já estão no host — a fonte únic…
 fn handle(state, job_id) -> RpResponse
@@ -401,7 +404,8 @@ fn events(state) -> Response<ApiBody> — `GET /api/events`: SSE stream.
 fn service_logs(state, service_id) -> Response<ApiBody> — `GET /api/services/{id}/logs`: SSE dedicado aos logs de container de UM serviço.
 fn deployment_build_logs(state, deployment_id) -> Response<ApiBody> — `GET /api/deployments/{id}/build-logs`: SSE dedicado à saída de `docker build` de UM deployment.
 fn job_run_logs(state, job_run_id) -> Response<ApiBody> — `GET /api/jobs/runs/{id}/logs`: SSE dedicado à saída de UMA execução de job one-shot.
-fn sse_response(rx) -> Response<ApiBody> — Response body comum dos endpoints SSE (`events`/`service_logs`/`deployment_build_logs`): drena o `rx…
+const SSE_KEEPALIVE — Intervalo do comentário de "sinal de vida" nos SSE.
+fn sse_response(rx) -> Response<ApiBody> — Response body comum dos endpoints SSE (`events`/`service_logs`/`deployment_build_logs`/`job_run_logs…
 fn snapshot(state) -> String — Builds the full dashboard snapshot as one JSON object, reusing `dispatch` for each piece — the same …
 fn sse_frame(event, data) -> Bytes — Formats one SSE record.
 fn send_log_batch(tx, batch) -> Result<(), ()> — Envia um lote coalescido de eventos de log como uma única frame SSE `bus_batch` (ver o produtor em […

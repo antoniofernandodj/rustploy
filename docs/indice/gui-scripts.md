@@ -29,7 +29,7 @@ function M.install(names)
 ### format.luau — fachada: reexporta os builders de views/scripts/fmt_*.luau sob um único módulo, para os handlers seg…
 
 ### glacier.d.luau — Definições dos globais que o motor glacier-ui injeta no interpretador Luau em runtime (não existem c…
-types: FetchResult, StreamHandle, Viewport, StreamOptions, DateDelta
+types: FetchResult, StreamHandle, Viewport, ZipEntry, StreamOptions, DateDelta
 
 ### helpers.luau — utilitários puros compartilhados pelos handlers_*.luau (sem estado, sem I/O).
 function M.trim(value)
@@ -44,6 +44,10 @@ local set_full() — Set COMPLETO do textarea a partir do buf (usado no seed e n
 local push_batch(events) — Aplica um lote de eventos novos: appenda no fim (barato) ou, se estourou o teto, corta a cauda e rec…
 local log_event_to_row(event) — Um evento do bus: os endpoints já filtram por id; pegamos o LogLine (runtime), BuildLog (build) ou J…
 function init()
+
+### manifest_zip.luau — O `.zip` do Infra as Code: exatamente rustploy.yml + rustploy.vars.toml na raiz.
+local write(path, yaml, toml)
+local read(path) — Valida e lê o zip importado: exatamente um .yml/.yaml e um .toml, na raiz, e nada mais.
 
 ### new_job_window.luau — script da JANELA "Novo job", um motor Glacier próprio e ISOLADO do app principal (aberto via open_wi…
 local client()

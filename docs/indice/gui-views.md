@@ -79,7 +79,7 @@ props: color, label
 ### job_actions.gvb — Botão "⋯" de uma linha de job, que abre o painel sobreposto com todas as ações do job.
 <component>
 props: job_id, job_name, running, enabled, enabled_label, last_run_id, is_warm, is_warming, warm_kind, warm_label, warm_reason, warmed_at_label
-handlers: job_delete, job_run_cancel, job_run_now, job_toggle, job_warm, open_edit_job_window, open_job_logs_window
+handlers: job_delete, job_rebuild, job_run_cancel, job_run_now, job_toggle, job_warm, open_edit_job_window, open_job_logs_window
 
 ### loading_row.gvb — Linha "Carregando dados…" com spinner.
 <component>
@@ -100,8 +100,8 @@ handlers: delete_project, open_project
 
 ### service_card.gvb — Card de serviço da aba "Serviços" de um projeto — o análogo do ProjectCard.
 <component>
-props: id, name, port, status_color, status_label, cpu, mem, filler, container_name, container_id, container_extra
-handlers: open_export_window, open_service, service_stop_id, stop_delete_service
+props: id, name, port, status_color, status_label, cpu, mem, filler, container_name, container_id, container_name_full, container_id_full, container_extra
+handlers: copy_container_id, copy_container_name, open_export_window, open_service, service_stop_id, stop_delete_service
 
 ### stat_card.gvb — Tile de KPI do cabeçalho (STATUS/UPTIME/SERVICES/CPU/…).
 <component>
@@ -193,7 +193,7 @@ handlers: clipboard, field, git_provider_connect, git_provider_delete, git_provi
 <component>
 handlers: field, manifest_export, manifest_import
 
-### maintenance.gvb — Manutenção: limpeza automática de recursos Docker sem uso (ver docs/plano-limpeza-automatica-docker.…
+### maintenance.gvb — Manutenção: limpeza automática de recursos do runtime sem uso (ver docs/plano-limpeza-automatica-doc…
 <component>
 handlers: docker_cleanup_run_now, docker_cleanup_save, field
 
