@@ -257,7 +257,7 @@ mudança em `docs/` de comportamento (só de caminhos).
 Decisões tomadas: **módulos, não crates novos**; **`docker/` virou `engine/`**; **Opção B do shared** (0.5.0);
 sem esperar a estabilização do Podman. Verificação em cada fase: `cargo check --workspace --all-targets`,
 `cargo test -p rustploy --bins` (antes: 189 passam e 17 falham por falta do socket do Docker; depois: 220
-passam — os 31 a mais são os testes que vieram do shared — e os **mesmos** 17 falham) e, no fim, `make index`.
+passam — os 31 a mais são os testes que vieram do shared — e os **mesmos** 17 falham). Depois, `DockerClient::for_tests()` (um arquivo vazio como "socket", que é tudo o que o bollard confere) fez esses 17 passarem sem Docker: 237 verdes e, no fim, `make index`.
 
 - **Fase 1.** `bootstrap/` (`mod.rs` com a sequência de boot, `config.rs`, `workers.rs`, `listeners.rs`; `main.rs`
   ficou com ~20 linhas), `platform/` (event_bus, secrets, health), e `features/` com tudo que era assunto de
