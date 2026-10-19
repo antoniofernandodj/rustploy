@@ -11,9 +11,8 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
   Rust do `rustploy-gui` já é só a casca (~560 linhas de código real fora testes; o Luau/`.gvb`/`.gss`
   somam ~16.300). Para chegar a um `main.rs` de ~5 linhas (`glacier_ui::run("views/")`), o que sobrou
   precisa migrar para o glacier-ui. Do mais ao menos viável:
-  1. **`src/manifest_zip.rs`** (183 linhas, leitura/escrita do `.zip` do Infra as Code, exposto ao
-     Luau via `lua_extension`) — única lógica de negócio que restou em Rust. Pede que o glacier-ui
-     exponha leitura e escrita de zip ao Luau. **Mudança em `../glacier-ui`.**
+  1. ~~`src/manifest_zip.rs`~~ — **feito em 2026-10-19**: virou `views/scripts/manifest_zip.luau` sobre
+     `zip_write`/`zip_read` do glacier-ui 0.123; testes Luau em `tests/` rodam com `glacier test` (CLI 0.7.1).
   2. **`src/desktop.rs`** (152 linhas, argumentos de linha de comando e integração com o desktop) —
      pede um hook de argumentos/integração no glacier-ui. **Mudança em `../glacier-ui`.** Ler o
      arquivo antes: não se sabe quanto dele é específico do Rustploy.
