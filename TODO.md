@@ -24,10 +24,8 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
   a versão no `rustploy-gui`; `git fetch` e comparar os dois sentidos antes do push). O
   `[patch.crates-io]` de `vendor/iced_tiny_skia` é outro assunto (item mais abaixo, iced 0.15).
 
-- [ ] **CI de testes e lint.** O único workflow é o `release.yml`. Criar um que rode, em push/PR,
-  `cargo fmt --check`, `cargo clippy --workspace -- -D warnings` e `cargo test` (daemon, shared e
-  `cargo test --bins` na GUI). Os ~238 testes do daemon e o lint limpo da reorganização de
-  2026-10-18 hoje não têm nada que impeça regredir.
+- [x] **CI de testes e lint** — feito em 2026-10-19: `.github/workflows/ci.yml` (fmt, clippy `-D warnings` e
+  test por submodule, em push na main e PR). Falta só ver rodar no GitHub após o primeiro push.
 
 - [ ] **Dependências entre serviços + autostart no boot.** Plano de 2026-07-11 em
   `docs/plano-dependencias-e-autostart.md`, nunca executado (não há `depends_on` nem `autostart` no
