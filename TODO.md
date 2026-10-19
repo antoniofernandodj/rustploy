@@ -13,12 +13,9 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
   precisa migrar para o glacier-ui. Do mais ao menos viável:
   1. ~~`src/manifest_zip.rs`~~ — **feito em 2026-10-19**: virou `views/scripts/manifest_zip.luau` sobre
      `zip_write`/`zip_read` do glacier-ui 0.123; testes Luau em `tests/` rodam com `glacier test` (CLI 0.7.1).
-  2. **`src/desktop.rs`** (152 linhas, argumentos de linha de comando e integração com o desktop) —
-     pede um hook de argumentos/integração no glacier-ui. **Mudança em `../glacier-ui`.** Ler o
-     arquivo antes: não se sabe quanto dele é específico do Rustploy.
-  3. **`src/embedded.rs` + `src/assets.rs`** (131 + 53 linhas, embutir assets em release / achá-los
-     em debug) — vale para qualquer app glacier, não só o Rustploy; virar recurso do motor.
-     **Mudança em `../glacier-ui`.**
+  2. ~~`src/desktop.rs`~~ e 3. ~~`src/embedded.rs` + `src/assets.rs`~~ — **feitos em 2026-10-19** (glacier-ui 0.125.1):
+     `GlacierDaemon::install_desktop`, `embed_dirs!` e `locate_assets_and_chdir`. `embedded.rs` ficou só
+     com a lista de pastas (~14 linhas); o `main.rs` tem 22. Sobra o `build.rs` (item 4).
   4. **`build.rs`** (278 linhas: ícone do `.exe`, redução dos logos, staging dos assets) — o menos
      movível, precisa rodar na compilação; avaliar só depois dos três acima.
   Observação: migrar troca o Rust do Rustploy por Rust do glacier-ui, o código continua existindo.
