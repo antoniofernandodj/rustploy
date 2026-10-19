@@ -7,7 +7,7 @@ de qualquer assunto. Sem cabeçalho de status por item (isso é para
 Ordenada por valor (o mais valioso primeiro, avaliação de 2026-10-19). Ao
 acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
 
-- [ ] **PRIORIDADE ZERO, próxima ação: reduzir o Rust da GUI ao mínimo.** Análise de 2026-10-19. O
+- [x] **PRIORIDADE ZERO — concluída em 2026-10-19 (falta só conferir o `.exe` do Windows): reduzir o Rust da GUI ao mínimo.** Análise de 2026-10-19. O
   Rust do `rustploy-gui` já é só a casca (~560 linhas de código real fora testes; o Luau/`.gvb`/`.gss`
   somam ~16.300). Para chegar a um `main.rs` de ~5 linhas (`glacier_ui::run("views/")`), o que sobrou
   precisa migrar para o glacier-ui. Do mais ao menos viável:
@@ -16,8 +16,9 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
   2. ~~`src/desktop.rs`~~ e 3. ~~`src/embedded.rs` + `src/assets.rs`~~ — **feitos em 2026-10-19** (glacier-ui 0.125.1):
      `GlacierDaemon::install_desktop`, `embed_dirs!` e `locate_assets_and_chdir`. `embedded.rs` ficou só
      com a lista de pastas (~14 linhas); o `main.rs` tem 22. Sobra o `build.rs` (item 4).
-  4. **`build.rs`** (278 linhas: ícone do `.exe`, redução dos logos, staging dos assets) — o menos
-     movível, precisa rodar na compilação; avaliar só depois dos três acima.
+  4. ~~`build.rs`~~ — **feito em 2026-10-19**: a lógica foi para o crate novo `glacier-build 0.1`
+     (`stage_images`, `desktop_on_cargo_install`, `windows_resource`) e o `build.rs` ficou com 18 linhas.
+     Não validado: o cross-build do `.exe` do Windows (a lógica de versão foi copiada igual).
   Observação: migrar troca o Rust do Rustploy por Rust do glacier-ui, o código continua existindo.
   Cada mudança no glacier-ui segue a regra do crate (nunca `path`/`[patch]`: publicar, depois subir
   a versão no `rustploy-gui`; `git fetch` e comparar os dois sentidos antes do push). O
