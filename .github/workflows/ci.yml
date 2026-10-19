@@ -76,3 +76,6 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       # --bins + os testes de integração (templates_render roda o mlua real).
       - run: cargo test --workspace
+      # Testes Luau (tests/*.test.luau); o CLI precisa ser >= 0.7.1.
+      - run: cargo install glacier-cli --locked
+      - run: glacier test

@@ -635,7 +635,16 @@ resolve. O daemon não tem lib target, então seus testes ficam sob `--bins`.
 # em rustploy-shared/:  cargo test
 # em rustploy-gui/:     cargo test --bins
 #                       cargo test --test templates_render   # runtime mlua real
+#                       glacier test                         # testes Luau (tests/*.test.luau)
 ```
+
+`glacier test` (CLI `glacier-cli` ≥ 0.7.1: `cargo install glacier-cli --locked`) roda os
+`*.test.luau`/`*_test.luau` de `views/` e `tests/` com o app em modo de teste, sem janela;
+`glacier test <arquivo>` roda um só e `-t trecho` filtra pelo nome. Rode dentro de
+`rustploy-gui/`. Prefira testar módulos de `views/scripts` (lógica pura, como
+`manifest_zip.luau`); chamadas que suspendem (`fetch`, `confirm`) não são resolvidas, então
+handlers que falam HTTP não dão para exercitar. A referência completa (matchers,
+`component()`) está na seção "Testes" do `AGENTS.md` que o `glacier new` gera.
 
 Três testes de `web_ui::headless_tests` exigem `google-chrome` instalado e
 falham por ambiente onde ele não sobe — não são regressão.
