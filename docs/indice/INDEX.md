@@ -42,6 +42,7 @@
 - settings.json
 
 ### .github/workflows/
+- ci.yml
 - release.yml
 
 ### .vscode/

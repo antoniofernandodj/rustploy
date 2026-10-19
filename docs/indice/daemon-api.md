@@ -404,6 +404,10 @@ fn events(state) -> Response<ApiBody> — `GET /api/events`: SSE stream.
 fn service_logs(state, service_id) -> Response<ApiBody> — `GET /api/services/{id}/logs`: SSE dedicado aos logs de container de UM serviço.
 fn deployment_build_logs(state, deployment_id) -> Response<ApiBody> — `GET /api/deployments/{id}/build-logs`: SSE dedicado à saída de `docker build` de UM deployment.
 fn job_run_logs(state, job_run_id) -> Response<ApiBody> — `GET /api/jobs/runs/{id}/logs`: SSE dedicado à saída de UMA execução de job one-shot.
+const SEEN_LINES_MAX — Teto do conjunto de linhas já entregues por um stream de logs (a deduplicação da recuperação).
+type SeenLines = std::collections::HashSet<(chrono::DateTime<chrono…
+fn mark_seen(seen, ts, line) -> bool — Marca uma linha como entregue.
+fn recover_lines(db_lines, since, seen) -> Vec<shared::protocol::BuildLogLine> — As linhas do banco que o consumidor perdeu quando o canal descartou eventos (`RecvError::Lagged`): a…
 const SSE_KEEPALIVE — Intervalo do comentário de "sinal de vida" nos SSE.
 fn sse_response(rx) -> Response<ApiBody> — Response body comum dos endpoints SSE (`events`/`service_logs`/`deployment_build_logs`/`job_run_logs…
 fn snapshot(state) -> String — Builds the full dashboard snapshot as one JSON object, reusing `dispatch` for each piece — the same …
@@ -418,7 +422,7 @@ fn accepts_gzip(req) -> bool — O cliente aceita gzip? (`Accept-Encoding` cont�
 fn json_response(bytes, accept_gzip) -> Response<ApiBody> — Resposta JSON, comprimida com gzip quando o cliente aceita e o corpo passa de [`GZIP_MIN`].
 fn gzip(data) -> std::io::Result<Vec<u8>> — Comprime `data` em gzip (flate2, mesmo crate do tar do build Docker).
 fn constant_time_eq(a, b) -> bool — Short-circuits on length mismatch but is otherwise constant-time over the compared bytes.
-(2 testes)
+(5 testes)
 
 ### public_routes.rs — Rotas HTTP **públicas** (sem Bearer): o webhook de deploy e o callback OAuth do Gitea.
 fn webhook(req, state) -> Response<Full<Bytes>> — `POST /webhook/{service_id}/{token}` — valida o token e dispara um deploy, a menos que o serviço sej…
