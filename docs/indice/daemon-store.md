@@ -1,11 +1,11 @@
-# Índice: daemon: persistência (db/)
+# Índice: daemon: persistência (store/)
 
 > Gerado por `make index`; não editar à mão. Sem números de linha:
 > `grep -n "nome" <dir><arquivo>` dá a linha. Cada item: `nome(params) — doc`.
 > Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
 > `impl A, B for T` = impls de traits comuns (métodos omitidos).
 
-## rustploy-daemon/crates/daemon/src/db/
+## rustploy-daemon/crates/daemon/src/store/
 
 ### build_logs.rs — Tabela `build_log`: linhas do log de build de cada deployment.
 fn append(db, deployment_id, line, timestamp) -> Result<()>
@@ -17,7 +17,7 @@ fn get(db, key) -> Result<Option<String>>
 fn set(db, key, value) -> Result<()>
 fn delete(db, key) -> Result<()>
 const KEY_WEBHOOK_BASE_URL — DEPRECADA: a base pública passou a ser derivada de `[api] domain`/`port` (ver `AppState::public_base…
-const KEY_DOCKER_CLEANUP_CONFIG — JSON de `shared::DockerCleanupConfig` — ver `crate::maintenance`.
+const KEY_DOCKER_CLEANUP_CONFIG — JSON de `shared::DockerCleanupConfig` — ver `crate::features::maintenance`.
 const KEY_DOCKER_CLEANUP_LAST_RUN — JSON de `shared::DockerCleanupLastRun`, ausente até a primeira execução.
 const KEY_BUILD_CACHE_LAST_PRUNE — JSON de `BuildCachePrune`: quando o cache de build foi limpo pela última vez e com qual corte de ida…
 const KEY_JOB_WARM_PREFIX — Prefixo das chaves `job_warm:<job_id>` (JSON de `jobs::warm::WarmRecord`).
@@ -88,6 +88,9 @@ fn latest_for_job(db, job_id) -> Result<Option<JobRun>>
 const SELECT_COLS
 (3 testes)
 
+### log_sink.rs — Grava as linhas de log de build/job nas tabelas `build_log` e `job_log`.
+impl LogSink for Db: append_build_line, append_job_line
+
 ### managed_database.rs — Tabela `managed_database`: databases criados em servidores compartilhados.
 struct Row { id, server_service_id, project_id, name, password, env_var, connection_limit, statement_timeout_ms, created_at }
 type Tuple = (String, String, String, String, String, String, O…
@@ -153,15 +156,15 @@ fn upsert_tag(db, repo_id, tag, manifest_digest) -> Result<()>
 fn get_tag_digest(db, repo_id, tag) -> Result<Option<String>>
 fn list_tags(db, repo_id) -> Result<Vec<String>>
 fn delete_manifest(db, repo_id, digest) -> Result<bool> — Remove o manifest deste repo e as tags dele que apontavam para ele — só metadados (blobs órfãos são …
-fn gc_metadata(db) -> Result<()> — Fase de metadados do GC (`crate::registry::gc`), numa transação só:
+fn gc_metadata(db) -> Result<()> — Fase de metadados do GC (`crate::features::registry::gc`), numa transação só:
 fn all_cas_digests(db) -> Result<Vec<String>> — Todos os digests que DEVEM existir no CAS (blobs + manifests) — o conjunto "vivo" que o sweep do GC …
 (13 testes)
 
-### registry_tokens.rs — Tokens de acesso do registry OCI embutido (Basic auth — ver `crate::registry::auth`).
+### registry_tokens.rs — Tokens de acesso do registry OCI embutido (Basic auth — ver `crate::features::registry::auth`).
 const RP_INTERNAL — Nome reservado do token interno usado pelo próprio deploy executor pra puxar imagens do registry emb…
 struct TokenInfo { name, scope, created_at, last_used_at }
 fn create(db, name, token_sha256, scope) -> Result<()>
-fn upsert_internal(db, token_sha256) -> Result<()> — Cria ou atualiza o token interno `rp-internal`, regenerado a cada boot do daemon (ver `crate::regist…
+fn upsert_internal(db, token_sha256) -> Result<()> — Cria ou atualiza o token interno `rp-internal`, regenerado a cada boot do daemon (ver `crate::featur…
 fn list(db) -> Result<Vec<TokenInfo>>
 fn revoke(db, name) -> Result<bool>
 fn verify_scope(db, token_sha256) -> Result<Option<String>> — Retorna o escopo do token cujo hash bate, se existir.
@@ -173,7 +176,7 @@ type ServiceRow = (String, String, String, String, String, Option<St…
 fn row_to_service(row) -> Result<Service>
 fn parse_status(s) -> ServiceStatus
 fn new_compose_project(db, id, name) -> Result<String> — Nome de stack para um serviço Compose novo: o curto (`rp_<últimos 8 do ID>_<nome>`); se já está em u…
-fn check_shared_rules(spec) -> Result<()> — Regras de nome/`shared` (prefixo `rp-shared-` reservado etc.) — ver `shared::connection::validate_sh…
+fn check_shared_rules(spec) -> Result<()> — Regras de nome/`shared` (prefixo `rp-shared-` reservado etc.) — ver `crate::platform::connection::va…
 fn create(db, spec) -> Result<Service>
 fn list(db, project_id) -> Result<Vec<Service>>
 fn get(db, id) -> Result<Option<Service>>
@@ -185,6 +188,7 @@ fn get_running(db) -> Result<Vec<Service>>
 fn count_by_project(db, project_id) -> Result<i64>
 fn get_watchable(db) -> Result<Vec<Service>>
 fn list_all(db) -> Result<Vec<Service>>
+fn test_compose_spec(name, project_id) -> ServiceSpec
 fn compose_service_keys(content) -> std::collections::BTreeSet<String> — Chaves de serviço (`services:`) de um compose, para casar com as de uma stack viva.
 fn backfill_compose_projects(db, live) -> Result<()> — Grava `compose_project` nos serviços Compose que ainda não têm, com o nome **que a stack já usa** — …
 const SELECT_COLS

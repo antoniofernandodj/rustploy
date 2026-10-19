@@ -7,7 +7,7 @@ PaaS single-node em Rust (alternativa ao Dokploy). Este repositório é o
 |---|---|
 | [`rustploy-daemon`](https://github.com/antoniofernandodj/rustploy-daemon) | daemon (`rustployd`), importer, webui — **leia o README dele** |
 | [`rustploy-gui`](https://github.com/antoniofernandodj/rustploy-gui) | cliente desktop (glacier-ui) |
-| [`rustploy-shared`](https://github.com/antoniofernandodj/rustploy-shared) | tipos, protocolo e catálogo de templates ([crates.io](https://crates.io/crates/rustploy-shared)) |
+| [`rustploy-shared`](https://github.com/antoniofernandodj/rustploy-shared) | tipos de domínio, protocolo e nomes derivados ([crates.io](https://crates.io/crates/rustploy-shared)) |
 
 ## Instalar
 

@@ -8,7 +8,7 @@ Rustploy is a self-hosted, single-node PaaS written in Rust. It is designed to b
 - **Core Purpose:** Automate zero-downtime deployment of containerized services (Git+Dockerfile or registry images), with a built-in reverse proxy, ACME/TLS, and an embedded Docker OCI registry.
 - **Architecture:** Workspace with these crates:
   - `daemon`: The backend agent (`rustployd`) that executes deployments, manages Docker containers, ingress, and the embedded registry.
-  - `shared`: Common models, protocols, and configuration logic used across the workspace.
+  - `shared`: domain models, the wire protocol (`Command`/`Response`/`Event`) and derived names, shared by the daemon and clients (config, wizard, templates and IaC live in the daemon).
   - `rustploy-gui`: The desktop client (`glacier-ui`: XML templates → iced), talking to the daemon over HTTP/JSON + SSE. Its business logic lives in Luau scripts (`views/scripts/`), not in Rust.
   - `fw-helper`: Privileged firewall helper (`rustployd-fw`), talks to the daemon over a separate root-owned socket.
   - `importer`: Data import from other platforms (e.g. Dokploy).
@@ -18,10 +18,10 @@ There used to be a fourth crate, `client` — a Ratatui TUI — which has since 
 
 ## Key Architecture Components
 
-- **Templates/Blueprints:** Located in `rustploy-shared/templates/blueprints/` (git submodule; the logo images live in `rustploy-gui/assets/blueprint-logos/`) (Dokploy-compatible format), compiled in via `build.rs`. Each app catalog entry defines its Docker Compose structure, generators, and required env vars.
-- **Ingress & Proxy:** Managed by the daemon (`rustploy-daemon/crates/daemon/src/ingress/`), handling TLS/ACME, domain routing (`arc-swap` route table), and reverse proxying to containers.
-- **Deployment Engine:** `rustploy-daemon/crates/daemon/src/deploy/executor.rs` drives the deploy state machine (clone/pull → build → stage → healthcheck → swap → drain → promote).
-- **Embedded Registry:** `rustploy-daemon/crates/daemon/src/registry/` implements OCI Distribution Spec v2 directly in Rust (no `registry:2` container) — push/pull, GC, Basic auth by token, optional public exposure via ingress/ACME.
+- **Templates/Blueprints:** Located in `rustploy-daemon/crates/daemon/templates/blueprints/` (git submodule; the logo images live in `rustploy-gui/assets/blueprint-logos/`) (Dokploy-compatible format), compiled in via `build.rs`. Each app catalog entry defines its Docker Compose structure, generators, and required env vars.
+- **Ingress & Proxy:** Managed by the daemon (`rustploy-daemon/crates/daemon/src/features/ingress/`), handling TLS/ACME, domain routing (`arc-swap` route table), and reverse proxying to containers.
+- **Deployment Engine:** `rustploy-daemon/crates/daemon/src/features/deploy/executor/` drives the deploy state machine (clone/pull → build → stage → healthcheck → swap → drain → promote).
+- **Embedded Registry:** `rustploy-daemon/crates/daemon/src/features/registry/` implements OCI Distribution Spec v2 directly in Rust (no `registry:2` container) — push/pull, GC, Basic auth by token, optional public exposure via ingress/ACME.
 
 ## Development Workflow
 

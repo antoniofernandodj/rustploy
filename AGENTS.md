@@ -119,7 +119,7 @@ rustploy/                     ← agregador (VOCÊ ESTÁ AQUI)
 ├── rustploy-daemon/          daemon, importer, webui, packaging/, scripts/, install.sh
 ├── rustploy-gui/             cliente glacier-ui (views/, src/, assets/, packaging/)
 ├── rustploy-docs/            site de documentação (Astro Starlight), deploy na Cloudflare
-└── rustploy-shared/          crate publicado no crates.io: modelos, protocolo, templates
+└── rustploy-shared/          crate publicado no crates.io: domínio, protocolo e nomes derivados
 ```
 
 - Clone com `git clone --recurse-submodules <agregador>`; sem a flag os três
@@ -138,20 +138,26 @@ rustploy/                     ← agregador (VOCÊ ESTÁ AQUI)
   (a partir de `rustploy-daemon/` ou `rustploy-gui/`).
 - Cada repo tem o seu `Cargo.lock`, o seu `[profile]` e o seu `target/`. O
   `[patch.crates-io]` do `iced_tiny_skia` mora no `Cargo.toml` da **gui**.
-- O catálogo de templates (`templates/blueprints/`) é do shared, mas as imagens
-  dos logos moram na gui (`assets/blueprint-logos/<id>/<arquivo>`); o shared só
-  guarda o nome de cada uma em `templates/logos.txt` (o pacote estourava o limite
+- O catálogo de templates (`templates/blueprints/`) é do **daemon**
+  (`crates/daemon/templates/`, compilado pelo `build/templates_catalog.rs`), mas as
+  imagens dos logos moram na gui (`assets/blueprint-logos/<id>/<arquivo>`); o daemon
+  só guarda o nome de cada uma em `templates/logos.txt` (o pacote estourava o limite
   de 10 MB do crates.io com elas).
+- **O que o `rustploy-shared` guarda** (0.5.0 em diante): só o que trafega entre
+  daemon e clientes — `domain/` (modelos, um arquivo por assunto, reexportados na
+  raiz: `shared::ServiceSpec`), `protocol/` (`Command`, `Response`, `Event`, logs) e
+  `naming.rs` (nomes de container, rede e stack). Config, wizard, templates,
+  manifesto/IaC e connection string são do daemon.
 - **Caminhos neste arquivo:** `docs/…` e `tools/…` são da raiz (agregador).
   `crates/daemon/…`, `crates/importer/…`, `webui/…`, `packaging/…` e `scripts/…`
   são de `rustploy-daemon/`. `views/…`, `assets/…` e o `src/…` da GUI são de
-  `rustploy-gui/`; o `src/…` e `templates/…` do shared, de `rustploy-shared/`.
+  `rustploy-gui/`; o `src/…` do shared, de `rustploy-shared/`.
 
 ## Achar código: comece por `docs/indice/` (no agregador)
 
 Antes de abrir arquivo ou sair dando `grep` por palavra-chave, leia o índice.
-Ele foi feito para gastar pouco token: arquivos como `deploy/executor.rs` passam
-de 20 mil tokens lidos inteiros, e o índice responde "onde está X" por uma
+Ele foi feito para gastar pouco token: arquivos como `store/services.rs` passam
+de 10 mil tokens lidos inteiros, e o índice responde "onde está X" por uma
 fração disso.
 
 1. **`docs/indice/INDEX.md`** (os caminhos do índice já vêm com o repo na
@@ -184,7 +190,7 @@ porquê de cada decisão está em `docs/plano-indice-de-codigo.md`.
 ### Copiar um serviço entre servidores (exportar/importar)
 
 Dentro de um projeto, "Exportar serviço" (tela do serviço) gera um arquivo YAML
-(`ServiceBundle`, `rustploy-shared/src/service_bundle.rs`) e "Novo serviço →
+(`ServiceBundle`, `crates/daemon/src/features/iac/service_bundle.rs`) e "Novo serviço →
 Importar" o recria em OUTRO servidor, sempre no projeto aberto, sem deploy e sem
 sobrescrever nada. Comandos: `ServiceExportPlan`, `ServiceExport`, `ServiceImport`
 (`dry_run` para pré-visualizar). Variáveis do projeto vão só as que o usuário
@@ -715,7 +721,7 @@ Os identificadores são ULIDs, com prefixo por tipo (`prj_`, `svc_`, `dep_`,
 ## Protocolo da API
 
 O daemon tem **um** protocolo voltado a cliente: HTTP/JSON + SSE
-(`crates/daemon/src/api/http_api.rs`).
+(`crates/daemon/src/api/http/mod.rs`).
 
 | Rota | O que faz |
 |---|---|
@@ -726,9 +732,9 @@ O daemon tem **um** protocolo voltado a cliente: HTTP/JSON + SSE
 | `POST /api/services/<id>/archive` | upload de zip (corpo binário — **não** é um `Command`) |
 | `/webhook/…`, `/oauth/…` | rotas públicas, autenticação própria, fora do gate de bearer |
 
-`Command`, `Response` e `Event` vivem em `rustploy-shared/src/protocol.rs` e são
-despachados por `dispatch()` (`api/routes.rs`, um handler por variante em
-`api/handlers/`).
+`Command`, `Response` e `Event` vivem em `rustploy-shared/src/protocol/` e são
+despachados por `dispatch()` (`api/dispatch.rs`: um `match` curto por assunto, e o
+`dispatch` de cada pasta de `api/handlers/<assunto>/` escolhe o handler).
 
 **Codificação serde externally-tagged**: variante com campos é objeto de uma
 chave (`{"ProjectCreate":{…}}`); variante sem campos é a string nua
@@ -749,22 +755,67 @@ linha `event:` e só enxerga o `data:`.
 
 ## Daemon (`crates/daemon/src/`)
 
-- **`api/routes.rs`** — `dispatch()` casa cada variante de `Command` com seu
-  módulo handler.
-- **`api/handlers/`** — um arquivo por comando (`deploy_start.rs`,
-  `project_create.rs`, …).
-- **`db/`** — wrappers SQLite (via `sqlx`) para projetos, serviços,
-  deployments, jobs, secrets, certificados. Tabelas de log persistidas:
-  `build_log` e `job_log`. **Não existe tabela de log de runtime de container** —
-  `LogsGet` e o SSE de logs leem do Docker ao vivo, então o swap de deploy leva
-  o log do container antigo junto.
-- **`deploy/executor.rs`** — `DeployExecutor` roda a máquina de estados num
-  `tokio::spawn`. Ver a seção abaixo.
-- **`docker/`** — wrappers bollard: `images` (pull/build), `containers`
-  (create/start/stop/rename/remove), `networks` (rede bridge por projeto,
-  nome gravado em `project.network_name`). Não há `volumes.rs`: o rustploy nunca cria
-  volume nomeado, só bind mount (`ServiceSpec.volumes`).
-- **`api/handlers/docker_inventory.rs`** — listagem do host inteiro para a aba
+Organizado em camadas; **a dependência só desce** (`docs/plano-reorganizacao-daemon-e-shared.md`):
+
+```
+api  →  features  →  engine · store · platform  →  rustploy-shared
+        (bootstrap monta tudo e entrega o AppState)
+```
+
+`engine/`, `store/` e `platform/` não importam `api`, `features` nem `bootstrap`
+(o compilador reclama se alguém voltar a fazer isso). As `features/` ainda recebem o
+`AppState` inteiro de `bootstrap/state.rs`; recortá-lo em contextos menores por
+feature é o passo seguinte, ainda não feito. A raiz tem só `main.rs` e as pastas.
+
+- **`main.rs`** — entrada de ~20 linhas; chama `bootstrap::run()`.
+- **`bootstrap/`** — monta o sistema: `mod.rs` (a sequência de boot), `config.rs`
+  (diretórios e log), `state.rs` (**`AppState`** e os caches do inventário Docker),
+  `workers.rs` (laços de fundo) e `listeners.rs` (ingress, API e registry).
+- **`api/`** — só adaptadores. `dispatch.rs` (primeiro nível do `match`),
+  `handlers/<assunto>/` (projects, services, deploys, jobs, docker, git, databases,
+  iac, registry, secrets, observability, settings — cada pasta com o seu
+  `dispatch`; um arquivo por comando, finos), `http/` (axum/hyper, SSE, auth e
+  `public_routes.rs` com webhook e OAuth), `web_ui/` (a webui embutida) e `agent/`
+  (MCP e API de agente).
+- **`store/`** — SQLite (via `sqlx`): projetos, serviços, deployments, jobs,
+  secrets, certificados. Tabelas de log persistidas: `build_log` e `job_log`
+  (`log_sink.rs` as expõe ao motor como `LogSink`). **Não existe tabela de log de
+  runtime de container** — `LogsGet` e o SSE de logs leem do Docker ao vivo, então
+  o swap de deploy leva o log do container antigo junto.
+- **`engine/`** — o motor de containers, **Docker ou Podman** (bollard + CLI):
+  `images` (pull/build), `containers/` (naming · query · lifecycle · inspect),
+  `compose/` (up · down · jobs · logs), `networks` (rede bridge por projeto, nome
+  gravado em `project.network_name`). Não há `volumes.rs`: o rustploy nunca cria
+  volume nomeado, só bind mount (`ServiceSpec.volumes`). Não conhece o banco: grava
+  log por um `LogSink`.
+- **`platform/`** — infraestrutura sem regra de negócio: `config.rs` (o
+  `config.toml`), `event_bus.rs`, `secrets.rs` (`age`), `health.rs`,
+  `connection.rs` (connection string de banco/broker), `log_sink.rs`, `errors.rs`.
+  - **Event bus**: canal de broadcast em processo. Os módulos publicam `Event`; o
+    handler do SSE cria um subscriber por conexão. Se o canal encher, o evento é
+    descartado em silêncio — **jamais bloqueia o produtor**.
+  - **Secrets**: criptografia `age`, por nome, referenciados em
+    `ServiceSpec.env_vars` como `EnvVarValue::Secret(nome)`, decifrados em memória
+    só na hora de criar o container.
+- **`features/`** — um diretório por assunto de produto:
+  - `deploy/` — fila, recuperação no boot, clone git, `start`/`stop` e o
+    **`executor/`** (`DeployExecutor`, a máquina de estados num `tokio::spawn`: um
+    arquivo por estágio). Ver a seção abaixo.
+  - `services/` — criar, atualizar e remover serviço (com a sincronização do firewall).
+  - `jobs/`, `maintenance/` (limpeza do Docker: `prune.rs` tem o miolo que o botão
+    manual e a limpeza automática compartilham), `observability/` (watchdog,
+    métricas, logs de container), `backup/` (env), `databases/` (migração, banco
+    compartilhado, troca de variável de conexão), `iac/` (manifesto e pacote de
+    serviço), `templates/` e `wizard.rs` (o catálogo de apps e o assistente
+    "Novo serviço"), `git_providers/`, `registry/` (registry OCI embutido: auth Basic
+    por token, ingress, GC) e `ingress/` (proxy, tabela de rotas, TLS, portas
+    externas e o cliente do `rustployd-fw`).
+  - `ingress/proxy.rs` — proxy reverso hyper, HTTP/1.1. A tabela de rotas é um
+    `HashMap<domínio, upstream>` protegido por `arc-swap`: leitura lock-free no hot
+    path de cada requisição, escrita por swap atômico do ponteiro quando o executor
+    promove um deploy. `ingress/tls.rs` — ACME via `instant-acme` + `rustls`, com
+    renovação automática em background.
+- **`api/handlers/docker/docker_inventory.rs`** — listagem do host inteiro para a aba
   Docker (`DockerImages`/`Volumes`/`Networks`/`Containers`), não só o que é do
   rustploy. Imagens e volumes vêm de **uma** chamada `docker system df` — o
   único endpoint do Docker Engine que já calcula contagem de uso de graça;
@@ -775,26 +826,8 @@ linha `event:` e só enxerga o `data:`.
   networks pelo nome gravado em `project.network_name`; volumes não têm atribuição
   nenhuma (não há label para correlacionar). Também tem o `stop_all_managed`
   (`Command::StopAllManaged`), que para todo serviço do rustploy replicando o
-  `service_stop::handle`, **independente do que a coluna de status diz** — assim
-  drift de estado não deixa container rodando.
-- **`api/handlers/docker_prune.rs`** — remove imagens/volumes/networks/
-  containers/cache de build sem uso (`Prune*`, todos por `Response::PruneResult`).
-- **`ingress/proxy.rs`** — proxy reverso hyper, HTTP/1.1. A tabela de rotas é um
-  `HashMap<domínio, upstream>` protegido por `arc-swap`: leitura lock-free no
-  hot path de cada requisição, escrita por swap atômico do ponteiro quando o
-  executor promove um deploy.
-- **`ingress/tls.rs`** — ACME via `instant-acme` + `rustls`, com renovação
-  automática em background.
-- **`event_bus.rs`** — canal de broadcast em processo. Os módulos publicam
-  `Event`; o handler do SSE cria um subscriber por conexão. Se o canal encher, o
-  evento é descartado em silêncio — **jamais bloqueia o produtor**.
-- **`secrets.rs`** — criptografia `age`. Secrets guardados por nome,
-  referenciados em `ServiceSpec.env_vars` como `EnvVarValue::Secret(nome)`,
-  decifrados em memória só na hora de criar o container.
-- **`metrics.rs`** — laço de fundo que consulta as estatísticas do Docker e
-  publica `ContainerMetrics`.
-- **`registry/`** — registry OCI embutido (auth Basic por token, ingress, GC).
-- **`firewall.rs`** — cliente do `rustployd-fw`.
+  `features::deploy::stop::handle`, **independente do que a coluna de status diz** —
+  assim drift de estado não deixa container rodando.
 
 ## Máquina de estados do deploy
 
@@ -817,6 +850,15 @@ Terminais: `Live`, `Stopped`, `Failed`, `Pruning`. Qualquer erro em qualquer
 step dispara `RollingBack`. Cada transição é persistida no `states_log` do
 deployment (`{from, to, at, message}`) e publicada como
 `Event::DeployStateChanged`.
+
+Onde mora cada estado (`features/deploy/executor/`): `state_machine.rs` tem o laço
+(`execute`) e o despacho (`step`), e cada estágio é um método `step_<estado>` do
+`DeployExecutor` no seu arquivo — `resolve.rs` (Pending, PreDeployCheck,
+ResolvingDeps), `source.rs` (PullingImage, CloningRepo, BuildingImage),
+`staging.rs`, `healthcheck.rs` (HealthcheckPolling e a espera do Compose),
+`promote.rs` (SwappingIn, Promoting), `drain.rs`, `rollback.rs` e
+`compose_flow.rs` (ComposingUp). O `mod.rs` guarda a struct e os auxiliares
+(`log_step`, `transition`, `resolve_env`…).
 
 **`PreDeployCheck`** roda a fila `ServiceSpec.pre_deploy_checks()` em ordem e só
 avança se todos passarem (exit code 0) — a primeira falha interrompe a fila e o
@@ -877,7 +919,7 @@ TCP, ou lê `health.status` no modo DockerNative.
 ## Ingress proxy: a tabela de rotas
 
 Containers rustploy **não publicam porta no host** — quem fica na porta é o
-proxy interno (`crates/daemon/src/ingress/`), e ele repassa para o IP do
+proxy interno (`crates/daemon/src/features/ingress/`), e ele repassa para o IP do
 container na rede do projeto. É o que torna o swap zero-downtime possível: a
 troca é uma escrita atômica na tabela, não um rebind de porta. O desenho longo
 está em `docs/ingress-proxy.md`; o TLS automático, em `docs/tls-acme.md`.
@@ -885,7 +927,7 @@ está em `docs/ingress-proxy.md`; o TLS automático, em `docs/tls-acme.md`.
 A tabela vive **em memória** (`ArcSwap`, lida sem lock pelo proxy), não no
 banco. Consequências que valem lembrar:
 
-- ela é escrita em três momentos: no fim de um deploy (`executor.rs`), no boot
+- ela é escrita em três momentos: no fim de um deploy (`features/deploy/executor/`), no boot
   (`recovery::restore_routes`) e no reconcile de 30 em 30 segundos
   (`recovery::reconcile`);
 - reiniciar o daemon a reconstrói a partir do Docker — não do banco;

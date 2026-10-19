@@ -100,14 +100,6 @@ de qualquer assunto. Sem cabeçalho de status por item (isso é para
     aviso de tamanho e de segredos; `secret:NOME` nunca é decifrado (regra do `ServiceBundle`).
   - Depois disso, o teste de migração Docker <-> Podman pode usar dados reais exportados da VPS.
 
-- [ ] **Reorganizar o daemon e o `shared` (arquitetura mais modular).** A raiz do daemon tem 13 arquivos
-  soltos de assuntos diferentes (`migration`, `watchdog`, `shared_db`, `secrets`, `ports`…), camadas de baixo
-  importam `api::AppState` e até lógica de negócio de handler (`docker_prune`), há arquivos de 1 000 a 2 100
-  linhas (`deploy/executor.rs`, `docker/containers.rs`…), e o `shared` tem `models.rs` de 1 630 linhas e
-  `protocol.rs` com 107 comandos num arquivo (a GUI nem usa o `shared`, só o daemon e o importer). **Proposta
-  preliminar, em fases, com riscos e decisões em aberto:** `docs/plano-reorganizacao-daemon-e-shared.md`.
-  Resumo: (1) mover os 13 arquivos para `bootstrap/`, `platform/`, `features/*`; (2) fazer a dependência só
-  descer (`api` → `features` → `engine`/`store`/`platform` → `shared`); (3) handlers finos por assunto;
-  (4) `docker/` → `engine/` (agora é Docker ou Podman); (5) quebrar o executor de deploy em estágios;
-  (6) dividir `models`/`protocol` no `shared` com reexportação (sem quebrar API). Fazer depois de fechar os
-  testes de migração do Podman, para não misturar riscos.
+- [x] **Reorganizar o daemon e o `shared`** — feito em 2026-10-18 (`docs/plano-reorganizacao-daemon-e-shared.md`,
+  seção "Como ficou"). Sobrou um passo opcional: cada feature receber um contexto próprio em vez do `AppState`
+  inteiro (hoje importam `bootstrap::state::AppState`).

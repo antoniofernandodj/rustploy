@@ -3,8 +3,9 @@
 //! (Luau) e na webui (JS).
 //!
 //! Tudo por nome. As variantes (e a doc de cada uma) saem do `enum Command`
-//! via `syn`. O handler sai dos braços do `match` em `api/routes.rs` que
-//! chamam `handlers::<arquivo>::<fn>`. Quem chama sai de uma busca pelo nome
+//! via `syn`. O handler sai dos braços do `dispatch` de cada pasta de
+//! `api/handlers/<assunto>/mod.rs`, que chamam `<arquivo>::<fn>` (ou, quando a
+//! lógica mora em `features/`, `crate::features::<…>`). Quem chama sai de uma busca pelo nome
 //! da variante nos scripts, na forma em que um Command é montado
 //! (`X = …`/`"X"` no Luau, `X: …`/`"X"` no JS, `"X"`/`\"X\"` no JSON da API de
 //! agente da GUI), ignorando linhas de comentário.
@@ -17,8 +18,8 @@ use std::fs;
 use std::path::Path;
 use syn::visit::Visit;
 
-const PROTOCOL: &str = "rustploy-shared/src/protocol.rs";
-const ROUTES: &str = "rustploy-daemon/crates/daemon/src/api/routes.rs";
+const PROTOCOL: &str = "rustploy-shared/src/protocol/command.rs";
+const HANDLERS: &str = "rustploy-daemon/crates/daemon/src/api/handlers/";
 const GUI_SCRIPTS: &str = "rustploy-gui/views/scripts/";
 const WEBUI: &str = "rustploy-daemon/crates/daemon/webui/";
 const AGENT: &str = "rustploy-gui/src/agent/";
@@ -33,7 +34,7 @@ struct Variant {
 /// uma tabela vazia seria pior que nenhuma, porque parece verdade.
 pub fn render(root: &Path, files: &[String]) -> Result<String, String> {
     let variants = variants(root)?;
-    let handlers = handlers(root)?;
+    let handlers = handlers(root, files)?;
     let gui = callers(
         root,
         files,
@@ -58,7 +59,7 @@ pub fn render(root: &Path, files: &[String]) -> Result<String, String> {
         s,
         "> Gerado por `make index`; não editar à mão. Uma linha por variante do\n\
          > `enum Command` (`{PROTOCOL}`), agrupada pelos comentários do enum.\n\
-         > `daemon:` = `rustploy-daemon/crates/daemon/src/api/handlers/<arquivo>.rs` (`::fn` quando não é `handle`);\n\
+         > `daemon:` = `<assunto>/<arquivo>` sob `rustploy-daemon/crates/daemon/src/api/handlers/` (ou `features/…` quando o handler delega a lógica), `::fn` quando não é `handle`;\n\
          > `gui:` = arquivos sob `{GUI_SCRIPTS}`; `web:` = sob `{WEBUI}`; `—` = ninguém;\n\
          > `agente:` (só quando há) = sob `{AGENT}` (API de agente da GUI; `catalog` = só documentado)."
     );
@@ -97,7 +98,7 @@ pub fn render(root: &Path, files: &[String]) -> Result<String, String> {
         let daemon = handlers
             .get(&v.name)
             .map(String::as_str)
-            .unwrap_or("(inline em routes.rs)");
+            .unwrap_or("(inline em dispatch.rs)");
         let _ = write!(s, "{}", v.name);
         if let Some(d) = &v.doc {
             let _ = write!(s, " — {}", short(d, 70));
@@ -187,11 +188,16 @@ fn variants(root: &Path) -> Result<Vec<Variant>, String> {
         .collect())
 }
 
-/// Variante → `arquivo` (ou `arquivo::fn`) do handler, dos braços de todo
-/// `match` em `routes.rs` cujo corpo chama `handlers::…`.
-fn handlers(root: &Path) -> Result<BTreeMap<String, String>, String> {
-    struct Arms(BTreeMap<String, String>);
-    impl<'ast> Visit<'ast> for Arms {
+/// Variante → `assunto/arquivo` (ou `assunto/arquivo::fn`) do handler, dos braços do `dispatch` de
+/// cada `api/handlers/<assunto>/mod.rs`. Se o braço chama `crate::features::…`, devolve o caminho
+/// dentro de `features/`.
+fn handlers(root: &Path, files: &[String]) -> Result<BTreeMap<String, String>, String> {
+    struct Arms<'a> {
+        section: &'a str,
+        out: BTreeMap<String, String>,
+        call: Regex,
+    }
+    impl<'ast, 'a> Visit<'ast> for Arms<'a> {
         fn visit_arm(&mut self, arm: &'ast syn::Arm) {
             let pat = tokens(&arm.pat);
             let body = tokens(&arm.body);
@@ -200,27 +206,44 @@ fn handlers(root: &Path) -> Result<BTreeMap<String, String>, String> {
                     .next()
                     .unwrap_or("")
             });
-            if let (Some(variant), Some(i)) = (variant, body.find("handlers::")) {
-                let path: String = body[i + "handlers::".len()..]
-                    .chars()
-                    .take_while(|c| c.is_alphanumeric() || *c == '_' || *c == ':')
-                    .collect();
+            if let (Some(variant), Some(c)) = (variant, self.call.captures(&body)) {
+                let path = c[1].to_owned();
                 let path = path.strip_suffix("::handle").unwrap_or(&path).to_owned();
-                self.0.entry(variant.to_owned()).or_insert(path);
+                let path = match path.strip_prefix("crate::features::") {
+                    Some(rest) => format!("features/{}", rest.replace("::", "/")).replacen(
+                        "/handle",
+                        "",
+                        1,
+                    ),
+                    None => format!("{}/{}", self.section, path),
+                };
+                self.out.entry(variant.to_owned()).or_insert(path);
             }
             syn::visit::visit_arm(self, arm);
         }
     }
-    let text = fs::read_to_string(root.join(ROUTES)).map_err(|e| format!("{ROUTES}: {e}"))?;
-    let file = syn::parse_file(&text).map_err(|e| format!("{ROUTES}: {e}"))?;
-    let mut arms = Arms(BTreeMap::new());
-    arms.visit_file(&file);
-    if arms.0.is_empty() {
+    let call = Regex::new(r"((?:crate::)?[A-Za-z_]\w*(?:::[A-Za-z_]\w*)+)\s*\(").unwrap();
+    let mut out = BTreeMap::new();
+    for path in files.iter().filter(|p| {
+        p.starts_with(HANDLERS) && p.ends_with("/mod.rs") && p.matches('/').count() > HANDLERS.matches('/').count()
+    }) {
+        let section = path[HANDLERS.len()..].trim_end_matches("/mod.rs").to_owned();
+        let text = fs::read_to_string(root.join(path)).map_err(|e| format!("{path}: {e}"))?;
+        let file = syn::parse_file(&text).map_err(|e| format!("{path}: {e}"))?;
+        let mut arms = Arms {
+            section: &section,
+            out: BTreeMap::new(),
+            call: call.clone(),
+        };
+        arms.visit_file(&file);
+        out.extend(arms.out);
+    }
+    if out.is_empty() {
         return Err(format!(
-            "{ROUTES}: nenhum braço `Command::X => handlers::…` encontrado"
+            "{HANDLERS}<assunto>/mod.rs: nenhum braço `Command::X => …` encontrado"
         ));
     }
-    Ok(arms.0)
+    Ok(out)
 }
 
 /// Variante → arquivos (relativos a `prefix`) que a mencionam como Command.

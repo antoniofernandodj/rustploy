@@ -1,8 +1,8 @@
 # Plano (preliminar): reorganizar o daemon e o shared
 
-> Status: **proposta, nada implementado** (2026-10-18). É um desenho para discutir, não uma ordem
-> de serviço: ver "Decisões em aberto" no fim. Os números abaixo foram medidos no código desta data.
-> Nada aqui muda o que o rustploy *faz*: é só **onde o código mora** e **quem pode depender de quem**.
+> Status: **implementado em 2026-10-18** (fases 0 a 7, com os desvios anotados em "Como ficou" no
+> fim). Os números e o desenho das seções 1 a 4 são o **antes** e a proposta original, medidos no código
+> daquela data. Nada aqui mudou o que o rustploy *faz*: só **onde o código mora** e **quem pode depender de quem**.
 
 ## 1. Por que mexer (o problema, em português simples)
 
@@ -206,16 +206,16 @@ Também: **remover a dependência morta da GUI** (`rustploy-shared` no `Cargo.to
 
 Cada fase é um conjunto de commits que compila e passa nos testes **sozinha**, e dá para parar depois de qualquer uma.
 
-| Fase | O que | Esforço | Risco |
-|---|---|---|---|
-| 0 | Rede de segurança: `make lint`, `cargo test` (os 3 `headless_tests` falham por ambiente, ignorar), um deploy de teste na instância isolada | P | baixo |
-| 1 | Mover os 13 arquivos da raiz para `bootstrap/`, `platform/`, `features/*` com `git mv` (preserva histórico) e ajustar os `mod`/`use`; deixar `pub use` provisório nos caminhos antigos | P | baixo |
-| 2 | `AppState` → `bootstrap/state.rs`; `docker_prune` → `features/maintenance`; `LogSink`; `legacy_project_net_for` e `EnvChange` → `shared`. **Zera as dependências que sobem** | M | médio |
-| 3 | `handlers/` em pastas por assunto + `dispatch.rs` em dois níveis; handlers finos (tirar a lógica de `service_import`/`manifest_import` para `features/iac`) | M | médio |
-| 4 | `docker/` → `engine/` (renomear) e quebrar `containers.rs`/`compose.rs` | M | médio |
-| 5 | Quebrar `deploy/executor.rs` em estágios | G | **alto** (código mais crítico): só com leitura completa e testes de deploy |
-| 6 | `shared` Opção A (dividir `models`/`protocol` com reexports) + patch + publish | M | baixo |
-| 7 | (opcional) `shared` Opção B e/ou extrair crates do workspace (`engine`, `store`) | G | alto |
+| Fase | O que | Esforço | Risco | Status |
+|---|---|---|---|---|
+| 0 | Rede de segurança: `make lint`, `cargo test` (os 3 `headless_tests` falham por ambiente, ignorar), um deploy de teste na instância isolada | P | baixo | ✅ feita |
+| 1 | Mover os 13 arquivos da raiz para `bootstrap/`, `platform/`, `features/*` com `git mv` (preserva histórico) e ajustar os `mod`/`use`; deixar `pub use` provisório nos caminhos antigos | P | baixo | ✅ feita |
+| 2 | `AppState` → `bootstrap/state.rs`; `docker_prune` → `features/maintenance`; `LogSink`; `legacy_project_net_for` e `EnvChange` → `shared`. **Zera as dependências que sobem** | M | médio | ✅ feita (parte: ver "Como ficou") |
+| 3 | `handlers/` em pastas por assunto + `dispatch.rs` em dois níveis; handlers finos (tirar a lógica de `service_import`/`manifest_import` para `features/iac`) | M | médio | ✅ feita |
+| 4 | `docker/` → `engine/` (renomear) e quebrar `containers.rs`/`compose.rs` | M | médio | ✅ feita |
+| 5 | Quebrar `deploy/executor.rs` em estágios | G | **alto** (código mais crítico): só com leitura completa e testes de deploy | ✅ feita |
+| 6 | `shared` Opção A (dividir `models`/`protocol` com reexports) + patch + publish | M | baixo | ✅ feita |
+| 7 | (opcional) `shared` Opção B e/ou extrair crates do workspace (`engine`, `store`) | G | alto | ✅ feita (Opção B; sem novos crates) |
 
 P = pequeno, M = médio, G = grande. **Pronto de cada fase:** `make lint` e `make test` verdes, `make index` regenerado e
 commitado (o índice de código reflete os caminhos novos), um deploy de ponta a ponta na instância de teste, e nenhuma
@@ -251,3 +251,44 @@ mudança em `docs/` de comportamento (só de caminhos).
    medo de mexer; a **fase 1** é a mais barata e já tira a bagunça da raiz.
 5. **Quando?** Convém fazer depois de estabilizar o backend Podman (testes de migração com dados reais pendentes no
    `TODO.md`), para não misturar duas fontes de risco.
+
+## 8. Como ficou (2026-10-18)
+
+Decisões tomadas: **módulos, não crates novos**; **`docker/` virou `engine/`**; **Opção B do shared** (0.5.0);
+sem esperar a estabilização do Podman. Verificação em cada fase: `cargo check --workspace --all-targets`,
+`cargo test -p rustploy --bins` (antes: 189 passam e 17 falham por falta do socket do Docker; depois: 220
+passam — os 31 a mais são os testes que vieram do shared — e os **mesmos** 17 falham) e, no fim, `make index`.
+
+- **Fase 1.** `bootstrap/` (`mod.rs` com a sequência de boot, `config.rs`, `workers.rs`, `listeners.rs`; `main.rs`
+  ficou com ~20 linhas), `platform/` (event_bus, secrets, health), e `features/` com tudo que era assunto de
+  produto — inclusive os diretórios que já existiam (`deploy`, `jobs`, `ingress`, `registry`, `git_providers`,
+  `maintenance`). Raiz do daemon: só `main.rs` e as pastas.
+- **Fase 2.** Zeradas as dependências que sobem **de `engine`, `store`, `platform` e de `features` para
+  `api`**: `AppState` foi para `bootstrap/state.rs`; a lógica de limpeza do Docker foi para
+  `features/maintenance/prune.rs`; `deploy_start`/`service_stop` viraram `features/deploy/{start,stop}.rs`;
+  `to_view` de banco gerenciado foi para `features/databases/managed_view.rs`; o `engine` grava log por um trait
+  (`platform/log_sink.rs`, implementado para o `Db` em `store/log_sink.rs`) e não conhece mais o banco;
+  `legacy_project_net_for` e `EnvChange` foram para o `shared`. **Não feito:** cada feature receber um
+  *contexto* próprio em vez do `AppState` inteiro — as features ainda importam `bootstrap::state::AppState`.
+  Fica como passo seguinte, se as camadas voltarem a vazar.
+- **Fase 3.** `api/handlers/` em 12 pastas por assunto (projects, services, deploys, jobs, docker, git,
+  databases, iac, registry, secrets, observability, settings), cada uma com o seu `dispatch`; `api/dispatch.rs`
+  (era `routes.rs`) só escolhe a pasta. A lógica de criar/atualizar/remover serviço foi para
+  `features/services/` e a de `service_import`/`manifest_*`/`service_export` para `features/iac/`. `http_api.rs` e
+  `public_routes.rs` viraram `api/http/`; `web_ui.rs` virou `api/web_ui/mod.rs` (não foi quebrado em partes).
+- **Fase 4.** `docker/` → `engine/`, `db/` → `store/`; `containers.rs` em `containers/{naming,query,lifecycle,inspect}`
+  e `compose.rs` em `compose/{up,down,jobs,logs}`.
+- **Fase 5.** `deploy/executor.rs` (2 143 linhas) virou `executor/`: `state_machine.rs` (laço + despacho),
+  um método `step_<estado>` por estágio (`resolve`, `source`, `staging`, `healthcheck`, `promote`, `drain`,
+  `rollback`, `compose_flow`), `mod.rs` com a struct e os auxiliares, e `tests.rs`. Os corpos dos estágios
+  foram movidos **sem mudança de lógica** (conferido linha a linha contra o arquivo antigo).
+- **Fase 6.** `shared`: `models.rs` → `domain/` (13 arquivos, reexportados na raiz; `shared::models` ficou como alias),
+  `protocol.rs` → `protocol/{command,response,event,logs}` (o enum `Command` não dá para dividir em arquivos: Rust não
+  permite), funções de nome → `naming.rs`.
+- **Fase 7 (Opção B).** `config`, `connection`, `templates` (+ blueprints e o gerador do catálogo), `wizard`,
+  `manifest` e `service_bundle` saíram do shared para o daemon (`platform/config.rs`, `platform/connection.rs`,
+  `features/templates/`, `features/wizard.rs`, `features/iac/`). **Ficaram no shared** os tipos que trafegam no
+  protocolo: `ApplyReport`/`ResourceAction`/`ActionVerb`, `ServiceExportPlan`/`ServiceImportReq`/`ServiceImportReport`
+  e `WizardCreateReq` — o que o plano chamava de "pode fazer parte do formato de fio" era verdade. O shared passou
+  a **0.5.0** (quebra de API) e a GUI deixou de depender dele (a dependência era morta). O índice (`tools/indexer`),
+  os scripts do site (`gen-manifest`, `gen-protocol`, `gen-templates`) e o `AGENTS.md` foram atualizados.

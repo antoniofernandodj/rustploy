@@ -28,40 +28,49 @@ const COMMANDS_MD: &str = "comandos.md";
 const AREAS: &[(&str, &str, &[&str])] = &[
     (
         "shared.md",
-        "rustploy-shared — modelos, protocolo, manifest, templates",
+        "rustploy-shared — domínio, protocolo e nomes",
         &["rustploy-shared/"],
     ),
     (
         "daemon-api.md",
-        "daemon: API HTTP e handlers de Command",
+        "daemon: API HTTP, web UI, agente MCP e handlers de Command",
         &["rustploy-daemon/crates/daemon/src/api/"],
     ),
     (
         "daemon-deploy.md",
-        "daemon: deploy, jobs e manutenção",
+        "daemon: deploy, jobs, manutenção e ciclo de vida do serviço",
         &[
-            "rustploy-daemon/crates/daemon/src/deploy/",
-            "rustploy-daemon/crates/daemon/src/jobs/",
-            "rustploy-daemon/crates/daemon/src/maintenance/",
+            "rustploy-daemon/crates/daemon/src/features/deploy/",
+            "rustploy-daemon/crates/daemon/src/features/jobs/",
+            "rustploy-daemon/crates/daemon/src/features/maintenance/",
+            "rustploy-daemon/crates/daemon/src/features/services/",
         ],
     ),
     (
-        "daemon-db.md",
-        "daemon: persistência (db/)",
-        &["rustploy-daemon/crates/daemon/src/db/"],
+        "daemon-store.md",
+        "daemon: persistência (store/)",
+        &["rustploy-daemon/crates/daemon/src/store/"],
     ),
     (
-        "daemon-docker.md",
-        "daemon: Docker/Compose e ingress (proxy, TLS)",
-        &["rustploy-daemon/crates/daemon/src/docker/", "rustploy-daemon/crates/daemon/src/ingress/"],
+        "daemon-engine.md",
+        "daemon: motor de containers (engine/) e ingress (proxy, TLS)",
+        &[
+            "rustploy-daemon/crates/daemon/src/engine/",
+            "rustploy-daemon/crates/daemon/src/features/ingress/",
+        ],
     ),
     (
         "daemon-registry.md",
         "daemon: registry embutido e provedores git",
         &[
-            "rustploy-daemon/crates/daemon/src/registry/",
-            "rustploy-daemon/crates/daemon/src/git_providers/",
+            "rustploy-daemon/crates/daemon/src/features/registry/",
+            "rustploy-daemon/crates/daemon/src/features/git_providers/",
         ],
+    ),
+    (
+        "daemon-features.md",
+        "daemon: bancos, IaC, observabilidade, backup, templates e wizard",
+        &["rustploy-daemon/crates/daemon/src/features/"],
     ),
     (
         "webui.md",
@@ -70,7 +79,7 @@ const AREAS: &[(&str, &str, &[&str])] = &[
     ),
     (
         "daemon-core.md",
-        "daemon: main, bins, event bus, secrets, métricas e o resto",
+        "daemon: main, bootstrap, platform (config, eventos, segredos) e o resto",
         &["rustploy-daemon/crates/daemon/"],
     ),
     (
@@ -95,8 +104,8 @@ const AREAS: &[(&str, &str, &[&str])] = &[
 
 /// Diretórios de dados que viram uma linha só no INDEX.md.
 const COLLAPSE: &[(&str, &str)] = &[(
-    "rustploy-shared/templates/blueprints/",
-    "catálogo de templates de app (formato Dokploy), compilado pelo build.rs do shared",
+    "rustploy-daemon/crates/daemon/templates/blueprints/",
+    "catálogo de templates de app (formato Dokploy), compilado pelo build.rs do daemon",
 )];
 
 /// Diretórios que o INDEX.md lista só por nome, numa linha: a descrição de

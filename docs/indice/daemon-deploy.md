@@ -1,48 +1,17 @@
-# Índice: daemon: deploy, jobs e manutenção
+# Índice: daemon: deploy, jobs, manutenção e ciclo de vida do serviço
 
 > Gerado por `make index`; não editar à mão. Sem números de linha:
 > `grep -n "nome" <dir><arquivo>` dá a linha. Cada item: `nome(params) — doc`.
 > Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
 > `impl A, B for T` = impls de traits comuns (métodos omitidos).
 
-## rustploy-daemon/crates/daemon/src/deploy/
+## rustploy-daemon/crates/daemon/src/features/deploy/
 
 ### env_resolve.rs — Resolução de env vars com secrets decifradas — extraído de `DeployExecutor::resolve_env` pra ser rea…
 fn resolve_project_env(db, secrets, project_id) -> Result<HashMap<String, String>> — Só as env vars do projeto (base), secrets decifradas — sem nenhuma específica de serviço.
 fn resolve(db, secrets, svc) -> Result<Vec<(String, String)>> — Funde env vars do projeto (base) com as do serviço (sobrescreve por chave), decifrando `EnvVarValue:…
 fn resolve_project_only(db, secrets, project_id) -> Result<Vec<(String, String)>> — Só as env vars do projeto — usado por jobs sem serviço gatilho (`Job::trigger_service_id: None`, job…
 fn resolve_job(db, secrets, job) -> Result<Vec<(String, String)>> — Env vars completas de um `Job`: base (projeto, + serviço gatilho quando houver) por baixo, `job.env_…
-
-### executor.rs — `DeployExecutor`: roda um deployment pela máquina de estados (clone/pull/build, staging, healthcheck…
-fn copy_dir_all(src, dst) -> Result<()>
-struct DeployExecutor { db, docker, ingress, bus, secrets, tls, db_path, drain_secs, registry_internal_token }
-fn is_embedded_registry_image(image, port, domain) -> bool — Reconhece se `image` aponta para o registry Docker embutido do próprio rustployd, seja por loopback …
-fn failure_log_lines(state_label, err) -> Vec<String> — Quebra a causa de um step falho nas linhas que vão para o `build_log`.
-fn missing_dockerfile_msg(source, dockerfile_path) -> String — Mensagem de "Dockerfile não encontrado", especializada por fonte.
-fn rollback_cause(dep) -> String — Texto que vai para `ServiceStatus::Error` quando um deploy cai em rollback.
-fn truncate_chars(s, max) -> String — Trunca por CARACTERE (não por byte): cortar um `&str` com índice de byte no meio de um multibyte ent…
-impl DeployExecutor
-  fn run(deployment_id)
-  fn execute(deployment_id) -> Result<()> — Laço da máquina de estados: chama `step` até um estado terminal, persistindo cada transição e, se um…
-  fn step(dep, svc) -> Result<DeployState> — Executa o trabalho do estado atual do deployment e devolve o próximo: um braço por `DeployState` (pr…
-  fn wait_compose_healthcheck(ip, svc, dep) — Espera o container de staging ficar saudável (healthcheck do spec ou o HEALTHCHECK nativo da imagem)…
-  fn poll_healthcheck(ip, container_id, svc, dep) -> Result<()>
-  fn clone_dir(deployment_id) -> PathBuf
-  fn short(id) -> &'a str
-  fn ensure_live_names_free(svc) -> Result<()> — Falha o deploy se algum nome live que ele vai ocupar (`rp_<id8>_<safe>`, `…_r<i>`) já for de um cont…
-  fn describe_service(service_id) -> String — "o serviço `api` do projeto `loja`", para mensagens de erro.
-  fn ensure_firewall(deployment_id, service_id, host_port) — Garante a liberação da porta externa no firewall do host (helper `rustployd-fw`) e registra o result…
-  fn log_step(deployment_id, service_id, line) — Persiste uma linha de log de build no banco e a publica no event bus.
-  fn registry_credentials_for(image) -> Option<bollard::auth::DockerCredentials> — Se `image` aponta pro registry embutido do próprio rustployd, devolve as credenciais do token intern…
-  fn image_for(dep, svc) -> String
-  fn archive_dir(service_id, archive_id) -> PathBuf
-  fn network_name(project_id) -> Result<String> — Nome da rede do projeto — o gravado em `project.network_name`.
-  fn ensure_network(project_id) -> Result<String>
-  fn resolve_env(svc) -> Result<Vec<(String, String)>> — Wrapper fino: a lógica de verdade mora em `deploy::env_resolve::resolve` (reaproveitada pelo `JobRun…
-  fn load_deployment(id) -> Result<Deployment>
-  fn load_service(id) -> Result<Option<Service>>
-  fn transition(deployment_id, from, to, message) -> Result<()>
-(20 testes)
 
 ### git.rs — Clone de repositório git para build, com progresso, credenciais de provedor conectado ou secret, e U…
 struct CloneOptions { url, branch, token, username, dir }
@@ -94,7 +63,90 @@ fn connect_to_project(db, docker, svc, container_id, project_id) -> Result<Strin
 fn sync_server(db, docker, svc) -> usize — Garante a conexão do servidor a **todas** as redes autorizadas.
 fn disconnect_from_project(db, docker, svc, project_id) -> Result<()> — Desconecta o servidor da rede de um projeto (revogação de acesso).
 
-## rustploy-daemon/crates/daemon/src/jobs/
+### start.rs — Iniciar um deploy (`Command::DeployStart`): valida a fonte do serviço, cria o deployment e o enfilei…
+fn handle(state, service_id) -> RpResponse
+
+### stop.rs — Parar um serviço (`Command::ServiceStop`): para um serviço (todas as réplicas live, ou a stack Compo…
+fn handle(state, service_id) -> RpResponse
+fn stop_compose(state, service_id, project_name, content, network_name, env_vars) -> RpResponse
+fn finish_stop(state, service_id, container_id) -> RpResponse
+
+## rustploy-daemon/crates/daemon/src/features/deploy/executor/
+
+### compose_flow.rs — Caminho Compose: `compose up` da stack e espera do healthcheck.
+impl DeployExecutor
+  fn step_composing_up(dep, svc) -> Result<DeployState>
+
+### drain.rs — Estágio `Draining`: espera as conexões do container antigo terminarem.
+impl DeployExecutor
+  fn step_draining(dep, _svc) -> Result<DeployState>
+
+### healthcheck.rs — Estágio de healthcheck: espera o staging (ou a stack Compose) ficar saudável.
+impl DeployExecutor
+  fn step_healthcheck_polling(dep, svc) -> Result<DeployState>
+  fn wait_compose_healthcheck(ip, svc, dep) — Espera o container de staging ficar saudável (healthcheck do spec ou o HEALTHCHECK nativo da imagem)…
+  fn poll_healthcheck(ip, container_id, svc, dep) -> Result<()>
+
+### mod.rs — `DeployExecutor`: roda um deployment pela máquina de estados (clone/pull/build, staging, healthcheck…
+struct DeployExecutor { db, docker, ingress, bus, secrets, tls, db_path, drain_secs, registry_internal_token }
+fn is_embedded_registry_image(image, port, domain) -> bool — Reconhece se `image` aponta para o registry Docker embutido do próprio rustployd, seja por loopback …
+impl DeployExecutor
+  fn clone_dir(deployment_id) -> PathBuf
+  fn short(id) -> &'a str
+  fn ensure_live_names_free(svc) -> Result<()> — Falha o deploy se algum nome live que ele vai ocupar (`rp_<id8>_<safe>`, `…_r<i>`) já for de um cont…
+  fn describe_service(service_id) -> String — "o serviço `api` do projeto `loja`", para mensagens de erro.
+  fn ensure_firewall(deployment_id, service_id, host_port) — Garante a liberação da porta externa no firewall do host (helper `rustployd-fw`) e registra o result…
+  fn log_step(deployment_id, service_id, line) — Persiste uma linha de log de build no banco e a publica no event bus.
+  fn registry_credentials_for(image) -> Option<bollard::auth::DockerCredentials> — Se `image` aponta pro registry embutido do próprio rustployd, devolve as credenciais do token intern…
+  fn image_for(dep, svc) -> String
+  fn archive_dir(service_id, archive_id) -> PathBuf
+  fn network_name(project_id) -> Result<String> — Nome da rede do projeto — o gravado em `project.network_name`.
+  fn ensure_network(project_id) -> Result<String>
+  fn resolve_env(svc) -> Result<Vec<(String, String)>> — Wrapper fino: a lógica de verdade mora em `deploy::env_resolve::resolve` (reaproveitada pelo `JobRun…
+  fn load_deployment(id) -> Result<Deployment>
+  fn load_service(id) -> Result<Option<Service>>
+  fn transition(deployment_id, from, to, message) -> Result<()>
+
+### promote.rs — Estágios de promoção: troca do tráfego para o container novo e promoção a live.
+impl DeployExecutor
+  fn step_swapping_in(dep, svc) -> Result<DeployState>
+  fn step_promoting(dep, svc) -> Result<DeployState>
+
+### resolve.rs — Estágios iniciais: rede do projeto, pré-deploy checks e escolha do caminho pela fonte do serviço.
+impl DeployExecutor
+  fn step_pending(dep, svc) -> Result<DeployState>
+  fn step_pre_deploy_check(dep, svc) -> Result<DeployState>
+  fn step_resolving_deps(dep, svc) -> Result<DeployState>
+
+### rollback.rs — Estágio `RollingBack`: remove o staging e restaura o estado anterior, guardando a causa.
+impl DeployExecutor
+  fn step_rolling_back(dep, svc) -> Result<DeployState>
+fn rollback_cause(dep) -> String — Texto que vai para `ServiceStatus::Error` quando um deploy cai em rollback.
+fn truncate_chars(s, max) -> String — Trunca por CARACTERE (não por byte): cortar um `&str` com índice de byte no meio de um multibyte ent…
+
+### source.rs — Estágios de obtenção da imagem: pull do registry, clone do Git e build.
+impl DeployExecutor
+  fn step_pulling_image(dep, svc) -> Result<DeployState>
+  fn step_cloning_repo(dep, svc) -> Result<DeployState>
+  fn step_building_image(dep, svc) -> Result<DeployState>
+fn copy_dir_all(src, dst) -> Result<()>
+fn missing_dockerfile_msg(source, dockerfile_path) -> String — Mensagem de "Dockerfile não encontrado", especializada por fonte.
+
+### staging.rs — Estágio `Staging`: sobe o container novo ao lado do live.
+impl DeployExecutor
+  fn step_staging(dep, svc) -> Result<DeployState>
+
+### state_machine.rs — Máquina de estados do deploy: o laço `execute` e o despacho de cada `DeployState` para o seu estágio…
+impl DeployExecutor
+  fn run(deployment_id)
+  fn execute(deployment_id) -> Result<()> — Laço da máquina de estados: chama `step` até um estado terminal, persistindo cada transição e, se um…
+  fn step(dep, svc) -> Result<DeployState> — Executa o trabalho do estado atual do deployment e devolve o próximo.
+fn failure_log_lines(state_label, err) -> Vec<String> — Quebra a causa de um step falho nas linhas que vão para o `build_log`.
+
+### tests.rs
+(20 testes)
+
+## rustploy-daemon/crates/daemon/src/features/jobs/
 
 ### mod.rs — Jobs one-shot (Schedules): execução (`runner`) e agendamento (`scheduler`).
 fn recover_interrupted(db) -> anyhow::Result<usize> — Fecha, como **interrompidas**, as execuções que ficaram sem fim: um daemon que acabou de subir não t…
@@ -137,9 +189,26 @@ fn warm_once(state, job) -> Result<()> — Aquece com a vaga já em mãos.
 fn warm_in_dir(state, job, project_name, network_name, env_vars, build_dir) -> Result<ComposeImages>
 (9 testes)
 
-## rustploy-daemon/crates/daemon/src/maintenance/
+## rustploy-daemon/crates/daemon/src/features/maintenance/
 
 ### mod.rs — Limpeza automática (agendada) de recursos Docker não usados — ver `docs/plano-limpeza-automatica-doc…
+
+### prune.rs — Limpeza de containers, volumes, imagens, build cache e redes do Docker: o miolo que o botão manual (…
+const BUILD_CACHE_PRUNE_TIMEOUT — Teto de um `docker builder prune`: um processo pendurado seguraria a vaga única da fila de deploy e …
+struct PruneStat { count, reclaimed_bytes } — Resultado tipado de uma limpeza — o denominador comum entre o botão manual (embrulhado em `Response:…
+fn prune_containers_core(state) -> Result<PruneStat, String>
+fn prune_volumes_core(state, all) -> Result<PruneStat, String>
+fn prune_images_core(state, all, older_than_hours) -> Result<PruneStat, String> — `older_than_hours > 0` só considera imagens CRIADAS há mais tempo que isso (filtro `until` do Docker…
+fn image_prune_filters(all, older_than_hours)
+fn build_cache_prune_args(older_than_hours) -> Vec<String>
+fn build_cache_prune_args_for(engine, older_than_hours) -> Vec<String> — O Podman não tem `builder prune`: o cache do Buildah sai por `system prune --build`.
+fn prune_build_cache_core(state, older_than_hours) -> Result<PruneStat, String> — `older_than_hours > 0` mantém o cache usado nas últimas N horas (BuildKit guarda o que foi usado há …
+struct BuildCachePrune { at, older_than_hours } — Última limpeza do cache de build, gravada em `daemon_settings`.
+fn record_build_cache_prune(db, older_than_hours)
+fn last_build_cache_prune(db) -> Option<BuildCachePrune>
+fn parse_reclaimed_space(output) -> u64
+fn prune_networks_core(state) -> Result<PruneStat, String>
+(4 testes)
 
 ### run.rs — Execução de uma limpeza (agendada ou "Executar agora"): roda os recursos marcados em `DockerCleanupC…
 const RUN_TIMEOUT — Teto de uma limpeza inteira: ela segura a vaga única da fila de deploy, e uma limpeza pendurada trav…
@@ -154,3 +223,18 @@ fn load_last_run(state) -> Option<DockerCleanupLastRun>
 ### scheduler.rs — Ticker que verifica se a limpeza automática de Docker está devida — mesmo idioma de `jobs::scheduler…
 fn scheduler_loop(state)
 const TICK_SECS
+
+## rustploy-daemon/crates/daemon/src/features/services/
+
+### create.rs — `Command::ServiceCreate`: cria um serviço, alocando a porta externa automática e liberando-a no fire…
+fn handle(state, spec) -> RpResponse
+
+### delete.rs — `Command::ServiceDelete`: para e REMOVE os containers do serviço (ou a stack Compose), apaga o servi…
+fn remove_containers(state, id) -> Result<(), RpResponse> — Containers do serviço: para (réplicas, ou `compose down`, que já os remove) e remove o que sobrar, i…
+fn handle(state, id) -> RpResponse
+
+### mod.rs — Ciclo de vida de um serviço: criar, atualizar (com a sincronização do firewall) e remover.
+
+### update.rs — `Command::ServiceUpdate`: grava um ServiceSpec novo (porta externa, TLS dos domínios, firewall) sem …
+fn handle(state, id, spec) -> RpResponse
+fn sync_firewall(state, id, old, new) — Porta mudou/removida → fecha a antiga (se mais ninguém a usa) e o listener do ingress; porta nova/ma…
