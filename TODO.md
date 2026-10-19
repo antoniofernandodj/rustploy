@@ -7,6 +7,26 @@ de qualquer assunto. Sem cabeçalho de status por item (isso é para
 Ordenada por valor (o mais valioso primeiro, avaliação de 2026-10-19). Ao
 acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
 
+- [ ] **PRIORIDADE ZERO, próxima ação: reduzir o Rust da GUI ao mínimo.** Análise de 2026-10-19. O
+  Rust do `rustploy-gui` já é só a casca (~560 linhas de código real fora testes; o Luau/`.gvb`/`.gss`
+  somam ~16.300). Para chegar a um `main.rs` de ~5 linhas (`glacier_ui::run("views/")`), o que sobrou
+  precisa migrar para o glacier-ui. Do mais ao menos viável:
+  1. **`src/manifest_zip.rs`** (183 linhas, leitura/escrita do `.zip` do Infra as Code, exposto ao
+     Luau via `lua_extension`) — única lógica de negócio que restou em Rust. Pede que o glacier-ui
+     exponha leitura e escrita de zip ao Luau. **Mudança em `../glacier-ui`.**
+  2. **`src/desktop.rs`** (152 linhas, argumentos de linha de comando e integração com o desktop) —
+     pede um hook de argumentos/integração no glacier-ui. **Mudança em `../glacier-ui`.** Ler o
+     arquivo antes: não se sabe quanto dele é específico do Rustploy.
+  3. **`src/embedded.rs` + `src/assets.rs`** (131 + 53 linhas, embutir assets em release / achá-los
+     em debug) — vale para qualquer app glacier, não só o Rustploy; virar recurso do motor.
+     **Mudança em `../glacier-ui`.**
+  4. **`build.rs`** (278 linhas: ícone do `.exe`, redução dos logos, staging dos assets) — o menos
+     movível, precisa rodar na compilação; avaliar só depois dos três acima.
+  Observação: migrar troca o Rust do Rustploy por Rust do glacier-ui, o código continua existindo.
+  Cada mudança no glacier-ui segue a regra do crate (nunca `path`/`[patch]`: publicar, depois subir
+  a versão no `rustploy-gui`; `git fetch` e comparar os dois sentidos antes do push). O
+  `[patch.crates-io]` de `vendor/iced_tiny_skia` é outro assunto (item mais abaixo, iced 0.15).
+
 - [ ] **CI de testes e lint.** O único workflow é o `release.yml`. Criar um que rode, em push/PR,
   `cargo fmt --check`, `cargo clippy --workspace -- -D warnings` e `cargo test` (daemon, shared e
   `cargo test --bins` na GUI). Os ~238 testes do daemon e o lint limpo da reorganização de
