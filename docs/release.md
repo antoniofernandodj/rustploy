@@ -66,6 +66,18 @@ compatibilidade em `rustploy-docs` (`instalacao/requisitos`). Mudou o container?
 - O comando de uma linha foi testado pela URL pública em `debian:12` (daemon com Docker, e o app) e em
   `debian:13` (`--engine podman`); o `install.ps1` chegou até a extração num PowerShell no Linux.
 
+## v0.1.7 (2026-10-20): aquecimento de serviços e tela Em execução
+
+- **`cargo update -p rustploy-shared` é ambíguo** no workspace do daemon: o `importer` ainda usa o
+  shared 0.5.0. Use `cargo update -p rustploy-shared@0.7.0 --precise 0.8.0` (a versão antiga que sai).
+- **Sem o shared publicado o daemon não compila** (`make deb-rustploy` usa o crates.io): publique o
+  shared antes de qualquer build do daemon; para testar antes, `--config
+  'patch.crates-io.rustploy-shared.path="../rustploy-shared"'` (e desfaça o `Cargo.lock`).
+- **Os `target/debug` do daemon e da GUI passam de 20 GB cada**; o `clippy` + `test` dos dois enchem o
+  disco de 457 GB se houver pouca folga (erro `No space left on device` no meio do build).
+- O comando de uma linha foi testado em `debian:12` (via podman, sem docker nesta máquina): instalou o
+  daemon 0.1.6 e ele iniciou. O app e o `install.ps1` não foram retestados nesta release.
+
 ## Ainda sem teste real
 
 - `install.ps1`: o atalho do Menu Iniciar (COM do Windows). O resto (consulta, download, SHA-256, extração, cópia)
