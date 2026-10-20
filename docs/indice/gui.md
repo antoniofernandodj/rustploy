@@ -61,7 +61,7 @@ fn textos_avaliados(n) -> Vec<String> — Todo texto de uma árvore avaliada, em
 fn botoes_avaliados(n) -> Vec<String> — Todo texto de botão de uma árvore avaliada, em ordem (o rótulo de um `button` é atributo dele, não u…
 fn cd_ws_root() — Cd's to the workspace root (idempotent — safe alongside `boot`).
 fn comments_outside(src) -> String — Remove os comentários (`//` e `/* … */`) para que "a primeira tag" seja a primeira tag de verdade: t…
-(18 testes)
+(19 testes)
 
 ## rustploy-gui/tests/fixtures/
 
