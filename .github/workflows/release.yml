@@ -288,3 +288,45 @@ jobs:
             rustploy-gui-windows-*.zip
             checksums.sha256
           generate_release_notes: true
+
+  # Atualiza os servidores do dono assim que a release é publicada: o mesmo comando que ele rodava à mão
+  # (pull do agregador + submódulos + `make install-rustploy`, que compila e instala na própria máquina).
+  # Só roda em tag, depois do job `release`. Segredos (Settings > Secrets and variables > Actions):
+  #   DEPLOY_SSH_KEY     chave privada (sem senha) autorizada nos dois servidores
+  #   DEPLOY_KNOWN_HOSTS saída de `ssh-keyscan -t ed25519 HOST...` (fixa a identidade dos servidores)
+  # Sem os segredos o job é pulado. `fail-fast: false`: um servidor fora do ar não impede o outro.
+  deploy-servers:
+    needs: [release]
+    if: ${{ startsWith(github.ref, 'refs/tags/') && needs.release.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - itemize@179.198.122.159
+          - antonio@chiquitos.tech
+    env:
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+    steps:
+      - name: Segredos de deploy presentes?
+        id: secrets
+        run: |
+          if [ -z "$DEPLOY_SSH_KEY" ] || [ -z "$DEPLOY_KNOWN_HOSTS" ]; then
+            echo "DEPLOY_SSH_KEY/DEPLOY_KNOWN_HOSTS não configurados: deploy nos servidores pulado."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Atualizar ${{ matrix.target }}
+        if: steps.secrets.outputs.run == 'true'
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 \
+            "${{ matrix.target }}" \
+            'cd ~/rustploy && git -C ~/rustploy pull && git -C ~/rustploy submodule update --init --recursive && make install-rustploy'

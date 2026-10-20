@@ -78,6 +78,20 @@ compatibilidade em `rustploy-docs` (`instalacao/requisitos`). Mudou o container?
 - O comando de uma linha foi testado em `debian:12` (via podman, sem docker nesta máquina): instalou o
   daemon 0.1.6 e ele iniciou. O app e o `install.ps1` não foram retestados nesta release.
 
+## Deploy automático nos servidores (job `deploy-servers`)
+
+Depois do job `release` (só em tag), o `release.yml` entra por SSH nos dois servidores do dono
+(`itemize@179.198.122.159` e `antonio@chiquitos.tech`) e roda `cd ~/rustploy && git pull && git submodule
+update --init --recursive && make install-rustploy`. Precisa de dois segredos em *Settings > Secrets and
+variables > Actions*; sem eles o job é **pulado** (a release sai normalmente):
+
+- `DEPLOY_SSH_KEY`: chave privada sem senha, com a pública no `~/.ssh/authorized_keys` dos dois.
+- `DEPLOY_KNOWN_HOSTS`: `ssh-keyscan -t ed25519 179.198.122.159 chiquitos.tech`.
+
+Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-rustploy` usa `sudo`
+dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
+fora do ar não impede o outro (`fail-fast: false`).
+
 ## Ainda sem teste real
 
 - `install.ps1`: o atalho do Menu Iniciar (COM do Windows). O resto (consulta, download, SHA-256, extração, cópia)
