@@ -155,6 +155,7 @@ function M.tags(tags) — Tags de UM repositório (sem filtro de busca — lista
 function M.tokens(tokens) — Tokens de acesso (Basic auth) — sem filtro de busca (lista tipicamente pequena, buscada uma vez ao a…
 
 ### running.luau — painel "Em execução".
+local in_rows(services) — Agrupa os cards em linhas de COLUMNS; a última é completada com espaçadores (`filler = "1"`) para os…
 function M.mask_webhook(url) — `https://host/webhook/<id>/<token>` → `https://host/webhook/<id>/••••••••`.
 local detail_line(service) — Linha especializada por tipo: o que importa de cada um num relance.
 local checks_text(checks)

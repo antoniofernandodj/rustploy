@@ -100,7 +100,7 @@ handlers: delete_project, open_project
 
 ### running_card.gvb — Card de serviço do painel "Em execução": o resumo especializado por tipo (branch para Git, motor par…
 <component>
-props: id, name, port, status_label, status_color, kind_label, branch, detail, domains, cpu, mem, checks, has_webhook, webhook, webhook_shown, reveal_label, has_warm, warm_label, warm_color
+props: filler, id, name, port, status_label, status_color, kind_label, branch, detail, domains, cpu, mem, checks, has_webhook, webhook, webhook_shown, reveal_label, has_warm, warm_label, warm_color
 handlers: copy_webhook, open_service, running_deploy, running_toggle_reveal, service_stop_id
 
 ### service_card.gvb — Card de serviço da aba "Serviços" de um projeto — o análogo do ProjectCard.
