@@ -51,6 +51,10 @@ const SAVED
 
 ### manifest_zip.test.luau
 
+### running.test.luau
+local service(overrides)
+local dashboard(services)
+
 ### templates_render.rs — Headless validation: every template parses, every screen/tab evaluates and builds an iced element tr…
 fn boot() -> GlacierUI — Boots the engine the way `main.rs` does, but from the workspace root so the workspace-relative templ…
 fn textos_avaliados(n) -> Vec<String> — Todo texto de uma árvore avaliada, em ordem.

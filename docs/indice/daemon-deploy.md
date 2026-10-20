@@ -201,7 +201,7 @@ fn warm_in_dir(state, job, project_name, network_name, env_vars, build_dir, forc
 ## rustploy-daemon/crates/daemon/src/features/maintenance/
 
 ### context.rs — O que a limpeza do Docker precisa do resto do daemon.
-struct MaintenanceContext { db, docker, bus, docker_cache, deploy_queue }
+struct MaintenanceContext { db, docker, bus, docker_cache, deploy_queue, secrets, db_path, warming_services }
 
 ### mod.rs — Limpeza automática (agendada) de recursos Docker não usados — ver `docs/plano-limpeza-automatica-doc…
 
@@ -235,6 +235,27 @@ fn load_last_run(state) -> Option<DockerCleanupLastRun>
 ### scheduler.rs — Ticker que verifica se a limpeza automática de Docker está devida — mesmo idioma de `jobs::scheduler…
 fn scheduler_loop(state)
 const TICK_SECS
+
+### service_warm.rs — Aquecimento de serviços: deixar no host o cache de build da imagem de um serviço com fonte Git ou zi…
+const WARM_TIMEOUT — Teto de um aquecimento: ele segura a vaga única da fila de deploy.
+struct WarmRecord { fingerprint, warmed_at, image }
+fn fingerprint(source) -> Option<String> — O que identifica "o mesmo build" para o cache: repositório e branch (ou só o zip), Dockerfile e cont…
+fn is_warmable(svc) -> bool — Só serviços com Dockerfile para construir têm o que aquecer.
+fn warm_tag(svc) -> String
+fn record_key(service_id) -> String
+fn load(db, service_id) -> Option<WarmRecord>
+fn record(db, svc, image) — Marca o serviço como aquecido agora, com a imagem recém-construída `image`.
+enum Verdict { Warm, Cold }
+fn judge(source, record, image_present, prune) -> Verdict — A decisão, sem tocar em Docker nem no banco: `image_present` diz se a imagem do registro ainda exist…
+fn status(state, svc) -> Option<ServiceWarmStatus> — Fonte única da verdade: se o serviço está quente agora, e por que não, se frio.
+fn status_all(state) -> Result<Vec<ServiceWarmStatus>> — O status de todos os serviços que têm build.
+fn begin(state, service_id) -> bool — Marca `service_id` como aquecendo e avisa os clientes.
+fn request(state, svc, force) -> Result<bool, String> — Pede o aquecimento de `svc`.
+fn warm_cold_services(state) — Depois de uma limpeza: aquece, um de cada vez, os serviços que ficaram frios.
+fn run_warm(state, svc, force) — Pega a vaga, constrói e avisa o fim.
+fn warm_once(state, svc, force) -> Result<()> — Aquece com a vaga já em mãos.
+fn build_in_dir(state, svc, build_dir, force) -> Result<String> — Obtém o código da fonte do serviço e constrói a imagem de aquecimento.
+(8 testes)
 
 ## rustploy-daemon/crates/daemon/src/features/services/
 

@@ -11,6 +11,7 @@
 fn pull(docker, image, service_id, deployment_id, bus, db, credentials) -> Result<()>
 fn _exists(docker, image) -> bool
 fn build(docker, db, context_path, dockerfile, tag, service_id, deployment_id, bus) -> Result<()>
+fn build_with_output(docker, context_path, dockerfile, tag, no_cache, on_line) -> Result<()> — O build em si, sem destino para a saída: `on_line` recebe cada linha do build.
 fn create_tar_gz(context_path, _dockerfile) -> Result<Vec<u8>>
 fn append_dir_filtered(tar, src, prefix) -> Result<()> — Adiciona `src` ao tar sob `prefix`, pulando entradas cujo nome seja `.git`.
 fn _prune_unused(docker, keep_tags) -> Result<()>

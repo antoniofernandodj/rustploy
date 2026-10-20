@@ -77,6 +77,7 @@ function job_warm(job_id) — Aquece o job (baixa as imagens que faltam e popula
 local goto_view(view)
 function nav_deployments()
 function nav_deploy_engine()
+function nav_running()
 function nav_monitoring()
 function nav_schedules()
 function nav_ingress()
@@ -114,6 +115,8 @@ function project_env_text_toggle()
 function project_env_export()
 function project_env_text_cancel()
 function project_env_import()
+function copy_webhook(url) — Painel "Em execução": copia a URL COMPLETA do webhook (o card mostra o token mascarado até o usuário…
+function running_toggle_reveal(service_id) — Alterna entre token mascarado e visível no card; reconstrói a lista na hora (sem rede) a partir do ú…
 function service_stop_id(service_id)
 function stop_delete_service(service_id)
 function stop_all()
@@ -187,6 +190,7 @@ function M.set_webhook_url(url) — A URL do webhook é longa (base + service_id
 function regenerate_webhook() — Regenerar invalida o token antigo NA HORA: qualquer webhook já cadastrado no GitHub/Gitea/Docker Hub…
 local service_lifecycle(command, message)
 local start_deploy(requested_service_id) — Deploy de um serviço (a partir de um card / detalhe).
+function running_deploy(service_id) — Atalho "Deploy" do painel "Em execução": dispara o deploy sem abrir o serviço.
 function service_deploy()
 function service_rebuild()
 function service_reload()

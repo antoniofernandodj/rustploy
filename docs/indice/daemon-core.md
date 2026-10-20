@@ -77,7 +77,7 @@ fn run() -> Result<()> — Sobe o daemon inteiro e segura o processo (encerramen
 
 ### state.rs — Estado compartilhado do daemon (`AppState`) e os caches do inventário Docker.
 type OAuthStates = Arc<Mutex<HashMap<String, String>>> — Pending OAuth handshakes: CSRF `state` → `provider_id`, consumed by the `/oauth/gitea/callback` rout…
-struct AppState { db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, started_at, oauth_states, active_deploys, active_jobs, warming_jobs, deploy_queue, docker_cache, registry_storage, registry_internal_token }
+struct AppState { db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, started_at, oauth_states, active_deploys, active_jobs, warming_jobs, warming_services, deploy_queue, docker_cache, registry_storage, registry_internal_token }
 impl AppState
   fn new(db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, registry_storage, registry_internal_token) -> Self
   fn deploy_ctx() -> DeployContext

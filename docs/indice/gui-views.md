@@ -15,8 +15,8 @@ handlers: notifications, tray, window
 
 ### home.gvb — Telas globais da sidebar, cada uma numa seção por valor de view: Monitoring, Ingress, Deploy Engine,…
 <component>
-imports: HomeDeployEngine, HomeDocker, HomeIngress, HomeMonitoring, HomeSchedules, HomeSettings
-views: monitoring, ingress, deploy_engine, docker, settings, schedules
+imports: HomeDeployEngine, HomeDocker, HomeIngress, HomeMonitoring, HomeRunning, HomeSchedules, HomeSettings
+views: running, monitoring, ingress, deploy_engine, docker, settings, schedules
 
 ### log_window.gvb — Janela de LOGS AO VIVO (runtime OU build): motor Glacier próprio e ISOLADO do app principal, aberta …
 <screen>
@@ -68,7 +68,7 @@ handlers: clipboard, export_all, export_none, export_save, export_show, export_s
 <component>
 imports: DeploymentsView, HomeViews, JobActions, LoadingRow, NavItem, PickerRow, ProjectCard, ProjectServicesView, ProjectsView, ServiceCard, ServiceDetail, StatCard, StateCell, TabButton, TemplateRow, rp-badge
 views: deployments, projects, project_services, service
-handlers: disconnect, drawer, nav_deploy_engine, nav_deployments, nav_docker, nav_ingress, nav_monitoring, nav_projects, nav_schedules, nav_settings, nav_support, search_changed, stop_all
+handlers: disconnect, drawer, nav_deploy_engine, nav_deployments, nav_docker, nav_ingress, nav_monitoring, nav_projects, nav_running, nav_schedules, nav_settings, nav_support, search_changed, stop_all
 
 ## rustploy-gui/views/components/
 
@@ -98,9 +98,14 @@ props: title, subtitle, button_label, action
 props: id, name, service_count, running_count, description, can_delete, filler
 handlers: delete_project, open_project
 
+### running_card.gvb — Card de serviço do painel "Em execução": o resumo especializado por tipo (branch para Git, motor par…
+<component>
+props: id, name, port, status_label, status_color, kind_label, branch, detail, domains, cpu, mem, checks, has_webhook, webhook, webhook_shown, reveal_label, has_warm, warm_label, warm_color
+handlers: copy_webhook, open_service, running_deploy, running_toggle_reveal, service_stop_id
+
 ### service_card.gvb — Card de serviço da aba "Serviços" de um projeto — o análogo do ProjectCard.
 <component>
-props: id, name, port, status_color, status_label, cpu, mem, filler, container_name, container_id, container_name_full, container_id_full, container_extra
+props: id, name, port, status_color, status_label, has_warm, warm_label, warm_color, warm_reason, cpu, mem, filler, container_name, container_id, container_name_full, container_id_full, container_extra
 handlers: copy_container_id, copy_container_name, open_export_window, open_service, service_stop_id, stop_delete_service
 
 ### stat_card.gvb — Tile de KPI do cabeçalho (STATUS/UPTIME/SERVICES/CPU/…).
@@ -138,6 +143,10 @@ handlers: docker_tab
 
 ### monitoring.gvb — Seção `monitoring` (view = monitoring) das telas globais; importada por home.gvb.
 <component>
+
+### running.gvb — Seção `running` (view = running) das telas globais; importada por home.gvb.
+<component>
+handlers: open_project
 
 ### schedules.gvb — Seção `schedules` (view = schedules) das telas globais; importada por home.gvb.
 <component>

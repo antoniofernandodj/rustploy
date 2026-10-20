@@ -106,7 +106,7 @@ types: DeployTrack, State
 local grid_cols()
 function M.deployments(deployments, term) — Deployments (aba Deployments).
 local primary_container(service) — Escolhe o container "primário" de um serviço p/ exibir no card: o live, senão o primeiro em execução…
-local service_card(service, project_name, metrics) — Card de serviço (com CPU/mem mesclados de `metrics_by_id[svc.id]`).
+local service_card(service, project_name, metrics, warm) — Card de serviço (com CPU/mem mesclados de `metrics_by_id[svc.id]`).
 function M.services(service_pairs, metrics, term) — Array plano de cards de serviço (para seleção/contagem).
 function M.service_rows(service_pairs, metrics, term) — Cards de serviço em linhas de N colunas (grid_cols), com filler (glacier não tem grid).
 local project_card(project, service_pairs) — Card de projeto, agregando contagem de serviços de `pairs_`.
@@ -142,6 +142,7 @@ function M.git_branches(branches)
 ### jobs.luau — formata Job/JobSummary/JobRun (tarefas one-shot via docker-compose) pra exibição: tela global "Sched…
 function M.recurrence_label(recurrence) — Resumo textual de uma `Recurrence?` (serde externally-tagged: `nil` = só manual; `{IntervalHours=6}`…
 function M.run_status(run) — Rótulo/cor (mesmo esquema de StateCell) da última execução de um job.
+function M.service_warm_status(warm) — Aquecimento de um serviço com build (`ServiceWarmStatus`); `nil` = sem build, sem selo.
 function M.warm_status(warm) — Rótulo/cor (mesmo esquema de StateCell) do aquecimento de um job.
 function M.summaries(job_summaries, inflight) — Tela global "Schedules": uma linha por job, de todos os projetos.
 function M.pre_deploy_queue(spec, jobs) — Fila de checks de pré-deploy do serviço (aba Advanced), na ORDEM configurada, com o nome resolvido a…
@@ -152,6 +153,13 @@ function M.runs(runs) — Histórico de execuções (`Command::JobRunHistory`) �
 function M.repos(repositories, term) — Lista de repositórios (filtrada pela busca global, como docker_images etc.).
 function M.tags(tags) — Tags de UM repositório (sem filtro de busca — lista pequena, buscada sob demanda ao abrir o repositó…
 function M.tokens(tokens) — Tokens de acesso (Basic auth) — sem filtro de busca (lista tipicamente pequena, buscada uma vez ao a…
+
+### running.luau — painel "Em execução".
+function M.mask_webhook(url) — `https://host/webhook/<id>/<token>` → `https://host/webhook/<id>/••••••••`.
+local detail_line(service) — Linha especializada por tipo: o que importa de cada um num relance.
+local checks_text(checks)
+local matches(term, texts)
+function M.running(dashboard, metrics, term, revealed) — `dashboard`: `snapshot.dashboard`.
 
 ### service_detail.luau — builders da tela de detalhe de serviço (source, healthcheck, env vars, logs, deployments, domains, c…
 function M.containers(containers) — Lista de containers do serviço (id + nome + estado) → linhas para a UI de detalhe.

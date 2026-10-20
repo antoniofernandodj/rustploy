@@ -163,6 +163,8 @@ const RUNNING_CHECK_RETRIES, RUNNING_CHECK_DELAY
 fn get_config(state) -> RpResponse
 fn set_config(state, config) -> RpResponse
 fn run_now(state) -> RpResponse — Dispara a limpeza fora do horário agendado (botão "Executar agora"), com os recursos marcados atualm…
+fn service_warm_status_list(state) -> RpResponse — `Command::ServiceWarmStatusList`: o status de aquecimento de cada serviço com build (Git ou zip), pa…
+fn service_warm(state, service_id, force) -> RpResponse — `Command::ServiceWarm`: aquece um serviço sem fazer deploy dele (`maintenance::service_warm::request…
 
 ### docker_inventory.rs — Docker-wide inventory for the Docker tab: every image/volume/network on the host (not just rustploy-…
 struct ServiceIndex { by_safe_name, by_registry_image, by_network, by_service_id } — Best-effort project/service ownership lookup, built once per request from the current DB state.
@@ -389,6 +391,17 @@ fn provision_existing_domains(state) — Emite certificados para todos os servic
 fn save_optional(state, key, value) -> Result<(), RpResponse>
 
 ## rustploy-daemon/crates/daemon/src/api/http/
+
+### dashboard.rs — O painel "Em execução" (`dashboard` no snapshot): só os projetos que têm serviço rodando e, dentro d…
+struct DashboardProject { project_id, project_name, services }
+struct DashboardService { service_id, name, status, kind, kind_label, branch, repo_url, image, engine, port, domains, webhook, pre_deploy_checks, warm }
+struct DashboardCheck { job_id, name }
+fn classify(svc) -> (&'static str, String) — Tipo do serviço e o rótulo curto do cartão.
+fn is_running(status) -> bool
+fn build(projects, services, jobs, webhook_urls, warm) -> Vec<DashboardProject> — A montagem, sem tocar em banco nem em Docker.
+fn load(state) -> Vec<DashboardProject> — O painel completo, lendo o que precisa do banco.
+const DATABASE_KINDS, BROKER_KINDS
+(7 testes)
 
 ### mod.rs — HTTP/JSON + SSE control API — the daemon's remote administrative channel.
 type ApiBody = BoxBody<Bytes, Infallible> — Unified response body: both the buffered (`Full`) replies and the streaming (`StreamBody`) SSE body …
