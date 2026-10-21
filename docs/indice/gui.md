@@ -32,12 +32,30 @@ fn run() -> iced::Result — Sobe o daemon multi-janela e roda o loop do iced at
 fn boot() -> GlacierUI
 (2 testes)
 
+### access_key.test.luau
+
 ### busy.rs — busy.luau no motor de verdade: o botão libera no toast da própria ação, não só quando o handler inte…
 (1 testes)
+
+### busy.test.luau — busy.luau envolve handlers globais numa trava: enquanto um roda, a chave `busy_<nome>` do ctx fica "…
+local ambiente()
+
+### busy_actions.test.luau — A lista de ações com trava é mantida por `tools/busy_actions.py --check` contra os templates; este t…
+
+### format_dashboard.test.luau
+local com_menu(aberto) — grid_cols lê o global `ctx` (a gaveta lateral come largura da grade).
+local par(nome, projeto, extras)
+
+### format_git_registry.test.luau
+
+### format_jobs.test.luau
 
 ### format_service_detail.rs — O `format/service_detail.luau` (`compose_host` e `internal_url`) rodando no motor de verdade.
 fn boot() -> GlacierUI
 (2 testes)
+
+### format_service_detail.test.luau
+local postgres_vars()
 
 ### format_time.rs — O `format/time.luau` rodando no motor de verdade.
 fn boot() -> GlacierUI
@@ -45,15 +63,39 @@ fn offset_local_segundos() -> i64 — Offset local em segundos, perguntado ao si
 fn shifted_time(hms, offset) -> String — `HH:MM:SS` + offset, com a virada de dia descartada (só as horas importam).
 (3 testes)
 
+### format_time.test.luau
+
+### format_util.test.luau
+
+### handlers_connection.test.luau — Sessão e login (handlers/connection.luau).
+local nova(ctx_inicial)
+
+### handlers_misc.test.luau — Handlers que só mexem no ctx, ou que não fazem nada sem conexão: deploy_queue, secrets e bundle.
+local nova(ctx_inicial)
+
+### handlers_nav.test.luau — Navegação da sidebar, abas e busca (handlers/nav.luau), sem conexão.
+local nova()
+
+### helpers.test.luau
+
 ### login_saved_servers.rs — Tela de login com servidores lembrados: o `<select>` mostra `host:porta`, o campo recebe o token de …
 const SAVED
 (1 testes)
 
 ### manifest_zip.test.luau
 
+### new_job_window.test.luau — Janela "Novo job" (scripts/new_job_window.luau): passos do assistente, modo edição e a validação do …
+local nova(ctx_inicial)
+local conectada(campos) — `api_url` semeado: sem ele new_job_create para antes de validar qualquer campo.
+
 ### running.test.luau
 local service(overrides)
 local dashboard(services)
+
+### screens_missing.test.luau — Toda chave que uma tela LÊ tem de ser publicada por alguém.
+local conjunto(...)
+local confere(tela, ...)
+local app(visao)
 
 ### templates_render.rs — Headless validation: every template parses, every screen/tab evaluates and builds an iced element tr…
 fn boot() -> GlacierUI — Boots the engine the way `main.rs` does, but from the workspace root so the workspace-relative templ…
@@ -62,6 +104,11 @@ fn botoes_avaliados(n) -> Vec<String> — Todo texto de botão de uma árvore av
 fn cd_ws_root() — Cd's to the workspace root (idempotent — safe alongside `boot`).
 fn comments_outside(src) -> String — Remove os comentários (`//` e `/* … */`) para que "a primeira tag" seja a primeira tag de verdade: t…
 (19 testes)
+
+### windows.test.luau — Scripts das janelas auxiliares (cada uma é um motor isolado, aberto por open_window com `data`).
+local janela(caminho, ctx_inicial)
+local exportar(plano)
+local linhas(tela)
 
 ## rustploy-gui/tests/fixtures/
 

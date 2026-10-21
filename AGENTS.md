@@ -655,6 +655,24 @@ resolve. O daemon não tem lib target, então seus testes ficam sob `--bins`.
 handlers que falam HTTP não dão para exercitar. A referência completa (matchers,
 `component()`) está na seção "Testes" do `AGENTS.md` que o `glacier new` gera.
 
+**Mapa de `rustploy-gui/tests/`** (o `*.test.luau` novo entra na lista abaixo):
+`format_*` (um por módulo de `views/scripts/format/`), `helpers`, `access_key`, `busy` e
+`busy_actions` são lógica pura; `handlers_*` e `windows`/`new_job_window` chamam handlers por
+`component("views/app.gvb")` (ou pelo `.gvb` da janela) sem conexão; `screens_missing` usa
+`tela:missing()` (glacier-ui ≥ 0.127) para cruzar as chaves que cada visão do shell e cada
+janela **lê** com as que o `ctx` tem. Nele, as chaves "do snapshot" estão **congeladas** por
+visão (o snapshot chega por SSE e `apply_snapshot` é local ao `stream.luau`): o teste falha
+se uma chave nova aparecer — leu-se algo que ninguém publica — ou se uma esperada sumir
+(atualize a lista, com o motivo). Um `.gvb` que leia `{totall}` enquanto o handler escreve
+`total` passa em todo teste de handler e só o `missing()` o pega.
+
+Regras para escrever teste aqui: **não teste `forget_server` nem o sucesso do `connect`** —
+gravam `storage.set("saved_servers", …)`, ou seja, a lista de servidores salvos da *máquina*
+de quem roda; o `init` lê esse `storage`, então semeie o `access_key` no `component(...)`
+para o pré-preenchimento não depender de quem executa; o `init` das janelas **zera** os campos
+do formulário (semeie com `tela:set` depois dele); e comece o arquivo com `--!nonstrict`
+(o `.luaurc` é `strict` e o `luau-lsp` reclama dos auxiliares de teste com parâmetro opcional).
+
 Três testes de `web_ui::headless_tests` exigem `google-chrome` instalado e
 falham por ambiente onde ele não sobe — não são regressão.
 
