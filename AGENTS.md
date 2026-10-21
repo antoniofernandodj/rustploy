@@ -643,22 +643,23 @@ resolve. O daemon não tem lib target, então seus testes ficam sob `--bins`.
 # em rustploy-shared/:  cargo test
 # em rustploy-gui/:     cargo test --bins
 #                       cargo test --test templates_render   # runtime mlua real
-#                       glacier test                         # testes Luau (tests/*.test.luau)
+#                       glacier test                         # testes Luau (tests/**/*.test.luau)
 ```
 
 `glacier test` (CLI `glacier-cli` ≥ 0.7.1: `cargo install glacier-cli --locked`; o
 `glacier.jsonc` só vale a partir da 0.8.0 — numa CLI mais velha ele é ignorado) roda os
 `*.test.luau`/`*_test.luau` de `views/` e `tests/` com o app em modo de teste, sem janela;
 `glacier test <arquivo>` roda um só e `-t trecho` filtra pelo nome. Rode dentro de
-`rustploy-gui/`. Prefira testar módulos de `views/scripts` (lógica pura, como
+`rustploy-gui/`; `glacier test tests/format` roda uma pasta. Prefira testar módulos de `views/scripts` (lógica pura, como
 `manifest_zip.luau`); chamadas que suspendem (`fetch`, `confirm`) não são resolvidas, então
-handlers que falam HTTP não dão para exercitar. A referência completa (matchers,
+handlers que falam HTTP não dão para exercitar. A referência completa (asserções,
 `component()`) está na seção "Testes" do `AGENTS.md` que o `glacier new` gera.
 
-**Mapa de `rustploy-gui/tests/`** (o `*.test.luau` novo entra na lista abaixo):
-`format_*` (um por módulo de `views/scripts/format/`), `helpers`, `access_key`, `busy` e
-`busy_actions` são lógica pura; `handlers_*` e `windows`/`new_job_window` chamam handlers por
-`component("views/app.gvb")` (ou pelo `.gvb` da janela) sem conexão; `screens_missing` usa
+**Mapa de `rustploy-gui/tests/`** (o `*.test.luau` novo entra na pasta do assunto; o runner
+desce em subpastas): `format/` (um arquivo por módulo de `views/scripts/format/`) e `lib/`
+(`helpers`, `access_key`, `busy`, `busy_actions`, `manifest_zip`) são lógica pura;
+`handlers/` e `windows/` chamam handlers por `component("views/app.gvb")` (ou pelo `.gvb` da
+janela) sem conexão; `tela/running` idem para a visão de rodando, e `tela/missing` usa
 `tela:missing()` (glacier-ui ≥ 0.127) para cruzar as chaves que cada visão do shell e cada
 janela **lê** com as que o `ctx` tem. Nele, as chaves "do snapshot" estão **congeladas** por
 visão (o snapshot chega por SSE e `apply_snapshot` é local ao `stream.luau`): o teste falha
@@ -668,8 +669,9 @@ se uma chave nova aparecer — leu-se algo que ninguém publica — ou se uma es
 
 O que esses testes **não** provam (snapshot do daemon, `storage` real, o `erro_<campo>` do
 `missing()`, tipos, layout): [`docs/limites-dos-testes-luau.md`](docs/limites-dos-testes-luau.md).
-A sintaxe dos testes (`describe`/`expect`) é a do motor; há uma proposta de trocá-la em
-`glacier-ui/docs/PLANO_TESTES.md` — ainda não implementada.
+A sintaxe dos testes (`test_*`, `assert_*`, `---` como documentação; glacier-ui ≥ 0.128)
+é a do motor, descrita em `glacier-ui/docs/PLANO_TESTES.md`. `glacier test -vv` mostra a
+documentação de cada teste e `-s` esconde os logs.
 
 Regras para escrever teste aqui: **não teste `forget_server` nem o sucesso do `connect`** —
 gravam `storage.set("saved_servers", …)`, ou seja, a lista de servidores salvos da *máquina*

@@ -78,7 +78,7 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       # --bins + os testes de integração (templates_render roda o mlua real).
       - run: cargo test --workspace
-      # Testes Luau (tests/*.test.luau). O CLI fica fixo em 0.7.1 (o primeiro com `glacier test`
+      # Testes Luau (tests/**/*.test.luau). O CLI fica fixo em 0.7.1 (o primeiro com `glacier test`
       # que acha views/scripts no require) e o binário é cacheado; ao subir a versão, mude as duas
       # ocorrências abaixo.
       - uses: actions/cache@v4
