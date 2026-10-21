@@ -58,6 +58,7 @@
 - internal-networking.md — Comunicação interna entre serviços do projeto
 - inventario-paridade-telas.md — Inventário de paridade — GUI iced × webui
 - licoes-aprendidas.md — Lições aprendidas — erros, causas e soluções
+- limites-dos-testes-luau.md — Limites dos testes Luau do rustploy-gui
 - memoria-threads-e-runtime.md — Memória de threads e runtime async — base teórica
 - plano-acao-banco-compartilhado.md — Plano de ação: implementar o banco compartilhado (Postgres) e migrar rdo-itemize…
 - plano-aquecer-job.md — Aquecer job: saber se o cache existe e deixá-lo pronto antes de rodar

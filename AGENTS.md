@@ -666,6 +666,11 @@ se uma chave nova aparecer — leu-se algo que ninguém publica — ou se uma es
 (atualize a lista, com o motivo). Um `.gvb` que leia `{totall}` enquanto o handler escreve
 `total` passa em todo teste de handler e só o `missing()` o pega.
 
+O que esses testes **não** provam (snapshot do daemon, `storage` real, o `erro_<campo>` do
+`missing()`, tipos, layout): [`docs/limites-dos-testes-luau.md`](docs/limites-dos-testes-luau.md).
+A sintaxe dos testes (`describe`/`expect`) é a do motor; há uma proposta de trocá-la em
+`glacier-ui/docs/PLANO_TESTES.md` — ainda não implementada.
+
 Regras para escrever teste aqui: **não teste `forget_server` nem o sucesso do `connect`** —
 gravam `storage.set("saved_servers", …)`, ou seja, a lista de servidores salvos da *máquina*
 de quem roda; o `init` lê esse `storage`, então semeie o `access_key` no `component(...)`
