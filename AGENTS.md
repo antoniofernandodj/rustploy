@@ -620,10 +620,18 @@ agregador, o `Makefile` roda nos três: `make build`, `make check`, `make test`,
 # `--bin` só é necessário para o outro binário (`rustployd-fw`).
 make dev-rustploy            # = cd rustploy-daemon && cargo run -p rustploy
 
-# GUI (rode a partir do diretório do rustploy-gui: o debug lê views/ e assets/
-# do disco, relativos ao CWD)
+# GUI (o debug lê views/ e assets/ do disco, relativos ao CWD)
 cd rustploy-gui && cargo run
+glacier serve desktop        # o mesmo, de QUALQUER subpasta do rustploy-gui: a CLI
+                             # roda o cargo na raiz (glacier-cli >= 0.8.0)
 ```
+
+`rustploy-gui/glacier.jsonc` guarda os padrões da CLI `glacier` para a GUI
+(`serve desktop`, `test`; `-c release` = `cargo run --release`). Hoje está quase
+todo no padrão — a GUI não tem feature própria nem argumento de app —, então ele
+serve de lugar para o próximo ajuste, não de fonte de comportamento. Campo
+desconhecido nele é erro. **Não** cabem ali variáveis de ambiente (o Xvfb abaixo) nem
+a feature `tray`, que é do `glacier-ui` e fica no `Cargo.toml`.
 
 **Testes.** No `rustploy-daemon` os diretórios são `crates/daemon` e `crates/importer`, mas
 os **pacotes** se chamam `rustploy` e `rustploy-import` — `-p daemon` não
@@ -638,7 +646,8 @@ resolve. O daemon não tem lib target, então seus testes ficam sob `--bins`.
 #                       glacier test                         # testes Luau (tests/*.test.luau)
 ```
 
-`glacier test` (CLI `glacier-cli` ≥ 0.7.1: `cargo install glacier-cli --locked`) roda os
+`glacier test` (CLI `glacier-cli` ≥ 0.7.1: `cargo install glacier-cli --locked`; o
+`glacier.jsonc` só vale a partir da 0.8.0 — numa CLI mais velha ele é ignorado) roda os
 `*.test.luau`/`*_test.luau` de `views/` e `tests/` com o app em modo de teste, sem janela;
 `glacier test <arquivo>` roda um só e `-t trecho` filtra pelo nome. Rode dentro de
 `rustploy-gui/`. Prefira testar módulos de `views/scripts` (lógica pura, como

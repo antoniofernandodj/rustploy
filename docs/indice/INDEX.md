@@ -1503,6 +1503,7 @@
 - Cargo.toml — Rustploy — desktop client (glacier-ui) for the Rustploy PaaS daemon
 - README.md — rustploy-gui por dentro
 - build.rs — Build script: logos dos blueprints para o release, `.desktop` no `cargo install`…
+- glacier.jsonc
 
 ### rustploy-gui/assets/
 - application.manifest
