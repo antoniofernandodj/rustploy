@@ -43,6 +43,7 @@ function M.normalize_url(raw) — Normaliza a entrada de URL do login para uma b
 local set_full() — Set COMPLETO do textarea a partir do buf (usado no seed e no corte).
 local push_batch(events) — Aplica um lote de eventos novos: appenda no fim (barato) ou, se estourou o teto, corta a cauda e rec…
 local log_event_to_row(event) — Um evento do bus: os endpoints já filtram por id; pegamos o LogLine (runtime), BuildLog (build) ou J…
+function copy_ctx(key) — Botão "Copiar" da markup: copia a chave de contexto e avisa por toast.
 function init()
 
 ### manifest_zip.luau — O `.zip` do Infra as Code: exatamente rustploy.yml + rustploy.vars.toml na raiz.
@@ -75,6 +76,7 @@ function cancel() — Botão "Cancelar": fecha ESTA janela (close_window fecha a
 
 ### new_registry_token_window.luau — script da JANELA "Novo token do registry", um motor Glacier próprio e ISOLADO do app principal (aber…
 local client()
+function copy_ctx(key) — Botão "Copiar" da markup: copia a chave de contexto e avisa por toast.
 function init()
 function new_registry_token_show_validation_errors(_erros_json) — on_validation_error do form(...) — NOME é `rules="required"`; o motor já publicou {error_new_registr…
 function new_registry_token_create()
@@ -87,6 +89,7 @@ function field(key, value) — Setter genérico de campo (on_change="field:<chav
 local client()
 local render() — Reconstrói a lista exibida (☑/☐ por variável do projeto) a partir de `picked`.
 local pick(rule)
+function copy_ctx(key) — Botão "Copiar" da markup: copia a chave de contexto e avisa por toast.
 function init()
 function field(key, value)
 function export_toggle(key)

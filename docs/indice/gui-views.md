@@ -21,7 +21,7 @@ views: running, monitoring, ingress, deploy_engine, docker, settings, schedules
 ### log_window.gvb — Janela de LOGS AO VIVO (runtime OU build): motor Glacier próprio e ISOLADO do app principal, aberta …
 <screen>
 script: scripts/log_window.luau
-handlers: clipboard, textarea_end, textarea_top, window
+handlers: copy_ctx, textarea_end, textarea_top, window
 
 ### login.gvb — Tela de login: um campo, o token de conexão (base64 de host:porta::token), com um select dos servido…
 <component>
@@ -41,7 +41,7 @@ handlers: cancel, new_project_show_validation_errors, submit_project, window
 ### new_registry_token_window.gvb — Janela "Novo token do registry": motor Glacier próprio, aberto por open_window a partir do app princ…
 <screen "Novo token — Rustploy">
 script: scripts/new_registry_token_window.luau
-handlers: clipboard, new_registry_token_create, new_registry_token_show_validation_errors, window
+handlers: copy_ctx, new_registry_token_create, new_registry_token_show_validation_errors, window
 
 ### new_service.gvb — Wizard "Novo serviço" (view=new_service): tipo → formulário por tipo, espelhando o fluxo do antigo r…
 <component>
@@ -62,7 +62,7 @@ handlers: open_export_window, open_logs_window, open_project, service_deploy, se
 ### service_export_window.gvb — Janela "Exportar serviço": motor Glacier próprio, aberto por open_window a partir do app principal (…
 <screen "Exportar serviço — Rustploy">
 script: scripts/service_export_window.luau
-handlers: clipboard, export_all, export_none, export_save, export_show, export_suggested, export_toggle, field, window
+handlers: copy_ctx, export_all, export_none, export_save, export_show, export_suggested, export_toggle, field, window
 
 ### shell.gvb — Casca do app conectado: sidebar, topbar e as views de projeto (Deployments, Projects, serviços de um…
 <component>
@@ -196,7 +196,7 @@ handlers: docker_only_used, docker_prune_volumes, docker_remove_volume, field
 
 ### git.gvb — Git: contas conectadas + formulário de conexão
 <component>
-handlers: clipboard, field, git_provider_connect, git_provider_delete, git_provider_kind, git_provider_refresh, open
+handlers: copy_ctx, field, git_provider_connect, git_provider_delete, git_provider_kind, git_provider_refresh, open
 
 ### iac.gvb — Infra as Code: o manifesto é um `.zip` com exatamente rustploy.yml (projetos/serviços, env vars semp…
 <component>
@@ -208,7 +208,7 @@ handlers: docker_cleanup_run_now, docker_cleanup_save, field
 
 ### web.gvb — Web Server (default)
 <component>
-handlers: clipboard, settings_save
+handlers: copy_ctx, settings_save
 
 ## rustploy-gui/views/service/
 
@@ -218,15 +218,15 @@ handlers: advanced_save, field, pre_deploy_check_add, pre_deploy_check_delete, p
 
 ### connection.gvb — Connection (valores copiáveis)
 <component>
-handlers: clipboard, shared_disable, shared_enable
+handlers: copy_ctx, shared_disable, shared_enable
 
 ### databases.gvb — Databases (servidor de banco compartilhado entre projetos)
 <component>
-handlers: clipboard, field, shared_database_create, shared_database_delete, shared_database_show
+handlers: copy_ctx, field, shared_database_create, shared_database_delete, shared_database_show
 
 ### deployments.gvb — Deployments
 <component>
-handlers: clipboard, delete_deployment, deployment_logs, regenerate_webhook
+handlers: copy_ctx, delete_deployment, deployment_logs, regenerate_webhook
 
 ### domains.gvb — Domains (editável): lista de rotas HTTP (domínio → porta de container, TLS por rota), mais o form de…
 <component>

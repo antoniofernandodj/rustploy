@@ -88,6 +88,7 @@
 - plano-site-documentacao.md — Plano: site de documentação do Rustploy (SSG, SEO e GEO)
 - plano-tray-bandeja-e-ciclo-de-vida.md — Plano — ícone de bandeja e o app que sobrevive à última janela
 - plano-unificacao-webhook-api.md — Plano: unificar o webhook na porta da API
+- plano-verificar-e-aplicar-atualizacao.md — Plano: verificar a versão mais recente e atualizar pelo Settings
 - plano-webui-janelas-e-polimento.md — Plano: webui com acabamento da GUI, janelas arrastáveis e paridade total
 - plano-widgets-glacier-0.68.md — Widgets novos do glacier-ui (0.63 → 0.68): o que dá pra aproveitar no rustploy
 - prompt-depurar-infra-com-agente.md — Prompt: depurar a infra pela API de agente
@@ -121,8 +122,6 @@
 - README.md — Rustploy
 - docker-compose.test.yml
 - install.sh
-- rustploy
-- rustployd
 
 ### rustploy-daemon/.claude/
 - settings.json
@@ -1523,11 +1522,6 @@
 - mod.rs — Rustploy (glacier-ui) — desktop client whose UI is described in XML templates an…
 
 ### rustploy-gui/tests/ → gui.md
-- access_key.rs — O `access_key.luau` (token de conexão do login) rodando no motor de verdade.
-- busy.rs — busy.luau no motor de verdade: o botão libera no toast da própria ação, não só q…
-- format_service_detail.rs — O `format/service_detail.luau` (`compose_host` e `internal_url`) rodando no moto…
-- format_time.rs — O `format/time.luau` rodando no motor de verdade.
-- login_saved_servers.rs — Tela de login com servidores lembrados: o `<select>` mostra `host:porta`, o camp…
 - templates_render.rs — Headless validation: every template parses, every screen/tab evaluates and build…
 
 ### rustploy-gui/tests/fixtures/ → gui.md
@@ -1679,6 +1673,7 @@
 - connection.luau — ciclo de vida da sessão: init (semeia o contexto), login/logout, configurações d…
 - deploy_queue.luau — gerência da fila global de deploys (um por vez) na tela Deploy Engine: cancelar/…
 - docker.luau — limpeza de recursos Docker sem uso (imagens, volumes, redes).
+- history.luau — a pilha do "voltar" (Backspace, Alt+← e o botão "voltar" do mouse; o motor chama…
 - jobs.luau — ações da tela global "Schedules" (sidebar) e da aba "Jobs" do projeto: rodar ago…
 - nav.luau — navegação da sidebar/tabs e busca do topbar.
 - projects.luau — grade de projetos: criar/editar/remover projeto, variáveis de ambiente de projet…

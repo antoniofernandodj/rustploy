@@ -203,7 +203,7 @@ WizardCatalog | daemon: services/wizard::catalog | gui: handlers/wizard | web: a
 WizardCreate | daemon: services/wizard::create | gui: handlers/wizard | web: app
 
 ## / mudança na hora, sem esperar o próximo tick. Resposta: `Snapshot(String)`.
-Snapshot — Snapshot completo do dashboard como JSON (o mesmo que o SSE `/api/even… | daemon: (inline em dispatch.rs) | gui: handlers/stream | web: app
+Snapshot — Snapshot completo do dashboard como JSON (o mesmo que o SSE `/api/even… | daemon: (inline em dispatch.rs) | gui: handlers/history, handlers/stream | web: app
 
 ## delete; criar conteúdo só acontece via `docker push` externo).
 RegistryStatus | daemon: registry/commands::status | gui: — | web: —
