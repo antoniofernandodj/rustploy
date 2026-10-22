@@ -671,7 +671,10 @@ O que esses testes **não** provam (snapshot do daemon, `storage` real, o `erro_
 `missing()`, tipos, layout): [`docs/limites-dos-testes-luau.md`](docs/limites-dos-testes-luau.md).
 A sintaxe dos testes (`test_*`, `assert_*`, `---` como documentação; glacier-ui ≥ 0.128)
 é a do motor, descrita em `glacier-ui/docs/PLANO_TESTES.md`. `glacier test -vv` mostra a
-documentação de cada teste e `-s` esconde os logs.
+documentação de cada teste e `-s` esconde os logs. Desde o glacier-ui 0.130 o relatório sai
+teste a teste, colorido, e o nome é um caminho Rust (`format::dashboard::test_cards_de_servico`:
+pasta, arquivo e função): **não repita o módulo no nome da função** (`test_cards_de_servico`, não
+`test_format_dashboard_cards_de_servico`), e `glacier test -t format::dashboard` filtra por arquivo.
 
 Regras para escrever teste aqui: **não teste `forget_server` nem o sucesso do `connect`** —
 gravam `storage.set("saved_servers", …)`, ou seja, a lista de servidores salvos da *máquina*

@@ -1524,29 +1524,11 @@
 
 ### rustploy-gui/tests/ → gui.md
 - access_key.rs — O `access_key.luau` (token de conexão do login) rodando no motor de verdade.
-- access_key.test.luau
 - busy.rs — busy.luau no motor de verdade: o botão libera no toast da própria ação, não só q…
-- busy.test.luau — busy.luau envolve handlers globais numa trava: enquanto um roda, a chave `busy_<…
-- busy_actions.test.luau — A lista de ações com trava é mantida por `tools/busy_actions.py --check` contra …
-- format_dashboard.test.luau
-- format_git_registry.test.luau
-- format_jobs.test.luau
 - format_service_detail.rs — O `format/service_detail.luau` (`compose_host` e `internal_url`) rodando no moto…
-- format_service_detail.test.luau
 - format_time.rs — O `format/time.luau` rodando no motor de verdade.
-- format_time.test.luau
-- format_util.test.luau
-- handlers_connection.test.luau — Sessão e login (handlers/connection.luau).
-- handlers_misc.test.luau — Handlers que só mexem no ctx, ou que não fazem nada sem conexão: deploy_queue, s…
-- handlers_nav.test.luau — Navegação da sidebar, abas e busca (handlers/nav.luau), sem conexão.
-- helpers.test.luau
 - login_saved_servers.rs — Tela de login com servidores lembrados: o `<select>` mostra `host:porta`, o camp…
-- manifest_zip.test.luau
-- new_job_window.test.luau — Janela "Novo job" (scripts/new_job_window.luau): passos do assistente, modo ediç…
-- running.test.luau
-- screens_missing.test.luau — Toda chave que uma tela LÊ tem de ser publicada por alguém.
 - templates_render.rs — Headless validation: every template parses, every screen/tab evaluates and build…
-- windows.test.luau — Scripts das janelas auxiliares (cada uma é um motor isolado, aberto por open_win…
 
 ### rustploy-gui/tests/fixtures/ → gui.md
 - access_key_fixture.gvb — Fixture do teste access_key.rs: tela mínima que roda o access_key.luau e deixa o…
@@ -1557,6 +1539,34 @@
 - saved_action.luau — Fixture do teste `busy.rs`.
 - time.gvb — Fixture do teste format_time.rs: tela mínima que roda o format/time.luau e exibe…
 - time.luau — Fixture do teste `format_time.rs`: exercita o `format/time.luau` de verdade, atr…
+
+### rustploy-gui/tests/format/ → gui.md
+- dashboard.test.luau
+- git_registry.test.luau
+- jobs.test.luau
+- service_detail.test.luau
+- time.test.luau
+- util.test.luau
+
+### rustploy-gui/tests/handlers/ → gui.md
+- connection.test.luau — Sessão e login (handlers/connection.luau).
+- misc.test.luau — Handlers que só mexem no ctx, ou que não fazem nada sem conexão: deploy_queue, s…
+- nav.test.luau — Navegação da sidebar, abas e busca (handlers/nav.luau), sem conexão.
+
+### rustploy-gui/tests/lib/ → gui.md
+- access_key.test.luau
+- busy.test.luau — busy.luau envolve handlers globais numa trava: enquanto um roda, a chave `busy_<…
+- busy_actions.test.luau — A lista de ações com trava é mantida por `tools/busy_actions.py --check` contra …
+- helpers.test.luau
+- manifest_zip.test.luau
+
+### rustploy-gui/tests/tela/ → gui.md
+- missing.test.luau — Toda chave que uma tela LÊ tem de ser publicada por alguém.
+- running.test.luau
+
+### rustploy-gui/tests/windows/ → gui.md
+- new_job.test.luau — Janela "Novo job" (scripts/new_job_window.luau): passos do assistente, modo ediç…
+- windows.test.luau — Scripts das janelas auxiliares (cada uma é um motor isolado, aberto por open_win…
 
 ### rustploy-gui/vendor/
 - README.md — vendor/
