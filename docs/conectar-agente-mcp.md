@@ -33,7 +33,7 @@ Onde pegar:
 ## Caminho curto: o comando pronto
 
 Se você tem uma sessão aberta na GUI ou na webui, vá em Settings → Web Server
-→ "Conectar um agente (Claude Code)" → Copiar. O comando já vem com a URL e o
+→ "Conectar um agente de IA (MCP)" → Claude Code → Copiar. O comando já vem com a URL e o
 token resolvidos:
 
 ```bash
@@ -44,6 +44,24 @@ claude mcp add --transport http --scope user rustploy https://HOST:PORTA/mcp \
 Depois rode `claude mcp list` (o `rustploy` deve aparecer como
 `✔ Connected`) e abra uma sessão **nova**, porque as ferramentas não aparecem
 na sessão em que o comando rodou. Para conferir, use `/mcp`.
+
+## Codex e Gemini CLI
+
+A mesma seção da GUI/webui tem um Copiar para cada agente. Codex: acrescente
+o bloco ao `~/.codex/config.toml`.
+
+```toml
+[mcp_servers.rustploy]
+url = "https://HOST:PORTA/mcp"
+http_headers = { Authorization = "Bearer <token da API>" }
+```
+
+Gemini CLI: rode o comando e confira com `/mcp`.
+
+```bash
+gemini mcp add --transport http --scope user \
+  --header "Authorization: Bearer <token da API>" rustploy https://HOST:PORTA/mcp
+```
 
 ## Caminho com validação: o prompt para o agente
 
