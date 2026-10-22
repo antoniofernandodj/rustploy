@@ -67,7 +67,7 @@ Não é um limite desta rodada, mas vale ter junto:
 - **Rede.** `fetch`, `confirm` e os diálogos suspendem o handler e o teste não os resolve; os
   caminhos de sucesso e de erro de RPC ficam de fora.
 - **Lógica em Rust.** Fica nos `#[test]` do `rustploy-gui` (`cargo test --bins`,
-  `--test templates_render`).
+  `--test app_manifest`).
 
 ## Candidatos a investigar (não confirmados)
 

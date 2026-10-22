@@ -7,8 +7,8 @@ sem tocar no `remote-client` antigo. Rodar da raiz do workspace:
 `cargo run -p rustploy-gui` (paths de template são relativos ao CWD).
 
 ## ⚠️ PENDENTE — teste manual (não feito ainda)
-A validação automática é só headless (`tests/templates_render.rs`: parse + render
-da árvore, sem display). **Falta testar em runtime contra um daemon** — não dá
+A validação automática é só headless (`tests/tela/render.test.luau` avalia a árvore
+e `tests/app_manifest.rs` constrói os widgets do iced, sem display). **Falta testar em runtime contra um daemon** — não dá
 pra capturar tela aqui (Wayland). Rodar `cargo run -p rustploy-gui`, conectar e
 conferir:
 - **Saves** persistem de fato (re-fetch após `ServiceUpdate`): General (editar
@@ -173,7 +173,7 @@ conferir:
   `GitProviderCreate`; se OAuth dispara `GitOAuthStart` e abre o navegador via
   `xdg-open`; PAT já fica usável) e "Atualizar lista" (`gp_refresh`). Campos
   `secure` usam o `<TextInput secure="true">` do glacier 0.2.7.
-- **Validação headless**: `tests/templates_render.rs` registra os templates a
+- **Validação headless**: `tests/tela/render.test.luau` (`glacier test`) registra os templates a
   partir da raiz do workspace e renderiza login + todas as views + todas as abas
   do service (incl. editor `.env` e painel de build log) — pega KDL malformado e
   propriedade `.gss` desconhecida sem precisar de display. (`cargo test -p rustploy-gui`.)

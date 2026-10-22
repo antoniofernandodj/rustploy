@@ -57,7 +57,7 @@ compatibilidade em `rustploy-docs` (`instalacao/requisitos`). Mudou o container?
   argumentos): daí o `rustploy-shared` 0.4.1 e o `rustploy-gui` 0.1.7, sem mudança de comportamento.
 - **Três testes de `web_ui::headless_tests` falham por ambiente** (também na `main` anterior); o `make test`
   para no primeiro repo que falha, então rode `cargo test` no `shared` e `cargo test --bins` + `--test
-  templates_render` no `gui` à parte.
+  app_manifest` no `gui` à parte.
 - **O `cargo publish` do daemon demora** (recompila o pacote); se a chamada for interrompida, confira no
   crates.io (`cargo search rustploy`) antes de repetir.
 - **`install.sh --deb ARQUIVO`** instala um `.deb` local (teste de um build antes de existir release) e

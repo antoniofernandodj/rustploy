@@ -320,7 +320,7 @@ nenhuma leva só a casca). Um engano no cabeçalho é erro de parse — atributo
 desconhecido, tamanho que não seja par de números, widget dentro do
 `<resources>` — e não passa em silêncio. O teste
 `janelas_declaram_titulo_e_tamanho`
-(`tests/templates_render.rs`) trava os valores das janelas.
+(`rustploy-gui/tests/app_manifest.rs`) trava os valores das janelas.
 
 ### Toda feature de UI vive em dois lugares
 
@@ -421,7 +421,7 @@ luau-lsp analyze --base-luaurc=.luaurc \
   --definitions=rustploy-gui/views/scripts/glacier.d.luau <arquivo(s)>
 ```
 
-Não substitui `cargo test --test templates_render (no rustploy-gui)` (o runtime
+Não substitui `glacier test` e `cargo test --test app_manifest` (no rustploy-gui) (o runtime
 `mlua` de verdade), mas pega erro de caminho de módulo e de tipo em segundos.
 Para o VS Code, a extensão `johnnymorganz.luau-lsp` (config já versionada em
 `.luaurc` + `.vscode/settings.json`). O `glacier.d.luau` **precisa** do
@@ -521,10 +521,11 @@ de estado vazio (`fallback`) vão para o arquivo que os usa. O que aprendemos fa
   comum e continua interpolando `@nome`). Os outros dois jeitos não servem: `"…"`
   só aceita a quebra **literal** (não interpreta `\n`, e as linhas de continuação
   teriam de ficar coladas na margem), e `"""` dobra as linhas em espaços.
-- **Prove que nada mudou.** O `templates_render` só checa `render().is_ok()`: ele
-  não pega conteúdo que sumiu ou apareceu na aba errada (foi assim que o `if` na
-  raiz passou despercebido). Antes de mover markup, despeje a árvore avaliada
-  (`m.evaluated("app")`, `{:#?}`) de cada view/aba — um fator por vez: lista
+- **Prove que nada mudou.** Confira o conteúdo, não só que a tela sobe
+  (`tests/tela/render.test.luau`: `assert_has_text`, `tela:texts()`, `tela:find`) —
+  conteúdo que sumiu ou apareceu na aba errada (foi assim que o `if` na raiz passou
+  despercebido) só aparece olhando a árvore. Antes de mover markup, despeje a
+  árvore avaliada (`tela:render()` em Luau, ou `m.evaluated("app")` com `{:#?}`) de cada view/aba — um fator por vez: lista
   vazia/cheia, flags, `provider_tab`… — a partir do HEAD, repita depois e compare
   normalizando `node_id` (contador global) e o prefixo `Dono::`. O ideal é
   que seja **idêntico**. Cubra os estados vazios (`fallback`): os dados "de
@@ -642,7 +643,7 @@ resolve. O daemon não tem lib target, então seus testes ficam sob `--bins`.
 #                       cargo check --workspace
 # em rustploy-shared/:  cargo test
 # em rustploy-gui/:     cargo test --bins
-#                       cargo test --test templates_render   # runtime mlua real
+#                       cargo test --test app_manifest       # manifesto, estrutura dos .gvb, widgets do iced
 #                       glacier test                         # testes Luau (tests/**/*.test.luau)
 ```
 
