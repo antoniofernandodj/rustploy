@@ -469,6 +469,8 @@ configure_podman() {
 [Socket]
 SocketGroup=rustploy
 SocketMode=0660
+# O Podman 5 cria /run/podman com modo 0700: sem isto o usuário rustploy não chega ao socket.
+ExecStartPost=/bin/sh -c 'chgrp rustploy /run/podman && chmod 0750 /run/podman'
 UNIT
 
     # Acrescenta o podman.socket às dependências do unit (que só ordena depois do docker.service,

@@ -83,7 +83,10 @@ conversar com ele são precisas quatro coisas, e o instalador faz as quatro:
    `/etc/systemd/system/podman.socket.d/rustploy.conf` com
    `SocketGroup=rustploy`: um "drop-in", um pedaço de configuração que o
    systemd soma ao unit original do Podman *sem mexer nele* e que vale sempre
-   que o socket é criado.
+   que o socket é criado. O mesmo drop-in tem um `ExecStartPost=` que dá
+   `chgrp rustploy` + `chmod 0750` em `/run/podman`: o Podman 5 cria a pasta
+   com 0700 e, sem isso, o usuário rustploy não atravessa o diretório e o
+   rustployd morre com "Socket not found" mesmo com o socket no grupo certo.
 
 4. **Troca o motor no rustploy**, em dois lugares:
    - `/etc/systemd/system/rustployd.service.d/podman.conf` (outro drop-in, sobre
@@ -119,7 +122,7 @@ atualização, e os drop-ins ficam em `/etc/` e sobrevivem a ela.
 ```
 sudo apt install podman docker-compose-v2     # ou docker-compose-plugin / docker-compose
 sudo mkdir -p /etc/systemd/system/podman.socket.d /etc/systemd/system/rustployd.service.d
-printf '[Socket]\nSocketGroup=rustploy\nSocketMode=0660\n' | sudo tee /etc/systemd/system/podman.socket.d/rustploy.conf
+printf '[Socket]\nSocketGroup=rustploy\nSocketMode=0660\nExecStartPost=/bin/sh -c "chgrp rustploy /run/podman && chmod 0750 /run/podman"\n' | sudo tee /etc/systemd/system/podman.socket.d/rustploy.conf
 printf '[Unit]\nAfter=podman.socket\nWants=podman.socket\n[Service]\nEnvironment=RUSTPLOY_CONTAINER_ENGINE=podman\n' | sudo tee /etc/systemd/system/rustployd.service.d/podman.conf
 sudo sed -i 's|^socket_path *=.*|socket_path = "/run/podman/podman.sock"|' /etc/rustploy/config.toml
 sudo systemctl daemon-reload && sudo systemctl enable --now podman.socket && sudo systemctl restart podman.socket rustployd
