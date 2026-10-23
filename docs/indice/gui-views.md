@@ -57,7 +57,7 @@ handlers: window
 <component>
 imports: ServiceAdvancedTab, ServiceConnectionTab, ServiceDatabasesTab, ServiceDeploymentsTab, ServiceDomainsTab, ServiceEnvironmentTab, ServiceGeneralTab, ServiceHealthcheckTab, ServiceLogsTab, ServiceMigrarTab
 abas: general, connection, environment, domains, migrar, databases, deployments, healthcheck, logs, advanced
-handlers: open_export_window, open_logs_window, open_project, service_deploy, service_rebuild, service_reload, service_stop, tab
+handlers: open_export_window, open_logs_window, open_project, service_deploy, service_rebuild, service_reload, service_stop, service_warm, tab
 
 ### service_export_window.gvb — Janela "Exportar serviço": motor Glacier próprio, aberto por open_window a partir do app principal (…
 <screen "Exportar serviço — Rustploy">

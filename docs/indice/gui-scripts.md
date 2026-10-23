@@ -12,7 +12,6 @@ local base64_decode(input) — Aceita os dois alfabetos (`+`/`/` e `-`/`_`), com
 local trim(text)
 function M.address_of(url) — - `host:porta` de uma URL salva (`https://h:9797` → `h:9797`).
 function M.encode(url, token) — - Monta o token de conexão de um par salvo `{url, token}`.
-function M.decode(raw_key) — - `{ address, token }` do token de conexão (`address` = `host:porta`), ou - `nil` + o motivo (para o…
 function M.hint(url, key) — - Dica `host:porta · cnVzdH…TjQ=` de a qual servidor um token se refere.
 
 ### app.luau — ponto de entrada do `<script>` de app.gvb.
@@ -38,6 +37,10 @@ function M.parse_dotenv(text) — Parseia um blob .env em (vars, comments).
 function M.oauth_redirect_uri(base, provider_segment) — URI de callback OAuth que o usuário registra no app do provedor.
 function M.looks_like_git_url(url) — Heurística: a URL denota um repo Git (clonar+buildar) e não uma imagem.
 function M.normalize_url(raw) — Normaliza a entrada de URL do login para uma base HTTP(S) sem barra final.
+function M.decode_list(value) — Uma chave JSON do `ctx` pode ser a TABELA (gravada como tabela ou semeada com `json.array({})`) ou o…
+function M.is_true(value) — Um booleano do `ctx` chega como o `boolean` (um checkbox/toggle que o motor grava direto, ou `ctx.x …
+function M.is_false(value) — O par de `is_true`.
+function M.list_is_empty(value) — `true` se a chave JSON do `ctx` é uma lista vazia (ou não é uma lista legível).
 
 ### log_window.luau — script da JANELA de logs (runtime OU build) de um serviço/deployment, um motor Glacier próprio e ISO…
 local set_full() — Set COMPLETO do textarea a partir do buf (usado no seed e no corte).
@@ -47,13 +50,11 @@ function copy_ctx(key) — Botão "Copiar" da markup: copia a chave de contexto 
 function init()
 
 ### manifest_zip.luau — O `.zip` do Infra as Code: exatamente rustploy.yml + rustploy.vars.toml na raiz.
-local write(path, yaml, toml)
 local read(path) — Valida e lê o zip importado: exatamente um .yml/.yaml e um .toml, na raiz, e nada mais.
 
 ### new_job_window.luau — script da JANELA "Novo job", um motor Glacier próprio e ISOLADO do app principal (aberto via open_wi…
 local client()
 local decode(json_text)
-local unpack_recurrence(recurrence) — Recorrência (Option<Recurrence>, externally-tagged) → (kind, hours, hour, minute, weekday), pro form…
 function init()
 function field(key, value) — onChange dos inputs (mesma convenção `field:<chave>` do app principal).
 function new_job_source(kind)
@@ -105,24 +106,14 @@ types: DeployTrack, State
 
 ## rustploy-gui/views/scripts/format/
 
-### dashboard.luau — builders de lista do dashboard (deployments/projects/services/docker/ingress/monitoring/deploy engin…
+### dashboard.luau — builders de lista do dashboard (deployments/projects/ services/docker/ingress/monitoring/deploy engi…
 local grid_cols()
 function M.deployments(deployments, term) — Deployments (aba Deployments).
-local primary_container(service) — Escolhe o container "primário" de um serviço p/ exibir no card: o live, senão o primeiro em execução…
-local service_card(service, project_name, metrics, warm) — Card de serviço (com CPU/mem mesclados de `metrics_by_id[svc.id]`).
-function M.services(service_pairs, metrics, term) — Array plano de cards de serviço (para seleção/contagem).
-function M.service_rows(service_pairs, metrics, term) — Cards de serviço em linhas de N colunas (grid_cols), com filler (glacier não tem grid).
 local project_card(project, service_pairs) — Card de projeto, agregando contagem de serviços de `pairs_`.
-function M.projects(projects, service_pairs, term)
-function M.project_rows(projects, service_pairs, term)
 function M.docker_rows(service_pairs, term) — Linhas Docker (containers gerenciados) derivadas dos serviços, ordenadas.
-function M.docker_images(images, term, only_used) — `only_used`: o "Somente em uso" da aba — filtrado aqui porque a tabela (tableview) desenha toda linh…
-function M.docker_volumes(volumes, term, only_used)
-function M.docker_networks(networks, term, only_used)
 function M.docker_containers(containers, term) — Containers do host (DockerContainerInfo): todos, rodando + parados.
 function M.ingress(service_pairs) — Ingress: uma linha por rota de domínio (não filtrado pela busca).
 function M.host_ports(service_pairs) — Portas TCP de host: uma linha por serviço com `host_port` configurado — exposição direta de porta TC…
-function M.monitoring(service_pairs, metrics) — Monitoring: uma linha por serviço COM métricas vivas.
 local deploy_step_index(state)
 local deploy_stepper(info)
 local iso_to_epoch_seconds(iso_timestamp)
@@ -147,7 +138,6 @@ function M.recurrence_label(recurrence) — Resumo textual de uma `Recurrence?` 
 function M.run_status(run) — Rótulo/cor (mesmo esquema de StateCell) da última execução de um job.
 function M.service_warm_status(warm) — Aquecimento de um serviço com build (`ServiceWarmStatus`); `nil` = sem build, sem selo.
 function M.warm_status(warm) — Rótulo/cor (mesmo esquema de StateCell) do aquecimento de um job.
-function M.summaries(job_summaries, inflight) — Tela global "Schedules": uma linha por job, de todos os projetos.
 function M.pre_deploy_queue(spec, jobs) — Fila de checks de pré-deploy do serviço (aba Advanced), na ORDEM configurada, com o nome resolvido a…
 function M.pre_deploy_available(spec, jobs) — Jobs do projeto que AINDA NÃO estão na fila — opções do `<select>` de "adicionar à fila" (evita dupl…
 function M.runs(runs) — Histórico de execuções (`Command::JobRunHistory`) — usado pra listar runs e abrir "Ver logs" (log_wi…
@@ -163,7 +153,6 @@ function M.mask_webhook(url) — `https://host/webhook/<id>/<token>` → `https:
 local detail_line(service) — Linha especializada por tipo: o que importa de cada um num relance.
 local checks_text(checks)
 local matches(term, texts)
-function M.running(dashboard, metrics, term, revealed) — `dashboard`: `snapshot.dashboard`.
 
 ### service_detail.luau — builders da tela de detalhe de serviço (source, healthcheck, env vars, logs, deployments, domains, c…
 function M.containers(containers) — Lista de containers do serviço (id + nome + estado) → linhas para a UI de detalhe.
@@ -172,8 +161,6 @@ function M.source_summary_parts(source) — ServiceSource → (kind, detail, bui
 function M.healthcheck_summary(healthcheck) — Resumo de uma linha do healthcheck.
 local env_var_row(env_var) — Uma linha de var de ambiente (secret exibido por referência).
 function M.secret_rows(names) — Secrets do projeto como linhas JSON.
-function M.env_json_with_comments(vars, comments) — Env vars como linhas JSON, re-interleaving os comentários `# ...` ancorados (linha `__c<idx>`, idx =…
-function M.env_dotenv_with_comments(vars, comments) — Env vars como blob `.env` (KEY=VALUE, secrets por referência), com comentários.
 local log_rows(log_entries) — Linhas de log (LogEntry/BuildLogLine: {stream, line, timestamp}) coloridas, limpas de ANSI e limitad…
 function M.join_log_lines(log_entries) — Junta linhas de log num blob de texto ("HH:MM:SS line") p/ o TextArea/copiar.
 function M.deployments_detail(deployments) — Histórico de deployments de um serviço (aba Deployments).
@@ -181,11 +168,8 @@ function M.domains_json(spec) — Rotas HTTP de um spec (aba Domains).
 function M.safe_name(name) — normalize_name: minúsculas, não-alfanumérico → '_' (colapsado), trim '_'.
 local internal_scheme(db_kind)
 function M.compose_host(content, ingress_service) — Chave do serviço que recebe o tráfego dentro de um compose: `ingress_service` se declarado, senão a …
-function M.internal_url(db_kind, safe, port, compose_host) — `compose_host`: host do compose (ver `compose_host`) — para serviço Compose o hostname interno é a c…
 local url_host(api_url) — Extrai só o host (sem esquema/porta) de uma api_url tipo "https://1.2.3.4:8443".
 local env_plain(vars, key) — Valor Plain de uma env var pela chave (secrets/ausentes → nil).
-local database_credentials(db_kind, vars) — Credenciais (database/user/password) de um serviço de banco/broker, lidas das env vars nas mesmas co…
-local with_database_credentials(base, database, user, password) — Anexa `/database?user=…&password=…` a uma URL de banco, no formato pedido (query-params, ex.: postgr…
 local percent_encode(text) — Percent-encode de um componente de userinfo (user/password) — protege chars estruturais do URI (`@`,…
 local userinfo(user, password) — Monta a parte de userinfo `user:pass@` de uma URI RFC 3986. Casos: user+pass → "user:pass@"  |  só p…
 local external_scheme(database_kind) — Esquema de URI externo por banco (userinfo).
@@ -229,7 +213,6 @@ types: ColBudgets
 ### api.luau — cliente HTTP/JSON da API do daemon.
 function M.auth_headers(token) — - Só o header `Authorization` (tabela vazia quando não há token).
 function M:headers()
-function M.login(base_url, access_key) — - `POST /api/login`: troca o token de conexão pelo token da API.
 function M:rpc(command) — - Executa um Command.
 function M:rpc_checked(command) — - Como `rpc`, mas trata `Response::Err { code, message }` como falha.
 function M.new(base_url, token)

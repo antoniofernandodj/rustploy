@@ -1504,6 +1504,7 @@
 - README.md — rustploy-gui por dentro
 - build.rs — Build script: logos dos blueprints para o release, `.desktop` no `cargo install`…
 - glacier.jsonc
+- stylua.toml
 
 ### rustploy-gui/assets/
 - application.manifest
@@ -1522,7 +1523,7 @@
 - mod.rs — Rustploy (glacier-ui) — desktop client whose UI is described in XML templates an…
 
 ### rustploy-gui/tests/ → gui.md
-- templates_render.rs — Headless validation: every template parses, every screen/tab evaluates and build…
+- app_manifest.rs — O que o Luau não alcança: o manifesto do `app(...)` (título, tamanho e fontes da…
 
 ### rustploy-gui/tests/fixtures/ → gui.md
 - access_key_fixture.gvb — Fixture do teste access_key.rs: tela mínima que roda o access_key.luau e deixa o…
@@ -1556,6 +1557,7 @@
 
 ### rustploy-gui/tests/tela/ → gui.md
 - missing.test.luau — Toda chave que uma tela LÊ tem de ser publicada por alguém.
+- render.test.luau — O que a tela MOSTRA, não só o estado que os handlers escrevem.
 - running.test.luau
 
 ### rustploy-gui/tests/windows/ → gui.md
@@ -1656,7 +1658,7 @@
 - state.luau — estado mutável compartilhado entre todos os handlers/*.luau (mesmo interpretador…
 
 ### rustploy-gui/views/scripts/format/ → gui-scripts.md
-- dashboard.luau — builders de lista do dashboard (deployments/projects/services/docker/ingress/mon…
+- dashboard.luau — builders de lista do dashboard (deployments/projects/ services/docker/ingress/mo…
 - docker_cleanup.luau — resumo textual da limpeza automática de Docker (Settings → Manutenção).
 - git.luau — builders dos provedores/repositórios/branches Git conectados (Gitea/GitHub) — Se…
 - jobs.luau — formata Job/JobSummary/JobRun (tarefas one-shot via docker-compose) pra exibição…

@@ -136,7 +136,7 @@ JobWarm — Aquece o job (baixa as imagens que faltam e popula o cache de build)
 ServiceWarmStatusList — O status de aquecimento (`ServiceWarmStatus`) de todos os serviços com… | daemon: docker/docker_cleanup::service_warm_status_list | gui: — | web: —
 
 ## / `Event::ServiceWarmChanged`. Resposta: `ServiceWarmRequested`.
-ServiceWarm — Aquece o serviço: constrói a imagem dele na vaga única da fila, para o… | daemon: docker/docker_cleanup::service_warm | gui: — | web: —
+ServiceWarm — Aquece o serviço: constrói a imagem dele na vaga única da fila, para o… | daemon: docker/docker_cleanup::service_warm | gui: handlers/services | web: app
 
 ## Docker cleanup
 PruneContainers | daemon: docker/docker_prune::prune_containers | gui: handlers/docker | web: app
@@ -231,4 +231,4 @@ DeployQueuePause — Pausa (`true`) ou retoma (`false`) a fila global. | daemon:
 
 - Só GUI (1): JobList
 - Só webui (2): ServiceCreate, DeployRollback
-- Nem GUI nem webui (31): ServiceList, RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, SecretList, ManifestApply, ManifestExport, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, ServiceWarm, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList
+- Nem GUI nem webui (30): ServiceList, RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, SecretList, ManifestApply, ManifestExport, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList

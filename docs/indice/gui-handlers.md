@@ -12,8 +12,6 @@ function open_export_window(requested_service_id) — `id` vem do card de servi�
 ### bundle_import.luau — passo "Importar" do wizard "Novo serviço": recria aqui um serviço exportado de outro servidor.
 local choice_label(status_entry, choice)
 local options_for(status_entry)
-local parse_key_value_lines(text, target) — "CHAVE=valor" por linha ⇄ tabela.
-local key_value_text(keys, values_by_key)
 local nonempty(values)
 local build_import_request(dry_run)
 local load_providers(api)
@@ -164,8 +162,6 @@ function shared_disable()
 function shared_database_show(shared_database_id)
 function shared_database_create()
 function shared_database_delete(shared_database_id)
-local default_source_database(spec, project_env)
-function M.load_migration_state(spec, service_id, project_env)
 function migration_refresh()
 function migration_start()
 function migration_rollback()
@@ -187,7 +183,6 @@ function pre_deploy_check_delete(job_id)
 function pre_deploy_check_reorder(reorder_json) — Reordena a fila (arraste): `v` é um JSON array de job_ids na nova ordem (mesmo formato de `env_reord…
 function general_save()
 function archive_upload()
-local reorder_env(vars, comments, keys) — Aplica uma ordem de keys (vars + linhas `__c<idx>`) a vars/comments: vars reordenadas; cada comentár…
 function env_show_validation_errors(_erros_json) — on_validation_error do form(name = env_add) — a chave é `rules="required"`; o motor publica {error_e…
 function env_add()
 function env_delete(key)
@@ -207,6 +202,7 @@ function service_deploy()
 function service_rebuild()
 function service_reload()
 function service_stop()
+function service_warm() — Aquece o serviço (constrói a imagem para popular o cache de build) sem fazer deploy: o container no …
 function gitea_provider_pick(provider_id)
 function gitea_repo_pick(full_name)
 function open_logs_window() — Abre os logs ao vivo do serviço numa JANELA à parte (motor Glacier isolado e leve — ver log_window.g…
@@ -220,7 +216,6 @@ function git_provider_connect()
 function git_provider_delete(provider_id)
 local do_export(api, zip_path) — O corpo do export DEPOIS do diálogo — separado só para o `manifest_busy` ser ligado/desligado em vol…
 function manifest_export()
-local do_import(api, yaml, toml, prune, deploy)
 function manifest_import()
 local docker_cleanup_unpack_recurrence(recurrence) — Recorrência (Option<Recurrence>, externally-tagged) → (kind, hours, hour, minute, weekday) — mesmo f…
 local docker_cleanup_apply_config(config)
