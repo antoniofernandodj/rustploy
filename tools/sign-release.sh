@@ -75,7 +75,9 @@ for f in "${PKGS[@]}"; do
             pkg="$(dpkg-deb -f "$f" Package)"
             ver="$(dpkg-deb -f "$f" Version)"
             arch="$(dpkg-deb -f "$f" Architecture)"
-            [ "$ver" = "$VERSION" ] || die "$name: versão do pacote ($ver) difere da tag ($VERSION)"
+            # Sem comparar com a tag: a tag do agregador (v0.1.16) e a versão do pacote
+            # (0.1.10-1, crate + revisão do cargo-deb) são numerações diferentes. O que
+            # vale para o updater é a versão do próprio pacote, que vai no comentário assinado.
             ;;
         rustploy-gui-windows-*.zip)
             pkg="rustploy-gui-windows"; ver="$VERSION"; arch="amd64"

@@ -13,7 +13,8 @@ Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
   webpki-roots, sem reqwest), `features/update/`, `[update]` na config e o handler; aba
   "Atualizações" na GUI e na webui. Testada contra o GitHub de verdade (respondeu `v0.1.15`), com
   cache, repositório inexistente, repositório inválido e verificação desligada.
-- **Para fechar a fase 1 falta o *Publish*:** publicar `rustploy-update-core` 0.1.0 e `rustploy-shared`
+- **Publish da fase 1 (2026-10-25):** `rustploy-update-core` 0.1.0 e `rustploy-shared` 0.9.0 publicados; daemon 0.1.10 e GUI 0.1.20; docs pt/en atualizadas.
+- **Antes (histórico) faltava o *Publish*:** publicar `rustploy-update-core` 0.1.0 e `rustploy-shared`
   0.9.0 no crates.io *antes* do daemon (ele depende das duas), atualizar o `Cargo.lock` do daemon, bump
   do daemon e da GUI, commit/push dos submódulos e do agregador, release e docs. O banner de "versão
   nova" (selo discreto fora da aba) ficou de fora desta entrega.

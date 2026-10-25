@@ -64,6 +64,10 @@ compatibilidade em `rustploy-docs` (`instalacao/requisitos`). Mudou o container?
 
 ## Armadilhas que já apareceram
 
+- **A tag não é a versão do pacote.** A tag do agregador (`v0.1.16`) e a versão dos crates (`0.1.10`, `0.1.20`) são
+  numerações separadas, e o `cargo-deb` ainda acrescenta a revisão (`rustployd_0.1.10-1_amd64.deb`). Por isso o
+  `tools/sign-release.sh` não compara a versão do `.deb` com a tag.
+
 - **O job `release` era pulado.** O `sign-gui-windows` (opcional) é pulado sem SignPath, e o `if` padrão
   (`success()`) exige sucesso de **todos os ancestrais**. O job usa `always()` com a checagem explícita
   de cada `needs.<job>.result`.
