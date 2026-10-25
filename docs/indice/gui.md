@@ -288,6 +288,7 @@ function test_bundle_exportar_servico__sem_conexao_ou_sem_servico_escolhido() �
 function test_atualizacoes__o_init_semeia_as_chaves_e_a_aba() — Aba Atualizações (Command::CheckUpdate).
 function test_atualizacoes__verificar_sem_conexao_nao_faz_nada() — - verificar sem conexão não faz nada
 function test_atualizacoes__o_init_nao_pisa_no_resultado_anterior() — - o init não pisa numa consulta que já estava no contexto
+function test_atualizacoes__atualizar_e_reverter_sem_conexao_nao_fazem_nada() — - atualizar e reverter sem conexão não fazem nada (nem pedem confirmação)
 
 ### nav.test.luau — Navegação da sidebar, abas e busca (handlers/nav.luau), sem conexão.
 local nova()

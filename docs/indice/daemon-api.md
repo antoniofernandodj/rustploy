@@ -269,6 +269,9 @@ fn dispatch(state, cmd) -> RpResponse
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/observability/
 
+### apply_update.rs — `Command::ApplyUpdate`: atualiza o daemon para a última release estável.
+fn handle(state, allow_active_deploys) -> RpResponse
+
 ### check_update.rs — `Command::CheckUpdate`: há release mais nova que este daemon? Só consulta, nunca instala.
 fn handle(state, force) -> RpResponse
 
@@ -289,6 +292,10 @@ fn dispatch(state, cmd) -> RpResponse
 
 ### ping.rs — `Command::Ping`: responde `Pong` com o uptime.
 fn handle(state) -> RpResponse
+
+### update_status.rs — `Command::UpdateStatus`: o passo da atualização em curso, ou o resultado da última.
+fn handle(state) -> RpResponse
+fn rollback(state) -> RpResponse — `Command::UpdateRollback`: o helper restaura os binários do último backup.
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/projects/
 

@@ -20,16 +20,22 @@ procuram os arquivos pelo padrão do nome, então nada precisa ser editado a cad
 ## Passo a passo
 
 1. Tudo commitado e enviado (submódulos primeiro, depois o agregador com os ponteiros).
-2. **Teste sem publicar:** `gh workflow run release.yml --ref main`. O job `release` só roda em tag,
+2. **Mexeu no updater** (`rustployd-update`, `update-core`, as units ou o `postinst`)? Rode antes o teste de ponta a ponta:
+   `rustploy-daemon/crates/daemon/tests/e2e-updater/run.sh` (uns 4 minutos; precisa de podman, minisign e socat). Ele sobe um
+   contêiner com systemd de verdade, instala pacotes de mentira assinados com uma chave descartável e confere 11 cenários: caminho
+   feliz, assinatura de outra chave, outro produto, downgrade, caminho fora do diretório, `postinst` que falha, daemon que cai em
+   laço (volta atrás sozinho), rollback manual e sem backup. O helper de teste só difere do real na chave embutida, definida em
+   tempo de compilação por `RUSTPLOY_E2E_TRUSTED_KEY` (o CI e o `make deb` nunca a definem; um teste confere).
+3. **Teste sem publicar:** `gh workflow run release.yml --ref main`. O job `release` só roda em tag,
    então isso só compila e guarda os pacotes como artefatos (`gh run download <id>`).
-3. Confira os artefatos (`dpkg-deb -I` mostra `Depends`, inclusive a versão mínima da `libc6`).
-4. `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z` faz o CI compilar e criar a release como
+4. Confira os artefatos (`dpkg-deb -I` mostra `Depends`, inclusive a versão mínima da `libc6`).
+5. `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z` faz o CI compilar e criar a release como
    **rascunho** (ela ainda não aparece em `releases/latest`).
-5. **Assine e publique:** `tools/sign-release.sh vX.Y.Z`. O script baixa os pacotes do rascunho, confere o
+6. **Assine e publique:** `tools/sign-release.sh vX.Y.Z`. O script baixa os pacotes do rascunho, confere o
    `checksums.sha256`, assina cada `.deb` e o zip do Windows com a sua chave (pede a senha a cada
    arquivo), confere cada assinatura com a chave pública, sobe os `.minisig` e publica. Use
    `--dry-run` para só assinar, ou `--no-publish` para subir as assinaturas e deixar o rascunho.
-6. Teste o comando de uma linha de verdade num Debian limpo (`docker run debian:12`).
+7. Teste o comando de uma linha de verdade num Debian limpo (`docker run debian:12`).
 
 ## Assinatura dos pacotes
 

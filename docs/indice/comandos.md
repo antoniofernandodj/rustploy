@@ -191,6 +191,15 @@ DeployEngineStatus | daemon: deploys/deploy_engine_status | gui: — | web: —
 ## / Resposta: `UpdateInfo` (ou `Err` com `UpdateCheckFailed` se o GitHub não responder).
 CheckUpdate — Pergunta ao GitHub se há release mais nova que o daemon. | daemon: observability/check_update | gui: handlers/settings | web: app
 
+## / O agente MCP só pode usar se `[update] allow_agent_apply = true`. Resposta: `Ok`.
+ApplyUpdate — Atualiza o daemon para a última release **estável** (a que o `CheckUpd… | daemon: observability/apply_update | gui: handlers/settings | web: app
+
+## / Estado da atualização em curso, ou o resultado da última. Resposta: `UpdateProgress`.
+UpdateStatus — Estado da atualização em curso, ou o resultado da última. | daemon: observability/update_status | gui: handlers/settings | web: app
+
+## / uma versão menor). Mesma trava do agente MCP que `ApplyUpdate`. Resposta: `Ok`.
+UpdateRollback — Volta os binários para os do backup da última atualização (o único cam… | daemon: observability/update_status::rollback | gui: handlers/settings | web: app
+
 ## Git providers (Gitea OAuth2 / PAT)
 GitProviderList | daemon: git/git_provider_list | gui: handlers/bundle_import, handlers/connection, handlers/jobs, handlers/services, handlers/settings, new_job_window | web: app, screens/service_bundle, screens/service_detail
 GitProviderCreate | daemon: git/git_provider_create | gui: handlers/settings | web: app

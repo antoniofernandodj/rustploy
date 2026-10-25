@@ -173,6 +173,8 @@ impl Default for GitSource
 
 ### update.rs — Verificação de versão: o que o daemon responde a `Command::CheckUpdate`.
 struct UpdateInfo { current_version, latest_version, is_update_available, release_url, published_at, checked_at } — Resultado de comparar a versão do daemon com a última release publicada.
+enum UpdateStage { Idle, Downloading, Installing, RollingBack, Succeeded, Failed, RolledBack } — Em que ponto está a atualização do daemon pedida por `Command::ApplyUpdate`.
+struct UpdateProgress { stage, target_version, message, is_helper_available, finished_at } — Resposta de `Command::UpdateStatus`.
 
 ### wizard.rs
 struct WizardCreateReq { kind, id, project_id, name, app_name, db_name, user, password, root_password, image, use_replica, template_values, expose_external } — Campos coletados pelo wizard no cliente; o daemon (`WizardCreate`) resolve o `kind`/`id` e monta o `…
@@ -180,8 +182,8 @@ struct WizardCreateReq { kind, id, project_id, name, app_name, db_name, user, pa
 ## rustploy-shared/src/protocol/
 
 ### command.rs — `Command`: tudo o que o cliente pede ao daemon.
-enum Command { ProjectCreate, ProjectDelete, ProjectUpdate, ProjectList, ProjectEnvSet, ServiceCreate, ServiceUpdate, ServiceDelete, ServiceList, ServiceGet, DeployStart, DeployAbort, DeployRollback, DeployHistory, DeployDelete, ServiceStop, ServiceReload, RecentDeployments, GetBuildLogs, LogsGet, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, ServiceConnectionInfo, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, ManagedDatabaseList, ManagedDatabaseCreate, ManagedDatabaseDelete, ManagedDatabaseListAll, MigrationStart, MigrationGet, MigrationList, MigrationRollback, MigrationDiscard, GetWebhookUrl, RegenerateWebhookToken, GetDaemonSettings, SetDaemonSettings, SecretSet, SecretDelete, SecretList, ManifestApply, ManifestExport, ManifestExportAll, ManifestImport, ServiceExportPlan, ServiceExport, ServiceImport, JobCreate, JobUpdate, JobDelete, JobList, JobListAll, JobRunNow, JobRunCancel, JobRunHistory, GetJobLogs, JobWarmStatus, JobWarm, ServiceWarmStatusList, ServiceWarm, PruneContainers, PruneVolumes, PruneImages, PruneBuildCache, PruneNetworks, DockerCleanupConfigGet, DockerCleanupConfigSet, DockerCleanupRunNow, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, RemoveContainer, RemoveImage, RemoveVolume, RemoveNetwork, StopAllManaged, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DaemonStatus, DeployEngineStatus, CheckUpdate, GitProviderList, GitProviderCreate, GitProviderDelete, GitOAuthStart, GitRepoList, GitBranchList, WizardCatalog, WizardCreate, Snapshot, RegistryStatus, RegistryRepoList, RegistryTagList, RegistryTagDelete, RegistryRepoDelete, RegistryGc, RegistryTokenCreate, RegistryTokenList, RegistryTokenRevoke, DeployQueuePromote, DeployQueueReorder, DeployQueuePause }
-(3 testes)
+enum Command { ProjectCreate, ProjectDelete, ProjectUpdate, ProjectList, ProjectEnvSet, ServiceCreate, ServiceUpdate, ServiceDelete, ServiceList, ServiceGet, DeployStart, DeployAbort, DeployRollback, DeployHistory, DeployDelete, ServiceStop, ServiceReload, RecentDeployments, GetBuildLogs, LogsGet, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, ServiceConnectionInfo, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, ManagedDatabaseList, ManagedDatabaseCreate, ManagedDatabaseDelete, ManagedDatabaseListAll, MigrationStart, MigrationGet, MigrationList, MigrationRollback, MigrationDiscard, GetWebhookUrl, RegenerateWebhookToken, GetDaemonSettings, SetDaemonSettings, SecretSet, SecretDelete, SecretList, ManifestApply, ManifestExport, ManifestExportAll, ManifestImport, ServiceExportPlan, ServiceExport, ServiceImport, JobCreate, JobUpdate, JobDelete, JobList, JobListAll, JobRunNow, JobRunCancel, JobRunHistory, GetJobLogs, JobWarmStatus, JobWarm, ServiceWarmStatusList, ServiceWarm, PruneContainers, PruneVolumes, PruneImages, PruneBuildCache, PruneNetworks, DockerCleanupConfigGet, DockerCleanupConfigSet, DockerCleanupRunNow, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, RemoveContainer, RemoveImage, RemoveVolume, RemoveNetwork, StopAllManaged, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DaemonStatus, DeployEngineStatus, CheckUpdate, ApplyUpdate, UpdateStatus, UpdateRollback, GitProviderList, GitProviderCreate, GitProviderDelete, GitOAuthStart, GitRepoList, GitBranchList, WizardCatalog, WizardCreate, Snapshot, RegistryStatus, RegistryRepoList, RegistryTagList, RegistryTagDelete, RegistryRepoDelete, RegistryGc, RegistryTokenCreate, RegistryTokenList, RegistryTokenRevoke, DeployQueuePromote, DeployQueueReorder, DeployQueuePause }
+(4 testes)
 
 ### event.rs — `Event`: o que o SSE entrega ao cliente.
 enum Event { DeployStateChanged, DeployProgress, BuildLog, LogLine, ContainerMetrics, SystemMetrics, ServiceStatusChanged, DaemonReady, Error, JobLogLine, JobRunStateChanged, DeployQueueChanged, DockerCleanupCompleted, JobWarmChanged, ServiceWarmChanged }
@@ -196,13 +198,58 @@ struct BuildLogLine { stream, line, timestamp }
 ### mod.rs — Protocolo da API: `Command` (o que o cliente pede), `Response` e `Event` (o que o SSE entrega).
 
 ### response.rs — `Response`: a resposta a cada `Command`.
-enum Response { Ok, Project, Projects, Service, Services, Deployment, Deployments, Logs, BuildLogs, DeploymentSummaries, DaemonStatus, UpdateInfo, DeployEngineStatus, Pong, WebhookUrl, SharedAccessList, Migration, Migrations, ManagedDatabases, ConnectionInfo, DaemonSettings, SecretNames, ManifestReport, Manifest, ManifestBundle, ServiceExportPlan, ServiceBundleYaml, ServiceImportReport, MissingEnvVars, GitProviders, GitProviderInfo, OAuthUrl, GitRepos, GitBranches, PruneResult, DockerCleanupConfig, EnvBackupSnapshots, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, StopAllResult, IngressRoutes, WizardCatalog, Snapshot, Job, Jobs, JobSummaries, JobRun, JobRuns, JobLogs, JobWarmStatus, JobWarmRequested, ServiceWarmStatuses, ServiceWarmRequested, RegistryStatus, RegistryRepos, RegistryTags, RegistryGcResult, RegistryTokenCreated, RegistryTokens, Err }
+enum Response { Ok, Project, Projects, Service, Services, Deployment, Deployments, Logs, BuildLogs, DeploymentSummaries, DaemonStatus, UpdateInfo, UpdateProgress, DeployEngineStatus, Pong, WebhookUrl, SharedAccessList, Migration, Migrations, ManagedDatabases, ConnectionInfo, DaemonSettings, SecretNames, ManifestReport, Manifest, ManifestBundle, ServiceExportPlan, ServiceBundleYaml, ServiceImportReport, MissingEnvVars, GitProviders, GitProviderInfo, OAuthUrl, GitRepos, GitBranches, PruneResult, DockerCleanupConfig, EnvBackupSnapshots, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, StopAllResult, IngressRoutes, WizardCatalog, Snapshot, Job, Jobs, JobSummaries, JobRun, JobRuns, JobLogs, JobWarmStatus, JobWarmRequested, ServiceWarmStatuses, ServiceWarmRequested, RegistryStatus, RegistryRepos, RegistryTags, RegistryGcResult, RegistryTokenCreated, RegistryTokens, Err }
 impl Response
   fn err(code, message) -> Self
 
 ## rustploy-shared/update-core/src/
 
+### dpkg_version.rs — Comparação de versões de **pacote Debian** (`1:0.1.10-1`), pelo algoritmo da política Debian (o mesm…
+struct DpkgVersionError { input }
+struct Parts { epoch, upstream, revision }
+fn split(version) -> Result<Parts<'_>, DpkgVersionError>
+fn order(byte) -> i32 — Peso de um caractere que não é dígito: `~` vem antes de tudo (até do fim da string), letras vêm ante…
+fn compare_part(left, right) -> Ordering
+fn compare(left, right) -> Result<Ordering, DpkgVersionError> — Compara duas versões de pacote Debian (época, depois upstream, depois revisão).
+fn is_newer(candidate, installed) -> Result<bool, DpkgVersionError> — `true` se `candidate` é **estritamente** mais nova que `installed`.
+impl fmt::Display, std::error::Error for DpkgVersionError
+(5 testes)
+
 ### lib.rs — Lógica de atualização comum ao daemon e ao app: um só lugar decide se uma versão é mais nova que out…
+
+### outcome.rs — O resultado da última atualização, gravado pelo updater (root) e lido pelo daemon depois de reinicia…
+enum OutcomeKind { InProgress, Installed, Failed, RolledBack }
+struct UpdateOutcome { package, version, kind, message, at_unix }
+impl UpdateOutcome
+  fn new(package, version, kind, message) -> Self
+fn write_outcome(path, outcome) -> io::Result<()> — Grava de forma atômica (arquivo temporário + `rename`) e legível por todos: o daemon (usuário `rustp…
+fn read_outcome(path) -> io::Result<Option<UpdateOutcome>> — `None` se ainda não houve nenhuma atualização; erro se o arquivo existir e estiver ilegível.
+(3 testes)
+
+### package.rs — A decisão "este pacote assinado pode ser instalado aqui?", como função pura: cruza o que a **assinat…
+struct PackageFacts { package, version, architecture } — Campos lidos do `.deb` com `dpkg-deb -f <arquivo> Package Version Architecture`.
+struct Expectations { package, machine_architecture, installed_version } — O que este updater aceita instalar.
+enum PackageError { WrongPackage, ClaimsMismatch, WrongArchitecture, NotNewer, BadVersion, UnreadableFields }
+fn parse_dpkg_fields(output) -> Result<PackageFacts, PackageError> — Lê a saída de `dpkg-deb -f <arquivo> Package Version Architecture` (linhas `Campo: valor`, em qualqu…
+fn check_package(claims, facts, expectations) -> Result<(), PackageError> — Recusa se qualquer regra falhar.
+impl fmt::Display, std::error::Error for PackageError
+(7 testes)
+
+### signature.rs — Verificação da assinatura minisign de um pacote e leitura do comentário confiável.
+const TRUSTED_PUBLIC_KEYS — Chaves públicas em que os updaters confiam: a atual e, na hora de rotacionar, a próxima (uma versão …
+struct SignedClaims { package, version, arch } — O que a assinatura afirma sobre o arquivo assinado.
+enum SignatureError { NoTrustedKeys, BadTrustedKey, MalformedSignature, NotTrusted, MissingClaims }
+fn verify(data, signature_text, public_keys) -> Result<SignedClaims, SignatureError> — Confere `data` contra `signature_text` (o conteúdo do `.minisig`) usando as chaves dadas e devolve o…
+fn parse_claims(trusted_comment) -> Result<SignedClaims, SignatureError>
+impl fmt::Display, std::error::Error for SignatureError
+(10 testes)
+
+### staging.rs — Cópia segura do pacote para um diretório que só o root controla.
+enum StagingError { OutsideAllowedDir, BadFileName, NotRegularFile, TooLarge, Io }
+fn is_plain_file_name(name) -> bool
+fn stage_file(source, allowed_dir, staging_dir, max_bytes) -> Result<PathBuf, StagingError> — Copia `source` para `staging_dir` (criado `0700`, cópia `0600`) e devolve o caminho da cópia.
+impl fmt::Display, std::error::Error, From<io::Error> for StagingError
+(9 testes)
 
 ### version.rs — Comparação de versões de release (semver), tolerante ao `v` das tags.
 struct VersionError { input } — A entrada não é uma versão semver (depois de tirar espaços e o `v`/`V` inicial).

@@ -13,6 +13,12 @@ Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
   webpki-roots, sem reqwest), `features/update/`, `[update]` na config e o handler; aba
   "Atualizações" na GUI e na webui. Testada contra o GitHub de verdade (respondeu `v0.1.15`), com
   cache, repositório inexistente, repositório inválido e verificação desligada.
+- **Fase 2 (updater do daemon), 2026-10-25:** implementada. `update-core` 0.2.0 (assinatura, dpkg, pacote, staging, outcome),
+  `rustployd-update` (helper root por socket, units, `postinst`), `ApplyUpdate`/`UpdateStatus`/`UpdateRollback` no daemon
+  com snapshot do banco, download com redirecionamento só para hosts do GitHub, trava do agente MCP; botões nas duas UIs.
+  Testada com 304 testes do daemon, 19 do helper, 40 do `update-core` e um **teste de ponta a ponta com systemd, dpkg e socket
+  reais** (`tests/e2e-updater/run.sh`, 11 cenários). **Ainda sem prova em produção:** o fluxo completo com download do GitHub
+  só pode ser exercitado quando houver duas releases com o helper (a primeira já nasce com ele).
 - **Publish da fase 1 (2026-10-25):** `rustploy-update-core` 0.1.0 e `rustploy-shared` 0.9.0 publicados; daemon 0.1.10 e GUI 0.1.20; docs pt/en atualizadas.
 - **Antes (histórico) faltava o *Publish*:** publicar `rustploy-update-core` 0.1.0 e `rustploy-shared`
   0.9.0 no crates.io *antes* do daemon (ele depende das duas), atualizar o `Cargo.lock` do daemon, bump

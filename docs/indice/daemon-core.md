@@ -58,6 +58,68 @@ fn ufw_active() -> Option<bool> — `Some(true)` = ufw instalado e ativo; `Some(
 fn apply_ufw(port, allow) -> Response
 impl Default for PortRange
 
+## rustploy-daemon/crates/daemon/src/bin/rustployd-update/
+
+### install.rs — A instalação de um pacote assinado, em duas fases:
+struct Paths { allowed_dir, state_dir, managed_binaries } — Onde o updater lê e escreve.
+impl Paths
+  fn staging_dir() -> PathBuf
+  fn backup_dir() -> PathBuf
+  fn outcome_file() -> PathBuf
+  fn lock_file() -> PathBuf
+struct Settings { package, service, trusted_keys, max_deb_bytes, poll_interval, stable_polls, max_polls }
+struct Updater { paths, settings, system }
+struct RollbackPlan { _lock, previous_version } — Um rollback já aprovado.
+struct Prepared { _lock, staged_deb, staged_signature, facts } — Um pacote já aprovado.
+impl Updater<'_, S>
+  fn prepare(deb, signature_path) -> Result<Prepared, String>
+  fn acquire_lock() -> Result<fs::File, String>
+  fn verify_and_check(deb, signature_path, known_version)
+  fn installed_version() -> Result<Option<String>, String>
+  fn execute(prepared) -> UpdateOutcome
+  fn prepare_rollback() -> Result<RollbackPlan, String> — Fase 1 do rollback: só **recusa** (trava e backup existente), sem mexer em nada.
+  fn execute_rollback(plan) -> UpdateOutcome — Fase 2: volta os binários para os do último backup (o único caminho que aceita uma versão menor), re…
+  fn rollback() -> Result<UpdateOutcome, String> — As duas fases juntas (nos testes não há cliente esperando uma resposta no meio).
+  fn finish(prepared, version, kind, message) -> UpdateOutcome
+  fn record(version, kind, message) — Grava o resultado.
+  fn run_checked(program, args, envs) -> Result<CommandOutput, String>
+  fn backup_binaries() -> Result<(), String>
+  fn restore_and_restart() -> Result<(), String>
+  fn wait_until_stable() -> bool — `true` se o serviço ficou `active` por `stable_polls` checagens seguidas.
+fn backup_file(backup_dir, binary) -> Option<PathBuf>
+fn replace_atomically(source, target) -> io::Result<()> — Troca `target` por uma cópia de `source` sem nunca deixá-lo pela metade: copia para um nome ao lado …
+fn restore_note(restored) -> String
+fn tail(output) -> String — Últimas linhas do que o comando disse, para a mensagem que a pessoa vai ler.
+const MAX_SIGNATURE_BYTES
+(12 testes)
+
+### main.rs — `rustployd-update` — o helper root que instala pacotes **assinados** do rustploy.
+fn listener() -> (UnixListener, bool) — Socket herdado do systemd (LISTEN_FDS, fd 3) ou, em desenvolvimento, criado em `$RUSTPLOY_UPDATE_SOC…
+fn trusted_keys() -> Vec<String> — As chaves em que este helper confia: as de produção embutidas em `update-core`.
+fn directory(variable, default, development) -> PathBuf
+fn main()
+fn serve(stream, updater)
+fn handle_line(updater, line, reply) — Um pedido.
+const ALLOWED_DIR, STATE_DIR, MAX_DEB_BYTES, MAX_REQUEST_BYTES
+(4 testes)
+
+### protocol.rs — O protocolo do socket: uma linha JSON por pedido, uma de resposta.
+enum Request { Install, Rollback }
+struct Response { ok, version, error }
+impl Response
+  fn accepted(version) -> Self
+  fn failed(error) -> Self
+  fn to_line() -> String
+(3 testes)
+
+### system.rs — Tudo que o updater pede ao sistema (rodar comando, esperar) passa por aqui, para os testes trocarem …
+struct CommandOutput { success, stdout, stderr }
+trait System
+  fn run(program, args, envs) -> io::Result<CommandOutput> — Roda `program` com `args`, num ambiente limpo (só `PATH`, `LANG` e `envs`).
+  fn sleep(duration)
+struct RealSystem
+impl System for RealSystem: run, sleep
+
 ## rustploy-daemon/crates/daemon/src/bootstrap/
 
 ### config.rs — Resolução de diretórios (banco, chave mestra) com fallback para o home e inicialização do log.
@@ -77,7 +139,7 @@ fn run() -> Result<()> — Sobe o daemon inteiro e segura o processo (encerramen
 
 ### state.rs — Estado compartilhado do daemon (`AppState`) e os caches do inventário Docker.
 type OAuthStates = Arc<Mutex<HashMap<String, String>>> — Pending OAuth handshakes: CSRF `state` → `provider_id`, consumed by the `/oauth/gitea/callback` rout…
-struct AppState { db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, started_at, oauth_states, active_deploys, active_jobs, warming_jobs, warming_services, deploy_queue, docker_cache, registry_storage, registry_internal_token, update_checker }
+struct AppState { db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, started_at, oauth_states, active_deploys, active_jobs, warming_jobs, warming_services, deploy_queue, docker_cache, registry_storage, registry_internal_token, update_checker, update_applier }
 impl AppState
   fn new(db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, update, registry_storage, registry_internal_token) -> Self
   fn deploy_ctx() -> DeployContext
@@ -100,7 +162,7 @@ const CONFIG — Process-wide configuration singleton.
 struct EnvBackupConfig { dir, interval_secs }
 fn default_env_backup_interval() -> u64
 struct RustployConfig { daemon, ingress, docker, deploy, metrics, secrets, api, env_backup, external_ports, registry, update }
-struct UpdateConfig { enabled, repo, cache_hours } — Verificação de versão nova (`Command::CheckUpdate`).
+struct UpdateConfig { enabled, repo, cache_hours, allow_agent_apply } — Verificação de versão nova (`Command::CheckUpdate`).
 fn default_update_enabled() -> bool
 fn default_update_repo() -> String
 fn default_update_cache_hours() -> u64
@@ -180,7 +242,13 @@ fn split_https_url(url) -> Result<UrlParts>
 fn tls_connector() -> Result<TlsConnector>
 fn get(url, headers, timeout, max_body_bytes) -> Result<HttpsResponse> — `GET url` com os cabeçalhos dados.
 fn get_inner(url, headers, max_body_bytes) -> Result<HttpsResponse>
-(6 testes)
+fn open(url, headers) — Conecta, faz o `GET` e devolve status, cabeçalhos e o corpo **ainda por ler**.
+fn host_allowed(host, allowed) -> bool — `host` é um dos `allowed` ou um subdomínio de algum (`objects.githubusercontent.com` casa com `githu…
+fn redirect_target(status, headers) -> Result<Option<String>> — Para onde seguir depois desta resposta: `None` se não é redirecionamento.
+fn download(url, headers, destination, max_bytes, timeout, allowed_hosts) -> Result<()> — Baixa `url` para `destination`, seguindo até [`MAX_REDIRECTS`] redirecionamentos, **somente para hos…
+fn download_inner(url, headers, partial, max_bytes, allowed_hosts) -> Result<()>
+const MAX_REDIRECTS
+(9 testes)
 
 ### log_sink.rs — Destino das linhas de log de build/job: o motor de containers escreve aqui sem saber que existe banc…
 trait LogSink

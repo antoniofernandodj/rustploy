@@ -313,13 +313,56 @@ impl std::fmt::Debug for Template
 
 ## rustploy-daemon/crates/daemon/src/features/update/
 
+### apply.rs — `ApplyUpdate`: baixa o pacote assinado e o entrega ao helper root `rustployd-update`.
+const HELPER_SOCKET — Onde o helper escuta (`rustployd-update.socket`).
+const UPDATES_DIR — Único diretório de onde o helper aceita um `.deb`; o daemon escreve aqui.
+const OUTCOME_FILE — Resultado da última instalação, gravado pelo helper (legível por todos).
+const DOWNLOAD_HOSTS — Os arquivos de uma release do GitHub saem de github.com e redirecionam para `*.githubusercontent.com…
+const SNAPSHOTS_KEPT — Quantos snapshots do banco ficam (os mais recentes).
+const STALE_IN_PROGRESS_SECS — Um "instalando" mais velho que isto é resto de um helper que morreu, não uma instalação viva.
+struct HelperPaths { socket, updates_dir, outcome_file }
+struct ApplyState { stage, target_version, message, started_unix, finished_at }
+impl ApplyState
+  fn idle() -> Self
+struct UpdateApplier { paths, allow_agent_apply, state }
+struct ApplyPlan { release, repo, db, snapshots_dir, current_version } — Tudo de que a tarefa de fundo precisa (ela sobrevive ao handler que a disparou).
+fn now_unix() -> u64
+impl UpdateApplier
+  fn new(config) -> Self
+  fn with_paths(config, paths) -> Self
+  fn allow_agent_apply() -> bool — `[update] allow_agent_apply`: se o agente MCP pode pedir `ApplyUpdate`/`UpdateRollback`.
+  fn is_helper_available() -> bool — O helper existe nesta máquina? (Sem systemd ou instalação por `cargo`, o socket não existe.)
+  fn try_begin(target_version) -> Result<(), String> — Marca o início de uma tentativa.
+  fn set(stage, message)
+  fn status(running_version) -> UpdateProgress — O que a UI mostra: o passo em memória e, depois do reinício (ou quando o helper já terminou), o que …
+  fn run(plan) — Roda a atualização inteira em segundo plano; qualquer erro vira `Failed` com a causa.
+  fn run_steps(plan) -> Result<(), String>
+  fn rollback() -> Result<(), String> — `UpdateRollback`: pede ao helper que restaure os binários do último backup.
+fn from_outcome(outcome, target_version, running_version, from_this_attempt)
+fn package_matches_running(package_version, running_version) -> bool — `0.1.10-1` (versão do pacote) casa com `0.1.10` (versão do crate em execução).
+fn deb_architecture() -> Result<&'static str, String> — Arquitetura no vocabulário do Debian, a que aparece no nome do `.deb`.
+fn deb_architecture_of(rust_arch) -> Result<&'static str, String>
+fn select_assets(release, repo, architecture) — O `.deb` do daemon e a `.minisig` dele, desta arquitetura, **dentro do repositório configurado** (um…
+fn prepare_updates_dir(directory) -> std::io::Result<()> — Cria o diretório e tira o que sobrou de tentativas anteriores (pacote velho não pode ser confundido …
+fn snapshot_database(db, directory, tag) -> Result<PathBuf, String> — Cópia consistente do banco **em uso** (`VACUUM INTO`), antes de a versão nova poder migrar o esquema…
+fn unique_path(path) -> PathBuf
+fn prune_snapshots(directory)
+fn helper_io_error(error) -> String — Um helper que cai no meio (ou fecha antes de ler) aparece como conexão resetada/quebrada: para quem …
+struct HelperReply { ok, error }
+fn helper_call(socket, request, timeout) -> Result<HelperReply, String> — Uma linha JSON para o helper e uma de volta (ver `src/bin/rustployd-update/protocol.rs`).
+const MAX_DEB_BYTES, MAX_SIGNATURE_BYTES, DOWNLOAD_TIMEOUT, HELPER_ACCEPT_TIMEOUT
+impl Default for HelperPaths
+(20 testes)
+
 ### checker.rs — `UpdateChecker`: compara a versão do daemon com a última release, com cache.
 const FORCE_MIN_SPACING — Uma consulta *forçada* ("Verificar agora") ainda respeita este intervalo mínimo: um botão clicado em…
-struct Cached { fetched_at, info }
+struct Cached { fetched_at, info, release }
 struct UpdateChecker { enabled, repo, ttl, force_spacing, cached }
 impl UpdateChecker
   fn new(config) -> Self
   fn with_timings(config, ttl, force_spacing) -> Self
+  fn cached_release() -> Option<LatestRelease> — A última release vista por [`check`](Self::check), com os arquivos dela.
+  fn repo() -> &str — O repositório consultado (`dono/nome`); `ApplyUpdate` só baixa de URLs dele.
   fn check(force) -> Result<UpdateInfo> — Consulta o GitHub de verdade (a menos que o cache sirva).
   fn check_with(force, current_version, fetch) -> Result<UpdateInfo>
 fn build_info(current_version, release) -> Result<UpdateInfo>
@@ -327,8 +370,10 @@ fn build_info(current_version, release) -> Result<UpdateInfo>
 
 ### github_release.rs — A última release estável de um repositório do GitHub (`GET /repos/{repo}/releases/latest`).
 const MAX_BODY_BYTES — O JSON de uma release cabe em poucos KB; o teto só protege de uma resposta absurda.
-struct LatestRelease { tag, url, published_at }
-struct ReleasePayload { tag_name, html_url, published_at }
+struct ReleaseAsset { name, url } — Um arquivo anexado à release (`rustployd_0.1.10-1_amd64.deb`, o `.minisig`…).
+struct LatestRelease { tag, url, published_at, assets }
+struct ReleasePayload { tag_name, html_url, published_at, assets }
+struct AssetPayload { name, browser_download_url }
 fn is_valid_repo(repo) -> bool — `dono/nome`, só com os caracteres que o GitHub aceita.
 fn fetch_latest_owned(repo) -> Result<LatestRelease> — Versão que recebe a `String` por valor, para o `future` não emprestar nada do chamador.
 fn fetch_latest(repo) -> Result<LatestRelease>

@@ -207,12 +207,14 @@
 - mod.rs — Handlers de jobs: o `dispatch` recebe os `Command` da seção e chama o handler ce…
 
 ### rustploy-daemon/crates/daemon/src/api/handlers/observability/ → daemon-api.md
+- apply_update.rs — `Command::ApplyUpdate`: atualiza o daemon para a última release estável.
 - check_update.rs — `Command::CheckUpdate`: há release mais nova que este daemon? Só consulta, nunca…
 - daemon_status.rs — `Command::DaemonStatus`: versão, uptime e contagem de serviços rodando/total.
 - ingress.rs — Leitura e conserto da tabela de rotas do ingress proxy.
 - logs_get.rs — `Command::LogsGet`: últimas linhas de log de um serviço, do container ou (Compos…
 - mod.rs — Handlers de observability: o `dispatch` recebe os `Command` da seção e chama o h…
 - ping.rs — `Command::Ping`: responde `Pong` com o uptime.
+- update_status.rs — `Command::UpdateStatus`: o passo da atualização em curso, ou o resultado da últi…
 
 ### rustploy-daemon/crates/daemon/src/api/handlers/projects/ → daemon-api.md
 - mod.rs — Handlers de projects: o `dispatch` recebe os `Command` da seção e chama o handle…
@@ -260,6 +262,12 @@
 
 ### rustploy-daemon/crates/daemon/src/bin/ → daemon-core.md
 - rustployd-fw.rs — `rustployd-fw` — helper privilegiado de firewall do rustploy.
+
+### rustploy-daemon/crates/daemon/src/bin/rustployd-update/ → daemon-core.md
+- install.rs — A instalação de um pacote assinado, em duas fases:
+- main.rs — `rustployd-update` — o helper root que instala pacotes **assinados** do rustploy…
+- protocol.rs — O protocolo do socket: uma linha JSON por pedido, uma de resposta.
+- system.rs — Tudo que o updater pede ao sistema (rodar comando, esperar) passa por aqui, para…
 
 ### rustploy-daemon/crates/daemon/src/bootstrap/ → daemon-core.md
 - config.rs — Resolução de diretórios (banco, chave mestra) com fallback para o home e inicial…
@@ -396,6 +404,7 @@
 - mod.rs — Catálogo de templates de aplicações (formato Dokploy), lido dos blueprints em `t…
 
 ### rustploy-daemon/crates/daemon/src/features/update/ → daemon-features.md
+- apply.rs — `ApplyUpdate`: baixa o pacote assinado e o entrega ao helper root `rustployd-upd…
 - checker.rs — `UpdateChecker`: compara a versão do daemon com a última release, com cache.
 - github_release.rs — A última release estável de um repositório do GitHub (`GET /repos/{repo}/release…
 - mod.rs — Verificação de versão: pergunta ao GitHub qual é a última release e compara com …
@@ -434,6 +443,16 @@
 ### rustploy-daemon/crates/daemon/templates/
 - logos.txt
 - blueprints/ — catálogo de templates de app (formato Dokploy), compilado pelo build.rs do daemon (775 arquivos, não indexados)
+
+### rustploy-daemon/crates/daemon/tests/e2e-updater/
+- Containerfile
+- run.sh
+
+### rustploy-daemon/crates/daemon/tests/fixtures/updater/
+- other.pub
+- payload.bin
+- payload.bin.minisig
+- test.pub
 
 ### rustploy-daemon/crates/daemon/webui/ → webui.md
 - app.css — Rustploy — web UI stylesheet.
@@ -490,6 +509,8 @@
 - config.toml
 - rustployd-fw.service
 - rustployd-fw.socket
+- rustployd-update.service
+- rustployd-update.socket
 - rustployd.service
 
 ### rustploy-daemon/packaging/debian/
@@ -1767,8 +1788,20 @@
 - Cargo.toml — Shared update logic for the Rustploy daemon and desktop app: release version com…
 
 ### rustploy-shared/update-core/src/ → shared.md
+- dpkg_version.rs — Comparação de versões de **pacote Debian** (`1:0.1.10-1`), pelo algoritmo da pol…
 - lib.rs — Lógica de atualização comum ao daemon e ao app: um só lugar decide se uma versão…
+- outcome.rs — O resultado da última atualização, gravado pelo updater (root) e lido pelo daemo…
+- package.rs — A decisão "este pacote assinado pode ser instalado aqui?", como função pura: cru…
+- signature.rs — Verificação da assinatura minisign de um pacote e leitura do comentário confiáve…
+- staging.rs — Cópia segura do pacote para um diretório que só o root controla.
 - version.rs — Comparação de versões de release (semver), tolerante ao `v` das tags.
+
+### rustploy-shared/update-core/tests/fixtures/
+- other.pub
+- payload.bin
+- payload.bin.minisig
+- payload.noclaims.minisig
+- test.pub
 
 ### tools/
 - busy_actions.py
