@@ -78,7 +78,7 @@ compatibilidade em `rustploy-docs` (`instalacao/requisitos`). Mudou o container?
 - O comando de uma linha foi testado em `debian:12` (via podman, sem docker nesta máquina): instalou o
   daemon 0.1.6 e ele iniciou. O app e o `install.ps1` não foram retestados nesta release.
 
-## Deploy automático nos servidores (job `deploy-servers`)
+## Deploy automático nos servidores (job `deploy-servers`) — DESATIVADO (comentado no workflow)
 
 Depois do job `release` (só em tag), o `release.yml` entra por SSH nos dois servidores do dono
 (`itemize@179.198.122.159` e `antonio@chiquitos.tech`) e roda `cd ~/rustploy && git pull && git submodule
