@@ -1,6 +1,6 @@
 # Plano: updaters (daemon e GUI) — um instalador root minúsculo para cada app
 
-**Estado:** **aprovado; fases 0 e 1 implementadas no código (2026-10-25), ainda sem publicar.**
+**Estado:** **fases 0, 1, 2 e 3 implementadas, publicadas e provadas em ponta a ponta (2026-10-25, release v0.1.19). A fase 4 (Windows) segue adiada, por decisão.**
 Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
 
 **Progresso.**
@@ -25,6 +25,15 @@ Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
   `tests/e2e-updater-gui/run.sh` (pkexec e polkit reais, 11 cenários) além dos testes unitários. **Windows segue adiado (fase 4).**
   **Não testado:** o diálogo de senha real num desktop (o teste usa uma regra de polkit que autoriza sem senha) e o fluxo de ponta
   a ponta com download do GitHub, que só uma release com o helper pode exercitar.
+- **Prova real (2026-10-25):** o daemon da v0.1.17 se atualizou sozinho para a v0.1.18 pelo `ApplyUpdate` (download do GitHub,
+  assinatura de produção, snapshot, reinício, rollback, trava do agente MCP: 17/17), e o da v0.1.18 para a v0.1.19 (19/19). O
+  primeiro teste achou um defeito de projeto: a verificação comparava a **tag** da release com a versão do programa, numerações
+  independentes, e depois de atualizar ainda dizia "há versão nova". Corrigido em `update-core` 0.3.2 (`package_version` lê a versão
+  do nome do `.deb`); o segundo teste confirma que depois de atualizar o daemon se vê em dia.
+- **Pendências conhecidas:** o diálogo de senha **real** do `pkexec` num desktop (os testes usam uma regra de polkit que autoriza
+  sem senha); a atualização do app com o download do GitHub ponta a ponta (a ponte nativa e o helper foram testados, mas o fluxo
+  clicado numa janela real não); o selo "versão nova" fora da aba; o `install.sh` conferir a assinatura; chaves de assinatura de
+  reserva para rotação. Windows: fase 4.
 - **Publish da fase 1 (2026-10-25):** `rustploy-update-core` 0.1.0 e `rustploy-shared` 0.9.0 publicados; daemon 0.1.10 e GUI 0.1.20; docs pt/en atualizadas.
 - **Antes (histórico) faltava o *Publish*:** publicar `rustploy-update-core` 0.1.0 e `rustploy-shared`
   0.9.0 no crates.io *antes* do daemon (ele depende das duas), atualizar o `Cargo.lock` do daemon, bump
