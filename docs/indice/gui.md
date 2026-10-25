@@ -26,6 +26,41 @@ fn main() -> iced::Result
 ### mod.rs — Rustploy (glacier-ui) — desktop client whose UI is described in XML templates and rendered by the pu…
 fn run() -> iced::Result — Sobe o daemon multi-janela e roda o loop do iced até a última janela fechar.
 
+### updater.rs — A ponte nativa do "Atualizar app": o que o Luau não consegue fazer sozinho (rodar `curl` e `pkexec`,…
+const REPOSITORY — Repositório das releases do app.
+const HELPER — O helper root e o binário que ele troca.
+const CACHE_SUBDIR — Relativo ao cache do usuário.
+enum InstallKind { Deb, Other } — Como este executável foi instalado: só a instalação por `.deb` tem helper root.
+impl InstallKind
+  fn label() -> &'static str
+fn install_kind_of(executable) -> InstallKind
+fn install_kind() -> InstallKind
+fn can_update() -> bool — O app pode se atualizar sozinho? `.deb` + helper instalado + `pkexec` no PATH.
+fn find_in_path(program) -> Option<PathBuf>
+fn updates_dir() -> Result<PathBuf, String> — `$XDG_CACHE_HOME` ou `~/.cache`, resolvido como o helper espera.
+fn download(url, destination, max_bytes) -> Result<(), String> — Baixa `url` para `destination` com o `curl` do sistema (TLS e certificados do sistema), seguindo red…
+fn validate_deb_name(deb_name) -> Result<(), String> — O nome vira parte de um caminho: só o que um `.deb` do rustploy-gui teria.
+fn install(deb_url, signature_url, deb_name) -> Result<String, String> — Baixa o pacote e a assinatura para o cache do usuário e chama o helper por `pkexec`.
+fn restart() -> Result<(), String> — Abre uma nova instância do app e encerra esta.
+fn install_lua(lua) -> LuaResult<()> — Instala o global `app_update` numa VM Luau nova.
+const INSTALLED_BINARY, MAX_DEB_BYTES
+(8 testes)
+
+## rustploy-gui/src/bin/rustploy-gui-update/
+
+### helper.rs — O helper de verdade (só Unix: `geteuid`, `getpwuid_r`, dpkg).
+const USER_CACHE_SUBDIR — Relativo à home do usuário que chamou.
+fn trusted_keys() -> Vec<String> — As chaves em que este helper confia: as de produção embutidas em `update-core`.
+fn home_of(uid) -> Result<PathBuf, String> — A home de `uid` na tabela de usuários (`getpwuid_r`), nunca de `$HOME`.
+fn allowed_dir() -> Result<PathBuf, String> — De onde este helper aceita um `.deb`: o cache do usuário que rodou o `pkexec`.
+fn run() -> ExitCode
+const STATE_DIR, BINARY, MAX_DEB_BYTES
+(3 testes)
+
+### main.rs — `rustploy-gui-update` — o helper root que instala o `.deb` **assinado** do app desktop.
+fn main() -> std::process::ExitCode
+fn main()
+
 ## rustploy-gui/tests/
 
 ### app_manifest.rs — O que o Luau não alcança: o manifesto do `app(...)` (título, tamanho e fontes das janelas), a estrut…
@@ -289,6 +324,7 @@ function test_atualizacoes__o_init_semeia_as_chaves_e_a_aba() — Aba Atualizaç
 function test_atualizacoes__verificar_sem_conexao_nao_faz_nada() — - verificar sem conexão não faz nada
 function test_atualizacoes__o_init_nao_pisa_no_resultado_anterior() — - o init não pisa numa consulta que já estava no contexto
 function test_atualizacoes__atualizar_e_reverter_sem_conexao_nao_fazem_nada() — - atualizar e reverter sem conexão não fazem nada (nem pedem confirmação)
+function test_atualizacoes__atualizar_o_app_sem_ponte_nativa_nao_faz_nada() — - atualizar o app sem a ponte nativa (como nos testes) não faz nada
 
 ### nav.test.luau — Navegação da sidebar, abas e busca (handlers/nav.luau), sem conexão.
 local nova()

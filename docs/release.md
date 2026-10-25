@@ -26,6 +26,11 @@ procuram os arquivos pelo padrão do nome, então nada precisa ser editado a cad
    feliz, assinatura de outra chave, outro produto, downgrade, caminho fora do diretório, `postinst` que falha, daemon que cai em
    laço (volta atrás sozinho), rollback manual e sem backup. O helper de teste só difere do real na chave embutida, definida em
    tempo de compilação por `RUSTPLOY_E2E_TRUSTED_KEY` (o CI e o `make deb` nunca a definem; um teste confere).
+   Mexeu no **helper do app** (`rustploy-gui-update`, a política do polkit)? Rode também
+   `rustploy-gui/tests/e2e-updater-gui/run.sh`: contêiner com systemd e `polkitd`, `pkexec` e a política reais, com uma regra de
+   teste que autoriza o usuário `pessoa` sem senha. Confere 11 cenários, entre eles cache de outro usuário (o diretório vem do
+   `PKEXEC_UID`, não do `HOME`), link simbólico, usuário sem autorização e `postinst` que falha. (Na imagem de teste o `polkitd`
+   sobe à mão como root, porque o hardening da unit dele não roda num contêiner sem privilégios.)
 3. **Teste sem publicar:** `gh workflow run release.yml --ref main`. O job `release` só roda em tag,
    então isso só compila e guarda os pacotes como artefatos (`gh run download <id>`).
 4. Confira os artefatos (`dpkg-deb -I` mostra `Depends`, inclusive a versão mínima da `libc6`).
@@ -70,6 +75,10 @@ compatibilidade em `rustploy-docs` (`instalacao/requisitos`). Mudou o container?
 
 ## Armadilhas que já apareceram
 
+- **O CI do Windows compila todos os binários do pacote** (`cargo xwin build` sem `--bin`). O `rustploy-gui-update` só existe no
+  Unix (`geteuid`, `getpwuid_r`), então o `main.rs` dele tem um *stub* para outros sistemas e o corpo mora em `helper.rs`, atrás de
+  `#[cfg(unix)]`. Binário novo que use API de Unix precisa do mesmo cuidado.
+- **Esperar um processo com `pgrep -f`** num laço de shell casa com a própria linha de comando do laço e nunca termina; espere pelo PID.
 - **A tag não é a versão do pacote.** A tag do agregador (`v0.1.16`) e a versão dos crates (`0.1.10`, `0.1.20`) são
   numerações separadas, e o `cargo-deb` ainda acrescenta a revisão (`rustployd_0.1.10-1_amd64.deb`). Por isso o
   `tools/sign-release.sh` não compara a versão do `.deb` com a tag.

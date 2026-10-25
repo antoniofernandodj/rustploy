@@ -60,39 +60,6 @@ impl Default for PortRange
 
 ## rustploy-daemon/crates/daemon/src/bin/rustployd-update/
 
-### install.rs — A instalação de um pacote assinado, em duas fases:
-struct Paths { allowed_dir, state_dir, managed_binaries } — Onde o updater lê e escreve.
-impl Paths
-  fn staging_dir() -> PathBuf
-  fn backup_dir() -> PathBuf
-  fn outcome_file() -> PathBuf
-  fn lock_file() -> PathBuf
-struct Settings { package, service, trusted_keys, max_deb_bytes, poll_interval, stable_polls, max_polls }
-struct Updater { paths, settings, system }
-struct RollbackPlan { _lock, previous_version } — Um rollback já aprovado.
-struct Prepared { _lock, staged_deb, staged_signature, facts } — Um pacote já aprovado.
-impl Updater<'_, S>
-  fn prepare(deb, signature_path) -> Result<Prepared, String>
-  fn acquire_lock() -> Result<fs::File, String>
-  fn verify_and_check(deb, signature_path, known_version)
-  fn installed_version() -> Result<Option<String>, String>
-  fn execute(prepared) -> UpdateOutcome
-  fn prepare_rollback() -> Result<RollbackPlan, String> — Fase 1 do rollback: só **recusa** (trava e backup existente), sem mexer em nada.
-  fn execute_rollback(plan) -> UpdateOutcome — Fase 2: volta os binários para os do último backup (o único caminho que aceita uma versão menor), re…
-  fn rollback() -> Result<UpdateOutcome, String> — As duas fases juntas (nos testes não há cliente esperando uma resposta no meio).
-  fn finish(prepared, version, kind, message) -> UpdateOutcome
-  fn record(version, kind, message) — Grava o resultado.
-  fn run_checked(program, args, envs) -> Result<CommandOutput, String>
-  fn backup_binaries() -> Result<(), String>
-  fn restore_and_restart() -> Result<(), String>
-  fn wait_until_stable() -> bool — `true` se o serviço ficou `active` por `stable_polls` checagens seguidas.
-fn backup_file(backup_dir, binary) -> Option<PathBuf>
-fn replace_atomically(source, target) -> io::Result<()> — Troca `target` por uma cópia de `source` sem nunca deixá-lo pela metade: copia para um nome ao lado …
-fn restore_note(restored) -> String
-fn tail(output) -> String — Últimas linhas do que o comando disse, para a mensagem que a pessoa vai ler.
-const MAX_SIGNATURE_BYTES
-(12 testes)
-
 ### main.rs — `rustployd-update` — o helper root que instala pacotes **assinados** do rustploy.
 fn listener() -> (UnixListener, bool) — Socket herdado do systemd (LISTEN_FDS, fd 3) ou, em desenvolvimento, criado em `$RUSTPLOY_UPDATE_SOC…
 fn trusted_keys() -> Vec<String> — As chaves em que este helper confia: as de produção embutidas em `update-core`.
@@ -111,14 +78,6 @@ impl Response
   fn failed(error) -> Self
   fn to_line() -> String
 (3 testes)
-
-### system.rs — Tudo que o updater pede ao sistema (rodar comando, esperar) passa por aqui, para os testes trocarem …
-struct CommandOutput { success, stdout, stderr }
-trait System
-  fn run(program, args, envs) -> io::Result<CommandOutput> — Roda `program` com `args`, num ambiente limpo (só `PATH`, `LANG` e `envs`).
-  fn sleep(duration)
-struct RealSystem
-impl System for RealSystem: run, sleep
 
 ## rustploy-daemon/crates/daemon/src/bootstrap/
 

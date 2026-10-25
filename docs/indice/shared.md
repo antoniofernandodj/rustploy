@@ -215,6 +215,40 @@ fn is_newer(candidate, installed) -> Result<bool, DpkgVersionError> — `true` s
 impl fmt::Display, std::error::Error for DpkgVersionError
 (5 testes)
 
+### installer.rs — A instalação de um pacote assinado, em duas fases:
+struct Paths { allowed_dir, state_dir, managed_binaries } — Onde o updater lê e escreve.
+impl Paths
+  fn staging_dir() -> PathBuf
+  fn backup_dir() -> PathBuf
+  fn outcome_file() -> PathBuf
+  fn lock_file() -> PathBuf
+struct Settings { package, service, trusted_keys, max_deb_bytes, poll_interval, stable_polls, max_polls }
+struct Updater { paths, settings, system }
+struct RollbackPlan { _lock, previous_version } — Um rollback já aprovado.
+struct Prepared { _lock, staged_deb, staged_signature, facts } — Um pacote já aprovado.
+impl Updater<'_, S>
+  fn prepare(deb, signature_path) -> Result<Prepared, String>
+  fn acquire_lock() -> Result<fs::File, String>
+  fn verify_and_check(deb, signature_path, known_version)
+  fn installed_version() -> Result<Option<String>, String>
+  fn execute(prepared) -> UpdateOutcome
+  fn prepare_rollback() -> Result<RollbackPlan, String> — Fase 1 do rollback: só **recusa** (trava e backup existente), sem mexer em nada.
+  fn execute_rollback(plan) -> UpdateOutcome — Fase 2: volta os binários para os do último backup (o único caminho que aceita uma versão menor), re…
+  fn rollback() -> Result<UpdateOutcome, String> — As duas fases juntas (nos testes não há cliente esperando uma resposta no meio).
+  fn finish(prepared, version, kind, message) -> UpdateOutcome
+  fn record(version, kind, message) — Grava o resultado.
+  fn run_checked(program, args, envs) -> Result<CommandOutput, String>
+  fn backup_binaries() -> Result<(), String>
+  fn restore_and_restart() -> Result<(), String>
+  fn service_name() -> &str
+  fn wait_until_stable() -> bool — `true` se o serviço ficou `active` por `stable_polls` checagens seguidas.
+fn backup_file(backup_dir, binary) -> Option<PathBuf>
+fn replace_atomically(source, target) -> io::Result<()> — Troca `target` por uma cópia de `source` sem nunca deixá-lo pela metade: copia para um nome ao lado …
+fn restore_note(restored) -> String
+fn tail(output) -> String — Últimas linhas do que o comando disse, para a mensagem que a pessoa vai ler.
+const MAX_SIGNATURE_BYTES
+(12 testes)
+
 ### lib.rs — Lógica de atualização comum ao daemon e ao app: um só lugar decide se uma versão é mais nova que out…
 
 ### outcome.rs — O resultado da última atualização, gravado pelo updater (root) e lido pelo daemon depois de reinicia…
@@ -235,6 +269,17 @@ fn check_package(claims, facts, expectations) -> Result<(), PackageError> — Re
 impl fmt::Display, std::error::Error for PackageError
 (7 testes)
 
+### release.rs — Os arquivos de uma release do GitHub e a escolha do pacote certo para esta máquina.
+struct ReleaseAsset { name, url } — Um arquivo anexado à release (`rustployd_0.1.10-1_amd64.deb`, o `.minisig`…).
+struct ReleaseInfo { tag, html_url, assets } — O que interessa do JSON de uma release.
+struct ReleasePayload { tag_name, html_url, assets }
+struct AssetPayload { name, browser_download_url }
+fn parse_release(json) -> Result<ReleaseInfo, String> — Lê o JSON de `GET /repos/{repo}/releases/latest`.
+fn debian_architecture() -> Result<&'static str, String> — Arquitetura no vocabulário do Debian, a que aparece no nome do `.deb`.
+fn debian_architecture_of(rust_architecture) -> Result<&'static str, String>
+fn select_package_assets(assets, repo, package, architecture, tag) — O `.deb` de `package` para `architecture` e a `.minisig` dele, **dentro do repositório dado** (uma U…
+(7 testes)
+
 ### signature.rs — Verificação da assinatura minisign de um pacote e leitura do comentário confiável.
 const TRUSTED_PUBLIC_KEYS — Chaves públicas em que os updaters confiam: a atual e, na hora de rotacionar, a próxima (uma versão …
 struct SignedClaims { package, version, arch } — O que a assinatura afirma sobre o arquivo assinado.
@@ -250,6 +295,14 @@ fn is_plain_file_name(name) -> bool
 fn stage_file(source, allowed_dir, staging_dir, max_bytes) -> Result<PathBuf, StagingError> — Copia `source` para `staging_dir` (criado `0700`, cópia `0600`) e devolve o caminho da cópia.
 impl fmt::Display, std::error::Error, From<io::Error> for StagingError
 (9 testes)
+
+### system.rs — Tudo que o updater pede ao sistema (rodar comando, esperar) passa por aqui, para os testes trocarem …
+struct CommandOutput { success, stdout, stderr }
+trait System
+  fn run(program, args, envs) -> io::Result<CommandOutput> — Roda `program` com `args`, num ambiente limpo (só `PATH`, `LANG` e `envs`).
+  fn sleep(duration)
+struct RealSystem
+impl System for RealSystem: run, sleep
 
 ### version.rs — Comparação de versões de release (semver), tolerante ao `v` das tags.
 struct VersionError { input } — A entrada não é uma versão semver (depois de tirar espaços e o `v`/`V` inicial).

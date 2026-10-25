@@ -264,10 +264,8 @@
 - rustployd-fw.rs — `rustployd-fw` — helper privilegiado de firewall do rustploy.
 
 ### rustploy-daemon/crates/daemon/src/bin/rustployd-update/ → daemon-core.md
-- install.rs — A instalação de um pacote assinado, em duas fases:
 - main.rs — `rustployd-update` — o helper root que instala pacotes **assinados** do rustploy…
 - protocol.rs — O protocolo do socket: uma linha JSON por pedido, uma de resposta.
-- system.rs — Tudo que o updater pede ao sistema (rodar comando, esperar) passa por aqui, para…
 
 ### rustploy-daemon/crates/daemon/src/bootstrap/ → daemon-core.md
 - config.rs — Resolução de diretórios (banco, chave mestra) com fallback para o home e inicial…
@@ -447,12 +445,6 @@
 ### rustploy-daemon/crates/daemon/tests/e2e-updater/
 - Containerfile
 - run.sh
-
-### rustploy-daemon/crates/daemon/tests/fixtures/updater/
-- other.pub
-- payload.bin
-- payload.bin.minisig
-- test.pub
 
 ### rustploy-daemon/crates/daemon/webui/ → webui.md
 - app.css — Rustploy — web UI stylesheet.
@@ -1543,6 +1535,7 @@
 - (+2 imagens/fontes)
 
 ### rustploy-gui/packaging/
+- br.com.rustploy.gui-update.policy
 - postinst
 - rustploy-gui.desktop
 
@@ -1552,9 +1545,18 @@
 
 ### rustploy-gui/src/app/ → gui.md
 - mod.rs — Rustploy (glacier-ui) — desktop client whose UI is described in XML templates an…
+- updater.rs — A ponte nativa do "Atualizar app": o que o Luau não consegue fazer sozinho (roda…
+
+### rustploy-gui/src/bin/rustploy-gui-update/ → gui.md
+- helper.rs — O helper de verdade (só Unix: `geteuid`, `getpwuid_r`, dpkg).
+- main.rs — `rustploy-gui-update` — o helper root que instala o `.deb` **assinado** do app d…
 
 ### rustploy-gui/tests/ → gui.md
 - app_manifest.rs — O que o Luau não alcança: o manifesto do `app(...)` (título, tamanho e fontes da…
+
+### rustploy-gui/tests/e2e-updater-gui/
+- Containerfile
+- run.sh
 
 ### rustploy-gui/tests/fixtures/ → gui.md
 - access_key_fixture.gvb — Fixture do teste access_key.rs: tela mínima que roda o access_key.luau e deixa o…
@@ -1789,11 +1791,14 @@
 
 ### rustploy-shared/update-core/src/ → shared.md
 - dpkg_version.rs — Comparação de versões de **pacote Debian** (`1:0.1.10-1`), pelo algoritmo da pol…
+- installer.rs — A instalação de um pacote assinado, em duas fases:
 - lib.rs — Lógica de atualização comum ao daemon e ao app: um só lugar decide se uma versão…
 - outcome.rs — O resultado da última atualização, gravado pelo updater (root) e lido pelo daemo…
 - package.rs — A decisão "este pacote assinado pode ser instalado aqui?", como função pura: cru…
+- release.rs — Os arquivos de uma release do GitHub e a escolha do pacote certo para esta máqui…
 - signature.rs — Verificação da assinatura minisign de um pacote e leitura do comentário confiáve…
 - staging.rs — Cópia segura do pacote para um diretório que só o root controla.
+- system.rs — Tudo que o updater pede ao sistema (rodar comando, esperar) passa por aqui, para…
 - version.rs — Comparação de versões de release (semver), tolerante ao `v` das tags.
 
 ### rustploy-shared/update-core/tests/fixtures/

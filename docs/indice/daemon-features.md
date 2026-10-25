@@ -340,9 +340,6 @@ impl UpdateApplier
   fn rollback() -> Result<(), String> — `UpdateRollback`: pede ao helper que restaure os binários do último backup.
 fn from_outcome(outcome, target_version, running_version, from_this_attempt)
 fn package_matches_running(package_version, running_version) -> bool — `0.1.10-1` (versão do pacote) casa com `0.1.10` (versão do crate em execução).
-fn deb_architecture() -> Result<&'static str, String> — Arquitetura no vocabulário do Debian, a que aparece no nome do `.deb`.
-fn deb_architecture_of(rust_arch) -> Result<&'static str, String>
-fn select_assets(release, repo, architecture) — O `.deb` do daemon e a `.minisig` dele, desta arquitetura, **dentro do repositório configurado** (um…
 fn prepare_updates_dir(directory) -> std::io::Result<()> — Cria o diretório e tira o que sobrou de tentativas anteriores (pacote velho não pode ser confundido …
 fn snapshot_database(db, directory, tag) -> Result<PathBuf, String> — Cópia consistente do banco **em uso** (`VACUUM INTO`), antes de a versão nova poder migrar o esquema…
 fn unique_path(path) -> PathBuf
@@ -352,7 +349,7 @@ struct HelperReply { ok, error }
 fn helper_call(socket, request, timeout) -> Result<HelperReply, String> — Uma linha JSON para o helper e uma de volta (ver `src/bin/rustployd-update/protocol.rs`).
 const MAX_DEB_BYTES, MAX_SIGNATURE_BYTES, DOWNLOAD_TIMEOUT, HELPER_ACCEPT_TIMEOUT
 impl Default for HelperPaths
-(20 testes)
+(15 testes)
 
 ### checker.rs — `UpdateChecker`: compara a versão do daemon com a última release, com cache.
 const FORCE_MIN_SPACING — Uma consulta *forçada* ("Verificar agora") ainda respeita este intervalo mínimo: um botão clicado em…
@@ -370,7 +367,6 @@ fn build_info(current_version, release) -> Result<UpdateInfo>
 
 ### github_release.rs — A última release estável de um repositório do GitHub (`GET /repos/{repo}/releases/latest`).
 const MAX_BODY_BYTES — O JSON de uma release cabe em poucos KB; o teto só protege de uma resposta absurda.
-struct ReleaseAsset { name, url } — Um arquivo anexado à release (`rustployd_0.1.10-1_amd64.deb`, o `.minisig`…).
 struct LatestRelease { tag, url, published_at, assets }
 struct ReleasePayload { tag_name, html_url, published_at, assets }
 struct AssetPayload { name, browser_download_url }

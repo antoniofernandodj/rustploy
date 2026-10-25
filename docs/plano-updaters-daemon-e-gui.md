@@ -19,6 +19,12 @@ Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
   Testada com 304 testes do daemon, 19 do helper, 40 do `update-core` e um **teste de ponta a ponta com systemd, dpkg e socket
   reais** (`tests/e2e-updater/run.sh`, 11 cenários). **Ainda sem prova em produção:** o fluxo completo com download do GitHub
   só pode ser exercitado quando houver duas releases com o helper (a primeira já nasce com ele).
+- **Fase 3 (updater do app, Linux), 2026-10-25:** implementada. `update-core` 0.3.0 passou a conter o instalador, o acesso ao
+  sistema e a escolha de arquivos da release (o daemon e o app usam o mesmo código). App: `rustploy-gui-update` (helper root via
+  `pkexec`, sem processo residente), política do polkit, ponte nativa `app_update` e a seção "App desktop" na aba. Testada com
+  `tests/e2e-updater-gui/run.sh` (pkexec e polkit reais, 11 cenários) além dos testes unitários. **Windows segue adiado (fase 4).**
+  **Não testado:** o diálogo de senha real num desktop (o teste usa uma regra de polkit que autoriza sem senha) e o fluxo de ponta
+  a ponta com download do GitHub, que só uma release com o helper pode exercitar.
 - **Publish da fase 1 (2026-10-25):** `rustploy-update-core` 0.1.0 e `rustploy-shared` 0.9.0 publicados; daemon 0.1.10 e GUI 0.1.20; docs pt/en atualizadas.
 - **Antes (histórico) faltava o *Publish*:** publicar `rustploy-update-core` 0.1.0 e `rustploy-shared`
   0.9.0 no crates.io *antes* do daemon (ele depende das duas), atualizar o `Cargo.lock` do daemon, bump

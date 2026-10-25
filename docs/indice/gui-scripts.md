@@ -28,7 +28,7 @@ function M.install(names)
 ### format.luau — fachada: reexporta os builders de views/scripts/fmt_*.luau sob um único módulo, para os handlers seg…
 
 ### glacier.d.luau — Definições dos globais que o motor glacier-ui injeta no interpretador Luau em runtime (não existem c…
-types: FetchResult, StreamHandle, Viewport, ZipEntry, StreamOptions, DateDelta
+types: FetchResult, StreamHandle, Viewport, ZipEntry, StreamOptions, DateDelta, AppUpdateInfo, AppUpdatePlan
 
 ### helpers.luau — utilitários puros compartilhados pelos handlers_*.luau (sem estado, sem I/O).
 function M.trim(value)

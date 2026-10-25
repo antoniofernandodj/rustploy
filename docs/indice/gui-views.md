@@ -208,7 +208,7 @@ handlers: docker_cleanup_run_now, docker_cleanup_save, field
 
 ### updates.gvb — Atualizações: pergunta ao daemon se há release mais nova (Command::CheckUpdate).
 <component>
-handlers: copy_ctx, update_apply, update_check_now, update_rollback
+handlers: copy_ctx, update_app_apply, update_apply, update_check_now, update_rollback
 
 ### web.gvb — Web Server (default)
 <component>
