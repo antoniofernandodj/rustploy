@@ -88,7 +88,7 @@
 - plano-site-documentacao.md — Plano: site de documentação do Rustploy (SSG, SEO e GEO)
 - plano-tray-bandeja-e-ciclo-de-vida.md — Plano — ícone de bandeja e o app que sobrevive à última janela
 - plano-unificacao-webhook-api.md — Plano: unificar o webhook na porta da API
-- plano-verificar-e-aplicar-atualizacao.md — Plano: verificar a versão mais recente e atualizar pelo Settings
+- plano-updaters-daemon-e-gui.md — Plano: updaters (daemon e GUI) — um instalador root minúsculo para cada app
 - plano-webui-janelas-e-polimento.md — Plano: webui com acabamento da GUI, janelas arrastáveis e paridade total
 - plano-widgets-glacier-0.68.md — Widgets novos do glacier-ui (0.63 → 0.68): o que dá pra aproveitar no rustploy
 - prompt-depurar-infra-com-agente.md — Prompt: depurar a infra pela API de agente
@@ -114,6 +114,9 @@
 - migracao-http-luau.md — Plano: migrar RWP → HTTP/SSE + lógica de rede em Luau (rustploy.chiquitos.tech)
 - migration.md — Migração de Outras Plataformas
 - notificacao-so.md — Notificação nativa do SO ao concluir um deploy
+
+### keys/
+- rustploy-update.pub
 
 ### rustploy-daemon/
 - .gitignore
@@ -204,6 +207,7 @@
 - mod.rs — Handlers de jobs: o `dispatch` recebe os `Command` da seção e chama o handler ce…
 
 ### rustploy-daemon/crates/daemon/src/api/handlers/observability/ → daemon-api.md
+- check_update.rs — `Command::CheckUpdate`: há release mais nova que este daemon? Só consulta, nunca…
 - daemon_status.rs — `Command::DaemonStatus`: versão, uptime e contagem de serviços rodando/total.
 - ingress.rs — Leitura e conserto da tabela de rotas do ingress proxy.
 - logs_get.rs — `Command::LogsGet`: últimas linhas de log de um serviço, do container ou (Compos…
@@ -391,12 +395,18 @@
 ### rustploy-daemon/crates/daemon/src/features/templates/ → daemon-features.md
 - mod.rs — Catálogo de templates de aplicações (formato Dokploy), lido dos blueprints em `t…
 
+### rustploy-daemon/crates/daemon/src/features/update/ → daemon-features.md
+- checker.rs — `UpdateChecker`: compara a versão do daemon com a última release, com cache.
+- github_release.rs — A última release estável de um repositório do GitHub (`GET /repos/{repo}/release…
+- mod.rs — Verificação de versão: pergunta ao GitHub qual é a última release e compara com …
+
 ### rustploy-daemon/crates/daemon/src/platform/ → daemon-core.md
 - config.rs — Configuração do daemon (`config.toml`): structs de cada seção com defaults e o s…
 - connection.rs — Connection string de banco/broker, montada num lugar só.
 - errors.rs — Mensagens de erro amigáveis para o usuário.
 - event_bus.rs — Bus de eventos em memória (broadcast): o que alimenta o SSE `/api/events` dos cl…
 - health.rs — Checagens de saúde HTTP e TCP usadas pelo healthcheck do deploy e pelo watchdog.
+- https_client.rs — Cliente HTTPS de saída mínimo: um GET, hyper cru sobre `tokio-rustls`.
 - log_sink.rs — Destino das linhas de log de build/job: o motor de containers escreve aqui sem s…
 - mod.rs — Infraestrutura transversal (barramento de eventos, segredos, health checks), sem…
 - secrets.rs — `SecretsManager`: secrets por projeto cifrados no banco com a chave mestra do da…
@@ -1638,6 +1648,7 @@
 - git.gvb — Git: contas conectadas + formulário de conexão
 - iac.gvb — Infra as Code: o manifesto é um `.zip` com exatamente rustploy.yml (projetos/ser…
 - maintenance.gvb — Manutenção: limpeza automática de recursos do runtime sem uso (ver docs/plano-li…
+- updates.gvb — Atualizações: pergunta ao daemon se há release mais nova (Command::CheckUpdate).
 - web.gvb — Web Server (default)
 
 ### rustploy-gui/views/scripts/ → gui-scripts.md
@@ -1742,6 +1753,7 @@
 - service.rs
 - service_bundle.rs
 - source.rs
+- update.rs — Verificação de versão: o que o daemon responde a `Command::CheckUpdate`.
 - wizard.rs
 
 ### rustploy-shared/src/protocol/ → shared.md
@@ -1751,8 +1763,16 @@
 - mod.rs — Protocolo da API: `Command` (o que o cliente pede), `Response` e `Event` (o que …
 - response.rs — `Response`: a resposta a cada `Command`.
 
+### rustploy-shared/update-core/
+- Cargo.toml — Shared update logic for the Rustploy daemon and desktop app: release version com…
+
+### rustploy-shared/update-core/src/ → shared.md
+- lib.rs — Lógica de atualização comum ao daemon e ao app: um só lugar decide se uma versão…
+- version.rs — Comparação de versões de release (semver), tolerante ao `v` das tags.
+
 ### tools/
 - busy_actions.py
+- sign-release.sh
 
 ### tools/indexer/
 - Cargo.lock

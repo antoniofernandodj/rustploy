@@ -171,14 +171,17 @@ struct GitSource { url, branch, root_path, watch_paths, submodules, dockerfile_p
 impl Default for ArchiveSource
 impl Default for GitSource
 
+### update.rs — Verificação de versão: o que o daemon responde a `Command::CheckUpdate`.
+struct UpdateInfo { current_version, latest_version, is_update_available, release_url, published_at, checked_at } — Resultado de comparar a versão do daemon com a última release publicada.
+
 ### wizard.rs
 struct WizardCreateReq { kind, id, project_id, name, app_name, db_name, user, password, root_password, image, use_replica, template_values, expose_external } — Campos coletados pelo wizard no cliente; o daemon (`WizardCreate`) resolve o `kind`/`id` e monta o `…
 
 ## rustploy-shared/src/protocol/
 
 ### command.rs — `Command`: tudo o que o cliente pede ao daemon.
-enum Command { ProjectCreate, ProjectDelete, ProjectUpdate, ProjectList, ProjectEnvSet, ServiceCreate, ServiceUpdate, ServiceDelete, ServiceList, ServiceGet, DeployStart, DeployAbort, DeployRollback, DeployHistory, DeployDelete, ServiceStop, ServiceReload, RecentDeployments, GetBuildLogs, LogsGet, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, ServiceConnectionInfo, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, ManagedDatabaseList, ManagedDatabaseCreate, ManagedDatabaseDelete, ManagedDatabaseListAll, MigrationStart, MigrationGet, MigrationList, MigrationRollback, MigrationDiscard, GetWebhookUrl, RegenerateWebhookToken, GetDaemonSettings, SetDaemonSettings, SecretSet, SecretDelete, SecretList, ManifestApply, ManifestExport, ManifestExportAll, ManifestImport, ServiceExportPlan, ServiceExport, ServiceImport, JobCreate, JobUpdate, JobDelete, JobList, JobListAll, JobRunNow, JobRunCancel, JobRunHistory, GetJobLogs, JobWarmStatus, JobWarm, ServiceWarmStatusList, ServiceWarm, PruneContainers, PruneVolumes, PruneImages, PruneBuildCache, PruneNetworks, DockerCleanupConfigGet, DockerCleanupConfigSet, DockerCleanupRunNow, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, RemoveContainer, RemoveImage, RemoveVolume, RemoveNetwork, StopAllManaged, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DaemonStatus, DeployEngineStatus, GitProviderList, GitProviderCreate, GitProviderDelete, GitOAuthStart, GitRepoList, GitBranchList, WizardCatalog, WizardCreate, Snapshot, RegistryStatus, RegistryRepoList, RegistryTagList, RegistryTagDelete, RegistryRepoDelete, RegistryGc, RegistryTokenCreate, RegistryTokenList, RegistryTokenRevoke, DeployQueuePromote, DeployQueueReorder, DeployQueuePause }
-(2 testes)
+enum Command { ProjectCreate, ProjectDelete, ProjectUpdate, ProjectList, ProjectEnvSet, ServiceCreate, ServiceUpdate, ServiceDelete, ServiceList, ServiceGet, DeployStart, DeployAbort, DeployRollback, DeployHistory, DeployDelete, ServiceStop, ServiceReload, RecentDeployments, GetBuildLogs, LogsGet, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, ServiceConnectionInfo, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, ManagedDatabaseList, ManagedDatabaseCreate, ManagedDatabaseDelete, ManagedDatabaseListAll, MigrationStart, MigrationGet, MigrationList, MigrationRollback, MigrationDiscard, GetWebhookUrl, RegenerateWebhookToken, GetDaemonSettings, SetDaemonSettings, SecretSet, SecretDelete, SecretList, ManifestApply, ManifestExport, ManifestExportAll, ManifestImport, ServiceExportPlan, ServiceExport, ServiceImport, JobCreate, JobUpdate, JobDelete, JobList, JobListAll, JobRunNow, JobRunCancel, JobRunHistory, GetJobLogs, JobWarmStatus, JobWarm, ServiceWarmStatusList, ServiceWarm, PruneContainers, PruneVolumes, PruneImages, PruneBuildCache, PruneNetworks, DockerCleanupConfigGet, DockerCleanupConfigSet, DockerCleanupRunNow, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, RemoveContainer, RemoveImage, RemoveVolume, RemoveNetwork, StopAllManaged, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DaemonStatus, DeployEngineStatus, CheckUpdate, GitProviderList, GitProviderCreate, GitProviderDelete, GitOAuthStart, GitRepoList, GitBranchList, WizardCatalog, WizardCreate, Snapshot, RegistryStatus, RegistryRepoList, RegistryTagList, RegistryTagDelete, RegistryRepoDelete, RegistryGc, RegistryTokenCreate, RegistryTokenList, RegistryTokenRevoke, DeployQueuePromote, DeployQueueReorder, DeployQueuePause }
+(3 testes)
 
 ### event.rs — `Event`: o que o SSE entrega ao cliente.
 enum Event { DeployStateChanged, DeployProgress, BuildLog, LogLine, ContainerMetrics, SystemMetrics, ServiceStatusChanged, DaemonReady, Error, JobLogLine, JobRunStateChanged, DeployQueueChanged, DockerCleanupCompleted, JobWarmChanged, ServiceWarmChanged }
@@ -193,6 +196,17 @@ struct BuildLogLine { stream, line, timestamp }
 ### mod.rs — Protocolo da API: `Command` (o que o cliente pede), `Response` e `Event` (o que o SSE entrega).
 
 ### response.rs — `Response`: a resposta a cada `Command`.
-enum Response { Ok, Project, Projects, Service, Services, Deployment, Deployments, Logs, BuildLogs, DeploymentSummaries, DaemonStatus, DeployEngineStatus, Pong, WebhookUrl, SharedAccessList, Migration, Migrations, ManagedDatabases, ConnectionInfo, DaemonSettings, SecretNames, ManifestReport, Manifest, ManifestBundle, ServiceExportPlan, ServiceBundleYaml, ServiceImportReport, MissingEnvVars, GitProviders, GitProviderInfo, OAuthUrl, GitRepos, GitBranches, PruneResult, DockerCleanupConfig, EnvBackupSnapshots, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, StopAllResult, IngressRoutes, WizardCatalog, Snapshot, Job, Jobs, JobSummaries, JobRun, JobRuns, JobLogs, JobWarmStatus, JobWarmRequested, ServiceWarmStatuses, ServiceWarmRequested, RegistryStatus, RegistryRepos, RegistryTags, RegistryGcResult, RegistryTokenCreated, RegistryTokens, Err }
+enum Response { Ok, Project, Projects, Service, Services, Deployment, Deployments, Logs, BuildLogs, DeploymentSummaries, DaemonStatus, UpdateInfo, DeployEngineStatus, Pong, WebhookUrl, SharedAccessList, Migration, Migrations, ManagedDatabases, ConnectionInfo, DaemonSettings, SecretNames, ManifestReport, Manifest, ManifestBundle, ServiceExportPlan, ServiceBundleYaml, ServiceImportReport, MissingEnvVars, GitProviders, GitProviderInfo, OAuthUrl, GitRepos, GitBranches, PruneResult, DockerCleanupConfig, EnvBackupSnapshots, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, StopAllResult, IngressRoutes, WizardCatalog, Snapshot, Job, Jobs, JobSummaries, JobRun, JobRuns, JobLogs, JobWarmStatus, JobWarmRequested, ServiceWarmStatuses, ServiceWarmRequested, RegistryStatus, RegistryRepos, RegistryTags, RegistryGcResult, RegistryTokenCreated, RegistryTokens, Err }
 impl Response
   fn err(code, message) -> Self
+
+## rustploy-shared/update-core/src/
+
+### lib.rs — Lógica de atualização comum ao daemon e ao app: um só lugar decide se uma versão é mais nova que out…
+
+### version.rs — Comparação de versões de release (semver), tolerante ao `v` das tags.
+struct VersionError { input } — A entrada não é uma versão semver (depois de tirar espaços e o `v`/`V` inicial).
+fn parse_version(text) -> Result<Version, VersionError> — Lê `0.1.15`, `v0.1.15` ou `V0.1.15` (com ou sem espaços ao redor).
+fn is_newer(candidate, installed) -> Result<bool, VersionError> — `true` se `candidate` é **estritamente** mais nova que `installed`.
+impl fmt::Display, std::error::Error for VersionError
+(7 testes)

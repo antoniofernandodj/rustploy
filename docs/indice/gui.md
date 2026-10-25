@@ -285,6 +285,9 @@ function test_secrets__a_falha_de_validacao_so_avisa() — - a falha de validaç
 function test_secrets__adicionar_sem_projeto_ou_sem_conexao_nao_faz_nada() — - adicionar sem projeto ou sem conexão não faz nada
 function test_secrets__apagar_sem_projeto_ou_com_nome_vazio_nao_pergunta_nem() — - apagar sem projeto ou com nome vazio não pergunta nem faz nada
 function test_bundle_exportar_servico__sem_conexao_ou_sem_servico_escolhido() — - sem conexão ou sem serviço escolhido não abre janela nem avisa
+function test_atualizacoes__o_init_semeia_as_chaves_e_a_aba() — Aba Atualizações (Command::CheckUpdate).
+function test_atualizacoes__verificar_sem_conexao_nao_faz_nada() — - verificar sem conexão não faz nada
+function test_atualizacoes__o_init_nao_pisa_no_resultado_anterior() — - o init não pisa numa consulta que já estava no contexto
 
 ### nav.test.luau — Navegação da sidebar, abas e busca (handlers/nav.luau), sem conexão.
 local nova()
@@ -429,6 +432,7 @@ function test_configuracoes_git() — - Git: provedor OAuth e token
 function test_configuracoes_web() — - Web Server
 function test_configuracoes_iac() — - Infra as Code: manifesto exportado, variáveis faltando e relatório
 function test_configuracoes_manutencao() — - Manutenção: limpeza do Docker em cada recorrência
+function test_configuracoes_atualizacoes() — - Atualizações: sem consulta ainda, com versão nova e com erro do daemon
 local servico(aba)
 function test_servico_cada_aba() — - cada aba da tela de serviço avalia
 function test_servico_geral_por_origem() — - aba Geral: origem Git, zip e compose

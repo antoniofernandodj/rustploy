@@ -77,9 +77,9 @@ fn run() -> Result<()> — Sobe o daemon inteiro e segura o processo (encerramen
 
 ### state.rs — Estado compartilhado do daemon (`AppState`) e os caches do inventário Docker.
 type OAuthStates = Arc<Mutex<HashMap<String, String>>> — Pending OAuth handshakes: CSRF `state` → `provider_id`, consumed by the `/oauth/gitea/callback` rout…
-struct AppState { db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, started_at, oauth_states, active_deploys, active_jobs, warming_jobs, warming_services, deploy_queue, docker_cache, registry_storage, registry_internal_token }
+struct AppState { db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, started_at, oauth_states, active_deploys, active_jobs, warming_jobs, warming_services, deploy_queue, docker_cache, registry_storage, registry_internal_token, update_checker }
 impl AppState
-  fn new(db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, registry_storage, registry_internal_token) -> Self
+  fn new(db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, update, registry_storage, registry_internal_token) -> Self
   fn deploy_ctx() -> DeployContext
   fn jobs_ctx() -> JobsContext
   fn maintenance_ctx() -> MaintenanceContext
@@ -99,7 +99,11 @@ fn spawn_stateful(state, registry_storage, tls) — Laços que dependem do `AppS
 const CONFIG — Process-wide configuration singleton.
 struct EnvBackupConfig { dir, interval_secs }
 fn default_env_backup_interval() -> u64
-struct RustployConfig { daemon, ingress, docker, deploy, metrics, secrets, api, env_backup, external_ports, registry }
+struct RustployConfig { daemon, ingress, docker, deploy, metrics, secrets, api, env_backup, external_ports, registry, update }
+struct UpdateConfig { enabled, repo, cache_hours } — Verificação de versão nova (`Command::CheckUpdate`).
+fn default_update_enabled() -> bool
+fn default_update_repo() -> String
+fn default_update_cache_hours() -> u64
 struct ExternalPortsConfig { range_start, range_end } — Faixa de portas de host que o rustploy pode alocar automaticamente para exposição externa de serviço…
 fn default_external_range_start() -> u16
 fn default_external_range_end() -> u16
@@ -135,7 +139,8 @@ impl Default for EnvBackupConfig
 impl Default for ExternalPortsConfig
 impl Default for RegistryConfig
 impl Default for RustployConfig
-(2 testes)
+impl Default for UpdateConfig
+(3 testes)
 
 ### connection.rs — Connection string de banco/broker, montada num lugar só.
 fn pct_encode(s) -> String — Percent-encoding de um componente de userinfo (`@`, `:`, `/`, `?`, `#`…).
@@ -165,6 +170,17 @@ impl Default for EventBus
 ### health.rs — Checagens de saúde HTTP e TCP usadas pelo healthcheck do deploy e pelo watchdog.
 fn check_http(url, expected, timeout) -> bool
 fn check_tcp(addr, timeout) -> bool
+
+### https_client.rs — Cliente HTTPS de saída mínimo: um GET, hyper cru sobre `tokio-rustls`.
+struct HttpsResponse { status, headers, body } — Resposta já lida por inteiro (o corpo é limitado por `max_body_bytes`).
+impl HttpsResponse
+  fn header(name) -> Option<&str>
+struct UrlParts { host, port, path_and_query } — Partes de uma URL `https://host[:porta]/caminho?consulta`.
+fn split_https_url(url) -> Result<UrlParts>
+fn tls_connector() -> Result<TlsConnector>
+fn get(url, headers, timeout, max_body_bytes) -> Result<HttpsResponse> — `GET url` com os cabeçalhos dados.
+fn get_inner(url, headers, max_body_bytes) -> Result<HttpsResponse>
+(6 testes)
 
 ### log_sink.rs — Destino das linhas de log de build/job: o motor de containers escreve aqui sem saber que existe banc…
 trait LogSink

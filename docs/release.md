@@ -12,6 +12,7 @@ publica sozinho em *GitHub Releases*:
 | `rustploy-gui_<versão>_amd64.deb` | `cargo deb` do app |
 | `rustploy-gui-windows-<tag>.zip` | build cruzado com `cargo-xwin`, assinado só se o SignPath estiver configurado |
 | `checksums.sha256` | `sha256sum` de todos acima |
+| `<arquivo>.minisig` | assinatura de cada `.deb` e do zip, feita por `tools/sign-release.sh` (ver "Assinatura dos pacotes") |
 
 Os instaladores (`install.sh`, `install.ps1`) leem a **última** release pela API do GitHub e
 procuram os arquivos pelo padrão do nome, então nada precisa ser editado a cada release.
@@ -22,8 +23,34 @@ procuram os arquivos pelo padrão do nome, então nada precisa ser editado a cad
 2. **Teste sem publicar:** `gh workflow run release.yml --ref main`. O job `release` só roda em tag,
    então isso só compila e guarda os pacotes como artefatos (`gh run download <id>`).
 3. Confira os artefatos (`dpkg-deb -I` mostra `Depends`, inclusive a versão mínima da `libc6`).
-4. `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z` publica a release.
-5. Teste o comando de uma linha de verdade num Debian limpo (`docker run debian:12`).
+4. `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z` faz o CI compilar e criar a release como
+   **rascunho** (ela ainda não aparece em `releases/latest`).
+5. **Assine e publique:** `tools/sign-release.sh vX.Y.Z`. O script baixa os pacotes do rascunho, confere o
+   `checksums.sha256`, assina cada `.deb` e o zip do Windows com a sua chave (pede a senha a cada
+   arquivo), confere cada assinatura com a chave pública, sobe os `.minisig` e publica. Use
+   `--dry-run` para só assinar, ou `--no-publish` para subir as assinaturas e deixar o rascunho.
+6. Teste o comando de uma linha de verdade num Debian limpo (`docker run debian:12`).
+
+## Assinatura dos pacotes
+
+Os updaters (`docs/plano-updaters-daemon-e-gui.md`) só instalam o que estiver **assinado** com a chave
+do dono; o SHA-256 sozinho não basta, porque sai da mesma release do arquivo. Por isso:
+
+- A chave é um par **minisign (ed25519)** gerado na máquina do dono, **nunca no CI**:
+  `minisign -G -p ~/.minisign/rustploy.pub -s ~/.minisign/rustploy.key` (a privada pede senha).
+  Guarde uma cópia offline da privada; sem ela nenhuma release nova é aceita pelas instalações que já
+  existem. A **pública** é a única parte que vai para o código dos updaters e para as docs.
+- Instale a ferramenta: `sudo apt install minisign`.
+- O CI cria a release como rascunho justamente porque não tem a chave. Uma release publicada **sem**
+  `.minisig` não é oferecida pelo updater (o `install.sh` manual continua funcionando).
+- Cada `.minisig` carrega um comentário confiável `package=… version=… arch=…`, assinado junto; o updater
+  compara esses campos com os do próprio pacote antes de instalar.
+- A chave pública está versionada em `keys/rustploy-update.pub` (id `C6A30203D40B0196`, a mesma que
+  sai no comentário do arquivo). Ela é a que vai embutida nos updaters.
+- Conferir à mão: `minisign -V -p keys/rustploy-update.pub -m rustployd_X.Y.Z_amd64.deb`
+  (ou `-P "$(sed -n 2p keys/rustploy-update.pub)"`; o `-P` quer o **texto** da chave, não o nome do arquivo).
+- **A senha da chave não fica em arquivo dentro do repositório**: use o gerenciador de senhas.
+- **Nunca edite uma release publicada**; se errou, crie outra versão (regra de sempre).
 
 Uma tag cuja release **não** foi publicada pode ser apagada e refeita no commit corrigido
 (`git tag -d`, `git push origin :refs/tags/vX.Y.Z`). Depois de publicada, não mexa nela: crie outra.

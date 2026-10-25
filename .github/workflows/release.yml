@@ -279,9 +279,13 @@ jobs:
       - name: Generate checksums
         run: sha256sum *.deb rustploy-gui-windows-*.zip > checksums.sha256
 
-      - name: Publish release
+      # RASCUNHO de propósito: o CI não tem a chave de assinatura. Quem publica é o
+      # `tools/sign-release.sh <tag>`, que assina cada pacote na máquina do dono e só então
+      # publica. Enquanto é rascunho, `releases/latest` (install.sh e updaters) não a enxerga.
+      - name: Create draft release
         uses: softprops/action-gh-release@v2
         with:
+          draft: true
           files: |
             rustployd_*.deb
             rustploy-gui_*.deb

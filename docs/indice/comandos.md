@@ -188,6 +188,9 @@ Ping | daemon: observability/ping | gui: — | web: —
 DaemonStatus | daemon: observability/daemon_status | gui: handlers/connection | web: app
 DeployEngineStatus | daemon: deploys/deploy_engine_status | gui: — | web: —
 
+## / Resposta: `UpdateInfo` (ou `Err` com `UpdateCheckFailed` se o GitHub não responder).
+CheckUpdate — Pergunta ao GitHub se há release mais nova que o daemon. | daemon: observability/check_update | gui: handlers/settings | web: app
+
 ## Git providers (Gitea OAuth2 / PAT)
 GitProviderList | daemon: git/git_provider_list | gui: handlers/bundle_import, handlers/connection, handlers/jobs, handlers/services, handlers/settings, new_job_window | web: app, screens/service_bundle, screens/service_detail
 GitProviderCreate | daemon: git/git_provider_create | gui: handlers/settings | web: app

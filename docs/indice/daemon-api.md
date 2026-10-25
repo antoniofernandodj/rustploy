@@ -269,6 +269,9 @@ fn dispatch(state, cmd) -> RpResponse
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/observability/
 
+### check_update.rs — `Command::CheckUpdate`: há release mais nova que este daemon? Só consulta, nunca instala.
+fn handle(state, force) -> RpResponse
+
 ### daemon_status.rs — `Command::DaemonStatus`: versão, uptime e contagem de serviços rodando/total.
 fn handle(state) -> RpResponse
 

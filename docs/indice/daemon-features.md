@@ -310,3 +310,30 @@ fn base64_url(data) -> String — Base64url **sem** padding (RFC 4648 §5) — o
 fn base64_with(data, table, pad) -> String
 impl std::fmt::Debug for Template
 (6 testes)
+
+## rustploy-daemon/crates/daemon/src/features/update/
+
+### checker.rs — `UpdateChecker`: compara a versão do daemon com a última release, com cache.
+const FORCE_MIN_SPACING — Uma consulta *forçada* ("Verificar agora") ainda respeita este intervalo mínimo: um botão clicado em…
+struct Cached { fetched_at, info }
+struct UpdateChecker { enabled, repo, ttl, force_spacing, cached }
+impl UpdateChecker
+  fn new(config) -> Self
+  fn with_timings(config, ttl, force_spacing) -> Self
+  fn check(force) -> Result<UpdateInfo> — Consulta o GitHub de verdade (a menos que o cache sirva).
+  fn check_with(force, current_version, fetch) -> Result<UpdateInfo>
+fn build_info(current_version, release) -> Result<UpdateInfo>
+(8 testes)
+
+### github_release.rs — A última release estável de um repositório do GitHub (`GET /repos/{repo}/releases/latest`).
+const MAX_BODY_BYTES — O JSON de uma release cabe em poucos KB; o teto só protege de uma resposta absurda.
+struct LatestRelease { tag, url, published_at }
+struct ReleasePayload { tag_name, html_url, published_at }
+fn is_valid_repo(repo) -> bool — `dono/nome`, só com os caracteres que o GitHub aceita.
+fn fetch_latest_owned(repo) -> Result<LatestRelease> — Versão que recebe a `String` por valor, para o `future` não emprestar nada do chamador.
+fn fetch_latest(repo) -> Result<LatestRelease>
+fn parse_response(status, rate_limit_remaining, body) -> Result<LatestRelease>
+const REQUEST_TIMEOUT
+(7 testes)
+
+### mod.rs — Verificação de versão: pergunta ao GitHub qual é a última release e compara com a do daemon.

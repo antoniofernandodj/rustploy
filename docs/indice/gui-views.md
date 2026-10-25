@@ -154,8 +154,8 @@ handlers: open_new_job_window
 
 ### settings.gvb — Seção `settings` (view = settings) das telas globais; importada por home.gvb.
 <component>
-imports: SettingsGitTab, SettingsIacTab, SettingsMaintenanceTab, SettingsWebTab
-abas: web, git, iac, maintenance
+imports: SettingsGitTab, SettingsIacTab, SettingsMaintenanceTab, SettingsUpdatesTab, SettingsWebTab
+abas: web, git, iac, maintenance, updates
 
 ## rustploy-gui/views/home/deploy_engine/
 
@@ -205,6 +205,10 @@ handlers: field, manifest_export, manifest_import
 ### maintenance.gvb — Manutenção: limpeza automática de recursos do runtime sem uso (ver docs/plano-limpeza-automatica-doc…
 <component>
 handlers: docker_cleanup_run_now, docker_cleanup_save, field
+
+### updates.gvb — Atualizações: pergunta ao daemon se há release mais nova (Command::CheckUpdate).
+<component>
+handlers: copy_ctx, update_check_now
 
 ### web.gvb — Web Server (default)
 <component>

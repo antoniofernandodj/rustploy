@@ -1,3 +1,5 @@
 target/
 design/
 dist/
+minisign.key
+minisign.pass
