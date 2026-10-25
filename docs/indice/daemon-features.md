@@ -362,8 +362,8 @@ impl UpdateChecker
   fn repo() -> &str — O repositório consultado (`dono/nome`); `ApplyUpdate` só baixa de URLs dele.
   fn check(force) -> Result<UpdateInfo> — Consulta o GitHub de verdade (a menos que o cache sirva).
   fn check_with(force, current_version, fetch) -> Result<UpdateInfo>
-fn build_info(current_version, release) -> Result<UpdateInfo>
-(8 testes)
+fn build_info(current_version, release, repo) -> Result<UpdateInfo> — Compara o que roda com o daemon que a release **traz** (a versão do pacote `rustployd_<v>_<arq>.deb`…
+(10 testes)
 
 ### github_release.rs — A última release estável de um repositório do GitHub (`GET /repos/{repo}/releases/latest`).
 const MAX_BODY_BYTES — O JSON de uma release cabe em poucos KB; o teto só protege de uma resposta absurda.

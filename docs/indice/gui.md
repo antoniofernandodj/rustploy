@@ -44,7 +44,7 @@ fn install(deb_url, signature_url, deb_name) -> Result<String, String> — Baixa
 fn restart() -> Result<(), String> — Abre uma nova instância do app e encerra esta.
 fn install_lua(lua) -> LuaResult<()> — Instala o global `app_update` numa VM Luau nova.
 const INSTALLED_BINARY, MAX_DEB_BYTES
-(8 testes)
+(10 testes)
 
 ## rustploy-gui/src/bin/rustploy-gui-update/
 

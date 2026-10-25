@@ -82,6 +82,9 @@ compatibilidade em `rustploy-docs` (`instalacao/requisitos`). Mudou o container?
   Unix (`geteuid`, `getpwuid_r`), então o `main.rs` dele tem um *stub* para outros sistemas e o corpo mora em `helper.rs`, atrás de
   `#[cfg(unix)]`. Binário novo que use API de Unix precisa do mesmo cuidado.
 - **Esperar um processo com `pgrep -f`** num laço de shell casa com a própria linha de comando do laço e nunca termina; espere pelo PID.
+- **Comparar a tag com a versão do programa dá "há versão nova" para sempre.** O teste real v0.1.17 -> v0.1.18 mostrou: depois de
+  atualizar para o daemon 0.1.12, o `CheckUpdate` ainda dizia `latest 0.1.18, update available`. A verificação compara a versão do
+  **pacote** que a release traz (`update_core::release::package_version`, lida do nome `rustployd_<v>-1_<arq>.deb`), nunca a tag.
 - **A tag não é a versão do pacote.** A tag do agregador (`v0.1.16`) e a versão dos crates (`0.1.10`, `0.1.20`) são
   numerações separadas, e o `cargo-deb` ainda acrescenta a revisão (`rustployd_0.1.10-1_amd64.deb`). Por isso o
   `tools/sign-release.sh` não compara a versão do `.deb` com a tag.

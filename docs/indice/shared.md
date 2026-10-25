@@ -278,7 +278,9 @@ fn parse_release(json) -> Result<ReleaseInfo, String> — Lê o JSON de `GET /re
 fn debian_architecture() -> Result<&'static str, String> — Arquitetura no vocabulário do Debian, a que aparece no nome do `.deb`.
 fn debian_architecture_of(rust_architecture) -> Result<&'static str, String>
 fn select_package_assets(assets, repo, package, architecture, tag) — O `.deb` de `package` para `architecture` e a `.minisig` dele, **dentro do repositório dado** (uma U…
-(7 testes)
+struct PackageVersion { full, upstream } — A versão de um pacote, como a release a anuncia no nome do arquivo.
+fn package_version(assets, repo, package, architecture) -> Option<PackageVersion> — A versão do `.deb` de `package` para `architecture` que a release traz, lida do **nome do arquivo** …
+(10 testes)
 
 ### signature.rs — Verificação da assinatura minisign de um pacote e leitura do comentário confiável.
 const TRUSTED_PUBLIC_KEYS — Chaves públicas em que os updaters confiam: a atual e, na hora de rotacionar, a próxima (uma versão …
