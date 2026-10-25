@@ -19,6 +19,7 @@
 #   --yes | -y          confirma a troca de motor sem perguntar (para scripts)
 #   --deb ARQUIVO       instala um .deb local (ex.: make deb-rustploy) em vez de baixar a release
 #   --version vX.Y.Z    uma release específica (padrão: a última)
+#   --no-verify         instala SEM conferir a assinatura minisign (só se você sabe o que está fazendo)
 #   --dry-run           só mostra o que baixaria e instalaria
 #   -h | --help         esta ajuda
 #
@@ -28,6 +29,10 @@
 # Windows: veja install.ps1 (irm .../install.ps1 | iex).
 set -eu
 
+# Chave pública minisign dos pacotes (a mesma de keys/rustploy-update.pub e dos updaters).
+# RUSTPLOY_TRUSTED_KEY troca a chave, só para testes.
+TRUSTED_KEY="${RUSTPLOY_TRUSTED_KEY:-RWSWAQvUAwKjxh3dDwqvzjm9XPx/tEqDqrctDWMlwA22TgSzy/0V2kP/}"
+NO_VERIFY=0
 REPO="${RUSTPLOY_REPO:-antoniofernandodj/rustploy}"
 API="${RUSTPLOY_API_URL:-https://api.github.com/repos/$REPO/releases}"
 DOCS="https://rustploy-docs.antoniofernandodj.workers.dev/instalacao"
@@ -200,6 +205,7 @@ Uso: sudo sh install.sh [daemon|gui|engine] [--remote] [--yes] [--engine docker|
   --yes, -y         confirma a troca de motor sem perguntar
   --deb ARQUIVO     instala um .deb local em vez de baixar a release (teste de um build seu)
   --version vX.Y.Z  uma release específica (padrão: a última)
+  --no-verify       instala sem conferir a assinatura minisign (não recomendado)
   --dry-run         só mostra o que baixaria e instalaria
 HELP
 }
@@ -212,6 +218,7 @@ while [ $# -gt 0 ]; do
         --dry-run) DRY=1 ;;
         --yes|-y) YES=1 ;;
         --remote) REMOTE=1 ;;
+        --no-verify) NO_VERIFY=1 ;;
         --deb) shift; [ $# -gt 0 ] || die "--deb precisa de um arquivo"; LOCAL_DEB="$1" ;;
         --deb=*) LOCAL_DEB="${1#--deb=}" ;;
         --engine) shift; [ $# -gt 0 ] || die "--engine precisa de um valor (docker ou podman)"; ENGINE="$1" ;;
@@ -285,7 +292,7 @@ elif [ -n "$LOCAL_DEB" ]; then
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT INT TERM
 DEB="${LOCAL_DEB##*/}"
-say "Usando o pacote local $LOCAL_DEB (sem consultar o GitHub, sem conferir SHA-256)."
+say "Usando o pacote local $LOCAL_DEB (sem consultar o GitHub, sem conferir SHA-256 nem assinatura)."
 if [ "$DRY" = "1" ]; then
     say "--dry-run: instalaria com: apt-get install -y $LOCAL_DEB"
     exit 0
@@ -323,12 +330,14 @@ TAG="$(grep -o '"tag_name": *"[^"]*"' "$TMP/release.json" | head -n 1 | sed 's/.
 assets() { grep -o '"browser_download_url": *"[^"]*"' "$TMP/release.json" | sed 's/.*: *"\(.*\)"/\1/'; }
 DEB_URL="$(assets | grep "/${PREFIX}[^/]*_${ARCH}\.deb\$" | head -n 1 || true)"
 SUMS_URL="$(assets | grep '/checksums\.sha256$' | head -n 1 || true)"
+SIG_URL="$(assets | grep "/${DEB_URL##*/}\.minisig\$" | head -n 1 || true)"
 [ -n "$DEB_URL" ] || die "a release $TAG não tem pacote ${PREFIX}*_${ARCH}.deb"
 DEB="${DEB_URL##*/}"
 
 say "Release $TAG: $DEB"
 if [ "$DRY" = "1" ]; then
     say "--dry-run: baixaria $DEB_URL"
+    [ -n "$SIG_URL" ] && say "--dry-run: conferiria a assinatura em $SIG_URL"
     [ -n "$SUMS_URL" ] && say "--dry-run: conferiria o SHA-256 em $SUMS_URL"
     [ "$WHAT" = "daemon" ] && [ "$ENGINE" = "docker" ] && ! command -v docker >/dev/null 2>&1 && say "--dry-run: instalaria o Docker Engine pelo repositório oficial (download.docker.com)"
     [ "$ENGINE" = "podman" ] && say "--dry-run: instalaria o Podman (+ provider do compose), ligaria o podman.socket e apontaria o config.toml para $PODMAN_SOCKET"
@@ -350,6 +359,29 @@ if [ -n "$SUMS_URL" ]; then
     say "SHA-256 conferido."
 else
     warn "a release não tem checksums.sha256; não consegui conferir o SHA-256"
+fi
+
+# Assinatura: o SHA-256 vem do mesmo lugar do pacote e não prova autoria; a assinatura
+# minisign (chave só do dono, fora do GitHub) prova. Sem ela, não instala.
+if [ "$NO_VERIFY" = "1" ]; then
+    warn "--no-verify: instalando SEM conferir a assinatura do pacote."
+else
+    [ -n "$SIG_URL" ] || die "a release $TAG não tem assinatura (${DEB}.minisig). Não instalei nada. Se confia nela mesmo assim: --no-verify"
+    if ! command -v minisign >/dev/null 2>&1; then
+        say "Instalando o minisign (para conferir a assinatura)..."
+        apt-get update -qq >/dev/null 2>&1 || true
+        apt-get install -y -qq minisign >/dev/null 2>&1 || die "não consegui instalar o minisign (apt-get install minisign). Instale-o e rode de novo, ou use --no-verify"
+    fi
+    curl -fsSL -o "$TMP/$DEB.minisig" "$SIG_URL" || die "falha ao baixar $SIG_URL"
+    VERIFIED="$(minisign -V -P "$TRUSTED_KEY" -x "$TMP/$DEB.minisig" -m "$TMP/$DEB" 2>&1)" \
+        || die "a assinatura de $DEB NÃO confere com a chave do Rustploy. Não instalei nada.
+       $VERIFIED"
+    # O comentário assinado diz qual pacote/arquitetura é: impede passar um .deb assinado
+    # de outro pacote (ou arquitetura) no lugar deste.
+    CLAIM="$(printf '%s\n' "$VERIFIED" | sed -n 's/^Trusted comment: //p' | head -n 1)"
+    WANT_CLAIM="package=$(dpkg-deb -f "$TMP/$DEB" Package) version=$(dpkg-deb -f "$TMP/$DEB" Version) arch=$(dpkg-deb -f "$TMP/$DEB" Architecture)"
+    [ "$CLAIM" = "$WANT_CLAIM" ] || die "a assinatura é de outro pacote (assinado: '$CLAIM'; baixado: '$WANT_CLAIM'). Não instalei nada."
+    say "Assinatura conferida ($CLAIM)."
 fi
 
 fi
