@@ -75,6 +75,9 @@ compatibilidade em `rustploy-docs` (`instalacao/requisitos`). Mudou o container?
 
 ## Armadilhas que já apareceram
 
+- **O `update-core` também é compilado para o Windows** (o app depende dele). Antes de publicá-lo, rode
+  `cargo check --target x86_64-pc-windows-gnu` em `rustploy-shared/update-core` (`rustup target add x86_64-pc-windows-gnu`): a 0.3.0
+  saiu com um `std::os::unix` solto no módulo `outcome` e só o CI do Windows pegou, depois de publicada.
 - **O CI do Windows compila todos os binários do pacote** (`cargo xwin build` sem `--bin`). O `rustploy-gui-update` só existe no
   Unix (`geteuid`, `getpwuid_r`), então o `main.rs` dele tem um *stub* para outros sistemas e o corpo mora em `helper.rs`, atrás de
   `#[cfg(unix)]`. Binário novo que use API de Unix precisa do mesmo cuidado.
