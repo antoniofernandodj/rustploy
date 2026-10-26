@@ -2,6 +2,7 @@
 
 **Estado:** **fases 0, 1, 2 e 3 implementadas, publicadas e provadas em ponta a ponta (2026-10-25, release v0.1.19), mais o `install.sh` assinado e o selo de versão nova (2026-10-26, release v0.1.20). A fase 4 (Windows) segue adiada, por decisão.**
 Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
+**Sessão de chat:** a conversa que projetou e implementou este plano pode ser retomada com `claude --resume b0b1604e-3179-4f39-989d-5dc2e8494671`.
 
 **Progresso.**
 - **Fase 0 (assinatura):** feita no código: chave gerada (`keys/rustploy-update.pub`),
