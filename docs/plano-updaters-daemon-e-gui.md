@@ -1,6 +1,6 @@
 # Plano: updaters (daemon e GUI) — um instalador root minúsculo para cada app
 
-**Estado:** **fases 0, 1, 2 e 3 implementadas, publicadas e provadas em ponta a ponta (2026-10-25, release v0.1.19). A fase 4 (Windows) segue adiada, por decisão.**
+**Estado:** **fases 0, 1, 2 e 3 implementadas, publicadas e provadas em ponta a ponta (2026-10-25, release v0.1.19), mais o `install.sh` assinado e o selo de versão nova (2026-10-26, release v0.1.20). A fase 4 (Windows) segue adiada, por decisão.**
 Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
 
 **Progresso.**
@@ -30,15 +30,24 @@ Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
   primeiro teste achou um defeito de projeto: a verificação comparava a **tag** da release com a versão do programa, numerações
   independentes, e depois de atualizar ainda dizia "há versão nova". Corrigido em `update-core` 0.3.2 (`package_version` lê a versão
   do nome do `.deb`); o segundo teste confirma que depois de atualizar o daemon se vê em dia.
+- **`install.sh` confere a assinatura (2026-10-26):** baixa o `.minisig` ao lado do `.deb`, instala o `minisign` por `apt` se faltar,
+  confere com a chave pública embutida no script e compara o comentário assinado (`package`/`version`/`arch`) com o do `.deb`.
+  Sem assinatura ou com assinatura que não bate, aborta sem instalar; `--no-verify` pula (com aviso); `--deb` local não confere.
+  `RUSTPLOY_TRUSTED_KEY` troca a chave só para testes. Provado num Debian 12 contra a v0.1.19 real (confere; chave errada recusa;
+  `.deb` adulterado falha). Docs pt/en atualizadas. O `install.ps1` (Windows) ainda confere só o SHA-256.
+- **Selo de versão nova (2026-10-26, release v0.1.20):** ponto verde no item Settings da barra lateral (GUI: prop `badge` do
+  `NavItem`; webui: `nav-item__badge`) e na aba Atualizações da webui, aceso quando a consulta feita ao conectar acha versão nova.
+  Release v0.1.20 assinada: `rustployd` 0.1.14 (amd64/arm64), `rustploy-gui` 0.1.25, zip do Windows. Não testado numa janela real
+  nem num upgrade v0.1.19 -> v0.1.20. De quebra, dois lints novos do clippy no `apply.rs` foram corrigidos na `main`.
 - **Pendências conhecidas:** o diálogo de senha **real** do `pkexec` num desktop (os testes usam uma regra de polkit que autoriza
   sem senha); a atualização do app com o download do GitHub ponta a ponta (a ponte nativa e o helper foram testados, mas o fluxo
   clicado numa janela real não); chaves de assinatura de
-  reserva para rotação. Windows: fase 4.
+  reserva para rotação; assinatura no `install.ps1`. Windows: fase 4.
 - **Publish da fase 1 (2026-10-25):** `rustploy-update-core` 0.1.0 e `rustploy-shared` 0.9.0 publicados; daemon 0.1.10 e GUI 0.1.20; docs pt/en atualizadas.
 - **Antes (histórico) faltava o *Publish*:** publicar `rustploy-update-core` 0.1.0 e `rustploy-shared`
   0.9.0 no crates.io *antes* do daemon (ele depende das duas), atualizar o `Cargo.lock` do daemon, bump
   do daemon e da GUI, commit/push dos submódulos e do agregador, release e docs. O banner de "versão
-  nova" (selo discreto fora da aba) ficou de fora desta entrega.
+  nova" ficou de fora desta entrega e saiu depois, na v0.1.20.
 
 **Histórico.** Este documento absorveu o antigo `plano-verificar-e-aplicar-atualizacao.md`
 (2026-10-22, removido; está no git). Aquele plano trazia a verificação de versão (só leitura, sem
