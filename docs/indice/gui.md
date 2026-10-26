@@ -479,6 +479,7 @@ function test_grades_de_cards_com_spread() — - as grades de cards (projetos e 
 function test_em_execucao_cards_aninhados() — - a tela Em execução: o each aninhado (projeto -> serviços) chega aos cards
 local nav_projects(tela)
 function test_nav_projects_fica_aceso_nas_subtelas() — - o item Projects da sidebar fica aceso nas sub-telas (não só em "projects") Foi um bug real: o nav_…
+function test_nav_settings_mostra_ponto_com_versao_nova() — - Settings mostra um ponto quando há versão nova do daemon, e só então
 function test_nav_item_aceso_recolore_os_filhos_pelo_combinador() — - o item aceso recolore ícone e rótulo pelo combinador `.nav-item--active > - …` Se a regra composta…
 function test_sidebar_e_uma_gaveta_ligada_a_chave_menu() — - a sidebar é uma <drawer> ligada à chave `menu`
 function test_acoes_do_servico_viram_icones_quando_estreito() — - as ações do serviço viram ícones quando a janela estreita

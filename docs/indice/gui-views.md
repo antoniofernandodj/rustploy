@@ -87,7 +87,7 @@ props: note
 
 ### nav_item.gvb — Item de navegação da sidebar: ícone (sempre visível) + rótulo (some abaixo de 900px de largura — ver…
 <component>
-props: label, icon, target, action
+props: label, icon, target, action, badge
 
 ### picker_row.gvb — Linha de escolha do wizard "Novo serviço": título + subtítulo à esquerda e um botão de ação à direit…
 <component>

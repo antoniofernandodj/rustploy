@@ -32,7 +32,7 @@ Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
   do nome do `.deb`); o segundo teste confirma que depois de atualizar o daemon se vê em dia.
 - **Pendências conhecidas:** o diálogo de senha **real** do `pkexec` num desktop (os testes usam uma regra de polkit que autoriza
   sem senha); a atualização do app com o download do GitHub ponta a ponta (a ponte nativa e o helper foram testados, mas o fluxo
-  clicado numa janela real não); o selo "versão nova" fora da aba; chaves de assinatura de
+  clicado numa janela real não); chaves de assinatura de
   reserva para rotação. Windows: fase 4.
 - **Publish da fase 1 (2026-10-25):** `rustploy-update-core` 0.1.0 e `rustploy-shared` 0.9.0 publicados; daemon 0.1.10 e GUI 0.1.20; docs pt/en atualizadas.
 - **Antes (histórico) faltava o *Publish*:** publicar `rustploy-update-core` 0.1.0 e `rustploy-shared`
