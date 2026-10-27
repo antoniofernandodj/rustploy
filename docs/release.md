@@ -56,7 +56,7 @@ do dono; o SHA-256 sozinho não basta, porque sai da mesma release do arquivo. P
 - Cada `.minisig` carrega um comentário confiável `package=… version=… arch=…`, assinado junto; o updater
   compara esses campos com os do próprio pacote antes de instalar.
 - **Duas chaves, uma por máquina** (desde 2026-10-27). Cada máquina de onde se lança release tem a sua, e
-  os updaters e o `install.sh` aceitam qualquer uma das duas:
+  os updaters, o `install.sh` e o `install.ps1` aceitam qualquer uma das duas:
 
   | Máquina | id | Pública | Privada (só na máquina) |
   |---|---|---|---|
@@ -65,14 +65,15 @@ do dono; o SHA-256 sozinho não basta, porque sai da mesma release do arquivo. P
 
   Na máquina 2, assine com `tools/sign-release.sh vX.Y.Z --key ~/.minisign/rustploy-reserva.key` (o padrão
   do script é `~/.minisign/rustploy.key`). As públicas embutidas ficam em `TRUSTED_PUBLIC_KEYS`
-  (`rustploy-shared/update-core/src/signature.rs`) e em `TRUSTED_KEYS` no `install.sh`; mudou uma, mude as três.
+  (`rustploy-shared/update-core/src/signature.rs`), em `TRUSTED_KEYS` no `install.sh` e em `$TrustedKeys` no
+  `install.ps1`; mudou uma, mude as quatro (com `keys/`).
 - **Uma chave nova só vale para quem já instalou uma versão que a traz.** A chave da máquina 2 entrou na
   v0.1.21 (`rustploy-update-core` 0.3.3), e essa release já foi assinada pela **máquina 2**: nenhuma
   instalação rodava ainda uma versão com updater (o servidor estava no daemon 0.1.8), então ninguém
   dependia da chave da máquina 1. Uma instalação parada entre a v0.1.17 e a v0.1.20 só conhece a máquina 1
   e recusa a v0.1.21 pelo botão: atualize-a pelo `install.sh`, que lê as chaves da `main`.
 - **Rotação** (uma chave perdida ou vazada): pela máquina que restou, publique uma versão que tire a chave
-  ruim das três listas (e, se quiser, traga uma nova). Enquanto as instalações não atualizarem, a chave
+  ruim das quatro listas (e, se quiser, traga uma nova). Enquanto as instalações não atualizarem, a chave
   ruim continua aceita por elas: num vazamento, publique logo.
 - Conferir à mão: `minisign -V -p keys/rustploy-update.pub -m rustployd_X.Y.Z_amd64.deb` (ou
   `keys/rustploy-update-maquina-2.pub`, conforme quem assinou; o erro "key id … is X" diz qual).
@@ -163,8 +164,9 @@ fora do ar não impede o outro (`fail-fast: false`).
 
 ## Ainda sem teste real
 
-- `install.ps1`: o atalho do Menu Iniciar (COM do Windows). O resto (consulta, download, SHA-256, extração, cópia)
-  rodou num PowerShell no Linux.
+- `install.ps1`: o atalho do Menu Iniciar (COM do Windows) e a assinatura com o `minisign.exe` (no Windows
+  PowerShell 5.1). O resto (consulta, download, SHA-256, assinatura com o `minisign` do Linux, extração, cópia)
+  rodou num PowerShell 7 no Linux.
 - O `.deb` arm64 instalado numa máquina arm64 (só foi compilado).
 - A migração Docker -> Podman com dados reais (só testada com stubs; ver `TODO.md`).
 - O `install.sh` numa VPS com systemd de verdade (os testes foram em container, sem systemd): subir o serviço e o

@@ -8,6 +8,7 @@
 # Variáveis de ambiente (opcionais, defina antes do comando):
 #   $env:RUSTPLOY_VERSION = 'v0.1.1'   uma release específica (padrão: a última)
 #   $env:RUSTPLOY_DRY_RUN = '1'        só mostra o que baixaria e instalaria
+#   $env:RUSTPLOY_NO_VERIFY = '1'      instala SEM conferir a assinatura minisign (não recomendado)
 #
 # Linux/Debian/Ubuntu: veja install.sh.
 
@@ -18,6 +19,20 @@ $Repo = if ($env:RUSTPLOY_REPO) { $env:RUSTPLOY_REPO } else { 'antoniofernandodj
 $Api = if ($env:RUSTPLOY_API_URL) { $env:RUSTPLOY_API_URL } else { "https://api.github.com/repos/$Repo/releases" }
 $Docs = 'https://rustploy-docs.antoniofernandodj.workers.dev/instalacao'
 $Dry = $env:RUSTPLOY_DRY_RUN -eq '1'
+$NoVerify = $env:RUSTPLOY_NO_VERIFY -eq '1'
+
+# Chaves públicas minisign dos pacotes, uma por máquina que assina releases (as mesmas de
+# keys/, dos updaters e do install.sh); qualquer uma basta. RUSTPLOY_TRUSTED_KEY troca a lista, só para testes.
+$TrustedKeys = if ($env:RUSTPLOY_TRUSTED_KEY) { $env:RUSTPLOY_TRUSTED_KEY -split '\s+' } else { @(
+    'RWSWAQvUAwKjxh3dDwqvzjm9XPx/tEqDqrctDWMlwA22TgSzy/0V2kP/',
+    'RWS1siYVw0N6jJgNiQe25EyQakKI/4c7GBSUZZmydt0KUEXaUf8jHL1j'
+) }
+
+# O Windows não traz como conferir ed25519/BLAKE2b, então baixamos o minisign oficial. O SHA-256
+# fixo aqui é o do zip publicado pelo autor (conferido com a chave dele,
+# RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3): vem junto com as chaves acima.
+$MinisignUrl = 'https://github.com/jedisct1/minisign/releases/download/0.12/minisign-0.12-win64.zip'
+$MinisignSha256 = '37b600344e20c19314b2e82813db2bfdcc408b77b876f7727889dbd46d539479'
 
 function Say($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
 function Warn($msg) { Write-Host "aviso: $msg" -ForegroundColor Yellow }
@@ -49,6 +64,10 @@ try {
 $Zip = $Release.assets | Where-Object { $_.name -like 'rustploy-gui-windows-*.zip' } | Select-Object -First 1
 if (-not $Zip) { Fail "a release $($Release.tag_name) não tem o zip do Windows (rustploy-gui-windows-*.zip)." }
 $Sums = $Release.assets | Where-Object { $_.name -eq 'checksums.sha256' } | Select-Object -First 1
+$Sig = $Release.assets | Where-Object { $_.name -eq "$($Zip.name).minisig" } | Select-Object -First 1
+if (-not $Sig -and -not $NoVerify) {
+    Fail "a release $($Release.tag_name) não tem assinatura ($($Zip.name).minisig). Não instalei nada. Se confia nela mesmo assim: `$env:RUSTPLOY_NO_VERIFY = '1'"
+}
 
 Say "Release $($Release.tag_name): $($Zip.name)"
 $Dest = Join-Path $env:LOCALAPPDATA 'Rustploy'
@@ -76,6 +95,42 @@ try {
         Say 'SHA-256 conferido.'
     } else {
         Warn 'a release não tem checksums.sha256; não consegui conferir o SHA-256.'
+    }
+
+    # Assinatura: o SHA-256 vem do mesmo lugar do zip e não prova autoria; a assinatura
+    # minisign (chave só do dono, fora do GitHub) prova. Sem ela, não instala.
+    if ($NoVerify) {
+        Warn 'RUSTPLOY_NO_VERIFY: instalando SEM conferir a assinatura do zip.'
+    } else {
+        $Minisign = Get-Command minisign -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source
+        if (-not $Minisign) {
+            Say 'Baixando o minisign (para conferir a assinatura)...'
+            $MinisignZip = Join-Path $Tmp 'minisign.zip'
+            Invoke-WebRequest -Uri $MinisignUrl -OutFile $MinisignZip -UseBasicParsing
+            $Got = (Get-FileHash -Algorithm SHA256 -Path $MinisignZip).Hash.ToLower()
+            if ($Got -ne $MinisignSha256) { Fail "SHA-256 do minisign baixado não confere (esperado $MinisignSha256, obtido $Got). Não instalei nada." }
+            $MinisignDir = Join-Path $Tmp 'minisign'
+            Expand-Archive -Path $MinisignZip -DestinationPath $MinisignDir -Force
+            $MinisignArch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'aarch64' } else { 'x86_64' }
+            $Minisign = Join-Path $MinisignDir "minisign-win64\$MinisignArch\minisign.exe"
+        }
+        $SigPath = "$ZipPath.minisig"
+        Invoke-WebRequest -Uri $Sig.browser_download_url -OutFile $SigPath -UseBasicParsing
+        $Verified = $null
+        foreach ($Key in $TrustedKeys) {
+            # 'Continue' só aqui: no PowerShell 5.1, com 'Stop', o stderr do minisign (chave que não é
+            # a que assinou) viraria exceção antes de tentar a próxima chave.
+            $Output = & { $ErrorActionPreference = 'Continue'; & $Minisign -V -P $Key -x $SigPath -m $ZipPath 2>&1 | ForEach-Object { "$_" } } | Out-String
+            if ($LASTEXITCODE -eq 0) { $Verified = $Output; break }
+        }
+        if (-not $Verified) { Fail "a assinatura de $($Zip.name) NÃO confere com nenhuma chave do Rustploy. Não instalei nada. $Output" }
+        # O comentário assinado diz qual pacote/versão é: impede passar um zip assinado de
+        # outra versão (um downgrade) ou de outro pacote no lugar deste.
+        $Claim = ($Verified -split "`r?`n" | Where-Object { $_ -like 'Trusted comment: *' } | Select-Object -First 1) -replace '^Trusted comment: ', ''
+        $Version = $Zip.name -replace '^rustploy-gui-windows-v', '' -replace '\.zip$', ''
+        $WantClaim = "package=rustploy-gui-windows version=$Version arch=amd64"
+        if ($Claim -ne $WantClaim) { Fail "a assinatura é de outro pacote (assinado: '$Claim'; baixado: '$WantClaim'). Não instalei nada." }
+        Say "Assinatura conferida ($Claim)."
     }
 
     Get-Process -Name 'rustploy-gui' -ErrorAction SilentlyContinue | ForEach-Object {

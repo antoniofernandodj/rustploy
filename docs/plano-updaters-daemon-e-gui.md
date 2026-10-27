@@ -1,6 +1,6 @@
 # Plano: updaters (daemon e GUI) — um instalador root minúsculo para cada app
 
-**Estado:** **fases 0, 1, 2 e 3 implementadas, publicadas e provadas em ponta a ponta (2026-10-25, release v0.1.19), mais o `install.sh` assinado e o selo de versão nova (2026-10-26, release v0.1.20). Checagem periódica e segunda chave de assinatura (uma por máquina) em 2026-10-27. A fase 4 (Windows) segue adiada, por decisão.**
+**Estado:** **fases 0, 1, 2 e 3 implementadas, publicadas e provadas em ponta a ponta (2026-10-25, release v0.1.19), mais o `install.sh` assinado e o selo de versão nova (2026-10-26, release v0.1.20). Checagem periódica, segunda chave de assinatura (uma por máquina) e `install.ps1` assinado em 2026-10-27. A fase 4 (Windows) segue adiada, por decisão.**
 Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
 **Sessão de chat:** a conversa que projetou e implementou este plano pode ser retomada com `claude --resume b0b1604e-3179-4f39-989d-5dc2e8494671`.
 
@@ -35,16 +35,23 @@ Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
   confere com a chave pública embutida no script e compara o comentário assinado (`package`/`version`/`arch`) com o do `.deb`.
   Sem assinatura ou com assinatura que não bate, aborta sem instalar; `--no-verify` pula (com aviso); `--deb` local não confere.
   `RUSTPLOY_TRUSTED_KEY` troca a chave só para testes. Provado num Debian 12 contra a v0.1.19 real (confere; chave errada recusa;
-  `.deb` adulterado falha). Docs pt/en atualizadas. O `install.ps1` (Windows) ainda confere só o SHA-256.
+  `.deb` adulterado falha). Docs pt/en atualizadas. O `install.ps1` (Windows) passou a conferir também em 2026-10-27 (abaixo).
 - **Selo de versão nova (2026-10-26, release v0.1.20):** ponto verde no item Settings da barra lateral (GUI: prop `badge` do
   `NavItem`; webui: `nav-item__badge`) e na aba Atualizações da webui, aceso quando a consulta feita ao conectar acha versão nova.
   Release v0.1.20 assinada: `rustployd` 0.1.14 (amd64/arm64), `rustploy-gui` 0.1.25, zip do Windows. Não testado numa janela real
   nem num upgrade v0.1.19 -> v0.1.20. De quebra, dois lints novos do clippy no `apply.rs` foram corrigidos na `main`.
 - **Duas chaves (2026-10-27):** a máquina 1 (antonio) tem a chave da fase 0 (`C6A30203D40B0196`) e a máquina 2 (itemize) ganhou a sua
   (`8C7A43C31526B2B5`, `keys/rustploy-update-maquina-2.pub`). As duas estão em `TRUSTED_PUBLIC_KEYS` (`update-core` 0.3.3) e
-  no `install.sh`; qualquer uma basta, e cada uma é a reserva da outra (é a rotação da seção 3, com a diferença de que a
+  no `install.sh` e no `install.ps1`; qualquer uma basta, e cada uma é a reserva da outra (é a rotação da seção 3, com a diferença de que a
   "próxima" chave já assina). A release que as traz, v0.1.21, foi assinada pela máquina 2: nenhuma instalação rodava ainda
   uma versão com updater, e uma parada entre v0.1.17 e v0.1.20 se atualiza pelo `install.sh`. Procedimento e rotação em `docs/release.md`.
+- **`install.ps1` confere a assinatura (2026-10-27):** baixa o `.minisig` ao lado do zip e confere com as duas chaves
+  (`$TrustedKeys`, as mesmas do `install.sh`) e o comentário assinado (`package=rustploy-gui-windows version=<do nome do zip>
+  arch=amd64`). O Windows não confere ed25519/BLAKE2b sozinho: usa o `minisign` do PATH ou baixa o `minisign-0.12-win64.zip`
+  oficial, com o SHA-256 fixo no script (o zip foi conferido com a chave do autor do minisign). Sem assinatura, aborta;
+  `$env:RUSTPLOY_NO_VERIFY = '1'` pula. Provado num `pwsh` 7 no Linux contra a v0.1.21 real (confere; só a chave da
+  máquina 1 recusa; zip adulterado recusa; zip da v0.1.20 com o nome da v0.1.21 recusa; sem `.minisig` recusa) e o
+  `minisign.exe` baixado passa no SHA-256. **Não rodou num Windows de verdade** (PowerShell 5.1 e o `.exe`).
 - **Checagem periódica (2026-10-27):** `[update] check_interval_hours` (padrão 6, `0` desliga). O daemon consulta
   sozinho (`UpdateChecker::periodic_loop`, primeira consulta 60 s depois de subir, sempre forçada para não depender do
   `cache_hours`), loga quando há versão nova, e o snapshot de 2 s leva o último resultado no campo `update`
@@ -57,11 +64,10 @@ Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
   instância única, então a bandeja não segura o processo velho) estão feitos. A página "Atualizar pelo Settings" existe em
   `rustploy-docs/.../instalacao/atualizar.mdx`.
 - **Pendências conhecidas:**
-  1. Assinatura no `install.ps1` (hoje só SHA-256).
-  2. Testes manuais: o diálogo de senha **real** do `pkexec` num desktop (os testes usam uma regra de polkit que autoriza sem
+  1. Testes manuais: o diálogo de senha **real** do `pkexec` num desktop (os testes usam uma regra de polkit que autoriza sem
      senha); "Atualizar app" clicado numa janela real com download do GitHub (precisa de uma release com o app mais novo que o
      0.1.25); o upgrade v0.1.19 → v0.1.20 com o selo aceso numa janela real (já dá para fazer).
-  3. Windows: fase 4.
+  2. Windows: fase 4.
 - **Publish da fase 1 (2026-10-25):** `rustploy-update-core` 0.1.0 e `rustploy-shared` 0.9.0 publicados; daemon 0.1.10 e GUI 0.1.20; docs pt/en atualizadas.
 - **Antes (histórico) faltava o *Publish*:** publicar `rustploy-update-core` 0.1.0 e `rustploy-shared`
   0.9.0 no crates.io *antes* do daemon (ele depende das duas), atualizar o `Cargo.lock` do daemon, bump
