@@ -49,17 +49,34 @@ do dono; o SHA-256 sozinho não basta, porque sai da mesma release do arquivo. P
 
 - A chave é um par **minisign (ed25519)** gerado na máquina do dono, **nunca no CI**:
   `minisign -G -p ~/.minisign/rustploy.pub -s ~/.minisign/rustploy.key` (a privada pede senha).
-  Guarde uma cópia offline da privada; sem ela nenhuma release nova é aceita pelas instalações que já
-  existem. A **pública** é a única parte que vai para o código dos updaters e para as docs.
+  Guarde uma cópia offline de cada privada, em lugares diferentes. A **pública** é a única parte que vai para o código dos updaters e para as docs.
 - Instale a ferramenta: `sudo apt install minisign`.
 - O CI cria a release como rascunho justamente porque não tem a chave. Uma release publicada **sem**
   `.minisig` não é oferecida pelo updater (o `install.sh` manual continua funcionando).
 - Cada `.minisig` carrega um comentário confiável `package=… version=… arch=…`, assinado junto; o updater
   compara esses campos com os do próprio pacote antes de instalar.
-- A chave pública está versionada em `keys/rustploy-update.pub` (id `C6A30203D40B0196`, a mesma que
-  sai no comentário do arquivo). Ela é a que vai embutida nos updaters.
-- Conferir à mão: `minisign -V -p keys/rustploy-update.pub -m rustployd_X.Y.Z_amd64.deb`
-  (ou `-P "$(sed -n 2p keys/rustploy-update.pub)"`; o `-P` quer o **texto** da chave, não o nome do arquivo).
+- **Duas chaves, uma por máquina** (desde 2026-10-27). Cada máquina de onde se lança release tem a sua, e
+  os updaters e o `install.sh` aceitam qualquer uma das duas:
+
+  | Máquina | id | Pública | Privada (só na máquina) |
+  |---|---|---|---|
+  | 1 | `C6A30203D40B0196` | `keys/rustploy-update.pub` | `~/.minisign/rustploy.key` |
+  | 2 | `8C7A43C31526B2B5` | `keys/rustploy-update-maquina-2.pub` | `~/.minisign/rustploy-reserva.key` |
+
+  Na máquina 2, assine com `tools/sign-release.sh vX.Y.Z --key ~/.minisign/rustploy-reserva.key` (o padrão
+  do script é `~/.minisign/rustploy.key`). As públicas embutidas ficam em `TRUSTED_PUBLIC_KEYS`
+  (`rustploy-shared/update-core/src/signature.rs`) e em `TRUSTED_KEYS` no `install.sh`; mudou uma, mude as três.
+- **Uma chave nova só vale para quem já instalou uma versão que a traz.** A chave da máquina 2 entrou na
+  release que traz o `rustploy-update-core` 0.3.3; essa release foi assinada pela **máquina 1**, porque
+  os updaters da época só conheciam a dela. Uma instalação que ficou parada numa versão antiga continua
+  aceitando só a máquina 1: se uma release assinada pela máquina 2 for recusada, a instalação é antiga
+  (atualize-a pelo `install.sh`, que lê as chaves da `main`).
+- **Rotação** (uma chave perdida ou vazada): pela máquina que restou, publique uma versão que tire a chave
+  ruim das três listas (e, se quiser, traga uma nova). Enquanto as instalações não atualizarem, a chave
+  ruim continua aceita por elas: num vazamento, publique logo.
+- Conferir à mão: `minisign -V -p keys/rustploy-update.pub -m rustployd_X.Y.Z_amd64.deb` (ou
+  `keys/rustploy-update-maquina-2.pub`, conforme quem assinou; o erro "key id … is X" diz qual).
+  Com `-P "$(sed -n 2p keys/…pub)"`, o `-P` quer o **texto** da chave, não o nome do arquivo.
 - **A senha da chave não fica em arquivo dentro do repositório**: use o gerenciador de senhas.
 - **Nunca edite uma release publicada**; se errou, crie outra versão (regra de sempre).
 

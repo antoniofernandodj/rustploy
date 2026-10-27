@@ -110,7 +110,7 @@ impl AppState
   fn iac_ctx() -> IacContext
   fn public_base_url() -> String — URL pública do daemon, sem barra final: base do webhook (`{base}/webhook/{service_id}/{token}`) e do…
 
-### workers.rs — Tarefas de fundo do daemon: backup de env, métricas, logs, GC do registry, watchdog, agendadores e r…
+### workers.rs — Tarefas de fundo do daemon: backup de env, métricas, logs, GC do registry, watchdog, agendadores, co…
 fn spawn_standalone(config, db, docker, bus, backup_dir) — Laços que só precisam de banco, Docker e barramento (sobem antes do `AppState`).
 fn spawn_stateful(state, registry_storage, tls) — Laços que dependem do `AppState` já montado.
 
@@ -121,10 +121,11 @@ const CONFIG — Process-wide configuration singleton.
 struct EnvBackupConfig { dir, interval_secs }
 fn default_env_backup_interval() -> u64
 struct RustployConfig { daemon, ingress, docker, deploy, metrics, secrets, api, env_backup, external_ports, registry, update }
-struct UpdateConfig { enabled, repo, cache_hours, allow_agent_apply } — Verificação de versão nova (`Command::CheckUpdate`).
+struct UpdateConfig { enabled, repo, cache_hours, check_interval_hours, allow_agent_apply } — Verificação de versão nova (`Command::CheckUpdate`).
 fn default_update_enabled() -> bool
 fn default_update_repo() -> String
 fn default_update_cache_hours() -> u64
+fn default_update_check_interval_hours() -> u64
 struct ExternalPortsConfig { range_start, range_end } — Faixa de portas de host que o rustploy pode alocar automaticamente para exposição externa de serviço…
 fn default_external_range_start() -> u16
 fn default_external_range_end() -> u16

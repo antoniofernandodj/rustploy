@@ -283,7 +283,7 @@ fn package_version(assets, repo, package, architecture) -> Option<PackageVersion
 (10 testes)
 
 ### signature.rs — Verificação da assinatura minisign de um pacote e leitura do comentário confiável.
-const TRUSTED_PUBLIC_KEYS — Chaves públicas em que os updaters confiam: a atual e, na hora de rotacionar, a próxima (uma versão …
+const TRUSTED_PUBLIC_KEYS — Chaves públicas em que os updaters confiam; qualquer uma delas basta.
 struct SignedClaims { package, version, arch } — O que a assinatura afirma sobre o arquivo assinado.
 enum SignatureError { NoTrustedKeys, BadTrustedKey, MalformedSignature, NotTrusted, MissingClaims }
 fn verify(data, signature_text, public_keys) -> Result<SignedClaims, SignatureError> — Confere `data` contra `signature_text` (o conteúdo do `.minisig`) usando as chaves dadas e devolve o…

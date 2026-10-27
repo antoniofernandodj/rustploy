@@ -116,6 +116,7 @@
 - notificacao-so.md — Notificação nativa do SO ao concluir um deploy
 
 ### keys/
+- rustploy-update-maquina-2.pub
 - rustploy-update.pub
 
 ### rustploy-daemon/

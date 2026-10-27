@@ -353,17 +353,20 @@ impl Default for HelperPaths
 
 ### checker.rs — `UpdateChecker`: compara a versão do daemon com a última release, com cache.
 const FORCE_MIN_SPACING — Uma consulta *forçada* ("Verificar agora") ainda respeita este intervalo mínimo: um botão clicado em…
+const PERIODIC_FIRST_DELAY — A primeira consulta automática espera o daemon terminar de subir (e não disputa a rede com a recuper…
 struct Cached { fetched_at, info, release }
-struct UpdateChecker { enabled, repo, ttl, force_spacing, cached }
+struct UpdateChecker { enabled, repo, ttl, force_spacing, check_interval, cached }
 impl UpdateChecker
   fn new(config) -> Self
   fn with_timings(config, ttl, force_spacing) -> Self
   fn cached_release() -> Option<LatestRelease> — A última release vista por [`check`](Self::check), com os arquivos dela.
+  fn cached_info() -> Option<UpdateInfo> — O último resultado, sem ir ao GitHub: o snapshot de 2 s das UIs lê daqui.
+  fn periodic_loop() — Consulta o GitHub a cada `check_interval_hours` (`[update]`).
   fn repo() -> &str — O repositório consultado (`dono/nome`); `ApplyUpdate` só baixa de URLs dele.
   fn check(force) -> Result<UpdateInfo> — Consulta o GitHub de verdade (a menos que o cache sirva).
   fn check_with(force, current_version, fetch) -> Result<UpdateInfo>
 fn build_info(current_version, release, repo) -> Result<UpdateInfo> — Compara o que roda com o daemon que a release **traz** (a versão do pacote `rustployd_<v>_<arq>.deb`…
-(10 testes)
+(12 testes)
 
 ### github_release.rs — A última release estável de um repositório do GitHub (`GET /repos/{repo}/releases/latest`).
 const MAX_BODY_BYTES — O JSON de uma release cabe em poucos KB; o teto só protege de uma resposta absurda.

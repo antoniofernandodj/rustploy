@@ -1,14 +1,14 @@
 # Plano: updaters (daemon e GUI) — um instalador root minúsculo para cada app
 
-**Estado:** **fases 0, 1, 2 e 3 implementadas, publicadas e provadas em ponta a ponta (2026-10-25, release v0.1.19), mais o `install.sh` assinado e o selo de versão nova (2026-10-26, release v0.1.20). A fase 4 (Windows) segue adiada, por decisão.**
+**Estado:** **fases 0, 1, 2 e 3 implementadas, publicadas e provadas em ponta a ponta (2026-10-25, release v0.1.19), mais o `install.sh` assinado e o selo de versão nova (2026-10-26, release v0.1.20). Checagem periódica e segunda chave de assinatura (uma por máquina) em 2026-10-27. A fase 4 (Windows) segue adiada, por decisão.**
 Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
 **Sessão de chat:** a conversa que projetou e implementou este plano pode ser retomada com `claude --resume b0b1604e-3179-4f39-989d-5dc2e8494671`.
 
 **Progresso.**
-- **Fase 0 (assinatura):** feita no código: chave gerada (`keys/rustploy-update.pub`),
-  `release.yml` cria rascunho, `tools/sign-release.sh`, `docs/release.md`. **Falta testar o fluxo do
-  rascunho com uma tag descartável** (`gh release download/upload` contra um rascunho real nunca
-  rodou).
+- **Fase 0 (assinatura):** feita: chave gerada (`keys/rustploy-update.pub`), `release.yml` cria rascunho,
+  `tools/sign-release.sh`, `docs/release.md`. O fluxo do rascunho já rodou de verdade: as releases v0.1.19 e
+  v0.1.20 foram assinadas por ele e estão publicadas com um `.minisig` por arquivo. Desde 2026-10-27 há
+  **duas chaves**, uma por máquina (ver "Duas chaves" abaixo).
 - **Fase 1 (verificar):** feita: `rustploy-update-core` (comparador semver) e `UpdateInfo`/`CheckUpdate`
   no `rustploy-shared` 0.9.0; no daemon, `platform/https_client.rs` (hyper + tokio-rustls +
   webpki-roots, sem reqwest), `features/update/`, `[update]` na config e o handler; aba
@@ -40,10 +40,28 @@ Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
   `NavItem`; webui: `nav-item__badge`) e na aba Atualizações da webui, aceso quando a consulta feita ao conectar acha versão nova.
   Release v0.1.20 assinada: `rustployd` 0.1.14 (amd64/arm64), `rustploy-gui` 0.1.25, zip do Windows. Não testado numa janela real
   nem num upgrade v0.1.19 -> v0.1.20. De quebra, dois lints novos do clippy no `apply.rs` foram corrigidos na `main`.
-- **Pendências conhecidas:** o diálogo de senha **real** do `pkexec` num desktop (os testes usam uma regra de polkit que autoriza
-  sem senha); a atualização do app com o download do GitHub ponta a ponta (a ponte nativa e o helper foram testados, mas o fluxo
-  clicado numa janela real não); chaves de assinatura de
-  reserva para rotação; assinatura no `install.ps1`. Windows: fase 4.
+- **Duas chaves (2026-10-27):** a máquina 1 tem a chave da fase 0 (`C6A30203D40B0196`) e a máquina 2 ganhou a sua
+  (`8C7A43C31526B2B5`, `keys/rustploy-update-maquina-2.pub`). As duas estão em `TRUSTED_PUBLIC_KEYS` (`update-core` 0.3.3) e
+  no `install.sh`; qualquer uma basta, e cada uma é a reserva da outra (é a rotação da seção 3, com a diferença de que a
+  "próxima" chave já assina). A release que as traz é assinada pela máquina 1, porque os updaters anteriores só conhecem a
+  dela. Procedimento e rotação em `docs/release.md`.
+- **Checagem periódica (2026-10-27):** `[update] check_interval_hours` (padrão 6, `0` desliga). O daemon consulta
+  sozinho (`UpdateChecker::periodic_loop`, primeira consulta 60 s depois de subir, sempre forçada para não depender do
+  `cache_hours`), loga quando há versão nova, e o snapshot de 2 s leva o último resultado no campo `update`
+  (`cached_info`, sem ir ao GitHub). GUI (`handlers/stream.luau::apply_update_info`) e webui (`applyUpdateInfo`) atualizam a
+  aba e o selo quando o `checked_at` muda: uma janela aberta há dias acende o selo sem ninguém clicar em "Verificar".
+  O `cache_hours` continua valendo para as consultas pedidas pela UI. Não testado num daemon real esperando o intervalo.
+- **Revisão (2026-10-27), conferida no código:** rollback automático (`update-core/src/installer.rs`), snapshot do banco,
+  trava do agente, botão escondido sem helper, confirmação com aviso de deploy em andamento, detecção de `.deb` vs. outra
+  instalação (`InstallKind`) e reabertura do app (`restart()` abre o novo processo e sai com `exit(0)`; não há trava de
+  instância única, então a bandeja não segura o processo velho) estão feitos. A página "Atualizar pelo Settings" existe em
+  `rustploy-docs/.../instalacao/atualizar.mdx`.
+- **Pendências conhecidas:**
+  1. Assinatura no `install.ps1` (hoje só SHA-256).
+  2. Testes manuais: o diálogo de senha **real** do `pkexec` num desktop (os testes usam uma regra de polkit que autoriza sem
+     senha); "Atualizar app" clicado numa janela real com download do GitHub (precisa de uma release com o app mais novo que o
+     0.1.25); o upgrade v0.1.19 → v0.1.20 com o selo aceso numa janela real (já dá para fazer).
+  3. Windows: fase 4.
 - **Publish da fase 1 (2026-10-25):** `rustploy-update-core` 0.1.0 e `rustploy-shared` 0.9.0 publicados; daemon 0.1.10 e GUI 0.1.20; docs pt/en atualizadas.
 - **Antes (histórico) faltava o *Publish*:** publicar `rustploy-update-core` 0.1.0 e `rustploy-shared`
   0.9.0 no crates.io *antes* do daemon (ele depende das duas), atualizar o `Cargo.lock` do daemon, bump
@@ -295,7 +313,8 @@ webui.
   como esperado ("Atualizando…"), refaz `DaemonStatus` até a versão bater com a pedida, ou mostra o
   erro com o motivo (lido de `last.json`, que o daemon novo consegue ler ao subir). Os containers dos
   serviços seguem rodando (são do Docker/Podman) e o daemon retoma deploys interrompidos ao subir.
-- **Checagem periódica** configurável (seção 10) e um selo discreto "atualização disponível".
+- **Checagem periódica** configurável (seção 10) e um selo discreto "atualização disponível". *(Feito: o selo na
+  v0.1.20, a checagem em 2026-10-27; o resultado chega às UIs pelo snapshot.)*
 
 **GUI.** A mesma lógica no próprio app, em Rust (não em Luau): baixar um `.deb` de dezenas de MB não é
 trabalho para o `fetch` do Luau, e a versão do app (`env!("CARGO_PKG_VERSION")`) ainda não é exposta ao
@@ -384,10 +403,13 @@ de segurança do modelo de assinatura.
 [update]
 enabled = true                 # false: nem consulta
 repo = "antoniofernandodj/rustploy"   # origem fixa; a UI não escolhe
-channel = "stable"             # "stable" = só /releases/latest; "beta" inclui pre-release
-check_interval_hours = 6       # 0 = só ao clicar
+cache_hours = 6                # validade do resultado para as consultas pedidas pela UI
+check_interval_hours = 6       # consulta automática; 0 = só ao clicar
 allow_agent_apply = false      # o agente MCP não pode aplicar
 ```
+
+Como ficou: o `channel` previsto no esboço não existe, porque a decisão 8 fixou só o canal estável. O `cache_hours`
+entrou na fase 1 por causa do limite da API do GitHub.
 
 O parse da config é tudo-ou-nada (regra do `AGENTS.md`), então a seção é opcional e tem padrões.
 

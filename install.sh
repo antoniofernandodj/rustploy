@@ -29,9 +29,9 @@
 # Windows: veja install.ps1 (irm .../install.ps1 | iex).
 set -eu
 
-# Chave pública minisign dos pacotes (a mesma de keys/rustploy-update.pub e dos updaters).
-# RUSTPLOY_TRUSTED_KEY troca a chave, só para testes.
-TRUSTED_KEY="${RUSTPLOY_TRUSTED_KEY:-RWSWAQvUAwKjxh3dDwqvzjm9XPx/tEqDqrctDWMlwA22TgSzy/0V2kP/}"
+# Chaves públicas minisign dos pacotes, uma por máquina que assina releases (as mesmas de
+# keys/ e dos updaters); qualquer uma basta. RUSTPLOY_TRUSTED_KEY troca a lista, só para testes.
+TRUSTED_KEYS="${RUSTPLOY_TRUSTED_KEY:-RWSWAQvUAwKjxh3dDwqvzjm9XPx/tEqDqrctDWMlwA22TgSzy/0V2kP/ RWS1siYVw0N6jJgNiQe25EyQakKI/4c7GBSUZZmydt0KUEXaUf8jHL1j}"
 NO_VERIFY=0
 REPO="${RUSTPLOY_REPO:-antoniofernandodj/rustploy}"
 API="${RUSTPLOY_API_URL:-https://api.github.com/repos/$REPO/releases}"
@@ -373,9 +373,15 @@ else
         apt-get install -y -qq minisign >/dev/null 2>&1 || die "não consegui instalar o minisign (apt-get install minisign). Instale-o e rode de novo, ou use --no-verify"
     fi
     curl -fsSL -o "$TMP/$DEB.minisig" "$SIG_URL" || die "falha ao baixar $SIG_URL"
-    VERIFIED="$(minisign -V -P "$TRUSTED_KEY" -x "$TMP/$DEB.minisig" -m "$TMP/$DEB" 2>&1)" \
-        || die "a assinatura de $DEB NÃO confere com a chave do Rustploy. Não instalei nada.
-       $VERIFIED"
+    VERIFIED=""
+    for TRUSTED_KEY in $TRUSTED_KEYS; do
+        if OUTPUT="$(minisign -V -P "$TRUSTED_KEY" -x "$TMP/$DEB.minisig" -m "$TMP/$DEB" 2>&1)"; then
+            VERIFIED="$OUTPUT"
+            break
+        fi
+    done
+    [ -n "$VERIFIED" ] || die "a assinatura de $DEB NÃO confere com nenhuma chave do Rustploy. Não instalei nada.
+       $OUTPUT"
     # O comentário assinado diz qual pacote/arquitetura é: impede passar um .deb assinado
     # de outro pacote (ou arquitetura) no lugar deste.
     CLAIM="$(printf '%s\n' "$VERIFIED" | sed -n 's/^Trusted comment: //p' | head -n 1)"
