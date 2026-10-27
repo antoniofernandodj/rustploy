@@ -40,11 +40,11 @@ Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
   `NavItem`; webui: `nav-item__badge`) e na aba Atualizações da webui, aceso quando a consulta feita ao conectar acha versão nova.
   Release v0.1.20 assinada: `rustployd` 0.1.14 (amd64/arm64), `rustploy-gui` 0.1.25, zip do Windows. Não testado numa janela real
   nem num upgrade v0.1.19 -> v0.1.20. De quebra, dois lints novos do clippy no `apply.rs` foram corrigidos na `main`.
-- **Duas chaves (2026-10-27):** a máquina 1 tem a chave da fase 0 (`C6A30203D40B0196`) e a máquina 2 ganhou a sua
+- **Duas chaves (2026-10-27):** a máquina 1 (antonio) tem a chave da fase 0 (`C6A30203D40B0196`) e a máquina 2 (itemize) ganhou a sua
   (`8C7A43C31526B2B5`, `keys/rustploy-update-maquina-2.pub`). As duas estão em `TRUSTED_PUBLIC_KEYS` (`update-core` 0.3.3) e
   no `install.sh`; qualquer uma basta, e cada uma é a reserva da outra (é a rotação da seção 3, com a diferença de que a
-  "próxima" chave já assina). A release que as traz é assinada pela máquina 1, porque os updaters anteriores só conhecem a
-  dela. Procedimento e rotação em `docs/release.md`.
+  "próxima" chave já assina). A release que as traz, v0.1.21, foi assinada pela máquina 2: nenhuma instalação rodava ainda
+  uma versão com updater, e uma parada entre v0.1.17 e v0.1.20 se atualiza pelo `install.sh`. Procedimento e rotação em `docs/release.md`.
 - **Checagem periódica (2026-10-27):** `[update] check_interval_hours` (padrão 6, `0` desliga). O daemon consulta
   sozinho (`UpdateChecker::periodic_loop`, primeira consulta 60 s depois de subir, sempre forçada para não depender do
   `cache_hours`), loga quando há versão nova, e o snapshot de 2 s leva o último resultado no campo `update`

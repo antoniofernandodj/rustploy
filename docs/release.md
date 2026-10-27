@@ -60,17 +60,17 @@ do dono; o SHA-256 sozinho não basta, porque sai da mesma release do arquivo. P
 
   | Máquina | id | Pública | Privada (só na máquina) |
   |---|---|---|---|
-  | 1 | `C6A30203D40B0196` | `keys/rustploy-update.pub` | `~/.minisign/rustploy.key` |
-  | 2 | `8C7A43C31526B2B5` | `keys/rustploy-update-maquina-2.pub` | `~/.minisign/rustploy-reserva.key` |
+  | 1 (antonio) | `C6A30203D40B0196` | `keys/rustploy-update.pub` | `~/.minisign/rustploy.key` |
+  | 2 (itemize) | `8C7A43C31526B2B5` | `keys/rustploy-update-maquina-2.pub` | `~/.minisign/rustploy-reserva.key` |
 
   Na máquina 2, assine com `tools/sign-release.sh vX.Y.Z --key ~/.minisign/rustploy-reserva.key` (o padrão
   do script é `~/.minisign/rustploy.key`). As públicas embutidas ficam em `TRUSTED_PUBLIC_KEYS`
   (`rustploy-shared/update-core/src/signature.rs`) e em `TRUSTED_KEYS` no `install.sh`; mudou uma, mude as três.
 - **Uma chave nova só vale para quem já instalou uma versão que a traz.** A chave da máquina 2 entrou na
-  release que traz o `rustploy-update-core` 0.3.3; essa release foi assinada pela **máquina 1**, porque
-  os updaters da época só conheciam a dela. Uma instalação que ficou parada numa versão antiga continua
-  aceitando só a máquina 1: se uma release assinada pela máquina 2 for recusada, a instalação é antiga
-  (atualize-a pelo `install.sh`, que lê as chaves da `main`).
+  v0.1.21 (`rustploy-update-core` 0.3.3), e essa release já foi assinada pela **máquina 2**: nenhuma
+  instalação rodava ainda uma versão com updater (o servidor estava no daemon 0.1.8), então ninguém
+  dependia da chave da máquina 1. Uma instalação parada entre a v0.1.17 e a v0.1.20 só conhece a máquina 1
+  e recusa a v0.1.21 pelo botão: atualize-a pelo `install.sh`, que lê as chaves da `main`.
 - **Rotação** (uma chave perdida ou vazada): pela máquina que restou, publique uma versão que tire a chave
   ruim das três listas (e, se quiser, traga uma nova). Enquanto as instalações não atualizarem, a chave
   ruim continua aceita por elas: num vazamento, publique logo.
