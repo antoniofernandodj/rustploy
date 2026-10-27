@@ -1551,6 +1551,7 @@
 ### rustploy-gui/src/bin/rustploy-gui-update/ → gui.md
 - helper.rs — O helper de verdade (só Unix: `geteuid`, `getpwuid_r`, dpkg).
 - main.rs — `rustploy-gui-update` — o helper root que instala o `.deb` **assinado** do app d…
+- portable.rs — O helper no Windows: troca a pasta do app portátil (`%LOCALAPPDATA%\Rustploy`) p…
 
 ### rustploy-gui/tests/ → gui.md
 - app_manifest.rs — O que o Luau não alcança: o manifesto do `app(...)` (título, tamanho e fontes da…
@@ -1568,6 +1569,19 @@
 - saved_action.luau — Fixture do teste `busy.rs`.
 - time.gvb — Fixture do teste format_time.rs: tela mínima que roda o format/time.luau e exibe…
 - time.luau — Fixture do teste `format_time.rs`: exercita o `format/time.luau` de verdade, atr…
+
+### rustploy-gui/tests/fixtures/windows-update/
+- arm.zip.minisig
+- good.zip
+- good.zip.minisig
+- noexe.zip
+- noexe.zip.minisig
+- otherpkg.zip.minisig
+- outside.zip
+- outside.zip.minisig
+- slip.zip
+- slip.zip.minisig
+- test.pub
 
 ### rustploy-gui/tests/format/ → gui.md
 - dashboard.test.luau

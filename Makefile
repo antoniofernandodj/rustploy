@@ -69,6 +69,8 @@ index: ## Regenera docs/indice/; checa tudo antes e, se algo falhar, não altera
 
 WIN_TARGET   := x86_64-pc-windows-msvc
 WIN_BIN      := $(GUI_DIR)/target/$(WIN_TARGET)/release/rustploy-gui.exe
+# "Atualizar app" no Windows: espera o app fechar, confere a assinatura e troca a pasta.
+WIN_UPDATE_BIN := $(GUI_DIR)/target/$(WIN_TARGET)/release/rustploy-gui-update.exe
 
 .PHONY: rustploy-gui-windows
 rustploy-gui-windows: ## Compila o rustploy-gui para Windows (.exe) via cargo-xwin
@@ -99,7 +101,7 @@ rustploy-gui-windows-dist: ## Pacote .zip do rustploy-gui p/ Windows (apaga dist
 	@echo "$(BOLD)Apagando dist/ e montando $(WIN_DIST_DIR)...$(RESET)"
 	@rm -rf dist
 	@mkdir -p $(WIN_DIST_DIR)/assets
-	@cp $(WIN_BIN) $(WIN_DIST_DIR)/
+	@cp $(WIN_BIN) $(WIN_UPDATE_BIN) $(WIN_DIST_DIR)/
 	# Assets lidos em runtime por caminho relativo ao CWD (o exe faz chdir p/ a
 	# própria pasta no startup — ver src/assets.rs no rustploy-gui): mesma
 	# estrutura de pastas do repo da gui. `views/` é copiada INTEIRA (templates,

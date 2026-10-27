@@ -173,6 +173,15 @@ jobs:
           path: rustploy-gui/target/x86_64-pc-windows-msvc/release/rustploy-gui.exe
           if-no-files-found: error
 
+      # O helper do "Atualizar app" (troca a pasta do app portátil). Não passa pelo SignPath: a
+      # autenticidade do que ele instala vem da assinatura minisign do zip.
+      - name: Upload update helper .exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustploy-gui-update-exe
+          path: rustploy-gui/target/x86_64-pc-windows-msvc/release/rustploy-gui-update.exe
+          if-no-files-found: error
+
   # Assina o .exe com o SignPath (tier OSS, grátis para projetos open source).
   # INERTE até o projeto estar registrado: o job só roda quando a variável de
   # repositório SIGNPATH_ORGANIZATION_ID existe (Settings > Secrets and
@@ -229,6 +238,12 @@ jobs:
           name: rustploy-gui-exe-unsigned
           path: exe
 
+      - name: Download update helper .exe
+        uses: actions/download-artifact@v4
+        with:
+          name: rustploy-gui-update-exe
+          path: exe
+
       # Same tree assets::locate_and_chdir() expects next to the .exe (portable
       # layout) — mirrors `make rustploy-gui-windows-dist`. Keep the two in
       # sync: this is the one packaging path with no glob/manifest tool behind
@@ -242,7 +257,7 @@ jobs:
           set -e
           DIST=dist/rustploy-gui-windows
           mkdir -p "$DIST/assets"
-          cp exe/rustploy-gui.exe "$DIST/"
+          cp exe/rustploy-gui.exe exe/rustploy-gui-update.exe "$DIST/"
           cp -r rustploy-gui/views "$DIST/"
           cp -r rustploy-gui/assets/icons "$DIST/assets/"
           cp -r rustploy-gui/assets/blueprint-logos "$DIST/assets/"

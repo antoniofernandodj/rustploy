@@ -30,21 +30,34 @@ fn run() -> iced::Result — Sobe o daemon multi-janela e roda o loop do iced at
 const REPOSITORY — Repositório das releases do app.
 const HELPER — O helper root e o binário que ele troca.
 const CACHE_SUBDIR — Relativo ao cache do usuário.
-enum InstallKind { Deb, Other } — Como este executável foi instalado: só a instalação por `.deb` tem helper root.
+const PORTABLE_DIR_NAME — Windows: a pasta que o `install.ps1` cria em `%LOCALAPPDATA%` e o helper que vem no zip.
+enum InstallKind { Deb, Zip, Other } — Como este executável foi instalado: só `.deb` e o zip do `install.ps1` se atualizam pelo app.
 impl InstallKind
   fn label() -> &'static str
-fn install_kind_of(executable) -> InstallKind
+fn install_kind_of(executable, portable_dir) -> InstallKind
+fn portable_dir() -> Option<PathBuf> — `%LOCALAPPDATA%\Rustploy`, só no Windows.
+fn staging_dir(install_dir) -> PathBuf — `<pasta-do-app>-update`.
 fn install_kind() -> InstallKind
-fn can_update() -> bool — O app pode se atualizar sozinho? `.deb` + helper instalado + `pkexec` no PATH.
+fn can_update() -> bool — O app pode se atualizar sozinho? `.deb` + helper + `pkexec`, ou zip + helper + `curl`.
 fn find_in_path(program) -> Option<PathBuf>
+fn without_console(command) -> &mut Command — Sem janela de console piscando quando o app roda um programa no Windows.
 fn updates_dir() -> Result<PathBuf, String> — `$XDG_CACHE_HOME` ou `~/.cache`, resolvido como o helper espera.
 fn download(url, destination, max_bytes) -> Result<(), String> — Baixa `url` para `destination` com o `curl` do sistema (TLS e certificados do sistema), seguindo red…
-fn validate_deb_name(deb_name) -> Result<(), String> — O nome vira parte de um caminho: só o que um `.deb` do rustploy-gui teria.
-fn install(deb_url, signature_url, deb_name) -> Result<String, String> — Baixa o pacote e a assinatura para o cache do usuário e chama o helper por `pkexec`.
+fn validate_package_name(name, start, end) -> Result<(), String> — O nome vira parte de um caminho: só letras, dígitos e `._+-~`, com o começo e o fim dados.
+fn validate_deb_name(deb_name) -> Result<(), String>
+fn validate_zip_name(zip_name) -> Result<(), String>
+fn select_windows_zip(assets, tag) — O zip do Windows da release (`rustploy-gui-windows-<tag>.zip`) e a `.minisig` dele, só entre os arqu…
+struct PendingSwap { helper, install_dir, zip, signature } — A troca já conferida, esperando o `restart` (que fecha esta janela para o helper agir).
+fn install(package_url, signature_url, package_name) -> Result<String, String> — Baixa o pacote certo para este jeito de instalar.
+fn prepare_portable(zip_url, signature_url, zip_name) -> Result<String, String>
+fn last_line(stderr) -> String
+fn take_last_result() -> Option<(bool, String)> — O resultado da última troca no Windows (`result.json` do helper), lido uma vez só.
+fn parse_last_result(text) -> Option<(bool, String)>
+fn install_deb(deb_url, signature_url, deb_name) -> Result<String, String> — Baixa o pacote e a assinatura para o cache do usuário e chama o helper por `pkexec`.
 fn restart() -> Result<(), String> — Abre uma nova instância do app e encerra esta.
 fn install_lua(lua) -> LuaResult<()> — Instala o global `app_update` numa VM Luau nova.
-const INSTALLED_BINARY, MAX_DEB_BYTES
-(10 testes)
+const INSTALLED_BINARY, MAX_DEB_BYTES, PORTABLE_HELPER, WINDOWS_PACKAGE, PENDING_SWAP
+(15 testes)
 
 ## rustploy-gui/src/bin/rustploy-gui-update/
 
@@ -59,7 +72,22 @@ const STATE_DIR, BINARY, MAX_DEB_BYTES
 
 ### main.rs — `rustploy-gui-update` — o helper root que instala o `.deb` **assinado** do app desktop.
 fn main() -> std::process::ExitCode
-fn main()
+fn main() -> std::process::ExitCode
+
+### portable.rs — O helper no Windows: troca a pasta do app portátil (`%LOCALAPPDATA%\Rustploy`) pela do zip **assinad…
+const PACKAGE — O que o comentário assinado do zip tem de dizer (`tools/sign-release.sh`).
+const ZIP_ROOT — A pasta de topo do zip (`release.yml`, passo "Package").
+const WAIT_FOR_APP — Quanto o `swap` espera o app fechar (a pasta só pode ser renomeada sem o `.exe` aberto).
+fn staging_dir(install_dir) -> PathBuf — `<pasta-do-app>-update`, ao lado da pasta do app (mesmo volume, para o `rename` funcionar).
+fn check(install_dir, zip, signature, keys) -> Result<String, String> — Confere a assinatura do zip e o que ela afirma; devolve a versão (a da tag, `0.1.22`).
+fn read_limited(path, max_bytes) -> Result<Vec<u8>, String>
+fn extract(zip, destination) -> Result<PathBuf, String> — Extrai o zip em `destination` (que não pode existir).
+fn swap(install_dir, zip, signature, keys, wait) -> Result<String, String> — Confere, extrai e troca a pasta do app.
+fn write_result(install_dir, result)
+fn reopen(install_dir)
+fn run() -> ExitCode
+const ARCH, BINARY, MAX_ZIP_BYTES, MAX_SIGNATURE_BYTES, RESULT_FILE
+(11 testes)
 
 ## rustploy-gui/tests/
 

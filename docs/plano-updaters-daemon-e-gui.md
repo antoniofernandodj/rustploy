@@ -1,6 +1,6 @@
 # Plano: updaters (daemon e GUI) — um instalador root minúsculo para cada app
 
-**Estado:** **fases 0, 1, 2 e 3 implementadas, publicadas e provadas em ponta a ponta (2026-10-25, release v0.1.19), mais o `install.sh` assinado e o selo de versão nova (2026-10-26, release v0.1.20). Checagem periódica, segunda chave de assinatura (uma por máquina) e `install.ps1` assinado em 2026-10-27. A fase 4 (Windows) segue adiada, por decisão.**
+**Estado:** **fases 0, 1, 2 e 3 implementadas, publicadas e provadas em ponta a ponta (2026-10-25, release v0.1.19), mais o `install.sh` assinado e o selo de versão nova (2026-10-26, release v0.1.20). Checagem periódica, segunda chave de assinatura (uma por máquina) e `install.ps1` assinado em 2026-10-27. Fase 4 (Windows) implementada em 2026-10-27 (app 0.1.27), ainda sem rodar num Windows de verdade.**
 Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
 **Sessão de chat:** a conversa que projetou e implementou este plano pode ser retomada com `claude --resume b0b1604e-3179-4f39-989d-5dc2e8494671`.
 
@@ -23,7 +23,7 @@ Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
 - **Fase 3 (updater do app, Linux), 2026-10-25:** implementada. `update-core` 0.3.0 passou a conter o instalador, o acesso ao
   sistema e a escolha de arquivos da release (o daemon e o app usam o mesmo código). App: `rustploy-gui-update` (helper root via
   `pkexec`, sem processo residente), política do polkit, ponte nativa `app_update` e a seção "App desktop" na aba. Testada com
-  `tests/e2e-updater-gui/run.sh` (pkexec e polkit reais, 11 cenários) além dos testes unitários. **Windows segue adiado (fase 4).**
+  `tests/e2e-updater-gui/run.sh` (pkexec e polkit reais, 11 cenários) além dos testes unitários. Windows: fase 4, abaixo.
   **Não testado:** o diálogo de senha real num desktop (o teste usa uma regra de polkit que autoriza sem senha) e o fluxo de ponta
   a ponta com download do GitHub, que só uma release com o helper pode exercitar.
 - **Prova real (2026-10-25):** o daemon da v0.1.17 se atualizou sozinho para a v0.1.18 pelo `ApplyUpdate` (download do GitHub,
@@ -63,11 +63,25 @@ Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
   instalação (`InstallKind`) e reabertura do app (`restart()` abre o novo processo e sai com `exit(0)`; não há trava de
   instância única, então a bandeja não segura o processo velho) estão feitos. A página "Atualizar pelo Settings" existe em
   `rustploy-docs/.../instalacao/atualizar.mdx`.
+- **Fase 4 — Windows (2026-10-27, app 0.1.27):** o mesmo `rustploy-gui-update` vira, no Windows, o helper do zip portátil
+  (`src/bin/rustploy-gui-update/portable.rs`, sem privilégio; vai no zip ao lado do `rustploy-gui.exe`, no CI e no
+  `make rustploy-gui-windows-dist`). `InstallKind::Zip` quando o `.exe` está direto em `%LOCALAPPDATA%\Rustploy` (o que o
+  `install.ps1` instala). "Atualizar app": a ponte baixa o zip da release (`rustploy-gui-windows-<tag>.zip`, escolhido pela
+  tag; a versão do app vem do `.deb` da mesma release, que sai do mesmo commit) e a `.minisig` para
+  `%LOCALAPPDATA%\Rustploy-update`, copia o helper para lá e roda `check` (assinatura com `update_core::signature` e as
+  mesmas chaves, comentário `package=rustploy-gui-windows arch=amd64` e versão igual à do nome do arquivo) **antes** de fechar a
+  janela. "Reabrir" roda `swap` e sai: o helper extrai (recusa entrada fora de `rustploy-gui-windows/`, `..` ou sem o `.exe`),
+  espera até 60 s o app fechar tentando renomear a pasta, troca, devolve a antiga se o segundo `rename` falhar, grava
+  `result.json` e reabre o app; o app reaberto mostra o resultado num toast (`app_update.last_result`). A aba mostra o
+  comando do `install.ps1` no Windows. Testes: 11 no helper (troca, zip adulterado, outra chave, outro pacote/arquitetura,
+  nome trocado, zip-slip, sem `.exe`, pasta errada) e 5 na ponte, todos no Linux; compilado para Windows com `cargo xwin`.
+  Quem tem o app 0.1.26 ou mais velho no Windows precisa rodar o `install.ps1` uma vez (a versão instalada não tem o helper).
 - **Pendências conhecidas:**
   1. Testes manuais: o diálogo de senha **real** do `pkexec` num desktop (os testes usam uma regra de polkit que autoriza sem
      senha); "Atualizar app" clicado numa janela real com download do GitHub (precisa de uma release com o app mais novo que o
      0.1.25); o upgrade v0.1.19 → v0.1.20 com o selo aceso numa janela real (já dá para fazer).
-  2. Windows: fase 4.
+  2. Fase 4 num Windows de verdade: "Atualizar app" com o zip da release, a espera pelo fechamento (a pasta só renomeia
+     com o `.exe` fechado) e a reabertura. Só dá depois de uma release com o app 0.1.27 e outra mais nova.
 - **Publish da fase 1 (2026-10-25):** `rustploy-update-core` 0.1.0 e `rustploy-shared` 0.9.0 publicados; daemon 0.1.10 e GUI 0.1.20; docs pt/en atualizadas.
 - **Antes (histórico) faltava o *Publish*:** publicar `rustploy-update-core` 0.1.0 e `rustploy-shared`
   0.9.0 no crates.io *antes* do daemon (ele depende das duas), atualizar o `Cargo.lock` do daemon, bump
@@ -395,9 +409,8 @@ duas linhas na tela (GUI e webui), `busy_actions`, testes. Já entrega o aviso e
 **Fase 3 — Updater da GUI (Linux).** `rustploy-gui-update`, política polkit, download no Rust, versão
 do app no contexto, reinício do app, checagem do ciclo de vida da bandeja.
 
-**Fase 4 — Windows (ADIADA).** `rustploy-update.exe` com a verificação compartilhada, troca da pasta e
-reabertura. Fica para depois: o `install.ps1` manual cobre por enquanto. O zip do Windows já sai
-assinado na fase 0, então a base fica pronta.
+**Fase 4 — Windows (FEITA em 2026-10-27).** O helper é o próprio `rustploy-gui-update.exe` (no Windows ele troca a
+pasta), com a verificação compartilhada, troca da pasta e reabertura. Detalhes no topo, em "Fase 4 — Windows".
 
 Cada fase termina com o checklist de *Publish* do `AGENTS.md` (índice, bump, commit/push, crates.io,
 release, docs). A documentação (`rustploy-docs`) ganha uma página "Atualizar pelo Settings" e a seção
@@ -432,7 +445,7 @@ Respondidas em 2026-10-25; o plano acima já reflete todas elas.
 6. **Primeira entrega:** fases 0 e 1 (assinar e verificar, sem root); a fase 2 vem em seguida.
 7. **Ordem:** daemon (fase 2) antes da GUI (fase 3).
 8. **Canal:** só estável (`channel = "stable"`).
-9. **Windows:** adiado (fase 4); `install.ps1` manual por enquanto.
+9. **Windows:** fase 4, feita em 2026-10-27 (o helper é o `rustploy-gui-update.exe`, sem privilégio).
 10. **Rollback e snapshot do banco:** entram na fase 2.
 
 ## 12. O que **não** está neste plano
