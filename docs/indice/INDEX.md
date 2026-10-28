@@ -128,9 +128,6 @@
 - docker-compose.test.yml
 - install.sh
 
-### rustploy-daemon/.claude/
-- settings.json
-
 ### rustploy-daemon/crates/daemon/ → daemon-core.md
 - Cargo.toml — Rustploy PaaS daemon — lightweight self-hosted deployment platform
 - build.rs — Gera, em tempo de compilação, os assets estáticos da web UI/PWA (`crates/daemon/…
