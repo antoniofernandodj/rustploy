@@ -102,6 +102,12 @@ Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
      campo `update` do snapshot deixa de ser `null` (webui: a aba Atualizações preenche sem clicar em "Verificar"), e a
      consulta se repete a cada hora (o `checked_at` muda). Quando houver daemon mais novo, o log mostra
      "update: há versão nova do daemon" e o selo acende sozinho numa janela que já estava aberta.
+     **Feito em parte (2026-10-28):** daemon 0.1.15 do `install.sh` num container `debian:12` (sem systemd, `rustployd` rodado
+     à mão), `check_interval_hours = 1`. Subiu às 00:29:21 UTC; aos 14 s o `update` do snapshot (`/api/events`) era `null`; a
+     primeira consulta saiu às 00:30:21, exatos 60 s depois, e o snapshot passou a trazer `checked_at`, `current_version` e
+     `latest_version` 0.1.15, `is_update_available: false`, sem ninguém pedir. **Falta:** a repetição de hora em hora (o
+     `checked_at` mudar ~1 h depois; o teste foi interrompido antes) e a parte do log e do selo, que espera um daemon novo.
+     Para repetir: deixe o daemon de pé por mais de 1 h e leia o primeiro evento de `/api/events` antes e depois.
 
   **Windows (fase 4):**
   6. *`install.ps1` num Windows de verdade (já dá para fazer).* Num Windows 10/11 sem `minisign`, no Windows PowerShell 5.1:
