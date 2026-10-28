@@ -95,7 +95,7 @@ Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
   3. *Selo de versão nova aceso numa janela real.* Conecte o app num daemon mais velho que a última release: o ponto verde
      aparece no item Settings da barra lateral e na aba Atualizações (app e webui). Com o daemon 0.1.15 isso só acontece
      quando sair um daemon mais novo; com um daemon até 0.1.14 já acende (0.1.15 é a última).
-  4. *"Atualizar daemon" pelo botão, de 0.1.15 para a próxima.* **Já dá (2026-10-28): a v0.1.23 publicou o daemon 0.1.16, só com o bump, assinada pela máquina 1.** Um daemon 0.1.15 (ex.: rustploy-chiquitos) deve ver a versão nova e atualizar pelo botão. Um daemon
+  4. *"Atualizar daemon" pelo botão, de 0.1.15 para a próxima.* **Já dá (2026-10-28): a v0.1.23 publicou o daemon 0.1.16, só com o bump, assinada pela máquina 1.** **Passou (2026-10-28):** o rustploy-chiquitos (0.1.15) atualizou pelo botão "Atualizar daemon" até a 0.1.16: a aba mostrou "Atualizado para 0.1.16-1.", o `status` pelo MCP voltou `version: 0.1.16` e o botão "Reverter para a versão anterior" apareceu. Os 7 serviços já estavam parados antes (sem autostart no boot), então a atualização não derrubou nada. Um daemon
      0.1.14 **não** serve: ele só conhece a chave da máquina 1 e recusa a v0.1.22 (o recusar em si é o comportamento certo;
      a saída é o `install.sh`). Passou se o daemon reinicia na versão nova e a aba mostra "Atualizado para …".
   5. *Checagem periódica num daemon real.* Num daemon 0.1.15 com `[update] check_interval_hours = 1`: 60 s depois de subir o
