@@ -63,6 +63,7 @@
 - plano-acao-banco-compartilhado.md — Plano de ação: implementar o banco compartilhado (Postgres) e migrar rdo-itemize…
 - plano-aquecer-job.md — Aquecer job: saber se o cache existe e deixá-lo pronto antes de rodar
 - plano-backend-podman.md — Plano: backend Podman (alternativa ao Docker)
+- plano-backup-estado-em-git.md — Plano: backup do estado em git (espelho versionado, com segredos cifrados)
 - plano-banco-compartilhado.md — Plano: banco compartilhado entre projetos + migração dos bancos antigos
 - plano-cancelamento-de-jobs.md — Cancelamento de `job_run` em andamento
 - plano-chave-de-acesso-e-mcp.md — Plano: chave de acesso única + API de agente no daemon (via MCP)
