@@ -1,6 +1,6 @@
 # Plano: updaters (daemon e GUI) — um instalador root minúsculo para cada app
 
-**Estado:** **fases 0, 1, 2 e 3 implementadas, publicadas e provadas em ponta a ponta (2026-10-25, release v0.1.19), mais o `install.sh` assinado e o selo de versão nova (2026-10-26, release v0.1.20). Checagem periódica, segunda chave de assinatura (uma por máquina) e `install.ps1` assinado em 2026-10-27. Fase 4 (Windows) implementada em 2026-10-27 (app 0.1.27), ainda sem rodar num Windows de verdade.**
+**Estado:** **fases 0, 1, 2 e 3 implementadas, publicadas e provadas em ponta a ponta (2026-10-25, release v0.1.19), mais o `install.sh` assinado e o selo de versão nova (2026-10-26, release v0.1.20). Checagem periódica, segunda chave de assinatura (uma por máquina) e `install.ps1` assinado em 2026-10-27. Fase 4 (Windows) implementada e publicada em 2026-10-27 (release v0.1.22, app 0.1.27). Falta só teste manual, numa máquina de verdade: ver "O que falta testar".**
 Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
 **Sessão de chat:** a conversa que projetou e implementou este plano pode ser retomada com `claude --resume b0b1604e-3179-4f39-989d-5dc2e8494671`.
 
@@ -76,12 +76,48 @@ Escrito em 2026-10-25. As decisões tomadas estão na seção 11.
   comando do `install.ps1` no Windows. Testes: 11 no helper (troca, zip adulterado, outra chave, outro pacote/arquitetura,
   nome trocado, zip-slip, sem `.exe`, pasta errada) e 5 na ponte, todos no Linux; compilado para Windows com `cargo xwin`.
   Quem tem o app 0.1.26 ou mais velho no Windows precisa rodar o `install.ps1` uma vez (a versão instalada não tem o helper).
-- **Pendências conhecidas:**
-  1. Testes manuais: o diálogo de senha **real** do `pkexec` num desktop (os testes usam uma regra de polkit que autoriza sem
-     senha); "Atualizar app" clicado numa janela real com download do GitHub (precisa de uma release com o app mais novo que o
-     0.1.25); o upgrade v0.1.19 → v0.1.20 com o selo aceso numa janela real (já dá para fazer).
-  2. Fase 4 num Windows de verdade: "Atualizar app" com o zip da release, a espera pelo fechamento (a pasta só renomeia
-     com o `.exe` fechado) e a reabertura. Só dá depois de uma release com o app 0.1.27 e outra mais nova.
+- **O que falta testar (à mão, atualizado em 2026-10-28).** O código está todo feito e publicado; o que segue só se prova
+  numa máquina de verdade. **Atenção às chaves:** uma instalação só aceita release assinada por uma chave que ela conhece.
+  Daemon até 0.1.14 e app até 0.1.25 (releases até a v0.1.20) só conhecem a máquina 1 (antonio); daemon 0.1.15 e app 0.1.26
+  em diante conhecem as duas. As releases v0.1.21 e v0.1.22 foram assinadas pela máquina 2 (itemize).
+
+  **Linux, app desktop (já dá para fazer):**
+  1. *Diálogo de senha real e "Atualizar app" numa janela real.* Num desktop Debian/Ubuntu, instale o app 0.1.26
+     (`curl -fsSL …/install.sh | sudo sh -s -- gui --version v0.1.21`), abra, conecte num daemon e vá em Settings →
+     Atualizações. A seção "App desktop" deve mostrar 0.1.26 → 0.1.27 e o botão "Atualizar app". Clique: o sistema mostra o
+     diálogo de senha do polkit (nos testes automáticos uma regra autoriza sem senha, então ele nunca apareceu); com a senha,
+     o app instala e reabre na 0.1.27 (`rustploy-gui --version` ou a própria aba). Passou se reabriu sozinho, na versão nova,
+     e não ficou processo velho na bandeja (`pgrep -a rustploy-gui` mostra um só).
+  2. *Cancelar o diálogo.* Repita o 1 (com outra instalação 0.1.26) e clique em Cancelar: a aba deve dizer "a autenticação
+     foi cancelada ou negada" e nada é instalado (`dpkg -l rustploy-gui` continua 0.1.26).
+
+  **Linux, daemon e selo:**
+  3. *Selo de versão nova aceso numa janela real.* Conecte o app num daemon mais velho que a última release: o ponto verde
+     aparece no item Settings da barra lateral e na aba Atualizações (app e webui). Com o daemon 0.1.15 isso só acontece
+     quando sair um daemon mais novo; com um daemon até 0.1.14 já acende (0.1.15 é a última).
+  4. *"Atualizar daemon" pelo botão, de 0.1.15 para a próxima.* Só dá quando sair um daemon mais novo que 0.1.15. Um daemon
+     0.1.14 **não** serve: ele só conhece a chave da máquina 1 e recusa a v0.1.22 (o recusar em si é o comportamento certo;
+     a saída é o `install.sh`). Passou se o daemon reinicia na versão nova e a aba mostra "Atualizado para …".
+  5. *Checagem periódica num daemon real.* Num daemon 0.1.15 com `[update] check_interval_hours = 1`: 60 s depois de subir o
+     campo `update` do snapshot deixa de ser `null` (webui: a aba Atualizações preenche sem clicar em "Verificar"), e a
+     consulta se repete a cada hora (o `checked_at` muda). Quando houver daemon mais novo, o log mostra
+     "update: há versão nova do daemon" e o selo acende sozinho numa janela que já estava aberta.
+
+  **Windows (fase 4):**
+  6. *`install.ps1` num Windows de verdade (já dá para fazer).* Num Windows 10/11 sem `minisign`, no Windows PowerShell 5.1:
+     `irm https://raw.githubusercontent.com/antoniofernandodj/rustploy/main/install.ps1 | iex`. Deve aparecer "Baixando o
+     minisign…", "Assinatura conferida (package=rustploy-gui-windows version=0.1.22 arch=amd64)", instalar em
+     `%LOCALAPPDATA%\Rustploy` (com o `rustploy-gui-update.exe` ao lado do app) e criar o atalho do Menu Iniciar. Só foi
+     testado no PowerShell 7 do Linux, onde o `minisign.exe` não roda e o atalho (COM) não existe.
+  7. *"Atualizar app" no Windows.* Só dá quando sair uma release com o app mais novo que 0.1.27 (a v0.1.22 é a primeira com o
+     helper). Com o app 0.1.27 instalado pelo item 6, clique em "Atualizar app": a confirmação fala em "fecha para trocar os
+     arquivos", o app fecha, reabre em segundos na versão nova e mostra o toast "App atualizado (release v…)". Conferir também
+     que `%LOCALAPPDATA%\Rustploy-update` ficou só com o zip, a assinatura e o helper (sem `old\` nem `new\`).
+  8. *App que não fecha.* Repita o 7 com um `cmd` aberto dentro de `%LOCALAPPDATA%\Rustploy` (segura a pasta): depois de
+     ~60 s o app reabre na versão **anterior** com o toast "A atualização do app falhou: o app não fechou…". É o caminho de
+     volta da troca; nos testes do Linux o `rename` nunca falha, então ele não foi exercitado.
+  9. *SmartScreen e antivírus.* No 6 e no 7, anotar se o Windows avisa sobre o `rustploy-gui-update.exe` (ele não passa pelo
+     SignPath) ou se um antivírus bloqueia a troca da pasta. Não há o que testar antes disso.
 - **Publish da fase 1 (2026-10-25):** `rustploy-update-core` 0.1.0 e `rustploy-shared` 0.9.0 publicados; daemon 0.1.10 e GUI 0.1.20; docs pt/en atualizadas.
 - **Antes (histórico) faltava o *Publish*:** publicar `rustploy-update-core` 0.1.0 e `rustploy-shared`
   0.9.0 no crates.io *antes* do daemon (ele depende das duas), atualizar o `Cargo.lock` do daemon, bump
