@@ -418,6 +418,9 @@ function test_env__o_valor_pode_conter() — - o valor pode conter =
 function test_env__comentarios_ficam_ligados_a_chave_que_vem_depois() — - comentários ficam ligados à chave que vem depois
 function test_env__comentario_no_fim_nao_tem_chave_seguinte() — - comentário no fim não tem chave seguinte
 function test_env__linhas_vazias_e_sem_sao_ignoradas() — - linhas vazias e sem = são ignoradas
+function test_env__linha_ruim_vira_erro_com_numero_da_linha() — - o que não pôde ser lido vem em errors, com o número da linha
+function test_env__chave_repetida_vira_erro() — - chave repetida aponta a linha da primeira definição e não duplica a var
+function test_env__valor_vazio_nao_e_erro() — - valor vazio é legítimo
 function test_env__entrada_vazia_ou_nil_da_listas_vazias_que_codificam_como() — - entrada vazia ou nil dá listas vazias que codificam como array
 function test_env__aceita_final_de_linha_sem_n() — - aceita final de linha sem \\n
 function test_urls__oauth_redirect_uri_monta_o_callback_do_provedor() — - oauth_redirect_uri monta o callback do provedor

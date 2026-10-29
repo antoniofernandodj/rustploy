@@ -115,7 +115,6 @@ function cancel_project_edit()
 function project_edit_show_validation_errors(_erros_json) — on_validation_error do form(name = edit_project) — o motor já publicou {error_edit_project_name} e a…
 function save_project_edit() — on_submit: só roda com a validação (rules="required" no NOME) aprovada.
 local with_project_env(mutate)
-local parse_project_dotenv(text) — Parser .env (KEY=VALUE, # comentário, <secret:nome>) → (env_vars, comments).
 function project_env_show_validation_errors(_erros_json) — on_validation_error do form(name = project_env_add) — a chave é `rules="required"`; o motor publica …
 function project_env_add()
 function project_env_delete(key)

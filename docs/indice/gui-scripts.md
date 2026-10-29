@@ -33,7 +33,10 @@ types: FetchResult, StreamHandle, Viewport, ZipEntry, StreamOptions, DateDelta, 
 ### helpers.luau — utilitários puros compartilhados pelos handlers_*.luau (sem estado, sem I/O).
 function M.trim(value)
 function M.parse_secret_ref(text) — Referência a secret num valor de env var → nome do secret (ou nil se o valor for texto comum).
-function M.parse_dotenv(text) — Parseia um blob .env em (vars, comments).
+function M.valid_env_key(key) — Nome de env var aceito: começa com letra ou `_`; o resto são letras, dígitos, `_`, `.` e `-`.
+function M.confirm_env_key(key, existing_json) — Valida a chave nova antes de gravar: nome inválido avisa e aborta; chave que já existe pede confirma…
+function M.parse_dotenv(text) — Parseia um blob .env em (vars, comments, errors).
+function M.dotenv_errors_message(errors) — Resumo de `errors` para um toast: as 3 primeiras e "+N".
 function M.oauth_redirect_uri(base, provider_segment) — URI de callback OAuth que o usuário registra no app do provedor.
 function M.looks_like_git_url(url) — Heurística: a URL denota um repo Git (clonar+buildar) e não uma imagem.
 function M.normalize_url(raw) — Normaliza a entrada de URL do login para uma base HTTP(S) sem barra final.

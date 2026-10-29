@@ -177,6 +177,11 @@ fn is_sql_or_mongo(db_kind) -> bool — Bancos que podem ser servidor compartilh
 fn validate_shared_rules(name, source, db_kind, shared) -> Result<(), String> — Regras do spec ligadas ao banco compartilhado, checadas onde o spec é gravado: (1) nenhum nome de se…
 (6 testes)
 
+### env_validation.rs — Validação das env vars gravadas por serviço, projeto e job: nome válido e sem chave repetida.
+fn valid_key(key) -> bool — Nome aceito: começa com letra ou `_`; o resto são letras, dígitos, `_`, `.` e `-` (`.`/`-` aparecem …
+fn validate(env_vars) -> Option<String> — Primeira violação, já em texto para o usuário; `None` se está tudo certo.
+(3 testes)
+
 ### errors.rs — Mensagens de erro amigáveis para o usuário.
 fn humanize_db_error(err, subject) -> String — Converte um erro de banco (sqlx) numa mensagem amigável para o usuário.
 
