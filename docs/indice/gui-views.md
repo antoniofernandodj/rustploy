@@ -66,7 +66,7 @@ handlers: copy_ctx, export_all, export_none, export_save, export_show, export_su
 
 ### shell.gvb — Casca do app conectado: sidebar, topbar e as views de projeto (Deployments, Projects, serviços de um…
 <component>
-imports: DeploymentsView, HomeViews, JobActions, LoadingRow, NavItem, PickerRow, ProjectCard, ProjectServicesView, ProjectsView, RunningCard, ServiceCard, ServiceDetail, StatCard, StateCell, TabButton, TemplateRow, rp-badge
+imports: DeploymentsView, HomeViews, JobActions, LoadingRow, NavItem, PickerRow, ProjectCard, ProjectServicesView, ProjectsView, RunningCard, ServiceCard, ServiceDetail, StatCard, StateCell, TabButton, TableLink, TemplateRow, rp-badge
 views: deployments, projects, project_services, service
 handlers: disconnect, drawer, nav_deploy_engine, nav_deployments, nav_docker, nav_ingress, nav_monitoring, nav_projects, nav_running, nav_schedules, nav_settings, nav_support, search_changed, stop_all
 
@@ -119,6 +119,11 @@ props: kind, label
 ### tab_button.gvb — Botão de aba genérico.
 <component>
 props: label, current, target, action
+
+### table_link.gvb — Hiperlink de célula de tabela: o nome de um serviço ou de um projeto que abre a tela dele (os mesmos…
+<component>
+props: kind, id, label
+handlers: open_project, open_service
 
 ### template_row.gvb — Linha do catálogo de templates de aplicação: logo à esquerda (vetor ou raster conforme logo_kind), n…
 <component>

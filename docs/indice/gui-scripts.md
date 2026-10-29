@@ -108,7 +108,6 @@ types: DeployTrack, State
 
 ### dashboard.luau — builders de lista do dashboard (deployments/projects/ services/docker/ingress/monitoring/deploy engi…
 local grid_cols()
-function M.deployments(deployments, term) — Deployments (aba Deployments).
 local project_card(project, service_pairs) — Card de projeto, agregando contagem de serviços de `pairs_`.
 function M.docker_rows(service_pairs, term) — Linhas Docker (containers gerenciados) derivadas dos serviços, ordenadas.
 function M.docker_containers(containers, term) — Containers do host (DockerContainerInfo): todos, rodando + parados.
