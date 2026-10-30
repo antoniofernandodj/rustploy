@@ -123,7 +123,6 @@ function M.deploy_engine_detail(info)
 function M.deploy_engine_detail_steps(info)
 function M.deploy_engine_active(active) — Deploy Engine: "Executando agora".
 function M.deploy_engine_queued(queued) — Deploy Engine: "Na fila" (deploys esperando; o primeiro é o próximo a rodar).
-function M.deploy_engine_recent(recent) — Deploy Engine: "Histórico 24h".
 
 ### docker_cleanup.luau — resumo textual da limpeza automática de Docker (Settings → Manutenção).
 function M.resource_label(name)

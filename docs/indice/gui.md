@@ -176,6 +176,7 @@ function test_motor_de_deploy__detalhe_timestamp_invalido_nao_da_duracao() — -
 function test_motor_de_deploy__executando_agora_traz_estado_tempos_e_os() — - executando agora traz estado, tempos e os passos
 function test_motor_de_deploy__a_fila_numera_de_1_e_guarda_o_id_para_cancelar() — - a fila numera de 1 e guarda o id para cancelar
 function test_motor_de_deploy__o_historico_escolhe_o_icone_pelo_resultado() — - o histórico escolhe o ícone pelo resultado
+function test_motor_de_deploy__o_historico_leva_o_id_do_projeto() — - o histórico leva o id do projeto, achado pelo serviço
 
 ### git_registry.test.luau
 function test_provedor_conectado_mostra_o_login() — - provedor conectado mostra o @login
