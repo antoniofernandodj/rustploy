@@ -121,8 +121,7 @@ local deploy_stepper(info)
 local iso_to_epoch_seconds(iso_timestamp)
 function M.deploy_engine_detail(info)
 function M.deploy_engine_detail_steps(info)
-function M.deploy_engine_active(active) — Deploy Engine: "Executando agora".
-function M.deploy_engine_queued(queued) — Deploy Engine: "Na fila" (deploys esperando; o primeiro é o próximo a rodar).
+local project_by_service_id(service_pairs) — O resumo do Deploy Engine traz só o id do serviço; o do projeto (link da coluna PROJETO) sai dos par…
 
 ### docker_cleanup.luau — resumo textual da limpeza automática de Docker (Settings → Manutenção).
 function M.resource_label(name)
