@@ -28,7 +28,7 @@ function M.install(names)
 ### format.luau — fachada: reexporta os builders de views/scripts/fmt_*.luau sob um único módulo, para os handlers seg…
 
 ### glacier.d.luau — Definições dos globais que o motor glacier-ui injeta no interpretador Luau em runtime (não existem c…
-types: FetchResult, StreamHandle, Viewport, ZipEntry, StreamOptions, DateDelta, AppUpdateInfo, AppUpdatePlan
+types: FetchResult, StreamHandle, Viewport, FetchProgress, AbortController, HttpResponse, HttpRequest, HttpError, HttpOptions, HttpRequestSpec, HttpClient, Timer, ZipEntry, StreamOptions, DateDelta, AppUpdateInfo, AppUpdatePlan
 
 ### helpers.luau — utilitários puros compartilhados pelos handlers_*.luau (sem estado, sem I/O).
 function M.trim(value)
@@ -212,8 +212,10 @@ types: ColBudgets
 
 ### api.luau — cliente HTTP/JSON da API do daemon.
 function M.auth_headers(token) — - Só o header `Authorization` (tabela vazia quando não há token).
-function M:headers()
+function M.failure_text(http_response) — - O texto de uma falha de transporte/HTTP: a mensagem do motor quando a - requisição nem chegou a re…
+local decode_body(body) — - Decodifica o corpo; `ok=false` quando não é JSON.
 function M:rpc(command) — - Executa um Command.
 function M:rpc_checked(command) — - Como `rpc`, mas trata `Response::Err { code, message }` como falha.
+function M.probe(base_url) — - Sonda `GET /api/version` (leitura pura: o cliente repete 1× sozinho numa - falha de rede).
 function M.new(base_url, token)
 types: Client

@@ -213,7 +213,7 @@ handlers: docker_cleanup_run_now, docker_cleanup_save, field
 
 ### updates.gvb — Atualizações: pergunta ao daemon se há release mais nova (Command::CheckUpdate).
 <component>
-handlers: copy_ctx, update_app_apply, update_apply, update_check_now, update_rollback
+handlers: copy_ctx, update_app_apply, update_app_cancel, update_apply, update_check_now, update_rollback
 
 ### web.gvb — Web Server (default)
 <component>
@@ -265,7 +265,7 @@ handlers: field, general_save, gitea_provider_pick, gitea_repo_pick
 
 ### general_zip.gvb — Sub-aba Zip do provider: upload local com Dockerfile na raiz; corpo do `if @provider_tab == "zip"` d…
 <component>
-handlers: archive_upload, field, general_save
+handlers: archive_upload, archive_upload_cancel, field, general_save
 
 ### healthcheck.gvb — Healthcheck (editável)
 <component>

@@ -181,6 +181,7 @@ function pre_deploy_check_add() — Adiciona o job escolhido (ctx.service_form_p
 function pre_deploy_check_delete(job_id)
 function pre_deploy_check_reorder(reorder_json) — Reordena a fila (arraste): `v` é um JSON array de job_ids na nova ordem (mesmo formato de `env_reord…
 function general_save()
+function archive_upload_cancel()
 function archive_upload()
 function env_show_validation_errors(_erros_json) — on_validation_error do form(name = env_add) — a chave é `rules="required"`; o motor publica {error_e…
 function env_add()
@@ -226,6 +227,8 @@ function docker_cleanup_run_now() — Botão "Executar agora": roda os recursos 
 function M.update_check(force) — Pergunta ao daemon se há release mais nova (Command::CheckUpdate: só leitura, com cache de horas no …
 function update_check_now()
 function M.update_app_check() — Pergunta ao GitHub se há versão nova do app.
+local update_app_poll(is_zip) — Acompanha a instalação que o Rust faz numa thread (`app_update.install_start`): atualiza a barra e a…
+function update_app_cancel() — Cancela o download em andamento (depois dele, a senha e a instalação não se cancelam).
 function update_app_apply() — Baixa o pacote, pede a senha (pkexec) e instala; ao fim reabre o app.
 local update_progress_text(update_progress) — Texto do que o daemon sabe sobre a atualização em curso ou a última tentativa (Command::UpdateStatus…
 function M.update_load_progress()

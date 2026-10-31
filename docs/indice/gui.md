@@ -26,7 +26,7 @@ fn main() -> iced::Result
 ### mod.rs — Rustploy (glacier-ui) — desktop client whose UI is described in XML templates and rendered by the pu…
 fn run() -> iced::Result — Sobe o daemon multi-janela e roda o loop do iced até a última janela fechar.
 
-### updater.rs — A ponte nativa do "Atualizar app": o que o Luau não consegue fazer sozinho (rodar `curl` e `pkexec`,…
+### updater.rs — A ponte nativa do "Atualizar app": o que o Luau não consegue fazer sozinho (baixar o pacote pela cam…
 const REPOSITORY — Repositório das releases do app.
 const HELPER — O helper root e o binário que ele troca.
 const CACHE_SUBDIR — Relativo ao cache do usuário.
@@ -38,26 +38,31 @@ fn install_kind_of(executable, portable_dir) -> InstallKind
 fn portable_dir() -> Option<PathBuf> — `%LOCALAPPDATA%\Rustploy`, só no Windows.
 fn staging_dir(install_dir) -> PathBuf — `<pasta-do-app>-update`.
 fn install_kind() -> InstallKind
-fn can_update() -> bool — O app pode se atualizar sozinho? `.deb` + helper + `pkexec`, ou zip + helper + `curl`.
+fn can_update() -> bool — O app pode se atualizar sozinho? `.deb` + helper + `pkexec`, ou zip + helper.
 fn find_in_path(program) -> Option<PathBuf>
 fn without_console(command) -> &mut Command — Sem janela de console piscando quando o app roda um programa no Windows.
 fn updates_dir() -> Result<PathBuf, String> — `$XDG_CACHE_HOME` ou `~/.cache`, resolvido como o helper espera.
-fn download(url, destination, max_bytes) -> Result<(), String> — Baixa `url` para `destination` com o `curl` do sistema (TLS e certificados do sistema), seguindo red…
+struct InstallState { running, phase, done, total, abort, result } — O andamento da instalação, lido pelo Luau (`app_update.install_status`) enquanto a thread de instala…
+fn install_state()
+fn set_phase(phase)
+fn download(url, destination, max_bytes, abort) -> Result<(), String> — Baixa `url` para `destination` pela camada de rede do glacier (`glacier_ui::net`), seguindo até 5 re…
 fn validate_package_name(name, start, end) -> Result<(), String> — O nome vira parte de um caminho: só letras, dígitos e `._+-~`, com o começo e o fim dados.
 fn validate_deb_name(deb_name) -> Result<(), String>
 fn validate_zip_name(zip_name) -> Result<(), String>
 fn select_windows_zip(assets, tag) — O zip do Windows da release (`rustploy-gui-windows-<tag>.zip`) e a `.minisig` dele, só entre os arqu…
 struct PendingSwap { helper, install_dir, zip, signature } — A troca já conferida, esperando o `restart` (que fecha esta janela para o helper agir).
-fn install(package_url, signature_url, package_name) -> Result<String, String> — Baixa o pacote certo para este jeito de instalar.
-fn prepare_portable(zip_url, signature_url, zip_name) -> Result<String, String>
+fn install(package_url, signature_url, package_name, abort) -> Result<String, String> — Baixa o pacote certo para este jeito de instalar.
+fn install_start(package_url, signature_url, package_name) -> Result<(), String> — Começa a instalação numa thread (o download e o `pkexec` bloqueiam: na thread da UI a janela congela…
+fn install_cancel()
+fn prepare_portable(zip_url, signature_url, zip_name, abort) -> Result<String, String>
 fn last_line(stderr) -> String
 fn take_last_result() -> Option<(bool, String)> — O resultado da última troca no Windows (`result.json` do helper), lido uma vez só.
 fn parse_last_result(text) -> Option<(bool, String)>
-fn install_deb(deb_url, signature_url, deb_name) -> Result<String, String> — Baixa o pacote e a assinatura para o cache do usuário e chama o helper por `pkexec`.
+fn install_deb(deb_url, signature_url, deb_name, abort) -> Result<String, String> — Baixa o pacote e a assinatura para o cache do usuário e chama o helper por `pkexec`.
 fn restart() -> Result<(), String> — Abre uma nova instância do app e encerra esta.
 fn install_lua(lua) -> LuaResult<()> — Instala o global `app_update` numa VM Luau nova.
-const INSTALLED_BINARY, MAX_DEB_BYTES, PORTABLE_HELPER, WINDOWS_PACKAGE, PENDING_SWAP
-(15 testes)
+const INSTALLED_BINARY, MAX_DEB_BYTES, PORTABLE_HELPER, WINDOWS_PACKAGE, INSTALL, PENDING_SWAP
+(17 testes)
 
 ## rustploy-gui/src/bin/rustploy-gui-update/
 
@@ -390,6 +395,11 @@ function test_decode__o_token_da_api_colado_no_lugar_do_de_conexao_e() — - o t
 function test_decode__bytes_que_nao_sao_texto_tambem_caem_nesse_aviso() — - bytes que não são texto também caem nesse aviso
 function test_decode__endereco_vazio_e_corrompido() — - endereço vazio é corrompido
 function test_hint__mostra_o_servidor_e_as_pontas_da_chave() — - mostra o servidor e as pontas da chave
+
+### api.test.luau
+function test_auth_headers__so_com_token_vira_bearer() — - sem token não há cabeçalho; com token, é Bearer
+function test_failure_text__mensagem_do_motor_ou_status() — - a mensagem do motor vence; sem ela, o status HTTP
+function test_new__guarda_base_e_trata_token_vazio() — - o cliente guarda a base e o token; token vazio vira nil
 
 ### busy.test.luau — busy.luau envolve handlers globais numa trava: enquanto um roda, a chave `busy_<nome>` do ctx fica "…
 local ambiente()

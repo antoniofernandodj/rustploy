@@ -1545,7 +1545,7 @@
 
 ### rustploy-gui/src/app/ → gui.md
 - mod.rs — Rustploy (glacier-ui) — desktop client whose UI is described in XML templates an…
-- updater.rs — A ponte nativa do "Atualizar app": o que o Luau não consegue fazer sozinho (roda…
+- updater.rs — A ponte nativa do "Atualizar app": o que o Luau não consegue fazer sozinho (baix…
 
 ### rustploy-gui/src/bin/rustploy-gui-update/ → gui.md
 - helper.rs — O helper de verdade (só Unix: `geteuid`, `getpwuid_r`, dpkg).
@@ -1597,6 +1597,7 @@
 
 ### rustploy-gui/tests/lib/ → gui.md
 - access_key.test.luau
+- api.test.luau
 - busy.test.luau — busy.luau envolve handlers globais numa trava: enquanto um roda, a chave `busy_<…
 - busy_actions.test.luau — A lista de ações com trava é mantida por `tools/busy_actions.py --check` contra …
 - helpers.test.luau
