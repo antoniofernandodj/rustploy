@@ -25,21 +25,21 @@ handlers: copy_ctx, textarea_end, textarea_top, window
 
 ### login.gvb — Tela de login: um campo, o token de conexão (base64 de host:porta::token), com um select dos servido…
 <component>
-handlers: access_key_input, choose_saved_server, connect, forget_server
+handlers: access_key_input, choose_saved_server, connect, forget_server, language_select_english, language_select_portuguese
 
 ### new_job_window.gvb — Janela "Novo job": motor Glacier próprio, aberto por open_window a partir do app principal (handlers…
-<screen "Novo job — Rustploy">
+<screen "{t('new_job_window.new_job_rustploy'">
 imports: PickerRow, TabButton
 script: scripts/new_job_window.luau
 handlers: cancel, field, new_job_back, new_job_create, new_job_git_provider_pick, new_job_git_repo_pick, new_job_kind, new_job_pick_no_service, new_job_pick_project, new_job_pick_service, new_job_source, window
 
 ### new_project_form.gvb — Janela "Novo projeto": motor Glacier próprio, aberto por open_window a partir do app principal (hand…
-<screen "Novo projeto — Rustploy">
+<screen "{t('new_project_form.new_project_rustploy'">
 script: scripts/new_project_window.luau
 handlers: cancel, new_project_show_validation_errors, submit_project, window
 
 ### new_registry_token_window.gvb — Janela "Novo token do registry": motor Glacier próprio, aberto por open_window a partir do app princ…
-<screen "Novo token — Rustploy">
+<screen "{t('new_registry_token_window.new_token_rustploy'">
 script: scripts/new_registry_token_window.luau
 handlers: copy_ctx, new_registry_token_create, new_registry_token_show_validation_errors, window
 
@@ -48,7 +48,7 @@ handlers: copy_ctx, new_registry_token_create, new_registry_token_show_validatio
 handlers: field, import_analyze, import_choice, import_clear, import_create, import_pick_file, import_use_provider, new_service_back, new_service_broker, new_service_cancel, new_service_create, new_service_database, new_service_kind, new_service_pick_template, new_service_template_search
 
 ### new_service_window.gvb — Janela do wizard "Novo serviço": motor Glacier próprio, aberto por open_window (handlers/wizard.luau…
-<screen "Novo serviço — Rustploy">
+<screen "{t('new_service_window.new_service_rustploy'">
 imports: NewServiceWizard, PickerRow, TemplateRow
 script: scripts/new_service_window.luau
 handlers: window
@@ -60,7 +60,7 @@ abas: general, connection, environment, domains, migrar, databases, deployments,
 handlers: open_export_window, open_logs_window, open_project, service_deploy, service_rebuild, service_reload, service_stop, service_warm, tab
 
 ### service_export_window.gvb — Janela "Exportar serviço": motor Glacier próprio, aberto por open_window a partir do app principal (…
-<screen "Exportar serviço — Rustploy">
+<screen "{t('service_export_window.export_service_rustploy'">
 script: scripts/service_export_window.luau
 handlers: copy_ctx, export_all, export_none, export_save, export_show, export_suggested, export_toggle, field, window
 
@@ -68,7 +68,7 @@ handlers: copy_ctx, export_all, export_none, export_save, export_show, export_su
 <component>
 imports: DeploymentsView, HomeViews, JobActions, LoadingRow, NavItem, PickerRow, ProjectCard, ProjectServicesView, ProjectsView, RunningCard, ServiceCard, ServiceDetail, StatCard, StateCell, TabButton, TableLink, TemplateRow, rp-badge
 views: deployments, projects, project_services, service
-handlers: disconnect, drawer, nav_deploy_engine, nav_deployments, nav_docker, nav_ingress, nav_monitoring, nav_projects, nav_running, nav_schedules, nav_settings, nav_support, search_changed, stop_all
+handlers: disconnect, drawer, language_select_english, language_select_portuguese, nav_deploy_engine, nav_deployments, nav_docker, nav_ingress, nav_monitoring, nav_projects, nav_running, nav_schedules, nav_settings, nav_support, search_changed, stop_all
 
 ## rustploy-gui/views/components/
 

@@ -451,17 +451,22 @@
 - app.js — único <script type="module"> carregado por index.html.
 - busy.js — feedback imediato e trava de clique para toda ação assíncrona.
 - directives.js — diretivas Alpine próprias da webui.
-- format.js — timestamps, durações e paleta de estado.
+- format.js
+- i18n.js — idioma da webui: inglês por padrão, português (pt-BR) a um clique, escolha lembr…
 - icons.js — conjunto de ícones SVG inline (traço 1.75, estilo Lucide) e a diretiva `x-icon="…
 - index.html — Casca única da webui (Alpine.js): login, shell e todas as telas, uma seção por v…
 - manifest.webmanifest
 - sw.js — service worker do PWA Rustploy.
-- wm.js — gerenciador de janelas da webui (diretiva Alpine `x-win`).
-- zip.js — o `.zip` do Infra as Code no navegador.
+- wm.js
+- zip.js
+
+### rustploy-daemon/crates/daemon/webui/locales/ → webui.md
+- en.js — catálogo em inglês, por texto de origem (ver i18n.js).
+- pt-BR.js — catálogo em português (pt-BR), por texto de origem (ver i18n.js).
 
 ### rustploy-daemon/crates/daemon/webui/net/ → webui.md
-- api.js — cliente HTTP/JSON do daemon.
-- sse.js — consumidor de endpoints SSE do daemon: o firehose `/api/events` (porta de crates…
+- api.js
+- sse.js
 
 ### rustploy-daemon/crates/daemon/webui/screens/ → webui.md
 - dashboard.js — tela "Deployments" (view padrão do shell).
@@ -470,12 +475,12 @@
 - ingress.js — tela "Ingress": rotas ativas no reverse proxy (por domínio) e portas TCP de host…
 - login.js — tela de login.
 - monitoring.js — tela "Monitoring": uso de CPU/memória do host e por container.
-- new_service.js — wizard "Novo serviço", porta de new_service.gv (client iced): passo pick_type → …
+- new_service.js
 - project_detail.js — projeto aberto (view=project_services no client iced): sub-abas Serviços/Variáve…
 - projects.js — tela "Projects": grid de cards + criar/editar/remover.
 - running.js — tela "Em execução": só os projetos com serviço rodando e, dentro de cada um, só …
 - schedules.js — tela "Schedules": jobs one-shot (docker-compose) agendados ou manuais, de todos …
-- service_bundle.js — copiar um serviço entre servidores (docs/plano-copiar-servico-entre-servidores.m…
+- service_bundle.js
 - service_detail.js — detalhe de um serviço.
 - settings.js — tela "Settings": Web Server / Git / Infra as Code.
 
@@ -643,6 +648,7 @@
 - docker-e-registry.mdx
 - em-execucao.mdx
 - entrar.mdx
+- idioma.mdx
 - ingress.mdx
 - logs.mdx
 - monitoring.mdx
@@ -1098,6 +1104,7 @@
 - docker-e-registry.mdx
 - em-execucao.mdx
 - entrar.mdx
+- idioma.mdx
 - ingress.mdx
 - logs.mdx
 - monitoring.mdx
@@ -1534,6 +1541,10 @@
 - rustploy.rc
 - (+2 imagens/fontes)
 
+### rustploy-gui/locales/
+- en.json
+- pt-BR.json
+
 ### rustploy-gui/packaging/
 - br.com.rustploy.gui-update.policy
 - postinst
@@ -1554,6 +1565,7 @@
 
 ### rustploy-gui/tests/ → gui.md
 - app_manifest.rs — O que o Luau não alcança: o manifesto do `app(...)` (título, tamanho e fontes da…
+- locales.rs — Os catálogos de idioma (`locales/en.json` e `locales/pt-BR.json`) e as views que…
 
 ### rustploy-gui/tests/e2e-updater-gui/
 - Containerfile
@@ -1728,6 +1740,7 @@
 - docker.luau — limpeza de recursos Docker sem uso (imagens, volumes, redes).
 - history.luau — a pilha do "voltar" (Backspace, Alt+← e o botão "voltar" do mouse; o motor chama…
 - jobs.luau — ações da tela global "Schedules" (sidebar) e da aba "Jobs" do projeto: rodar ago…
+- language.luau — idioma da interface: restaura o escolhido da última vez, troca ao vivo e lembra.
 - nav.luau — navegação da sidebar/tabs e busca do topbar.
 - projects.luau — grade de projetos: criar/editar/remover projeto, variáveis de ambiente de projet…
 - registry.luau — sub-aba Docker > Registry: navega repo→tags (fetch sob demanda, tags não vêm no …

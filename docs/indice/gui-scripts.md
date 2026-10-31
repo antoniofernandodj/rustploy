@@ -182,6 +182,7 @@ function M.format_seconds(seconds) — Ns ou Mm Ns.
 function M.format_uptime(seconds)
 function M.format_bytes(bytes_value) — Tamanho de bytes legível ("—" para 0), igual a view::format_bytes.
 function M.format_duration(deployment) — Duração de um deployment (finished_at ou agora) − started_at, em format_seconds.
+function M.weekdays() — Os dias da semana para o combo (rótulo traduzido na hora de chamar, para acompanhar a troca de idiom…
 function M.hour_minute_join(hour, minute) — (hour, minute) -> "HH:MM".
 function M.hour_minute_split(hour_minute_text) — "HH:MM" -> hour, minute (números).
 

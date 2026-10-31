@@ -351,6 +351,37 @@ vermelho) + `modal_body`. Estado de abertura mora no store (`showNewJob`,
 desenvolver sem recompilar o daemon a cada edição, sirva `webui/` do disco com um
 proxy para `/api` (ver `docs/plano-webui-janelas-e-polimento.md`).
 
+### Idiomas (i18n): inglês por padrão, português a um clique, nos dois clientes
+
+A GUI e a webui falam **inglês** e **pt-BR**; o inglês é o padrão, o seletor (botões *English* /
+*Português* no topo e na tela de login) troca na hora e a escolha fica lembrada (`storage` na GUI,
+`localStorage` na webui). **Texto novo de interface entra nos dois idiomas, nos dois clientes** —
+um texto sem entrada não quebra nada (aparece como foi escrito), mas é divergência silenciosa.
+
+- **GUI, markup (`.gvb`):** nunca texto solto: `text("{t('docker_images.no_images')}")`, com
+  aspas simples por dentro. A chave é semântica (`<tela>.<texto_em_inglês>`, ou `common.` se vale
+  para mais de uma tela) e vive em `rustploy-gui/locales/en.json` **e** `pt-BR.json`. Valores
+  entram como argumentos: `{t('shell.projects', projects_count=projects_count)}` com
+  `"Projects ({projects_count})"` no catálogo. O `tests/locales.rs` falha se uma chave usada
+  não existe nos dois idiomas ou se sobra chave sem uso.
+- **GUI, Luau:** `i18n.tr("texto")` — o **próprio texto** é a chave do catálogo (gettext) e,
+  sem entrada, volta como está. Para `string.format`, traduza a máscara: `string.format(i18n.tr("%d
+  removido(s)"), n)`. **Nunca** traduza uma tabela no topo do módulo (`local LABELS = { a = i18n.tr(…) }`):
+  ela roda uma vez, na carga, e não acompanha a troca de idioma — guarde o texto de origem e
+  traduza no ponto de uso (`i18n.tr(LABELS[name])`). `handlers/language.luau` restaura e troca o idioma.
+- **Webui:** o catálogo é por texto de origem, em `webui/locales/en.js` e `pt-BR.js`. No HTML,
+  `<text x-t>Texto</text>` (conteúdo) e `x-t:placeholder`/`x-t:title` (atributo); dentro de uma
+  expressão, `$t('texto')`; no JS, `t("texto")` e `` t`${nome} copiado` `` (a chave é `{0} copiado`).
+  O `i18n.js` guarda o resto. Estado que o JS grava (um status, um toast) fica no idioma em que
+  nasceu.
+- **O que não se traduz:** nomes de produto, comandos, caminhos, chaves de config e os enums do
+  protocolo (`Running`, `Pending`…) — só o texto que a pessoa lê. As mensagens de erro do **daemon**
+  (a API) seguem como o daemon as escreve.
+- **Testes:** os testes de tela comparam o texto **em inglês** (o padrão). Para o `glacier test`, o
+  catálogo é o carregado pelo `app::run` (`locale_json`).
+- **Requer `glacier-ui` ≥ 0.147** (idioma espalhado a todas as janelas, `i18n.tr`, título de
+  janela com `{t(…)}`). Ver `docs/I18N.md` do `glacier-ui`.
+
 ### Nomes: tudo por extenso, em inglês, sem sigla
 
 Vale para a GUI (Luau, `.gvb`) e para a webui (JS, `index.html`), e a regra é a

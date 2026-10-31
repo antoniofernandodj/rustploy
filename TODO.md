@@ -27,6 +27,15 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
 - [x] **CI de testes e lint** — feito em 2026-10-19: `.github/workflows/ci.yml` (fmt, clippy `-D warnings` e
   test por submodule, em push na main e PR). Falta só ver rodar no GitHub após o primeiro push.
 
+- [ ] **i18n (GUI e webui): o que ficou de fora da primeira versão (2026-10-31).** Inglês padrão + pt-BR a um clique
+  já valem nos dois clientes (ver "Idiomas" no `AGENTS.md`). Pendências: (1) texto que o código grava em estado
+  (status, toast, `ctx.*_message`) fica no idioma em que nasceu — só a linha de status do login foi tratada;
+  (2) rótulos da bandeja (`tray`) seguem em inglês (menu nativo montado uma vez); (3) as mensagens de erro do
+  **daemon** (a API) não são traduzidas; (4) sem plural nem formato de número/data por idioma na webui (a GUI tem
+  `i18n.num`/`i18n.date`); (5) um terceiro idioma pede só os dois catálogos novos (`locales/<idioma>.json` e
+  `webui/locales/<idioma>.js`) e a entrada no seletor; (6) mensagem montada por concatenação de pedaços exige
+  a mesma ordem de palavras nos idiomas — trocar por mensagens inteiras com `{n}` onde a ordem importar.
+
 - [ ] **Dependências entre serviços + autostart no boot.** Plano de 2026-07-11 em
   `docs/plano-dependencias-e-autostart.md`, nunca executado (não há `depends_on` nem `autostart` no
   daemon). Depois de um reboot da VPS a ordem de subida (banco antes da app) depende do `restart:` do

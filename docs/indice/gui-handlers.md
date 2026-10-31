@@ -81,6 +81,12 @@ function job_delete(job_id)
 function job_rebuild(job_id) — Reconstrói o job do zero (`JobWarm` com `force`): rebaixa as imagens e refaz o build sem cache, mesm…
 function job_warm(job_id) — Aquece o job (baixa as imagens que faltam e popula o cache de build) sem executá-lo.
 
+### language.luau — idioma da interface: restaura o escolhido da última vez, troca ao vivo e lembra.
+local language_apply(locale) — Aplica a locale na tela e marca qual dos dois botões está ativo.
+function M.restore() — Chamado uma vez na subida da janela principal.
+function language_select_english()
+function language_select_portuguese()
+
 ### nav.luau — navegação da sidebar/tabs e busca do topbar.
 local goto_view(view)
 function nav_deployments()

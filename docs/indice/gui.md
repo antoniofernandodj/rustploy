@@ -102,6 +102,13 @@ fn cd_ws_root() — Cd's to the workspace root (idempotent — safe alongside `b
 fn comments_outside(src) -> String — Remove os comentários (`//` e `/* … */`) para que "a primeira tag" seja a primeira tag de verdade: t…
 (7 testes)
 
+### locales.rs — Os catálogos de idioma (`locales/en.json` e `locales/pt-BR.json`) e as views que os usam.
+fn read_catalog(name) -> BTreeMap<String, String>
+fn gvb_files(directory, out)
+fn keys_used_in_views() -> BTreeSet<String> — Toda chave de `{t('chave'…)}` escrita nas views.
+fn looks_semantic(key) -> bool
+(3 testes)
+
 ## rustploy-gui/tests/fixtures/
 
 ### access_key_fixture.gvb — Fixture do teste access_key.rs: tela mínima que roda o access_key.luau e deixa os resultados no cont…

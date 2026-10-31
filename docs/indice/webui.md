@@ -150,7 +150,7 @@ function registerBusy(Alpine)
 ### directives.js — diretivas Alpine próprias da webui.
 function registerDirectives(Alpine) — directives.js — diretivas Alpine próprias da webui.
 
-### format.js — timestamps, durações e paleta de estado.
+### format.js
 function toEpochMs(isoTimestamp) — epoch (ms) de um RFC3339 ("...Z" ou offset).
 function timeHms(isoTimestamp) — "HH:MM:SS" local.
 function dateDayMonthHourMinuteSecond(isoTimestamp) — "dd/mm HH:MM:SS" local.
@@ -220,6 +220,17 @@ function dockerCleanupResourceLabel(name)
 function dockerCleanupLastRunSummary(lastRun) — `lr`: `DockerCleanupLastRun?` (`{ at, results: [{ resource, count, reclaimed_bytes, error }] }`).
 function deployEngineRecentRows(recent) — Deploy Engine: "Histórico 24h".
 
+### i18n.js — idioma da webui: inglês por padrão, português (pt-BR) a um clique, escolha lembrada.
+function storedLanguage()
+function currentLanguage()
+function lookup(source)
+function fill(text, values)
+function t(first, ...values) — `t("texto")` ou o template etiquetado `` t`texto ${valor}` ``.
+function normalize(text)
+function registerI18n(Alpine)
+  Alpine.store("i18n")
+    set(code)
+
 ### icons.js — conjunto de ícones SVG inline (traço 1.75, estilo Lucide) e a diretiva `x-icon="'nome'"`.
 function iconSvg(name, size)
 function registerIcons(Alpine)
@@ -227,11 +238,11 @@ function registerIcons(Alpine)
 ### index.html — Casca única da webui (Alpine.js): login, shell e todas as telas, uma seção por view, cada uma com o …
 seções: Login, Shell (sidebar + topbar + conteúdo), Deploy Engine, Monitoring, Ingress, Docker, Schedules, Modais globais de Jobs, Settings, Projects, Projeto aberto, Novo serviço (wizard por passos, porta de new_service.gv), Janela: novo/editar projeto (wm.js), Janela: exportar serviço (screens/service_bundle.js), Janela: logs ao vivo do serviço (destacável da aba Logs), Detalhe de serviço
 x-data: dashboard, deployEngine, docker, ingress, login, monitoring, newService, projectDetail, projectWin, projects, running, schedules, serviceDetail, serviceExport, serviceImport, settings
-chama: String, abortDeployment, addDomain, addEnvVar, analyze, cancel, cancelCompose, chooseEnv, clear, clearFinished, close, closeBuildLog, closeDetail, closeEnvText, closeJobActions, closeJobLogs, closeNewJob, closeNewService, closeProjectWin, closeTokenModal, copy, copyText, copyToClipboard, create, createSharedDatabase, deleteDomain, deleteEnvVar, deleteProject, deleteSecret, deleteService, deleteSharedDatabase, deployRollback, deployServiceFromList, deployStart, discardOldDatabase, disconnect, dismissToast, dockerCleanupRunNow, dockerCleanupSave, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, download, dragEnd, dragStart, dropOn, gitProviderConnect, gitProviderDelete, gitProviderRefresh, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDatabase, gotoImport, gotoTemplate, gotoType, initAdvancedForm, initGeneralForm, initHealthcheckForm, jobDelete, jobRebuild, jobRunCancel, jobRunNow, jobToggle, jobWarm, loadMigration, manifestExport, manifestImport, manifestPickZip, nav, newJobBack, newJobCreate, newJobGitProviderPick, newJobGitRepoPick, newJobPickNoService, newJobPickProject, newJobPickService, newJobSetSourceTab, newRegistryTokenCreate, onArchiveFileChange, open, openDetail, openEditJob, openEnvText, openExportWin, openJobActions, openJobLogs, openNewJob, openNewService, openProject, openProjectWin, openService, openTokenModal, persistPrefs, pickAll, pickBroker, pickDatabase, pickFile, pickNone, pickSuggested, pickTemplate, preDeployCheckAdd, preDeployCheckDelete, preDeployCheckMove, queueCancel, queuePromote, queueTogglePause, regenWebhook, registryCloseRepo, registryGc, registryOpenRepo, registryRemoveRepo, registryRemoveTag, registryRemoveToken, removeDeployment, renameService, reset, rollbackMigration, saveAdvanced, saveCompose, saveEnvText, saveHealthcheck, saveSource, searchChanged, select, serviceReload, serviceStop, serviceWarm, setProviderTab, setServiceTab, setShared, settingsSave, showSharedDatabase, startMigration, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDatabase, submitSecret, submitTemplate, toggleReveal, updateApply, updateCheckNow, updateRollback, uploadArchive, viewBuildLog
+chama: String, abortDeployment, addDomain, addEnvVar, analyze, cancel, cancelCompose, chooseEnv, clear, clearFinished, close, closeBuildLog, closeDetail, closeEnvText, closeJobActions, closeJobLogs, closeNewJob, closeNewService, closeProjectWin, closeTokenModal, copy, copyText, copyToClipboard, create, createSharedDatabase, deleteDomain, deleteEnvVar, deleteProject, deleteSecret, deleteService, deleteSharedDatabase, deployRollback, deployServiceFromList, deployStart, discardOldDatabase, disconnect, dismissToast, dockerCleanupRunNow, dockerCleanupSave, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, download, dragEnd, dragStart, dropOn, gitProviderConnect, gitProviderDelete, gitProviderRefresh, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDatabase, gotoImport, gotoTemplate, gotoType, initAdvancedForm, initGeneralForm, initHealthcheckForm, jobDelete, jobRebuild, jobRunCancel, jobRunNow, jobToggle, jobWarm, loadMigration, manifestExport, manifestImport, manifestPickZip, nav, newJobBack, newJobCreate, newJobGitProviderPick, newJobGitRepoPick, newJobPickNoService, newJobPickProject, newJobPickService, newJobSetSourceTab, newRegistryTokenCreate, onArchiveFileChange, open, openDetail, openEditJob, openEnvText, openExportWin, openJobActions, openJobLogs, openNewJob, openNewService, openProject, openProjectWin, openService, openTokenModal, persistPrefs, pickAll, pickBroker, pickDatabase, pickFile, pickNone, pickSuggested, pickTemplate, preDeployCheckAdd, preDeployCheckDelete, preDeployCheckMove, queueCancel, queuePromote, queueTogglePause, regenWebhook, registryCloseRepo, registryGc, registryOpenRepo, registryRemoveRepo, registryRemoveTag, registryRemoveToken, removeDeployment, renameService, reset, rollbackMigration, saveAdvanced, saveCompose, saveEnvText, saveHealthcheck, saveSource, searchChanged, select, serviceReload, serviceStop, serviceWarm, set, setProviderTab, setServiceTab, setShared, settingsSave, showSharedDatabase, startMigration, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDatabase, submitSecret, submitTemplate, toggleReveal, updateApply, updateCheckNow, updateRollback, uploadArchive, viewBuildLog
 
 ### sw.js — service worker do PWA Rustploy.
 
-### wm.js — gerenciador de janelas da webui (diretiva Alpine `x-win`).
+### wm.js
 function lsGet(key)
 function lsSet(key, value)
 function bringToFront(layer)
@@ -239,7 +250,7 @@ function clamp(box) — Mantém a janela alcançável: ao menos a barra de títu
 function pin(box)
 function registerWindows(Alpine)
 
-### zip.js — o `.zip` do Infra as Code no navegador.
+### zip.js
 const CRC_TABLE(()
 function crc32(bytes)
 function dosDateTime(date) — Data/hora no formato DOS (o zip não guarda fuso).
@@ -248,9 +259,15 @@ function inflateRaw(bytes)
 function readEntries(buffer) — Lê as entradas do zip: `[{ name, isDir, bytes }]`.
 function readManifestZip(file) — Valida e lê o `.zip` importado: **exatamente** um `*.yml`/`*.yaml` e um `*.toml`, na raiz, e nada ma…
 
+## rustploy-daemon/crates/daemon/webui/locales/
+
+### en.js — catálogo em inglês, por texto de origem (ver i18n.js).
+
+### pt-BR.js — catálogo em português (pt-BR), por texto de origem (ver i18n.js).
+
 ## rustploy-daemon/crates/daemon/webui/net/
 
-### api.js — cliente HTTP/JSON do daemon.
+### api.js
 function fetchTimeout(url, init, timeoutMs) — `fetch` com timeout cobrindo cabeçalho E corpo; o erro de timeout vira mensagem legível.
 function decodeAccessKey(accessKey) — Decodifica o token de conexão em `{ address, token }` (`address` = `host:porta`), ou `null` se a str…
 function encodeAccessKey(url, token) — Monta o token de conexão de um endereço (URL ou `host:porta`) + token da API — o inverso de `decodeA…
@@ -262,7 +279,7 @@ class Api
   rpcChecked(command) — Como rpc(), mas trata `Response::Err { code, message }` como falha.
   uploadArchive(serviceId, file) — `POST /api/services/<id>/archive` — corpo binário cru (não é RPC JSON).
 
-### sse.js — consumidor de endpoints SSE do daemon: o firehose `/api/events` (porta de crates/rustploy-gui/views/…
+### sse.js
 function openStream(baseUrl, token, path, handlers) — Abre a stream em `path` (relativo a `baseUrl`, ex.
 
 ## rustploy-daemon/crates/daemon/webui/screens/
@@ -300,7 +317,7 @@ function openStream(baseUrl, token, path, handlers) — Abre a stream em `path` 
   Alpine.data("monitoring")
     get: store, rows
 
-### new_service.js — wizard "Novo serviço", porta de new_service.gv (client iced): passo pick_type → passo específico por…
+### new_service.js
   Alpine.data("newService")
     ensureCatalog()
     gotoType() — ── Navegação por passos ─────────────────────────────────────────
@@ -359,7 +376,7 @@ function maskWebhook(url) — `https://host/webhook/<id>/<token>` → `https://h
   Alpine.data("schedules")
     get: store, rows
 
-### service_bundle.js — copiar um serviço entre servidores (docs/plano-copiar-servico-entre-servidores.md).
+### service_bundle.js
   Alpine.data("serviceExport") — ── Exportar ─────────────────────────────────────────────────────────
     init()
     reset()
