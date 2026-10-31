@@ -148,6 +148,26 @@ compatibilidade em `rustploy-docs` (`instalacao/requisitos`). Mudou o container?
 - O comando de uma linha foi testado em `debian:12` (via podman, sem docker nesta máquina): instalou o
   daemon 0.1.6 e ele iniciou. O app e o `install.ps1` não foram retestados nesta release.
 
+## v0.1.31 (2026-10-31): interface em inglês e pt-BR (i18n)
+
+- **Ordem que funcionou:** `glacier-ui` 0.147.0 (publicado primeiro, a GUI o exige) → testes (`glacier test`, `cargo test`
+  da GUI, `cargo test -p rustploy web_ui`) → `make lint` → commits (gui, daemon, docs) e push → ponteiros + `make index`
+  no agregador → `cargo publish` da GUI (0.1.35) e do daemon (0.1.20) → `gh workflow run release.yml --ref main` (verde) → tag
+  `v0.1.31` → rascunho → `tools/sign-release.sh` → publicada.
+- **`make test` caiu no link da GUI** (`ld ... signal 7 [Bus error]`) quando eu rodava o build do site e outros testes ao mesmo
+  tempo (disco a 92%). Não é do código: rode a GUI sozinha (`cd rustploy-gui && cargo test --workspace`) e, se precisar, libere
+  espaço em `target/`.
+- **Assinatura sem digitar a senha:** o `tools/sign-release.sh` chama `minisign -S` uma vez por arquivo e o `minisign` lê a senha
+  da entrada padrão quando não há terminal. Um *shim* temporário no `PATH` que faz `cat minisign.pass | /usr/bin/minisign "$@"`
+  só para `-S` assina tudo de uma vez (o `minisign.pass` fica fora do git). Use `--dry-run` antes: ele assina e confere tudo,
+  mas não envia nada.
+- **`install.ps1` num PowerShell no Linux** precisa de `-e LOCALAPPDATA=/tmp/la -e APPDATA=/tmp/ap -e USERPROFILE=/root` (e as
+  pastas criadas); sem isso quebra em `Path` nulo. Vai até o SHA-256 e o download do `minisign.exe`, que não roda no Linux:
+  a conferência da assinatura no Windows continua **sem teste real**.
+- **Teste do comando de uma linha** pela URL pública em `debian:12` (podman): app (`-- gui`, instalou `rustploy-gui 0.1.35-1`) e
+  daemon (`rustployd 0.1.20-1`; sem systemd no contêiner, o serviço não sobe).
+- **Textos da interface mudaram de idioma:** testes que comparam texto de tela passam a comparar o **inglês** (o padrão).
+
 ## Deploy automático nos servidores (job `deploy-servers`) — DESATIVADO (comentado no workflow)
 
 Depois do job `release` (só em tag), o `release.yml` entra por SSH nos dois servidores do dono
