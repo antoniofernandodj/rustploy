@@ -292,7 +292,7 @@ fn parse_identity(text) -> Result<x25519::Identity>
 fn has_enc_values(db) -> bool — Há algum segredo já no formato novo gravado no YAML?
 fn persist_identity(identity, config_path, key_file) -> Result<()> — Grava a identidade recém-gerada no `config.toml` (seção `[secrets]`); se não der, no `age.key` (0600…
 fn write_identity_into_config(path, line) -> Result<()> — Insere `line` logo abaixo de `[secrets]` (ou cria a seção no fim), preservando o resto do arquivo e …
-(21 testes)
+(22 testes)
 
 ### ttl_cache.rs — Cache de um valor só, com TTL, que junta chamadas concorrentes numa só ida à fonte lenta.
 struct TtlCache { ttl, slot } — Single-slot value cache with a TTL.

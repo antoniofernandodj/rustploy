@@ -516,6 +516,7 @@ local projeto()
 function test_projeto_cada_aba() — - cada aba do projeto avalia
 function test_projeto_aba_jobs_mostra_estado_e_acoes() — - a aba Jobs do projeto mostra o estado e as ações
 function test_projeto_env_em_modo_secret_e_sem_secrets() — - variáveis em modo secret, e sem nenhum secret cadastrado
+function test_projeto_movimentos_entre_escopos() — - projeto: botões de mover (🔒 ↓ nas variáveis em claro, 🔓 nas que apontam para secret e nos secrets)
 function test_configuracoes_git() — - Git: provedor OAuth e token
 function test_configuracoes_web() — - Web Server
 function test_configuracoes_iac() — - Infra as Code: manifesto exportado, variáveis faltando e relatório

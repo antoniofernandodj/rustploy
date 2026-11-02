@@ -117,7 +117,7 @@ InfraAuditAllow — Marca (ou desmarca) uma **suspeita** da auditoria como "não
 StopContainer — Para um container (`id` completo, vindo de `DockerContainers`). | daemon: docker/docker_remove::stop_container | gui: handlers/docker | web: app
 
 ## / Falha se o destino já tem um item com o mesmo nome. Ver [`SecretMoveOp`].
-SecretMove — Move um item entre env e secret, ou entre escopos. | daemon: secrets/secret_move | gui: handlers/services | web: screens/service_detail
+SecretMove — Move um item entre env e secret, ou entre escopos. | daemon: secrets/secret_move | gui: handlers/secrets, handlers/services | web: screens/project_detail, screens/service_detail
 
 ## / num lugar só, com `serde_yaml`. Ver `docs/infra-as-code.md`.
 ManifestApply — Reconcilia projetos/serviços a partir de manifestos YAML já interpolad… | daemon: features/iac/manifest_apply | gui: — | web: —
