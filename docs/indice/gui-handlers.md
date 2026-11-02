@@ -193,6 +193,8 @@ function compose_save()
 function compose_cancel()
 function healthcheck_save()
 function advanced_save()
+function dependency_add() — Adiciona o serviço escolhido às dependências.
+function dependency_delete(dependency_id)
 local materialize_pre_deploy(spec) — Move o `pre_deploy_job_id` legado pra `pre_deploy_job_ids` — mesmo idioma de `materialize_domains`.
 function pre_deploy_check_add() — Adiciona o job escolhido (ctx.service_form_pre_deploy_check_add_job_id) ao FIM da fila — a ordem de …
 function pre_deploy_check_delete(job_id)

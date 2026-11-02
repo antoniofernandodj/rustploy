@@ -17,7 +17,7 @@ ProjectEnvSet | daemon: projects/project_env_set | gui: handlers/projects | web:
 ServiceCreate | daemon: features/services/create | gui: — | web: app
 ServiceUpdate | daemon: features/services/update | gui: handlers/services | web: app
 ServiceDelete | daemon: features/services/delete | gui: handlers/projects | web: app
-ServiceList | daemon: services/service_list | gui: — | web: —
+ServiceList | daemon: services/service_list | gui: handlers/services | web: —
 ServiceGet | daemon: services/service_get | gui: handlers/services | web: app
 
 ## Deployments
@@ -274,6 +274,6 @@ DeployQueuePause — Pausa (`true`) ou retoma (`false`) a fila global. | daemon:
 
 ## Paridade
 
-- Só GUI (1): JobList
+- Só GUI (2): ServiceList, JobList
 - Só webui (2): ServiceCreate, DeployRollback
-- Nem GUI nem webui (31): ServiceList, RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, InfraAudit, StateGitStatus, ManifestApply, ManifestExport, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList
+- Nem GUI nem webui (30): RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, InfraAudit, StateGitStatus, ManifestApply, ManifestExport, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList

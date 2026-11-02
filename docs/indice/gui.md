@@ -527,6 +527,8 @@ function test_configuracoes_atualizacoes() — - Atualizações: sem consulta ai
 local servico(aba)
 function test_servico_cada_aba() — - cada aba da tela de serviço avalia
 function test_servico_environment_secrets_do_servico() — - aba Environment: secrets do serviço aparecem (nome + cadeado), com o botão "→ secret" nas variávei…
+function test_servico_advanced_dependencias() — - aba Advanced: dependências (lista, seletor e botão) e a caixa de religar no boot
+function test_dependencias_candidatos_e_removido() — - o formatter: o próprio serviço e as dependências já postas não entram como candidatos
 function test_servico_geral_por_origem() — - aba Geral: origem Git, zip e compose
 function test_servico_webhook() — - aba Deployments: webhook sem token e em serviço compose
 function test_so_a_tela_ativa_e_avaliada() — - só a tela ativa é avaliada: o login não vaza para dentro do shell
