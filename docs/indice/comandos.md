@@ -82,9 +82,9 @@ GetDaemonSettings | daemon: settings/get_daemon_settings | gui: handlers/connect
 SetDaemonSettings | daemon: settings/set_daemon_settings | gui: handlers/settings | web: app
 
 ## não mandam o campo, continuam falando só do escopo de projeto.
-SecretSet | daemon: secrets/secret_set | gui: handlers/secrets | web: app
-SecretDelete | daemon: secrets/secret_delete | gui: handlers/secrets | web: app
-SecretList | daemon: secrets/secret_list | gui: — | web: —
+SecretSet | daemon: secrets/secret_set | gui: handlers/secrets, handlers/services | web: app, screens/service_detail
+SecretDelete | daemon: secrets/secret_delete | gui: handlers/secrets, handlers/services | web: app, screens/service_detail
+SecretList | daemon: secrets/secret_list | gui: handlers/services | web: screens/service_detail
 
 ## / grava uma linha de auditoria (quem, qual secret, quando — nunca o valor).
 SecretReveal — Devolve o **valor** de um secret (botão "ver valor"). | daemon: secrets/secret_reveal | gui: — | web: —
@@ -117,7 +117,7 @@ InfraAuditAllow — Marca (ou desmarca) uma **suspeita** da auditoria como "não
 StopContainer — Para um container (`id` completo, vindo de `DockerContainers`). | daemon: docker/docker_remove::stop_container | gui: handlers/docker | web: app
 
 ## / Falha se o destino já tem um item com o mesmo nome. Ver [`SecretMoveOp`].
-SecretMove — Move um item entre env e secret, ou entre escopos. | daemon: secrets/secret_move | gui: — | web: —
+SecretMove — Move um item entre env e secret, ou entre escopos. | daemon: secrets/secret_move | gui: handlers/services | web: screens/service_detail
 
 ## / num lugar só, com `serde_yaml`. Ver `docs/infra-as-code.md`.
 ManifestApply — Reconcilia projetos/serviços a partir de manifestos YAML já interpolad… | daemon: features/iac/manifest_apply | gui: — | web: —
@@ -276,4 +276,4 @@ DeployQueuePause — Pausa (`true`) ou retoma (`false`) a fila global. | daemon:
 
 - Só GUI (1): JobList
 - Só webui (2): ServiceCreate, DeployRollback
-- Nem GUI nem webui (34): ServiceList, RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, SecretList, SecretReveal, InfraAudit, StateGitStatus, SecretMove, ManifestApply, ManifestExport, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList
+- Nem GUI nem webui (32): ServiceList, RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, SecretReveal, InfraAudit, StateGitStatus, ManifestApply, ManifestExport, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList

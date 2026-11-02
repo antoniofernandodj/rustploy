@@ -193,6 +193,10 @@ function archive_upload_cancel()
 function archive_upload()
 function env_show_validation_errors(_erros_json) — on_validation_error do form(name = env_add) — a chave é `rules="required"`; o motor publica {error_e…
 function env_add()
+function service_secret_add_show_validation_errors(_erros_json) — on_validation_error do form(name = service_secret_add) — nome e valor são `rules="required"`.
+function service_secret_add() — Cria (ou sobrescreve) um secret do SERVIÇO aberto.
+function service_secret_delete(name)
+function env_to_secret(key) — "→ secret" numa variável em claro: o valor passa a ser guardado cifrado e a variável vira uma referê…
 function env_delete(key)
 function env_import()
 function env_export()

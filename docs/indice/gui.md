@@ -524,6 +524,7 @@ function test_configuracoes_sincronizacao_git() — - Sincronização com o git:
 function test_configuracoes_atualizacoes() — - Atualizações: sem consulta ainda, com versão nova e com erro do daemon
 local servico(aba)
 function test_servico_cada_aba() — - cada aba da tela de serviço avalia
+function test_servico_environment_secrets_do_servico() — - aba Environment: secrets do serviço aparecem (nome + cadeado), com o botão "→ secret" nas variávei…
 function test_servico_geral_por_origem() — - aba Geral: origem Git, zip e compose
 function test_servico_webhook() — - aba Deployments: webhook sem token e em serviço compose
 function test_so_a_tela_ativa_e_avaliada() — - só a tela ativa é avaliada: o login não vaza para dentro do shell
