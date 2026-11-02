@@ -287,12 +287,13 @@ fn secret_into_env(vars, name, plain, onde) -> Result<()> — Secret → env: as
 fn write_private(path, contents) -> Result<()> — Grava `contents` num arquivo que já nasce 0600 (sem janela em que ele exista legível).
 fn restrict_permissions(path) — Restringe o arquivo a 0600 (só o dono).
 fn generate_key() -> Result<String>
-fn load_or_create_master_key(master_key_path) -> Result<String>
+fn load_master_key(master_key_path) -> Result<Option<String>> — Lê a chave antiga se o arquivo existir (e corrige a permissão); **não cria**.
+fn load_or_create_master_key(master_key_path) -> Result<String> — Só para os testes (fabricar valores no formato antigo).
 fn parse_identity(text) -> Result<x25519::Identity>
 fn has_enc_values(db) -> bool — Há algum segredo já no formato novo gravado no YAML?
 fn persist_identity(identity, config_path, key_file) -> Result<()> — Grava a identidade recém-gerada no `config.toml` (seção `[secrets]`); se não der, no `age.key` (0600…
 fn write_identity_into_config(path, line) -> Result<()> — Insere `line` logo abaixo de `[secrets]` (ou cria a seção no fim), preservando o resto do arquivo e …
-(22 testes)
+(24 testes)
 
 ### ttl_cache.rs — Cache de um valor só, com TTL, que junta chamadas concorrentes numa só ida à fonte lenta.
 struct TtlCache { ttl, slot } — Single-slot value cache with a TTL.

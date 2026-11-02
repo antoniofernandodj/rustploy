@@ -636,6 +636,7 @@
 - backup.mdx
 - banco-compartilhado.mdx
 - bancos-e-brokers.mdx
+- chaves-e-segredos.mdx
 - compose.mdx
 - copiar-servico.mdx
 - diagnosticar-502.mdx
@@ -1093,6 +1094,7 @@
 - backup.mdx
 - banco-compartilhado.mdx
 - bancos-e-brokers.mdx
+- chaves-e-segredos.mdx
 - compose.mdx
 - copiar-servico.mdx
 - diagnosticar-502.mdx
