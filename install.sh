@@ -77,9 +77,11 @@ current_engine() {
 can_prompt() { [ -r /dev/tty ] && ( : </dev/tty ) 2>/dev/null; }
 
 # ask "pergunta" "padrão" -> resposta em $ANSWER (lida do terminal)
+# Se a leitura falhar (EOF: o terminal existe mas ninguém responde, como num ssh sem pty
+# interativo), NÃO assume o padrão em silêncio: devolve 1 e quem chamou para com uma explicação.
 ask() {
     printf '%s ' "$1" > /dev/tty
-    read -r ANSWER < /dev/tty || ANSWER=""
+    read -r ANSWER < /dev/tty || { printf '\n' > /dev/tty; return 1; }
     [ -n "$ANSWER" ] || ANSWER="$2"
 }
 
@@ -134,7 +136,8 @@ Qual motor de containers usar?
   2) Podman  - sem daemon residente: economiza ~150 MB de RAM parado (precisa de Debian 13+/Ubuntu 24.04+)
 ASK
             [ "$DEFAULT" = "podman" ] && D=2 || D=1
-            ask "Escolha [1/2] (padrão $D):" "$D"
+            ask "Escolha [1/2] (padrão $D):" "$D" \
+                || die "não consegui ler a resposta do terminal (sem entrada interativa). Rode de novo com --engine docker ou --engine podman, num terminal de verdade (ssh -t)."
             case "$ANSWER" in 2|podman|Podman) ENGINE=podman ;; *) ENGINE=docker ;; esac
             # Escolheu continuar no Docker: grava para não perguntar de novo (só com o rustploy já instalado).
             if [ "$ENGINE" = "docker" ] && [ -n "$CURRENT" ] && [ "$DRY" != "1" ] && [ -d /etc/rustploy ]; then
