@@ -210,13 +210,18 @@ install-rustploy: deb-rustploy ## Compila, empacota e instala apenas o rustploy
 	# Explícito (não só via postinst, que silencia falhas com `|| true`):
 	# helper de firewall — allow/deny de porta externa via /run/rustploy/fw.sock.
 	sudo systemctl enable --now rustployd-fw.socket
-	sudo systemctl restart rustployd
+	# O rustployd NÃO é reiniciado aqui: o postinst do .deb já o reinicia, e um segundo reinício
+	# interrompia o religamento dos serviços (deploys "daemon restarted during deploy").
 	# Motor de containers: pergunta (num terminal) se continua no Docker ou troca para o Podman e,
 	# se trocar, migra os volumes e refaz o deploy. `make install-rustploy ENGINE=podman YES=1`
-	# decide sem perguntar. Detalhes: install.sh --help.
+	# decide sem perguntar. Só reinicia o daemon se a configuração do motor mudou. Ver install.sh --help.
 	sudo sh ./install.sh engine $(ENGINE_ARGS)
-	sudo journalctl --rotate
-	sudo journalctl --vacuum-time=1s --unit=rustployd
+	# Limpeza de logs: OPCIONAL (`make install-rustploy CLEAN_LOGS=1`). O `journalctl --vacuum` não filtra
+	# por unit: apaga os journals arquivados do SISTEMA INTEIRO, não só os do rustployd.
+	$(if $(CLEAN_LOGS),sudo journalctl --rotate && sudo journalctl --vacuum-time=1s)
+	@sudo systemctl is-active --quiet rustployd \
+		&& echo "$(GREEN)rustployd ativo$(RESET)" \
+		|| echo "$(RED)AVISO: rustployd não está ativo — veja: sudo journalctl -u rustployd -n 50$(RESET)"
 	@echo ""
 	@echo "$(BOLD)Status do helper de firewall:$(RESET)"
 	@sudo systemctl status rustployd-fw.socket --no-pager -l || true

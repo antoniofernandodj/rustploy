@@ -757,6 +757,15 @@ finish_switch() {
     say "depois de conferir que tudo voltou, libere a RAM com: sudo systemctl disable --now docker docker.socket"
 }
 
+# Soma dos arquivos que o motor de containers configura (para saber se o rustployd precisa reiniciar).
+engine_files_sum() {
+    cat "$CONFIG" \
+        /etc/systemd/system/podman.socket.d/rustploy.conf \
+        /etc/systemd/system/rustployd.service.d/podman.conf \
+        /etc/containers/registries.conf.d/rustploy.conf \
+        /etc/containers/containers.conf.d/*.conf 2>/dev/null | cksum
+}
+
 # Modo `engine`: só escolhe/troca o motor de um rustployd já instalado.
 engine_only() {
     command -v rustployd >/dev/null 2>&1 || die "rustployd não está instalado; rode sem o modo 'engine' para instalar."
@@ -767,10 +776,17 @@ engine_only() {
         systemctl restart rustployd || true
         finish_switch
     elif [ "$ENGINE" = "podman" ]; then
-        # Instalação nova ou Podman já em uso: (re)aplica os ajustes, que são idempotentes.
+        # Instalação nova ou Podman já em uso: (re)aplica os ajustes, que são idempotentes. Só reinicia o
+        # rustployd se algum arquivo de configuração mudou (um reinício a mais interrompe o religamento
+        # dos serviços que o postinst acabou de disparar).
+        _before="$(engine_files_sum)"
         install_podman
         configure_podman
-        systemctl restart rustployd || true
+        if [ "$_before" = "$(engine_files_sum)" ]; then
+            say "Configuração do motor já estava em dia; o rustployd não foi reiniciado."
+        else
+            systemctl restart rustployd || true
+        fi
     elif [ "$ENGINE" = "docker" ]; then
         install_docker
         say "Motor: Docker (sem mudanças)."
