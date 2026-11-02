@@ -1260,3 +1260,21 @@ edições feitas depois). Um `.deb` antigo continua lendo as tabelas antigas, qu
 - Defeito achado só ali: os painéis Situação/Divergência/Removidos **não renderizavam**, porque o `scrollable`
   aceita um filho só e eles eram irmãos do primeiro painel. Corrigido (coluna `form-stack`) e o teste de render
   agora confere os textos (`tela:texts()`), não só que renderiza.
+
+### R10.12 Servidor chiquitos migrado (2026-11-02)
+
+Primeiro servidor real migrado para o estado em YAML (daemon 0.1.20 → 0.1.25, via `make install-rustploy`).
+
+- **Migração SQL → YAML:** `projects=1 services=7`, backup `rustploy.db.pre-yaml.bak`, serviços intactos.
+- **Chaves:** identidade `age` ficou em `/etc/rustploy/age.key` (a gravação no `config.toml` falhou no 1º boot, motivo não achado;
+  o log agora mostra a causa completa). `recovery_recipient` configurado; **teste da chave de recuperação: deu certo**
+  (relatado pelo usuário: decifrou um `ENC[age:…]` com a chave privada via `rustploy-cli secret decrypt -i`).
+  Backup do `age.key` fora do servidor: feito. `master.key`: apagado (daemon 0.1.24+ não o cria mais).
+- **Secrets:** `InfraAudit` vazio. `cache` lê `REDIS_PASSWORD` de secret de **serviço**; `db` (recriado pelo usuário às 17:26,
+  id novo) lê `POSTGRES_PASSWORD` de secret de **projeto**. Deploy de teste dos dois: `Live`, containers de pé.
+- **Pendente:** ligar o sync (git instalado; falta conta/PAT e repositório); helper de firewall (`rustployd-fw`) falhou ao liberar a
+  porta 20000 ("Connection reset by peer", bolinha vermelha no serviço) — hipótese: `ReadWritePaths=/etc/ufw /lib/ufw` sem `-`
+  quebra o namespace do serviço quando o `ufw` não está instalado (226/NAMESPACE). Falta ver `systemctl status rustployd-fw.service`.
+- **Achados do caminho:** `ubuntu-latest` virou 26.04 e quebrou o build do Windows (fixado em 24.04); `make install-rustploy` apaga
+  os journals do sistema todo (`journalctl --vacuum`); a pergunta de motor do `install.sh` não espera resposta num shell remoto
+  (nushell) — usar `ENGINE=podman YES=1`.
