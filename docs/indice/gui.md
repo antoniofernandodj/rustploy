@@ -2,7 +2,7 @@
 
 > Gerado por `make index`; não editar à mão. Sem números de linha:
 > `grep -n "nome" <dir><arquivo>` dá a linha. Cada item: `nome(params) — doc`.
-> `.gvb`: `<app>`/`<screen>`/`<component>`, `props`, `imports` (`link(rel = import)`), `script`, `telas` (as `screen(name = …)` do app), `views` (valores de `@view ==`), `abas` (valores de `@tab`/`@*_tab`) e `handlers` (`on_*` e `action`).
+> `.gv`: `<screen>`/`<component>`, `props`, `imports` (componentes), `script`, `views` (valores de `if="{view}" equals=`) e `handlers` (chamados em `on_*=`).
 > Luau: `function x(a)` = global (handler que o `.gv` chama pelo nome), `local x(a)` = privada, `function M.x(a)` = exportada pelo módulo.
 > Rust: métodos indentados sob `impl Tipo`; `struct`/`enum` listam campos/variantes;
 > `impl A, B for T` = impls de traits comuns (métodos omitidos).
@@ -15,7 +15,7 @@ fn main()
 ## rustploy-gui/src/
 
 ### embedded.rs — Assets embutidos no binário — modo standalone (só em builds de release).
-fn assets() -> EmbeddedDirs — Cada pasta sob o prefixo lógico que o markup usa: `views/` (templates `.gvb`, estilos e scripts Luau…
+fn assets() -> EmbeddedDirs — Cada pasta sob o prefixo lógico que o markup usa: `views/` (templates `.gv`, estilos e scripts Luau)…
 (2 testes)
 
 ### main.rs — Rustploy (glacier-ui) — desktop client whose UI is described in XML templates and rendered by the pu…
@@ -104,39 +104,30 @@ fn comments_outside(src) -> String — Remove os comentários (`//` e `/* … */
 
 ### locales.rs — Os catálogos de idioma (`locales/en.json` e `locales/pt-BR.json`) e as views que os usam.
 fn read_catalog(name) -> BTreeMap<String, String>
-fn gvb_files(directory, out)
+fn gv_files(directory, out)
 fn keys_used_in_views() -> BTreeSet<String> — Toda chave de `{t('chave'…)}` escrita nas views.
 fn looks_semantic(key) -> bool
 (3 testes)
 
 ## rustploy-gui/tests/fixtures/
 
-### access_key_fixture.gvb — Fixture do teste access_key.rs: tela mínima que roda o access_key.luau e deixa os resultados no cont…
-<screen "fixture">
-script: access_key_fixture.luau
+### access_key_fixture.gv
 
 ### access_key_fixture.luau — Fixture do teste `access_key.rs` (nome diferente do módulo, senão o `require` resolve para ela mesma…
 function init()
 
-### compose_host.gvb — Fixture do teste format_service_detail.rs: tela mínima que roda o format/service_detail.luau e exibe…
-<screen "fixture">
-script: compose_host.luau
+### compose_host.gv
 
 ### compose_host.luau — Fixture do teste `format_service_detail.rs`: exercita `compose_host` e `internal_url` de `format/ser…
 function init()
 
-### saved_action.gvb — Fixture do teste busy.rs: um botão cuja ação toasta e depois ainda faz outro fetch (o "reler o servi…
-<screen "fixture">
-script: saved_action.luau
-handlers: salvar
+### saved_action.gv
 
 ### saved_action.luau — Fixture do teste `busy.rs`.
 function init() — Fixture do teste `busy.rs`.
 function salvar()
 
-### time.gvb — Fixture do teste format_time.rs: tela mínima que roda o format/time.luau e exibe o resultado.
-<screen "fixture">
-script: time.luau
+### time.gv
 
 ### time.luau — Fixture do teste `format_time.rs`: exercita o `format/time.luau` de verdade, através do motor, e dei…
 function init()
@@ -278,6 +269,16 @@ function test_url_externa__sem_esquema_de_banco_kafka_servico_comum_e_host() —
 function test_url_externa__senha_com_caracteres_reservados_e_percent_encoded() — - senha com caracteres reservados é percent-encoded
 function test_url_externa__segredo_referencia_nao_vira_credencial() — - segredo (referência) não vira credencial
 function test_url_externa__o_host_sai_do_api_url_ou_host_quando_ele_falta() — - o host sai do api_url, ou <host> quando ele falta
+
+### state_git.test.luau
+function test_state_git__sem_status_ou_desligado_nao_ha_aviso() — - sem status ou desligado: nenhum aviso
+function test_state_git__avisos_por_prioridade() — - pausa, commit recusado e commits suspensos viram aviso (nessa ordem de prioridade)
+function test_state_git__pending_ids() — - conjunto de serviços com mudança pendente de deploy
+function test_state_git__removed_rows() — - removidos no git: nome, tipo, projeto e sha curto; vazio vira "[]"
+function test_state_git__audit_rows() — - auditoria: certeza não pode ser liberada; suspeita sim; liberada pode voltar a travar
+function test_state_git__container_owner() — - dono do container: o órfão é dito como tal
+function test_state_git__context_padroes_e_booleans() — - contexto: booleans viram "true"/"false" e os padrões não deixam `nil`
+function test_state_git__docker_containers_can_stop_so_no_orfao_rodando() — - Runtime → Containers: só o órfão que ainda roda oferece "Parar"
 
 ### time.test.luau
 function test_duracoes__format_seconds() — - format_seconds
@@ -519,6 +520,7 @@ function test_configuracoes_git() — - Git: provedor OAuth e token
 function test_configuracoes_web() — - Web Server
 function test_configuracoes_iac() — - Infra as Code: manifesto exportado, variáveis faltando e relatório
 function test_configuracoes_manutencao() — - Manutenção: limpeza do Docker em cada recorrência
+function test_configuracoes_sincronizacao_git() — - Sincronização com o git: desligada, ligada, pausada (divergência), commit recusado, - removidos no…
 function test_configuracoes_atualizacoes() — - Atualizações: sem consulta ainda, com versão nova e com erro do daemon
 local servico(aba)
 function test_servico_cada_aba() — - cada aba da tela de serviço avalia

@@ -269,6 +269,83 @@ fn container_is_running(docker, container_id) -> bool
 fn mark_service(db, bus, service_id, status, container_id)
 const BASE_TICK, MAX_RESTART_ATTEMPTS, RESTART_WAIT
 
+## rustploy-daemon/crates/daemon/src/features/state_git/
+
+### git.rs — Invólucro fino do binário `git` do sistema (decisão da R9.0: nada de `git2`/`reqwest`).
+struct Auth { username, token } — Credencial HTTPS (usuário + token) para falar com o remoto.
+struct CommitInfo { sha, at, subject }
+fn available() -> bool — O `git` existe e responde? Resultado guardado: o snapshot pergunta isto a cada atualização, e execut…
+fn redact(text, auth) -> String — Troca o token (e a sua forma em base64, que é o que vai no cabeçalho) por `***`.
+fn command(dir, auth) -> Command
+fn run(dir, args, auth) -> Result<String> — Roda `git <args>` em `dir` e devolve o stdout.
+fn validate_remote(url) -> Result<()> — Remoto aceito: `https://` sem credencial embutida, ou `file://`/caminho absoluto (cópia local e test…
+fn strip_userinfo(url) -> String — Para mensagens de erro: nunca ecoa `usuario:senha@`.
+fn ensure_repo(dir, branch, remote) -> Result<()> — Garante o repositório em `dir`: `git init`, branch certa, `.gitignore` e o remote `origin`.
+fn head(dir) -> Result<Option<CommitInfo>> — O último commit, ou `None` se o repositório ainda não tem nenhum.
+fn commit_all(dir, message) -> Result<Option<CommitInfo>> — `git add -A` e, se houver diferença, um commit.
+fn push(dir, branch, auth) -> Result<()> — `git push origin <branch>`.
+fn run_bytes(dir, args) -> Result<Vec<u8>> — Como [`run`], mas devolve os **bytes** do stdout (conteúdo de arquivo: não pode passar por UTF-8 com…
+fn fetch(dir, branch, auth) -> Result<bool> — `git fetch` da branch para `refs/remotes/origin/<branch>`.
+fn remote_head(dir, branch) -> Option<String> — O commit em `refs/remotes/origin/<branch>`, se existir.
+fn ahead_behind(dir, branch) -> Result<(usize, usize)> — `(à frente, atrás)`: commits locais que o remoto não tem, e commits do remoto que o local não tem.
+fn is_clean(dir) -> Result<bool> — Não há nada por commitar nem arquivo novo/alterado/apagado (fora o que o `.gitignore` esconde)?
+fn files_at(dir, rev, keep) — Os arquivos do commit `rev`, **sem fazer checkout**: `caminho → bytes`.
+fn backup_branch(dir, name, rev) -> Result<()> — `git branch <nome> <rev>`: guarda um commit (ex.: o histórico local que vai ser descartado).
+fn push_backup_ref(dir, sha, name, auth) -> Result<()> — Copia `sha` para a branch `refs/heads/<name>` **do remoto** (um backup ao lado do que vai ser sobres…
+fn push_force_with_lease(dir, branch, expected, auth) -> Result<()> — `push --force-with-lease`: sobrescreve a branch do remoto **só se ela ainda estiver em `expected`** …
+fn reset_hard(dir, rev) -> Result<()> — Move a branch e a árvore de trabalho para `rev` (o estado já foi gravado, byte a byte igual).
+const GITIGNORE
+(7 testes)
+
+### mod.rs — Sincronização do estado de infra com um repositório git (Fase 6 do plano `docs/plano-backup-estado-e…
+const DEFAULT_FETCH_EVERY — Padrão do `fetch` nos testes (em produção vem de `[state_git] fetch_interval_secs`).
+enum Mode { Off, Commit, Sync }
+impl Mode
+  fn as_str() -> &'static str
+  fn parse(s) -> Option<Self>
+struct Settings { mode, remote, branch, provider_id }
+enum StateGitError { Plaintext, Invalid, Other }
+enum Applied { Yes, Later, No } — O que aconteceu ao tentar aplicar um commit vindo de fora.
+enum Reconciled { Push, Done }
+struct RetryLater — O pull precisa esperar: há mudança local ainda não commitada.
+struct GitStuck(String) — O estado foi aplicado, mas o `git reset` que alinha o repositório falhou.
+struct Runtime { paused, incoming_error, last_fetch_at, ahead, behind, last_commit, last_push_ok, last_push_at, last_error, blocked, needs_push }
+struct StateGit { db, secrets, rt, wake, cycle_lock, debounce, fetch_every }
+fn fingerprint(project, scope, what) -> String
+fn blocking(state, allow) -> Vec<Finding> — Achados que **impedem** o commit: as certezas sempre, e as suspeitas que o usuário não liberou.
+fn validate_incoming(root, new, allow, secrets, require_clean) -> anyhow::Result<()> — Valida uma árvore vinda de fora ANTES de aplicar qualquer coisa (R6, itens 1 e 2): sem valor em clar…
+fn decifra_provider(secrets, name, v) -> anyhow::Result<()>
+struct RemovedItem { id, kind, name, project, compose_project }
+struct StateDiff { removed, spec_changed }
+fn diff_states(old, new) -> StateDiff — O que um `pull` mudou de relevante para quem opera: o que sumiu e o que precisa de redeploy.
+fn subject(paths, state) -> String — Assunto do commit a partir dos arquivos alterados (nomes legíveis, não ids).
+impl StateGit
+  fn new(db, secrets) -> Arc<Self>
+  fn with_debounce(db, secrets, debounce) -> Arc<Self>
+  fn with_intervals(db, secrets, debounce, fetch_every) -> Arc<Self>
+  fn settings() -> anyhow::Result<Settings>
+  fn allow_set() -> anyhow::Result<BTreeSet<String>>
+  fn allowed() -> BTreeSet<String> — As suspeitas que o usuário liberou (fingerprints), para marcar a lista do `InfraAudit`.
+  fn fingerprint(project, scope, what) -> String
+  fn set_allowed(project, scope, what, allowed) -> Result<(), StateGitError> — Libera (ou desfaz) uma **suspeita** da auditoria.
+  fn status() -> anyhow::Result<StateGitStatus>
+  fn configure(mode, remote, branch, provider_id) -> Result<StateGitStatus, StateGitError> — Liga/desliga/configura.
+  fn sync_now() -> Result<StateGitStatus, StateGitError> — "Sincronizar agora": commit pendente e, em `sync`, push.
+  fn cycle(force_push) — Um ciclo: audita, commita (se houver diff) e, em `sync`, envia.
+  fn commit_local(s) -> anyhow::Result<bool> — Commit do que há de local: dentro do lock de escrita, para o `git` só ver o diretório entre transaçõ…
+  fn cycle_inner(force_push) -> anyhow::Result<()>
+  fn reconcile(s) -> anyhow::Result<Reconciled> — `fetch` + comparação dos históricos.
+  fn apply_incoming(sha, force) -> Applied — Aplica o que chegou por fora: lê a árvore do commit **sem checkout**, valida tudo e grava como uma t…
+  fn record_marks(sha, old, new) -> anyhow::Result<()> — Registra o que o `pull` deixou para decisão humana: o que **sumiu** (nunca apagamos container nem da…
+  fn resume() -> Result<StateGitStatus, StateGitError> — Retomar depois de resolver o histórico no repositório: tira a pausa e reavalia.
+  fn resolve(choice) -> Result<StateGitStatus, StateGitError> — Resolve um histórico divergido **sem terminal**, descartando um dos lados — com cópia de segurança d…
+  fn dismiss_removal(id) -> Result<(), StateGitError> — Esquece uma marca de "removido no git" (a pessoa decidiu manter o que ainda roda, ou já limpou).
+  fn auth_for(s) -> anyhow::Result<Option<Auth>> — Resolve a credencial do remoto: `https://` usa o token do provider; `file://` não usa nada.
+  fn push(s)
+  fn spawn() — O worker: acorda a cada mudança do estado (com debounce), a cada "sincronizar agora" e periodicament…
+const KEY_MODE, KEY_REMOTE, KEY_BRANCH, KEY_PROVIDER, KEY_ALLOW, DEFAULT_BRANCH, DEBOUNCE
+(26 testes)
+
 ## rustploy-daemon/crates/daemon/src/features/templates/
 
 ### mod.rs — Catálogo de templates de aplicações (formato Dokploy), lido dos blueprints em `templates/blueprints/…
@@ -342,8 +419,10 @@ fn from_outcome(outcome, target_version, running_version, from_this_attempt)
 fn package_matches_running(package_version, running_version) -> bool — `0.1.10-1` (versão do pacote) casa com `0.1.10` (versão do crate em execução).
 fn prepare_updates_dir(directory) -> std::io::Result<()> — Cria o diretório e tira o que sobrou de tentativas anteriores (pacote velho não pode ser confundido …
 fn snapshot_database(db, directory, tag) -> Result<PathBuf, String> — Cópia consistente do banco **em uso** (`VACUUM INTO`), antes de a versão nova poder migrar o esquema…
+fn snapshot_infra(db, dir) -> Result<(), String> — Grava o estado de infra atual em `dir`, no mesmo layout de `<db_path>/infra/`.
+fn create_private_dir(dir) -> std::io::Result<()>
 fn unique_path(path) -> PathBuf
-fn prune_snapshots(directory)
+fn prune_snapshots(directory) — Remove os snapshots mais antigos.
 fn helper_io_error(error) -> String — Um helper que cai no meio (ou fecha antes de ler) aparece como conexão resetada/quebrada: para quem …
 struct HelperReply { ok, error }
 fn helper_call(socket, request, timeout) -> Result<HelperReply, String> — Uma linha JSON para o helper e uma de volta (ver `src/bin/rustployd-update/protocol.rs`).

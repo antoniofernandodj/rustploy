@@ -1,5 +1,7 @@
 # Dependências entre serviços + auto-restart no boot do daemon
 
+> **SUBSTITUÍDO (2026-11-01):** o plano vigente está em `docs/plano-backup-estado-em-git.md`, seção **R8** (decisões novas: `autostart` separado de `desired_state`, ondas em paralelo, retry automático, dependências implícitas de `shared_access`) e a implementação do backend em **R10**. Este arquivo fica como histórico do raciocínio; os caminhos de código citados abaixo estão desatualizados.
+
 > Plano de implementação (ainda não executado). Investigação feita em 2026-07-11 sobre o estado atual do boot do daemon e do modelo de dados; retomar a partir daqui quando for implementar.
 >
 > **Atualização (2026-07-13):** o TUI (`crates/client`) foi removido do projeto depois desta

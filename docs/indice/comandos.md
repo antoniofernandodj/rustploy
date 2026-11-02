@@ -81,10 +81,43 @@ RegenerateWebhookToken | daemon: services/regenerate_webhook_token | gui: handle
 GetDaemonSettings | daemon: settings/get_daemon_settings | gui: handlers/connection | web: app
 SetDaemonSettings | daemon: settings/set_daemon_settings | gui: handlers/settings | web: app
 
-## Secrets
+## não mandam o campo, continuam falando só do escopo de projeto.
 SecretSet | daemon: secrets/secret_set | gui: handlers/secrets | web: app
 SecretDelete | daemon: secrets/secret_delete | gui: handlers/secrets | web: app
 SecretList | daemon: secrets/secret_list | gui: — | web: —
+
+## / grava uma linha de auditoria (quem, qual secret, quando — nunca o valor).
+SecretReveal — Devolve o **valor** de um secret (botão "ver valor"). | daemon: secrets/secret_reveal | gui: — | web: —
+
+## / sincronização com git, e o guia de "o que ainda falta mover para secret". Nunca devolve valores.
+InfraAudit — Lista o que está em claro (ou parece estar) no estado de infra — a tra… | daemon: secrets/infra_audit | gui: — | web: —
+
+## / Situação da sincronização do estado de infra com o git.
+StateGitStatus — Situação da sincronização do estado de infra com o git. | daemon: (inline em dispatch.rs) | gui: — | web: —
+
+## / `https://` (a credencial vem do `provider_id`) ou `file://` (testes/cópia local).
+StateGitConfigure — Liga/desliga/configura a sincronização. | daemon: (inline em dispatch.rs) | gui: handlers/state_git | web: app
+
+## / fora e o `push`.
+StateGitSyncNow — "Sincronizar agora": faz o commit pendente e, em `sync`, o `fetch`, a … | daemon: (inline em dispatch.rs) | gui: handlers/state_git | web: app
+
+## / Retoma a sincronização pausada por histórico divergido (depois de resolver no repositório).
+StateGitResume — Retoma a sincronização pausada por histórico divergido (depois de reso… | daemon: (inline em dispatch.rs) | gui: handlers/state_git | web: app
+
+## / do que for descartado (ver [`StateGitResolveChoice`]). Só vale com a sincronização pausada.
+StateGitResolve — Resolve a divergência **sem usar o terminal**: descarta um dos lados, … | daemon: (inline em dispatch.rs) | gui: handlers/state_git | web: app
+
+## / Esquece uma marca de "removido no git" (`id` vem em `StateGitStatus.removed_in_git`).
+StateGitDismissRemoval — Esquece uma marca de "removido no git" (`id` vem em `StateGitStatus.re… | daemon: (inline em dispatch.rs) | gui: handlers/state_git | web: app
+
+## / Certezas (senha de banco, webhook…) não podem ser liberadas.
+InfraAuditAllow — Marca (ou desmarca) uma **suspeita** da auditoria como "não é segredo"… | daemon: (inline em dispatch.rs) | gui: handlers/state_git | web: app
+
+## / ("removido no git"): parar aqui e depois `RemoveContainer`.
+StopContainer — Para um container (`id` completo, vindo de `DockerContainers`). | daemon: docker/docker_remove::stop_container | gui: handlers/docker | web: app
+
+## / Falha se o destino já tem um item com o mesmo nome. Ver [`SecretMoveOp`].
+SecretMove — Move um item entre env e secret, ou entre escopos. | daemon: secrets/secret_move | gui: — | web: —
 
 ## / num lugar só, com `serde_yaml`. Ver `docs/infra-as-code.md`.
 ManifestApply — Reconcilia projetos/serviços a partir de manifestos YAML já interpolad… | daemon: features/iac/manifest_apply | gui: — | web: —
@@ -243,4 +276,4 @@ DeployQueuePause — Pausa (`true`) ou retoma (`false`) a fila global. | daemon:
 
 - Só GUI (1): JobList
 - Só webui (2): ServiceCreate, DeployRollback
-- Nem GUI nem webui (30): ServiceList, RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, SecretList, ManifestApply, ManifestExport, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList
+- Nem GUI nem webui (34): ServiceList, RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, SecretList, SecretReveal, InfraAudit, StateGitStatus, SecretMove, ManifestApply, ManifestExport, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList

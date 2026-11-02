@@ -63,7 +63,7 @@
 - plano-acao-banco-compartilhado.md — Plano de ação: implementar o banco compartilhado (Postgres) e migrar rdo-itemize…
 - plano-aquecer-job.md — Aquecer job: saber se o cache existe e deixá-lo pronto antes de rodar
 - plano-backend-podman.md — Plano: backend Podman (alternativa ao Docker)
-- plano-backup-estado-em-git.md — Plano: backup do estado em git (espelho versionado, com segredos cifrados)
+- plano-backup-estado-em-git.md — Plano: YAML como fonte da verdade da infra, com git e religamento em ordem
 - plano-banco-compartilhado.md — Plano: banco compartilhado entre projetos + migração dos bancos antigos
 - plano-cancelamento-de-jobs.md — Cancelamento de `job_run` em andamento
 - plano-chave-de-acesso-e-mcp.md — Plano: chave de acesso única + API de agente no daemon (via MCP)
@@ -150,7 +150,7 @@
 - tools.rs — As ferramentas do agente: os caminhos frequentes já resolvidos ("deployou? por q…
 
 ### rustploy-daemon/crates/daemon/src/api/handlers/ → daemon-api.md
-- 1 arquivos, um arquivo por `Command` (exceto `mod.rs`); o que cada um faz está em `comandos.md` e `daemon-api.md`: mod
+- 2 arquivos, um arquivo por `Command` (exceto `mod.rs`); o que cada um faz está em `comandos.md` e `daemon-api.md`: mod, state_git
 
 ### rustploy-daemon/crates/daemon/src/api/handlers/databases/ → daemon-api.md
 - managed_database.rs — `Command::ManagedDatabase{List,Create,Delete}`: databases (com usuário próprio) …
@@ -228,10 +228,13 @@
 - mod.rs — Handlers de registry: o `dispatch` recebe os `Command` da seção e chama o handle…
 
 ### rustploy-daemon/crates/daemon/src/api/handlers/secrets/ → daemon-api.md
+- infra_audit.rs — `Command::InfraAudit`: o que está em claro no estado de infra (sem os valores).
 - mod.rs — Handlers de secrets: o `dispatch` recebe os `Command` da seção e chama o handler…
-- secret_delete.rs — `Command::SecretDelete`: apaga um secret do projeto.
-- secret_list.rs — `Command::SecretList`: nomes (nunca valores) dos secrets de um projeto.
-- secret_set.rs — `Command::SecretSet`: cria/sobrescreve um secret cifrado do projeto.
+- secret_delete.rs — `Command::SecretDelete`: apaga um secret (do projeto, ou de um serviço).
+- secret_list.rs — `Command::SecretList`: nomes (nunca valores) dos secrets de um projeto, ou de um…
+- secret_move.rs — `Command::SecretMove`: mover entre env e secret, ou entre escopos (R5 do plano).
+- secret_reveal.rs — `Command::SecretReveal`: o valor de um secret ("ver valor").
+- secret_set.rs — `Command::SecretSet`: cria/sobrescreve um secret cifrado (do projeto, ou de um s…
 
 ### rustploy-daemon/crates/daemon/src/api/handlers/services/ → daemon-api.md
 - get_webhook_url.rs — `Command::GetWebhookUrl`: URL de webhook de deploy de um serviço; `build_url` mo…
@@ -260,6 +263,7 @@
 - mod.rs — Servidor de estáticos da web UI/PWA (`crates/daemon/webui/`) — alternativa ao cl…
 
 ### rustploy-daemon/crates/daemon/src/bin/ → daemon-core.md
+- rustploy-cli.rs — `rustploy-cli`: ferramentas de linha de comando que **não precisam do daemon rod…
 - rustployd-fw.rs — `rustployd-fw` — helper privilegiado de firewall do rustploy.
 
 ### rustploy-daemon/crates/daemon/src/bin/rustployd-update/ → daemon-core.md
@@ -309,7 +313,9 @@
 - shared_db.rs — Provisionamento de database + usuário dentro de um servidor de banco compartilha…
 
 ### rustploy-daemon/crates/daemon/src/features/deploy/ → daemon-deploy.md
+- autostart.rs — Orquestrador de **subida em ordem**: religa serviços respeitando as dependências…
 - context.rs — O que o motor de deploy (fila, executor, start, stop) precisa do resto do daemon…
+- deps.rs — Grafo de dependências entre serviços: ordenação em **ondas**, detecção de ciclo …
 - env_resolve.rs — Resolução de env vars com secrets decifradas — extraído de `DeployExecutor::reso…
 - git.rs — Clone de repositório git para build, com progresso, credenciais de provedor cone…
 - mod.rs — Motor de deploy: fila global, executor, recuperação no boot, clone git e resoluç…
@@ -397,6 +403,10 @@
 - mod.rs — Ciclo de vida de um serviço: criar, atualizar (com a sincronização do firewall) …
 - update.rs — `Command::ServiceUpdate`: grava um ServiceSpec novo (porta externa, TLS dos domí…
 
+### rustploy-daemon/crates/daemon/src/features/state_git/ → daemon-features.md
+- git.rs — Invólucro fino do binário `git` do sistema (decisão da R9.0: nada de `git2`/`req…
+- mod.rs — Sincronização do estado de infra com um repositório git (Fase 6 do plano `docs/p…
+
 ### rustploy-daemon/crates/daemon/src/features/templates/ → daemon-features.md
 - mod.rs — Catálogo de templates de aplicações (formato Dokploy), lido dos blueprints em `t…
 
@@ -407,6 +417,7 @@
 - mod.rs — Verificação de versão: pergunta ao GitHub qual é a última release e compara com …
 
 ### rustploy-daemon/crates/daemon/src/platform/ → daemon-core.md
+- age_format.rs — O formato `ENC[age:<base64>]` dos segredos, **sem nenhuma dependência do daemon*…
 - config.rs — Configuração do daemon (`config.toml`): structs de cada seção com defaults e o s…
 - connection.rs — Connection string de banco/broker, montada num lugar só.
 - env_validation.rs — Validação das env vars gravadas por serviço, projeto e job: nome válido e sem ch…
@@ -416,7 +427,7 @@
 - https_client.rs — Cliente HTTPS de saída mínimo: um GET, hyper cru sobre `tokio-rustls`.
 - log_sink.rs — Destino das linhas de log de build/job: o motor de containers escreve aqui sem s…
 - mod.rs — Infraestrutura transversal (barramento de eventos, segredos, health checks), sem…
-- secrets.rs — `SecretsManager`: secrets por projeto cifrados no banco com a chave mestra do da…
+- secrets.rs — `SecretsManager`: cifra e decifra os segredos do daemon.
 - ttl_cache.rs — Cache de um valor só, com TTL, que junta chamadas concorrentes numa só ida à fon…
 
 ### rustploy-daemon/crates/daemon/src/store/ → daemon-store.md
@@ -434,9 +445,19 @@
 - projects.rs — Tabela `project`: CRUD de projetos e suas env vars de nível de projeto.
 - registry.rs — Wrappers SQL do registry OCI embutido (metadados; os bytes de blob/manifest vive…
 - registry_tokens.rs — Tokens de acesso do registry OCI embutido (Basic auth — ver `crate::features::re…
-- services.rs — Tabela `service`: CRUD do ServiceSpec, status e container live.
+- services.rs — Serviços: o `ServiceSpec` e o nome da stack Compose moram no **YAML de infra** (…
 - shared_access.rs — Tabela `shared_access`: quais projetos podem alcançar cada servidor de banco com…
+- state_git_marks.rs — Marcas de runtime da sincronização com o git (Fase 7): o que o `pull` deixou **p…
 - webhook_tokens.rs — Tabela de tokens de webhook de deploy, um por serviço.
+
+### rustploy-daemon/crates/daemon/src/store/infra/ → daemon-store.md
+- audit.rs — **Auditoria de valores em claro** no estado de infra (plano `docs/plano-backup-e…
+- migrate.rs — A migração **única** SQL → YAML (Fase 4 do plano, seção R4).
+- mod.rs — Camada de repositório da **infraestrutura** declarada (projetos, serviços, jobs……
+- model.rs — O **estado de infra tipado** (Fase 4 do plano `docs/plano-backup-estado-em-git.m…
+- repo.rs — O **repositório** do estado de infra: o `InfraState` em memória (as leituras vêm…
+- txn.rs — Transação de "tudo ou nada" sobre um conjunto de arquivos num diretório.
+- yaml.rs — Serialização YAML **determinística** do estado de infra.
 
 ### rustploy-daemon/crates/daemon/templates/
 - logos.txt
@@ -628,6 +649,7 @@
 - migrar-banco.mdx
 - pre-deploy.mdx
 - registry.mdx
+- sincronizacao-git.mdx
 - templates.mdx
 - variaveis-e-secrets.mdx
 - webhooks.mdx
@@ -1084,6 +1106,7 @@
 - migrar-banco.mdx
 - pre-deploy.mdx
 - registry.mdx
+- sincronizacao-git.mdx
 - templates.mdx
 - variaveis-e-secrets.mdx
 - webhooks.mdx
@@ -1572,13 +1595,13 @@
 - run.sh
 
 ### rustploy-gui/tests/fixtures/ → gui.md
-- access_key_fixture.gvb — Fixture do teste access_key.rs: tela mínima que roda o access_key.luau e deixa o…
+- access_key_fixture.gv
 - access_key_fixture.luau — Fixture do teste `access_key.rs` (nome diferente do módulo, senão o `require` re…
-- compose_host.gvb — Fixture do teste format_service_detail.rs: tela mínima que roda o format/service…
+- compose_host.gv
 - compose_host.luau — Fixture do teste `format_service_detail.rs`: exercita `compose_host` e `internal…
-- saved_action.gvb — Fixture do teste busy.rs: um botão cuja ação toasta e depois ainda faz outro fet…
+- saved_action.gv
 - saved_action.luau — Fixture do teste `busy.rs`.
-- time.gvb — Fixture do teste format_time.rs: tela mínima que roda o format/time.luau e exibe…
+- time.gv
 - time.luau — Fixture do teste `format_time.rs`: exercita o `format/time.luau` de verdade, atr…
 
 ### rustploy-gui/tests/fixtures/windows-update/
@@ -1599,6 +1622,7 @@
 - git_registry.test.luau
 - jobs.test.luau
 - service_detail.test.luau
+- state_git.test.luau
 - time.test.luau
 - util.test.luau
 
@@ -1646,65 +1670,66 @@
 - compositor.rs
 
 ### rustploy-gui/views/ → gui-views.md
-- app.gvb — O app Rustploy: a raiz do arquivo é o `app(...)`, e as telas — a janela principa…
-- home.gvb — Telas globais da sidebar, cada uma numa seção por valor de view: Monitoring, Ing…
-- log_window.gvb — Janela de LOGS AO VIVO (runtime OU build): motor Glacier próprio e ISOLADO do ap…
-- login.gvb — Tela de login: um campo, o token de conexão (base64 de host:porta::token), com u…
-- new_job_window.gvb — Janela "Novo job": motor Glacier próprio, aberto por open_window a partir do app…
-- new_project_form.gvb — Janela "Novo projeto": motor Glacier próprio, aberto por open_window a partir do…
-- new_registry_token_window.gvb — Janela "Novo token do registry": motor Glacier próprio, aberto por open_window a…
-- new_service.gvb — Wizard "Novo serviço" (view=new_service): tipo → formulário por tipo, espelhando…
-- new_service_window.gvb — Janela do wizard "Novo serviço": motor Glacier próprio, aberto por open_window (…
-- service.gvb — Detalhe de um serviço: cabeçalho com ações (deploy, stop, reload) e as abas Gene…
-- service_export_window.gvb — Janela "Exportar serviço": motor Glacier próprio, aberto por open_window a parti…
-- shell.gvb — Casca do app conectado: sidebar, topbar e as views de projeto (Deployments, Proj…
+- app.gv
+- home.gv
+- log_window.gv
+- login.gv
+- new_job_window.gv
+- new_project_form.gv
+- new_registry_token_window.gv
+- new_service.gv
+- new_service_window.gv
+- service.gv
+- service_export_window.gv
+- shell.gv
 
 ### rustploy-gui/views/components/ → gui-views.md
-- badge.gvb — Variante "badge" da célula de estado (mesmo ponto + rótulo, mas com o espaçament…
-- job_actions.gvb — Botão "⋯" de uma linha de job, que abre o painel sobreposto com todas as ações d…
-- loading_row.gvb — Linha "Carregando dados…" com spinner.
-- nav_item.gvb — Item de navegação da sidebar: ícone (sempre visível) + rótulo (some abaixo de 90…
-- picker_row.gvb — Linha de escolha do wizard "Novo serviço": título + subtítulo à esquerda e um bo…
-- project_card.gvb — Template "fragment": dois nós de topo (o slot vazio e o card) — o glacier-ui (0.…
-- running_card.gvb — Card de serviço do painel "Em execução": o resumo especializado por tipo (branch…
-- service_card.gvb — Card de serviço da aba "Serviços" de um projeto — o análogo do ProjectCard.
-- stat_card.gvb — Tile de KPI do cabeçalho (STATUS/UPTIME/SERVICES/CPU/…).
-- state_cell.gvb — Célula de estado das tabelas: o ponto colorido "●" + o rótulo, ambos na mesma co…
-- tab_button.gvb — Botão de aba genérico.
-- table_link.gvb — Hiperlink de célula de tabela: o nome de um serviço ou de um projeto que abre a …
-- template_row.gvb — Linha do catálogo de templates de aplicação: logo à esquerda (vetor ou raster co…
+- badge.gv
+- job_actions.gv
+- loading_row.gv
+- nav_item.gv
+- picker_row.gv
+- project_card.gv
+- running_card.gv
+- service_card.gv
+- stat_card.gv
+- state_cell.gv
+- tab_button.gv
+- table_link.gv
+- template_row.gv
 
 ### rustploy-gui/views/home/ → gui-views.md
-- deploy_engine.gvb — Seção `deploy_engine` (view = deploy_engine) das telas globais; importada por ho…
-- docker.gvb — Seção `docker` (view = docker) das telas globais; importada por home.gvb.
-- ingress.gvb — Seção `ingress` (view = ingress) das telas globais; importada por home.gvb.
-- monitoring.gvb — Seção `monitoring` (view = monitoring) das telas globais; importada por home.gvb…
-- running.gvb — Seção `running` (view = running) das telas globais; importada por home.gvb.
-- schedules.gvb — Seção `schedules` (view = schedules) das telas globais; importada por home.gvb.
-- settings.gvb — Seção `settings` (view = settings) das telas globais; importada por home.gvb.
+- deploy_engine.gv
+- docker.gv
+- ingress.gv
+- monitoring.gv
+- running.gv
+- schedules.gv
+- settings.gv
 
 ### rustploy-gui/views/home/deploy_engine/ → gui-views.md
-- executando.gvb — Aba "Executando" do Deploy Engine; importada por deploy_engine.gvb.
-- fila.gvb — Aba "Fila" do Deploy Engine; importada por deploy_engine.gvb.
-- historico.gvb — Aba "Histórico" do Deploy Engine; importada por deploy_engine.gvb.
+- executando.gv
+- fila.gv
+- historico.gv
 
 ### rustploy-gui/views/home/docker/ → gui-views.md
-- containers.gvb — Containers — um por serviço gerido pelo Rustploy (ligação com projeto/serviço é …
-- images.gvb — Images — projeto/serviço é melhor esforço (inferido pela tag; imagens manuais/de…
-- networks.gvb — Networks — projeto reconhecido pela convenção rp_net_&lt;id curto&gt;.
-- registry.gvb — Registry — repositórios/tags do registry OCI embutido (Fase 1: só push/pull via …
-- volumes.gvb — Volumes — Rustploy só usa bind mounts, então volumes nomeados aqui são sempre ex…
+- containers.gv
+- images.gv
+- networks.gv
+- registry.gv
+- volumes.gv
 
 ### rustploy-gui/views/home/settings/ → gui-views.md
-- git.gvb — Git: contas conectadas + formulário de conexão
-- iac.gvb — Infra as Code: o manifesto é um `.zip` com exatamente rustploy.yml (projetos/ser…
-- maintenance.gvb — Manutenção: limpeza automática de recursos do runtime sem uso (ver docs/plano-li…
-- updates.gvb — Atualizações: pergunta ao daemon se há release mais nova (Command::CheckUpdate).
-- web.gvb — Web Server (default)
+- git.gv
+- gitsync.gv
+- iac.gv
+- maintenance.gv
+- updates.gv
+- web.gv
 
 ### rustploy-gui/views/scripts/ → gui-scripts.md
 - access_key.luau — o token de conexão: endereço do daemon + token da API numa string só, para o log…
-- app.luau — ponto de entrada do `<script>` de app.gvb.
+- app.luau — ponto de entrada do `<script>` de app.gv.
 - busy.luau — trava de "ação em andamento" para os handlers de on_click/on_submit.
 - busy_actions.luau — ações (on_click/on_submit) que ganham a trava de busy.luau.
 - format.luau — fachada: reexporta os builders de views/scripts/fmt_*.luau sob um único módulo, …
@@ -1728,6 +1753,7 @@
 - registry.luau — formata repositórios/tags do registry OCI embutido pra exibição na sub-aba Docke…
 - running.luau — painel "Em execução".
 - service_detail.luau — builders da tela de detalhe de serviço (source, healthcheck, env vars, logs, dep…
+- state_git.luau — a sincronização do estado com o git (Fases 6 e 7 de docs/plano-backup-estado-em-…
 - time.luau — timestamps e durações.
 - types.luau — tipos compartilhados entre os submódulos fmt_*.luau (as formas dos modelos que c…
 - util.luau — busca, codificação de array e mapas de estado (paleta = view.rs).
@@ -1745,8 +1771,9 @@
 - projects.luau — grade de projetos: criar/editar/remover projeto, variáveis de ambiente de projet…
 - registry.luau — sub-aba Docker > Registry: navega repo→tags (fetch sob demanda, tags não vêm no …
 - secrets.luau — aba "Secrets" do projeto: criar/sobrescrever e apagar valores cifrados, e o atal…
-- services.luau — detalhe do serviço (service.gvb): fetch completo, mutações de spec/env, ciclo de…
+- services.luau — detalhe do serviço (service.gv): fetch completo, mutações de spec/env, ciclo de …
 - settings.luau — Settings (Web Server) e Settings → Git (provedores Gitea: conectar via OAuth/PAT…
+- state_git.luau — Settings → Sync: a sincronização do estado de infra com um repositório git (Fase…
 - stream.luau — consumidor do SSE de /api/events: aplica o snapshot periódico (2s) e os eventos …
 - wizard.luau — wizard "Novo serviço".
 
@@ -1754,28 +1781,28 @@
 - api.luau — cliente HTTP/JSON da API do daemon.
 
 ### rustploy-gui/views/service/ → gui-views.md
-- advanced.gvb
-- connection.gvb — Connection (valores copiáveis)
-- databases.gvb — Databases (servidor de banco compartilhado entre projetos)
-- deployments.gvb — Deployments
-- domains.gvb — Domains (editável): lista de rotas HTTP (domínio → porta de container, TLS por r…
-- environment.gvb — Environment
-- general.gvb — General (source / build, editável)
-- general_compose.gvb — Editor do YAML de um serviço Compose (bancos/brokers); o corpo do `if @service_s…
-- general_git.gvb — Sub-aba Git do provider: URL/imagem crua; corpo do `if @provider_tab == "git"` d…
-- general_gitea.gvb — Sub-aba conta conectada (Gitea/GitHub): picker conta/repo/branch; corpo do `if @…
-- general_zip.gvb — Sub-aba Zip do provider: upload local com Dockerfile na raiz; corpo do `if @prov…
-- healthcheck.gvb — Healthcheck (editável)
-- logs.gvb — Aba Logs do detalhe do serviço (importada por service.gvb).
-- migrar.gvb — Migrar este banco para um servidor compartilhado
+- advanced.gv
+- connection.gv
+- databases.gv
+- deployments.gv
+- domains.gv
+- environment.gv
+- general.gv
+- general_compose.gv
+- general_git.gv
+- general_gitea.gv
+- general_zip.gv
+- healthcheck.gv
+- logs.gv
+- migrar.gv
 
 ### rustploy-gui/views/shell/ → gui-views.md
-- deployments.gvb — Lista de deployments (view = deployments); importada por shell.gvb.
-- project_env.gvb — Aba Variáveis do projeto.
-- project_jobs.gvb — Aba Jobs do projeto.
-- project_secrets.gvb — Aba Secrets do projeto; a condição de carregamento vai na chamada.
-- project_services.gvb — Projeto aberto (view = project_services): cabeçalho/edição, sub-abas e grade de …
-- projects.gvb — Lista de projetos (view = projects); importada por shell.gvb.
+- deployments.gv
+- project_env.gv
+- project_jobs.gv
+- project_secrets.gv
+- project_services.gv
+- projects.gv
 
 ### rustploy-gui/views/styles/ → gui-views.md
 - app.gss — Rustploy — glacier-ui stylesheet.
@@ -1790,6 +1817,7 @@
 - naming.rs — Nomes derivados de um projeto ou serviço: containers, redes, stacks Compose e al…
 
 ### rustploy-shared/src/domain/ → shared.md
+- audit.rs — Auditoria de valores em claro no estado de infra (plano `docs/plano-backup-estad…
 - database.rs
 - deployment.rs
 - docker_inventory.rs
@@ -1805,6 +1833,7 @@
 - service.rs
 - service_bundle.rs
 - source.rs
+- state_git.rs — Sincronização do estado de infra com um repositório git (plano `docs/plano-backu…
 - update.rs — Verificação de versão: o que o daemon responde a `Command::CheckUpdate`.
 - wizard.rs
 

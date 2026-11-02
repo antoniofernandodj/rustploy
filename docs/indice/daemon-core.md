@@ -40,6 +40,22 @@ const GLOBAL
 
 ## rustploy-daemon/crates/daemon/src/bin/
 
+### rustploy-cli.rs — `rustploy-cli`: ferramentas de linha de comando que **não precisam do daemon rodando**.
+fn main()
+fn run(args) -> Result<String>
+fn keygen() -> String
+struct Opts { recipients, identity_file, config, positional } — Opções comuns, tiradas dos argumentos (`-r X`, `--recipient X`, `--recipient=X`…).
+fn parse_opts(args) -> Result<Opts>
+fn read_secrets_section(path) -> Result<(Option<String>, Option<String>)> — Lê `[secrets]` do config.toml: `(age_identity, recovery_recipient)`.
+fn config_path(o) -> PathBuf
+fn resolve_recipients(o) -> Result<Vec<x25519::Recipient>> — Os destinatários: os de `--recipient`, ou os do config (chave pública do servidor + recuperação).
+fn resolve_identity(o) -> Result<x25519::Identity>
+fn read_secret_value() -> Result<String> — O valor sensível: do stdin; se for um terminal, pede (sem eco, quando o `stty` existe).
+fn secret_encrypt(args) -> Result<String>
+fn secret_decrypt(args) -> Result<String>
+const DEFAULT_CONFIG, USAGE
+(6 testes)
+
 ### rustployd-fw.rs — `rustployd-fw` — helper privilegiado de firewall do rustploy.
 struct Request { op, port }
 struct Response { ok, backend, error }
@@ -98,7 +114,7 @@ fn run() -> Result<()> — Sobe o daemon inteiro e segura o processo (encerramen
 
 ### state.rs — Estado compartilhado do daemon (`AppState`) e os caches do inventário Docker.
 type OAuthStates = Arc<Mutex<HashMap<String, String>>> — Pending OAuth handshakes: CSRF `state` → `provider_id`, consumed by the `/oauth/gitea/callback` rout…
-struct AppState { db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, started_at, oauth_states, active_deploys, active_jobs, warming_jobs, warming_services, deploy_queue, docker_cache, registry_storage, registry_internal_token, update_checker, update_applier }
+struct AppState { db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, started_at, oauth_states, active_deploys, active_jobs, warming_jobs, warming_services, deploy_queue, docker_cache, registry_storage, registry_internal_token, update_checker, update_applier, state_git }
 impl AppState
   fn new(db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, update, registry_storage, registry_internal_token) -> Self
   fn deploy_ctx() -> DeployContext
@@ -116,11 +132,22 @@ fn spawn_stateful(state, registry_storage, tls) — Laços que dependem do `AppS
 
 ## rustploy-daemon/crates/daemon/src/platform/
 
+### age_format.rs — O formato `ENC[age:<base64>]` dos segredos, **sem nenhuma dependência do daemon** (nada de banco, co…
+fn is_enc(value) -> bool — O valor está no formato `ENC[age:…]`?
+fn encrypt(plaintext, recipients) -> Result<String> — Cifra para todos os `recipients` (a chave do servidor e, se houver, a de recuperação).
+fn decrypt(value, identity) -> Result<String> — Decifra um `ENC[age:…]` com a identidade.
+fn parse_identity(text) -> Result<x25519::Identity>
+fn parse_recipient(text) -> Result<x25519::Recipient>
+const ENC_PREFIX
+(3 testes)
+
 ### config.rs — Configuração do daemon (`config.toml`): structs de cada seção com defaults e o singleton `CONFIG`.
 const CONFIG — Process-wide configuration singleton.
 struct EnvBackupConfig { dir, interval_secs }
 fn default_env_backup_interval() -> u64
-struct RustployConfig { daemon, ingress, docker, deploy, metrics, secrets, api, env_backup, external_ports, registry, update }
+struct RustployConfig { daemon, ingress, docker, deploy, metrics, secrets, api, env_backup, external_ports, registry, update, state_git }
+struct StateGitConfig { fetch_interval_secs } — `[state_git]`: só o ritmo do `fetch`.
+fn default_fetch_interval_secs() -> u64
 struct UpdateConfig { enabled, repo, cache_hours, check_interval_hours, allow_agent_apply } — Verificação de versão nova (`Command::CheckUpdate`).
 fn default_update_enabled() -> bool
 fn default_update_repo() -> String
@@ -147,20 +174,24 @@ struct AcmeConfig { enabled, email, directory }
 struct DockerConfig { socket_path }
 struct DeployConfig { drain_secs, image_cache }
 struct MetricsConfig { interval_secs, history_points }
-struct SecretsConfig { master_key_path }
+struct SecretsConfig { master_key_path, age_identity, recovery_recipient }
 impl RustployConfig
   fn global() -> &'static RustployConfig — Returns the process-wide config, loading it on first call.
+  fn global_path() -> Option<&'static Path> — Arquivo de onde `global()` leu a config (`None` = defaults).
   fn load() -> Self
+  fn load_with_path() -> (Self, Option<std::path::PathBuf>) — Como [`load`](Self::load), devolvendo também o arquivo de onde a config saiu (`None` = veio dos defa…
   fn apply_env_overrides(cfg) -> Self
 fn user_home() -> Option<String> — The single place the process reads `$HOME`.
 fn fallback_data_dir() -> PathBuf — `~/.local/share/rustploy`, falling back to `/tmp` when `$HOME` is unset.
 fn dirs_config_path() -> Option<PathBuf>
 fn outbound_ip() -> String — Detecta o IP de saída da máquina conectando um socket UDP em 8.8.8.8:80 (sem enviar dados) e lendo o…
+const CONFIG_PATH
 impl Default for ApiConfig
 impl Default for EnvBackupConfig
 impl Default for ExternalPortsConfig
 impl Default for RegistryConfig
 impl Default for RustployConfig
+impl Default for StateGitConfig
 impl Default for UpdateConfig
 (3 testes)
 
@@ -223,17 +254,45 @@ impl LogSink for std::sync::Arc<L>: append_build_line, append_job_line
 
 ### mod.rs — Infraestrutura transversal (barramento de eventos, segredos, health checks), sem regra de negócio.
 
-### secrets.rs — `SecretsManager`: secrets por projeto cifrados no banco com a chave mestra do daemon.
-struct SecretsManager { passphrase, db }
+### secrets.rs — `SecretsManager`: cifra e decifra os segredos do daemon.
+struct SecretsManager { passphrase, identity, recovery, db }
 impl SecretsManager
-  fn new(master_key_path, db) -> Result<Self>
-  fn encrypt(plaintext) -> Result<String>
-  fn decrypt(ciphertext_hex) -> Result<String>
-  fn get_raw(project_id, name) -> Result<String>
+  fn open(master_key_path, db, cfg, config_path) -> Result<Self> — Abre o gerenciador do daemon.
+  fn new(master_key_path, db) -> Result<Self> — Para testes: identidade efêmera (some quando o objeto some), sem tocar na config.
+  fn with_keys(master_key_path, db, identity, recovery) -> Result<Self> — Para testes: com uma identidade e uma recuperação escolhidas.
+  fn has_recovery() -> bool — Há uma chave de recuperação (`[secrets] recovery_recipient`) configurada?
+  fn public_key() -> String — A chave pública do servidor (`age1…`).
+  fn encrypt(plaintext) -> Result<String> — Cifra para a identidade do servidor (e a de recuperação, se houver).
+  fn decrypt(value) -> Result<String> — Decifra o formato novo (`ENC[age:…]`) ou o antigo (hex + passphrase).
+  fn decrypt_legacy(ciphertext_hex) -> Result<String>
+  fn encrypt_legacy(plaintext) -> Result<String> — Só para os testes fabricarem um valor no formato antigo.
+  fn reencrypt_legacy() -> Result<usize> — Regrava no formato novo tudo o que ainda está no antigo: os secrets e o `client_secret` dos provider…
+  fn get_raw(project_id, name) -> Result<String> — Secret do **projeto**.
+  fn get_scoped(project_id, service_id, name) -> Result<String> — Secret de um escopo: `service_id: Some` = só daquele serviço; `None` = só do projeto.
+  fn resolve(project_id, service_id, name) -> Result<String> — Resolução de uma env `Secret(name)`: o escopo do **serviço** primeiro, depois o do projeto.
   fn set(project_id, name, value) -> Result<()>
-  fn delete(project_id, name) -> Result<()>
+  fn set_scoped(project_id, service_id, name, value) -> Result<()>
+  fn delete_scoped(project_id, service_id, name) -> Result<()>
   fn list_names(project_id) -> Result<Vec<String>>
+  fn list_names_scoped(project_id, service_id) -> Result<Vec<String>>
+  fn reveal(project_id, service_id, name) -> Result<String> — "Ver valor": decifra e **grava uma linha de auditoria** (quem/qual/quando — nunca o valor).
+  fn move_secret(project_id, service_id, name, op) -> Result<()> — As quatro movimentações manuais da R5, cada uma **atômica** (uma transação do repositório): ou o sec…
+fn new_secret(name, encrypted) -> SecretInfra
+fn project_mut(st, project_id) -> Result<&'a mut ProjectInfra>
+fn service_mut(p, service_id) -> Result<&'a mut ServiceInfra>
+fn secret_list_mut(st, project_id, service_id) -> Result<&'a mut Vec<SecretInfra>> — A lista de secrets do escopo pedido (projeto, ou um serviço dele).
+fn take_plain_env(vars, key, onde) -> Result<String> — Tira o valor `Plain` da env `key` (erro claro se não existe ou já é um secret).
+fn set_env(vars, key, value)
+fn secret_into_env(vars, name, plain, onde) -> Result<()> — Secret → env: as envs que apontavam para o secret viram `Plain(valor)`; se nenhuma apontava, cria-se…
+fn write_private(path, contents) -> Result<()> — Grava `contents` num arquivo que já nasce 0600 (sem janela em que ele exista legível).
+fn restrict_permissions(path) — Restringe o arquivo a 0600 (só o dono).
 fn generate_key() -> Result<String>
+fn load_or_create_master_key(master_key_path) -> Result<String>
+fn parse_identity(text) -> Result<x25519::Identity>
+fn has_enc_values(db) -> bool — Há algum segredo já no formato novo gravado no YAML?
+fn persist_identity(identity, config_path, key_file) -> Result<()> — Grava a identidade recém-gerada no `config.toml` (seção `[secrets]`); se não der, no `age.key` (0600…
+fn write_identity_into_config(path, line) -> Result<()> — Insere `line` logo abaixo de `[secrets]` (ou cria a seção no fim), preservando o resto do arquivo e …
+(20 testes)
 
 ### ttl_cache.rs — Cache de um valor só, com TTL, que junta chamadas concorrentes numa só ida à fonte lenta.
 struct TtlCache { ttl, slot } — Single-slot value cache with a TTL.

@@ -11,15 +11,17 @@ trava de "ação em andamento" — callbacks de sse/rules/lifecycle ficam de for
 import glob, os, re, sys
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "rustploy-gui", "views")
+# Botões de idioma: síncronos (só trocam o catálogo), não precisam da trava de "em andamento".
+IGNORED = {"language_select_english", "language_select_portuguese"}
 BUILTIN = {"window", "app", "tray", "notifications", "clipboard", "open", "textarea_end", "textarea_top"}
 
 
 def actions():
     out = set()
-    for f in glob.glob(os.path.join(ROOT, "**", "*.gvb"), recursive=True):
+    for f in glob.glob(os.path.join(ROOT, "**", "*.gv"), recursive=True):
         for m in re.finditer(r'\b(on_click|on_submit)\s*=\s*"?([^\s,)"]+)', open(f).read()):
             name = m.group(2).split(":")[0]
-            if name.startswith("@") or name in BUILTIN:
+            if name.startswith("@") or name in BUILTIN or name in IGNORED:
                 continue
             out.add(name)
     return sorted(out)

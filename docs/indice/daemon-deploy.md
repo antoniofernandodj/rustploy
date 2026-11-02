@@ -7,15 +7,47 @@
 
 ## rustploy-daemon/crates/daemon/src/features/deploy/
 
+### autostart.rs — Orquestrador de **subida em ordem**: religa serviços respeitando as dependências.
+struct Policy { retry_delays, ready_timeout, deploy_timeout, poll } — Tempos do orquestrador.
+enum Progress { Starting, Ready, Failed, Blocked } — O que acontece com um serviço durante a subida (para a UI e os logs).
+trait Bringer — Como subir **um** serviço de verdade.
+  fn bring_up(svc) -> Result<(), String> — Sobe o serviço e só retorna quando ele está pronto.
+  fn report(_svc, _progress) — Notificação de progresso (status na UI, evento).
+struct Outcome { ready, failed, blocked } — Resultado da última rodada.
+impl Outcome
+  fn all_ready() -> bool
+fn orchestrate(services, implicit, bringer, policy) -> Outcome — Sobe `services` na ordem das dependências.
+fn implicit_edges(access, all_services) -> Vec<(String, String)> — Arestas `(dependente, dependência)` derivadas de `shared_access`: todo serviço de um projeto autoriz…
+struct DockerBringer { ctx, policy }
+impl Bringer for DockerBringer: bring_up, report
+impl DockerBringer
+  fn deploy_and_wait(svc) -> Result<(), String>
+  fn wait_ready(svc, container_id) -> Result<(), String> — "Pronto": healthcheck do serviço; sem healthcheck, a porta responde (TCP); sem porta, container roda…
+fn boot_candidates(db) -> anyhow::Result<Vec<Service>> — Serviços que o boot deve religar: `desired_state = Running` e `autostart = true`.
+fn spawn_boot(ctx) — Dispara o religamento do boot numa task (não bloqueia a subida do daemon).
+impl Default for Policy
+(10 testes)
+
 ### context.rs — O que o motor de deploy (fila, executor, start, stop) precisa do resto do daemon.
 type ActiveDeploys = Arc<Mutex<HashMap<String, tokio::task::AbortHandle… — Handles de abort para deploys activos: deployment_id → AbortHandle.
 struct DeployContext { db, docker, ingress, bus, secrets, tls, db_path, drain_secs, registry_internal_token, active_deploys, deploy_queue }
 
+### deps.rs — Grafo de dependências entre serviços: ordenação em **ondas**, detecção de ciclo e validação.
+type Graph = BTreeMap<String, BTreeSet<String>> — `id do serviço → ids dos quais ele depende`.
+fn waves(graph) -> Result<Vec<Vec<String>>, Vec<String>> — Ordena em ondas: a onda 0 não depende de ninguém; a onda *n* só depende de ondas anteriores.
+fn dependents_transitive(graph, id) -> BTreeSet<String> — Quem depende (direta ou indiretamente) de `id`.
+struct DepError { code, message } — Erro de validação de `depends_on`: código estável + mensagem para a pessoa.
+fn validate(project_services, self_id, depends_on) -> Result<(), DepError> — Valida o `depends_on` de um serviço (novo ou editado) contra os do projeto.
+fn direct_dependents(project_services, id) -> Vec<(String, String)> — Serviços que dependem diretamente de `id` (para a guarda de exclusão).
+(12 testes)
+
 ### env_resolve.rs — Resolução de env vars com secrets decifradas — extraído de `DeployExecutor::resolve_env` pra ser rea…
+fn secret_value(secrets, project_id, service_id, secret_name, env_key, owner) -> Result<String> — Resolve o valor de uma env `Secret(nome)`.
 fn resolve_project_env(db, secrets, project_id) -> Result<HashMap<String, String>> — Só as env vars do projeto (base), secrets decifradas — sem nenhuma específica de serviço.
 fn resolve(db, secrets, svc) -> Result<Vec<(String, String)>> — Funde env vars do projeto (base) com as do serviço (sobrescreve por chave), decifrando `EnvVarValue:…
 fn resolve_project_only(db, secrets, project_id) -> Result<Vec<(String, String)>> — Só as env vars do projeto — usado por jobs sem serviço gatilho (`Job::trigger_service_id: None`, job…
 fn resolve_job(db, secrets, job) -> Result<Vec<(String, String)>> — Env vars completas de um `Job`: base (projeto, + serviço gatilho quando houver) por baixo, `job.env_…
+(3 testes)
 
 ### git.rs — Clone de repositório git para build, com progresso, credenciais de provedor conectado ou secret, e U…
 struct CloneOptions { url, branch, token, username, dir }
@@ -270,6 +302,8 @@ fn remove_containers(state, id) -> Result<(), RpResponse> — Containers do serv
 fn handle(state, id) -> RpResponse
 
 ### mod.rs — Ciclo de vida de um serviço: criar, atualizar (com a sincronização do firewall) e remover.
+fn project_deps(db, project_id) — `(id, nome, depends_on)` de todos os serviços do projeto, para a validação de dependências.
+fn check_depends_on(db, spec, self_id) -> Result<(), shared::Response> — Valida o `depends_on` de um spec que vai ser gravado (`self_id`: `None` na criação).
 
 ### update.rs — `Command::ServiceUpdate`: grava um ServiceSpec novo (porta externa, TLS dos domínios, firewall) sem …
 fn handle(state, id, spec) -> RpResponse

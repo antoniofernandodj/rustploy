@@ -62,6 +62,7 @@ impl ToolError
 struct ToolSpec { name, description, input_schema } — Uma ferramenta: nome, descrição para o agente e o JSON Schema dos argumentos.
 fn no_arguments() -> Value
 fn call(state, name, args) -> Result<Value, ToolError> — Executa a ferramenta `name`.
+fn proibido_ao_agente(cmd) -> Option<&'static str> — Comandos que o agente (MCP/`rpc`) **nunca** pode executar, qualquer que seja a configuração.
 fn rpc(state, command) -> Result<Value, ToolError> — Executa um `Command` (em JSON) e converte `Response::Err` em falha.
 fn rpc_expect(state, command, variante) -> Result<Value, ToolError> — Como [`rpc`], mas exige a variante `variante` e devolve só o payload dela.
 fn status(state) -> Result<Value, ToolError>
@@ -81,11 +82,15 @@ fn service_index(snapshot) -> Vec<Value> — Achata o snapshot no índice de ser
 fn status_label(status) -> Value — `ServiceStatus` é externally-tagged e só `Error` tem campo — vira `"Running"` ou `"Error: <causa>"`.
 fn source_label(source) -> Value — `ServiceSource` achatado no que identifica a origem, sem arrastar o `compose.content` inteiro (dezen…
 const TOOLS
-(4 testes)
+(5 testes)
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/
 
 ### mod.rs — Handlers agrupados por assunto: um arquivo por `Command` dentro de cada pasta, e o `dispatch` da pas…
+
+### state_git.rs — Handlers da sincronização do estado de infra com o git (Fase 6 do plano de estado em git).
+fn erro(e) -> RpResponse
+fn dispatch(state, cmd) -> RpResponse
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/databases/
 
@@ -168,6 +173,10 @@ fn service_warm(state, service_id, force) -> RpResponse — `Command::ServiceWar
 
 ### docker_inventory.rs — Docker-wide inventory for the Docker tab: every image/volume/network on the host (not just rustploy-…
 struct ServiceIndex { by_safe_name, by_registry_image, by_network, by_service_id } — Best-effort project/service ownership lookup, built once per request from the current DB state.
+struct OrphanIndex { by_service_id, by_compose_project } — Serviços que **sumiram do estado por um commit externo** (marca `state_git_removed`), para apontar o…
+impl OrphanIndex
+  fn build(state) -> Self
+  fn lookup(labels) -> Option<String>
 impl ServiceIndex
   fn build(state) -> Self
   fn image_owner(tags) -> (Option<String>, Option<String>) — Resolves an image's owner from its tags: exact match for registry images, `rp_<safe_name>:...` prefi…
@@ -179,6 +188,7 @@ fn list_networks(state) -> RpResponse — Lists every network on the host.
 fn compute_networks(state) -> Result<Vec<DockerNetworkInfo>, String> — The cache miss-path of [`list_networks`]: lists networks and cross-references container attachments …
 fn list_containers(state) -> RpResponse — Lists every container on the host (running + stopped) for the Docker tab's Containers sub-tab.
 fn stop_all_managed(state) -> RpResponse — Stops every rustploy-managed service, regardless of what the DB's status column currently claims — r…
+(1 testes)
 
 ### docker_prune.rs — `Command::Prune*`: limpeza manual de containers, volumes, imagens, build cache e redes; a lógica mor…
 fn respond(result) -> RpResponse
@@ -189,6 +199,8 @@ fn prune_build_cache(state) -> RpResponse
 fn prune_networks(state) -> RpResponse
 
 ### docker_remove.rs — Remoção INDIVIDUAL de um recurso Docker (o par por-item dos `docker_prune`): um container, imagem, v…
+fn owning_service(labels, services) -> Option<&'a shared::Service> — O serviço do estado a que um container pertence: pelo label `rustploy.service_id` (serviços normais)…
+fn stop_container(state, id) -> RpResponse — Para um container.
 fn remove_container(state, id) -> RpResponse — `docker rm <id>` (sem `-f`): remove um container PARADO.
 fn remove_image(state, id) -> RpResponse — `docker rmi <id>` (sem `-f`): remove uma imagem sem uso.
 fn remove_image_by_name(state, name) -> Result<(), bollard::errors::Error>
@@ -196,6 +208,7 @@ fn remove_image_tag_by_tag(state, id) -> Result<(), bollard::errors::Error>
 fn needs_untag(e) -> bool — A recusa por ID de imagem com várias tags: o Podman diz "more than one tag", o Docker "referenced in…
 fn remove_volume(state, name) -> RpResponse — `docker volume rm <name>` (sem `-f`): remove um volume sem uso.
 fn remove_network(state, id) -> RpResponse — `docker network rm <id>`: remove uma rede sem uso.
+(1 testes)
 
 ### mod.rs — Handlers de docker: o `dispatch` recebe os `Command` da seção e chama o handler certo.
 fn dispatch(state, cmd) -> RpResponse
@@ -336,17 +349,26 @@ fn dispatch(state, cmd) -> RpResponse
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/secrets/
 
+### infra_audit.rs — `Command::InfraAudit`: o que está em claro no estado de infra (sem os valores).
+fn handle(state) -> Response
+
 ### mod.rs — Handlers de secrets: o `dispatch` recebe os `Command` da seção e chama o handler certo.
 fn dispatch(state, cmd) -> RpResponse
 
-### secret_delete.rs — `Command::SecretDelete`: apaga um secret do projeto.
-fn handle(state, project_id, name) -> Response
+### secret_delete.rs — `Command::SecretDelete`: apaga um secret (do projeto, ou de um serviço).
+fn handle(state, project_id, service_id, name) -> Response
 
-### secret_list.rs — `Command::SecretList`: nomes (nunca valores) dos secrets de um projeto.
-fn handle(state, project_id) -> Response
+### secret_list.rs — `Command::SecretList`: nomes (nunca valores) dos secrets de um projeto, ou de um serviço.
+fn handle(state, project_id, service_id) -> Response
 
-### secret_set.rs — `Command::SecretSet`: cria/sobrescreve um secret cifrado do projeto.
-fn handle(state, project_id, name, value) -> Response
+### secret_move.rs — `Command::SecretMove`: mover entre env e secret, ou entre escopos (R5 do plano).
+fn handle(state, project_id, service_id, name, op) -> Response
+
+### secret_reveal.rs — `Command::SecretReveal`: o valor de um secret ("ver valor").
+fn handle(state, project_id, service_id, name) -> Response
+
+### secret_set.rs — `Command::SecretSet`: cria/sobrescreve um secret cifrado (do projeto, ou de um serviço).
+fn handle(state, project_id, service_id, name, value) -> Response
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/services/
 
@@ -382,6 +404,8 @@ fn handle(state, service_id) -> RpResponse
 ### wizard.rs — Wizard "Novo serviço" server-side: catálogos (`WizardCatalog`) e criação (`WizardCreate`).
 fn catalog(search) -> RpResponse — Catálogos de bancos/brokers/templates prontos como JSON para o contexto do cliente (`new_service_dat…
 fn create(state, req) -> RpResponse — Monta o `ServiceSpec` a partir dos campos coletados pelo wizard e cria o serviço — reaproveitando o …
+fn secure_credentials(state, svc) -> anyhow::Result<Option<shared::Service>> — Move as envs de credencial (`Plain` não vazias) do serviço recém-criado para secrets do serviço.
+(2 testes)
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/settings/
 
@@ -474,7 +498,7 @@ fn seed_connected(page) — Semeia a sessão (bypassa login/SSE, mesma ideia de 
 fn eval_str(page, js) -> String — Avalia `js` (uma expressão, possivelmente uma Promise) e devolve o resultado como `String` — os test…
 fn visible(page, selector) -> bool — `true` se o elemento existir e estiver de fato visível (`x-show` escreve `display:none` inline; `off…
 fn errors(page) -> Vec<String>
-(12 testes)
+(13 testes)
 
 ### mod.rs — Servidor de estáticos da web UI/PWA (`crates/daemon/webui/`) — alternativa ao client iced (`rustploy…
 type ApiBody = BoxBody<Bytes, std::convert::Infallible>

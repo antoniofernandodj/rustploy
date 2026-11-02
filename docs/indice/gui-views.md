@@ -2,310 +2,155 @@
 
 > Gerado por `make index`; não editar à mão. Sem números de linha:
 > `grep -n "nome" <dir><arquivo>` dá a linha. Cada item: `nome(params) — doc`.
-> `.gvb`: `<app>`/`<screen>`/`<component>`, `props`, `imports` (`link(rel = import)`), `script`, `telas` (as `screen(name = …)` do app), `views` (valores de `@view ==`), `abas` (valores de `@tab`/`@*_tab`) e `handlers` (`on_*` e `action`).
+> `.gv`: `<screen>`/`<component>`, `props`, `imports` (componentes), `script`, `views` (valores de `if="{view}" equals=`) e `handlers` (chamados em `on_*=`).
 
 ## rustploy-gui/views/
 
-### app.gvb — O app Rustploy: a raiz do arquivo é o `app(...)`, e as telas — a janela principal e as cinco janelas…
-<app>
-imports: Login, Shell
-script: scripts/app.luau
-telas: app, log, new_job, new_service, new_project, new_registry_token, service_export
-handlers: notifications, tray, window
+### app.gv
 
-### home.gvb — Telas globais da sidebar, cada uma numa seção por valor de view: Monitoring, Ingress, Deploy Engine,…
-<component>
-imports: HomeDeployEngine, HomeDocker, HomeIngress, HomeMonitoring, HomeRunning, HomeSchedules, HomeSettings
-views: running, monitoring, ingress, deploy_engine, docker, settings, schedules
+### home.gv
 
-### log_window.gvb — Janela de LOGS AO VIVO (runtime OU build): motor Glacier próprio e ISOLADO do app principal, aberta …
-<screen>
-script: scripts/log_window.luau
-handlers: copy_ctx, textarea_end, textarea_top, window
+### log_window.gv
 
-### login.gvb — Tela de login: um campo, o token de conexão (base64 de host:porta::token), com um select dos servido…
-<component>
-handlers: access_key_input, choose_saved_server, connect, forget_server, language_select_english, language_select_portuguese
+### login.gv
 
-### new_job_window.gvb — Janela "Novo job": motor Glacier próprio, aberto por open_window a partir do app principal (handlers…
-<screen "{t('new_job_window.new_job_rustploy'">
-imports: PickerRow, TabButton
-script: scripts/new_job_window.luau
-handlers: cancel, field, new_job_back, new_job_create, new_job_git_provider_pick, new_job_git_repo_pick, new_job_kind, new_job_pick_no_service, new_job_pick_project, new_job_pick_service, new_job_source, window
+### new_job_window.gv
 
-### new_project_form.gvb — Janela "Novo projeto": motor Glacier próprio, aberto por open_window a partir do app principal (hand…
-<screen "{t('new_project_form.new_project_rustploy'">
-script: scripts/new_project_window.luau
-handlers: cancel, new_project_show_validation_errors, submit_project, window
+### new_project_form.gv
 
-### new_registry_token_window.gvb — Janela "Novo token do registry": motor Glacier próprio, aberto por open_window a partir do app princ…
-<screen "{t('new_registry_token_window.new_token_rustploy'">
-script: scripts/new_registry_token_window.luau
-handlers: copy_ctx, new_registry_token_create, new_registry_token_show_validation_errors, window
+### new_registry_token_window.gv
 
-### new_service.gvb — Wizard "Novo serviço" (view=new_service): tipo → formulário por tipo, espelhando o fluxo do antigo r…
-<component>
-handlers: field, import_analyze, import_choice, import_clear, import_create, import_pick_file, import_use_provider, new_service_back, new_service_broker, new_service_cancel, new_service_create, new_service_database, new_service_kind, new_service_pick_template, new_service_template_search
+### new_service.gv
 
-### new_service_window.gvb — Janela do wizard "Novo serviço": motor Glacier próprio, aberto por open_window (handlers/wizard.luau…
-<screen "{t('new_service_window.new_service_rustploy'">
-imports: NewServiceWizard, PickerRow, TemplateRow
-script: scripts/new_service_window.luau
-handlers: window
+### new_service_window.gv
 
-### service.gvb — Detalhe de um serviço: cabeçalho com ações (deploy, stop, reload) e as abas General (fonte), Connect…
-<component>
-imports: ServiceAdvancedTab, ServiceConnectionTab, ServiceDatabasesTab, ServiceDeploymentsTab, ServiceDomainsTab, ServiceEnvironmentTab, ServiceGeneralTab, ServiceHealthcheckTab, ServiceLogsTab, ServiceMigrarTab
-abas: general, connection, environment, domains, migrar, databases, deployments, healthcheck, logs, advanced
-handlers: open_export_window, open_logs_window, open_project, service_deploy, service_rebuild, service_reload, service_stop, service_warm, tab
+### service.gv
 
-### service_export_window.gvb — Janela "Exportar serviço": motor Glacier próprio, aberto por open_window a partir do app principal (…
-<screen "{t('service_export_window.export_service_rustploy'">
-script: scripts/service_export_window.luau
-handlers: copy_ctx, export_all, export_none, export_save, export_show, export_suggested, export_toggle, field, window
+### service_export_window.gv
 
-### shell.gvb — Casca do app conectado: sidebar, topbar e as views de projeto (Deployments, Projects, serviços de um…
-<component>
-imports: DeploymentsView, HomeViews, JobActions, LoadingRow, NavItem, PickerRow, ProjectCard, ProjectServicesView, ProjectsView, RunningCard, ServiceCard, ServiceDetail, StatCard, StateCell, TabButton, TableLink, TemplateRow, rp-badge
-views: deployments, projects, project_services, service
-handlers: disconnect, drawer, language_select_english, language_select_portuguese, nav_deploy_engine, nav_deployments, nav_docker, nav_ingress, nav_monitoring, nav_projects, nav_running, nav_schedules, nav_settings, nav_support, search_changed, stop_all
+### shell.gv
 
 ## rustploy-gui/views/components/
 
-### badge.gvb — Variante "badge" da célula de estado (mesmo ponto + rótulo, mas com o espaçamento/estilo de crachá —…
-<component>
-props: color, label
+### badge.gv
 
-### job_actions.gvb — Botão "⋯" de uma linha de job, que abre o painel sobreposto com todas as ações do job.
-<component>
-props: job_id, job_name, running, enabled, enabled_label, last_run_id, is_warm, is_warming, warm_kind, warm_label, warm_reason, warmed_at_label
-handlers: job_delete, job_rebuild, job_run_cancel, job_run_now, job_toggle, job_warm, open_edit_job_window, open_job_logs_window
+### job_actions.gv
 
-### loading_row.gvb — Linha "Carregando dados…" com spinner.
-<component>
-props: note
+### loading_row.gv
 
-### nav_item.gvb — Item de navegação da sidebar: ícone (sempre visível) + rótulo (some abaixo de 900px de largura — ver…
-<component>
-props: label, icon, target, action, badge
+### nav_item.gv
 
-### picker_row.gvb — Linha de escolha do wizard "Novo serviço": título + subtítulo à esquerda e um botão de ação à direit…
-<component>
-props: title, subtitle, button_label, action
+### picker_row.gv
 
-### project_card.gvb — Template "fragment": dois nós de topo (o slot vazio e o card) — o glacier-ui (0.4.12+) embrulha múlt…
-<component>
-props: id, name, service_count, running_count, description, can_delete, filler
-handlers: delete_project, open_project
+### project_card.gv
 
-### running_card.gvb — Card de serviço do painel "Em execução": o resumo especializado por tipo (branch para Git, motor par…
-<component>
-props: filler, id, name, port, status_label, status_color, kind_label, branch, detail, domains, cpu, mem, checks, has_webhook, webhook, webhook_shown, reveal_label, has_warm, warm_label, warm_color
-handlers: copy_webhook, open_service, running_deploy, running_toggle_reveal, service_stop_id
+### running_card.gv
 
-### service_card.gvb — Card de serviço da aba "Serviços" de um projeto — o análogo do ProjectCard.
-<component>
-props: id, name, port, status_color, status_label, has_warm, warm_label, warm_color, warm_reason, cpu, mem, filler, container_name, container_id, container_name_full, container_id_full, container_extra
-handlers: copy_container_id, copy_container_name, open_export_window, open_service, service_stop_id, stop_delete_service
+### service_card.gv
 
-### stat_card.gvb — Tile de KPI do cabeçalho (STATUS/UPTIME/SERVICES/CPU/…).
-<component>
-props: label, value, accent
+### stat_card.gv
 
-### state_cell.gvb — Célula de estado das tabelas: o ponto colorido "●" + o rótulo, ambos na mesma cor.
-<component>
-props: kind, label
+### state_cell.gv
 
-### tab_button.gvb — Botão de aba genérico.
-<component>
-props: label, current, target, action
+### tab_button.gv
 
-### table_link.gvb — Hiperlink de célula de tabela: o nome de um serviço ou de um projeto que abre a tela dele (os mesmos…
-<component>
-props: kind, id, label
-handlers: open_project, open_service
+### table_link.gv
 
-### template_row.gvb — Linha do catálogo de templates de aplicação: logo à esquerda (vetor ou raster conforme logo_kind), n…
-<component>
-props: name, description, logo, logo_kind, action
+### template_row.gv
 
 ## rustploy-gui/views/home/
 
-### deploy_engine.gvb — Seção `deploy_engine` (view = deploy_engine) das telas globais; importada por home.gvb.
-<component>
-imports: EngineExecutandoTab, EngineFilaTab, EngineHistoricoTab
-abas: fila, executando, historico
-handlers: deploy_engine_tab
+### deploy_engine.gv
 
-### docker.gvb — Seção `docker` (view = docker) das telas globais; importada por home.gvb.
-<component>
-imports: DockerContainersTab, DockerImagesTab, DockerNetworksTab, DockerRegistryTab, DockerVolumesTab
-abas: containers, images, volumes, networks, registry
-handlers: docker_tab
+### docker.gv
 
-### ingress.gvb — Seção `ingress` (view = ingress) das telas globais; importada por home.gvb.
-<component>
+### ingress.gv
 
-### monitoring.gvb — Seção `monitoring` (view = monitoring) das telas globais; importada por home.gvb.
-<component>
+### monitoring.gv
 
-### running.gvb — Seção `running` (view = running) das telas globais; importada por home.gvb.
-<component>
-handlers: open_project
+### running.gv
 
-### schedules.gvb — Seção `schedules` (view = schedules) das telas globais; importada por home.gvb.
-<component>
-handlers: open_new_job_window
+### schedules.gv
 
-### settings.gvb — Seção `settings` (view = settings) das telas globais; importada por home.gvb.
-<component>
-imports: SettingsGitTab, SettingsIacTab, SettingsMaintenanceTab, SettingsUpdatesTab, SettingsWebTab
-abas: web, git, iac, maintenance, updates
+### settings.gv
 
 ## rustploy-gui/views/home/deploy_engine/
 
-### executando.gvb — Aba "Executando" do Deploy Engine; importada por deploy_engine.gvb.
-<component>
-handlers: deploy_engine_close_detail, deploy_engine_open_detail, queue_cancel
+### executando.gv
 
-### fila.gvb — Aba "Fila" do Deploy Engine; importada por deploy_engine.gvb.
-<component>
-handlers: queue_cancel, queue_promote, queue_reorder, queue_toggle_pause
+### fila.gv
 
-### historico.gvb — Aba "Histórico" do Deploy Engine; importada por deploy_engine.gvb.
-<component>
+### historico.gv
 
 ## rustploy-gui/views/home/docker/
 
-### containers.gvb — Containers — um por serviço gerido pelo Rustploy (ligação com projeto/serviço é direta, já que o con…
-<component>
-handlers: docker_prune_containers, docker_remove_container
+### containers.gv
 
-### images.gvb — Images — projeto/serviço é melhor esforço (inferido pela tag; imagens manuais/de terceiros ficam com…
-<component>
-handlers: docker_only_used, docker_prune_images, docker_remove_image, field
+### images.gv
 
-### networks.gvb — Networks — projeto reconhecido pela convenção rp_net_&lt;id curto&gt;.
-<component>
-handlers: docker_only_used, docker_prune_networks, docker_remove_network
+### networks.gv
 
-### registry.gvb — Registry — repositórios/tags do registry OCI embutido (Fase 1: só push/pull via docker CLI; sem auth…
-<component>
-handlers: registry_close_repo, registry_gc, registry_open_repo, registry_open_token_window, registry_remove_repo, registry_remove_tag, registry_remove_token
+### registry.gv
 
-### volumes.gvb — Volumes — Rustploy só usa bind mounts, então volumes nomeados aqui são sempre externos ao Rustploy (…
-<component>
-handlers: docker_only_used, docker_prune_volumes, docker_remove_volume, field
+### volumes.gv
 
 ## rustploy-gui/views/home/settings/
 
-### git.gvb — Git: contas conectadas + formulário de conexão
-<component>
-handlers: copy_ctx, field, git_provider_connect, git_provider_delete, git_provider_kind, git_provider_refresh, open
+### git.gv
 
-### iac.gvb — Infra as Code: o manifesto é um `.zip` com exatamente rustploy.yml (projetos/serviços, env vars semp…
-<component>
-handlers: field, manifest_export, manifest_import
+### gitsync.gv
 
-### maintenance.gvb — Manutenção: limpeza automática de recursos do runtime sem uso (ver docs/plano-limpeza-automatica-doc…
-<component>
-handlers: docker_cleanup_run_now, docker_cleanup_save, field
+### iac.gv
 
-### updates.gvb — Atualizações: pergunta ao daemon se há release mais nova (Command::CheckUpdate).
-<component>
-handlers: copy_ctx, update_app_apply, update_app_cancel, update_apply, update_check_now, update_rollback
+### maintenance.gv
 
-### web.gvb — Web Server (default)
-<component>
-handlers: copy_ctx, settings_save
+### updates.gv
+
+### web.gv
 
 ## rustploy-gui/views/service/
 
-### advanced.gvb
-<component>
-handlers: advanced_save, field, pre_deploy_check_add, pre_deploy_check_delete, pre_deploy_check_reorder
+### advanced.gv
 
-### connection.gvb — Connection (valores copiáveis)
-<component>
-handlers: copy_ctx, shared_disable, shared_enable
+### connection.gv
 
-### databases.gvb — Databases (servidor de banco compartilhado entre projetos)
-<component>
-handlers: copy_ctx, field, shared_database_create, shared_database_delete, shared_database_show
+### databases.gv
 
-### deployments.gvb — Deployments
-<component>
-handlers: copy_ctx, delete_deployment, deployment_logs, regenerate_webhook
+### deployments.gv
 
-### domains.gvb — Domains (editável): lista de rotas HTTP (domínio → porta de container, TLS por rota), mais o form de…
-<component>
-handlers: domain_add, domain_delete, domain_hostport_auto, domain_hostport_save, field
+### domains.gv
 
-### environment.gvb — Environment
-<component>
-handlers: env_add, env_delete, env_export, env_import, env_reorder, env_show_validation_errors, env_text_cancel, env_text_toggle
+### environment.gv
 
-### general.gvb — General (source / build, editável)
-<component>
-imports: GeneralCompose, GeneralGit, GeneralGitea, GeneralZip
-abas: git, zip, gitea
-handlers: general_save, save_service_name, select_provider_tab, service_rename_show_validation_errors
+### general.gv
 
-### general_compose.gvb — Editor do YAML de um serviço Compose (bancos/brokers); o corpo do `if @service_source_kind == "Compo…
-<component>
-handlers: compose_cancel, compose_save
+### general_compose.gv
 
-### general_git.gvb — Sub-aba Git do provider: URL/imagem crua; corpo do `if @provider_tab == "git"` de general.gvb.
-<component>
-handlers: field, general_save
+### general_git.gv
 
-### general_gitea.gvb — Sub-aba conta conectada (Gitea/GitHub): picker conta/repo/branch; corpo do `if @provider_tab == "git…
-<component>
-handlers: field, general_save, gitea_provider_pick, gitea_repo_pick
+### general_gitea.gv
 
-### general_zip.gvb — Sub-aba Zip do provider: upload local com Dockerfile na raiz; corpo do `if @provider_tab == "zip"` d…
-<component>
-handlers: archive_upload, archive_upload_cancel, field, general_save
+### general_zip.gv
 
-### healthcheck.gvb — Healthcheck (editável)
-<component>
-handlers: field, healthcheck_save
+### healthcheck.gv
 
-### logs.gvb — Aba Logs do detalhe do serviço (importada por service.gvb).
-<component>
-handlers: open_logs_window
+### logs.gv
 
-### migrar.gvb — Migrar este banco para um servidor compartilhado
-<component>
-handlers: field, migration_discard, migration_refresh, migration_rollback, migration_start
+### migrar.gv
 
 ## rustploy-gui/views/shell/
 
-### deployments.gvb — Lista de deployments (view = deployments); importada por shell.gvb.
-<component>
-handlers: deployments_clear_finished
+### deployments.gv
 
-### project_env.gvb — Aba Variáveis do projeto.
-<component>
-handlers: project_env_add, project_env_delete, project_env_export, project_env_import, project_env_reorder, project_env_secret_toggle, project_env_show_validation_errors, project_env_text_cancel, project_env_text_toggle, secret_use
+### project_env.gv
 
-### project_jobs.gvb — Aba Jobs do projeto.
-<component>
-handlers: open_new_job_window
+### project_jobs.gv
 
-### project_secrets.gvb — Aba Secrets do projeto; a condição de carregamento vai na chamada.
-<component>
-handlers: secret_add, secret_add_show_validation_errors, secret_delete
+### project_secrets.gv
 
-### project_services.gvb — Projeto aberto (view = project_services): cabeçalho/edição, sub-abas e grade de serviços; cada sub-a…
-<component>
-imports: ProjectEnvTab, ProjectJobsTab, ProjectSecretsTab
-abas: env, secrets, jobs, services
-handlers: cancel_project_edit, delete_project, edit_project_toggle, nav_projects, open_new_service_window, project_edit_show_validation_errors, project_tab, save_project_edit
+### project_services.gv
 
-### projects.gvb — Lista de projetos (view = projects); importada por shell.gvb.
-<component>
-handlers: open_new_project_window
+### projects.gv
 
 ## rustploy-gui/views/styles/
 

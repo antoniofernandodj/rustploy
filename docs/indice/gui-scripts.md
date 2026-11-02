@@ -14,7 +14,7 @@ function M.address_of(url) — - `host:porta` de uma URL salva (`https://h:9797`
 function M.encode(url, token) — - Monta o token de conexão de um par salvo `{url, token}`.
 function M.hint(url, key) — - Dica `host:porta · cnVzdH…TjQ=` de a qual servidor um token se refere.
 
-### app.luau — ponto de entrada do `<script>` de app.gvb.
+### app.luau — ponto de entrada do `<script>` de app.gv.
 
 ### busy.luau — trava de "ação em andamento" para os handlers de on_click/on_submit.
 function M.key(name)
@@ -173,6 +173,16 @@ local env_plain(vars, key) — Valor Plain de uma env var pela chave (secrets/au
 local percent_encode(text) — Percent-encode de um componente de userinfo (user/password) — protege chars estruturais do URI (`@`,…
 local userinfo(user, password) — Monta a parte de userinfo `user:pass@` de uma URI RFC 3986. Casos: user+pass → "user:pass@"  |  só p…
 local external_scheme(database_kind) — Esquema de URI externo por banco (userinfo).
+
+### state_git.luau — a sincronização do estado com o git (Fases 6 e 7 de docs/plano-backup-estado-em-git.md) vista pela G…
+local short(sha)
+local time_label(iso_timestamp)
+function M.alert_message(status) — Texto do aviso do topo, ou "" quando está tudo bem (nada a mostrar).
+function M.pending_ids(status) — Conjunto de ids de serviço com "mudança pendente de deploy".
+function M.removed_rows(status) — Linhas da lista "Removidos no git" (JSON): quem sumiu e quando.
+function M.audit_rows(findings) — Linhas da auditoria de valores em claro (JSON).
+function M.container_owner(container) — Dono de um container na lista Runtime: o órfão ("removido no git") é dito como tal; senão projeto/se…
+function M.context(status, findings) — Todos os valores de ctx que a tela precisa, calculados do status.
 
 ### time.luau — timestamps e durações.
 function M.time_hms(iso_timestamp) — HH:MM:SS local de um timestamp do daemon.
