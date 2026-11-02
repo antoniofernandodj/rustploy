@@ -160,7 +160,6 @@ local is_terminal(state)
 function M.source_summary_parts(source) — ServiceSource → (kind, detail, build_engine) — source_summary().
 function M.healthcheck_summary(healthcheck) — Resumo de uma linha do healthcheck.
 local env_var_row(env_var) — Uma linha de var de ambiente (secret exibido por referência).
-function M.secret_rows(names) — Secrets do projeto como linhas JSON.
 local log_rows(log_entries) — Linhas de log (LogEntry/BuildLogLine: {stream, line, timestamp}) coloridas, limpas de ANSI e limitad…
 function M.join_log_lines(log_entries) — Junta linhas de log num blob de texto ("HH:MM:SS line") p/ o TextArea/copiar.
 function M.deployments_detail(deployments) — Histórico de deployments de um serviço (aba Deployments).

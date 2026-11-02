@@ -87,7 +87,7 @@ SecretDelete | daemon: secrets/secret_delete | gui: handlers/secrets, handlers/s
 SecretList | daemon: secrets/secret_list | gui: handlers/services | web: screens/service_detail
 
 ## / grava uma linha de auditoria (quem, qual secret, quando — nunca o valor).
-SecretReveal — Devolve o **valor** de um secret (botão "ver valor"). | daemon: secrets/secret_reveal | gui: — | web: —
+SecretReveal — Devolve o **valor** de um secret (botão "ver valor"). | daemon: secrets/secret_reveal | gui: handlers/secrets, handlers/services | web: screens/project_detail, screens/service_detail
 
 ## / sincronização com git, e o guia de "o que ainda falta mover para secret". Nunca devolve valores.
 InfraAudit — Lista o que está em claro (ou parece estar) no estado de infra — a tra… | daemon: secrets/infra_audit | gui: — | web: —
@@ -276,4 +276,4 @@ DeployQueuePause — Pausa (`true`) ou retoma (`false`) a fila global. | daemon:
 
 - Só GUI (1): JobList
 - Só webui (2): ServiceCreate, DeployRollback
-- Nem GUI nem webui (32): ServiceList, RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, SecretReveal, InfraAudit, StateGitStatus, ManifestApply, ManifestExport, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList
+- Nem GUI nem webui (31): ServiceList, RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, InfraAudit, StateGitStatus, ManifestApply, ManifestExport, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList

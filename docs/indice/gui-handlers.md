@@ -161,6 +161,8 @@ function project_env_to_secret(key)
 function project_secret_to_env(name)
 function project_secret_to_service(name)
 function project_env_to_service(key)
+function secret_reveal(name)
+function secret_hide(name)
 
 ### services.luau — detalhe do serviço (service.gv): fetch completo, mutações de spec/env, ciclo de vida (deploy/reload/…
 local pre_deploy_checks_ids(spec) — Fila efetiva de pré-deploy check: `pre_deploy_job_ids` quando não vazia, senão cai no `pre_deploy_jo…
@@ -204,6 +206,9 @@ function service_secret_add_show_validation_errors(_erros_json) — on_validatio
 function service_secret_add() — Cria (ou sobrescreve) um secret do SERVIÇO aberto.
 function service_secret_delete(name)
 function env_to_secret(key) — "→ secret" numa variável em claro: o valor passa a ser guardado cifrado e a variável vira uma referê…
+function service_secret_reveal(name) — 👁 num secret do serviço: pede o valor ao daemon (SecretReveal, que grava auditoria: quem, qual, quan…
+function service_secret_hide(name)
+function secret_copy(ref) — Copia o valor já revelado (a chave é "escopo:nome", a mesma da linha).
 local service_move(op, name, done_message) — Move genérico (SecretMove) de uma coisa do SERVIÇO aberto; `done_message` é o aviso de sucesso.
 function service_secret_to_env(name) — 🔓 num secret do serviço (ou numa variável que aponta para um): volta a ser uma variável em claro do …
 function service_secret_to_project(name) — ↑ secret do serviço → secret do projeto (todos os serviços do projeto passam a enxergá-lo).
