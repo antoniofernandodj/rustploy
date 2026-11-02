@@ -107,6 +107,14 @@ compatibilidade em `rustploy-docs` (`instalacao/requisitos`). Mudou o container?
   numerações separadas, e o `cargo-deb` ainda acrescenta a revisão (`rustployd_0.1.10-1_amd64.deb`). Por isso o
   `tools/sign-release.sh` não compara a versão do `.deb` com a tag.
 
+- **`ubuntu-latest` mudou de versão por baixo** (v0.1.32, 2026-11-02: virou 26.04 "resolute"). O `llvm.sh` do
+  apt.llvm.org não tem repositório para ele (404) e o build do Windows caiu no `apt-get update`. O job
+  `build-gui-windows` agora usa `ubuntu-24.04` fixo; ao subir de versão, valide o LLVM 20 antes.
+- **O `install.ps1` num PowerShell de Linux** (`mcr.microsoft.com/powershell`) só prova a descoberta da release, o
+  download e o SHA-256: o `minisign.exe` não executa lá. A conferência da assinatura precisa de um Windows de verdade.
+- **`install.sh --engine podman` no Debian 12 é recusado** (podman 4.3 < 4.7 do `podman compose`), por desenho. Para
+  testar o instalador no `debian:12`, use o comando padrão (Docker).
+
 - **O job `release` era pulado.** O `sign-gui-windows` (opcional) é pulado sem SignPath, e o `if` padrão
   (`success()`) exige sucesso de **todos os ancestrais**. O job usa `always()` com a checagem explícita
   de cada `needs.<job>.result`.
