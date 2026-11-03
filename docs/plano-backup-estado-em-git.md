@@ -1301,3 +1301,7 @@ estado próprio nunca é sobrescrito (continua pausando).
   o healthcheck TCP por IP de container não alcança o host em podman **rootless** — limitação do ambiente de teste,
   não do código; **falta ver os dois ficarem Live num servidor real (root)**.
 - Limites: dados dos bancos/volumes, zips e blobs do registry não voltam; imagens são baixadas/construídas de novo.
+
+**Publicação (2026-11-03):** daemon 0.1.28 no crates.io e release v0.1.34 (assinada; `.deb` com `git` em `Depends`,
+conferido com `dpkg-deb -I`; instalação de uma linha testada em Debian 13). **Chiquitos atualizado para o 0.1.28 pelo
+usuário.** O que falta está no `TODO.md` (sync no chiquitos, restauração com engine root, testes manuais do R10.7 3c).

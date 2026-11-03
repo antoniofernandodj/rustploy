@@ -27,6 +27,24 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
 - [x] **CI de testes e lint** — feito em 2026-10-19: `.github/workflows/ci.yml` (fmt, clippy `-D warnings` e
   test por submodule, em push na main e PR). Falta só ver rodar no GitHub após o primeiro push.
 
+- [ ] **Backup em git: o que falta para dar o plano por fechado (2026-11-03).** Fases 0–9 do
+  `docs/plano-backup-estado-em-git.md` estão feitas e publicadas (v0.1.34: daemon 0.1.28, GUI 0.1.38; chiquitos já
+  roda o daemon 0.1.28). Faltam, nesta ordem:
+  1. **Ligar o sync no chiquitos**: PAT + repositório **privado**, começando em modo `commit`, depois `sync`.
+     Hoje está `off`. Resolver antes a auditoria de valores em claro (`InfraAudit`) se aparecer algo.
+  2. **Testar a restauração com Docker/Podman rodando como root** (VM ou servidor de teste): servidor limpo +
+     `age_identity` = chave privada de recuperação + sync no mesmo repositório → `base` e `app` precisam ficar
+     **Live** em ordem. O E2E de 2026-11-02 (R10.13) provou estado, secret e ordem, mas o healthcheck por IP não
+     passa em podman **rootless**, então nunca viu Live.
+  3. **Testes manuais do R10.7 3c**: rollback real de Compose, HTTPS+token contra GitHub/Gitea de verdade,
+     procedimento de divergência por SSH.
+  4. Opcional: comando para **recifrar os secrets antigos para a chave de recuperação** (os salvos antes de
+     configurá-la, como o `REDIS_PASSWORD` do chiquitos, só abrem com o `age.key` do servidor).
+  5. Ajustes visuais conhecidos: `<select>` da webui com fundo branco, "Cancelar" em português nos diálogos da GUI
+     em inglês (embutido no glacier), desalinhamento leve nas linhas de env da webui com o botão 🔒.
+  6. `~/.local/share/rustploy/db` (banco dev antigo de maio) ganhou `infra/` e um `.bak` por um teste meu; apagar a
+     pasta se não for mais usada.
+
 - [ ] **i18n (GUI e webui): o que ficou de fora da primeira versão (2026-10-31).** Inglês padrão + pt-BR a um clique
   já valem nos dois clientes (ver "Idiomas" no `AGENTS.md`). Pendências: (1) texto que o código grava em estado
   (status, toast, `ctx.*_message`) fica no idioma em que nasceu — só a linha de status do login foi tratada;
