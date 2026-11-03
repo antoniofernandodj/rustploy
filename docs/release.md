@@ -190,6 +190,24 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.35 (2026-11-03): credenciais cifradas, renomear e storage — daemon por `path`
+
+- **O daemon referencia o `rustploy-shared` por `path`** (`rustploy-daemon/crates/daemon/Cargo.toml`, `version` + `path`),
+  por escolha do dono, e o `shared` 0.16.0 **não foi ao crates.io**. Consequências: (1) o CI e a release compilam, porque
+  o `checkout` do agregador é `submodules: recursive` e o `path` aponta para o `rustploy-shared` ao lado; (2) o
+  **`rustploy-daemon` sozinho não compila** (clone só dele não tem o irmão); (3) **`cargo install rustploy` entrega a
+  0.1.28**, a última publicada. Para voltar ao normal: `cargo publish` do `rustploy-shared`, tirar o `path` da linha do
+  `shared` e `cargo update -p rustploy-shared`.
+- **O comando `cargo publish` não foi usado**; a release é só a tag no agregador (rascunho do CI) e a **assinatura**
+  (`tools/sign-release.sh`) é com a chave do dono: pede a senha a cada arquivo, então o agente não a faz.
+- **Verificação da GUI no Xvfb** (receita em `docs/…`/memória): o `token` em `app.json` é o token **cru** da API, **não** a
+  chave em base64; um "‹ Voltar" no formulário já volta ao passo de tipos (dois fecham a janela); com o projeto vazio os
+  botões do cabeçalho mudam de lugar. Achado de verdade por essa verificação: o ✏️ do serviço tinha caído na linha
+  "arrastando" da lista e não aparecia.
+- `minio/minio` e `minio/mc` não são mais puxáveis (Docker Hub e Quay). O wizard usa `cgr.dev/chainguard/minio`.
+- Rodados: `make lint`, `make test` por repo, `glacier test` (406), `tests/e2e-updater/run.sh` (11 cenários) e o `npm run
+  build` + `check-links` do site (0 quebrados).
+
 ## Ainda sem teste real
 
 - `install.ps1`: o atalho do Menu Iniciar (COM do Windows) e a assinatura com o `minisign.exe` (no Windows
