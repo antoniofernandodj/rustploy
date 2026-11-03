@@ -205,6 +205,12 @@ fora do ar não impede o outro (`fail-fast: false`).
   botões do cabeçalho mudam de lugar. Achado de verdade por essa verificação: o ✏️ do serviço tinha caído na linha
   "arrastando" da lista e não aparecia.
 - `minio/minio` e `minio/mc` não são mais puxáveis (Docker Hub e Quay). O wizard usa `cgr.dev/chainguard/minio`.
+- **Depois de publicada (2026-11-03):** o comando de uma linha do daemon e o do app foram rodados **pela URL pública** num
+  `debian:12` (podman) e instalaram o daemon 0.1.29 e a gui 0.1.39; o `install.ps1` num PowerShell no Linux achou a
+  release, baixou o zip e **conferiu o SHA-256**, e parou onde esperado (o `minisign.exe` não roda no Linux; precisa de
+  `LOCALAPPDATA` definido). O site foi ao ar com `npx --yes wrangler@4 deploy` (o `wrangler` não está instalado e o login
+  antigo em `~/.config/.wrangler` valeu). Atenção: **nunca rode o binário extraído de um `.deb`** para ver a versão — `--version`
+  sobe o daemon e grava estado em `~/.local/share/rustploy/db`.
 - Rodados: `make lint`, `make test` por repo, `glacier test` (406), `tests/e2e-updater/run.sh` (11 cenários) e o `npm run
   build` + `check-links` do site (0 quebrados).
 
