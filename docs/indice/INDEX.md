@@ -639,6 +639,7 @@
 - chaves-e-segredos.mdx
 - compose.mdx
 - copiar-servico.mdx
+- dependencias-e-religar.mdx
 - diagnosticar-502.mdx
 - dominios-e-tls.mdx
 - fila-de-deploys.mdx
@@ -1097,6 +1098,7 @@
 - chaves-e-segredos.mdx
 - compose.mdx
 - copiar-servico.mdx
+- dependencias-e-religar.mdx
 - diagnosticar-502.mdx
 - dominios-e-tls.mdx
 - fila-de-deploys.mdx
