@@ -556,6 +556,16 @@ CONF
 pids_limit = 0
 CONF
 
+    # (d) ufw: no Podman o DNS dos containers (aardvark-dns, no endereço do host da bridge) e a saída para a
+    #     internet passam pelo firewall do host; com o ufw padrão (deny incoming/deny routed) os nomes dos
+    #     serviços (rp_db...) não resolvem e nada sai. No Docker isso não acontece. Idempotente; só age com o
+    #     ufw ativo. O pacote traz o auxiliar desde a 0.1.29; numa versão anterior, avisa o comando.
+    if [ -x /usr/libexec/rustploy-podman-ufw ]; then
+        /usr/libexec/rustploy-podman-ufw apply || warn "não consegui ajustar o ufw para o Podman (rode: sudo /usr/libexec/rustploy-podman-ufw apply)"
+    elif command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active'; then
+        warn "ufw ativo e este pacote não traz o auxiliar do Podman: libere à mão (DNS e saída dos containers): sudo ufw allow from 10.89.0.0/16 to 10.89.0.0/16 port 53 && sudo ufw route deny from 10.89.0.0/16 to 10.89.0.0/16 && sudo ufw route allow from 10.89.0.0/16"
+    fi
+
     if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
         systemctl daemon-reload || true
         systemctl enable --now podman.socket || warn "não consegui ativar o podman.socket"
