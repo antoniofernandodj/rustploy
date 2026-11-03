@@ -70,6 +70,7 @@
 - plano-colisao-nome-container.md — Plano: colisão de nome de container entre projetos
 - plano-convergencia-templates-gui-webui.md — Plano: convergência dos templates (GUI iced ↔ web UI)
 - plano-copiar-servico-entre-servidores.md — Copiar um serviço de um servidor para outro
+- plano-credenciais-cifradas-e-storage.md — Credenciais cifradas por padrão, renomear chaves e o serviço Storage
 - plano-dashboard-servicos-em-execucao.md — Plano: dashboard "o que está rodando agora"
 - plano-dependencias-e-autostart.md — Dependências entre serviços + auto-restart no boot do daemon
 - plano-erro-de-deploy-invisivel.md — Erro de deploy invisível: a causa da falha é gravada, mas nunca chega no log que…
@@ -147,6 +148,7 @@
 - manual.md — Rustploy — manual do agente
 - mcp.rs — Servidor MCP em `POST /mcp` — transporte Streamable HTTP, sempre respondendo `ap…
 - mod.rs — Acesso de agente servido pelo próprio daemon: a chave de acesso, o `POST /api/lo…
+- redigir.rs — Redação de segredos nas respostas que vão para o **agente** (MCP/`rpc`).
 - tools.rs — As ferramentas do agente: os caminhos frequentes já resolvidos ("deployou? por q…
 
 ### rustploy-daemon/crates/daemon/src/api/handlers/ → daemon-api.md

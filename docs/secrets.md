@@ -8,7 +8,7 @@ Secrets permitem armazenar valores sensíveis (tokens, senhas, chaves de API) de
 
 ### Armazenamento
 
-Quando um secret é criado, o daemon criptografa o valor usando `age` antes de gravá-lo no banco de dados SQLite. A chave mestre fica em `/etc/rustploy/master.key`.
+Quando um secret é criado, o daemon criptografa o valor usando `age` antes de gravá-lo no banco de dados SQLite. A identidade `age` (chave privada do servidor) fica em `/etc/rustploy/age.key` (`[secrets] age_key_path`) ou inline em `[secrets] age_identity`.
 
 O que fica no banco de dados:
 - **project_id** — a qual projeto pertence
@@ -125,5 +125,5 @@ não falha, o container só sobe sem o valor.
 
 **Limitações:**
 - Um usuário com acesso ao host pode inspecionar env vars de containers via `docker inspect`
-- Comprometer `/etc/rustploy/master.key` expõe todos os secrets de todos os projetos
+- Comprometer `/etc/rustploy/age.key` expõe todos os secrets de todos os projetos
 - Não há rotação automática; revogar um token requer deletar o secret, recriar e fazer novo deploy

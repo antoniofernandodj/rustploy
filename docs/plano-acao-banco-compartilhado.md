@@ -32,7 +32,7 @@ pid 3542, API em 127.0.0.1:9797) e containers alheios (`nfe_watcher-*`, rede
 `rp_01m11wf7_supabase_default`). Um daemon de desenvolvimento no mesmo socket
 Docker compartilharia tudo isso. Então:
 
-- daemon de teste com **config própria** (portas, `db_path`, `master_key` em
+- daemon de teste com **config própria** (portas, `db_path`, `age_key_path` em
   diretório temporário; ingress em portas altas; `acme.enabled = false`);
 - **limpeza automática desligada** (já vem desligada por padrão) e o teste
   nunca roda `prune` do manifesto;

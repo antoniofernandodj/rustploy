@@ -402,7 +402,7 @@ A webui só mostra o bloco do daemon (ela é servida pelo próprio daemon e não
   loop de `Restart=`), o updater restaura os binários antigos e reinicia. É um rollback de
   **binário**, não do pacote inteiro.
 - **Limite honesto:** se a versão nova **migrou o schema do banco**, voltar o binário velho pode não
-  funcionar com o banco novo. Por isso a UI avisa antes ("faça backup de `master.key` e
+  funcionar com o banco novo. Por isso a UI avisa antes ("faça backup de `age.key` e
   `/var/lib/rustploy`") e o daemon tira um **snapshot do banco** logo antes de pedir a instalação
   (entra na fase 2). Rollback manual pedido pelo usuário: `op: "rollback"` no updater, que restaura o
   backup e é o **único** caminho que permite versão menor.

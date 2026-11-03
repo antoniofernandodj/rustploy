@@ -744,8 +744,8 @@ Overrides por env: `RUSTPLOY_DB_PATH`, `RUSTPLOY_LOG_LEVEL`,
 `RUSTPLOY_API_TOKEN`. O daemon loga JSON estruturado; a verbosidade sai de
 `RUST_LOG=<nível>` ou `RUSTPLOY_LOG_LEVEL`.
 
-Defaults que importam: banco em `/var/lib/rustploy/db`, chave mestra em
-`/etc/rustploy/master.key`, API em `127.0.0.1:9797`, ingress em `0.0.0.0:8080`
+Defaults que importam: banco em `/var/lib/rustploy/db`, identidade `age` dos
+secrets em `/etc/rustploy/age.key`, API em `127.0.0.1:9797`, ingress em `0.0.0.0:8080`
 e `:443`, registry desligado na porta `5100`, portas externas na faixa
 `20000–20999`.
 

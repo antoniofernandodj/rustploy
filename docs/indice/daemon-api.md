@@ -52,6 +52,19 @@ fn config_file_in_use() -> Option<std::path::PathBuf> — O mesmo arquivo que `R
 fn with_connection_token(contents, api_token, key) -> Option<String> — O texto do `config.toml` com a linha do token de conexão no lugar (logo abaixo do `token` de `[api]`…
 (9 testes)
 
+### redigir.rs — Redação de segredos nas respostas que vão para o **agente** (MCP/`rpc`).
+const MASCARA — O que substitui um valor escondido.
+fn chave_sensivel(chave) -> bool — A chave de uma env parece guardar um segredo? Generosa de propósito.
+fn mascarar_url(texto) -> String — `scheme://user:senha@host/...` → `scheme://user:***@host/...`.
+fn valor_env_para_agente(chave, valor) -> String — O valor `Plain` de uma env como o agente deve vê-lo.
+fn eh_referencia(valor) -> bool — É uma referência (não um valor)? Essas ficam como estão.
+fn mascarar_linhas(texto) -> String — Para texto de várias linhas (YAML de manifesto, `.env`): `CHAVE=valor` / `CHAVE: valor` com chave se…
+fn redigir(valor) — Percorre o JSON de uma resposta escondendo o que não pode chegar ao agente: - `{"key": K, "value": {…
+fn redigir_resposta(resposta) — [`redigir`] mais os pacotes de exportação, que carregam texto (YAML/`.env`) em vez de envs estrutura…
+fn restaurar_envs(novas, atuais) — Devolve o valor real das envs que o agente reenviou mascaradas (ver o doc do módulo).
+fn sobrou_mascara(envs) -> Option<&str> — Sobrou valor mascarado depois de [`restaurar_envs`]? Então o agente está tentando gravar o literal `…
+(7 testes)
+
 ### tools.rs — As ferramentas do agente: os caminhos frequentes já resolvidos ("deployou? por quê não?", "qual é o …
 const POLL_INTERVAL — De quanto em quanto tempo o `wait` de um deploy reconsulta o histórico.
 const MAX_WAIT — Teto do `timeout_s` aceito em `deploy`.
@@ -64,6 +77,7 @@ fn no_arguments() -> Value
 fn call(state, name, args) -> Result<Value, ToolError> — Executa a ferramenta `name`.
 fn proibido_ao_agente(cmd) -> Option<&'static str> — Comandos que o agente (MCP/`rpc`) **nunca** pode executar, qualquer que seja a configuração.
 fn rpc(state, command) -> Result<Value, ToolError> — Executa um `Command` (em JSON) e converte `Response::Err` em falha.
+fn restaurar_mascaras(state, cmd) -> Result<(), ToolError> — O agente só vê as envs mascaradas (`redigir`), e `ServiceUpdate`/`ProjectEnvSet` substituem tudo: se…
 fn rpc_expect(state, command, variante) -> Result<Value, ToolError> — Como [`rpc`], mas exige a variante `variante` e devolve só o payload dela.
 fn status(state) -> Result<Value, ToolError>
 fn snapshot(state) -> Result<Value, ToolError> — `Snapshot` devolve JSON **dentro** de uma string.
@@ -82,7 +96,7 @@ fn service_index(snapshot) -> Vec<Value> — Achata o snapshot no índice de ser
 fn status_label(status) -> Value — `ServiceStatus` é externally-tagged e só `Error` tem campo — vira `"Running"` ou `"Error: <causa>"`.
 fn source_label(source) -> Value — `ServiceSource` achatado no que identifica a origem, sem arrastar o `compose.content` inteiro (dezen…
 const TOOLS
-(5 testes)
+(6 testes)
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/
 

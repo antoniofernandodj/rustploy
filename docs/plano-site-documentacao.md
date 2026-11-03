@@ -189,7 +189,7 @@ Uma página por assunto, sempre com "Limitações conhecidas".
 - **Variáveis de ambiente**: editor `.env`, comentários, projeto vs serviço,
   interpolação `${VAR}`.
 - **Secrets**: criação, `secret:NOME`, cifra `age`, chave mestra, o que é e o
-  que **não** é protegido, backup da `master.key`.
+  que **não** é protegido, backup do `age.key`.
 - **Volumes** (só bind mount — decisão de design) e permissões.
 - **Healthcheck**: HTTP, TCP, DockerNative, None; intervalo, timeout, retries,
   start period; como escolher.
@@ -260,7 +260,7 @@ com o executor de deploy e push-to-deploy: confirmar status antes de escrever.)*
   por rede, o que fazer se o token vazar, hardening recomendado (firewall, TLS
   na API, VPN/reverse proxy na frente).
 - **Backup e restauração do próprio Rustploy**: o que copiar
-  (`/var/lib/rustploy/db`, `master.key`, `config.toml`).
+  (`/var/lib/rustploy/db`, `age.key`, `config.toml`).
 - **Solução de problemas** (FAQ por sintoma).
 
 ### 11. As interfaces

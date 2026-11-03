@@ -8,6 +8,8 @@
 >   antiga traz, logo abaixo do título, uma nota `SUBSTITUÍDO` ou `AINDA VALE` dizendo o que fazer com ela.
 > - **Em caso de dúvida, vale a R.** Não implemente nada só pelas seções 1–10.
 >
+> **2026-11-03 — `master.key` removida de vez:** `master_key_path`, a leitura do formato antigo (passphrase) e `reencrypt_legacy` não existem mais; toda menção a `master.key` abaixo é histórica. A identidade vive em `[secrets] age_identity` ou no arquivo `age_key_path`.
+>
 > Mapa rápido do que mudou: fonte da verdade (SQLite → YAML, R2/R3), segredos (passphrase
 > `master.key` + `secrets.age` por projeto → identidade `age` no `config.toml` + `ENC[age:…]`
 > inline, R5), fases (§8 → R9), restauração (§7 → R6/R8/R9), mais três assuntos novos: escopo de
@@ -1018,9 +1020,9 @@ do `patch` até o shared ser publicado, ver "O que precisa de você" abaixo):
 
 | Peça | O que é |
 |---|---|
-| **Identidade age** (`platform/secrets.rs`, `platform/config.rs`) | `[secrets] age_identity` (X25519) e `recovery_recipient` (pública, opcional) no `config.toml`. Valores gravados como `ENC[age:<base64>]`, cifrados para a chave do servidor **e** a de recuperação. O formato antigo (hex + passphrase da `master.key`) continua sendo lido. |
-| **Primeira subida** | Sem identidade configurada, o daemon **gera uma e a grava no `config.toml`** (seção `[secrets]`, arquivo 0600, validado antes de trocar). Se o config não for gravável, grava em `age.key` ao lado da `master.key`. **Recusa subir** se precisaria gerar identidade nova mas já existem `ENC[age:…]` gravados (seria órfã-los). Avisa no log se `recovery_recipient` está vazia. |
-| **Recifragem no boot** (`reencrypt_legacy`) | Secrets de projeto, `client_secret` e tokens de login dos providers, e webhooks (que a migração deixou em claro) passam para `ENC[age:…]`. Valor ilegível é mantido e avisado. Idempotente. |
+| **Identidade age** (`platform/secrets.rs`, `platform/config.rs`) | `[secrets] age_identity` (X25519) e `recovery_recipient` (pública, opcional) no `config.toml`. Valores gravados como `ENC[age:<base64>]`, cifrados para a chave do servidor **e** a de recuperação. O formato antigo (passphrase/`master.key`) **foi removido por completo em 2026-11-03**: não há `master_key_path`, nem leitura do formato antigo, nem recifragem no boot. |
+| **Primeira subida** | Sem identidade configurada, o daemon **gera uma e a grava no `config.toml`** (seção `[secrets]`, arquivo 0600, validado antes de trocar). Se o config não for gravável, grava no arquivo `[secrets] age_key_path` (padrão `/etc/rustploy/age.key`); o postinst do `.deb` também o gera se não houver identidade. **Recusa subir** se precisaria gerar identidade nova mas já existem `ENC[age:…]` gravados (seria órfã-los). Avisa no log se `recovery_recipient` está vazia. |
+| ~~Recifragem no boot (`reencrypt_legacy`)~~ | **Removida em 2026-11-03** junto com o formato antigo (sem `master.key`, nada a migrar). |
 | **Webhook cifrado** | `ServiceInfra.webhook_token` guarda `ENC[age:…]`; `webhook_tokens::get/upsert` agora recebem o `SecretsManager`. |
 | **Secrets com escopo** | `ProjectInfra.secrets` (projeto) e `ServiceInfra.secrets` (serviço). Resolução de `Secret(nome)` numa env de serviço: **serviço, depois projeto**; env de projeto e job autônomo: só projeto; job com gatilho: serviço gatilho + projeto. Secret ausente = erro de deploy dizendo onde foi procurado. |
 | **Mover** (`SecretsManager::move_secret`) | As 4 operações da R5, cada uma **uma transação do repositório**: env→secret, secret→env, secret de serviço→projeto, secret de projeto→serviço. Conflito de nome no destino falha sem mudar nada. |
@@ -1269,7 +1271,7 @@ Primeiro servidor real migrado para o estado em YAML (daemon 0.1.20 → 0.1.25, 
 - **Chaves:** identidade `age` ficou em `/etc/rustploy/age.key` (a gravação no `config.toml` falhou no 1º boot, motivo não achado;
   o log agora mostra a causa completa). `recovery_recipient` configurado; **teste da chave de recuperação: deu certo**
   (relatado pelo usuário: decifrou um `ENC[age:…]` com a chave privada via `rustploy-cli secret decrypt -i`).
-  Backup do `age.key` fora do servidor: feito. `master.key`: apagado (daemon 0.1.24+ não o cria mais).
+  Backup do `age.key` fora do servidor: feito. `master.key`: apagado; o conceito foi removido do código em 2026-11-03.
 - **Secrets:** `InfraAudit` vazio. `cache` lê `REDIS_PASSWORD` de secret de **serviço**; `db` (recriado pelo usuário às 17:26,
   id novo) lê `POSTGRES_PASSWORD` de secret de **projeto**. Deploy de teste dos dois: `Live`, containers de pé.
 - **Pendente:** ligar o sync (git instalado; falta conta/PAT e repositório); helper de firewall (`rustployd-fw`) falhou ao liberar a
