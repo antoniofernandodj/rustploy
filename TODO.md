@@ -12,6 +12,12 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
 - [ ] **Chave S3 própria por app** no Storage (hoje a app usaria a chave root) e rotacionar a senha do `db` do Chiquitos
   (foi exibida a um agente antes da Fase A). Ver `docs/plano-credenciais-cifradas-e-storage.md`.
 - [ ] **Template `minio` do catálogo** aponta para `minio/minio` (não puxável): trocar a imagem no blueprint.
+- [ ] **Release com o `rustploy-podman-ufw`** (commitado no daemon, ainda sem release): só então fazer o deploy das docs (a
+  seção "Podman e ufw" e a receita de bucket com `curl` já estão commitadas, mas o site ainda tem a receita errada com `aws-cli`).
+  Testar o isolamento entre DOIS projetos no Podman + ufw (só um projeto foi exercitado).
+- [ ] **Chickie**: as branches `deploy/api`, `deploy/worker` e `deploy/scheduler` (no repo do chickie) têm o ajuste de URLs por partes,
+  o cache `.sqlx` regenerado (a `main-api` não compila offline sem ele), o job de migrations e as filas duráveis do RabbitMQ 4.
+  Levar para a `main` quando o dono decidir. Preencher no servidor: SMTP, Asaas, VAPID, `JWT_SECRET`, `OWNER_EMAIL`, `FRONTEND_BASE_URL`.
 - [x] **PRIORIDADE ZERO — concluída em 2026-10-19 (falta só conferir o `.exe` do Windows): reduzir o Rust da GUI ao mínimo.** Análise de 2026-10-19. O
   Rust do `rustploy-gui` já é só a casca (~560 linhas de código real fora testes; o Luau/`.gvb`/`.gss`
   somam ~16.300). Para chegar a um `main.rs` de ~5 linhas (`glacier_ui::run("views/")`), o que sobrou
