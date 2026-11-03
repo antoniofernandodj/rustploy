@@ -42,8 +42,7 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
      configurá-la, como o `REDIS_PASSWORD` do chiquitos, só abrem com o `age.key` do servidor).
   5. Ajustes visuais conhecidos: `<select>` da webui com fundo branco, "Cancelar" em português nos diálogos da GUI
      em inglês (embutido no glacier), desalinhamento leve nas linhas de env da webui com o botão 🔒.
-  6. `~/.local/share/rustploy/db` (banco dev antigo de maio) ganhou `infra/` e um `.bak` por um teste meu; apagar a
-     pasta se não for mais usada.
+  6. ~~`~/.local/share/rustploy/db` (banco dev antigo, alterado por um teste meu)~~ — apagado pelo usuário em 2026-11-03.
 
 - [ ] **i18n (GUI e webui): o que ficou de fora da primeira versão (2026-10-31).** Inglês padrão + pt-BR a um clique
   já valem nos dois clientes (ver "Idiomas" no `AGENTS.md`). Pendências: (1) texto que o código grava em estado
