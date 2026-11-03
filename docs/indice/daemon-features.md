@@ -67,7 +67,7 @@ fn db_form(req) -> DbFormInput
 fn effective_name(req) -> String — Nome efetivo: `app_name` tem precedência sobre `name` (ambos trimados).
 fn build_spec(req) -> Result<ServiceSpec, String> — Monta o `ServiceSpec` a partir da requisição do wizard.
 fn build_spec_inner(req) -> Result<ServiceSpec, String>
-(4 testes)
+(5 testes)
 
 ## rustploy-daemon/crates/daemon/src/features/backup/
 
