@@ -129,6 +129,8 @@ arrumar o nome do próprio secret.
 
 ### Fase D — Novo serviço: Storage (RustFS e MinIO)
 
+> **Implementada (2026-11-03), exceto o bucket.** `StorageKind` + `storage_spec`/`storage_compose` em `features/wizard.rs`; `WizardCreate` com `kind: "storage"`; catálogo com `storages` (shared 0.16.0, `#[serde(default)]`); painel "Em execução" com a categoria `storage`; GUI (passo `pick_storage`, reaproveita o `db_form`) e webui (`gotoStorage`/`storage_form`). Credenciais geradas no daemon e gravadas como secret de serviço (teste: a senha não aparece na resposta nem no YAML). **Bug achado pelo teste e corrigido:** a senha do RabbitMQ (`RABBITMQ_DEFAULT_PASS`) ficava `Plain` — a heurística de nomes sensíveis não reconhecia `_PASS`/`PWD`; agora reconhece (isso também endurece o `InfraAudit`). **Ainda aberto:** criar o bucket (decisão: job/pré-deploy) e chave S3 própria por app.
+
 **Por quê:** o código do chickie precisa de um S3; hoje o único caminho é montar o template à mão.
 
 - `shared`: `StorageKind { RustFs, MinIo }` e o que o catálogo precisa (imagem, portas 9000

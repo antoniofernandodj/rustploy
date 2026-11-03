@@ -299,11 +299,13 @@ function M.open_stream()
 
 ### wizard.luau — wizard "Novo serviço".
 local new_service_is_broker(kind_id)
+local new_service_is_storage(kind_id)
 function open_new_service_window(start) — Botão "+ Novo serviço" (cabeçalho do projeto): abre o wizard numa JANELA à parte (motor Glacier próp…
 function new_service_cancel() — "Cancelar": fecha a janela do wizard.
 function new_service_back() — "‹ Voltar": num passo interno volta à escolha de tipo; no passo inicial (pick_type) fecha a janela.
 function new_service_kind(kind_choice)
 function new_service_database(database_kind) — Banco escolhido: pré-preenche o formulário (senhas geradas no cliente).
+function new_service_storage(storage_kind) — Storage escolhido (RustFS/MinIO): também compartilha o passo db_form.
 function new_service_broker(broker_kind) — Broker escolhido: compartilha o passo db_form (mesmas chaves ns_db_*).
 function new_service_pick_template(template_id) — Template escolhido: carrega nome/slug + variáveis editáveis (do catálogo).
 function new_service_template_search(search_text) — Busca do catálogo de templates (filtra o cache no cliente).

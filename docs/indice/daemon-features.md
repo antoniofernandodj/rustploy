@@ -9,7 +9,7 @@
 
 ### mod.rs — Um diretório por assunto de produto; a camada `api` só adapta pedidos para estas funcionalidades.
 
-### wizard.rs — Lógica do wizard "Novo serviço" (Application / Database / Broker / Compose /Template): catálogos, ge…
+### wizard.rs — Lógica do wizard "Novo serviço" (Application / Database / Broker / Storage / Compose /Template): cat…
 enum DbKind { MongoDb, Postgres, MariaDb, MySql, Redis }
 impl DbKind
   fn label() -> &'static str
@@ -49,12 +49,25 @@ fn db_compose(db, svc, img, f) -> String
 fn broker_spec(broker, name, project_id, f) -> ServiceSpec
 fn broker_env_vars(broker, f) -> Vec<EnvVar>
 fn broker_compose(broker, svc, img, _f) -> String
+enum StorageKind { RustFs, MinIo } — Servidores de objetos S3: RustFS e MinIO.
+impl StorageKind
+  fn label() -> &'static str
+  fn default_image() -> &'static str
+  fn default_port() -> u16 — Porta da API S3 (a que as apps usam).
+  fn console_port() -> u16 — Porta do console web.
+  fn kind_id() -> &'static str
+  fn from_str(s) -> Option<Self>
+  fn default_user() -> &'static str — O usuário (access key) padrão, quando a pessoa não digita um.
+  fn credential_keys() -> (&'static str, &'static str) — Nomes das duas envs de credencial: `(access key, secret key)`.
+fn storage_rows_json() -> String — Passo "escolha o storage".
+fn storage_spec(kind, name, project_id, f) -> ServiceSpec
+fn storage_compose(kind, svc, img) -> String
 fn template_spec(t, name, project_id, values) -> ServiceSpec
 fn db_form(req) -> DbFormInput
 fn effective_name(req) -> String — Nome efetivo: `app_name` tem precedência sobre `name` (ambos trimados).
 fn build_spec(req) -> Result<ServiceSpec, String> — Monta o `ServiceSpec` a partir da requisição do wizard.
 fn build_spec_inner(req) -> Result<ServiceSpec, String>
-(3 testes)
+(4 testes)
 
 ## rustploy-daemon/crates/daemon/src/features/backup/
 

@@ -259,7 +259,7 @@ fn check_env(out, project, scope, vars)
 fn compose_suspect_lines(content) -> Vec<String> — Linhas de compose do tipo `POSTGRES_PASSWORD: valor` / `- API_TOKEN=valor` com valor literal.
 fn audit_project(out, p)
 fn plaintext_findings(st) -> Vec<Finding> — Tudo o que está em claro (ou parece estar), em ordem estável.
-(5 testes)
+(6 testes)
 
 ### migrate.rs — A migração **única** SQL → YAML (Fase 4 do plano, seção R4).
 const MARK_KEY — Chave em `daemon_settings` que marca a migração como concluída.

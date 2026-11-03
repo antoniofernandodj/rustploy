@@ -422,10 +422,10 @@ fn handle(state, project_id) -> RpResponse
 fn handle(state, service_id) -> RpResponse
 
 ### wizard.rs — Wizard "Novo serviço" server-side: catálogos (`WizardCatalog`) e criação (`WizardCreate`).
-fn catalog(search) -> RpResponse — Catálogos de bancos/brokers/templates prontos como JSON para o contexto do cliente (`new_service_dat…
+fn catalog(search) -> RpResponse — Catálogos de bancos/brokers/storages/templates prontos como JSON para o contexto do cliente (`new_se…
 fn create(state, req) -> RpResponse — Monta o `ServiceSpec` a partir dos campos coletados pelo wizard e cria o serviço — reaproveitando o …
 fn secure_credentials(state, svc) -> anyhow::Result<Option<shared::Service>> — Move as envs de credencial (`Plain` não vazias) do serviço recém-criado para secrets do serviço.
-(2 testes)
+(3 testes)
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/settings/
 
@@ -454,7 +454,7 @@ fn classify(svc) -> (&'static str, String) — Tipo do serviço e o rótulo curt
 fn is_running(status) -> bool
 fn build(projects, services, jobs, webhook_urls, warm) -> Vec<DashboardProject> — A montagem, sem tocar em banco nem em Docker.
 fn load(state) -> Vec<DashboardProject> — O painel completo, lendo o que precisa do banco.
-const DATABASE_KINDS, BROKER_KINDS
+const DATABASE_KINDS, BROKER_KINDS, STORAGE_KINDS
 (7 testes)
 
 ### mod.rs — HTTP/JSON + SSE control API — the daemon's remote administrative channel.
