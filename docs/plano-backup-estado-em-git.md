@@ -1278,3 +1278,26 @@ Primeiro servidor real migrado para o estado em YAML (daemon 0.1.20 → 0.1.25, 
 - **Achados do caminho:** `ubuntu-latest` virou 26.04 e quebrou o build do Windows (fixado em 24.04); `make install-rustploy` apaga
   os journals do sistema todo (`journalctl --vacuum`); a pergunta de motor do `install.sh` não espera resposta num shell remoto
   (nushell) — usar `ENGINE=podman YES=1`.
+
+### R10.13 Fases 8 e 9 (2026-11-02, noite, sem o usuário presente)
+
+**Fase 9 (empacotamento):** `git` entrou no `Depends` do `.deb` do daemon (`$auto, git, docker.io | docker-ce | podman`);
+o bloco do `install.sh` que instalava o `git` ficou como rede de segurança para um `.deb` local antigo.
+**Ainda não testado em `.deb` construído** (o `dpkg-deb -I` só vale na release seguinte).
+
+**Fase 8 (restauração num servidor limpo):** antes, ligar o `sync` num servidor virgem contra um repositório com
+história criava um commit vazio local e caía em "histórico divergiu" (pausa). Agora `StateGit::restore_if_virgin`
+(chamado por `configure` no modo `sync`): servidor **sem nenhum projeto e sem commit local** → `fetch` → se a branch
+existe, `apply_incoming(force)` com **todas** as validações do pull (inclusive "o secret decifra com a identidade
+deste servidor"). Depois marca `desired_state = Running` nos serviços com `autostart` e dispara o mesmo religamento
+do boot (`set_after_restore` → `autostart::spawn_boot`), então sobe **na ordem das dependências**. Servidor com
+estado próprio nunca é sobrescrito (continua pausando).
+- Testes: `servidor_limpo_restaura_o_estado_do_repositorio`, `servidor_com_estado_proprio_nao_e_sobrescrito_pelo_remoto`.
+- **Prova com dois daemons de verdade** (debug build, podman rootless, repositório bare local): A com projeto, 2
+  serviços (`app` depende de `base`) e um secret, com `recovery_recipient`; B limpo com `age_identity` = **chave
+  privada de recuperação**. Resultado: B restaurou o projeto e os dois serviços, o secret `DB_PASSWORD` decifra com a
+  chave de recuperação (`rustploy-cli secret decrypt`), o histórico de B é o mesmo de A, e o religamento subiu `base`
+  e **bloqueou `app`** enquanto `base` não ficava pronta (nova tentativa agendada). `base` nunca ficou "pronta" porque
+  o healthcheck TCP por IP de container não alcança o host em podman **rootless** — limitação do ambiente de teste,
+  não do código; **falta ver os dois ficarem Live num servidor real (root)**.
+- Limites: dados dos bancos/volumes, zips e blobs do registry não voltam; imagens são baixadas/construídas de novo.

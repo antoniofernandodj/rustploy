@@ -310,7 +310,7 @@ enum Reconciled { Push, Done }
 struct RetryLater — O pull precisa esperar: há mudança local ainda não commitada.
 struct GitStuck(String) — O estado foi aplicado, mas o `git reset` que alinha o repositório falhou.
 struct Runtime { paused, incoming_error, last_fetch_at, ahead, behind, last_commit, last_push_ok, last_push_at, last_error, blocked, needs_push }
-struct StateGit { db, secrets, rt, wake, cycle_lock, debounce, fetch_every }
+struct StateGit { db, secrets, rt, wake, cycle_lock, debounce, fetch_every, after_restore }
 fn fingerprint(project, scope, what) -> String
 fn blocking(state, allow) -> Vec<Finding> — Achados que **impedem** o commit: as certezas sempre, e as suspeitas que o usuário não liberou.
 fn validate_incoming(root, new, allow, secrets, require_clean) -> anyhow::Result<()> — Valida uma árvore vinda de fora ANTES de aplicar qualquer coisa (R6, itens 1 e 2): sem valor em clar…
@@ -323,6 +323,7 @@ impl StateGit
   fn new(db, secrets) -> Arc<Self>
   fn with_debounce(db, secrets, debounce) -> Arc<Self>
   fn with_intervals(db, secrets, debounce, fetch_every) -> Arc<Self>
+  fn set_after_restore(f) — Define o que fazer depois de uma restauração (uma vez só, no bootstrap).
   fn settings() -> anyhow::Result<Settings>
   fn allow_set() -> anyhow::Result<BTreeSet<String>>
   fn allowed() -> BTreeSet<String> — As suspeitas que o usuário liberou (fingerprints), para marcar a lista do `InfraAudit`.
@@ -330,6 +331,7 @@ impl StateGit
   fn set_allowed(project, scope, what, allowed) -> Result<(), StateGitError> — Libera (ou desfaz) uma **suspeita** da auditoria.
   fn status() -> anyhow::Result<StateGitStatus>
   fn configure(mode, remote, branch, provider_id) -> Result<StateGitStatus, StateGitError> — Liga/desliga/configura.
+  fn restore_if_virgin() -> anyhow::Result<()> — **Restauração num servidor limpo (Fase 8).** Só age quando o servidor é virgem: nenhum projeto e nen…
   fn sync_now() -> Result<StateGitStatus, StateGitError> — "Sincronizar agora": commit pendente e, em `sync`, push.
   fn cycle(force_push) — Um ciclo: audita, commita (se houver diff) e, em `sync`, envia.
   fn commit_local(s) -> anyhow::Result<bool> — Commit do que há de local: dentro do lock de escrita, para o `git` só ver o diretório entre transaçõ…
@@ -344,7 +346,7 @@ impl StateGit
   fn push(s)
   fn spawn() — O worker: acorda a cada mudança do estado (com debounce), a cada "sincronizar agora" e periodicament…
 const KEY_MODE, KEY_REMOTE, KEY_BRANCH, KEY_PROVIDER, KEY_ALLOW, DEFAULT_BRANCH, DEBOUNCE
-(26 testes)
+(28 testes)
 
 ## rustploy-daemon/crates/daemon/src/features/templates/
 

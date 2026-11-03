@@ -810,7 +810,8 @@ say "Instalando (apt resolve as dependências, inclusive o motor de containers, 
 # --force-confold: numa atualização, mantém o config.toml (com o token) em vez de perguntar.
 DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::=--force-confold "$TMP/$DEB"
 
-# O clone de serviços com fonte Git usa o git do servidor, e o pacote não depende dele.
+# O pacote depende do git (clone de serviços com fonte Git e sincronização do estado). Este bloco
+# só cobre um .deb local antigo, anterior a essa dependência.
 if [ "$WHAT" = "daemon" ] && ! command -v git >/dev/null 2>&1; then
     say "Instalando o git (usado nos serviços com fonte Git)..."
     DEBIAN_FRONTEND=noninteractive apt-get install -y git
