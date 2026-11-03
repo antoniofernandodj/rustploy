@@ -119,6 +119,12 @@ StopContainer — Para um container (`id` completo, vindo de `DockerContainers`)
 ## / Falha se o destino já tem um item com o mesmo nome. Ver [`SecretMoveOp`].
 SecretMove — Move um item entre env e secret, ou entre escopos. | daemon: secrets/secret_move | gui: handlers/secrets, handlers/services | web: screens/project_detail, screens/service_detail
 
+## / Resposta: `Ok`.
+EnvKeyRename — Renomeia a **chave** de uma env (do projeto, ou do serviço se `service… | daemon: secrets/env_key_rename | gui: handlers/secrets, handlers/services | web: screens/project_detail, screens/service_detail
+
+## / Falha se `from` não existe ou `to` já existe no escopo. Resposta: `Ok`.
+SecretRename — Renomeia um **secret** (do projeto, ou do serviço se `service_id` vier… | daemon: secrets/secret_rename | gui: handlers/secrets, handlers/services | web: screens/project_detail, screens/service_detail
+
 ## / num lugar só, com `serde_yaml`. Ver `docs/infra-as-code.md`.
 ManifestApply — Reconcilia projetos/serviços a partir de manifestos YAML já interpolad… | daemon: features/iac/manifest_apply | gui: — | web: —
 

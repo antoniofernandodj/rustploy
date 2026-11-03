@@ -97,12 +97,13 @@ impl Response
 
 ## rustploy-daemon/crates/daemon/src/bootstrap/
 
-### config.rs — Resolução de diretórios (banco, chave mestra) com fallback para o home e inicialização do log.
+### config.rs — Resolução de diretórios (banco, chave age) com fallback para o home e inicialização do log.
 fn init_logging(level)
 fn fallback_dir() -> PathBuf
 fn resolve_data_path(configured) -> PathBuf — Tries to use `configured` as the data directory.
-fn resolve_master_key_path(configured) -> PathBuf — Tries to use `configured` as the master key path.
+fn resolve_age_key_path(cfg) -> PathBuf — Onde fica o arquivo da identidade `age` do servidor: `age_key_path`; senão `/etc/rustploy/age.key`.
 fn can_write_dir(dir) -> bool — Returns true only when `dir` (or its path) is both creatable and writable.
+(2 testes)
 
 ### listeners.rs — Listeners do daemon: registry OCI embutido (storage e rota), proxy de ingress e API HTTP.
 fn prepare_registry_storage(config, db_path) -> Option<Arc<RegistryStorage>> — Storage do registry OCI embutido, criado ANTES do `AppState`: o listener HTTP do registry, o handler…
@@ -174,7 +175,7 @@ struct AcmeConfig { enabled, email, directory }
 struct DockerConfig { socket_path }
 struct DeployConfig { drain_secs, image_cache }
 struct MetricsConfig { interval_secs, history_points }
-struct SecretsConfig { master_key_path, age_identity, recovery_recipient }
+struct SecretsConfig { age_key_path, age_identity, recovery_recipient }
 impl RustployConfig
   fn global() -> &'static RustployConfig — Returns the process-wide config, loading it on first call.
   fn global_path() -> Option<&'static Path> — Arquivo de onde `global()` leu a config (`None` = defaults).
@@ -255,18 +256,15 @@ impl LogSink for std::sync::Arc<L>: append_build_line, append_job_line
 ### mod.rs — Infraestrutura transversal (barramento de eventos, segredos, health checks), sem regra de negócio.
 
 ### secrets.rs — `SecretsManager`: cifra e decifra os segredos do daemon.
-struct SecretsManager { passphrase, identity, recovery, db }
+struct SecretsManager { identity, recovery, db }
 impl SecretsManager
-  fn open(master_key_path, db, cfg, config_path) -> Result<Self> — Abre o gerenciador do daemon.
-  fn new(master_key_path, db) -> Result<Self> — Para testes: identidade efêmera (some quando o objeto some), sem tocar na config.
-  fn with_keys(master_key_path, db, identity, recovery) -> Result<Self> — Para testes: com uma identidade e uma recuperação escolhidas.
+  fn open(key_file, db, cfg, config_path) -> Result<Self> — Abre o gerenciador do daemon.
+  fn new(db) -> Result<Self> — Para testes: identidade efêmera (some quando o objeto some), sem tocar na config.
+  fn with_keys(db, identity, recovery) -> Result<Self> — Para testes: com uma identidade e uma recuperação escolhidas.
   fn has_recovery() -> bool — Há uma chave de recuperação (`[secrets] recovery_recipient`) configurada?
   fn public_key() -> String — A chave pública do servidor (`age1…`).
   fn encrypt(plaintext) -> Result<String> — Cifra para a identidade do servidor (e a de recuperação, se houver).
-  fn decrypt(value) -> Result<String> — Decifra o formato novo (`ENC[age:…]`) ou o antigo (hex + passphrase).
-  fn decrypt_legacy(ciphertext_hex) -> Result<String>
-  fn encrypt_legacy(plaintext) -> Result<String> — Só para os testes fabricarem um valor no formato antigo.
-  fn reencrypt_legacy() -> Result<usize> — Regrava no formato novo tudo o que ainda está no antigo: os secrets e o `client_secret` dos provider…
+  fn decrypt(value) -> Result<String> — Decifra um valor `ENC[age:…]` com a identidade deste servidor.
   fn get_raw(project_id, name) -> Result<String> — Secret do **projeto**.
   fn get_scoped(project_id, service_id, name) -> Result<String> — Secret de um escopo: `service_id: Some` = só daquele serviço; `None` = só do projeto.
   fn resolve(project_id, service_id, name) -> Result<String> — Resolução de uma env `Secret(name)`: o escopo do **serviço** primeiro, depois o do projeto.
@@ -277,6 +275,12 @@ impl SecretsManager
   fn list_names_scoped(project_id, service_id) -> Result<Vec<String>>
   fn reveal(project_id, service_id, name) -> Result<String> — "Ver valor": decifra e **grava uma linha de auditoria** (quem/qual/quando — nunca o valor).
   fn move_secret(project_id, service_id, name, op) -> Result<()> — As quatro movimentações manuais da R5, cada uma **atômica** (uma transação do repositório): ou o sec…
+  fn rename_env_key(project_id, service_id, from, to) -> Result<()> — Renomeia a **chave** de uma env do projeto (`service_id: None`) ou de um serviço, sem tocar no valor…
+  fn rename_secret(project_id, service_id, from, to) -> Result<()> — Renomeia um **secret** (do projeto, ou de um serviço) e, na mesma transação, reaponta as envs `Secre…
+fn valid_env_key(name) -> Result<()> — Nome válido para a chave de uma env: `[A-Za-z_][A-Za-z0-9_]*` (o que o Docker e o `.env` aceitam).
+fn valid_secret_name(name) -> Result<()> — Nome válido para um secret: não vazio, só `[A-Za-z0-9_.-]` — fica de fora o que quebraria a referênc…
+fn rename_in_list(list, from, to, onde) -> Result<()> — Renomeia o secret `from` para `to` na lista, recusando se `from` não existe ou `to` já existe.
+fn repoint_secret_refs(vars, from, to) — Reaponta toda env `Secret(from)` para `Secret(to)`.
 fn new_secret(name, encrypted) -> SecretInfra
 fn project_mut(st, project_id) -> Result<&'a mut ProjectInfra>
 fn service_mut(p, service_id) -> Result<&'a mut ServiceInfra>
@@ -285,15 +289,11 @@ fn take_plain_env(vars, key, onde) -> Result<String> — Tira o valor `Plain` da
 fn set_env(vars, key, value)
 fn secret_into_env(vars, name, plain, onde) -> Result<()> — Secret → env: as envs que apontavam para o secret viram `Plain(valor)`; se nenhuma apontava, cria-se…
 fn write_private(path, contents) -> Result<()> — Grava `contents` num arquivo que já nasce 0600 (sem janela em que ele exista legível).
-fn restrict_permissions(path) — Restringe o arquivo a 0600 (só o dono).
-fn generate_key() -> Result<String>
-fn load_master_key(master_key_path) -> Result<Option<String>> — Lê a chave antiga se o arquivo existir (e corrige a permissão); **não cria**.
-fn load_or_create_master_key(master_key_path) -> Result<String> — Só para os testes (fabricar valores no formato antigo).
 fn parse_identity(text) -> Result<x25519::Identity>
 fn has_enc_values(db) -> bool — Há algum segredo já no formato novo gravado no YAML?
 fn persist_identity(identity, config_path, key_file) -> Result<()> — Grava a identidade recém-gerada no `config.toml` (seção `[secrets]`); se não der, no `age.key` (0600…
 fn write_identity_into_config(path, line) -> Result<()> — Insere `line` logo abaixo de `[secrets]` (ou cria a seção no fim), preservando o resto do arquivo e …
-(24 testes)
+(22 testes)
 
 ### ttl_cache.rs — Cache de um valor só, com TTL, que junta chamadas concorrentes numa só ida à fonte lenta.
 struct TtlCache { ttl, slot } — Single-slot value cache with a TTL.

@@ -155,12 +155,18 @@ function secret_delete(name)
 function secret_use(name) — Chip "usar secret" (aba Variáveis): arma o form de adicionar var em modo secret com o nome escolhido…
 function project_env_secret_toggle()
 function move_target_pick(service_id)
-local project_move(op, name, service_id, done_message)
 local target_service() — Devolve o serviço de destino escolhido, ou avisa e devolve nil.
 function project_env_to_secret(key)
 function project_secret_to_env(name)
 function project_secret_to_service(name)
 function project_env_to_service(key)
+local rename_pick(tag, name)
+function project_env_rename_pick(key)
+function project_secret_rename_pick(name)
+function service_env_rename_pick(key)
+function service_secret_rename_pick(name)
+function rename_cancel()
+function project_rename_apply()
 function secret_reveal(name)
 function secret_hide(name)
 
@@ -211,6 +217,7 @@ function env_to_secret(key) — "→ secret" numa variável em claro: o valor pa
 function service_secret_reveal(name) — 👁 num secret do serviço: pede o valor ao daemon (SecretReveal, que grava auditoria: quem, qual, quan…
 function service_secret_hide(name)
 function secret_copy(ref) — Copia o valor já revelado (a chave é "escopo:nome", a mesma da linha).
+function service_rename_apply() — Grava o mini-formulário de renomear (armado por service_env_rename_pick / service_secret_rename_pick…
 local service_move(op, name, done_message) — Move genérico (SecretMove) de uma coisa do SERVIÇO aberto; `done_message` é o aviso de sucesso.
 function service_secret_to_env(name) — 🔓 num secret do serviço (ou numa variável que aponta para um): volta a ser uma variável em claro do …
 function service_secret_to_project(name) — ↑ secret do serviço → secret do projeto (todos os serviços do projeto passam a enxergá-lo).
@@ -291,7 +298,6 @@ local apply_bus_event(bus_event) — Eventos vivos do bus: métricas e transiç�
 function M.open_stream()
 
 ### wizard.luau — wizard "Novo serviço".
-local token_urlsafe(length)
 local new_service_is_broker(kind_id)
 function open_new_service_window(start) — Botão "+ Novo serviço" (cabeçalho do projeto): abre o wizard numa JANELA à parte (motor Glacier próp…
 function new_service_cancel() — "Cancelar": fecha a janela do wizard.

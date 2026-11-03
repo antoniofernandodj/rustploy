@@ -1,6 +1,6 @@
 # Credenciais cifradas por padrão, renomear chaves e o serviço Storage
 
-> **Fase A implementada em 2026-11-03** (não commitada nem publicada; as demais fases não começaram).
+> **Fases A, B e C implementadas em 2026-11-03** (commitadas, **não publicadas**: o daemon referencia o `shared` por `path` até a publicação final). A, B e C não foram exercitadas num servidor real nem numa janela de GUI/webui rodando — só testes automatizados. D (Storage) e F (infra do Chiquitos) pendentes.
 > Plano escrito em 2026-11-03 depois de ler o código
 > (daemon 0.1.28, shared 0.13/0.14). Nada aqui foi alterado ainda; este documento existe para
 > você aprovar o rumo antes. O cabeçalho dirá quando cada fase for feita.
@@ -83,6 +83,8 @@ cofre contra um agente hostil. Fica registrado na doc do agente (`manual.md`).
 
 ### Fase B — Senhas que nascem como secret, geradas com aleatoriedade de verdade
 
+> **Implementada (2026-11-03).** `features/wizard.rs`: `generate_password` (`/dev/urandom`, amostragem por rejeição, 24 caracteres) e `completar_senhas` (campo vazio = o daemon gera; digitado é respeitado; Kafka/NATS não ganham senha). **Descoberta:** quem gerava a senha era o *cliente* (GUI com `math.random(os.time())`; a webui exigia digitar) — agora os dois mandam vazio e deixam o daemon gerar. A passagem para secret de serviço **já existia** (`api/handlers/services/wizard.rs::secure_credentials`, R5 do plano de backup) e foi reaproveitada. Pendente da B: o botão "ver valor" logo após criar (hoje a pessoa vê no secret do serviço, com `SecretReveal`).
+
 **Por quê:** hoje cada banco/broker novo já nasce com a senha exposta e fraca.
 
 - Gerador: trocar `token_urlsafe` por bytes de `/dev/urandom` (já é o padrão do repo em
@@ -101,6 +103,8 @@ cofre contra um agente hostil. Fica registrado na doc do agente (`manual.md`).
   e o `cache`. (Provavelmente nem precisa de código novo.)
 
 ### Fase C — Renomear chaves
+
+> **Implementada (2026-11-03).** `shared` 0.16.0 (`EnvKeyRename`, `SecretRename`); `platform/secrets.rs` (`rename_env_key`, `rename_secret`, 6 testes); handlers em `api/handlers/secrets/`; GUI (✏️ + mini-formulário nos 4 lugares) e webui (✏️ + `prompt`). `SecretRename` de projeto **respeita o sombreamento**: serviço/job com secret próprio de mesmo nome não é reapontado. Liberados ao agente (não revelam valor).
 
 **Por quê:** é o que faltou no caso `RABBITMQ_DEFAULT_PASS` × `RABBITMQ_PASS`.
 

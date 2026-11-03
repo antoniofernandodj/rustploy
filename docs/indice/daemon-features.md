@@ -31,7 +31,9 @@ impl BrokerKind
   fn from_str(s) -> Option<Self>
   fn has_user() -> bool
   fn default_user() -> &'static str
-fn token_urlsafe(n) -> String — Senha aleatória URL-safe (splitmix64 semeado no relógio) — suficiente para credenciais iniciais de u…
+fn generate_password(n) -> Result<String, String> — Senha aleatória alfanumérica (URL-safe) de `n` caracteres, vinda de `/dev/urandom`.
+const PASSWORD_LEN — Tamanho das senhas geradas pelo wizard.
+fn completar_senhas(f, precisa, precisa_root) -> Result<(), String> — Banco/broker novo nasce com senha forte mesmo que a pessoa não digite nada: campo vazio = "gere para…
 fn db_rows_json() -> String — Passo "escolha o banco": inclui os flags de formulário (has_*) e o user default para o cliente pré-p…
 fn broker_rows_json() -> String — Passo "escolha o broker".
 fn templates_catalog_json(search) -> String — Templates filtrados por `search`, com as variáveis editáveis embutidas em cada linha (`vars: [{idx,l…
@@ -52,6 +54,7 @@ fn db_form(req) -> DbFormInput
 fn effective_name(req) -> String — Nome efetivo: `app_name` tem precedência sobre `name` (ambos trimados).
 fn build_spec(req) -> Result<ServiceSpec, String> — Monta o `ServiceSpec` a partir da requisição do wizard.
 fn build_spec_inner(req) -> Result<ServiceSpec, String>
+(3 testes)
 
 ## rustploy-daemon/crates/daemon/src/features/backup/
 
@@ -288,6 +291,7 @@ fn run_bytes(dir, args) -> Result<Vec<u8>> — Como [`run`], mas devolve os **by
 fn fetch(dir, branch, auth) -> Result<bool> — `git fetch` da branch para `refs/remotes/origin/<branch>`.
 fn remote_head(dir, branch) -> Option<String> — O commit em `refs/remotes/origin/<branch>`, se existir.
 fn ahead_behind(dir, branch) -> Result<(usize, usize)> — `(à frente, atrás)`: commits locais que o remoto não tem, e commits do remoto que o local não tem.
+fn shares_history(dir, branch) -> bool — O histórico local e o de `refs/remotes/origin/<branch>` têm um ancestral comum? `false` também quand…
 fn is_clean(dir) -> Result<bool> — Não há nada por commitar nem arquivo novo/alterado/apagado (fora o que o `.gitignore` esconde)?
 fn files_at(dir, rev, keep) — Os arquivos do commit `rev`, **sem fazer checkout**: `caminho → bytes`.
 fn backup_branch(dir, name, rev) -> Result<()> — `git branch <nome> <rev>`: guarda um commit (ex.: o histórico local que vai ser descartado).
@@ -331,6 +335,7 @@ impl StateGit
   fn set_allowed(project, scope, what, allowed) -> Result<(), StateGitError> — Libera (ou desfaz) uma **suspeita** da auditoria.
   fn status() -> anyhow::Result<StateGitStatus>
   fn configure(mode, remote, branch, provider_id) -> Result<StateGitStatus, StateGitError> — Liga/desliga/configura.
+  fn refuse_unrelated_history(remote, branch, provider_id) -> Result<(), StateGitError> — Recusa ligar o `sync` num servidor que **já tem estado** apontando para um repositório que **já tem …
   fn restore_if_virgin() -> anyhow::Result<()> — **Restauração num servidor limpo (Fase 8).** Só age quando o servidor é virgem: nenhum projeto e nen…
   fn sync_now() -> Result<StateGitStatus, StateGitError> — "Sincronizar agora": commit pendente e, em `sync`, push.
   fn cycle(force_push) — Um ciclo: audita, commita (se houver diff) e, em `sync`, envia.
@@ -346,7 +351,7 @@ impl StateGit
   fn push(s)
   fn spawn() — O worker: acorda a cada mudança do estado (com debounce), a cada "sincronizar agora" e periodicament…
 const KEY_MODE, KEY_REMOTE, KEY_BRANCH, KEY_PROVIDER, KEY_ALLOW, DEFAULT_BRANCH, DEBOUNCE
-(28 testes)
+(29 testes)
 
 ## rustploy-daemon/crates/daemon/src/features/templates/
 

@@ -363,6 +363,9 @@ fn dispatch(state, cmd) -> RpResponse
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/secrets/
 
+### env_key_rename.rs — `Command::EnvKeyRename`: renomeia a chave de uma env (projeto ou serviço) mantendo o valor.
+fn handle(state, project_id, service_id, from, to) -> Response
+
 ### infra_audit.rs — `Command::InfraAudit`: o que está em claro no estado de infra (sem os valores).
 fn handle(state) -> Response
 
@@ -377,6 +380,9 @@ fn handle(state, project_id, service_id) -> Response
 
 ### secret_move.rs — `Command::SecretMove`: mover entre env e secret, ou entre escopos (R5 do plano).
 fn handle(state, project_id, service_id, name, op) -> Response
+
+### secret_rename.rs — `Command::SecretRename`: renomeia um secret e reaponta as envs que o referenciam.
+fn handle(state, project_id, service_id, from, to) -> Response
 
 ### secret_reveal.rs — `Command::SecretReveal`: o valor de um secret ("ver valor").
 fn handle(state, project_id, service_id, name) -> Response
