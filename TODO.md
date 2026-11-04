@@ -15,9 +15,9 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
 - [ ] **Release com o `rustploy-podman-ufw`** (commitado no daemon, ainda sem release): só então fazer o deploy das docs (a
   seção "Podman e ufw" e a receita de bucket com `curl` já estão commitadas, mas o site ainda tem a receita errada com `aws-cli`).
   (O isolamento entre dois projetos já tem teste de laboratório; falta só rodar num servidor real com dois projetos.)
-- [ ] **Fase G — gerar e rotacionar segredos sem ninguém ver o valor** (`SecretGenerate`/`SecretRotate`/`SecretGeneratePair`, botão "Gerar"/
-  "Rotacionar" na GUI e webui, `generate:` no manifesto, job-modelo de rotação por motor). Projetada em
-  `docs/plano-credenciais-cifradas-e-storage.md`; faltam 4 respostas do dono (§ Fase G). Sem isso, rotacionar uma senha exige uma pessoa.
+- [ ] **Fase G — gerar segredos sem ninguém ver o valor** (`SecretGenerate`/`SecretGeneratePair`, botão "Gerar"
+  na GUI e webui, `generate:` no manifesto). Projetada em
+  `docs/plano-credenciais-cifradas-e-storage.md`; faltam 2 respostas do dono (§ Fase G, perguntas 1 e 2). A **rotação** foi separada: `docs/plano-rotacao-de-segredos.md` (só projetado).
 - [ ] **Fase I — uma branch só com `watch_paths`** (último passo do plano): o webhook do daemon passa a filtrar por arquivos alterados
   e os apps do chickie migram das branches `main-*` para a `main`, aposentando o `make sync`. Depende da Fase G.
   `docs/plano-credenciais-cifradas-e-storage.md` § Fase I.
@@ -205,3 +205,4 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
 
 - [x] **Reorganizar o daemon e o `shared`** — feito em 2026-10-18 (`docs/plano-reorganizacao-daemon-e-shared.md`,
   seção "Como ficou"). O passo seguinte (contextos por feature) e a `web_ui` também já foram feitos.
+- [ ] **Plano de rotação de segredos** (`docs/plano-rotacao-de-segredos.md`): só projetado; depende da G1. Fechar as perguntas antes de virar plano de fases.
