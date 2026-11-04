@@ -183,7 +183,7 @@ chickie criava o bucket e rodava as migrations na própria subida. Agora **nada 
   `setup.dockerfile`) e continuam como pré-deploy da api. O `bucket` não usa mais `curl`.
 - **Verificado:** `migrate` num Postgres 18 real (30 migrations, seed, idempotente), `bucket`
   contra um S3 falso (HEAD/PUT/PUT policy em SigV4, idempotente), e os dois jobs rodaram no
-  daemon do Chiquitos com `exit 0`. **Não verificado ainda:** o redeploy da api sem provisionar.
+  daemon do Chiquitos com `exit 0`. **Redeploy da api (dep_01M6JB70…, 2026-11-04):** `Live`; os pré-deploys `migrations` (30 já aplicadas) e `bucket` (já existia, policy reaplicada) passaram, e o log da api não tem nenhuma linha de migração nem de bucket. **Ainda não verificado:** redeploy do worker e do scheduler com o código novo (as branches deles receberam o merge da `main`), e a receita de bucket nas docs (ainda ensina `curl`).
 - **Custo que sobrou:** as branches `main`, `main-api`, `main-worker`, `main-scheduler` e
   `main-setup` precisam do `make sync` (merge da `main` em cada uma). É isso que a Fase H elimina.
 

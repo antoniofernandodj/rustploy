@@ -21,7 +21,8 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
   e os apps do chickie migram das branches `main-*` para a `main`, aposentando o `make sync`.
   `docs/plano-credenciais-cifradas-e-storage.md` § Fase H.
 - [ ] **Migrations embutidas no `chickie-setup`** (`include_dir!` + `build.rs` com `rerun-if-changed=migrations`) em vez de ler `.sql` do disco; tira o `COPY migrations` da imagem.
-- [ ] **Confirmar o redeploy da api sem migrar/criar bucket** (Fase G: jobs `migrations`/`bucket` já rodaram com `exit 0`, falta o log da api).
+- [ ] **Redeploy do worker e do scheduler** com o código novo (Fase G: a api já foi verificada) e **ajustar a receita de bucket nas docs** (ainda ensina `curl`).
+- [ ] **RabbitMQ: "no heartbeat received from server for too long"** no log da api (2 erros 2 min após o boot, 2026-11-04 04:23); investigar se é pré-existente.
 - [ ] **Assinar a release `v0.1.38`** e descartar rascunhos de `v0.1.36`/`v0.1.37`, se existirem (as tags não puderam ser apagadas).
 - [ ] **Chickie**: as branches `deploy/api`, `deploy/worker` e `deploy/scheduler` (no repo do chickie) têm o ajuste de URLs por partes,
   o cache `.sqlx` regenerado (a `main-api` não compila offline sem ele), o job de migrations e as filas duráveis do RabbitMQ 4.
