@@ -467,6 +467,10 @@
 - logos.txt
 - blueprints/ — catálogo de templates de app (formato Dokploy), compilado pelo build.rs do daemon (775 arquivos, não indexados)
 
+### rustploy-daemon/crates/daemon/tests/e2e-podman-ufw/
+- lab.sh
+- run.sh
+
 ### rustploy-daemon/crates/daemon/tests/e2e-updater/
 - Containerfile
 - run.sh

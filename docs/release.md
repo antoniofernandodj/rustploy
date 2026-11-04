@@ -190,10 +190,11 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
-## v0.1.37 (2026-11-04): Podman + ufw (DNS dos serviços e saída dos containers)
+## v0.1.38 (2026-11-04): Podman + ufw (DNS dos serviços e saída dos containers)
 
-> A `v0.1.36` (daemon 0.1.30) foi marcada com um manual que recomendava uma gambiarra de rotação de senha: **descarte o rascunho dela**
-> (a tag ficou porque apagar tag remota foi bloqueado). A `v0.1.37` (daemon 0.1.31) é a mesma coisa com o texto corrigido.
+> As tags `v0.1.36` (daemon 0.1.30, manual com uma gambiarra de rotação de senha) e `v0.1.37` (daemon 0.1.31, auxiliar do ufw com um bug de
+> ordem de regras achado pelo laboratório) **ficaram no repositório porque apagar tag remota foi bloqueado**. A execução de ambas foi cancelada;
+> se algum rascunho aparecer, **descarte-o**. Vale a `v0.1.38` (daemon 0.1.32).
 
 - **O problema** (achado ao subir o Chiquitos, Podman rootful + ufw `deny incoming/deny routed`): os nomes `rp_*` não resolvem
   dentro dos containers e nada sai para a internet, enquanto o IP direto funciona. O `aardvark-dns` escuta no endereço do host da
@@ -203,8 +204,11 @@ fora do ar não impede o outro (`fail-fast: false`).
   ufw ativo) e pelo `install.sh --engine podman`. Detecta as faixas (redes `rp_net_*` + `default_subnet_pools`, senão `10.89.0.0/16`),
   libera DNS e saída e **isola as redes entre si** (o `deny` antes do `allow`). O `rustployd-fw` **não muda** (as portas externas são
   um proxy TCP do próprio daemon, tráfego de entrada no host).
-- **Validado num servidor real**, não só com `ufw` de mentira: DNS por nome, saída para a internet e portas internas com o isolamento
-  ativo. O isolamento **entre dois projetos** foi exercitado à parte (ver `TODO.md`).
+- **Validado de verdade, não só com `ufw` de mentira:** num servidor real (DNS por nome, saída e portas internas com o isolamento ativo)
+  e num **laboratório** (`rustploy-daemon/crates/daemon/tests/e2e-podman-ufw/run.sh`: contêiner Podman rootless privilegiado, `ufw` 0.36 e
+  `iptables-nft` reais, duas bridges + "internet" em namespaces; ~1 min, sem root). O laboratório achou um **bug**: com o `allow` de saída já
+  presente, um `deny` acrescentado depois cai atrás dele e perde o efeito (a contagem de regras não mostrava). O auxiliar agora confere a ordem
+  e refaz as regras de rota com o `deny` no topo (`ufw route insert 1`).
 - **`ServiceReload` não relê secrets** (só para e inicia o mesmo container): trocar um secret exige **redeploy**.
 - **Rotação de senha:** feita no Chiquitos com um serviço descartável como gerador — **gambiarra, rejeitada pelo dono**; o recurso
   certo (`SecretGenerate`/`SecretRotate`) está na Fase G do `docs/plano-credenciais-cifradas-e-storage.md`. O manual e as docs
