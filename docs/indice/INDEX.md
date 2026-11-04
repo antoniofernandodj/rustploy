@@ -529,6 +529,7 @@
 
 ### rustploy-daemon/packaging/
 - config.toml
+- rustploy-podman-ufw
 - rustployd-fw.service
 - rustployd-fw.socket
 - rustployd-update.service

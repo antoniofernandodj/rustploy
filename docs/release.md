@@ -190,6 +190,22 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.36 (2026-11-04): Podman + ufw (DNS dos serviços e saída dos containers)
+
+- **O problema** (achado ao subir o Chiquitos, Podman rootful + ufw `deny incoming/deny routed`): os nomes `rp_*` não resolvem
+  dentro dos containers e nada sai para a internet, enquanto o IP direto funciona. O `aardvark-dns` escuta no endereço do host da
+  bridge (`10.89.0.1:53`, **não** em loopback). Com Docker não acontece. O `plano-backend-podman.md` já listava "interação com
+  ufw" como sem teste.
+- **A correção:** `rustploy-daemon/packaging/rustploy-podman-ufw` (em `/usr/libexec/`), chamado pelo `postinst` (motor Podman +
+  ufw ativo) e pelo `install.sh --engine podman`. Detecta as faixas (redes `rp_net_*` + `default_subnet_pools`, senão `10.89.0.0/16`),
+  libera DNS e saída e **isola as redes entre si** (o `deny` antes do `allow`). O `rustployd-fw` **não muda** (as portas externas são
+  um proxy TCP do próprio daemon, tráfego de entrada no host).
+- **Validado num servidor real**, não só com `ufw` de mentira: DNS por nome, saída para a internet e portas internas com o isolamento
+  ativo. O isolamento **entre dois projetos** foi exercitado à parte (ver `TODO.md`).
+- **`ServiceReload` não relê secrets** (só para e inicia o mesmo container): trocar um secret exige **redeploy**.
+- **Rotação de senha sem o agente ver o valor:** um serviço criado pelo assistente recebe senha gerada pelo daemon; renomear/mover o
+  secret (`SecretRename`/`SecretMove`) e um job com `ALTER USER` fazem a troca. Receita no `manual.md`/docs do agente.
+
 ## v0.1.35 (2026-11-03): credenciais cifradas, renomear e storage — daemon por `path`
 
 - **O daemon referencia o `rustploy-shared` por `path`** (`rustploy-daemon/crates/daemon/Cargo.toml`, `version` + `path`),
