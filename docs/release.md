@@ -211,7 +211,7 @@ fora do ar não impede o outro (`fail-fast: false`).
   e refaz as regras de rota com o `deny` no topo (`ufw route insert 1`).
 - **`ServiceReload` não relê secrets** (só para e inicia o mesmo container): trocar um secret exige **redeploy**.
 - **Rotação de senha:** feita no Chiquitos com um serviço descartável como gerador — **gambiarra, rejeitada pelo dono**; o recurso
-  certo (`SecretGenerate`/`SecretRotate`) está na Fase G do `docs/plano-credenciais-cifradas-e-storage.md`. O manual e as docs
+  certo (`SecretGenerate`/`SecretRotate`) está projetado em `docs/plano-geracao-e-rotacao-de-segredos.md`. O manual e as docs
   **não** recomendam mais aquela receita. A `v0.1.36` tem o texto antigo: **não assine o rascunho**; use a v0.1.37.
 
 ## v0.1.35 (2026-11-03): credenciais cifradas, renomear e storage — daemon por `path`

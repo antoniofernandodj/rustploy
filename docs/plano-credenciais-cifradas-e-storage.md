@@ -1,6 +1,6 @@
 # Credenciais cifradas por padrão, renomear chaves e o serviço Storage
 
-> **Fases A–F e H feitas em 2026-11-03/04; a Fase G (gerar segredos) e a I (uma branch só) estão só PROJETADAS; a rotação virou outro plano** (`plano-rotacao-de-segredos.md`). A–E, F e H foram lançadas até a **release v0.1.38** (daemon 0.1.29, gui 0.1.39; rascunho no GitHub até a assinatura). O daemon referencia o `shared` 0.16.0 por `path` — **não foi ao crates.io** (decisão do dono). **Verificação:** 460+ testes do daemon, 46 do shared, 406 testes Luau (`glacier test`) e uma verificação ponta a ponta num **daemon local real** (44 checagens: o agente via `/mcp` nunca vê a senha, o round-trip `ServiceGet`→`ServiceUpdate` não corrompe valores, rename e proibições) mais a **webui no Chrome** (criar Storage pela tela, ✏️ renomeando de verdade). **GUI nativa verificada depois** (Xvfb, com o app instalado fechado): wizard com Storage, ✏️ nas 4 listas, aviso de nome igual — e a verificação achou o ✏️ do serviço na linha errada e o campo de senha inútil de Kafka/NATS (corrigidos). F (infra do Chiquitos) pendente: depende de o daemon do servidor ser atualizado.
+> **Fases A–G feitas em 2026-11-03/04; a Fase H (uma branch só, com `watch_paths`) está só PROJETADA.** Lançadas até a **release v0.1.38** (daemon 0.1.32, gui 0.1.39). O daemon referencia o `shared` 0.16.0 por `path` — **não foi ao crates.io** (decisão do dono). **Verificação:** 460+ testes do daemon, 46 do shared, 406 testes Luau (`glacier test`) e uma verificação ponta a ponta num **daemon local real** (44 checagens: o agente via `/mcp` nunca vê a senha, o round-trip `ServiceGet`→`ServiceUpdate` não corrompe valores, rename e proibições) mais a **webui no Chrome** (criar Storage pela tela, ✏️ renomeando de verdade). **GUI nativa verificada depois** (Xvfb): wizard com Storage, ✏️ nas 4 listas, aviso de nome igual — e a verificação achou o ✏️ do serviço na linha errada e o campo de senha inútil de Kafka/NATS (corrigidos).
 > Plano escrito em 2026-11-03 depois de ler o código
 > (daemon 0.1.28, shared 0.13/0.14). Nada aqui foi alterado ainda; este documento existe para
 > você aprovar o rumo antes. O cabeçalho dirá quando cada fase for feita.
@@ -170,78 +170,7 @@ Depois de A–E, com o agente:
 5. Subir um a um: db → cache → broker → storage → scheduler → worker → api, conferindo
    `build_logs`/`list_deploys` a cada passo. Pontos em que **você** entra: SMTP e Asaas.
 
-### Fase G — Gerar segredos sem ninguém ver o valor (NÃO implementada)
-
-> **Escopo reduzido em 2026-11-04:** a **rotação** (trocar a senha no banco/broker de verdade, atualizar as variáveis, redeployar) é mais ampla do que
-> este plano e foi para **`docs/plano-rotacao-de-segredos.md`**. Aqui fica só a **geração**.
-
-> **Por que existe.** Na Fase F precisei trocar a senha do Postgres. O agente não pode escolher a senha (ele a veria) e o
-> daemon **não tinha** como gerar um segredo avulso. Improvisei: criei um banco descartável pelo assistente só para ganhar uma
-> senha gerada, movi o secret e apaguei o serviço. **Funcionou, mas é uma gambiarra**: depende de um efeito colateral do
-> assistente, e eu a tinha escrito no manual do agente como se fosse receita. O dono rejeitou, com razão. Este é o recurso certo.
-> (A gambiarra foi removida do manual e das docs; ver `docs/release.md`, v0.1.36.)
-
-**O problema, dividido em três casos** (cada um pede coisa diferente; o quarto, a rotação, saiu para outro plano):
-
-| # | Caso | Exemplo | O que precisa |
-|---|---|---|---|
-| 1 | Valor aleatório **avulso** | `JWT_SECRET`, `POSTGRES_PASSWORD`, token de API interno | gerar no daemon, guardar cifrado, **nunca devolver** |
-| 2 | **Par de chaves** | VAPID (P-256), Ed25519, chave `age` | gerar as duas metades; a pública pode ser lida, a privada não |
-| 3 | **Declarativo** | "este projeto precisa de um `JWT_SECRET`" no YAML | gerar **só se faltar**, sem nunca sobrescrever |
-
-**Os comandos (liberados ao agente, porque nenhum devolve o valor):**
-
-- `SecretGenerate { project_id, service_id?, name, kind, length?, on_exists }` — gera e grava. `on_exists` é `fail` (padrão: recusa se
-  já existe, para ninguém quebrar uma senha em uso por engano), `keep` (não faz nada se existe: é o idempotente, o "garanta que
-  exista") ou `replace` (troca o valor; **não** atualiza o sistema de fora nem redeploya: isso é a rotação, em `plano-rotacao-de-segredos.md`). Resposta: `Ok` mais metadados **não sensíveis**: o tamanho e uma
-  **impressão digital** (primeiros 8 hex do SHA-256), que serve para conferir "é o mesmo valor?" sem revelar nada.
-- `SecretGeneratePair { …, kind: Vapid | Ed25519 | AgeX25519, name }` — cria `NAME_PRIVATE` (secret) e `NAME_PUBLIC` (secret ou env em
-  claro, à escolha) em uma operação. É a única forma de gerar VAPID sem ninguém ver a privada.
-
-**Tipos (`kind`):**
-
-| `kind` | Saída | Para quê | Observação |
-|---|---|---|---|
-| `Password` (padrão) | `A-Za-z0-9`, 24 | senhas de banco, broker, storage | seguro em URL, SQL e shell; mínimo 16 |
-| `Hex` | `2×n` caracteres | segredo HMAC/JWT (HS256) | padrão 32 bytes = 64 hex |
-| `Base64Url` | sem `=` | tokens, chaves de sessão | padrão 32 bytes |
-| `Token` | `prefixo_` + `Base64Url` | token de API reconhecível | prefixo opcional, ex. `rp_` |
-| `Uuid` | UUIDv4 | identificadores | não é segredo forte; só por conveniência |
-| `Symbols` | inclui `!@#%…` | sistemas que **exigem** símbolo | **opt-in** e avisado: `@ : / % ?` quebram URLs, por isso o `Password` nunca os usa |
-
-Aleatoriedade: `/dev/urandom` com amostragem por rejeição (o `generate_password` da Fase B) — é a mesma peça, só generalizada.
-
-**Onde o recurso aparece:**
-
-1. **Daemon + `shared`**: os três comandos, `SecretsManager::generate/rotate`, testes (comprimento, alfabeto, que a resposta **não**
-   contém o valor, que `fail` não sobrescreve, atomicidade da rotação). Auditoria: quem, qual secret, quando, nunca o valor.
-2. **GUI e webui**: um botão **"Gerar"** no formulário de secret (escolhe o tipo e o tamanho).
-   Por padrão o valor **não é mostrado**; o 👁 (que já existe e é auditado) continua sendo o único jeito de uma pessoa ler.
-3. **Manifesto/YAML (infra como código)**: `secrets: { JWT_SECRET: { generate: hex, bytes: 32 } }` vira um `SecretGenerate` com
-   `on_exists: keep` ao aplicar. Idempotente, entra na sincronização com o git já cifrado, e é o jeito de um projeto novo nascer pronto.
-4. **Wizard**: os `${password:16}` dos templates passam a usar o mesmo gerador (hoje têm o seu).
-
-**O que NÃO se resolve aqui, de propósito:** a rotação (ver `docs/plano-rotacao-de-segredos.md`). Gerar um valor novo é só o primeiro passo dela.
-
-**Alternativas pensadas e descartadas:**
-- *O agente escolhe o valor com `SecretSet`* — o valor passa por ele e fica no histórico da conversa; é o que queremos evitar.
-- *Serviço descartável como gerador (o que fiz)* — efeito colateral de outro recurso; quebra se o wizard mudar; confunde a auditoria.
-- *Placeholder dentro do valor da env (`${random:24}`)* — gera a cada resolução (a senha mudaria a cada deploy) ou exige memorizar
-  em algum lugar, que é justamente um secret. Gerar é uma ação explícita e única, não parte da leitura da variável.
-- *Pedir sempre a uma pessoa* — não escala, e é o que o dono quer poder delegar com segurança.
-
-**Fases:** G1 = `SecretGenerate` + botão "Gerar" + testes (a parte mais valiosa); G2 = `SecretGeneratePair` (VAPID/Ed25519; precisa decidir a
-dependência de criptografia — o daemon já traz `rcgen`/`rustls`, a verificar se cobrem P-256 bruto); G3 = `generate:` no manifesto e o wizard
-usando o mesmo gerador. O `shared` sobe de versão em G1 (comando novo).
-
-**Perguntas para o dono** (com a minha recomendação):
-1. A GUI deve poder **mostrar o valor uma vez** logo após gerar? *Recomendo não*: o 👁 já cobre, com auditoria; mostrar na criação
-   convida a copiar para um bloco de notas.
-2. O agente pode pedir `kind: Symbols`? *Recomendo sim*, mas só com um aviso na resposta, porque é raro e quebra URL.
-
-(As perguntas sobre `NAME_PREVIOUS` expirar e sobre `Rotate` recusar ou avisar foram para `docs/plano-rotacao-de-segredos.md`.)
-
-### Fase H — Provisionamento fora da app: `chickie-setup` e a branch `main-setup` (FEITA em 2026-11-04)
+### Fase G — Provisionamento fora da app: `chickie-setup` e a branch `main-setup` (FEITA em 2026-11-04)
 
 Não estava no plano original; saiu da pergunta "por que o bucket precisa de `curl`?". A api do
 chickie criava o bucket e rodava as migrations na própria subida. Agora **nada disso é da api**:
@@ -256,9 +185,9 @@ chickie criava o bucket e rodava as migrations na própria subida. Agora **nada 
   contra um S3 falso (HEAD/PUT/PUT policy em SigV4, idempotente), e os dois jobs rodaram no
   daemon do Chiquitos com `exit 0`. **Não verificado ainda:** o redeploy da api sem provisionar.
 - **Custo que sobrou:** as branches `main`, `main-api`, `main-worker`, `main-scheduler` e
-  `main-setup` precisam do `make sync` (merge da `main` em cada uma). É isso que a Fase I elimina.
+  `main-setup` precisam do `make sync` (merge da `main` em cada uma). É isso que a Fase H elimina.
 
-### Fase I — Uma branch só, com `watch_paths` (ÚLTIMO PASSO; NÃO implementada)
+### Fase H — Uma branch só, com `watch_paths` (ÚLTIMO PASSO; NÃO implementada)
 
 Hoje o webhook do daemon só filtra o push pela **branch** (`public_routes.rs`); o campo
 `ServiceSpec.watch_paths` é gravado mas o deploy **não o usa** (confirmado em
@@ -275,7 +204,7 @@ Hoje o webhook do daemon só filtra o push pela **branch** (`public_routes.rs`);
    worker e scheduler); os jobs `migrations`/`bucket` passam para a `main`; as branches `main-*`
    e o alvo `sync` do Makefile são aposentados (arquivar, não apagar).
 
-**Ordem:** Fase G → Fase I (itens 1–3, release do rustploy) → Fase I item 4 (configurar os apps).
+**Ordem:** itens 1–3 (no rustploy, com release) → item 4 (configurar os apps).
 
 ## 5. Publicação
 
