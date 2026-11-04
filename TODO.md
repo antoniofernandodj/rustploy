@@ -205,3 +205,7 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
 
 - [x] **Reorganizar o daemon e o `shared`** — feito em 2026-10-18 (`docs/plano-reorganizacao-daemon-e-shared.md`,
   seção "Como ficou"). O passo seguinte (contextos por feature) e a `web_ui` também já foram feitos.
+- [ ] **Deploy antigo aparece `Stopped` enquanto o container ainda roda** (visto no Chiquitos, 2026-11-04): ao entrar um deploy novo na fila/construção, o registro do
+  deploy `Live` anterior vira `Stopped` em segundos (api 05:07:35, 14 s depois; worker 25 s depois), mas o container antigo só é trocado quando o novo
+  fica pronto (até ~25 min depois) e o status do serviço segue `Running`. A GUI/webui mostram o serviço "parado" nesse intervalo. Não é o `stop.rs`
+  (só roda no parar manual); achar o caminho que faz a transição e manter `Live` até a troca (ou usar `Pruning`, "substituído").
