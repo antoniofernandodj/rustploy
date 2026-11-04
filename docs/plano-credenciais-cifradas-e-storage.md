@@ -251,6 +251,42 @@ G3 = job-modelo por motor + redeploy; G4 = `generate:` no manifesto. O `shared` 
 4. `Rotate` deve **recusar** se algum serviço em execução ainda usa o valor (e avisar para fazer o redeploy)? *Recomendo avisar, não
    recusar*: o daemon sabe quais envs apontam para o secret e quais serviços estão rodando.
 
+### Fase H — Provisionamento fora da app: `chickie-setup` e a branch `main-setup` (FEITA em 2026-11-04)
+
+Não estava no plano original; saiu da pergunta "por que o bucket precisa de `curl`?". A api do
+chickie criava o bucket e rodava as migrations na própria subida. Agora **nada disso é da api**:
+
+- **Repo `chickie`:** crate nova `crates/setup` (`chickie-setup migrate | bucket`), só com
+  `hyper`/`hmac`/`sha2` (o cliente S3 que já existia no `core`). A api, o worker e o scheduler
+  não migram nem criam bucket na subida.
+- **Jobs no Chiquitos:** `migrations` e `bucket` são `git_source` da branch **`main-setup`**
+  (`dockerfiles/migrate.compose.yml`, `dockerfiles/bucket.compose.yml`, ambos com `build:` da
+  `setup.dockerfile`) e continuam como pré-deploy da api. O `bucket` não usa mais `curl`.
+- **Verificado:** `migrate` num Postgres 18 real (30 migrations, seed, idempotente), `bucket`
+  contra um S3 falso (HEAD/PUT/PUT policy em SigV4, idempotente), e os dois jobs rodaram no
+  daemon do Chiquitos com `exit 0`. **Não verificado ainda:** o redeploy da api sem provisionar.
+- **Custo que sobrou:** as branches `main`, `main-api`, `main-worker`, `main-scheduler` e
+  `main-setup` precisam do `make sync` (merge da `main` em cada uma). É isso que a Fase I elimina.
+
+### Fase I — Uma branch só, com `watch_paths` (ÚLTIMO PASSO; NÃO implementada)
+
+Hoje o webhook do daemon só filtra o push pela **branch** (`public_routes.rs`); o campo
+`ServiceSpec.watch_paths` é gravado mas o deploy **não o usa** (confirmado em
+`referencia/manifesto.mdx`). Por isso o chickie tem uma branch por serviço e o `make sync`.
+
+1. **Daemon:** o webhook lê `commits[].added/modified/removed` do payload (GitHub/Gitea/Gogs) e
+   ignora o deploy se `watch_paths` não vazio e nenhum arquivo alterado casar. Sem `watch_paths`
+   o comportamento atual não muda. Testes: casa, não casa, vários commits, payload sem lista de
+   arquivos (nesse caso **faz o deploy**, para não perder um push).
+2. **GUI e webui:** campo "Caminhos monitorados" no serviço Git (os dois clientes).
+3. **Docs e manifesto:** deixar de dizer "ainda não usa".
+4. **Os apps:** cada serviço do chickie passa a apontar para a `main`, com seu `watch_paths`
+   (api: `crates/api`, `crates/core`, `dockerfiles/api.dockerfile`, `Cargo.*`; análogo para
+   worker e scheduler); os jobs `migrations`/`bucket` passam para a `main`; as branches `main-*`
+   e o alvo `sync` do Makefile são aposentados (arquivar, não apagar).
+
+**Ordem:** Fase G → Fase I (itens 1–3, release do rustploy) → Fase I item 4 (configurar os apps).
+
 ## 5. Publicação
 
 Seguir o checklist "Publish" do `AGENTS.md`. Ordem: `rustploy-shared` (bump: Fases C e D mudam o

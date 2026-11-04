@@ -18,6 +18,11 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
 - [ ] **Fase G — gerar e rotacionar segredos sem ninguém ver o valor** (`SecretGenerate`/`SecretRotate`/`SecretGeneratePair`, botão "Gerar"/
   "Rotacionar" na GUI e webui, `generate:` no manifesto, job-modelo de rotação por motor). Projetada em
   `docs/plano-credenciais-cifradas-e-storage.md`; faltam 4 respostas do dono (§ Fase G). Sem isso, rotacionar uma senha exige uma pessoa.
+- [ ] **Fase I — uma branch só com `watch_paths`** (último passo do plano): o webhook do daemon passa a filtrar por arquivos alterados
+  e os apps do chickie migram das branches `main-*` para a `main`, aposentando o `make sync`. Depende da Fase G.
+  `docs/plano-credenciais-cifradas-e-storage.md` § Fase I.
+- [ ] **Migrations embutidas no `chickie-setup`** (`include_dir!` + `build.rs` com `rerun-if-changed=migrations`) em vez de ler `.sql` do disco; tira o `COPY migrations` da imagem.
+- [ ] **Confirmar o redeploy da api sem migrar/criar bucket** (Fase H: jobs `migrations`/`bucket` já rodaram com `exit 0`, falta o log da api).
 - [ ] **Assinar a release `v0.1.38`** e descartar rascunhos de `v0.1.36`/`v0.1.37`, se existirem (as tags não puderam ser apagadas).
 - [ ] **Chickie**: as branches `deploy/api`, `deploy/worker` e `deploy/scheduler` (no repo do chickie) têm o ajuste de URLs por partes,
   o cache `.sqlx` regenerado (a `main-api` não compila offline sem ele), o job de migrations e as filas duráveis do RabbitMQ 4.
