@@ -190,7 +190,10 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
-## v0.1.36 (2026-11-04): Podman + ufw (DNS dos serviços e saída dos containers)
+## v0.1.37 (2026-11-04): Podman + ufw (DNS dos serviços e saída dos containers)
+
+> A `v0.1.36` (daemon 0.1.30) foi marcada com um manual que recomendava uma gambiarra de rotação de senha: **descarte o rascunho dela**
+> (a tag ficou porque apagar tag remota foi bloqueado). A `v0.1.37` (daemon 0.1.31) é a mesma coisa com o texto corrigido.
 
 - **O problema** (achado ao subir o Chiquitos, Podman rootful + ufw `deny incoming/deny routed`): os nomes `rp_*` não resolvem
   dentro dos containers e nada sai para a internet, enquanto o IP direto funciona. O `aardvark-dns` escuta no endereço do host da
@@ -203,8 +206,9 @@ fora do ar não impede o outro (`fail-fast: false`).
 - **Validado num servidor real**, não só com `ufw` de mentira: DNS por nome, saída para a internet e portas internas com o isolamento
   ativo. O isolamento **entre dois projetos** foi exercitado à parte (ver `TODO.md`).
 - **`ServiceReload` não relê secrets** (só para e inicia o mesmo container): trocar um secret exige **redeploy**.
-- **Rotação de senha sem o agente ver o valor:** um serviço criado pelo assistente recebe senha gerada pelo daemon; renomear/mover o
-  secret (`SecretRename`/`SecretMove`) e um job com `ALTER USER` fazem a troca. Receita no `manual.md`/docs do agente.
+- **Rotação de senha:** feita no Chiquitos com um serviço descartável como gerador — **gambiarra, rejeitada pelo dono**; o recurso
+  certo (`SecretGenerate`/`SecretRotate`) está na Fase G do `docs/plano-credenciais-cifradas-e-storage.md`. O manual e as docs
+  **não** recomendam mais aquela receita. A `v0.1.36` tem o texto antigo: **não assine o rascunho**; use a v0.1.37.
 
 ## v0.1.35 (2026-11-03): credenciais cifradas, renomear e storage — daemon por `path`
 

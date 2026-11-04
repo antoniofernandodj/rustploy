@@ -15,6 +15,10 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
 - [ ] **Release com o `rustploy-podman-ufw`** (commitado no daemon, ainda sem release): só então fazer o deploy das docs (a
   seção "Podman e ufw" e a receita de bucket com `curl` já estão commitadas, mas o site ainda tem a receita errada com `aws-cli`).
   Testar o isolamento entre DOIS projetos no Podman + ufw (só um projeto foi exercitado).
+- [ ] **Fase G — gerar e rotacionar segredos sem ninguém ver o valor** (`SecretGenerate`/`SecretRotate`/`SecretGeneratePair`, botão "Gerar"/
+  "Rotacionar" na GUI e webui, `generate:` no manifesto, job-modelo de rotação por motor). Projetada em
+  `docs/plano-credenciais-cifradas-e-storage.md`; faltam 4 respostas do dono (§ Fase G). Sem isso, rotacionar uma senha exige uma pessoa.
+- [ ] **Descartar o rascunho da release `v0.1.36`** (texto antigo do manual) e assinar a `v0.1.37`.
 - [ ] **Chickie**: as branches `deploy/api`, `deploy/worker` e `deploy/scheduler` (no repo do chickie) têm o ajuste de URLs por partes,
   o cache `.sqlx` regenerado (a `main-api` não compila offline sem ele), o job de migrations e as filas duráveis do RabbitMQ 4.
   Levar para a `main` quando o dono decidir. Preencher no servidor: SMTP, Asaas, VAPID, `JWT_SECRET`, `OWNER_EMAIL`, `FRONTEND_BASE_URL`.
