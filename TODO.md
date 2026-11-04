@@ -209,5 +209,5 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
   deploy `Live` anterior vira `Stopped` em segundos (api 05:07:35, 14 s depois; worker 25 s depois), mas o container antigo só é trocado quando o novo
   fica pronto (até ~25 min depois) e o status do serviço segue `Running`. A GUI/webui mostram o serviço "parado" nesse intervalo. Não é o `stop.rs`
   (só roda no parar manual); achar o caminho que faz a transição e manter `Live` até a troca (ou usar `Pruning`, "substituído").
-- [ ] **Links de serviço e de projeto pararam de "brilhar" no hover** (relato do dono, 2026-11-04): investigar. Ainda não se sabe em qual cliente (GUI iced ou webui) nem desde
-  quando; conferir os dois (regra do repo: feature de UI entra nos dois) e o `.gss`/CSS do estado de hover dos links.
+- [ ] **Links de serviço e de projeto pararam de "brilhar" no hover** (relato do dono, 2026-11-04): investigar. Visto na **GUI** (iced). Não se sabe desde quando; conferir o `.gss`
+  do estado de hover dos links e se a reformatação dos `.gv` (commit `67e5422`, 2026-11-04) ou uma versão nova do `glacier-ui` mudou algo. Se a webui estiver certa, é só a GUI.
