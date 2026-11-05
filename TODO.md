@@ -15,6 +15,52 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
 - [ ] **Release com o `rustploy-podman-ufw`** (commitado no daemon, ainda sem release): só então fazer o deploy das docs (a
   seção "Podman e ufw" e a receita de bucket com `curl` já estão commitadas, mas o site ainda tem a receita errada com `aws-cli`).
   (O isolamento entre dois projetos já tem teste de laboratório; falta só rodar num servidor real com dois projetos.)
+- [ ] **Aposentar o `db_kind`: renomear para `product` (planejado em 2026-11-04, nada feito).** O campo nasceu quando só havia
+  banco; hoje guarda também broker e storage (`postgres`, `mongodb`, `mariadb`, `mysql`, `redis`, `kafka`, `rabbitmq`, `nats`,
+  `rustfs`, `minio`) e o nome mente. Meta: **zero ocorrências de `db_kind`** no código, nos YAMLs de produção, nos docs e no índice.
+  - **Nome proposto: `product`** (`ServiceSpec.product: Option<String>`) — é o *produto de software gerenciado* que roda no
+    serviço, vale para qualquer um da lista acima e para um futuro (`clickhouse`, `meilisearch`…); `None` = serviço comum
+    (app/compose). Descartados: `engine` (colide com `platform::engine` Docker/Podman e `databases::Engine`), `kind` (genérico
+    demais, já usado em `git_provider.kind`/`StorageKind`), `service_type` (confunde com `ServiceSource`).
+    **Confirmar o nome com o dono antes de começar.**
+  - **Escopo (≈ 90 ocorrências, 28 arquivos):** `rustploy-shared` (`domain/service.rs`, `ingress.rs`, `deployment.rs`: campo + doc comment,
+    que ainda diz "banco ou broker"); `rustploy-daemon` (22 arquivos: `features/wizard.rs`, `databases/{managed_view,shared_db,migration}.rs`,
+    `deploy/{shared_net,autostart}.rs`, `iac/{manifest,service_import,manifest_import,service_bundle}.rs`, `ingress/router.rs`,
+    `store/services.rs`, `api/handlers/{services,databases}/*`, `api/http/dashboard.rs`, `platform/connection.rs`, `webui/app.js`,
+    `webui/screens/service_detail.js`, `api/web_ui/headless_tests.rs`); `rustploy-gui` (`scripts/format/service_detail.luau`,
+    `scripts/handlers/services.luau`, README). Renomear também **parâmetros, variáveis e funções** que carregam o nome
+    (`internal_scheme(db_kind)`, `database_connection_url(db_kind…)`, `ctx.service_database_kind`, `Engine::from_kind`…), não só o campo;
+    helpers como `Engine::from_kind` ficam se o nome ainda fizer sentido para o recorte "só bancos". A chave `db:` do manifesto
+    de IaC (`ServiceManifest.db`, `manifest.rs:209`) vira `product:` junto — é o mesmo dado.
+  - **Dado em produção — ponto que pode quebrar (`serde(default)` engole a chave velha em silêncio):** o `ServiceSpec` é
+    gravado como está em `projects/<id>/project.yml` (store/infra, `SCHEMA = 1`). Se o campo mudar de nome sem migração, o parse
+    **não falha**: `db_kind:` vira campo desconhecido, `product` fica `None` e todo banco/broker/storage passa a ser tratado como
+    serviço comum (sem aba Connection, sem URL interna, sem rede compartilhada, sem autostart de dependência). Por isso:
+    1. **Migração de dados, não alias.** Subir `SCHEMA` para 2 e fazer `store::infra::migrate` reescrever `db_kind:` → `product:` em todo
+       `project.yml` na primeira carga (com backup do diretório antes, como o `backup_sqlite` já faz), gravando só depois de reler
+       com sucesso. Sem `#[serde(alias = "db_kind")]` permanente — ele manteria a referência viva. Se for preciso um alias para
+       fazer a leitura de transição, entra **no mesmo commit** da migração e sai na release seguinte.
+    2. **Espelho em git (`state_git`)**: o repositório remoto também tem `project.yml` com `db_kind`. A migração roda no diretório de
+       infra e o próximo sync/commit empurra o arquivo novo; conferir que o daemon novo **não** lê o repositório velho de volta
+       por cima (divergência) — testar em modo `commit` antes de `sync`.
+    3. **Editar o YAML de produção à mão só como plano B.** Cobrir os dois servidores (chiquitos e itemize). Comando de
+       conferência: `grep -rn db_kind <dir de infra>` tem que voltar vazio.
+    4. **Manifestos exportados** (`rustploy.yml` de "Exportar tudo") feitos antes: o importador deve recusar `db:` com mensagem clara
+       apontando para `product:` (ou aceitar com aviso por uma release), nunca ignorar em silêncio.
+  - **Compatibilidade de versões:** JSON da API troca de nome junto — GUI e webui velhas contra daemon novo perdem as abas de
+    banco/broker/storage (sem erro). Ordem: publicar `rustploy-shared` (**0.17.0**, depois da 0.16.0 pendente acima) → daemon (com
+    migração) → GUI/webui na **mesma release**; avisar que a GUI antiga precisa atualizar. A webui vem embutida no daemon, então já
+    acompanha.
+  - **Testes que provam:** (a) teste de migração com um `project.yml` real da produção como fixture (banco, broker, storage e um
+    serviço sem `db_kind`), antes/depois; (b) o teste de round-trip do `infra` com `product` preenchido; (c) `headless_tests.rs` e os
+    testes Luau (`glacier test`) já existentes, com o nome novo; (d) smoke em servidor de teste: abrir um postgres, um kafka e um
+    rustfs e ver a aba Connection.
+  - **Fecho:** `grep -rIn "db_kind" . --exclude-dir=target --exclude-dir=.git` vazio (inclui `docs/`, `docs/indice/*`, `README`s,
+    `AGENTS.md`); rodar `make index`; atualizar a memória do projeto. Docs históricos em `docs/arquivo/` que citam `db_kind` ganham
+    uma nota "renomeado para `product` em 2026-11" em vez de reescrita, mas a referência literal também some (trocar o termo).
+  - **Fica de fora (decisão pendente):** transformar `product` num enum tipado (`ServiceProduct { Postgres, Kafka, MinIo… }`) em vez
+    de `String`. Resolveria o "banco é o que sobra" de `dashboard::classify`, mas muda o protocolo e o YAML; deixar para depois do
+    rename, que já é grande por si.
 - [ ] **Geração e rotação de segredos** (`SecretGenerate`, `SecretRotate`, par VAPID/Ed25519, botões "Gerar"/"Rotacionar", `generate:` no manifesto,
   job-modelo por motor). Só projetado, em `docs/plano-geracao-e-rotacao-de-segredos.md`; faltam as respostas do dono (seções 2 e 3 do plano).
 - [ ] **Fase H — uma branch só com `watch_paths`** (último passo do plano de credenciais): o webhook do daemon passa a filtrar por arquivos alterados
@@ -64,6 +110,72 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
      em inglês (embutido no glacier), desalinhamento leve nas linhas de env da webui com o botão 🔒.
   6. ~~`~/.local/share/rustploy/db` (banco dev antigo, alterado por um teste meu)~~ — apagado pelo usuário em 2026-11-03.
 
+- [ ] **Infra as Code: trocar o "Exportar zip" do manifesto por "Baixar a infra" (zip dos YAMLs do `state_git`) e remover o resto (2026-11-04).**
+  Hoje o IaC é um formato **paralelo** ao estado real: `ManifestExportAll` gera um `rustploy.yml` + `rustploy.vars.toml` (valores `Plain`
+  redigidos para `${KEY}`, secrets como `secret:NOME`) e a GUI/webui montam um zip com isso (`manifest_zip.luau`, `webui/zip.js`).
+  Depois que o estado passou a viver em YAML no git (`store::infra`, `projects/<id>/project.yml`, `settings.yml`, `providers.yml`),
+  esse manifesto virou duplicação. O que o dono quer: um botão que **baixa a infra zipada**, e nada mais.
+  - **Novo comportamento:** "Baixar infra" entrega um zip com **a mesma árvore que o `state_git` grava no repositório** (o que está em
+    `store::infra`: `settings.yml`, `providers.yml`, `projects/<id>/project.yml`), com os segredos como `ENC[age:…]`, exatamente como
+    no git — nada em claro, nada de formato inventado. Serve de cópia de segurança fora do GitHub e para inspeção. Decidir se o
+    daemon monta o zip (um comando novo, ex.: `InfraDownload`, resposta com os bytes) ou devolve a árvore e o cliente zipa
+    (como hoje); a primeira é mais simples para os dois clientes e evita zip em Luau e em JS.
+  - **Onde fica o botão (decisão de 2026-11-04):** na própria aba **Sync** de Settings, abaixo do bloco de sync (é lá que a pessoa já
+    pensa em "estado da infra no git"). **A aba "Infra as Code" deixa de existir** nos dois clientes (GUI e webui), sem substituta:
+    sai a aba, o item de menu e a tela inteira, não só os botões de import/export.
+  - **Upload não entra:** subir um zip de volta é, na prática, a operação de **sync** (apontar o repositório e sincronizar). Ao
+    remover o import, a restauração a partir de arquivo vira "colocar a árvore num repositório e sincronizar" — documentar isso.
+  - **Remover:** os comandos `ManifestApply`, `ManifestExport`, `ManifestExportAll` e `ManifestImport` (e as respostas `ManifestBundle`/
+    `MissingEnvVars` que só eles usam) em `rustploy-shared`; os handlers e `features/iac/{manifest_apply,manifest_export,
+    manifest_export_all,manifest_import}.rs`; a **aba Infra as Code inteira** nos **dois** clientes (campos `manifest*` do
+    `webui/app.js`, `webui/zip.js`, `manifest_zip.luau`, a tela, o roteamento e a entrada de menu, mais as chaves de i18n que
+    ficarem órfãs nos catálogos `locales/`); o botão novo entra na aba Sync; o trecho do `agent/manual.md`; e o guia
+    `infra-as-code.mdx` do site (pt e en), que passa a descrever "Baixar infra" + sync. **Isto é uma quebra de protocolo:** sobe o
+    `rustploy-shared` (junto com o rename do `db_kind`, se for na mesma leva) e agentes que usam `ManifestApply` pelo `rpc` perdem o comando.
+  - **Cuidado — não confundir com o "pacote de serviço"** (`service_bundle`/`service_import`/`service_export`, copiar um serviço entre
+    servidores): é outra funcionalidade, **fica**. Antes de apagar `features/iac/manifest.rs`, ver quem mais usa os tipos dele
+    (`EnvDoc`, `ProjectManifest`…): `service_import.rs` e `service_bundle.rs` provavelmente dependem; o que for compartilhado
+    muda de lugar em vez de ser apagado. A chave `db:` do manifesto (item do rename `db_kind` → `product`) some junto, o que **reduz
+    o escopo daquele rename**: se este item sair primeiro, tirar `manifest.rs:209` da lista de lá.
+  - **Fecho:** `grep -rIn "ManifestExportAll\|ManifestImport\|ManifestApply\|manifest_zip" .` vazio (inclui `docs/indice`, o site
+    e o `rustploy-docs/dist` regenerado); `make index`; testes do `headless_tests.rs` que exercitam o import/export ajustados;
+    verificar a pegadinha do cache imutável da webui ao testar (ctrl+shift+r).
+- [ ] **Backup de volumes para S3, com restauração em poucos cliques (anotado em 2026-11-04, ainda sem projeto).** Só os **volumes**
+  (dados de banco, uploads, o que o container grava): a configuração/infra **não** entra, porque já é sincronizada com o GitHub
+  pelo `state_git`. Destino: qualquer S3 (AWS, Backblaze, R2, ou o próprio Storage MinIO/RustFS do rustploy em outra máquina).
+  - **Requisito central: plug and play.** Servidor formatado → instalar o rustploy → informar o destino S3 + a chave de
+    recuperação (a mesma `age_identity` do `state_git`) → **o rustploy restaura infra (git) e volumes (S3) sozinho**, na ordem
+    certa (volumes antes de subir o serviço; `depends_on` já resolve a ordem entre serviços). Meta: poucos cliques, sem editar
+    arquivo nem rodar comando. A restauração é o produto; o backup só vale se ela funcionar — testar com servidor limpo de verdade.
+  - **Pontos em aberto, além dos cinco abaixo (2026-11-04):** (6) onde mora a configuração do destino S3 — como a restauração
+    começa num servidor vazio, o destino e a credencial precisam estar no `state_git` (cifrados) ou ser digitados no primeiro
+    acesso; decidir qual (ovo e galinha com a chave `age`); (7) quais volumes entram: só os nomeados do Compose, também
+    bind mounts, e como ficam os volumes de serviços que o usuário não quer salvar (cache, `node_modules`); (8) o que fazer ao
+    restaurar num servidor com **outro IP/domínio** (ingress, TLS, webhooks) e se os volumes já existentes são sobrescritos;
+    (9) restaurar tudo de uma vez ("recuperar servidor") versus um serviço só ("voltar o banco ao backup de ontem"); (10) aviso
+    de falha do backup (hoje não há canal de notificação) e verificação periódica de que o backup é restaurável;
+    (11) custo/limite: tamanho máximo, compressão e o que fazer com volumes de dezenas de GB.
+  - **Dump nativo de banco é o caso de uso principal, não um extra (decisão de 2026-11-04):** é a única tarefa recorrente que
+    não vem do código do dono (migrations, seed, bucket, lint e testes já vêm dos repos dele, via `git_source` do job, e
+    `chickie-setup`). Por isso o dump (`pg_dump`, `mongodump`, `mysqldump`, `redis-cli --rdb`) entra **como parte deste backup**,
+    com restauração em poucos cliques, e **não** como "template de job" para o usuário montar. Templates de job foram avaliados
+    e descartados como funcionalidade geral; reavaliar só se uma receita aparecer repetida em vários projetos.
+  - **A decidir (perguntar ao dono antes de projetar):** (1) consistência — parar o serviço durante o backup, ou usar dump nativo
+    para banco (`pg_dump`, `mongodump`…, já há o tipo do serviço e `managed_database`) e cópia crua só para volume comum;
+    (2) agendamento e retenção por serviço (padrão sensato ligado para banco, desligado para o resto?);
+    (3) cifrar os backups com `age` antes de subir (a chave já existe) — provavelmente sim, não deve ir nada em claro;
+    (4) incremental/deduplicado (restic-like) ou tar completo por execução (mais simples, mais caro);
+    (5) credenciais do S3 guardadas como secret cifrado, nunca em `config.toml` em claro.
+  - **Pontos de contato:** `features/backup` (o antigo backup de env, aposentado na Fase 0 do plano de backup em git — não
+    reaproveitar o nome sem ler o porquê), `features/jobs` (agendamento e execução one-shot), `state_git` (a restauração da
+    infra, que deve ser o passo 1 do mesmo fluxo), Storage (RustFS/MinIO como destino), GUI + webui (os dois clientes).
+  - **Teste obrigatório de aceitação:** criar postgres + app com volume, gravar dados, fazer o backup, formatar/subir servidor
+    limpo, restaurar pelo fluxo da UI e conferir que os dados voltaram. O item "Testar a restauração com Docker/Podman rodando como
+    root" do backup em git acima é o mesmo ambiente de teste — fazer os dois juntos.
+- [ ] **GUI e webui: abrir Settings deve disparar sozinho o "Refresh git list" (2026-11-04).** Hoje, ao ir direto para a aba **Sync**, a
+  lista de contas Git fica vazia até a pessoa voltar à aba **Git** e atualizar a lista à mão. Ao clicar em **Settings**, os **dois**
+  clientes (GUI e webui) devem disparar a mesma ação do botão "Refresh git list", para que a Sync já encontre a lista carregada,
+  em qualquer ordem de navegação.
 - [ ] **i18n (GUI e webui): o que ficou de fora da primeira versão (2026-10-31).** Inglês padrão + pt-BR a um clique
   já valem nos dois clientes (ver "Idiomas" no `AGENTS.md`). Pendências: (1) texto que o código grava em estado
   (status, toast, `ctx.*_message`) fica no idioma em que nasceu — só a linha de status do login foi tratada;
@@ -209,5 +321,3 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
   deploy `Live` anterior vira `Stopped` em segundos (api 05:07:35, 14 s depois; worker 25 s depois), mas o container antigo só é trocado quando o novo
   fica pronto (até ~25 min depois) e o status do serviço segue `Running`. A GUI/webui mostram o serviço "parado" nesse intervalo. Não é o `stop.rs`
   (só roda no parar manual); achar o caminho que faz a transição e manter `Live` até a troca (ou usar `Pruning`, "substituído").
-- [ ] **Links de serviço e de projeto pararam de "brilhar" no hover** (relato do dono, 2026-11-04): investigar. Visto na **GUI** (iced). Não se sabe desde quando; conferir o `.gss`
-  do estado de hover dos links e se a reformatação dos `.gv` (commit `67e5422`, 2026-11-04) ou uma versão nova do `glacier-ui` mudou algo. Se a webui estiver certa, é só a GUI.
