@@ -63,9 +63,13 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
     rename, que já é grande por si.
 - [ ] **Geração e rotação de segredos** (`SecretGenerate`, `SecretRotate`, par VAPID/Ed25519, botões "Gerar"/"Rotacionar", `generate:` no manifesto,
   job-modelo por motor). Só projetado, em `docs/plano-geracao-e-rotacao-de-segredos.md`; faltam as respostas do dono (seções 2 e 3 do plano).
-- [ ] **Fase H, item 4 — apps do chickie numa branch só** (`watch_paths` por serviço, jobs na `main`, aposentar `main-*` e o `make sync`).
-  O filtro do webhook já está no código do daemon (commitado), mas **só vale em produção depois da release do daemon** e do deploy das docs.
+- [ ] **Fase H, item 4 — webhooks e branches do chickie.** Serviços e jobs já estão na `main` com `watch_paths` (2026-11-05). Falta: criar os 3
+  webhooks no GitHub (um por serviço; o repo não tem nenhum), testar com um push real, e só então aposentar `main-*` e o `make sync` do chickie.
   `docs/plano-credenciais-cifradas-e-storage.md` § Fase H.
+- [ ] **Sem registro de deploy da api e do worker após a atualização para 0.1.33** (Chiquitos, 2026-11-05): os containers rodam (api
+  `rp_api:01M6JF8R`), mas `DeployHistory` da api volta vazio e os deploys `dep_01M6JF8R…` (api) e `dep_01M6JDZ7…` (worker) não aparecem em
+  `list_deploys`; `live_container_id` é `null` nos dois (o do scheduler está certo). `updated_at` de ambos = 01:27:36, ~5 min depois do daemon subir.
+  Investigar o que o início da 0.1.33 (ou a recuperação) faz com serviços Git; antes do próximo deploy deles, conferir se o deploy cria o registro.
 - [ ] **Migrations embutidas no `chickie-setup`** (`include_dir!` + `build.rs` com `rerun-if-changed=migrations`) em vez de ler `.sql` do disco; tira o `COPY migrations` da imagem.
 - [ ] **Redeploy do worker e do scheduler** com o código novo (Fase G: a api já foi verificada) e **ajustar a receita de bucket nas docs** (ainda ensina `curl`).
 - [ ] **RabbitMQ: "no heartbeat received from server for too long"** no log da api (2 erros 2 min após o boot, 2026-11-04 04:23); investigar se é pré-existente.

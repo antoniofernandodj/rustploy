@@ -187,7 +187,7 @@ chickie criava o bucket e rodava as migrations na própria subida. Agora **nada 
 - **Custo que sobrou:** as branches `main`, `main-api`, `main-worker`, `main-scheduler` e
   `main-setup` precisam do `make sync` (merge da `main` em cada uma). É isso que a Fase H elimina.
 
-### Fase H — Uma branch só, com `watch_paths` (itens 1–3 FEITOS em 2026-11-05; o 4, os apps, falta)
+### Fase H — Uma branch só, com `watch_paths` (itens 1–3 FEITOS em 2026-11-05; o 4 configurado, faltam webhooks e aposentar as branches)
 
 Hoje o chickie tem uma branch por serviço e o `make sync` porque o webhook só filtrava o push pela
 **branch**. O campo `ServiceSpec.watch_paths` existia (GUI e webui já tinham o campo) mas o deploy não o usava.
@@ -202,11 +202,17 @@ Hoje o chickie tem uma branch por serviço e o `make sync` porque o webhook só 
 2. **GUI e webui — já existiam** (campo "WATCH PATHS (separados por vírgula)"); nada a fazer.
 3. **Docs e manifesto — FEITO** (pt e en: guia de webhooks, referência da API, tabela do manifesto). **Falta o deploy
    do site** e a release do daemon para o filtro valer em produção.
-4. **Os apps — FALTA.** Cada serviço do chickie passa a apontar para a `main`, com seu `watch_paths`
-   (api: `crates/api`, `crates/core`, `dockerfiles/api.dockerfile`, `Cargo.*`; análogo para worker e scheduler);
-   os jobs `migrations`/`bucket` passam para a `main` (e a `main-setup` some); as branches `main-*` e o alvo `sync` do
-   Makefile são aposentados (arquivar, não apagar). **Só depois da release do daemon**, e conferindo antes que o
-   `watch_paths` de cada app cobre tudo de que o build depende (um caminho esquecido = push que não redeploya).
+4. **Os apps — configurados em 2026-11-05; faltam os webhooks e aposentar as branches.** Com o servidor na 0.1.33, os três
+   serviços do chickie (api, worker, scheduler) passaram para a branch **`main`** com `watch_paths` próprios, e os jobs
+   `migrations` e `bucket` também (as árvores de `main`, `main-api`, `main-worker`, `main-scheduler` e `main-setup` eram idênticas,
+   então a troca não mudou nenhum build). Caminhos, tirados do que cada Dockerfile copia e de cada crate depender só do
+   `chickie-core`: **api** `crates/api, crates/core, Cargo.toml, Cargo.lock, .sqlx, data, migrations, dockerfiles/api.dockerfile`
+   (`migrations` para uma migration nova redeployar quem a aplica no pré-deploy); **worker** `crates/worker, crates/core, Cargo.toml,
+   Cargo.lock, .sqlx, dockerfiles/worker.dockerfile`; **scheduler** o mesmo com `crates/scheduler` e `scheduler.toml`. Job de
+   migrations rodado da `main`: `exit 0`.
+   **Faltam:** (a) o repositório `chickie` **não tem nenhum webhook no GitHub** (`gh api .../hooks` → 0): hoje todo deploy é
+   manual, então o `watch_paths` só passa a atuar quando os webhooks (um por serviço) forem criados; (b) aposentar as branches
+   `main-*` e o alvo `sync` do Makefile do chickie (arquivar, não apagar), só depois de os webhooks serem testados com um push real.
 
 **Ordem:** release do daemon → item 4.
 
