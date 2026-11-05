@@ -192,7 +192,7 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
   `webui/locales/<idioma>.js`) e a entrada no seletor; (6) mensagem montada por concatenação de pedaços exige
   a mesma ordem de palavras nos idiomas — trocar por mensagens inteiras com `{n}` onde a ordem importar.
 
-- [ ] **Dependências entre serviços + autostart no boot.** Plano de 2026-07-11 em
+- [x] **Dependências entre serviços + autostart no boot** — conferido em 2026-11-05: `depends_on` e `autostart` existem no `ServiceSpec`, há `deploy/autostart.rs` e os campos aparecem na GUI (`views/service/advanced.gv`) e na webui (`service_detail.js`); o texto abaixo é o original (desatualizado). Plano de 2026-07-11 em
   `docs/plano-dependencias-e-autostart.md`, nunca executado (não há `depends_on` nem `autostart` no
   daemon). Depois de um reboot da VPS a ordem de subida (banco antes da app) depende do `restart:` do
   container. Os passos que citam o TUI estão obsoletos; a UI vai nos dois clientes (GUI e webui).
