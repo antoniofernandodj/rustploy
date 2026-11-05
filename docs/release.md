@@ -203,6 +203,12 @@ fora do ar não impede o outro (`fail-fast: false`).
 - **Para que serve:** várias aplicações na mesma branch (chickie: aposentar as branches `main-*` e o `make sync`, Fase H do
   `plano-credenciais-cifradas-e-storage.md`). Configurar os apps só **depois** desta release instalada no servidor.
 - O `table_link.gv` do app (correção do hover) estava só na árvore de trabalho e **não** entrou nesta release.
+- **Release publicada e conferida (2026-11-05):** `v0.1.39` com os 5 arquivos e 4 `.minisig`. O comando de uma linha do README, pela URL
+  pública, num `debian:12` limpo (Podman): daemon `0.1.33-1` e app `0.1.39-1` instalaram. O binário do `.deb` reporta 0.1.33 e contém o filtro.
+  **Não testado:** `install.ps1` no Windows (não mudou) e o daemon rodando sob systemd (o contêiner não tem). Docs publicadas depois da release.
+- **Armadilhas desta vez:** (1) `tools/sign-release.sh` logo depois do `git push` da tag responde "release não encontrada": o rascunho só existe quando
+  o job `release` termina (~20 min); espere o CI. (2) `gh run download` precisa rodar **dentro** de um clone (`-R` ou `cd`), senão não baixa nada.
+  (3) `make lint` roda um clippy mais estrito que `cargo clippy -p rustploy`: pega `vec!` desnecessário em teste; rode o `make lint` inteiro antes do bump.
 
 ## v0.1.38 (2026-11-04): Podman + ufw (DNS dos serviços e saída dos containers)
 
