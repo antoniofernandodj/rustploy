@@ -102,8 +102,9 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
 - [ ] **Backup em git: o que falta para dar o plano por fechado (2026-11-03).** Fases 0–9 do
   `docs/plano-backup-estado-em-git.md` estão feitas e publicadas (v0.1.34: daemon 0.1.28, GUI 0.1.38; chiquitos já
   roda o daemon 0.1.28). Faltam, nesta ordem:
-  1. **Ligar o sync no chiquitos**: PAT + repositório **privado**, começando em modo `commit`, depois `sync`.
-     Hoje está `off`. Resolver antes a auditoria de valores em claro (`InfraAudit`) se aparecer algo.
+  1. ~~**Ligar o sync no chiquitos**: PAT + repositório **privado**, começando em modo `commit`, depois `sync`.~~ — **feito**
+     (conferido em 2026-11-05): modo `sync`, repositório privado `chickie-infra`, último push OK às 03:00 UTC, `ahead/behind` 0,
+     `blocked_by_plaintext` 0, `recovery_configured: true`, sem pausa nem erro.
   2. **Testar a restauração com Docker/Podman rodando como root** (VM ou servidor de teste): servidor limpo +
      `age_identity` = chave privada de recuperação + sync no mesmo repositório → `base` e `app` precisam ficar
      **Live** em ordem. O E2E de 2026-11-02 (R10.13) provou estado, secret e ordem, mas o healthcheck por IP não
