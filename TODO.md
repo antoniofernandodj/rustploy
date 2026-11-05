@@ -179,7 +179,7 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
   - **Teste obrigatório de aceitação:** criar postgres + app com volume, gravar dados, fazer o backup, formatar/subir servidor
     limpo, restaurar pelo fluxo da UI e conferir que os dados voltaram. O item "Testar a restauração com Docker/Podman rodando como
     root" do backup em git acima é o mesmo ambiente de teste — fazer os dois juntos.
-- [ ] **GUI e webui: abrir Settings deve disparar sozinho o "Refresh git list" (2026-11-04).** Hoje, ao ir direto para a aba **Sync**, a
+- [x] **GUI e webui: abrir Settings deve disparar sozinho o "Refresh git list" (2026-11-04).** Hoje, ao ir direto para a aba **Sync**, a — feito em 2026-11-05 (webui: `nav('settings')`; GUI: `nav_settings`/`state_git_open`); aguarda a próxima release.
   lista de contas Git fica vazia até a pessoa voltar à aba **Git** e atualizar a lista à mão. Ao clicar em **Settings**, os **dois**
   clientes (GUI e webui) devem disparar a mesma ação do botão "Refresh git list", para que a Sync já encontre a lista carregada,
   em qualquer ordem de navegação.
