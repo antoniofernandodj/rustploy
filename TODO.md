@@ -63,9 +63,8 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
     rename, que já é grande por si.
 - [ ] **Geração e rotação de segredos** (`SecretGenerate`, `SecretRotate`, par VAPID/Ed25519, botões "Gerar"/"Rotacionar", `generate:` no manifesto,
   job-modelo por motor). Só projetado, em `docs/plano-geracao-e-rotacao-de-segredos.md`; faltam as respostas do dono (seções 2 e 3 do plano).
-- [ ] **Fase H, item 4 — webhooks e branches do chickie.** Serviços e jobs já estão na `main` com `watch_paths` (2026-11-05). Falta: criar os 3
-  webhooks no GitHub (um por serviço; o repo não tem nenhum), testar com um push real, e só então aposentar `main-*` e o `make sync` do chickie.
-  `docs/plano-credenciais-cifradas-e-storage.md` § Fase H.
+- [ ] **Webhook aceitar `application/x-www-form-urlencoded`** (`payload=<json>`): o padrão da UI do GitHub é `form`, e nele o `watch_paths` e o
+  filtro de branch são ignorados em silêncio (deploya tudo). Hoje só funciona com `content_type: json`. Também considerar ignorar o `ping`.
 - [ ] **Sem registro de deploy da api e do worker após a atualização para 0.1.33** (Chiquitos, 2026-11-05): os containers rodam (api
   `rp_api:01M6JF8R`), mas `DeployHistory` da api volta vazio e os deploys `dep_01M6JF8R…` (api) e `dep_01M6JDZ7…` (worker) não aparecem em
   `list_deploys`; `live_container_id` é `null` nos dois (o do scheduler está certo). `updated_at` de ambos = 01:27:36, ~5 min depois do daemon subir.

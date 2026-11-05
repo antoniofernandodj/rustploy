@@ -187,7 +187,7 @@ chickie criava o bucket e rodava as migrations na própria subida. Agora **nada 
 - **Custo que sobrou:** as branches `main`, `main-api`, `main-worker`, `main-scheduler` e
   `main-setup` precisam do `make sync` (merge da `main` em cada uma). É isso que a Fase H elimina.
 
-### Fase H — Uma branch só, com `watch_paths` (itens 1–3 FEITOS em 2026-11-05; o 4 configurado, faltam webhooks e aposentar as branches)
+### Fase H — Uma branch só, com `watch_paths` (FEITA em 2026-11-05)
 
 Hoje o chickie tem uma branch por serviço e o `make sync` porque o webhook só filtrava o push pela
 **branch**. O campo `ServiceSpec.watch_paths` existia (GUI e webui já tinham o campo) mas o deploy não o usava.
@@ -210,9 +210,12 @@ Hoje o chickie tem uma branch por serviço e o `make sync` porque o webhook só 
    (`migrations` para uma migration nova redeployar quem a aplica no pré-deploy); **worker** `crates/worker, crates/core, Cargo.toml,
    Cargo.lock, .sqlx, dockerfiles/worker.dockerfile`; **scheduler** o mesmo com `crates/scheduler` e `scheduler.toml`. Job de
    migrations rodado da `main`: `exit 0`.
-   **Faltam:** (a) o repositório `chickie` **não tem nenhum webhook no GitHub** (`gh api .../hooks` → 0): hoje todo deploy é
-   manual, então o `watch_paths` só passa a atuar quando os webhooks (um por serviço) forem criados; (b) aposentar as branches
-   `main-*` e o alvo `sync` do Makefile do chickie (arquivar, não apagar), só depois de os webhooks serem testados com um push real.
+   **Webhooks e aposentadoria — FEITOS em 2026-11-05.** O dono criou os 3 webhooks (um por serviço, evento `push`). Eles nasceram com
+   `content_type: form`, e nesse formato o corpo é `payload=…` (não JSON): `extract_push_branch`/`extract_changed_files` voltam `None` e
+   todo push deployaria os três. Trocado para `json`. Armadilha: o `ping` que o GitHub manda ao criar o hook (sem `ref` nem `commits`)
+   dispara um deploy de cada serviço. **Teste real:** push `11d851c` só em `crates/worker` → os 3 hooks `200`, **só o worker** redeployou
+   (`Live`, ~16 min); api e scheduler `skipped`. As branches `main-*` viraram as tags `archive/main-{api,worker,scheduler,setup}` e foram
+   apagadas do remoto; o alvo `sync` do Makefile do chickie ficou comentado. Possível melhoria: o daemon aceitar também `payload=` (form).
 
 **Ordem:** release do daemon → item 4.
 
