@@ -12,7 +12,7 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
 - [ ] **Chave S3 própria por app** no Storage (hoje a app usaria a chave root) e rotacionar a senha do `db` do Chiquitos
   (foi exibida a um agente antes da Fase A). Ver `docs/plano-credenciais-cifradas-e-storage.md`.
 - [ ] **Template `minio` do catálogo** aponta para `minio/minio` (não puxável): trocar a imagem no blueprint.
-- [ ] **Release com o `rustploy-podman-ufw`** (commitado no daemon, ainda sem release): só então fazer o deploy das docs (a
+- [x] **Release com o `rustploy-podman-ufw`** (commitado no daemon, ainda sem release): só então fazer o deploy das docs (a
   seção "Podman e ufw" e a receita de bucket com `curl` já estão commitadas, mas o site ainda tem a receita errada com `aws-cli`).
   (O isolamento entre dois projetos já tem teste de laboratório; falta só rodar num servidor real com dois projetos.)
 - [ ] **Aposentar o `db_kind`: renomear para `product` (planejado em 2026-11-04, nada feito).** O campo nasceu quando só havia
@@ -72,10 +72,10 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
   `rp_api:01M6JF8R`), mas `DeployHistory` da api volta vazio e os deploys `dep_01M6JF8R…` (api) e `dep_01M6JDZ7…` (worker) não aparecem em
   `list_deploys`; `live_container_id` é `null` nos dois (o do scheduler está certo). `updated_at` de ambos = 01:27:36, ~5 min depois do daemon subir.
   Investigar o que o início da 0.1.33 (ou a recuperação) faz com serviços Git; antes do próximo deploy deles, conferir se o deploy cria o registro.
-- [ ] **Migrations embutidas no `chickie-setup`** (`include_dir!` + `build.rs` com `rerun-if-changed=migrations`) em vez de ler `.sql` do disco; tira o `COPY migrations` da imagem.
-- [ ] **Redeploy do worker e do scheduler** com o código novo (Fase G: a api já foi verificada) e **ajustar a receita de bucket nas docs** (ainda ensina `curl`).
+- [x] **Migrations embutidas no `chickie-setup`** (`include_dir!` + `build.rs` com `rerun-if-changed=migrations`) em vez de ler `.sql` do disco; tira o `COPY migrations` da imagem.
+- [x] **Redeploy do worker e do scheduler** com o código novo (Fase G: a api já foi verificada) e **ajustar a receita de bucket nas docs** (ainda ensina `curl`).
 - [ ] **RabbitMQ: "no heartbeat received from server for too long"** no log da api (2 erros 2 min após o boot, 2026-11-04 04:23); investigar se é pré-existente.
-- [ ] **Assinar a release `v0.1.38`** e descartar rascunhos de `v0.1.36`/`v0.1.37`, se existirem (as tags não puderam ser apagadas).
+- [x] **Assinar a release `v0.1.38`** e descartar rascunhos de `v0.1.36`/`v0.1.37`, se existirem (as tags não puderam ser apagadas).
 - [ ] **Chickie**: as branches `deploy/api`, `deploy/worker` e `deploy/scheduler` (no repo do chickie) têm o ajuste de URLs por partes,
   o cache `.sqlx` regenerado (a `main-api` não compila offline sem ele), o job de migrations e as filas duráveis do RabbitMQ 4.
   Levar para a `main` quando o dono decidir. Preencher no servidor: SMTP, Asaas, VAPID, `JWT_SECRET`, `OWNER_EMAIL`, `FRONTEND_BASE_URL`.
