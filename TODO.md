@@ -9,6 +9,7 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
 
 - [x] **Publicar o `rustploy-shared` 0.16.0 e tirar o `path` do daemon** (decisão de 2026-11-03: até lá `cargo install
   rustploy` entrega a 0.1.28 e o `rustploy-daemon` não compila sozinho). Passos em `docs/release.md` (v0.1.35).
+- [ ] **Publicar o app 0.1.41 (release v0.1.41)** — corrige a janela de logs da v0.1.40 (`format.history_rows` não estava na fachada `format.luau`; erro "attempt to call a nil value" ao abrir **Logs**). O código já está na `main` do `rustploy-gui` (`9beeca0`, `Cargo.toml` em 0.1.41, `--dry-run` do cargo ok) e instalável com `make install-gui`. **Falta o publish:** `cargo publish` do `rustploy-gui` (o crates.io está na 0.1.40), entrada da v0.1.41 em `docs/release.md`, CI sem publicar, tag `v0.1.41`, assinatura (`tools/sign-release.sh v0.1.41`) e conferir o instalador num `debian:12`. O daemon 0.1.34 e o shared 0.17.0 não mudam. Depois disso, conferir a janela de logs numa GUI instalada de verdade (e o "Carregar anteriores" num serviço que não seja Compose).
 - [ ] **Chave S3 própria por app** no Storage (hoje a app usaria a chave root) e rotacionar a senha do `db` do Chiquitos
   (foi exibida a um agente antes da Fase A). Ver `docs/plano-credenciais-cifradas-e-storage.md`.
 - [ ] **Template `minio` do catálogo** aponta para `minio/minio` (não puxável): trocar a imagem no blueprint.
