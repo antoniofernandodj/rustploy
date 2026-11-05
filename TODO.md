@@ -63,8 +63,11 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
     rename, que já é grande por si.
 - [ ] **Geração e rotação de segredos** (`SecretGenerate`, `SecretRotate`, par VAPID/Ed25519, botões "Gerar"/"Rotacionar", `generate:` no manifesto,
   job-modelo por motor). Só projetado, em `docs/plano-geracao-e-rotacao-de-segredos.md`; faltam as respostas do dono (seções 2 e 3 do plano).
-- [ ] **Webhook aceitar `application/x-www-form-urlencoded`** (`payload=<json>`): o padrão da UI do GitHub é `form`, e nele o `watch_paths` e o
-  filtro de branch são ignorados em silêncio (deploya tudo). Hoje só funciona com `content_type: json`. Também considerar ignorar o `ping`.
+- [ ] **Webhook: o daemon deve aceitar os dois formatos de corpo, `application/json` e `application/x-www-form-urlencoded`** (`payload=<json>`,
+  com percent-decoding; escolher pelo `Content-Type`). O padrão da UI do GitHub é `form`, e hoje nele o `watch_paths` e o filtro de branch são
+  ignorados em silêncio (deploya tudo); só funciona com `content_type: json`. Ajustar `extract_push_branch`/`extract_changed_files` em
+  `api/http/public_routes.rs` (já existe um parser de form no arquivo), com testes dos dois formatos, e atualizar o guia de webhooks (pt/en).
+  Considerar também ignorar o `ping` do GitHub, que hoje dispara um deploy.
 - [ ] **Sem registro de deploy da api e do worker após a atualização para 0.1.33** (Chiquitos, 2026-11-05): os containers rodam (api
   `rp_api:01M6JF8R`), mas `DeployHistory` da api volta vazio e os deploys `dep_01M6JF8R…` (api) e `dep_01M6JDZ7…` (worker) não aparecem em
   `list_deploys`; `live_container_id` é `null` nos dois (o do scheduler está certo). `updated_at` de ambos = 01:27:36, ~5 min depois do daemon subir.
