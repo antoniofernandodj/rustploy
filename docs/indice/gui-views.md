@@ -100,8 +100,6 @@
 
 ### gitsync.gv
 
-### iac.gv
-
 ### maintenance.gv
 
 ### updates.gv

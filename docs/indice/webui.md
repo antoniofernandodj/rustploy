@@ -133,9 +133,7 @@ function savePrefs(preferences)
     gitProviderRefresh()
     gitProviderConnect() — Mesmas validações de handlers/settings.luau::gp_connect: GitHub cai pro github.com se a Base URL vie…
     gitProviderDelete(providerId)
-    manifestExport() — O manifesto é um `.zip` com `rustploy.yml` + `rustploy.vars.toml`, como no app desktop (handlers/set…
-    manifestPickZip(event) — "Importar de um .zip…": lê e VALIDA o zip (exatamente um .yml e um .toml na raiz, nada mais — mesmas…
-    manifestImport() — 3 formas de resposta possíveis (mesma distinção de handlers/settings.luau::manifest_import): Missing…
+    infraDownload() — "Baixar infra": o daemon devolve os mesmos arquivos que o `state_git` grava no repositório (secrets …
     dockerCleanupApplyConfig(config) — Recorrência (Option<Recurrence>, externally-tagged) → campos do formulário — mesmo formato do unpack…
     dockerCleanupLoad()
     dockerCleanupBuildRecurrence()
@@ -144,6 +142,9 @@ function savePrefs(preferences)
     serviceStop()
     serviceReload()
     cleanLogEntry(logEntry) — LogEntry/LogLine cru → { stream, line, timestamp } com ANSI limpo e truncado (defesa contra uma linh…
+    historyToLines(entries, previousContainer) — Entradas do LogsHistory (ordem cronológica) → linhas da tela, com um separador onde o container muda…
+    firstLogContainer() — Container da primeira linha real da tela (para o separador ao prepor histórico).
+    serviceLogLoadOlder() — "Carregar anteriores": a página de log guardado anterior ao que a tela já mostra.
     startServiceLogs()
     stopServiceLogs()
     setServiceTab(tab)
@@ -250,7 +251,7 @@ function registerIcons(Alpine)
 ### index.html — Casca única da webui (Alpine.js): login, shell e todas as telas, uma seção por view, cada uma com o …
 seções: Login, Shell (sidebar + topbar + conteúdo), Deploy Engine, Monitoring, Ingress, Docker, Schedules, Modais globais de Jobs, Settings, Projects, Projeto aberto, Novo serviço (wizard por passos, porta de new_service.gv), Janela: novo/editar projeto (wm.js), Janela: exportar serviço (screens/service_bundle.js), Janela: logs ao vivo do serviço (destacável da aba Logs), Detalhe de serviço
 x-data: dashboard, deployEngine, docker, ingress, login, monitoring, newService, projectDetail, projectWin, projects, running, schedules, serviceDetail, serviceExport, serviceImport, settings
-chama: String, abortDeployment, addDomain, addEnvVar, addServiceSecret, analyze, cancel, cancelCompose, chooseEnv, clear, clearFinished, close, closeBuildLog, closeDetail, closeEnvText, closeJobActions, closeJobLogs, closeNewJob, closeNewService, closeProjectWin, closeTokenModal, copy, copySecret, copyServiceSecret, copyText, copyToClipboard, create, createSharedDatabase, deleteDomain, deleteEnvVar, deleteProject, deleteSecret, deleteService, deleteServiceSecret, deleteSharedDatabase, dependencyAdd, dependencyDelete, deployRollback, deployServiceFromList, deployStart, discardOldDatabase, disconnect, dismissToast, dockerCleanupRunNow, dockerCleanupSave, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, dockerStopContainer, download, dragEnd, dragStart, dropOn, envToProject, envToSecret, gitProviderConnect, gitProviderDelete, gitProviderRefresh, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDatabase, gotoImport, gotoStorage, gotoTemplate, gotoType, hideSecret, hideServiceSecret, initAdvancedForm, initGeneralForm, initHealthcheckForm, jobDelete, jobRebuild, jobRunCancel, jobRunNow, jobToggle, jobWarm, loadMigration, manifestExport, manifestImport, manifestPickZip, nav, newJobBack, newJobCreate, newJobGitProviderPick, newJobGitRepoPick, newJobPickNoService, newJobPickProject, newJobPickService, newJobSetSourceTab, newRegistryTokenCreate, onArchiveFileChange, open, openDetail, openEditJob, openEnvText, openExportWin, openJobActions, openJobLogs, openNewJob, openNewService, openProject, openProjectWin, openService, openTokenModal, persistPrefs, pickAll, pickBroker, pickDatabase, pickFile, pickNone, pickStorage, pickSuggested, pickTemplate, preDeployCheckAdd, preDeployCheckDelete, preDeployCheckMove, projectEnvToSecret, projectEnvToService, projectRename, projectSecretToEnv, projectSecretToService, queueCancel, queuePromote, queueTogglePause, regenWebhook, registryCloseRepo, registryGc, registryOpenRepo, registryRemoveRepo, registryRemoveTag, registryRemoveToken, removeDeployment, renameService, reset, revealSecret, revealServiceSecret, rollbackMigration, saveAdvanced, saveCompose, saveEnvText, saveHealthcheck, saveSource, searchChanged, select, serviceReload, serviceRename, serviceSecretToEnv, serviceSecretToProject, serviceStop, serviceWarm, set, setProviderTab, setServiceTab, setShared, settingsSave, showSharedDatabase, startMigration, stateGitAllowFinding, stateGitConfigure, stateGitDismissRemoval, stateGitFormLoad, stateGitOpen, stateGitResolve, stateGitResume, stateGitSyncNow, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDatabase, submitSecret, submitStorage, submitTemplate, toggleReveal, updateApply, updateCheckNow, updateRollback, uploadArchive, viewBuildLog
+chama: String, abortDeployment, addDomain, addEnvVar, addServiceSecret, analyze, cancel, cancelCompose, chooseEnv, clear, clearFinished, close, closeBuildLog, closeDetail, closeEnvText, closeJobActions, closeJobLogs, closeNewJob, closeNewService, closeProjectWin, closeTokenModal, copy, copySecret, copyServiceSecret, copyText, copyToClipboard, create, createSharedDatabase, deleteDomain, deleteEnvVar, deleteProject, deleteSecret, deleteService, deleteServiceSecret, deleteSharedDatabase, dependencyAdd, dependencyDelete, deployRollback, deployServiceFromList, deployStart, discardOldDatabase, disconnect, dismissToast, dockerCleanupRunNow, dockerCleanupSave, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, dockerStopContainer, download, dragEnd, dragStart, dropOn, envToProject, envToSecret, gitProviderConnect, gitProviderDelete, gitProviderRefresh, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDatabase, gotoImport, gotoStorage, gotoTemplate, gotoType, hideSecret, hideServiceSecret, infraDownload, initAdvancedForm, initGeneralForm, initHealthcheckForm, jobDelete, jobRebuild, jobRunCancel, jobRunNow, jobToggle, jobWarm, loadMigration, nav, newJobBack, newJobCreate, newJobGitProviderPick, newJobGitRepoPick, newJobPickNoService, newJobPickProject, newJobPickService, newJobSetSourceTab, newRegistryTokenCreate, onArchiveFileChange, open, openDetail, openEditJob, openEnvText, openExportWin, openJobActions, openJobLogs, openNewJob, openNewService, openProject, openProjectWin, openService, openTokenModal, persistPrefs, pickAll, pickBroker, pickDatabase, pickFile, pickNone, pickStorage, pickSuggested, pickTemplate, preDeployCheckAdd, preDeployCheckDelete, preDeployCheckMove, projectEnvToSecret, projectEnvToService, projectRename, projectSecretToEnv, projectSecretToService, queueCancel, queuePromote, queueTogglePause, regenWebhook, registryCloseRepo, registryGc, registryOpenRepo, registryRemoveRepo, registryRemoveTag, registryRemoveToken, removeDeployment, renameService, reset, revealSecret, revealServiceSecret, rollbackMigration, saveAdvanced, saveCompose, saveEnvText, saveHealthcheck, saveSource, searchChanged, select, serviceLogLoadOlder, serviceReload, serviceRename, serviceSecretToEnv, serviceSecretToProject, serviceStop, serviceWarm, set, setProviderTab, setServiceTab, setShared, settingsSave, showSharedDatabase, startMigration, stateGitAllowFinding, stateGitConfigure, stateGitDismissRemoval, stateGitFormLoad, stateGitOpen, stateGitResolve, stateGitResume, stateGitSyncNow, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDatabase, submitSecret, submitStorage, submitTemplate, toggleReveal, updateApply, updateCheckNow, updateRollback, uploadArchive, viewBuildLog
 
 ### sw.js — service worker do PWA Rustploy.
 
@@ -262,14 +263,11 @@ function clamp(box) — Mantém a janela alcançável: ao menos a barra de títu
 function pin(box)
 function registerWindows(Alpine)
 
-### zip.js
+### zip.js — monta um `.zip` no navegador, sem biblioteca.
 const CRC_TABLE(()
 function crc32(bytes)
 function dosDateTime(date) — Data/hora no formato DOS (o zip não guarda fuso).
-function buildManifestZip(yaml, toml) — Monta o zip do manifesto: `rustploy.yml` e `rustploy.vars.toml`, sem compressão.
-function inflateRaw(bytes)
-function readEntries(buffer) — Lê as entradas do zip: `[{ name, isDir, bytes }]`.
-function readManifestZip(file) — Valida e lê o `.zip` importado: **exatamente** um `*.yml`/`*.yaml` e um `*.toml`, na raiz, e nada ma…
+function buildZip(files) — Monta o zip a partir de `[{ path, content }]` (texto), sem compressão, na ordem recebida.
 
 ## rustploy-daemon/crates/daemon/webui/locales/
 
@@ -488,6 +486,6 @@ function maskWebhook(url) — `https://host/webhook/<id>/<token>` → `https://h
     removeDeployment(deploymentId)
     get: store, webhookSupported, canMigrate, migrationSteps, canShare, isShared, svc, projectName, statusLabel, statusKind, warm, warmLabel, warmKind, sourceText, isCompose, renameNote, liveContainers, connectionInfo, envVars, domains, runArgsText, projectServicesForDeps, dependencyRows, dependencyOptions, preDeployQueueIds, preDeployChecks, preDeployAvailableJobs, deployments
 
-### settings.js — tela "Settings": Web Server / Git / Infra as Code.
+### settings.js — tela "Settings": Web Server / Git / Sync / Manutenção / Updates.
   Alpine.data("settings")
     get: store, gitProviderRows

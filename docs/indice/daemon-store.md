@@ -272,7 +272,7 @@ fn restrict(_)
 fn undo(tree) -> Result<()> — Apaga tudo o que a migração gravou (volta ao "sem infra/").
 fn run(db, tree, db_path) -> Result<Outcome> — Roda a migração.
 fn first_difference(a, b) -> String — Mensagem útil quando a ida e volta diverge: diz **onde**, sem despejar o estado inteiro (que pode te…
-(8 testes)
+(7 testes)
 
 ### mod.rs — Camada de repositório da **infraestrutura** declarada (projetos, serviços, jobs…), que passa a morar…
 

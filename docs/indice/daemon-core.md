@@ -146,7 +146,11 @@ const ENC_PREFIX
 const CONFIG — Process-wide configuration singleton.
 struct EnvBackupConfig { dir, interval_secs }
 fn default_env_backup_interval() -> u64
-struct RustployConfig { daemon, ingress, docker, deploy, metrics, secrets, api, env_backup, external_ports, registry, update, state_git }
+struct RustployConfig { daemon, ingress, docker, deploy, metrics, secrets, api, env_backup, external_ports, registry, update, state_git, logs }
+struct LogsConfig { enabled, retention_days, max_bytes_per_service } — `[logs]`: persistência do log de runtime dos containers (`platform::log_store`).
+fn default_logs_enabled() -> bool
+fn default_logs_retention_days() -> u32
+fn default_logs_max_bytes() -> u64
 struct StateGitConfig { fetch_interval_secs } — `[state_git]`: só o ritmo do `fetch`.
 fn default_fetch_interval_secs() -> u64
 struct UpdateConfig { enabled, repo, cache_hours, check_interval_hours, allow_agent_apply } — Verificação de versão nova (`Command::CheckUpdate`).
@@ -190,6 +194,7 @@ const CONFIG_PATH
 impl Default for ApiConfig
 impl Default for EnvBackupConfig
 impl Default for ExternalPortsConfig
+impl Default for LogsConfig
 impl Default for RegistryConfig
 impl Default for RustployConfig
 impl Default for StateGitConfig
@@ -252,6 +257,46 @@ trait LogSink
   fn append_build_line(deployment_id, line, timestamp)
   fn append_job_line(job_run_id, stream, line, timestamp)
 impl LogSink for std::sync::Arc<L>: append_build_line, append_job_line
+
+### log_store.rs — Armazenamento do **log de runtime** dos containers (plano: `docs/plano-log-de-runtime-persistido.md`…
+const SEGMENT_BYTES — Tamanho a partir do qual o segmento atual fecha e começa o próximo.
+const FLUSH_LINES — Descarrega o buffer em disco a cada tanto de linhas, ou a cada [`FLUSH_EVERY`].
+const PRUNE_EVERY — De quanto em quanto tempo o escritor reaplica a retenção por idade em todos os serviços.
+const TAIL_SCAN_BYTES — Quanto do fim do segmento é lido para descobrir o último instante de um container.
+fn global() -> Option<Arc<LogStore>> — O armazenamento global, se foi iniciado.
+fn init(root, cfg) -> Option<Arc<LogStore>> — Inicia o armazenamento (uma vez) e o instala como global.
+struct Record { t, c, s, m }
+enum Msg { Line, Flush, Delete, Retain }
+struct LogStore { root, tx }
+fn short_id(container_id) -> String — Id curto (12 caracteres) usado no arquivo e na API.
+impl LogStore
+  fn open(root, cfg) -> Self
+  fn append(service_id, container_id, stderr, at, text) — Enfileira uma linha para gravar.
+  fn flush() — Espera o escritor gravar tudo o que já foi enfileirado.
+  fn delete_service(service_id) — Apaga o histórico de um serviço (serviço removido).
+  fn retain_services(ids) — Apaga as pastas de serviços que não existem mais.
+  fn last_timestamp(service_id, container_id) -> Option<DateTime<Utc>> — Último instante gravado para esse container (ou `None`).
+  fn read(service_id, before, limit, container) — Até `limit` linhas anteriores a `before` (ou as mais recentes), em ordem cronológica, mais o instant…
+fn segment_name(idx) -> String
+fn segments(dir) -> Vec<(u32, PathBuf)> — Segmentos da pasta, `(índice, caminho)` em ordem crescente.
+fn open_append(path) -> std::io::Result<File>
+fn create_dir_private(dir) -> std::io::Result<()>
+fn parse_record(line) -> Option<(DateTime<Utc>, Record)>
+fn scan_last_ts(dir, container) -> Option<DateTime<Utc>> — Último instante de `container` no segmento mais novo (só olha o fim do arquivo).
+fn read_history(dir, before, limit, container)
+fn prune_dir(dir, cfg) — Aplica a retenção: por idade (segmentos antigos) e por tamanho.
+struct Open { dir, idx, out, size, last, pending }
+struct Writer { root, cfg, open, deleted }
+impl Writer
+  fn new(root, cfg) -> Self
+  fn run(rx)
+  fn retain(keep)
+  fn prune_all()
+  fn flush_all()
+  fn open_service(service) -> std::io::Result<Open> — Abre (ou cria) o segmento mais novo do serviço para anexar.
+  fn line(service, container, stderr, at, text)
+const FLUSH_EVERY, GLOBAL
+(9 testes)
 
 ### mod.rs — Infraestrutura transversal (barramento de eventos, segredos, health checks), sem regra de negócio.
 

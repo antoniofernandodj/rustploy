@@ -251,9 +251,7 @@ local git_provider_refresh_list()
 function git_provider_refresh()
 function git_provider_connect()
 function git_provider_delete(provider_id)
-local do_export(api, zip_path) — O corpo do export DEPOIS do diálogo — separado só para o `manifest_busy` ser ligado/desligado em vol…
-function manifest_export()
-function manifest_import()
+function infra_download()
 local docker_cleanup_unpack_recurrence(recurrence) — Recorrência (Option<Recurrence>, externally-tagged) → (kind, hours, hour, minute, weekday) — mesmo f…
 local docker_cleanup_apply_config(config)
 function M.docker_cleanup_load() — Carregado uma vez na conexão (handlers/connection.luau::load_settings) — não faz parte do snapshot d…

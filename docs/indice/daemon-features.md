@@ -144,27 +144,11 @@ impl IacContext
   fn public_base_url() -> String — URL pública do daemon, sem barra final (base do webhook de cada serviço).
 
 ### manifest.rs — Infra-as-Code: structs do manifesto declarativo (`rustploy.yml`).
-struct ServerManifest { api_version, projects } — Manifesto raiz (agregador): vários projetos, inline ou via `include:`.
-impl ServerManifest
-  fn from_existing_redacted(items, providers) -> (Self, EnvDoc) — Constrói um manifesto raiz redigido a partir de TODOS os projetos do banco (para `Command::ManifestE…
-struct EnvDoc { project, git_provider } — Documento TOML que acompanha o manifesto no export/import de Infra-as-Code: variáveis de ambiente **…
-struct GitProviderDoc { kind, base_url, auth_mode, oauth_client_id } — Dados não-secretos de um Git provider conectado (ver [`EnvDoc`]).
-struct ProjectEnvDoc { env, service }
-struct ServiceEnvDoc { env }
-enum ProjectEntry { Include, Inline } — Uma entrada do manifesto raiz: projeto inline OU referência a um arquivo.
-struct ProjectManifest { api_version, project, services } — Manifesto de um único projeto (`project:` + `services:`).
-struct ProjectMeta { name, description, env }
 struct ServiceManifest { name, source, port, host_port, domain, tls, domains, env, env_comments, volumes, healthcheck, replicas, resources, command, args, db, shared }
 struct SourceManifest { registry, git, compose, compose_ingress } — Origem do serviço: exatamente uma das três chaves deve estar presente.
 struct GitManifest { url, branch, root_path, dockerfile, context, build_stage, submodules, watch_paths, username, credentials, provider }
 struct HealthcheckManifest { kind, path, status, interval, timeout, retries, start_period }
 struct ResourcesManifest { cpu_shares, mem }
-impl ProjectManifest
-  fn project_fields() -> (String, Option<String>, Vec<EnvVar>) — Campos do projeto: `(name, description, env_vars)`.
-  fn service_specs(project_id, provider_ids) -> Vec<ServiceSpec> — Converte cada serviço do manifesto numa [`ServiceSpec`] já vinculada ao projeto.
-  fn interpolate(env) -> Vec<String> — Substitui `${VAR}` em todos os valores de env (projeto + serviços) resolvendo contra o [`EnvDoc`] **…
-  fn from_existing(project, services, providers) -> Self — Reconstrói um manifesto a partir do estado atual no banco (para `export`).
-  fn from_existing_redacted(project, services, providers, doc) -> Self — Como [`from_existing`](Self::from_existing), mas redige todo valor de env var `Plain` para `${KEY}` …
 impl ServiceManifest
   fn to_spec(project_id, provider_ids) -> ServiceSpec
   fn from_spec(svc, providers) -> Self
@@ -177,17 +161,8 @@ impl HealthcheckManifest
 impl ResourcesManifest
   fn to_limits() -> ResourceLimits
   fn from_limits(limits) -> Option<Self>
-impl GitProviderDoc
-  fn from_provider(p) -> Self
 fn env_map_to_vars(map) -> Vec<EnvVar>
 fn env_vars_to_map(vars) -> BTreeMap<String, String>
-fn redact_env_map(map, dotenv_out) — Redige, in-place, todo valor `Plain` (isto é, que não começa com `secret:`) de `map` para `${KEY}`, …
-fn format_env_doc(doc) -> String — Serializa um [`EnvDoc`] como texto TOML (o arquivo de variáveis que acompanha o manifesto no export …
-fn parse_env_doc(text) -> Result<EnvDoc, String> — Faz o parse do texto TOML do arquivo de variáveis num [`EnvDoc`].
-fn format_dotenv(map) -> String — Serializa um mapa `KEY -> VALUE` como texto `.env` (uma linha por var, ordenado por chave).
-fn parse_dotenv(text) -> BTreeMap<String, String> — Parser simples de texto `.env`: linhas `KEY=VALUE`, ignora vazias e `# comentário`.
-fn interpolate_map_scoped(map, lookup, project, service, missing) — Interpola um mapa de env de um escopo (projeto ou serviço), rotulando as vars não resolvidas com o e…
-fn interpolate_str(input, lookup, missing) -> String — Substitui ocorrências de `${VAR}` em `input`.
 fn parse_volume(s) -> Option<VolumeMount> — `host:container` ou `host:container:ro`.
 fn format_volume(v) -> String
 fn parse_mem(s) -> Option<u64> — Aceita `1024`, `256k`, `256m`, `2g` (case-insensitive).
@@ -198,25 +173,7 @@ fn is_one(n) -> bool
 fn is_false(b) -> bool
 fn is_zero_u64(n) -> bool
 const API_VERSION, SECRET_PREFIX
-(11 testes)
-
-### manifest_apply.rs — `Command::ManifestApply`: reconcilia manifestos YAML de projeto (IaC) com o banco, com prune e deplo…
-fn handle(state, manifests, prune, deploy) -> RpResponse — Reconcilia uma lista de manifestos YAML de projeto contra o banco.
-fn apply_one(state, manifest, prune, provider_ids, report, changed) -> Result<(), RpResponse> — Aplica um manifesto de projeto: resolve o projeto pelo nome, atualiza env vars só se o manifesto dec…
-fn db_err(e) -> RpResponse
-
-### manifest_export.rs — `Command::ManifestExport`: exporta um projeto como manifesto IaC (secrets como `secret:NOME`).
-fn handle(state, project_id) -> RpResponse — Exporta o estado atual de um projeto como manifesto declarativo.
-
-### manifest_export_all.rs — `Command::ManifestExportAll`: exporta todos os projetos e serviços num manifesto raiz só.
-fn handle(state) -> RpResponse — Exporta TODOS os projetos+serviços como um único manifesto raiz, com todo valor de env var `Plain` r…
-
-### manifest_import.rs — `Command::ManifestImport`: importa um manifesto IaC (raiz `projects:` ou de projeto) mais o `.env`, …
-fn handle(state, yaml, dotenv, prune, deploy) -> RpResponse — Importa um manifesto (raiz `projects:` ou de projeto único `project:`) junto com o TOML de variáveis…
-fn reconcile_git_providers(db, docs) -> Result<(), RpResponse> — Garante que todo Git provider referenciado em `docs` (chave = nome, o mesmo usado em `source.git.pro…
-fn check_git_provider_refs(db, projects) -> Result<(), RpResponse> — Garante que todo `source.git.provider` (nome) referenciado no YAML resolve a um provider existente n…
-fn parse_projects(yaml) -> Result<Vec<ProjectManifest>, String> — Extrai a lista de `ProjectManifest` de um YAML colado (raiz ou projeto único).
-(5 testes)
+(1 testes)
 
 ### mod.rs — Infraestrutura como código: manifesto de projeto/servidor e pacote de serviço (export/import).
 
@@ -260,8 +217,15 @@ const SECRET_PREFIX
 ### container_logs.rs — Streaming dos logs dos containers gerenciados para o event bus, reconectando e encerrando streams pa…
 fn stream_loop(docker, db, bus)
 fn stream_container(docker, container_id, service_id, bus) — Transmite os logs de um container para o event bus até o stream acabar, ou até ficar parado por `STR…
-fn publish_log(bus, service_id, container_id, is_stderr, bytes)
+fn last_persisted(service_id, container_id) -> Option<DateTime<Utc>> — Último instante já gravado desse container (se o armazenamento está ligado).
+struct Stamper { prev, repeats } — Dá a cada linha de um stream um instante **único e determinístico**.
+impl Stamper
+  fn stamp(real) -> DateTime<Utc>
+fn split_timestamp(raw) -> (DateTime<Utc>, &str) — Separa o prefixo de instante que o Docker põe com `timestamps: true` (`2026-…Z texto`).
+fn publish_log(bus, stamper, service_id, container_id, is_stderr, bytes) — Uma saída do Docker pode trazer várias linhas: cada uma é gravada e publicada separadamente.
+fn capture_final(docker, service_id, container_id) — Lê o que um container ainda tem e o grava, **antes** de ele ser removido (troca no deploy, rollback …
 const STREAM_IDLE_TIMEOUT
+(2 testes)
 
 ### context.rs — O que o watchdog precisa do resto do daemon.
 struct WatchdogContext { db, docker, bus, deploy_queue }

@@ -117,13 +117,9 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
      em inglês (embutido no glacier), desalinhamento leve nas linhas de env da webui com o botão 🔒.
   6. ~~`~/.local/share/rustploy/db` (banco dev antigo, alterado por um teste meu)~~ — apagado pelo usuário em 2026-11-03.
 
-- [ ] **Infra as Code → "Baixar a infra" (2026-11-05): código FEITO, faltam as docs do site.** Feito: `InfraDownload`/`InfraFiles` no protocolo (shared 0.17.0),
-  botão na aba Sync da GUI e da webui, aba "Infra as Code" e os comandos `ManifestApply/Export/ExportAll/Import` removidos, `manifest.rs` podado
-  (ficou só o que o pacote de serviço usa). **Falta:** (1) reescrever `guias/infra-as-code.mdx` (pt/en) como "Baixar a infra" e ajustar as menções em
-  `interface/configuracoes`, `faq`, `conceitos/projeto`, `conceitos/variaveis-de-ambiente`, `guias/backup`, `guias/copiar-servico`, `comparativos/rustploy-vs-caprover`;
-  (2) `scripts/gen-manifest.mjs` ainda lê `ServerManifest/ProjectManifest/ProjectMeta/EnvDoc` (apagados): reduzir a página `referencia/manifesto` aos campos de `service`
-  (usada pelo pacote de serviço) ou removê-la; (3) `scripts/data/protocol-en.mjs` tem descrições dos comandos removidos e não tem `InfraDownload`/`LogsHistory`;
-  (4) testar o `InfraDownload` num daemon real; (5) publicar `rustploy-shared` 0.17.0 e tirar o `path` do daemon (que voltou a apontar para o submodule).
+- [x] **Infra as Code → "Baixar a infra"** — feito em 2026-11-05 (release v0.1.40): `InfraDownload`/`InfraFiles` (shared 0.17.0), botão na aba Sync da GUI e da webui,
+  aba "Infra as Code" e comandos `Manifest*` removidos, docs reescritas (guia `infra-as-code`, referência do formato do serviço), `InfraDownload` testado num daemon real
+  (devolve os 4 arquivos; recusa com `PlaintextInInfra` quando há senha em claro).
 - [ ] **Backup de volumes para S3, com restauração em poucos cliques (anotado em 2026-11-04, ainda sem projeto).** Só os **volumes**
   (dados de banco, uploads, o que o container grava): a configuração/infra **não** entra, porque já é sincronizada com o GitHub
   pelo `state_git`. Destino: qualquer S3 (AWS, Backblaze, R2, ou o próprio Storage MinIO/RustFS do rustploy em outra máquina).
@@ -178,7 +174,7 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
   "Carregar anteriores"). Plano e como foi verificado: `docs/plano-log-de-runtime-persistido.md`. **Pendências deste item:** (1) o fluxo de troca
   (`Promoting`) com captura do container antigo não rodou num engine real (o Podman rootless local recusa o alias do `SwappingIn`); o rollback
   e o stream contínuo foram verificados; (2) a janela de logs da **GUI nativa** (`log_window_load_older`) só tem teste de formatação, não foi aberta;
-  (3) logs de serviços **Compose** seguem só ao vivo; (4) docs do site (guia de logs e `[logs]` na referência de configuração).
+  (3) logs de serviços **Compose** seguem só ao vivo. (Docs do site: feitas.)
 - [ ] **Exportar e importar DADOS de um container ou volume, para subir em outro banco/servidor.**
   O export atual (`rustploy.yml` + `rustploy.vars.toml`) leva só a configuração: volumes e bancos
   ficam de fora, então não dá para reproduzir a infra de uma VPS em outra máquina (nem testar uma

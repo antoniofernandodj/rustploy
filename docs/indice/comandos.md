@@ -37,6 +37,9 @@ GetBuildLogs | daemon: deploys/get_build_logs | gui: handlers/services | web: sc
 
 ## Observability
 LogsGet | daemon: observability/logs_get | gui: handlers/services | web: app
+
+## / serviços Compose (só ao vivo, por `LogsGet`).
+LogsHistory — Log de runtime **persistido** do serviço (sobrevive à troca de contain… | daemon: observability/logs_history | gui: handlers/services, log_window | web: app
 LogsSubscribe | daemon: (inline em dispatch.rs) | gui: — | web: —
 LogsUnsubscribe | daemon: (inline em dispatch.rs) | gui: — | web: —
 MetricsSubscribe | daemon: (inline em dispatch.rs) | gui: — | web: —
@@ -92,6 +95,9 @@ SecretReveal — Devolve o **valor** de um secret (botão "ver valor"). | daemon
 ## / sincronização com git, e o guia de "o que ainda falta mover para secret". Nunca devolve valores.
 InfraAudit — Lista o que está em claro (ou parece estar) no estado de infra — a tra… | daemon: secrets/infra_audit | gui: — | web: —
 
+## / (ver `InfraAudit`): o download não pode vazar o que o git não aceitaria.
+InfraDownload — Baixa a infra: os mesmos arquivos que o `state_git` grava no repositór… | daemon: secrets/infra_download | gui: handlers/settings | web: app
+
 ## / Situação da sincronização do estado de infra com o git.
 StateGitStatus — Situação da sincronização do estado de infra com o git. | daemon: (inline em dispatch.rs) | gui: — | web: —
 
@@ -124,18 +130,6 @@ EnvKeyRename — Renomeia a **chave** de uma env (do projeto, ou do serviço se 
 
 ## / Falha se `from` não existe ou `to` já existe no escopo. Resposta: `Ok`.
 SecretRename — Renomeia um **secret** (do projeto, ou do serviço se `service_id` vier… | daemon: secrets/secret_rename | gui: handlers/secrets, handlers/services | web: screens/project_detail, screens/service_detail
-
-## / num lugar só, com `serde_yaml`. Ver `docs/infra-as-code.md`.
-ManifestApply — Reconcilia projetos/serviços a partir de manifestos YAML já interpolad… | daemon: features/iac/manifest_apply | gui: — | web: —
-
-## / Exporta o estado atual de um projeto como manifesto YAML (secrets redigidos).
-ManifestExport — Exporta o estado atual de um projeto como manifesto YAML (secrets redi… | daemon: features/iac/manifest_export | gui: — | web: —
-
-## / com os valores reais das vars `Plain`).
-ManifestExportAll — Exporta TODOS os projetos+serviços num único manifesto raiz (`ServerMa… | daemon: features/iac/manifest_export_all | gui: handlers/settings | web: app
-
-## / padrão; `prune`/`deploy` com a mesma semântica).
-ManifestImport — Importa um manifesto raiz (`projects:`) ou de projeto único (`project:… | daemon: features/iac/manifest_import | gui: handlers/settings | web: app
 
 ## / `ServiceExportPlan`.
 ServiceExportPlan — O que dá para levar do serviço: suas variáveis e as do projeto (com a … | daemon: features/iac/service_export/plan | gui: handlers/bundle | web: screens/service_bundle
@@ -282,4 +276,4 @@ DeployQueuePause — Pausa (`true`) ou retoma (`false`) a fila global. | daemon:
 
 - Só GUI (2): ServiceList, JobList
 - Só webui (2): ServiceCreate, DeployRollback
-- Nem GUI nem webui (30): RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, InfraAudit, StateGitStatus, ManifestApply, ManifestExport, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList
+- Nem GUI nem webui (28): RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, InfraAudit, StateGitStatus, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList

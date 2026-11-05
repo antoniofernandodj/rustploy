@@ -269,6 +269,7 @@ function test_url_externa__sem_esquema_de_banco_kafka_servico_comum_e_host() —
 function test_url_externa__senha_com_caracteres_reservados_e_percent_encoded() — - senha com caracteres reservados é percent-encoded
 function test_url_externa__segredo_referencia_nao_vira_credencial() — - segredo (referência) não vira credencial
 function test_url_externa__o_host_sai_do_api_url_ou_host_quando_ele_falta() — - o host sai do api_url, ou <host> quando ele falta
+function test_logs__history_rows_marca_a_troca_de_container() — - history_rows marca onde o container muda e devolve o último container
 
 ### state_git.test.luau
 function test_state_git__sem_status_ou_desligado_nao_ha_aviso() — - sem status ou desligado: nenhum aviso
@@ -338,7 +339,6 @@ function test_init__os_contadores_nascem_e_nao_0_0_afirmaria_vazio_antes_do() �
 function test_init__o_contador_ja_publicado_nao_e_trocado_por() — - o contador já publicado não é trocado por …
 function test_init__as_colecoes_fixas_dos_widgets_sao_json_de_id_label() — - as coleções fixas dos widgets são JSON de {id,label}
 function test_init__o_init_aponta_o_servidor_da_chave_semeada() — - o init aponta o servidor da chave semeada
-function test_init__os_checkboxes_de_iac_nascem_desmarcados() — - os checkboxes de IaC nascem desmarcados
 function test_campo_do_token__digitar_uma_chave_valida_mostra_o_servidor_e() — - digitar uma chave válida mostra o servidor e limpa o erro
 function test_campo_do_token__uma_chave_invalida_nao_mostra_servidor_nenhum() — - uma chave inválida não mostra servidor nenhum
 function test_campo_do_token__escolher_um_servidor_salvo_preenche_o_campo_do() — - escolher um servidor salvo preenche o campo do mesmo jeito
@@ -451,14 +451,6 @@ function test_urls__normalize_url_recusa_vazio_e_esquema_que_nao_e_http_s() — 
 function test_booleanos__is_true_aceita_boolean_e_texto() — - is_true aceita o boolean (checkbox/toggle) e o texto "true"; o resto é falso
 function test_booleanos__is_false_nao_confunde_ausente_com_falso() — - is_false só é verdadeiro para o false explícito; ausente não é falso (padrão ligado)
 
-### manifest_zip.test.luau
-function test_ida_e_volta_preserva_yaml_e_toml() — - ida e volta preserva yaml e toml
-function test_recusa_arquivo_extra() — - recusa arquivo extra
-function test_recusa_subpasta() — - recusa subpasta
-function test_recusa_sem_toml() — - recusa sem toml
-function test_recusa_dois_yaml() — - recusa dois yaml
-function test_zip_inexistente_da_erro() — - zip inexistente dá erro
-
 ## rustploy-gui/tests/tela/
 
 ### missing.test.luau — Toda chave que uma tela LÊ tem de ser publicada por alguém.
@@ -520,7 +512,6 @@ function test_projeto_movimentos_entre_escopos() — - projeto: botões de mover
 function test_projeto_secret_ver_valor() — - projeto: secret escondido mostra 👁 e "encrypted"; revelado mostra o valor, 🙈 e copiar
 function test_configuracoes_git() — - Git: provedor OAuth e token
 function test_configuracoes_web() — - Web Server
-function test_configuracoes_iac() — - Infra as Code: manifesto exportado, variáveis faltando e relatório
 function test_configuracoes_manutencao() — - Manutenção: limpeza do Docker em cada recorrência
 function test_configuracoes_sincronizacao_git() — - Sincronização com o git: desligada, ligada, pausada (divergência), commit recusado, - removidos no…
 function test_configuracoes_atualizacoes() — - Atualizações: sem consulta ainda, com versão nova e com erro do daemon

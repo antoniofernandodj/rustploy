@@ -314,6 +314,9 @@ fn handle(state, service_id, tail) -> RpResponse
 fn parse_compose_log_ts(line) -> Option<chrono::DateTime<Utc>> — Extracts the RFC3339 timestamp from a `docker compose logs --timestamps` line.
 fn compose_logs(project_name, content, tail, env_vars) -> RpResponse — Logs de um serviço Compose via `docker compose logs --timestamps`, com o timestamp de cada linha ext…
 
+### logs_history.rs — `Command::LogsHistory`: o log de runtime **persistido** do serviço (sobrevive à troca de container n…
+fn handle(state, service_id, before, limit, container_id) -> RpResponse
+
 ### mod.rs — Handlers de observability: o `dispatch` recebe os `Command` da seção e chama o handler certo.
 fn dispatch(state, cmd) -> RpResponse
 
@@ -367,6 +370,9 @@ fn dispatch(state, cmd) -> RpResponse
 fn handle(state, project_id, service_id, from, to) -> Response
 
 ### infra_audit.rs — `Command::InfraAudit`: o que está em claro no estado de infra (sem os valores).
+fn handle(state) -> Response
+
+### infra_download.rs — `Command::InfraDownload`: a infra como os arquivos que o `state_git` grava no repositório.
 fn handle(state) -> Response
 
 ### mod.rs — Handlers de secrets: o `dispatch` recebe os `Command` da seção e chama o handler certo.
@@ -523,7 +529,7 @@ fn seed_connected(page) — Semeia a sessão (bypassa login/SSE, mesma ideia de 
 fn eval_str(page, js) -> String — Avalia `js` (uma expressão, possivelmente uma Promise) e devolve o resultado como `String` — os test…
 fn visible(page, selector) -> bool — `true` se o elemento existir e estiver de fato visível (`x-show` escreve `display:none` inline; `off…
 fn errors(page) -> Vec<String>
-(13 testes)
+(15 testes)
 
 ### mod.rs — Servidor de estáticos da web UI/PWA (`crates/daemon/webui/`) — alternativa ao client iced (`rustploy…
 type ApiBody = BoxBody<Bytes, std::convert::Infallible>

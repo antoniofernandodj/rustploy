@@ -28,6 +28,7 @@ fn legacy_project_net_for(project_id) -> String — Nome de rede no formato **le
 
 ### audit.rs — Auditoria de valores em claro no estado de infra (plano `docs/plano-backup-estado-em-git.md`, R6).
 struct PlaintextFinding { definite, project, scope, what, allowed } — Um valor que está (ou parece estar) em texto puro onde deveria estar cifrado.
+struct InfraFile { path, content } — Um arquivo da infra tal como o `state_git` o grava no repositório (resposta de `Command::InfraDownlo…
 
 ### database.rs
 struct ManagedDatabase { id, server_service_id, project_id, name, env_var, connection_limit, statement_timeout_ms, connection_url, created_at } — Database (e usuário dedicado) criado para um projeto dentro de um servidor compartilhado.
@@ -106,14 +107,6 @@ struct JobSummary { job, project_name, trigger_service_name, last_run, warm } �
 struct JobWarmStatus { job_id, warm, warming, reason, warmed_at } — Se as imagens e o cache de build de um job já estão no host, de modo que a próxima execução não baix…
 impl Default for JobGitSource
 (9 testes)
-
-### manifest_report.rs
-struct ApplyReport { actions, deployed } — Resultado de um `apply`: o que foi criado/atualizado/removido em cada recurso, mais a lista de servi…
-struct ResourceAction { kind, name, action }
-enum ResourceActionKind { Project, Service }
-enum ActionVerb { Created, Updated, Unchanged, Deleted }
-impl std::fmt::Display for ActionVerb
-impl std::fmt::Display for ResourceActionKind
 
 ### metrics.rs
 struct ContainerMetricsPoint { service_id, container_id, cpu_percent, mem_used_bytes, mem_limit_bytes, net_rx_bytes, net_tx_bytes, timestamp }
@@ -195,7 +188,7 @@ struct WizardCreateReq { kind, id, project_id, name, app_name, db_name, user, pa
 ### command.rs — `Command`: tudo o que o cliente pede ao daemon.
 enum StateGitResolveChoice { UseRemote, UseLocal } — Como resolver um histórico divergido (`Command::StateGitResolve`).
 enum SecretMoveOp { EnvToSecret, SecretToEnv, ServiceSecretToProject, ProjectSecretToService, EnvServiceToProject, EnvProjectToService } — As operações de [`Command::SecretMove`].
-enum Command { ProjectCreate, ProjectDelete, ProjectUpdate, ProjectList, ProjectEnvSet, ServiceCreate, ServiceUpdate, ServiceDelete, ServiceList, ServiceGet, DeployStart, DeployAbort, DeployRollback, DeployHistory, DeployDelete, ServiceStop, ServiceReload, RecentDeployments, GetBuildLogs, LogsGet, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, ServiceConnectionInfo, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, ManagedDatabaseList, ManagedDatabaseCreate, ManagedDatabaseDelete, ManagedDatabaseListAll, MigrationStart, MigrationGet, MigrationList, MigrationRollback, MigrationDiscard, GetWebhookUrl, RegenerateWebhookToken, GetDaemonSettings, SetDaemonSettings, SecretSet, SecretDelete, SecretList, SecretReveal, InfraAudit, StateGitStatus, StateGitConfigure, StateGitSyncNow, StateGitResume, StateGitResolve, StateGitDismissRemoval, InfraAuditAllow, StopContainer, SecretMove, EnvKeyRename, SecretRename, ManifestApply, ManifestExport, ManifestExportAll, ManifestImport, ServiceExportPlan, ServiceExport, ServiceImport, JobCreate, JobUpdate, JobDelete, JobList, JobListAll, JobRunNow, JobRunCancel, JobRunHistory, GetJobLogs, JobWarmStatus, JobWarm, ServiceWarmStatusList, ServiceWarm, PruneContainers, PruneVolumes, PruneImages, PruneBuildCache, PruneNetworks, DockerCleanupConfigGet, DockerCleanupConfigSet, DockerCleanupRunNow, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, RemoveContainer, RemoveImage, RemoveVolume, RemoveNetwork, StopAllManaged, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DaemonStatus, DeployEngineStatus, CheckUpdate, ApplyUpdate, UpdateStatus, UpdateRollback, GitProviderList, GitProviderCreate, GitProviderDelete, GitOAuthStart, GitRepoList, GitBranchList, WizardCatalog, WizardCreate, Snapshot, RegistryStatus, RegistryRepoList, RegistryTagList, RegistryTagDelete, RegistryRepoDelete, RegistryGc, RegistryTokenCreate, RegistryTokenList, RegistryTokenRevoke, DeployQueuePromote, DeployQueueReorder, DeployQueuePause }
+enum Command { ProjectCreate, ProjectDelete, ProjectUpdate, ProjectList, ProjectEnvSet, ServiceCreate, ServiceUpdate, ServiceDelete, ServiceList, ServiceGet, DeployStart, DeployAbort, DeployRollback, DeployHistory, DeployDelete, ServiceStop, ServiceReload, RecentDeployments, GetBuildLogs, LogsGet, LogsHistory, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, ServiceConnectionInfo, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, ManagedDatabaseList, ManagedDatabaseCreate, ManagedDatabaseDelete, ManagedDatabaseListAll, MigrationStart, MigrationGet, MigrationList, MigrationRollback, MigrationDiscard, GetWebhookUrl, RegenerateWebhookToken, GetDaemonSettings, SetDaemonSettings, SecretSet, SecretDelete, SecretList, SecretReveal, InfraAudit, InfraDownload, StateGitStatus, StateGitConfigure, StateGitSyncNow, StateGitResume, StateGitResolve, StateGitDismissRemoval, InfraAuditAllow, StopContainer, SecretMove, EnvKeyRename, SecretRename, ServiceExportPlan, ServiceExport, ServiceImport, JobCreate, JobUpdate, JobDelete, JobList, JobListAll, JobRunNow, JobRunCancel, JobRunHistory, GetJobLogs, JobWarmStatus, JobWarm, ServiceWarmStatusList, ServiceWarm, PruneContainers, PruneVolumes, PruneImages, PruneBuildCache, PruneNetworks, DockerCleanupConfigGet, DockerCleanupConfigSet, DockerCleanupRunNow, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, RemoveContainer, RemoveImage, RemoveVolume, RemoveNetwork, StopAllManaged, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DaemonStatus, DeployEngineStatus, CheckUpdate, ApplyUpdate, UpdateStatus, UpdateRollback, GitProviderList, GitProviderCreate, GitProviderDelete, GitOAuthStart, GitRepoList, GitBranchList, WizardCatalog, WizardCreate, Snapshot, RegistryStatus, RegistryRepoList, RegistryTagList, RegistryTagDelete, RegistryRepoDelete, RegistryGc, RegistryTokenCreate, RegistryTokenList, RegistryTokenRevoke, DeployQueuePromote, DeployQueueReorder, DeployQueuePause }
 (11 testes)
 
 ### event.rs — `Event`: o que o SSE entrega ao cliente.
@@ -206,12 +199,13 @@ impl Event
 ### logs.rs — Linhas de log: stream de origem e entradas de container/build.
 enum LogStream { Stdout, Stderr }
 struct LogEntry { stream, line, timestamp }
+struct LogHistoryEntry { timestamp, container_id, stream, line } — Uma linha do log de runtime **persistido** (`LogsHistory`): além do texto, de qual container veio, p…
 struct BuildLogLine { stream, line, timestamp }
 
 ### mod.rs — Protocolo da API: `Command` (o que o cliente pede), `Response` e `Event` (o que o SSE entrega).
 
 ### response.rs — `Response`: a resposta a cada `Command`.
-enum Response { Ok, Project, Projects, Service, Services, Deployment, Deployments, Logs, BuildLogs, DeploymentSummaries, DaemonStatus, UpdateInfo, UpdateProgress, DeployEngineStatus, Pong, WebhookUrl, SharedAccessList, Migration, Migrations, ManagedDatabases, ConnectionInfo, DaemonSettings, SecretNames, StateGit, InfraAudit, SecretValue, ManifestReport, Manifest, ManifestBundle, ServiceExportPlan, ServiceBundleYaml, ServiceImportReport, MissingEnvVars, GitProviders, GitProviderInfo, OAuthUrl, GitRepos, GitBranches, PruneResult, DockerCleanupConfig, EnvBackupSnapshots, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, StopAllResult, IngressRoutes, WizardCatalog, Snapshot, Job, Jobs, JobSummaries, JobRun, JobRuns, JobLogs, JobWarmStatus, JobWarmRequested, ServiceWarmStatuses, ServiceWarmRequested, RegistryStatus, RegistryRepos, RegistryTags, RegistryGcResult, RegistryTokenCreated, RegistryTokens, Err }
+enum Response { Ok, Project, Projects, Service, Services, Deployment, Deployments, Logs, LogsHistory, BuildLogs, DeploymentSummaries, DaemonStatus, UpdateInfo, UpdateProgress, DeployEngineStatus, Pong, WebhookUrl, SharedAccessList, Migration, Migrations, ManagedDatabases, ConnectionInfo, DaemonSettings, SecretNames, StateGit, InfraAudit, InfraFiles, SecretValue, ServiceExportPlan, ServiceBundleYaml, ServiceImportReport, GitProviders, GitProviderInfo, OAuthUrl, GitRepos, GitBranches, PruneResult, DockerCleanupConfig, EnvBackupSnapshots, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, StopAllResult, IngressRoutes, WizardCatalog, Snapshot, Job, Jobs, JobSummaries, JobRun, JobRuns, JobLogs, JobWarmStatus, JobWarmRequested, ServiceWarmStatuses, ServiceWarmRequested, RegistryStatus, RegistryRepos, RegistryTags, RegistryGcResult, RegistryTokenCreated, RegistryTokens, Err }
 impl Response
   fn err(code, message) -> Self
 
