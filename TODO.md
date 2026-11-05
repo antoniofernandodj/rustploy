@@ -197,7 +197,7 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
   daemon). Depois de um reboot da VPS a ordem de subida (banco antes da app) depende do `restart:` do
   container. Os passos que citam o TUI estão obsoletos; a UI vai nos dois clientes (GUI e webui).
 
-- [ ] **Persistir o log de runtime dos containers.** O swap de deploy destrói o container antigo e o
+- [ ] **Persistir o log de runtime dos containers** — plano e decisões pendentes em `docs/plano-log-de-runtime-persistido.md` (2026-11-05); resumo original: O swap de deploy destrói o container antigo e o
   log dele morre junto, justamente quando mais se precisa dele. Maior valor e maior esforço entre os
   buracos conhecidos; contexto em `docs/plano-erro-de-deploy-invisivel.md`.
 
