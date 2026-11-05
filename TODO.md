@@ -63,8 +63,8 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
     rename, que já é grande por si.
 - [ ] **Geração e rotação de segredos** (`SecretGenerate`, `SecretRotate`, par VAPID/Ed25519, botões "Gerar"/"Rotacionar", `generate:` no manifesto,
   job-modelo por motor). Só projetado, em `docs/plano-geracao-e-rotacao-de-segredos.md`; faltam as respostas do dono (seções 2 e 3 do plano).
-- [ ] **Fase H — uma branch só com `watch_paths`** (último passo do plano de credenciais): o webhook do daemon passa a filtrar por arquivos alterados
-  e os apps do chickie migram das branches `main-*` para a `main`, aposentando o `make sync`.
+- [ ] **Fase H, item 4 — apps do chickie numa branch só** (`watch_paths` por serviço, jobs na `main`, aposentar `main-*` e o `make sync`).
+  O filtro do webhook já está no código do daemon (commitado), mas **só vale em produção depois da release do daemon** e do deploy das docs.
   `docs/plano-credenciais-cifradas-e-storage.md` § Fase H.
 - [ ] **Migrations embutidas no `chickie-setup`** (`include_dir!` + `build.rs` com `rerun-if-changed=migrations`) em vez de ler `.sql` do disco; tira o `COPY migrations` da imagem.
 - [ ] **Redeploy do worker e do scheduler** com o código novo (Fase G: a api já foi verificada) e **ajustar a receita de bucket nas docs** (ainda ensina `curl`).

@@ -187,24 +187,28 @@ chickie criava o bucket e rodava as migrations na própria subida. Agora **nada 
 - **Custo que sobrou:** as branches `main`, `main-api`, `main-worker`, `main-scheduler` e
   `main-setup` precisam do `make sync` (merge da `main` em cada uma). É isso que a Fase H elimina.
 
-### Fase H — Uma branch só, com `watch_paths` (ÚLTIMO PASSO; NÃO implementada)
+### Fase H — Uma branch só, com `watch_paths` (itens 1–3 FEITOS em 2026-11-05; o 4, os apps, falta)
 
-Hoje o webhook do daemon só filtra o push pela **branch** (`public_routes.rs`); o campo
-`ServiceSpec.watch_paths` é gravado mas o deploy **não o usa** (confirmado em
-`referencia/manifesto.mdx`). Por isso o chickie tem uma branch por serviço e o `make sync`.
+Hoje o chickie tem uma branch por serviço e o `make sync` porque o webhook só filtrava o push pela
+**branch**. O campo `ServiceSpec.watch_paths` existia (GUI e webui já tinham o campo) mas o deploy não o usava.
 
-1. **Daemon:** o webhook lê `commits[].added/modified/removed` do payload (GitHub/Gitea/Gogs) e
-   ignora o deploy se `watch_paths` não vazio e nenhum arquivo alterado casar. Sem `watch_paths`
-   o comportamento atual não muda. Testes: casa, não casa, vários commits, payload sem lista de
-   arquivos (nesse caso **faz o deploy**, para não perder um push).
-2. **GUI e webui:** campo "Caminhos monitorados" no serviço Git (os dois clientes).
-3. **Docs e manifesto:** deixar de dizer "ainda não usa".
-4. **Os apps:** cada serviço do chickie passa a apontar para a `main`, com seu `watch_paths`
-   (api: `crates/api`, `crates/core`, `dockerfiles/api.dockerfile`, `Cargo.*`; análogo para
-   worker e scheduler); os jobs `migrations`/`bucket` passam para a `main`; as branches `main-*`
-   e o alvo `sync` do Makefile são aposentados (arquivar, não apagar).
+1. **Daemon — FEITO.** `api/http/public_routes.rs`: o webhook lê `commits[].added|modified|removed` e responde
+   `200 skipped: no watched path changed` se há `watch_paths` e nenhum arquivo casa. Caminhos relativos à raiz do
+   repositório; arquivo exato, diretório (prefixo) ou glob simples (`*` não atravessa `/`, `**` atravessa; vale também
+   para o diretório pai). **Na dúvida faz o deploy:** corpo sem a lista, `commits` vazio, commit sem alguma das três
+   listas, merge sem arquivos, ou 10+ commits (GitHub trunca em 20, Gitea em 10). Deploy manual e o do MCP ignoram o filtro.
+   Verificado com 10 testes unitários e **num daemon local real** (8 payloads: docs-only ignora; `crates/api`, `Cargo.lock`
+   no meio de docs, sem commits, `curl` sem corpo, 10 commits e merge vazio disparam; outra branch ignora).
+2. **GUI e webui — já existiam** (campo "WATCH PATHS (separados por vírgula)"); nada a fazer.
+3. **Docs e manifesto — FEITO** (pt e en: guia de webhooks, referência da API, tabela do manifesto). **Falta o deploy
+   do site** e a release do daemon para o filtro valer em produção.
+4. **Os apps — FALTA.** Cada serviço do chickie passa a apontar para a `main`, com seu `watch_paths`
+   (api: `crates/api`, `crates/core`, `dockerfiles/api.dockerfile`, `Cargo.*`; análogo para worker e scheduler);
+   os jobs `migrations`/`bucket` passam para a `main` (e a `main-setup` some); as branches `main-*` e o alvo `sync` do
+   Makefile são aposentados (arquivar, não apagar). **Só depois da release do daemon**, e conferindo antes que o
+   `watch_paths` de cada app cobre tudo de que o build depende (um caminho esquecido = push que não redeploya).
 
-**Ordem:** itens 1–3 (no rustploy, com release) → item 4 (configurar os apps).
+**Ordem:** release do daemon → item 4.
 
 ## 5. Publicação
 

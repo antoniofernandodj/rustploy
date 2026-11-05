@@ -77,6 +77,7 @@
 - plano-evolucao-do-backend-grafico.md — Plano (preliminar): tirar o glacier-ui de dentro do iced, sem reescrever o que é…
 - plano-fila-deploys.md — Plano: fila global de deploys (um por vez), visível e gerenciável
 - plano-file-io-luau-e-geometria.md — Plano: I/O de arquivo no Luau + geometria da janela fora do Rust
+- plano-geracao-e-rotacao-de-segredos.md — Geração e rotação de segredos (senha de banco, broker, storage, token JWT, par V…
 - plano-indice-de-codigo.md — Plano: índice de código para busca barata
 - plano-jobs-na-fila-de-deploy.md — Plano: jobs e deploys na mesma fila (uma coisa por vez)
 - plano-limpeza-automatica-docker.md — Limpeza automática do Docker: liberar espaço em disco sozinho, todos os dias
