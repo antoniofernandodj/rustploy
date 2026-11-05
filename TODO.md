@@ -171,10 +171,58 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
   daemon). Depois de um reboot da VPS a ordem de subida (banco antes da app) depende do `restart:` do
   container. Os passos que citam o TUI estão obsoletos; a UI vai nos dois clientes (GUI e webui).
 
+- [ ] **Logs por execução: ao abrir a aba Logs de um serviço, listar as execuções (antigas e a atual) e abrir o log de cada uma (ideia do dono, 2026-11-05; só projetado).**
+  Hoje a aba Logs tem um botão só, "Abrir logs em janela", e a janela mistura **todos os containers** numa linha do tempo só, com um separador
+  `— outro container: … —` onde o container muda. Depois de vários deploys isso vira um rolo longo em que não dá para dizer "me mostra só o que o
+  deploy de ontem fez". O dono quer **entrar na aba e ver a lista das execuções** (cada deploy que rodou, mais a atual) e abrir a que quiser.
+  - **O que é uma "execução":** o container (ou, com `replicas > 1`, os containers) criado por **um deploy**. A unidade é o **deploy**; as réplicas
+    ficam agrupadas nele. Inclui o container de **staging de um deploy que falhou**: é a evidência de "por que o deploy caiu", o caso que motivou o log persistido.
+  - **Ligação container → deploy já existe:** todo container leva o label `rustploy.deployment_id` (e `rustploy.service_id`), lido em
+    `engine/containers/query.rs` (`find_old_containers` já usa). Falta **gravar essa ligação no armazenamento**: hoje o `log_store` só sabe o id curto do container
+    (`c` de cada linha do `.jsonl`).
+  - **Daemon — o que fazer:**
+    1. `platform/log_store.rs`: manter, por serviço, um **índice de execuções** — `{container (curto), deployment_id?, image?, replica?, first_ts, last_ts, lines, bytes}` —
+       em memória no escritor e gravado em `<dados>/logs/<serviço>/index.json` (reescrita atômica pequena, a cada flush que mudou algo, mais um
+       `fsync` leve). O `deployment_id`/`image` entram na **primeira vez que o container é visto**: `container_logs::stream_container` e `capture_final`
+       fazem `inspect_container` (o label e a imagem) uma vez e mandam uma mensagem nova ao escritor (`Msg::Exec { service, container, deployment_id, image }`).
+    2. **Retenção:** ao apagar segmentos (`prune_dir`), recalcular o índice: execução cujo `last_ts` é anterior ao início do segmento mais antigo que sobrou **sai
+       da lista**; a que ficou cortada no meio aparece marcada **"parcial"** (o `lines`/`first_ts` passam a refletir só o que sobrou). Sem índice (daemon que atualiza
+       com logs já gravados da v0.1.40): **reconstruir varrendo os segmentos uma vez** no primeiro boot (≤ 50 MiB por serviço) e sem `deployment_id` (mostrar
+       "sem deploy associado").
+    3. Protocolo (**quebra aditiva, sobe o `rustploy-shared`**, 0.18.0): `Command::LogsExecutions { service_id }` → `Response::LogsExecutions(Vec<LogExecution>)` com
+       `LogExecution { container_ids: Vec<String>, deployment_id: Option<String>, image: Option<String>, started_at, ended_at: Option<DateTime>, lines: u64, bytes: u64,
+       current: bool, partial: bool, outcome: Option<String> }`. O `outcome` vem do **estado do deploy** (`Live`, `Stopped`/substituído, `Failed`) cruzando
+       `deployment_id` com a tabela de deploys; `current` = o container é o `live_container_id` do serviço agora. Ordem: a atual primeiro, depois da mais nova para a mais velha.
+       `LogsHistory` **já aceita `container_id`** (filtra uma execução): para uma execução de várias réplicas, aceitar uma **lista** (`container_ids`) ou chamar uma vez por réplica
+       e intercalar por instante. Decidir qual na implementação (a lista é mais simples para os clientes).
+    4. Handler `api/handlers/observability/logs_executions.rs` + manual do agente (uma linha em "Logs de container") + `scripts/data/protocol-en.mjs` (descrição em inglês).
+  - **GUI e webui (os dois, como manda o `AGENTS.md`):** na aba **Logs**, em vez do botão único, uma **lista de execuções** — um cartão/linha por execução:
+    `● Atual · deploy dep_…abcd · imagem · desde 07:52 · 1 240 linhas · [Abrir ao vivo]` e, abaixo, `Execução anterior · Substituída · 03:36 → 07:52 · 11 linhas · [Abrir]`;
+    execução de deploy que falhou: selo **Falhou** em vermelho. Cada **Abrir** abre a janela de logs **já filtrada naquela execução** (título `Logs · api · execução 07:52`);
+    a atual abre ao vivo (SSE como hoje), as antigas **só leem o histórico** (sem SSE). O "Carregar anteriores" continua valendo dentro da execução aberta. Manter um atalho
+    **"Todas as execuções (linha do tempo)"** com o comportamento de hoje (o separador entre containers), para quem quer a visão misturada. Na aba **Deployments**, a linha de cada
+    deploy ganha **"Logs de execução"** ao lado do "≡" (build log), que abre direto a execução daquele deploy.
+    - GUI: a janela de logs é outro motor (`views/log_window.gv`/`.luau`): passar pelo `open_window({data})` o `container_ids` da execução e o flag "ao vivo"; a lista nasce
+      no `open_logs_window`/aba Logs com `LogsExecutions` (ação despachada, o `rpc` funciona). **Lembrar:** função nova em `format/*.luau` precisa de uma linha na fachada
+      `format.luau` (o bug da 0.1.41), e textos novos entram **nos dois** catálogos `locales/en.json` e `pt-BR.json`.
+    - webui: `serviceLogs*` em `app.js` e os dois pontos de `index.html` (aba e modal); estado novo `serviceLogExecutions`, `serviceLogExecution` (a selecionada).
+  - **Limites e armadilhas a decidir/documentar:**
+    - Um container que **reinicia sozinho** (`restart: unless-stopped`, crash-loop) continua sendo **uma** execução com várias partidas dentro: o `docker logs` é contínuo, então
+      não há marca de reinício. Se importar, dá para detectar pelo `StartedAt` do `inspect` (muda a cada partida) e inserir um separador "reiniciou às …".
+    - **Compose** segue só ao vivo (fora do `log_store`); a lista de execuções não existe para esses serviços (mostrar o botão único de hoje).
+    - Execução sem `deployment_id` (container do boot, anterior à v0.1.41, ou serviço recriado): listar como **"execução sem deploy associado"**, com início/fim pelas linhas.
+    - Retenção continua **por serviço** (14 dias / 50 MiB): execuções velhas somem da lista quando o último segmento delas é apagado. Se o dono quiser "guardar as N últimas execuções
+      sempre", é outra regra de retenção (por execução, não por tamanho): **perguntar antes de fazer**.
+    - O estado "atual" do cartão deve acompanhar o snapshot (`live_container_id`): depois de um deploy novo, a lista precisa **recarregar** (hoje as telas só leem no abrir).
+  - **Testes que provam:** (a) `log_store`: índice cria, atualiza `last_ts`/`lines`, sobrevive a reinício do daemon, é reconstruído de segmentos sem índice, marca "parcial" após `prune_dir`;
+    (b) handler: `LogsExecutions` cruza `deployment_id` com `outcome` e marca `current`; (c) um **teste real** num daemon local: dois deploys + um deploy com healthcheck falhando
+    (como em `docs/plano-log-de-runtime-persistido.md` §5.7, com os `Dockerfile` v1/v2/bad) e conferir 3 execuções, a do deploy que falhou com selo "Falhou"; (d) webui headless e testes
+    Luau da lista e da fachada `format`; (e) abrir a GUI instalada de verdade (a janela é um motor à parte e já escondeu um bug que os testes não pegaram).
+  - **Docs ao entregar:** `interface/logs.mdx` (pt/en) com a lista de execuções, `docs/plano-log-de-runtime-persistido.md` (seção nova), nota de versão (daemon/app/shared), manual do agente.
+  - **Ordem sugerida:** protocolo + `log_store` (índice, com testes) → handler → webui → GUI → docs → teste real → publish (`rustploy-shared` 0.18.0 primeiro).
 - [x] **Persistir o log de runtime dos containers** — feito em 2026-11-05 (daemon: `platform/log_store.rs`, `LogsHistory`, `[logs]`; webui e GUI com
-  "Carregar anteriores"). Plano e como foi verificado: `docs/plano-log-de-runtime-persistido.md`. **Pendências deste item:** (1) o fluxo de troca
-  (`Promoting`) com captura do container antigo não rodou num engine real (o Podman rootless local recusa o alias do `SwappingIn`); o rollback
-  e o stream contínuo foram verificados; (2) a janela de logs da **GUI nativa** abriu e mostrou o histórico (2026-11-05), mas o botão `log_window_load_older` ("Carregar anteriores") ainda não foi exercitado de verdade;
+  "Carregar anteriores"). Plano e como foi verificado: `docs/plano-log-de-runtime-persistido.md`. **Pendências deste item:** (1) a troca (`Promoting`) com captura do container antigo **foi vista em produção** (Chiquitos, 2026-11-05: o log do container antigo continuou na janela,
+  com o separador de container); o rollback e o stream contínuo também foram verificados; (2) a janela de logs da **GUI nativa** abriu e mostrou o histórico (2026-11-05), mas o botão `log_window_load_older` ("Carregar anteriores") ainda não foi exercitado de verdade;
   (3) logs de serviços **Compose** seguem só ao vivo. (Docs do site: feitas.)
 - [ ] **Exportar e importar DADOS de um container ou volume, para subir em outro banco/servidor.**
   O export atual (`rustploy.yml` + `rustploy.vars.toml`) leva só a configuração: volumes e bancos
