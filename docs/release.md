@@ -190,6 +190,20 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.39 (2026-11-05): webhook filtra por `watch_paths`
+
+- **O que muda:** o webhook de deploy (`POST /webhook/<id>/<token>`) passa a respeitar `watch_paths` do serviço Git: com o campo
+  preenchido, só dispara se algum arquivo do push (`commits[].added|modified|removed`) casar; senão responde
+  `200 skipped: no watched path changed`. Daemon **0.1.33**; o `rustploy-shared` (0.16.0) e o app (0.1.39) **não mudaram**.
+- **Na dúvida faz o deploy** (nunca perde um push): corpo sem a lista, `commits` vazio, commit sem alguma das listas, merge sem arquivos,
+  10+ commits (GitHub trunca em 20, Gitea em 10). Deploy manual e o do MCP ignoram o filtro. Caminhos relativos à raiz do repositório;
+  arquivo, diretório ou glob simples (`*`, `**`).
+- **Verificado:** `make lint` e `make test` (462 testes do daemon, 10 deles do filtro) e um **daemon local real** com 8 payloads.
+  **Não verificado:** com um GitHub de verdade (o formato do payload vem da documentação dos provedores, não de um push real).
+- **Para que serve:** várias aplicações na mesma branch (chickie: aposentar as branches `main-*` e o `make sync`, Fase H do
+  `plano-credenciais-cifradas-e-storage.md`). Configurar os apps só **depois** desta release instalada no servidor.
+- O `table_link.gv` do app (correção do hover) estava só na árvore de trabalho e **não** entrou nesta release.
+
 ## v0.1.38 (2026-11-04): Podman + ufw (DNS dos serviços e saída dos containers)
 
 > As tags `v0.1.36` (daemon 0.1.30, manual com uma gambiarra de rotação de senha) e `v0.1.37` (daemon 0.1.31, auxiliar do ufw com um bug de
