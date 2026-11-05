@@ -190,6 +190,27 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.40 (2026-11-05): Baixar a infra e log de runtime persistido
+
+- **O que muda:** daemon **0.1.34**, app **0.1.40**, `rustploy-shared` **0.17.0** (**quebra de protocolo**).
+  (1) **Baixar a infra:** `InfraDownload` devolve os arquivos que o `state_git` grava (secrets `ENC[age:…]`; recusa com
+  `PlaintextInInfra` se o git também recusaria); botão na aba Sync da GUI e da webui. Saem a aba **Infra as Code** e os comandos
+  `ManifestApply/Export/ExportAll/Import`. (2) **Log de runtime persistido:** arquivos por serviço em `<dados>/logs/`, 14 dias / 50 MiB
+  (`[logs]`), captura antes de remover o container (troca e rollback), comando `LogsHistory` e "Carregar anteriores" nas telas.
+  (3) Settings carrega as contas Git sozinho; fix do hover dos links. **GUI/webui antigas contra este daemon** perdem a aba IaC
+  (comandos removidos): atualizar os dois juntos.
+- **crates.io:** `rustploy-shared` 0.17.0, `rustploy` 0.1.34 e `rustploy-gui` 0.1.40 publicados; o daemon **não usa mais `path`** para o shared
+  (a pendência de 2026-11-03 acabou). `cargo install rustploy` volta a refletir a `main`.
+- **Verificado:** `make lint`/`make test` (daemon 476), `glacier test` 399, webui headless 16, site 927 páginas e 0 links quebrados, CI da tag,
+  comando de uma linha do `install.sh` num `debian:12` limpo (daemon 0.1.34 e app 0.1.40, com a assinatura conferida), páginas novas do site com 200,
+  `InfraDownload` num daemon local (4 arquivos; recusa com senha em claro) e o log persistido num daemon local com Podman (rollback, stream
+  contínuo, reinício do daemon sem duplicata, paginação).
+- **NÃO verificado:** a captura do container antigo na troca (`Promoting`) num engine real (o Podman rootless local recusa o alias do
+  `SwappingIn`; o rollback usa a mesma função e funcionou); a janela de logs da **GUI nativa**; o `install.ps1`; os servidores (Chiquitos, itemize) ainda no daemon anterior.
+- **Armadilhas:** (a) o **Podman entrega timestamps de log com resolução de segundo**: a deduplicação do `log_store` precisa de instantes únicos
+  (`Stamper` em `container_logs.rs`), senão descarta as linhas seguintes do mesmo segundo; (b) `pkill -f` casa com a própria linha de comando
+  do shell que o chama: matar por PID exato (e nunca o `rustployd` do sistema); (c) `title="…\"x\""` em `<Aside>` do MDX quebra o build: sem aspas no título.
+
 ## v0.1.39 (2026-11-05): webhook filtra por `watch_paths`
 
 - **O que muda:** o webhook de deploy (`POST /webhook/<id>/<token>`) passa a respeitar `watch_paths` do serviço Git: com o campo
