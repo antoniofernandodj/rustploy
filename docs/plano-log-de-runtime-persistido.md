@@ -1,7 +1,8 @@
 # Plano: persistir o log de runtime dos containers
 
-> **Estado: PROJETADO (2026-11-05), nada implementado.** Sai do item 2.4 de
-> `docs/plano-erro-de-deploy-invisivel.md`. Aguarda as decisões da seção 4.
+> **Estado (2026-11-05): decisões da seção 4 aprovadas (retenção só no daemon, 14 dias / 50 MiB, ligado por padrão,
+> backend primeiro); backend e telas (webui + GUI) implementados e verificados num daemon local, exceto a troca de container no `Promoting` (sem engine root) e a janela nativa da GUI.** Sai do item 2.4 de
+> `docs/plano-erro-de-deploy-invisivel.md`.
 
 ## 1. O problema, em linguagem simples
 
@@ -53,9 +54,10 @@ manda o `AGENTS.md`.
 ### Segurança
 
 Log de aplicação pode conter segredo (a app imprime a própria senha). Hoje isso já é verdade ao vivo; persistir
-**prolonga** a exposição. Duas medidas: (1) a pasta nasce com permissão `0700` e os arquivos `0600`; (2) o
-`LogsHistory` passa pelo mesmo mascaramento de `api/agent/redigir.rs` quando a chamada vem do agente (MCP), como o
-resto das respostas de texto. A retenção curta por padrão também reduz o risco.
+**prolonga** a exposição. Medidas: (1) a pasta nasce com permissão `0700` e os arquivos `0600`; (2) retenção curta
+por padrão. **Não** há mascaramento extra no `LogsHistory` para o agente: o `LogsGet` também não mascara, e o
+`redigir.rs` mascara `chave=valor`, o que estragaria texto livre de log; o histórico fica com o mesmo nível de
+exposição do log ao vivo.
 
 ## 3. Configuração
 
