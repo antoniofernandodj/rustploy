@@ -236,7 +236,7 @@ fora do ar não impede o outro (`fail-fast: false`).
 
 ## v0.1.35 (2026-11-03): credenciais cifradas, renomear e storage — daemon por `path`
 
-- **O daemon referencia o `rustploy-shared` por `path`** (`rustploy-daemon/crates/daemon/Cargo.toml`, `version` + `path`),
+- **(RESOLVIDO em 2026-11-05: o `rustploy-shared` 0.16.0 foi ao crates.io e o `path` saiu; o texto abaixo é histórico.)** **O daemon referencia o `rustploy-shared` por `path`** (`rustploy-daemon/crates/daemon/Cargo.toml`, `version` + `path`),
   por escolha do dono, e o `shared` 0.16.0 **não foi ao crates.io**. Consequências: (1) o CI e a release compilam, porque
   o `checkout` do agregador é `submodules: recursive` e o `path` aponta para o `rustploy-shared` ao lado; (2) o
   **`rustploy-daemon` sozinho não compila** (clone só dele não tem o irmão); (3) **`cargo install rustploy` entrega a

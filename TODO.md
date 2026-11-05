@@ -7,7 +7,7 @@ de qualquer assunto. Sem cabeçalho de status por item (isso é para
 Ordenada por valor (o mais valioso primeiro, avaliação de 2026-10-19). Ao
 acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
 
-- [ ] **Publicar o `rustploy-shared` 0.16.0 e tirar o `path` do daemon** (decisão de 2026-11-03: até lá `cargo install
+- [x] **Publicar o `rustploy-shared` 0.16.0 e tirar o `path` do daemon** (decisão de 2026-11-03: até lá `cargo install
   rustploy` entrega a 0.1.28 e o `rustploy-daemon` não compila sozinho). Passos em `docs/release.md` (v0.1.35).
 - [ ] **Chave S3 própria por app** no Storage (hoje a app usaria a chave root) e rotacionar a senha do `db` do Chiquitos
   (foi exibida a um agente antes da Fase A). Ver `docs/plano-credenciais-cifradas-e-storage.md`.
