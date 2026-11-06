@@ -266,37 +266,62 @@ const TAIL_SCAN_BYTES — Quanto do fim do segmento é lido para descobrir o úl
 fn global() -> Option<Arc<LogStore>> — O armazenamento global, se foi iniciado.
 fn init(root, cfg) -> Option<Arc<LogStore>> — Inicia o armazenamento (uma vez) e o instala como global.
 struct Record { t, c, s, m }
-enum Msg { Line, Flush, Delete, Retain }
+struct ExecMeta { container, deployment_id, image, first_ts, last_ts, lines, bytes, partial } — O que se sabe de uma execução (um container) — o `meta.json` da pasta dela.
+enum Msg { Line, Exec, Flush, Delete, Retain, DeleteExecs }
 struct LogStore { root, tx }
 fn short_id(container_id) -> String — Id curto (12 caracteres) usado no arquivo e na API.
 impl LogStore
   fn open(root, cfg) -> Self
   fn append(service_id, container_id, stderr, at, text) — Enfileira uma linha para gravar.
+  fn set_exec(service_id, container_id, deployment_id, image) — Registra a que deploy e a que imagem pertence a execução (container).
   fn flush() — Espera o escritor gravar tudo o que já foi enfileirado.
   fn delete_service(service_id) — Apaga o histórico de um serviço (serviço removido).
   fn retain_services(ids) — Apaga as pastas de serviços que não existem mais.
   fn last_timestamp(service_id, container_id) -> Option<DateTime<Utc>> — Último instante gravado para esse container (ou `None`).
-  fn read(service_id, before, limit, container) — Até `limit` linhas anteriores a `before` (ou as mais recentes), em ordem cronológica, mais o instant…
+  fn read(service_id, before, limit, containers) — Até `limit` linhas anteriores a `before` (ou as mais recentes), em ordem cronológica, mais o instant…
+  fn executions(service_id) -> Vec<ExecMeta> — As execuções guardadas do serviço, da mais nova para a mais velha.
+  fn delete_executions(service_id, containers) -> (u32, u64) — Apaga execuções (pastas inteiras).
 fn segment_name(idx) -> String
 fn segments(dir) -> Vec<(u32, PathBuf)> — Segmentos da pasta, `(índice, caminho)` em ordem crescente.
+fn exec_dirs(service_dir) -> Vec<(String, PathBuf)> — Pastas de execução de um serviço (subpastas; os segmentos legados, soltos, não contam).
+fn dir_bytes(dir) -> u64
 fn open_append(path) -> std::io::Result<File>
 fn create_dir_private(dir) -> std::io::Result<()>
 fn parse_record(line) -> Option<(DateTime<Utc>, Record)>
-fn scan_last_ts(dir, container) -> Option<DateTime<Utc>> — Último instante de `container` no segmento mais novo (só olha o fim do arquivo).
-fn read_history(dir, before, limit, container)
-fn prune_dir(dir, cfg) — Aplica a retenção: por idade (segmentos antigos) e por tamanho.
-struct Open { dir, idx, out, size, last, pending }
-struct Writer { root, cfg, open, deleted }
+fn write_meta(dir, meta) — Grava o `meta.json` (escreve num temporário e renomeia, para nunca ficar pela metade).
+fn open_truncate(path) -> std::io::Result<File>
+fn load_meta(dir, container) -> ExecMeta — `meta.json` da pasta; sem ele (ou ilegível), reconstrói varrendo os segmentos.
+fn derive_meta(dir, container) -> ExecMeta
+fn list_execs(service_dir) -> Vec<ExecMeta>
+fn scan_last_ts(exec_dir) -> Option<DateTime<Utc>> — Último instante gravado na pasta de uma execução (só olha o fim do segmento mais novo).
+fn entry_of(at, r) -> LogHistoryEntry
+fn read_exec_tail(dir, before, limit) -> (Vec<LogHistoryEntry>, bool) — Até `limit` linhas de **uma** pasta de execução, anteriores a `before`, mais novas primeiro.
+fn read_history(service_dir, before, limit, containers)
+fn remove_exec(dir) -> u64 — Apaga uma pasta de execução; devolve os bytes liberados.
+fn prune_segments_to(dir, budget) -> bool — Só segmentos: apaga os mais velhos (menos o mais novo) até a pasta caber em `budget`.
+fn prune_service(service_dir, cfg) -> (Vec<String>, Vec<String>) — Aplica a retenção a um serviço: apaga **execuções inteiras** por idade e por tamanho, da mais velha …
+fn migrate_legacy(root) — Redistribui por container os segmentos que ficavam soltos na pasta do serviço (layout da v0.1.40), n…
+struct MigWriter { dir, idx, out, size, meta }
+impl MigWriter
+  fn new(dir, container) -> std::io::Result<Self>
+  fn push(at, rec) -> std::io::Result<()>
+  fn finish() -> std::io::Result<()>
+struct Open { dir, idx, out, size, last, pending, meta, meta_dirty }
+struct Writer { root, cfg, open, deleted, deleted_execs }
 impl Writer
   fn new(root, cfg) -> Self
   fn run(rx)
+  fn delete_execs(service, containers) -> (u32, u64)
   fn retain(keep)
   fn prune_all()
+  fn prune_one(service) — Retenção de um serviço, mantendo o estado em memória coerente com o disco.
   fn flush_all()
-  fn open_service(service) -> std::io::Result<Open> — Abre (ou cria) o segmento mais novo do serviço para anexar.
+  fn open_exec(service, container) -> std::io::Result<Open> — Abre (ou cria) o segmento mais novo da execução para anexar.
+  fn get_open(service, container) -> Option<&mut Open>
+  fn exec(service, container, deployment_id, image)
   fn line(service, container, stderr, at, text)
-const FLUSH_EVERY, GLOBAL
-(9 testes)
+const FLUSH_EVERY, META_FILE, GLOBAL
+(16 testes)
 
 ### mod.rs — Infraestrutura transversal (barramento de eventos, segredos, health checks), sem regra de negócio.
 

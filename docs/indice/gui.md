@@ -271,6 +271,9 @@ function test_url_externa__segredo_referencia_nao_vira_credencial() — - segred
 function test_url_externa__o_host_sai_do_api_url_ou_host_quando_ele_falta() — - o host sai do api_url, ou <host> quando ele falta
 function test_logs__history_rows_marca_a_troca_de_container() — - history_rows marca onde o container muda e devolve o último container
 function test_logs__a_fachada_format_exporta_history_rows() — - a fachada `format` reexporta history_rows (open_logs_window a chama por ela; faltou uma vez)
+function test_logs__log_execution_rows_monta_a_lista_de_execucoes() — - lista "Execuções anteriores": resumo, desfecho com cor, parcial e seleção
+function test_logs__join_log_lines_com_data_completa() — - a data completa só entra nas linhas quando pedida (janela de uma execução passada)
+function test_logs__a_fachada_format_exporta_log_execution_rows_e_date_time_full() — - a fachada `format` reexporta o que a aba Logs usa (o bug da 0.1.41: faltar aqui)
 
 ### state_git.test.luau
 function test_state_git__sem_status_ou_desligado_nao_ha_aviso() — - sem status ou desligado: nenhum aviso
@@ -531,8 +534,10 @@ function test_nav_projects_fica_aceso_nas_subtelas() — - o item Projects da si
 function test_nav_settings_mostra_ponto_com_versao_nova() — - Settings mostra um ponto quando há versão nova do daemon, e só então
 function test_nav_item_aceso_recolore_os_filhos_pelo_combinador() — - o item aceso recolore ícone e rótulo pelo combinador `.nav-item--active > - …` Se a regra composta…
 function test_sidebar_e_uma_gaveta_ligada_a_chave_menu() — - a sidebar é uma <drawer> ligada à chave `menu`
+function test_servico_aba_logs_lista_execucoes_anteriores() — - aba Logs: a lista "Execuções anteriores" só aparece com execuções, e cada linha tem Ver logs / Exc…
 function test_acoes_do_servico_viram_icones_quando_estreito() — - as ações do serviço viram ícones quando a janela estreita
 function test_acao_em_andamento_trava_o_botao() — - o botão de uma ação suspensa num fetch fica travado até ela terminar O init semeia `busy_<ação>` e…
+function test_projeto_mover_so_destrava_com_destino() — - projeto: o ↓ de mover só destrava com um serviço de destino escolhido (a opção nula "escolha…" o t…
 
 ### running.test.luau
 local service(overrides)

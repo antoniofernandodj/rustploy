@@ -177,59 +177,7 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
   daemon). Depois de um reboot da VPS a ordem de subida (banco antes da app) depende do `restart:` do
   container. Os passos que citam o TUI estão obsoletos; a UI vai nos dois clientes (GUI e webui).
 
-- [ ] **Logs por execução: botão "Logs de execução" + lista das execuções passadas, com janela por registro, excluir e limpar selecionados (pedido do dono, 2026-11-05; só projetado).**
-  **O que o dono quer, na seção de logs do serviço (aba Logs, GUI e webui):**
-  1. Um botão **"Logs de execução"** (semelhante ao "Abrir logs em janela" de hoje) que mostra os logs **da execução atual** — só dela, ao vivo. Deixa de misturar os
-     containers antigos na mesma janela (some o separador `— outro container: … —`, que fica só para as réplicas de uma mesma execução, se houver).
-  2. **Abaixo, uma lista dos registros das execuções passadas.** Cada registro mostra: início → fim (data e hora), deploy (`dep_…`), imagem, número de linhas, tamanho e o
-     desfecho do deploy (`Substituída`, `Falhou`…, selo vermelho no que falhou). **Um botão por registro** ("Ver logs") abre **uma janela à parte só com os logs daquela
-     execução, com data e hora** em cada linha (`dd/mm/aaaa HH:MM:SS`, hora local; hoje a janela só mostra `HH:MM:SS`). O título diz qual execução é
-     (`Logs · api · execução 05/11 07:52 → 09:10`).
-  3. **Excluir, para limpar:** um botão **Excluir** em cada registro (com confirmação), uma **caixa de seleção** por registro e um botão **"Limpar selecionados"** (com confirmação que
-     diz quantas execuções e quantos MiB serão apagados; desabilitado sem seleção). Opcional: "selecionar todas". A execução **atual não pode ser excluída** (nem aparece na lista de
-     passadas; o daemon recusa com `409 ExecutionRunning` se alguém pedir).
-  - **Decisão de armazenamento (o ponto que muda o desenho): uma pasta por execução.** O `log_store` da v0.1.40 grava segmentos **por serviço**, com os containers misturados
-    dentro de cada segmento; **não dá para apagar uma execução** sem reescrever arquivos. Passar para `<dados>/logs/<serviço>/<container curto>/NNNNNN.jsonl` + um `meta.json` por
-    execução (`deployment_id`, `image`, `replica`, `first_ts`, `last_ts`, `lines`, `bytes`, `partial`). Então: **listar = ler as pastas e os `meta.json`; excluir = apagar a pasta;
-    o log da execução atual continua sendo anexado em segmentos de 4 MiB** dentro da pasta dela. O `Stamper`/dedup por container e o escritor único continuam como são.
-  - **Retenção (muda junto):** `retention_days` apaga **execuções inteiras** cujo `last_ts` passou do prazo; `max_bytes_per_service` apaga a **execução passada mais antiga** até caber
-    (a atual nunca sai; se ela sozinha passar do teto, roda a rotação de segmentos **dentro** da pasta dela, como hoje). Execução que perdeu segmentos no meio fica `partial: true` (selo
-    "parcial" na lista). `ServiceDelete` continua apagando a pasta do serviço.
-  - **Migração dos logs já gravados (v0.1.40):** no primeiro boot do daemon novo, por serviço, ler os segmentos antigos e **redistribuir as linhas por container** nas pastas novas
-    (um serviço tem ≤ 50 MiB), gravar tudo e só então apagar os segmentos antigos; interrompida no meio, refaz (idempotente, o dedup por instante descarta o que já foi). Sem `deployment_id`
-    nessas execuções antigas: aparecem como **"execução sem deploy associado"** (início/fim pelas linhas). Testar com um diretório de logs real da v0.1.40 (o do Chiquitos, copiado).
-  - **De onde vem `deployment_id` e `image`:** todo container leva o label `rustploy.deployment_id` (`engine/containers/query.rs` já lê). `container_logs::stream_container` e `capture_final`
-    fazem **um `inspect_container`** na primeira vez que veem o container e mandam `Msg::Exec { service, container, deployment_id, image, replica }` ao escritor, que grava o `meta.json`.
-  - **Protocolo (aditivo; sobe o `rustploy-shared` para 0.18.0):**
-    `Command::LogsExecutions { service_id }` → `Response::LogsExecutions(Vec<LogExecution>)`,
-    `LogExecution { container_ids: Vec<String>, deployment_id: Option<String>, image: Option<String>, started_at, ended_at: Option<DateTime>, lines: u64, bytes: u64, current: bool, partial: bool, outcome: Option<String> }`
-    (o `outcome` cruza `deployment_id` com a tabela de deploys: `Live`/`Stopped` (substituída)/`Failed`; `current` = é o `live_container_id` agora; ordem: da mais nova para a mais velha);
-    `Command::LogsExecutionDelete { service_id, container_ids: Vec<String> }` → `Response::LogsExecutionsDeleted { deleted: u32, freed_bytes: u64 }` (aceita vários: é o "limpar selecionados" numa
-    chamada só; recusa a atual; id inexistente é ignorado, não erro). `LogsHistory` ganha o filtro por **lista** (`container_ids`) para abrir uma execução com réplicas (ou o handler agrupa por deploy).
-    Handlers em `api/handlers/observability/` (`logs_executions.rs`, `logs_execution_delete.rs`) + `dispatch.rs`. **Excluir é irreversível:** decidir se o agente (MCP) pode chamar
-    `LogsExecutionDelete` (sugestão: pode, é só log; mas registrar no log do daemon quem apagou o quê) e pôr no manual do agente. Descrições em inglês em `scripts/data/protocol-en.mjs`.
-  - **GUI** (`views/service/logs.gv`, `scripts/handlers/services.luau`, `log_window.gv`/`.luau`): o botão atual vira "Logs de execução" (só a execução atual); a lista nasce quando a aba abre
-    (`LogsExecutions`, ação despachada: o `rpc` funciona) com `for-each` de registros (checkbox `on_toggle`, "Ver logs", "Excluir"); "Limpar selecionados" no topo da lista; confirmações pelo
-    padrão de diálogo que já existe (como "Remover job?"). A janela de execução passada recebe pelo `open_window({data})` os `container_ids`, o título e o flag **sem SSE** (só histórico + "Carregar
-    anteriores" dentro da execução); a da atual abre ao vivo como hoje. Linha com data e hora: novo formatador em `format/service_detail.luau` (`history_rows`/`join_log_lines` com data).
-    **Lembrar:** função nova em `format/*.luau` entra também na fachada `views/scripts/format.luau` (o bug da 0.1.41); textos novos nos **dois** catálogos `locales/en.json` e `pt-BR.json`
-    (faltar o `pt-BR` faz a GUI cair no inglês); ação nova entra em `views/scripts/busy_actions.luau` (em ordem alfabética); a lista precisa ser **recarregada** depois de excluir e depois de um deploy novo.
-  - **webui:** `serviceLogExecutions`, `serviceLogSelected` (conjunto de ids), `serviceLogExecutionsLoad()`, `serviceLogExecutionOpen(exec)`, `serviceLogExecutionsDelete(ids)` em `app.js`; a lista e os
-    botões na aba Logs de `index.html`; a janela/modal da execução passada (`x-win`) com data e hora; chaves novas em `locales/en.js`. Como os dois clientes, **os dois entram no mesmo publish**.
-  - **Limites e armadilhas:** (a) container que **reinicia sozinho** continua sendo uma execução só (o `docker logs` é contínuo); se importar, o `StartedAt` do `inspect` muda a cada partida e dá para
-    inserir "reiniciou às …"; (b) **Compose** segue só ao vivo, sem lista (mostrar o botão único de hoje); (c) como o daemon só vê o container quando ele já roda, uma execução que cai em < 5 s e
-    nunca foi seguida só existe se o `capture_final` rodou (rollback/troca) — conferir que isso cria a pasta e o `meta.json`; (d) concorrência: excluir uma execução enquanto o escritor ainda grava nela
-    (só a atual grava; a atual é recusada) e enquanto uma janela dela está aberta (a janela já tem as linhas; "Carregar anteriores" depois de excluir deve dar erro claro, não vazio); (e) o
-    `Stamper`/dedup guardam o último instante por container em memória: apagar a pasta de um container que ainda recebe `append` (deploy recriado com o mesmo id curto é impossível, mas conferir) reabre a pasta;
-    o conjunto `deleted` do escritor hoje é por **serviço**, não por execução.
-  - **Testes que provam:** (a) `log_store`: grava em pasta por execução, `meta.json` correto e atualizado, listar, excluir (e a atual é recusada), retenção por idade e por tamanho apagando execuções inteiras,
-    `partial`, migração dos segmentos antigos (idempotente, interrompida no meio), permissões `0700/0600` nas pastas novas; (b) handlers: `LogsExecutions` cruza `outcome`/`current`, `LogsExecutionDelete` em lote
-    e a recusa da atual; (c) **teste real** num daemon local (dois deploys + um com healthcheck falhando, com os `Dockerfile` v1/v2/bad de `docs/plano-log-de-runtime-persistido.md` §5.7): a lista mostra as
-    passadas com o selo certo, "Ver logs" traz só as linhas daquela execução, excluir e "limpar selecionados" somem as pastas e a lista recarrega; (d) webui headless (lista, seleção, confirmação, janela com
-    data e hora) e Luau (`format`, fachada, lista); (e) **abrir a GUI instalada de verdade** (a janela é um motor à parte e já escondeu dois bugs que os testes não pegaram).
-  - **Docs ao entregar:** `interface/logs.mdx` (pt/en) com a lista, a janela por execução, excluir e limpar; `instalacao/config-toml.mdx` (a retenção agora apaga execuções inteiras); `docs/plano-log-de-runtime-persistido.md`
-    (seção nova + a mudança de layout); manual do agente; nota de versão (daemon/app/shared 0.18.0).
-  - **Ordem sugerida:** `log_store` com pasta por execução + migração (com testes) → protocolo → handlers → webui → GUI → docs → teste real (incl. migrar uma cópia dos logs do Chiquitos) → publish (`rustploy-shared` 0.18.0 primeiro).
+- [x] **Logs por execução: botão "Logs de execução" + lista das execuções passadas, com janela por registro, excluir e limpar selecionados** — implementado em 2026-11-06 (sem commit publicado): `log_store` com pasta por execução + `meta.json` + migração dos segmentos da v0.1.40, `LogsExecutions`/`LogsExecutionDelete` (`rustploy-shared` 0.19.0), `LogsHistory` por `container_ids`, webui e GUI. Como foi feito e verificado: `docs/plano-log-de-runtime-persistido.md` §7. **Falta:** publicar `rustploy-shared` 0.19.0 → daemon → app e fazer o deploy das docs (já escritas); **ver a janela nativa da GUI** (e a recusa da execução atual com um container `live` real) num servidor com a versão nova; conferir a migração numa cópia dos logs do Chiquitos antes do primeiro boot em produção.
 - [x] **Persistir o log de runtime dos containers** — feito em 2026-11-05 (daemon: `platform/log_store.rs`, `LogsHistory`, `[logs]`; webui e GUI com
   "Carregar anteriores"). Plano e como foi verificado: `docs/plano-log-de-runtime-persistido.md`. **Pendências deste item:** (1) a troca (`Promoting`) com captura do container antigo **foi vista em produção** (Chiquitos, 2026-11-05: o log do container antigo continuou na janela,
   com o separador de container); o rollback e o stream contínuo também foram verificados; (2) a janela de logs da **GUI nativa** abriu e mostrou o histórico (2026-11-05), mas o botão `log_window_load_older` ("Carregar anteriores") ainda não foi exercitado de verdade;

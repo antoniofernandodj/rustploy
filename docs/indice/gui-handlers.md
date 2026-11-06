@@ -189,7 +189,8 @@ function migration_start()
 function migration_rollback()
 function migration_discard()
 function service_rename_show_validation_errors(_erros_json) — on_validation_error do form(name = service_rename): o motor já acendeu o :invalid e publicou {error_…
-function save_service_name() — on_submit: só roda com a validação (rules="required") aprovada.
+function service_title_change(value) — on_change do título do cabeçalho (input disfarçado de título).
+function save_service_name() — (legado: o botão "Renomear" da aba General foi substituído pelo título editável acima; mantido por r…
 local materialize_domains(spec) — Move o domínio legado (domain/tls_enabled) para a lista `domains`.
 function domain_add()
 function domain_delete(domain)
@@ -242,7 +243,16 @@ function service_stop()
 function service_warm() — Aquece o serviço (constrói a imagem para popular o cache de build) sem fazer deploy: o container no …
 function gitea_provider_pick(provider_id)
 function gitea_repo_pick(full_name)
-function open_logs_window() — Abre os logs ao vivo do serviço numa JANELA à parte (motor Glacier isolado e leve — ver log_window.g…
+local render_log_executions()
+function M.reset_log_executions()
+function M.load_log_executions() — Lê `LogsExecutions` e separa a execução "atual" (a que a janela ao vivo mostra) das passadas.
+function log_exec_toggle(key)
+function log_exec_toggle_all()
+function log_exec_open(key) — Janela só de uma execução passada: histórico daquela execução (com data e hora), sem ao vivo.
+local delete_log_executions(keys, message)
+function log_exec_delete(key)
+function log_exec_delete_selected()
+function open_logs_window() — Abre os "Logs de execução" — só a execução ATUAL (ou a mais recente, com o serviço parado) — numa JA…
 
 ### settings.luau — Settings (Web Server) e Settings → Git (provedores Gitea: conectar via OAuth/PAT, atualizar lista, r…
 function settings_save()

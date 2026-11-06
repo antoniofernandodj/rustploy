@@ -46,7 +46,8 @@ function M.is_false(value) — O par de `is_true`.
 function M.list_is_empty(value) — `true` se a chave JSON do `ctx` é uma lista vazia (ou não é uma lista legível).
 
 ### log_window.luau — script da JANELA de logs (runtime OU build) de um serviço/deployment, um motor Glacier próprio e ISO…
-local set_full() — Set COMPLETO do textarea a partir do buf (usado no seed e no corte).
+local with_date() — Set COMPLETO do textarea a partir do buf (usado no seed e no corte).
+local set_full()
 local push_batch(events) — Aplica um lote de eventos novos: appenda no fim (barato) ou, se estourou o teto, corta a cauda e rec…
 local log_event_to_row(event) — Um evento do bus: os endpoints já filtram por id; pegamos o LogLine (runtime), BuildLog (build) ou J…
 function log_window_load_older() — Botão "Carregar anteriores": a página de log GUARDADO anterior ao que a janela já mostra (`LogsHisto…
@@ -161,7 +162,8 @@ local env_var_row(env_var) — Uma linha de var de ambiente (secret exibido por 
 function M.dependency_rows(spec, services) — Dependências do serviço (`spec.depends_on`: ids de serviços do MESMO projeto) como linhas {id, name,…
 function M.dependency_options(spec, self_id, services) — Serviços do projeto que ainda podem virar dependência: não o próprio, e nenhum que já esteja na list…
 local log_rows(log_entries) — Linhas de log (LogEntry/BuildLogLine: {stream, line, timestamp}) coloridas, limpas de ANSI e limitad…
-function M.join_log_lines(log_entries) — Junta linhas de log num blob de texto ("HH:MM:SS line") p/ o TextArea/copiar.
+function M.join_log_lines(log_entries, with_date) — Junta linhas de log num blob de texto ("HH:MM:SS line") p/ o TextArea/copiar.
+local execution_outcome(outcome) — Cor do desfecho do deploy de uma execução (lista "Execuções anteriores").
 function M.deployments_detail(deployments) — Histórico de deployments de um serviço (aba Deployments).
 function M.domains_json(spec) — Rotas HTTP de um spec (aba Domains).
 function M.safe_name(name) — normalize_name: minúsculas, não-alfanumérico → '_' (colapsado), trim '_'.
@@ -187,6 +189,7 @@ function M.context(status, findings) — Todos os valores de ctx que a tela prec
 function M.time_hms(iso_timestamp) — HH:MM:SS local de um timestamp do daemon.
 function M.date_day_month_hour_minute(iso_timestamp) — "dd/mm HH:MM" local.
 function M.date_day_month_hour_minute_second(iso_timestamp) — "dd/mm HH:MM:SS" local.
+function M.date_time_full(iso_timestamp) — "dd/mm/aaaa HH:MM:SS" local (log de uma execução antiga: a data importa).
 function M.format_seconds(seconds) — Ns ou Mm Ns.
 function M.format_uptime(seconds)
 function M.format_bytes(bytes_value) — Tamanho de bytes legível ("—" para 0), igual a view::format_bytes.

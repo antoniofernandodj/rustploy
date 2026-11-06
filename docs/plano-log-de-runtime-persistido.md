@@ -103,3 +103,38 @@ campos têm padrão, então um `config.toml` antigo continua carregando.
 - Logs de **Compose** com vários containers (só ao vivo, como hoje).
 - Busca de texto, filtros por nível e exportação.
 - Envio dos logs para fora (Loki etc.): há uma branch `main-loki` no chickie, mas é outro assunto.
+
+## 7. Logs por execução (2026-11-06) — implementado
+
+> **Estado:** implementado e verificado num daemon local (migração real de segmentos da v0.1.40, `LogsExecutions`,
+> `LogsHistory` por `container_ids`, `LogsExecutionDelete`); webui testada em Chrome headless; GUI com testes Luau de
+> render e formatação. **Não visto:** a janela nativa da GUI (o app instalado do dono segura a trava de instância
+> única) e a recusa da execução atual com um container `live` de verdade (sem engine no teste).
+
+**O que mudou no armazenamento.** Em vez de segmentos por serviço com os containers misturados, **uma pasta por
+execução (= container)**: `<dados>/logs/<serviço>/<container curto>/NNNNNN.jsonl` + `meta.json` (`deployment_id`,
+`image`, `first_ts`, `last_ts`, `lines`, `bytes`, `partial`). Listar = ler as pastas; excluir = apagar a pasta.
+O escritor único, o `Stamper` e a deduplicação por container continuam como eram.
+
+**Retenção.** `retention_days` apaga **execuções inteiras** pelo `last_ts`; `max_bytes_per_service` apaga a execução
+mais antiga primeiro. A de `last_ts` mais recente do serviço nunca sai por isso (o escritor não sabe qual é a `live`;
+a mais recente é a aproximação, e só erra se um serviço ficar parado mais que a retenção). Se só ela passa do teto, a
+rotação de segmentos roda dentro da pasta e a execução vira `partial`.
+
+**Migração.** No primeiro boot, `migrate_legacy` lê os segmentos soltos de cada serviço, reparte as linhas por container
+numa pasta `.mig/` e só então move cada pasta para o lugar (`rename`) e apaga os segmentos antigos. Interrompida, refaz
+(`.mig` velho é descartado; pasta de container já movida não é tocada). Execuções migradas ficam sem `deployment_id`
+(*sem deploy associado*).
+
+**De onde vêm deploy e imagem.** `container_logs` faz **um** `inspect_container` por stream e por captura final
+(`register_exec`) e manda `set_exec` ao escritor (label `rustploy.deployment_id` e `config.image`).
+
+**Protocolo (`rustploy-shared` 0.19.0, aditivo).** `LogsHistory` ganha `container_ids: Vec<String>` (soma-se a
+`container_id`); `LogsExecutions{service_id}` → `LogsExecutions(Vec<LogExecution>)`;
+`LogsExecutionDelete{service_id, container_ids}` → `LogsExecutionsDeleted{deleted, freed_bytes}`. A execução atual
+(`live_container_id`) é recusada com `ExecutionRunning`; id inexistente é ignorado; Compose devolve lista vazia.
+(As respostas de erro do daemon são todas `200` com `{"Err":…}`; não existe `409` HTTP aqui.)
+
+**Clientes.** webui: `serviceLogExecutions*` em `app.js`, lista e janela de execução em `index.html`. GUI:
+`log_exec_*` em `handlers/services.luau`, `views/service/logs.gv`, `log_window.luau` (`log_window_past`: sem SSE, linhas
+com data). O botão "Logs de execução" mostra só a execução atual (ou a mais recente, com o serviço parado).

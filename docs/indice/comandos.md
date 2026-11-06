@@ -40,6 +40,12 @@ LogsGet | daemon: observability/logs_get | gui: handlers/services | web: app
 
 ## / serviços Compose (só ao vivo, por `LogsGet`).
 LogsHistory — Log de runtime **persistido** do serviço (sobrevive à troca de contain… | daemon: observability/logs_history | gui: handlers/services, log_window | web: app
+
+## / Não cobre serviços Compose.
+LogsExecutions — As execuções (um container = uma execução) com log guardado, da mais n… | daemon: observability/logs_executions::list | gui: handlers/services | web: app
+
+## / recusada (`ExecutionRunning`); id inexistente é ignorado. Resposta: `LogsExecutionsDeleted`.
+LogsExecutionDelete — Apaga o log guardado de execuções (irreversível; vários de uma vez). | daemon: observability/logs_executions::delete | gui: handlers/services | web: app
 LogsSubscribe | daemon: (inline em dispatch.rs) | gui: — | web: —
 LogsUnsubscribe | daemon: (inline em dispatch.rs) | gui: — | web: —
 MetricsSubscribe | daemon: (inline em dispatch.rs) | gui: — | web: —

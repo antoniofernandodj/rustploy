@@ -309,13 +309,19 @@ fn handle(state) -> RpResponse
 fn routes(state) -> RpResponse — Foto da tabela viva (domínios + portas).
 fn reconcile(state, service_id) -> RpResponse — Recalcula as rotas a partir dos containers que existem de fato no Docker e devolve a tabela já corri…
 
+### logs_executions.rs — `Command::LogsExecutions` e `Command::LogsExecutionDelete`: as execuções (um container = uma execuçã…
+fn service_and_store(state, service_id) — Serviço existente e com log persistido ligado, ou a resposta de erro pronta.
+fn is_current(live_container_id, meta) -> bool — A execução em curso é a do container `live` do serviço.
+fn list(state, service_id) -> RpResponse
+fn delete(state, service_id, container_ids) -> RpResponse
+
 ### logs_get.rs — `Command::LogsGet`: últimas linhas de log de um serviço, do container ou (Compose) via `docker compo…
 fn handle(state, service_id, tail) -> RpResponse
 fn parse_compose_log_ts(line) -> Option<chrono::DateTime<Utc>> — Extracts the RFC3339 timestamp from a `docker compose logs --timestamps` line.
 fn compose_logs(project_name, content, tail, env_vars) -> RpResponse — Logs de um serviço Compose via `docker compose logs --timestamps`, com o timestamp de cada linha ext…
 
 ### logs_history.rs — `Command::LogsHistory`: o log de runtime **persistido** do serviço (sobrevive à troca de container n…
-fn handle(state, service_id, before, limit, container_id) -> RpResponse
+fn handle(state, service_id, before, limit, containers) -> RpResponse
 
 ### mod.rs — Handlers de observability: o `dispatch` recebe os `Command` da seção e chama o handler certo.
 fn dispatch(state, cmd) -> RpResponse
@@ -531,7 +537,7 @@ fn seed_connected(page) — Semeia a sessão (bypassa login/SSE, mesma ideia de 
 fn eval_str(page, js) -> String — Avalia `js` (uma expressão, possivelmente uma Promise) e devolve o resultado como `String` — os test…
 fn visible(page, selector) -> bool — `true` se o elemento existir e estiver de fato visível (`x-show` escreve `display:none` inline; `off…
 fn errors(page) -> Vec<String>
-(15 testes)
+(16 testes)
 
 ### mod.rs — Servidor de estáticos da web UI/PWA (`crates/daemon/webui/`) — alternativa ao client iced (`rustploy…
 type ApiBody = BoxBody<Bytes, std::convert::Infallible>
