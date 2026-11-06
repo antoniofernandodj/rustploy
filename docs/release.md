@@ -190,6 +190,21 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.44 (2026-11-06): logs por execução
+
+- **O que muda:** daemon **0.1.36**, app **0.1.43**, `rustploy-shared` **0.19.0** (aditivo). O log de runtime passa a ter uma pasta por
+  execução (container) com `meta.json`; a aba Logs mostra só a execução atual ao vivo e uma lista de **Execuções anteriores** (Ver logs numa
+  janela com data e hora, Excluir, Limpar selecionados). `LogsHistory` ganha `container_ids`; novos `LogsExecutions` e `LogsExecutionDelete`.
+  A retenção apaga execuções inteiras. No primeiro boot o daemon **migra** os segmentos da v0.1.40 para as pastas novas (execuções antigas ficam
+  "sem deploy associado"). No app: título do serviço editável (grava sozinho, com debounce), botões de mover/adicionar travados sem destino,
+  espaçamento nos botões das linhas de variável; `glacier-ui` 0.150.1 (`size`/`bold` no `textinput`). Detalhes: `docs/plano-log-de-runtime-persistido.md` §7.
+- **crates.io:** `rustploy-shared` 0.19.0, `rustploy` 0.1.36 e `rustploy-gui` 0.1.43 (2026-11-06); `glacier-ui` 0.150.1.
+- **Verificado:** daemon 477 testes e `clippy -D warnings`; `LogsExecutions`/`LogsHistory`/`LogsExecutionDelete` e a migração contra um daemon
+  local (engine falso); a webui em Chrome headless; 404 testes Luau; `workflow_dispatch` antes da tag; release assinada; `install.sh gui` num
+  `debian:12` limpo (app 0.1.43-1); docs no ar (pt e en), 0 links quebrados.
+- **NÃO verificado:** a janela nativa da GUI com a lista (o app do dono estava aberto no teste); a recusa da execução **atual** com um container
+  `live` real; a migração numa cópia dos logs do Chiquitos; `install.sh` do daemon (precisa de systemd) e `install.ps1`.
+
 ## v0.1.43 (2026-11-06): seletor de idioma do app
 
 - **O que muda:** só o app, **0.1.42**. Os botões English / Português saem da barra do topo: no login ficam num rodapé discreto no canto

@@ -1,6 +1,6 @@
 # Changelog
 
-Histórico das 20 últimas versões do Rustploy (`v0.1.24` a `v0.1.43`, de 28/10/2026 a 06/11/2026), do mais novo para o mais antigo.
+Histórico das 20 últimas versões do Rustploy (`v0.1.25` a `v0.1.44`, de 28/10/2026 a 06/11/2026), do mais novo para o mais antigo.
 Levantado a partir das tags do agregador, dos ponteiros dos submódulos, dos commits entre cada par de tags, das releases do GitHub
 e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação, com o que foi e o que **não** foi verificado).
 
@@ -19,6 +19,7 @@ e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação,
 
 | Tag | Data | Daemon (`rustploy`) | App (`rustploy-gui`) | `rustploy-shared` | Destaque |
 |---|---|---|---|---|---|
+| [v0.1.44](#v0144--2026-11-06) | 2026-11-06 | **0.1.36** | **0.1.43** | **0.19.0** | Logs por execução: lista, ver, excluir e limpar |
 | [v0.1.43](#v0143--2026-11-06) | 2026-11-06 | 0.1.35 | **0.1.42** | 0.18.0 | Seletor de idioma no rodapé do login e em Configurações |
 | [v0.1.42](#v0142--2026-11-06) | 2026-11-06 | **0.1.35** | 0.1.41 | **0.18.0** | `product` no lugar de `db_kind` (quebra), webhook form, IP fixo no alias |
 | [v0.1.41](#v0141--2026-11-05) | 2026-11-05 | 0.1.34 | **0.1.41** | 0.17.0 | Fix da janela de logs do app |
@@ -55,6 +56,24 @@ lá, a data do commit da tag; o horário de publicação no GitHub, em UTC, est�
 | v0.1.38 | 2026-11-04 02:07 | `rustployd_0.1.32-1` | `rustploy-gui_0.1.39-1` | `rustploy-gui-windows-v0.1.38.zip` |
 
 Cada release traz também o `checksums.sha256` e um `.minisig` para cada `.deb` e para o zip.
+
+---
+
+## v0.1.44 — 2026-11-06
+
+Logs por execução. Muda o daemon (**0.1.36**), o app (**0.1.43**) e o `rustploy-shared` (**0.19.0**, aditivo).
+
+### Adicionado
+- Aba **Logs**: "Logs de execução" mostra só a execução atual; abaixo, a lista **Execuções anteriores** (intervalo, deploy, imagem, linhas,
+  tamanho, desfecho) com **Ver logs** (janela com data e hora), **Excluir** e **Limpar selecionados**. Na webui e no app.
+- Protocolo: `LogsExecutions`, `LogsExecutionDelete` e `container_ids` em `LogsHistory`.
+- App: título do serviço editável (grava sozinho), opção nula nos seletores de mover e botões travados sem destino.
+
+### Alterado
+- O log de runtime fica em uma pasta por execução; a retenção apaga execuções inteiras. Na primeira subida o daemon migra os logs da v0.1.40.
+
+### Publicação
+- `rustploy-shared` 0.19.0, `rustploy` 0.1.36 e `rustploy-gui` 0.1.43 no crates.io; release assinada; `glacier-ui` 0.150.1.
 
 ---
 
