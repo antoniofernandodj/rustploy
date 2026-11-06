@@ -190,6 +190,17 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.41 (2026-11-05): fix da janela de logs do app
+
+- **O que muda:** só o app, **0.1.41**. A janela de logs da v0.1.40 dava "attempt to call a nil value" ao abrir **Logs**:
+  `format.history_rows` não estava exportado pela fachada `views/scripts/format.luau`. Também o separador de container do log
+  passa a sair em pt-BR no catálogo pt-BR. Daemon **0.1.34** e `rustploy-shared` **0.17.0** não mudam.
+- **crates.io:** `rustploy-gui` 0.1.41 publicado (2026-11-05).
+- **Verificado:** `cargo fmt`, `clippy -D warnings`, 40 testes e `cargo publish --dry-run`; a GUI instalada com `make install-gui`
+  abre a janela de logs da `api` do Chiquitos e mostra o histórico (11 linhas).
+- **NÃO verificado:** o botão **Carregar anteriores** (só aparece com mais de 500 linhas guardadas num serviço que não seja Compose).
+- **Armadilha:** função nova em `format/*.luau` precisa entrar também na fachada `views/scripts/format.luau`; os testes Luau não pegam a falta.
+
 ## v0.1.40 (2026-11-05): Baixar a infra e log de runtime persistido
 
 - **O que muda:** daemon **0.1.34**, app **0.1.40**, `rustploy-shared` **0.17.0** (**quebra de protocolo**).
