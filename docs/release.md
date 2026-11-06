@@ -200,8 +200,9 @@ fora do ar não impede o outro (`fail-fast: false`).
 - **crates.io:** `rustploy-shared` 0.18.0 e `rustploy` 0.1.35 publicados (2026-11-06).
 - **Verificado:** `make lint` e `make test` (485 testes do daemon); `alias_mantem_o_ip` em Podman rootful 5.7.0, com e sem o 2º
   container (sem o conserto falha); site: build e 0 links quebrados.
-- **NÃO verificado:** IP fixo e fim dos `missed heartbeats` no Chiquitos (precisa do daemon novo instalado); a conversão `db_kind` ->
-  `product` num servidor com dados reais.
+- **Verificado depois (2026-11-06, pelo dono):** daemon atualizado pelo botão do updater; conversão `db_kind` -> `product` num servidor
+  com dados reais, sem problemas.
+- **NÃO verificado:** IP fixo e fim dos `missed heartbeats` no Chiquitos.
 
 ## v0.1.41 (2026-11-05): fix da janela de logs do app
 
