@@ -100,6 +100,8 @@
 
 ### gitsync.gv
 
+### language.gv
+
 ### maintenance.gv
 
 ### updates.gv

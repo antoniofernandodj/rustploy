@@ -1735,6 +1735,7 @@
 ### rustploy-gui/views/home/settings/ → gui-views.md
 - git.gv
 - gitsync.gv
+- language.gv
 - maintenance.gv
 - updates.gv
 - web.gv

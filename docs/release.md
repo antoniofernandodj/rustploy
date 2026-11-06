@@ -190,6 +190,17 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.43 (2026-11-06): seletor de idioma do app
+
+- **O que muda:** só o app, **0.1.42**. Os botões English / Português saem da barra do topo: no login ficam num rodapé discreto no canto
+  inferior direito; dentro do app, numa aba **Idioma** em Configurações. A web UI não mudou. Daemon **0.1.35** e `rustploy-shared`
+  **0.18.0** não mudam.
+- **crates.io:** `rustploy-gui` 0.1.42.
+- **Verificado:** `cargo fmt`, `clippy -D warnings`, 40 testes; a tela foi aberta e testada pelo dono antes do publish. No Chiquitos (daemon
+  0.1.35, publisher novo do chickie) os `missed heartbeats` do RabbitMQ sumiram: a `api` ficou 43 min conectada.
+- **NÃO verificado:** a reconexão do publisher depois de uma queda do broker em produção (só o teste automático). O falso `Stopped` do
+  primeiro deploy depois do restart do daemon (`container not running at read time`, 06:24) não tem causa conhecida e não repetiu.
+
 ## v0.1.42 (2026-11-06): `product` no lugar de `db_kind`, webhook form, IP fixo
 
 - **O que muda:** daemon **0.1.35** + `rustploy-shared` **0.18.0** (o app 0.1.41 já usa o `product`). `ServiceSpec.db_kind` virou
