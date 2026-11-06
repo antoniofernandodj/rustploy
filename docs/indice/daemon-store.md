@@ -217,7 +217,7 @@ fn list_all(db) -> Result<Vec<Service>>
 fn test_compose_spec(name, project_id) -> ServiceSpec
 fn compose_service_keys(content) -> std::collections::BTreeSet<String> — Chaves de serviço (`services:`) de um compose, para casar com as de uma stack viva.
 fn backfill_compose_projects(db, live) -> Result<()> — Grava `compose_project` nos serviços Compose que ainda não têm, com o nome **que a stack já usa** — …
-(22 testes)
+(23 testes)
 
 ### shared_access.rs — Tabela `shared_access`: quais projetos podem alcançar cada servidor de banco compartilhado.
 fn grant(db, server_id, project_id) -> Result<()>
@@ -301,7 +301,7 @@ impl InfraState
   fn write(tree) -> Result<()> — Grava o estado inteiro numa transação: escreve o que mudou e **apaga** os projetos que deixaram de e…
 fn upgrade_project_v1(bytes) -> Result<ProjectInfra> — Lê um `project.yml` do schema 1: renomeia `db_kind` → `product` em cada `services[].spec` antes de t…
 const MANIFEST, SETTINGS, PROVIDERS
-(6 testes)
+(7 testes)
 
 ### repo.rs — O **repositório** do estado de infra: o `InfraState` em memória (as leituras vêm daqui) mais a pasta…
 struct Repo { tree, changes, state, gate, _tmp }
@@ -315,6 +315,7 @@ impl Repo
   fn snapshot() -> Arc<InfraState> — O estado atual.
   fn apply_files(files, check, finish) — Aplica uma **árvore inteira vinda de fora** (o `pull` do git) como UMA transação: lê com [`InfraStat…
   fn reload_checked() — Relê a pasta do disco, **valida** e só então troca o estado em memória.
+  fn upgrade_disk(st) -> Result<()> — Regrava `st` se a pasta ainda estiver num schema anterior ao atual.
   fn reload() -> Result<()> — Substitui o estado em memória pelo que está no disco (depois da migração).
   fn update(f) -> Result<R> — Aplica `f` ao estado e grava.
 (4 testes)

@@ -472,6 +472,7 @@ fn login(req, expected, peer, scheme) -> Response<ApiBody> — `POST /api/login`
 fn mcp(req, state) -> Response<ApiBody> — `POST /mcp`: o servidor MCP do agente (ver `agent::mcp`).
 fn json_value(status, body) -> Response<ApiBody>
 fn service_archive_upload(req, state, service_id) -> Response<ApiBody>
+fn legacy_product_key(body) -> Option<String> — Cliente antigo (GUI/webui anteriores ao rename `db_kind` → `product`) gravando um serviço de banco/b…
 fn rpc(req, state) -> Response<ApiBody> — `POST /api/rpc`: decode a `Command`, run it through `dispatch`, encode the `Response` back as JSON.
 fn events(state) -> Response<ApiBody> — `GET /api/events`: SSE stream.
 fn service_logs(state, service_id) -> Response<ApiBody> — `GET /api/services/{id}/logs`: SSE dedicado aos logs de container de UM serviço.
@@ -495,7 +496,7 @@ fn accepts_gzip(req) -> bool — O cliente aceita gzip? (`Accept-Encoding` cont�
 fn json_response(bytes, accept_gzip) -> Response<ApiBody> — Resposta JSON, comprimida com gzip quando o cliente aceita e o corpo passa de [`GZIP_MIN`].
 fn gzip(data) -> std::io::Result<Vec<u8>> — Comprime `data` em gzip (flate2, mesmo crate do tar do build Docker).
 fn constant_time_eq(a, b) -> bool — Short-circuits on length mismatch but is otherwise constant-time over the compared bytes.
-(5 testes)
+(6 testes)
 
 ### public_routes.rs — Rotas HTTP **públicas** (sem Bearer): o webhook de deploy e o callback OAuth do Gitea.
 fn webhook(req, state) -> Response<Full<Bytes>> — `POST /webhook/{service_id}/{token}` — valida o token e dispara um deploy, a menos que o serviço sej…

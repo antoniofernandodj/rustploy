@@ -190,6 +190,19 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.42 (2026-11-06): `product` no lugar de `db_kind`, webhook form, IP fixo
+
+- **O que muda:** daemon **0.1.35** + `rustploy-shared` **0.18.0** (o app 0.1.41 já usa o `product`). `ServiceSpec.db_kind` virou
+  `product` (banco, broker ou storage); o daemon converte o YAML/SQL antigo na leitura (infra schema 2, com backup `infra.bak-schema1`)
+  e o manifesto do pacote aceita `db:` como alias. `/api/rpc` recusa `ServiceCreate/Update` com `db_kind` (cliente antigo).
+  Webhook aceita `application/x-www-form-urlencoded` e ignora o ping. `attach_network_alias` reconecta com o **mesmo IPv4**
+  (sem isso o IP mudava e conexões abertas morriam por heartbeat 2-3 min depois do deploy). Deploy em fila preserva `live_container_id`.
+- **crates.io:** `rustploy-shared` 0.18.0 e `rustploy` 0.1.35 publicados (2026-11-06).
+- **Verificado:** `make lint` e `make test` (485 testes do daemon); `alias_mantem_o_ip` em Podman rootful 5.7.0, com e sem o 2º
+  container (sem o conserto falha); site: build e 0 links quebrados.
+- **NÃO verificado:** IP fixo e fim dos `missed heartbeats` no Chiquitos (precisa do daemon novo instalado); a conversão `db_kind` ->
+  `product` num servidor com dados reais.
+
 ## v0.1.41 (2026-11-05): fix da janela de logs do app
 
 - **O que muda:** só o app, **0.1.41**. A janela de logs da v0.1.40 dava "attempt to call a nil value" ao abrir **Logs**:

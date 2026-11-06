@@ -98,12 +98,14 @@ fn get_container_logs(docker, container_id, tail) -> Vec<String> — Returns the
 
 ### lifecycle.rs — Ciclo de vida de um container: criar o staging, start, stop, rename, remover e alias de rede.
 fn attach_network_alias(docker, container_id, network, alias) -> Result<()> — Dá ao container o alias `alias` na rede `network`, reconectando-o (`disconnect` + `connect`): o Dock…
+fn endpoint_with_alias(alias, ipv4) -> EndpointSettings — Endpoint de rede com o alias e, se houver, o IPv4 fixo.
 fn create_staging(docker, spec, image, service_id, deployment_id, network_id, resolved_env, container_name, replica) -> Result<String> — Cria o container de staging de uma réplica já na rede do projeto (`network_mode` e `NetworkingConfig…
 fn start(docker, container_id) -> Result<()>
 fn is_not_found(e) -> bool — Retorna `true` se o erro do bollard for um 404 (container inexistente).
 fn stop_graceful(docker, container_id, timeout) -> Result<()>
 fn rename(docker, container_id, new_name) -> Result<()>
 fn remove(docker, container_id) -> Result<()>
+(2 testes)
 
 ### mod.rs — Containers de serviços Application: nomes (live, staging, réplicas, legado), busca por label, criaçã…
 
