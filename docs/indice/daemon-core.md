@@ -203,15 +203,15 @@ impl Default for UpdateConfig
 
 ### connection.rs — Connection string de banco/broker, montada num lugar só.
 fn pct_encode(s) -> String — Percent-encoding de um componente de userinfo (`@`, `:`, `/`, `?`, `#`…).
-fn scheme(db_kind) -> Option<&'static str> — Esquema de URI por `db_kind`; `None` = sem esquema (Kafka, serviço comum).
+fn scheme(product) -> Option<&'static str> — Esquema de URI por `product`; `None` = sem esquema (Kafka, serviço comum).
 struct ConnTarget { host, port, database, user, password, auth_source } — Destino de uma conexão.
 fn non_empty(s) -> Option<&str>
-fn connection_url(db_kind, t) -> String — URI padrão (`scheme://user:senha@host:porta/database`) que os drivers aceitam como `DATABASE_URL`.
-fn credentials(db_kind, get) — `(database, usuário, senha, authSource)` de um banco/broker, lidos das env vars nas convenções que o…
+fn connection_url(product, t) -> String — URI padrão (`scheme://user:senha@host:porta/database`) que os drivers aceitam como `DATABASE_URL`.
+fn credentials(product, get) — `(database, usuário, senha, authSource)` de um banco/broker, lidos das env vars nas convenções que o…
 fn compose_services(content) -> Vec<(String, Option<String>)> — Serviços declarados num YAML de Compose: `(chave, imagem)`, na ordem.
-fn compose_host(content, ingress_service, db_kind) -> Option<String> — Host (chave do serviço no YAML) que recebe a conexão numa stack Compose: `ingress_service` se preenc…
-fn is_sql_or_mongo(db_kind) -> bool — Bancos que podem ser servidor compartilhado / ter databases gerenciados.
-fn validate_shared_rules(name, source, db_kind, shared) -> Result<(), String> — Regras do spec ligadas ao banco compartilhado, checadas onde o spec é gravado: (1) nenhum nome de se…
+fn compose_host(content, ingress_service, product) -> Option<String> — Host (chave do serviço no YAML) que recebe a conexão numa stack Compose: `ingress_service` se preenc…
+fn is_sql_or_mongo(product) -> bool — Bancos que podem ser servidor compartilhado / ter databases gerenciados.
+fn validate_shared_rules(name, source, product, shared) -> Result<(), String> — Regras do spec ligadas ao banco compartilhado, checadas onde o spec é gravado: (1) nenhum nome de se…
 (6 testes)
 
 ### env_validation.rs — Validação das env vars gravadas por serviço, projeto e job: nome válido e sem chave repetida.

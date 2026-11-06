@@ -289,6 +289,7 @@ struct ManagedDatabaseInfra { id, server_service_id, name, password, env_var, co
 struct SharedAccessInfra { server_service_id, created_at }
 struct ProvidersFile { providers }
 struct ManifestFile { schema }
+fn disk_schema(tree) -> Result<Option<u32>> — Versão do formato gravada na pasta (`None` = sem `MANIFEST.json`).
 fn is_state_file(rel) -> bool — O caminho é um arquivo do estado (e não um `README`, `.gitignore`…)?
 fn project_path(id) -> String
 impl InfraState
@@ -298,8 +299,9 @@ impl InfraState
   fn read(tree) -> Result<Option<InfraState>> — Lê o estado de uma árvore de arquivos.
   fn from_files(files) -> Result<Option<InfraState>> — Monta o estado a partir de `caminho → bytes` (de um disco **ou de uma árvore do git**, sem checkout)…
   fn write(tree) -> Result<()> — Grava o estado inteiro numa transação: escreve o que mudou e **apaga** os projetos que deixaram de e…
+fn upgrade_project_v1(bytes) -> Result<ProjectInfra> — Lê um `project.yml` do schema 1: renomeia `db_kind` → `product` em cada `services[].spec` antes de t…
 const MANIFEST, SETTINGS, PROVIDERS
-(4 testes)
+(6 testes)
 
 ### repo.rs — O **repositório** do estado de infra: o `InfraState` em memória (as leituras vêm daqui) mais a pasta…
 struct Repo { tree, changes, state, gate, _tmp }

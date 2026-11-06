@@ -23,8 +23,8 @@ vez.
 | App (Git) | `source = Git` | branch, URL do repositório, selo aquecido/frio |
 | App (zip) | `source = Archive` | nome do zip, selo aquecido/frio |
 | App (imagem) | `source = Registry` | imagem:tag |
-| Banco de dados | `spec.db_kind` preenchido | engine (postgres, mongo…), porta, URL interna |
-| Broker | `db_kind` de broker (kafka, rabbit…) | idem banco |
+| Banco de dados | `spec.product` preenchido | engine (postgres, mongo…), porta, URL interna |
+| Broker | `product` de broker (kafka, rabbit…) | idem banco |
 | Compose | `source = Compose` | nº de containers |
 
 - Em todos: **atalhos Deploy e Stop**, CPU/mem, domínio(s), **webhook de
@@ -42,7 +42,7 @@ métricas. As lacunas:
 1. **Webhook**: hoje só existe `GetWebhookUrl` por serviço (uma chamada cada).
    Proposta: o snapshot passa a trazer `webhooks: { service_id: url }`, montado
    no daemon a partir da mesma função do comando. Uma ida só, sem N chamadas.
-2. **Tipo "broker"**: preciso conferir quais valores `db_kind` assume hoje para
+2. **Tipo "broker"**: preciso conferir quais valores `product` assume hoje para
    classificar banco × broker; se não houver distinção, ela entra como lista
    fixa no `shared` (uma função só, que as duas telas usam — fonte única).
 

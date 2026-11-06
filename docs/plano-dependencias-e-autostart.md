@@ -39,7 +39,7 @@ Decisões confirmadas com o usuário:
 ## Modelo de dados
 
 ### `crates/shared/src/models.rs`
-- `ServiceSpec`: adicionar `#[serde(default)] pub depends_on: Vec<String>` como último campo (mesmo padrão já usado por `domains`/`db_kind`/`host_port`; o `serde(default)` é o que permite ler specs antigas do blob JSON `service.spec` sem migração).
+- `ServiceSpec`: adicionar `#[serde(default)] pub depends_on: Vec<String>` como último campo (mesmo padrão já usado por `domains`/`product`/`host_port`; o `serde(default)` é o que permite ler specs antigas do blob JSON `service.spec` sem migração).
 - Novo enum `DesiredState { Running, Stopped }` com `Display`/parse espelhando o padrão existente de `ServiceStatus` (`db/services.rs::parse_status`).
 - `Service`: adicionar `pub desired_state: DesiredState` como último campo.
 - Novo módulo `crates/shared/src/deps.rs`:

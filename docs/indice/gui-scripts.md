@@ -165,7 +165,7 @@ function M.join_log_lines(log_entries) — Junta linhas de log num blob de texto
 function M.deployments_detail(deployments) — Histórico de deployments de um serviço (aba Deployments).
 function M.domains_json(spec) — Rotas HTTP de um spec (aba Domains).
 function M.safe_name(name) — normalize_name: minúsculas, não-alfanumérico → '_' (colapsado), trim '_'.
-local internal_scheme(db_kind)
+local internal_scheme(product)
 function M.compose_host(content, ingress_service) — Chave do serviço que recebe o tráfego dentro de um compose: `ingress_service` se declarado, senão a …
 local url_host(api_url) — Extrai só o host (sem esquema/porta) de uma api_url tipo "https://1.2.3.4:8443".
 local env_plain(vars, key) — Valor Plain de uma env var pela chave (secrets/ausentes → nil).

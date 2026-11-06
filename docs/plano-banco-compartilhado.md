@@ -246,7 +246,7 @@ Por isso foi preciso escrever a `DATABASE_URL` à mão no último projeto.
   atribui (§2.3), então é certo por construção. Para o card "Internal URL" dos
   bancos comuns, o daemon lê o host real: a chave do serviço no YAML
   (`ingress_service` se preenchido; senão, o único serviço da stack; senão,
-  aquele cuja imagem bate com o `db_kind`) — ou, com o serviço rodando, os
+  aquele cuja imagem bate com o `product`) — ou, com o serviço rodando, os
   `Aliases` do container na rede do projeto. Se não conseguir decidir, mostra
   o nome do container, que sempre resolve, em vez de inventar um.
 - O alias do banco compartilhado usa `-` em vez de `_`
@@ -270,8 +270,8 @@ Um campo novo no `ServiceSpec`:
 pub shared: Option<SharedServerConfig>,
 ```
 
-Só pode ser marcado como compartilhado um serviço com `db_kind` em
-`postgres`, `mysql`, `mariadb` ou `mongodb`. É o `db_kind` que diz ao daemon
+Só pode ser marcado como compartilhado um serviço com `product` em
+`postgres`, `mysql`, `mariadb` ou `mongodb`. É o `product` que diz ao daemon
 qual motor é e onde estão as credenciais de administrador — nas mesmas env
 vars que o wizard já grava (`shared/wizard.rs::db_env_vars`):
 
@@ -283,7 +283,7 @@ vars que o wizard já grava (`shared/wizard.rs::db_env_vars`):
 | MongoDB | `MONGO_INITDB_ROOT_USERNAME/PASSWORD`, `authSource=admin` | `mongosh` (imagens ≤ 5 só têm `mongo`) |
 
 Um serviço criado de outro jeito (blueprint, compose colado) não tem
-`db_kind`; a opção de compartilhar não aparece nele. Recomendação: criar os
+`product`; a opção de compartilhar não aparece nele. Recomendação: criar os
 servidores centrais pelo wizard de banco.
 
 Senhas passam para o cliente por variável de ambiente do `docker exec`
@@ -436,7 +436,7 @@ ambiguidade.
 
 ### 5.1 O assistente "Migrar para banco compartilhado"
 
-Botão na tela do serviço de banco antigo (precisa ter `db_kind`). Pede:
+Botão na tela do serviço de banco antigo (precisa ter `product`). Pede:
 
 - **origem:** este serviço (já preenchido) + nome do database de origem;
 - **destino:** um database gerenciado de um servidor compartilhado **do mesmo

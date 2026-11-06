@@ -270,6 +270,7 @@ function test_url_externa__senha_com_caracteres_reservados_e_percent_encoded() �
 function test_url_externa__segredo_referencia_nao_vira_credencial() — - segredo (referência) não vira credencial
 function test_url_externa__o_host_sai_do_api_url_ou_host_quando_ele_falta() — - o host sai do api_url, ou <host> quando ele falta
 function test_logs__history_rows_marca_a_troca_de_container() — - history_rows marca onde o container muda e devolve o último container
+function test_logs__a_fachada_format_exporta_history_rows() — - a fachada `format` reexporta history_rows (open_logs_window a chama por ela; faltou uma vez)
 
 ### state_git.test.luau
 function test_state_git__sem_status_ou_desligado_nao_ha_aviso() — - sem status ou desligado: nenhum aviso

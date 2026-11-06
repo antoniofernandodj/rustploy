@@ -40,7 +40,7 @@ fn templates_catalog_json(search) -> String — Templates filtrados por `search`
 fn template_logo(t) -> (String, &'static str)
 fn template_slug(t) -> String
 struct DbFormInput { db_name, user, password, root_password, image, use_replica_sets } — Campos do formulário de banco/broker.
-fn base_spec(name, project_id, source, port, env_vars, db_kind) -> ServiceSpec
+fn base_spec(name, project_id, source, port, env_vars, product) -> ServiceSpec
 fn app_spec(name, project_id) -> ServiceSpec
 fn compose_spec(name, project_id) -> ServiceSpec
 fn db_spec(db, name, project_id, f) -> ServiceSpec
@@ -124,7 +124,7 @@ enum Engine { Postgres, MySql, MariaDb, Mongo }
 impl Engine
   fn from_kind(kind) -> Option<Self>
   fn default_env_var() -> &'static str — Nome da env var padrão da connection string no projeto consumidor.
-  fn kind_id() -> &'static str — `db_kind` que `crate::platform::connection` entende.
+  fn kind_id() -> &'static str — `product` que `crate::platform::connection` entende.
   fn admin_sh_pub() -> &'static str
   fn admin_sh() -> &'static str — Script `sh` que abre o cliente de administração (lê o SQL/JS do stdin).
 fn validate_name(name) -> Result<()> — Nome de database/usuário: `[a-z][a-z0-9_]*`, até 32 chars (limite do usuário no MySQL).
@@ -144,7 +144,7 @@ impl IacContext
   fn public_base_url() -> String — URL pública do daemon, sem barra final (base do webhook de cada serviço).
 
 ### manifest.rs — Infra-as-Code: structs do manifesto declarativo (`rustploy.yml`).
-struct ServiceManifest { name, source, port, host_port, domain, tls, domains, env, env_comments, volumes, healthcheck, replicas, resources, command, args, db, shared }
+struct ServiceManifest { name, source, port, host_port, domain, tls, domains, env, env_comments, volumes, healthcheck, replicas, resources, command, args, product, shared }
 struct SourceManifest { registry, git, compose, compose_ingress } — Origem do serviço: exatamente uma das três chaves deve estar presente.
 struct GitManifest { url, branch, root_path, dockerfile, context, build_stage, submodules, watch_paths, username, credentials, provider }
 struct HealthcheckManifest { kind, path, status, interval, timeout, retries, start_period }

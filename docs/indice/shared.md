@@ -124,7 +124,7 @@ struct RegistryStatusInfo { enabled, port, domain, repo_count, blob_count, stora
 struct RegistryTokenInfo { name, scope, created_at, last_used_at } — Um token de acesso do registry (Basic auth) — o segredo em texto plano só aparece uma vez, em `Regis…
 
 ### service.rs
-struct ServiceSpec { name, project_id, source, port, host_port, domain, tls_enabled, env_vars, env_comments, volumes, healthcheck, replicas, resources, run_command, run_args, db_kind, domains, pre_deploy_job_id, pre_deploy_job_ids, shared, depends_on, autostart }
+struct ServiceSpec { name, project_id, source, port, host_port, domain, tls_enabled, env_vars, env_comments, volumes, healthcheck, replicas, resources, run_command, run_args, product, domains, pre_deploy_job_id, pre_deploy_job_ids, shared, depends_on, autostart }
 fn default_autostart() -> bool
 struct SharedServerConfig {  } — Configuração de um servidor de banco compartilhado.
 struct DomainRoute { domain, port, tls } — Uma rota HTTP de domínio de um serviço: qual domínio, para qual porta do container e com ou sem TLS.

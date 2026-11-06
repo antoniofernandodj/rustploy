@@ -17,7 +17,7 @@ com 4 projetos. Os que interessam:
 |---|---|---|
 | `rdo-itemize` | serviço `rdo-banco` (Compose, `postgres:18`, chave YAML `banco`, `db: postgres`, volume `dados_banco`) | `URL_BANCO_DADOS` (env do projeto) |
 | `gestão` | serviço `db` (Compose, `postgres:18`, chave `rp_db`, `db: postgres`, volume `pgdata`) | `DATABASE_URL` (env do serviço `api`) |
-| `Standimob` | Postgres **dentro** do stack Supabase | fora de escopo (não é `db_kind`, é stack próprio) |
+| `Standimob` | Postgres **dentro** do stack Supabase | fora de escopo (não é `product`, é stack próprio) |
 | `Itemize Institucional` | nenhum | fora |
 
 Os dois bancos são `postgres:18`, então o servidor central também é `postgres:18`
@@ -55,7 +55,7 @@ contra o daemon de teste (regra do projeto: teste verde não basta p/ UI).
 - Entrega imediata: acaba a `DATABASE_URL` escrita à mão.
 
 **Fase 2 — servidor compartilhado + rede com alias global**
-- `ServiceSpec.shared: Option<SharedServerConfig>` (só com `db_kind` Postgres
+- `ServiceSpec.shared: Option<SharedServerConfig>` (só com `product` Postgres
   nesta rodada); migração de tabela para os acessos.
 - `docker/networks.rs`: ativar/usar `connect` com `--alias rp-shared-<id8>-<safe>`
   (hoje só existem `_connect_container` sem alias), checagem de alias em uso,
