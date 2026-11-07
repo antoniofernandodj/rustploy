@@ -200,10 +200,15 @@ fora do ar não impede o outro (`fail-fast: false`).
 - **crates.io:** `rustploy-shared` 0.20.0, `rustploy` 0.1.37 e `rustploy-gui` 0.1.44 (2026-11-07); `glacier-ui` 0.151.0 e 0.152.0.
 - **Verificado:** daemon 485 testes e `clippy -D warnings`; shared 47 testes; app 413 testes Luau e os de Rust; no `glacier-ui`: o campo rolando,
   a barra do toast, a entrada/saída e o `autofocus` num exemplo sob Xvfb + kwin; `EnvValueSet`, o casamento do push-to-deploy e o aviso do PUT de
-  manifest por testes automatizados; site com 0 links quebrados.
+  manifest por testes automatizados; site com 0 links quebrados; `workflow_dispatch` antes da tag (todos os jobs verdes); release **assinada**
+  (5 arquivos + 4 `.minisig`, checksums e assinaturas conferidos com `keys/rustploy-update.pub`); `install.sh gui` pela URL pública num
+  `debian:12` limpo (via podman) instalou `rustploy-gui 0.1.44-1`; docs no ar (pt e en) com as páginas novas respondendo 200.
+- **Armadilha nova:** `cargo fmt -- <arquivo>` formata o **workspace inteiro** (segue os `mod`/o crate), não só o arquivo; no `glacier-ui`, onde o código
+  não é `fmt`-limpo, isso enche o diff de ruído. Formate com `rustfmt <arquivo>` num arquivo sem `mod`, ou só rode `cargo fmt` onde o `--check` já passa.
 - **NÃO verificado:** a edição no lugar **rodando** no app e na web UI (só testes); o app com o campo que rola e o toast novos; o push-to-deploy num
   servidor real (`docker login` → `docker push` → redeploy); o boot do Chiquitos sem o erro de 120s do worker; `ServiceBundle` não leva
-  `registry_auto_deploy`. O `glacier-ui` ainda tem 18 testes de lib falhando que já existiam (parser, luau, canvas, charts, eval).
+  `registry_auto_deploy`; o `install.sh` do daemon (precisa de systemd) e o `install.ps1` num Windows de verdade. O `glacier-ui` ainda tem 18
+  testes de lib falhando que já existiam (parser, luau, canvas, charts, eval).
 
 ## v0.1.44 (2026-11-06): logs por execução
 
