@@ -198,6 +198,9 @@ fora do ar não impede o outro (`fail-fast: false`).
 - **crates.io:** `rustploy` 0.1.38 (2026-11-07); `glacier-ui` 0.152.1.
 - **Verificado:** daemon 487 testes e `clippy -D warnings` (as duas regras do `reconcile` por testes unitários puros); `glacier-ui` com a suíte completa
   (`--features suite-completa`) passando.
+  `workflow_dispatch` antes da tag (todos os jobs verdes); release **assinada** (5 arquivos + 4 `.minisig`, checksums e assinaturas conferidos com
+  `keys/rustploy-update.pub`); `install.sh gui` pela URL pública num `debian:12` limpo (via podman) instalou o app `0.1.44-1`. Docs: nenhuma página mudou, então
+  não houve deploy do site.
 - **NÃO verificado:** o caminho do `reconcile` com o Docker (não há teste automatizado) — falta confirmar no Chiquitos que o deploy da api e o do worker
   voltam a `Live` e que um reinício do daemon não os derruba; `install.sh` do daemon e `install.ps1`.
 
