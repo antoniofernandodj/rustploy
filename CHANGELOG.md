@@ -19,6 +19,7 @@ e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação,
 
 | Tag | Data | Daemon (`rustploy`) | App (`rustploy-gui`) | `rustploy-shared` | Destaque |
 |---|---|---|---|---|---|
+| [v0.1.46](#v0146--2026-11-07) | 2026-11-07 | **0.1.38** | 0.1.44 | 0.20.0 | Deploy `Live` não é mais condenado no boot do daemon |
 | [v0.1.45](#v0145--2026-11-07) | 2026-11-07 | **0.1.37** | **0.1.44** | **0.20.0** | Edição de variável no lugar, push-to-deploy do registry, `EnvValueSet` |
 | [v0.1.44](#v0144--2026-11-06) | 2026-11-06 | **0.1.36** | **0.1.43** | **0.19.0** | Logs por execução: lista, ver, excluir e limpar |
 | [v0.1.43](#v0143--2026-11-06) | 2026-11-06 | 0.1.35 | **0.1.42** | 0.18.0 | Seletor de idioma no rodapé do login e em Configurações |
@@ -57,6 +58,24 @@ lá, a data do commit da tag; o horário de publicação no GitHub, em UTC, est�
 | v0.1.38 | 2026-11-04 02:07 | `rustployd_0.1.32-1` | `rustploy-gui_0.1.39-1` | `rustploy-gui-windows-v0.1.38.zip` |
 
 Cada release traz também o `checksums.sha256` e um `.minisig` para cada `.deb` e para o zip.
+
+---
+
+## v0.1.46 — 2026-11-07
+
+Só o daemon muda (**0.1.38**); o app (0.1.44) e o `rustploy-shared` (0.20.0) ficam como estão. `glacier-ui` **0.152.1**.
+
+### Corrigido
+- **Deploy `Live` condenado no boot do daemon.** O `reconcile` marcava o deploy `Live` como `Stopped` e **apagava o `live_container_id`** quando o container
+  ainda não tinha sido religado pelo autostart; depois o container voltava e o deploy ficava `Stopped` para sempre (a aba Deployments mostrava o
+  serviço "parado" e o histórico sem um `Live`). Agora o `Live` é poupado na janela do boot (intenção "no ar" e daemon com menos de 10 min), e o
+  deploy mais recente que o próprio `reconcile` condenou volta a `Live` quando o container está rodando — o que também conserta o que já estava
+  gravado. Um "Parar" feito por uma pessoa não é revertido.
+- `glacier-ui` 0.152.1: `pedir_texto`, `escolher_cor`, o seletor de fonte e o diálogo de progresso não montavam o corpo desde a 0.149.0; 48 testes
+  desatualizados do motor foram atualizados.
+
+### Publicação
+- `rustploy` 0.1.38 no crates.io; release assinada; `glacier-ui` 0.152.1.
 
 ---
 

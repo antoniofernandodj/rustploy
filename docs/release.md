@@ -190,6 +190,17 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.46 (2026-11-07): `reconcile` não condena o `Live` no boot
+
+- **O que muda:** só o daemon, **0.1.38** (app 0.1.44 e `rustploy-shared` 0.20.0 inalterados); `glacier-ui` 0.152.1. O `reconcile` deixa de marcar `Stopped` (e de
+  apagar o `live_container_id`) o deploy `Live` de um serviço com intenção "no ar" nos primeiros 10 min do daemon, e volta a `Live` o deploy mais recente
+  que ele mesmo condenou quando o container está rodando. Detalhes no `CHANGELOG.md`.
+- **crates.io:** `rustploy` 0.1.38 (2026-11-07); `glacier-ui` 0.152.1.
+- **Verificado:** daemon 487 testes e `clippy -D warnings` (as duas regras do `reconcile` por testes unitários puros); `glacier-ui` com a suíte completa
+  (`--features suite-completa`) passando.
+- **NÃO verificado:** o caminho do `reconcile` com o Docker (não há teste automatizado) — falta confirmar no Chiquitos que o deploy da api e o do worker
+  voltam a `Live` e que um reinício do daemon não os derruba; `install.sh` do daemon e `install.ps1`.
+
 ## v0.1.45 (2026-11-07): edição de variável no lugar, push-to-deploy, `EnvValueSet`
 
 - **O que muda:** daemon **0.1.37**, app **0.1.44**, `rustploy-shared` **0.20.0** (aditivo: `Command::EnvValueSet`, `ServiceSpec.registry_auto_deploy`,
@@ -208,7 +219,7 @@ fora do ar não impede o outro (`fail-fast: false`).
 - **NÃO verificado:** a edição no lugar **rodando** no app e na web UI (só testes); o app com o campo que rola e o toast novos; o push-to-deploy num
   servidor real (`docker login` → `docker push` → redeploy); o boot do Chiquitos sem o erro de 120s do worker; `ServiceBundle` não leva
   `registry_auto_deploy`; o `install.sh` do daemon (precisa de systemd) e o `install.ps1` num Windows de verdade. O `glacier-ui` ainda tem 18
-  testes de lib falhando que já existiam (parser, luau, canvas, charts, eval).
+  testes de lib falhando que já existiam (parser, luau, canvas, charts, eval) — **corrigidos depois, em 2026-11-07** (ver o `TODO.md`).
 
 ## v0.1.44 (2026-11-06): logs por execução
 
