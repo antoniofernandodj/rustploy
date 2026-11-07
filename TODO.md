@@ -223,9 +223,7 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
   (3) `install.sh` numa VPS com systemd (subir `rustployd` e o `rustployd-fw.socket` e confirmar com
   `systemctl status`). Detalhes em `docs/release.md`, seção "Ainda sem teste real".
 
-- [ ] **`ServiceUpdate` é substituição total, não patch.** Um round-trip mal feito apaga configuração
-  sem aviso. Oferecer atualização parcial ou, no mínimo, avisar/recusar quando campos existentes
-  somem do payload.
+- [x] **`ServiceUpdate` é substituição total, não patch** — feito em 2026-11-07 (sem commit): `/api/rpc` recusa (400) um `ServiceUpdate` cujo payload omite campos que o serviço já tem preenchidos; limpar de propósito = mandar a chave vazia. GUI e webui já devolvem o spec completo. **Fora do alcance:** o MCP/agente (`tools.rs`) recebe `Command` já decodificado, sem como saber o que foi omitido; segue só o aviso do manual. Atualização parcial de verdade (patch) não foi feita.
 
 - [ ] **Auditar `unwrap()` fora de teste no daemon**, começando por `features/iac/*`
   (`service_import.rs` 25, `manifest_import.rs` 25, `manifest.rs` 18) e `features/deploy/queue.rs`
@@ -235,19 +233,9 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
 - [ ] **Registry embutido: integrar com o executor de deploy e push-to-deploy.** Fases 1 e 2 (auth e
   ingress), sub-aba da GUI e GC já estão prontos; falta isso. Ver `docs/plano-registry-embutido.md`.
 
-- [ ] **Comando para remover/parar um container solto pela API.** `ServiceDelete` já para e remove os
-  containers do serviço (corrigido); mas `RemoveContainer` (aba Containers) continua sem `force` e não há como
-  parar um container que não pertence a um serviço.
+- [x] **Comando para remover/parar um container solto pela API** — conferido em 2026-11-07: `StopContainer` já existe (recusa o de serviço vivo, para o órfão) e `RemoveContainer` remove o parado, na GUI e na webui. Fica **sem `force` de propósito**: container rodando é recusado pelo Docker (para-se antes).
 
-- [ ] **A web UI segura o CSS/JS antigo depois que o daemon atualiza.** Visto em
-  2026-10-16: o servidor já servia o `app.css` novo (54055 bytes, conferido por
-  `curl`), mas o navegador continuou com o antigo mesmo depois de desregistrar o
-  service worker e apagar os caches. Hipótese, não confirmada: `sw.js` faz
-  `cache.addAll()` do app shell pelo cache HTTP, que é `immutable` por 1 ano, e as
-  URLs não levam hash (`/app.css`, `/app.js`). Olhar `webui/sw.js`, o
-  `Cache-Control` em `src/api/web_ui.rs`/`build.rs` e se faz sentido versionar as
-  URLs dos assets (ou o SW buscar com `cache: 'reload'`). Hoje o remédio é
-  Ctrl+Shift+R, às vezes mais de uma vez, e o texto de `interface/web-ui` já avisa.
+- [x] **A web UI segura o CSS/JS antigo depois que o daemon atualiza** — causa confirmada e corrigida em 2026-11-07 (sem commit): o `cache.addAll()` do `sw.js` buscava pelo cache HTTP `immutable` e enchia o cache novo com bytes velhos; agora usa `cache: "reload"`. **Falta** publicar e ver, num navegador com a versão antiga instalada, que a atualização aparece sem Ctrl+Shift+R.
 
 - [ ] **Schema do protocolo.** A lista de comandos do manual do agente (`api/agent/manual.md`) é
   curada à mão e pode divergir dos `Command` reais. Gerar com `schemars` sobre a crate
