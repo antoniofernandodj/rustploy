@@ -173,7 +173,7 @@ fn is_one(n) -> bool
 fn is_false(b) -> bool
 fn is_zero_u64(n) -> bool
 const API_VERSION, SECRET_PREFIX
-(1 testes)
+(2 testes)
 
 ### mod.rs — Infraestrutura como código: manifesto de projeto/servidor e pacote de serviço (export/import).
 

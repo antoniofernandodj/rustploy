@@ -353,6 +353,15 @@ function test_connect_so_o_que_falha_antes_da_rede__chave_corrompida_avisa_e() �
 function test_disconnect__apaga_o_contexto_da_sessao_e_volta_ao_login() — - apaga o contexto da sessão e volta ao login
 function test_disconnect__nao_enumera_chaves_o_init_semeia_os_defaults_de() — - não enumera chaves: o init semeia os defaults de novo, como no boot
 
+### env_edit.test.luau — Edição no lugar da chave/valor de uma variável (handlers/secrets.luau), sem conexão.
+local nova()
+function test_edicao_no_lugar__a_chave_comeca_com_a_chave_atual() — - ✏️ arma o campo da CHAVE na própria linha, com a chave atual como rascunho
+function test_edicao_no_lugar__o_valor_comeca_com_o_valor_ou_a_referencia_do_secret() — - ✎ arma o campo do VALOR: em claro mostra o valor; secret mostra a referência, nunca o valor
+function test_edicao_no_lugar__o_escopo_do_servico() — - a variável do serviço usa o escopo do serviço
+function test_edicao_no_lugar__chave_inexistente_nao_arma_nada() — - uma chave que não existe na lista não arma nada
+function test_edicao_no_lugar__cancelar_limpa_tudo() — - ✕ desiste e limpa o rascunho
+function test_edicao_no_lugar__sem_conexao_o_rascunho_fica() — - sem conexão, gravar não faz nada e não perde o que foi digitado
+
 ### misc.test.luau — Handlers que só mexem no ctx, ou que não fazem nada sem conexão: deploy_queue, secrets e bundle.
 local nova(ctx_inicial)
 function test_deploy_queue_sem_conexao__cancelar_promover_reordenar_e_pausar() — - cancelar, promover, reordenar e pausar são inertes
@@ -454,6 +463,7 @@ function test_urls__normalize_url_fixa_o_esquema_e_descarta_caminho_query_e() �
 function test_urls__normalize_url_recusa_vazio_e_esquema_que_nao_e_http_s() — - normalize_url recusa vazio e esquema que não é http(s)
 function test_booleanos__is_true_aceita_boolean_e_texto() — - is_true aceita o boolean (checkbox/toggle) e o texto "true"; o resto é falso
 function test_booleanos__is_false_nao_confunde_ausente_com_falso() — - is_false só é verdadeiro para o false explícito; ausente não é falso (padrão ligado)
+function test_env_value_from_draft__plain_secret_e_variavel_que_ja_era_secret() — - o valor digitado na edição no lugar vira Plain ou Secret
 
 ## rustploy-gui/tests/tela/
 
@@ -512,6 +522,7 @@ local projeto()
 function test_projeto_cada_aba() — - cada aba do projeto avalia
 function test_projeto_aba_jobs_mostra_estado_e_acoes() — - a aba Jobs do projeto mostra o estado e as ações
 function test_projeto_env_em_modo_secret_e_sem_secrets() — - variáveis em modo secret, e sem nenhum secret cadastrado
+function test_projeto_edicao_no_lugar_da_chave_e_do_valor() — - edição no lugar: a linha em edição ganha ✓ e ✕ no lugar do texto; as outras linhas seguem normais
 function test_projeto_movimentos_entre_escopos() — - projeto: botões de mover (🔒 ↓ nas variáveis em claro, 🔓 nas que apontam para secret e nos secrets)
 function test_projeto_secret_ver_valor() — - projeto: secret escondido mostra 👁 e "encrypted"; revelado mostra o valor, 🙈 e copiar
 function test_configuracoes_git() — - Git: provedor OAuth e token

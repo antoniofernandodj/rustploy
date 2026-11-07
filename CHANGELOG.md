@@ -1,6 +1,6 @@
 # Changelog
 
-Histórico das 20 últimas versões do Rustploy (`v0.1.25` a `v0.1.44`, de 28/10/2026 a 06/11/2026), do mais novo para o mais antigo.
+Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.45`, de 28/10/2026 a 07/11/2026), do mais novo para o mais antigo.
 Levantado a partir das tags do agregador, dos ponteiros dos submódulos, dos commits entre cada par de tags, das releases do GitHub
 e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação, com o que foi e o que **não** foi verificado).
 
@@ -19,6 +19,7 @@ e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação,
 
 | Tag | Data | Daemon (`rustploy`) | App (`rustploy-gui`) | `rustploy-shared` | Destaque |
 |---|---|---|---|---|---|
+| [v0.1.45](#v0145--2026-11-07) | 2026-11-07 | **0.1.37** | **0.1.44** | **0.20.0** | Edição de variável no lugar, push-to-deploy do registry, `EnvValueSet` |
 | [v0.1.44](#v0144--2026-11-06) | 2026-11-06 | **0.1.36** | **0.1.43** | **0.19.0** | Logs por execução: lista, ver, excluir e limpar |
 | [v0.1.43](#v0143--2026-11-06) | 2026-11-06 | 0.1.35 | **0.1.42** | 0.18.0 | Seletor de idioma no rodapé do login e em Configurações |
 | [v0.1.42](#v0142--2026-11-06) | 2026-11-06 | **0.1.35** | 0.1.41 | **0.18.0** | `product` no lugar de `db_kind` (quebra), webhook form, IP fixo no alias |
@@ -56,6 +57,39 @@ lá, a data do commit da tag; o horário de publicação no GitHub, em UTC, est�
 | v0.1.38 | 2026-11-04 02:07 | `rustployd_0.1.32-1` | `rustploy-gui_0.1.39-1` | `rustploy-gui-windows-v0.1.38.zip` |
 
 Cada release traz também o `checksums.sha256` e um `.minisig` para cada `.deb` e para o zip.
+
+---
+
+## v0.1.45 — 2026-11-07
+
+Edição de variável no lugar, push-to-deploy do registry embutido e `EnvValueSet`. Muda o daemon (**0.1.37**), o app (**0.1.44**) e o
+`rustploy-shared` (**0.20.0**, aditivo). `glacier-ui` **0.151.0** e **0.152.0**.
+
+### Adicionado
+- **Editar variável no lugar** (app e web UI, no projeto e no serviço): o ✏️ transforma a chave em um campo na própria linha e o novo ✎ faz o
+  mesmo com o valor; Enter grava, ✕ desiste. Antes o ✏️ levava a variável para um formulário no topo da tela, e numa lista grande a janela
+  ficava longe dela. Numa variável que aponta para um secret, o campo mostra `secret:NOME`, nunca o valor.
+- Protocolo: **`EnvValueSet`** troca só o valor de uma variável, na mesma posição (também disponível ao agente MCP pelo `rpc`).
+- **Push-to-deploy do registry embutido**: `ServiceSpec.registry_auto_deploy` (opt-in, na aba Advanced) redeploya o serviço a cada
+  `docker push` da mesma imagem e tag; novo `Event::RegistryPush`.
+- App: o campo de texto **rola na horizontal** acompanhando o cursor (digitar, colar, setas); o **toast** sobe ao aparecer, tem uma barra de
+  tempo lateral e desliza para fora; "Salvar secret" ao lado do valor; a aba Variáveis do projeto rola inteira e não corta mais o botão Adicionar.
+- `glacier-ui` 0.152.0: `textinput(autofocus = true)`.
+
+### Alterado
+- `/api/rpc` **recusa** (400) um `ServiceUpdate` cujo payload omite campos que o serviço já tem preenchidos (o app e a web UI já devolvem o spec
+  completo). O MCP segue só com o aviso do manual.
+- Manual do agente: 13 comandos que faltavam (`StateGit*`, `UpdateStatus`/`ApplyUpdate`/`UpdateRollback`, `ServiceWarm*`, `StopContainer`…);
+  um teste agora falha se um `Command` novo ficar sem entrada.
+
+### Corrigido
+- **Boot:** um serviço com `healthcheck: None` que não escuta porta (um worker de fila) era marcado como erro após 120s em todo boot e arrastava
+  quem depende dele. Agora, com o container rodando, conta como pronto.
+- A web UI não ficava mais presa ao CSS/JS antigo depois de uma atualização do daemon (o service worker buscava o app shell pelo cache HTTP imutável).
+- `parse_mem` estourava o `u64` com um valor enorme num manifesto (`99999999999g`); a fila de deploy sobrevive a um mutex envenenado.
+
+### Publicação
+- `rustploy-shared` 0.20.0, `rustploy` 0.1.37 e `rustploy-gui` 0.1.44 no crates.io; release assinada; `glacier-ui` 0.152.0.
 
 ---
 

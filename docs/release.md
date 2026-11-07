@@ -190,6 +190,21 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.45 (2026-11-07): edição de variável no lugar, push-to-deploy, `EnvValueSet`
+
+- **O que muda:** daemon **0.1.37**, app **0.1.44**, `rustploy-shared` **0.20.0** (aditivo: `Command::EnvValueSet`, `ServiceSpec.registry_auto_deploy`,
+  `Event::RegistryPush`); `glacier-ui` 0.151.0 (campo rola na horizontal, toast animado) e 0.152.0 (`textinput(autofocus)`). Edição de variável no
+  lugar (✏️ chave, ✎ valor) no app e na web UI; push-to-deploy do registry embutido (opt-in na aba Advanced); `/api/rpc` recusa `ServiceUpdate`
+  parcial; correção do boot de serviço sem healthcheck que não escuta porta; `sw.js` busca o shell sem o cache HTTP; manual do agente com os
+  comandos que faltavam (teste de cobertura). Detalhes no `CHANGELOG.md`.
+- **crates.io:** `rustploy-shared` 0.20.0, `rustploy` 0.1.37 e `rustploy-gui` 0.1.44 (2026-11-07); `glacier-ui` 0.151.0 e 0.152.0.
+- **Verificado:** daemon 485 testes e `clippy -D warnings`; shared 47 testes; app 413 testes Luau e os de Rust; no `glacier-ui`: o campo rolando,
+  a barra do toast, a entrada/saída e o `autofocus` num exemplo sob Xvfb + kwin; `EnvValueSet`, o casamento do push-to-deploy e o aviso do PUT de
+  manifest por testes automatizados; site com 0 links quebrados.
+- **NÃO verificado:** a edição no lugar **rodando** no app e na web UI (só testes); o app com o campo que rola e o toast novos; o push-to-deploy num
+  servidor real (`docker login` → `docker push` → redeploy); o boot do Chiquitos sem o erro de 120s do worker; `ServiceBundle` não leva
+  `registry_auto_deploy`. O `glacier-ui` ainda tem 18 testes de lib falhando que já existiam (parser, luau, canvas, charts, eval).
+
 ## v0.1.44 (2026-11-06): logs por execução
 
 - **O que muda:** daemon **0.1.36**, app **0.1.43**, `rustploy-shared` **0.19.0** (aditivo). O log de runtime passa a ter uma pasta por

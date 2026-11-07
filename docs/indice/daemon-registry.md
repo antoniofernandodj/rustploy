@@ -126,13 +126,22 @@ fn is_valid_tag(tag) -> bool — Valida `<reference>` quando não é um digest �
 fn parse_digest(s) -> Option<&str> — Extrai os 64 hex lowercase de `sha256:<hex>`.
 (4 testes)
 
+### push_deploy.rs — Push-to-deploy: cada tag publicada no registry embutido redeploya os serviços que apontam para ela e…
+fn repo_and_tag(image, is_embedded) -> Option<(String, String)> — Repo e tag de uma referência de imagem do registry embutido, sem o host: de `127.0.0.1:5100/app/api:…
+fn services_to_redeploy(services, push, port, domain) -> Vec<&'a Service> — Os serviços que devem redeployar com este push: opt-in ligado, fonte `Registry` apontando para o reg…
+fn run(state, rx) — Consome os pushes até o canal fechar: publica o evento para os clientes e dispara o deploy dos servi…
+(2 testes)
+
 ### storage.rs — CAS (content-addressable store) do registry: blobs em disco, sessões de upload em memória com hash i…
 struct BlobInfo { digest, size }
 enum StorageError { UnknownUpload, DigestMismatch, Io }
 struct UploadSession { file, tmp_path, hasher, written }
-struct RegistryStorage { root, uploads, commit_lock } — Blob store content-addressable + registro de sessões de upload em voo.
+struct RegistryStorage { root, uploads, commit_lock, pushes } — Blob store content-addressable + registro de sessões de upload em voo.
+struct PushedTag { repo, tag, digest } — Uma tag que acabou de ser gravada por um `PUT /v2/<repo>/manifests/<tag>`.
 impl RegistryStorage
   fn new(root) -> std::io::Result<Self>
+  fn subscribe_pushes() — Passa a receber cada tag publicada.
+  fn notify_push(repo, tag, digest_hex) — Avisa o assinante (se houver) de uma tag nova.
   fn lock_commit() -> tokio::sync::MutexGuard<'_, ()> — Ver `commit_lock`.
   fn digest_path(digest_hex) -> PathBuf
   fn blob_exists(digest_hex) -> bool

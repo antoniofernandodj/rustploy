@@ -66,6 +66,7 @@ struct QueueInner { queued, running, paused }
 struct DeployQueue { inner, notify, slot, paused_tx } — Handle compartilhado da fila (fica no `DeployContext`).
 impl DeployQueue
   fn new() -> Arc<Self>
+  fn lock() -> std::sync::MutexGuard<'_, QueueInner> — Trava o estado da fila.
   fn enqueue(dep_id) — Enfileira um deployment e acorda o worker.
   fn remove_queued(dep_id) -> bool — Remove um deployment **enfileirado** (não afeta o que está rodando — abortar o running é papel do `a…
   fn promote(dep_id) — Move um enfileirado para o início da fila ("furar fila").
@@ -81,7 +82,7 @@ impl DeployQueue
   fn wait()
 fn run_worker(state) — Worker único da fila global.
 fn run_one(state, dep_id) — Roda um deployment: marca o serviço como `Deploying`, spawna o executor como task (guardando o `Abor…
-(11 testes)
+(12 testes)
 
 ### recovery.rs — Recuperação no boot: aborta deploys interrompidos, reconcilia status com o Docker e restaura as rota…
 fn recover(db, docker, ingress, bus, secrets, tls, db_path, drain_secs, registry_internal_token) -> Vec<String> — Recuperação no boot: devolve os deployments que estavam só na fila (para re-enfileirar), aborta os q…
