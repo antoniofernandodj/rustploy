@@ -196,10 +196,13 @@ fora do ar não impede o outro (`fail-fast: false`).
   `queue::run_one`, validação de dependência impossível em `check_depends_on` e no `SharedAccessGrant`. Comandos `DeployWithDependencies`, `ProjectDeploy` e os dois `*Plan`;
   modal da ordem no app (`prompt` de três opções) e na web UI (três botões); botão Deploy no cabeçalho do projeto. Docs pt e en (guia de dependências, telas de serviço e projeto,
   referência gerada).
-- **crates.io:** `rustploy-shared` 0.21.0 (2026-11-08); `rustploy` 0.1.41 e `rustploy-gui` 0.1.45 (ver abaixo).
+- **crates.io:** `rustploy-shared` 0.21.0, `rustploy` 0.1.41 e `rustploy-gui` 0.1.45 (2026-11-08).
 - **Verificado:** shared 48 testes; daemon 522 testes e `clippy -D warnings` (seis testes de integração do lote, cenários de ordem, pulo por falha e ciclo); web UI com Chrome
   headless (modal com ordem e botões); `glacier test` 413; site com 0 links quebrados.
-- **NÃO verificado:** o fluxo **num servidor real** (deploy de um projeto com banco + api + worker, a fila na ordem, o pulo quando o banco falha); o modal do app visto na tela
+  `workflow_dispatch` antes da tag (todos os jobs verdes, `.deb` amd64/arm64 e app com as versões certas); release **assinada** (9 arquivos, checksums e 4 `.minisig` conferidos com
+  `keys/rustploy-update.pub`); `install.sh gui` pela URL pública num `debian:12` limpo (podman) instalou `rustploy-gui 0.1.45-1`; docs no ar (pt e en) respondendo 200 com o conteúdo novo.
+- **Achado:** o `cargo publish --dry-run` do daemon falhou com `rustc` saindo 101 por **disco cheio** (o target do daemon passa de dezenas de GB); liberar espaço e repetir resolveu. O teste headless
+  do modal precisou de uma espera de 300 ms após mudar o plano (o `x-show` do Alpine reavalia de forma assíncrona).- **NÃO verificado:** o fluxo **num servidor real** (deploy de um projeto com banco + api + worker, a fila na ordem, o pulo quando o banco falha); o modal do app visto na tela
   (só `glacier test`, sem janela); o app contra um daemon antigo.
 
 ## v0.1.48 (2026-11-08): chave mestra e de visitante, com níveis
