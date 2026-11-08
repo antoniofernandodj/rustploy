@@ -19,6 +19,7 @@ e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação,
 
 | Tag | Data | Daemon (`rustploy`) | App (`rustploy-gui`) | `rustploy-shared` | Destaque |
 |---|---|---|---|---|---|
+| [v0.1.47](#v0147--2026-11-07) | 2026-11-07 | **0.1.39** | 0.1.44 | 0.20.0 | A credencial do provider git só vai para o servidor do provider |
 | [v0.1.46](#v0146--2026-11-07) | 2026-11-07 | **0.1.38** | 0.1.44 | 0.20.0 | Deploy `Live` não é mais condenado no boot do daemon |
 | [v0.1.45](#v0145--2026-11-07) | 2026-11-07 | **0.1.37** | **0.1.44** | **0.20.0** | Edição de variável no lugar, push-to-deploy do registry, `EnvValueSet` |
 | [v0.1.44](#v0144--2026-11-06) | 2026-11-06 | **0.1.36** | **0.1.43** | **0.19.0** | Logs por execução: lista, ver, excluir e limpar |
@@ -58,6 +59,32 @@ lá, a data do commit da tag; o horário de publicação no GitHub, em UTC, est�
 | v0.1.38 | 2026-11-04 02:07 | `rustployd_0.1.32-1` | `rustploy-gui_0.1.39-1` | `rustploy-gui-windows-v0.1.38.zip` |
 
 Cada release traz também o `checksums.sha256` e um `.minisig` para cada `.deb` e para o zip.
+
+---
+
+## v0.1.47 — 2026-11-07
+
+Só o daemon muda (**0.1.39**); o app (0.1.44) e o `rustploy-shared` (0.20.0) ficam como estão.
+
+### Corrigido (segurança)
+- **A credencial de um provider git só é enviada ao servidor do próprio provider.** Antes, o token de uma conta conectada (GitHub, Gitea) era
+  embutido em **qualquer** URL `https://` informada no clone de um serviço, de um job ou no `remote` do backup do estado em git: bastava apontar
+  para um servidor que respondesse "401, preciso de login" para ele receber o token. Agora o host (e a porta) da URL têm de ser os do provider
+  (`github.com` para o GitHub público, o host da **BASE URL** nos demais); em outro servidor o clone segue **sem** a credencial e o `remote` do
+  `state_git` é recusado já na configuração.
+- **Atenção ao atualizar:** um provider cuja **BASE URL** difere do endereço real dos repositórios deixa de autenticar; corrija a **BASE URL**.
+  O token de um **secret** usado em `credentials` não tem host associado e continua sendo enviado a qualquer URL (ver o plano abaixo).
+
+### Interno
+- O teste de cobertura do manual do agente passou a ter o `match` de nomes do `dispatch` **sem braço curinga**: 7 comandos (`DeployQueue*`,
+  `LogsSubscribe`/`Unsubscribe`, `MetricsSubscribe`/`Unsubscribe`) ficavam de fora sem ninguém ver.
+
+### Planejado, não feito
+- `docs/plano-limites-do-agente-mcp.md`: as restrições do agente valem só no `/mcp`; o `/api/rpc` com o mesmo token as ignora. Itens C (`JobUpdate`),
+  0 (chave de visitante e mestra), B (`InfraAuditAllow`) e D (níveis do agente) aguardam outro dia.
+
+### Publicação
+- `rustploy` 0.1.39 no crates.io; release assinada.
 
 ---
 

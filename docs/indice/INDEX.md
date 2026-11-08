@@ -81,6 +81,7 @@
 - plano-geracao-e-rotacao-de-segredos.md — Geração e rotação de segredos (senha de banco, broker, storage, token JWT, par V…
 - plano-indice-de-codigo.md — Plano: índice de código para busca barata
 - plano-jobs-na-fila-de-deploy.md — Plano: jobs e deploys na mesma fila (uma coisa por vez)
+- plano-limites-do-agente-mcp.md — Limites do agente (MCP): o que ele pode editar, e como fechar os buracos
 - plano-limpeza-automatica-docker.md — Limpeza automática do Docker: liberar espaço em disco sozinho, todos os dias
 - plano-log-de-runtime-persistido.md — Plano: persistir o log de runtime dos containers
 - plano-multi-login-clients.md — Plano: login multi-servidor no client iced + login simplificado na webui

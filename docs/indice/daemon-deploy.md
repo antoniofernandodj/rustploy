@@ -53,7 +53,7 @@ fn resolve_job(db, secrets, job) -> Result<Vec<(String, String)>> — Env vars c
 struct CloneOptions { url, branch, token, username, dir }
 struct CloneProgress { _phase, percent, description }
 fn clone(opts, on_progress) -> Result<()> — Clone a git repository into `opts.dir`, calling `on_progress` for each stderr line emitted by git.
-fn resolve_clone_credentials(db, secrets, provider_id, credentials, manual_username, project_id) -> (Option<String>, Option<String>) — Resolve o token + username de clone a partir de `provider_id` (conta git conectada — tem precedência…
+fn resolve_clone_credentials(db, secrets, clone_url, provider_id, credentials, manual_username, project_id) -> (Option<String>, Option<String>) — Resolve o token + username de clone a partir de `provider_id` (conta git conectada — tem precedência…
 fn inject_token(url, token, username) -> String — Embeds a personal-access token into an HTTPS URL.
 fn redact_url(url) -> String — Returns the URL with any embedded credentials replaced by `***`.
 fn parse_progress(line) -> CloneProgress — Maps a raw git stderr line to a `CloneProgress` value.

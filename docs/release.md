@@ -190,6 +190,17 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.47 (2026-11-07): a credencial do provider git só vai para o servidor do provider
+
+- **O que muda:** só o daemon, **0.1.39** (app 0.1.44 e `rustploy-shared` 0.20.0 inalterados). `features/git_providers::{https_authority, provider_authority,
+  credential_matches_url, usable_token_for_url}`, usadas por `resolve_clone_credentials` (deploy, job e aquecimento) e pelo `state_git` (recusa o `remote` na
+  configuração). O `match` de nomes do `dispatch` ficou sem braço curinga. Nota nas páginas `guias/git` (pt e en).
+- **crates.io:** `rustploy` 0.1.39 (2026-11-07).
+- **Verificado:** daemon 491 testes e `clippy -D warnings`; a conferência de host por testes unitários (`github.com.atacante.com`, `github.com@atacante.com`,
+  porta e caixa diferentes, Enterprise, Gitea); site com 0 links quebrados.
+- **NÃO verificado:** um clone real de repositório privado com o provider (o caminho com rede e com um provider de verdade não tem teste automatizado);
+  o `state_git` contra um GitHub real depois da mudança. Um provider com **BASE URL** diferente do host real deixa de autenticar (esperado, documentado).
+
 ## v0.1.46 (2026-11-07): `reconcile` não condena o `Live` no boot
 
 - **O que muda:** só o daemon, **0.1.38** (app 0.1.44 e `rustploy-shared` 0.20.0 inalterados); `glacier-ui` 0.152.1. O `reconcile` deixa de marcar `Stopped` (e de

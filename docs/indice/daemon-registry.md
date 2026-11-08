@@ -57,7 +57,12 @@ fn ensure_redirect_uri(kind, base_url, token, client_id, redirect_uri) -> Result
 fn authorize_url(kind, base_url, client_id_enc, redirect_uri_enc, state_enc) -> String — Builds the browser authorization URL.
 fn callback_path_segment(kind) -> &'static str — Path segment of the OAuth callback for a provider kind — `gitea` or `github`.
 fn usable_token(secrets, p) -> Result<String> — Decrypts the access token (OAuth) or PAT a provider authenticates with.
+fn https_authority(url) -> Option<(String, u16)> — Host e porta de uma URL `https://` (sem usuário/senha, em minúsculas, porta 443 por padrão).
+fn provider_authority(p) -> Option<(String, u16)> — O endereço (host e porta) a que a credencial deste provider pertence: o do `base_url`, e `github.com…
+fn credential_matches_url(p, url) -> bool — A credencial deste provider pode ser enviada a `url`? Só se o host (e a porta) forem os do próprio p…
+fn usable_token_for_url(secrets, p, url) -> Result<String> — [`usable_token`], mas só se `url` for do provider (ver [`credential_matches_url`]).
 fn refresh_access_token(db, secrets, p) -> Option<String> — Attempts to refresh an expired OAuth access token, persisting the new pair.
+(4 testes)
 
 ## rustploy-daemon/crates/daemon/src/features/registry/
 
