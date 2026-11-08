@@ -197,7 +197,9 @@ fora do ar não impede o outro (`fail-fast: false`).
   configuração). O `match` de nomes do `dispatch` ficou sem braço curinga. Nota nas páginas `guias/git` (pt e en).
 - **crates.io:** `rustploy` 0.1.39 (2026-11-07).
 - **Verificado:** daemon 491 testes e `clippy -D warnings`; a conferência de host por testes unitários (`github.com.atacante.com`, `github.com@atacante.com`,
-  porta e caixa diferentes, Enterprise, Gitea); site com 0 links quebrados.
+  porta e caixa diferentes, Enterprise, Gitea); site com 0 links quebrados; `workflow_dispatch` antes da tag (todos os jobs verdes); release **assinada**
+  (5 arquivos + 4 `.minisig`, checksums e assinaturas conferidos com `keys/rustploy-update.pub`); `install.sh gui` pela URL pública num `debian:12` limpo
+  (via podman) instalou o app `0.1.44-1`; docs no ar (pt e en) com a nota nova respondendo 200.
 - **NÃO verificado:** um clone real de repositório privado com o provider (o caminho com rede e com um provider de verdade não tem teste automatizado);
   o `state_git` contra um GitHub real depois da mudança. Um provider com **BASE URL** diferente do host real deixa de autenticar (esperado, documentado).
 
