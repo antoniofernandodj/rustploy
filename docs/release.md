@@ -196,6 +196,7 @@ fora do ar não impede o outro (`fail-fast: false`).
   `services_in_order()` e poda no `normalize`; `store::services::reorder`; modal na web UI e janela própria no app (`services_reorder_window`). Docs pt e en.
 - **crates.io:** `rustploy-shared` 0.22.0, `rustploy` 0.1.42 e `rustploy-gui` 0.1.46 (2026-11-08).
 - **Verificado:** shared 48 testes; daemon 525 testes e `clippy -D warnings` (dois do store, um headless do modal); app: clippy, `cargo test` e `glacier test` 416; site com 0 links quebrados.
+- **Release:** `workflow_dispatch` verde antes da tag; release **assinada** (9 arquivos, checksums e 4 `.minisig` conferidos); `install.sh gui` pela URL pública num `debian:12` limpo instalou `rustploy-gui 0.1.46-1`; docs no ar (pt e en) com 200 e o conteúdo novo.
 - **NÃO verificado:** a janela do app e o arraste com o mouse; o arraste da web UI num navegador (o teste move por código); o comando contra um daemon real e o ida-e-volta do `project.yml` pelo git.
 
 ## v0.1.49 (2026-11-08): Deploy com dependências e Deploy do projeto
