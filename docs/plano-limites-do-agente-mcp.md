@@ -227,7 +227,7 @@ Respondidas em 2026-11-07:
 - Fazer o plano, nesta ordem: A (feito), C, 0, B, D.
 - Item 0: a chave atual vira **visitante**, a mestra é opcional e gerá-la liga a proteção (ver a seção 3).
 
-Tomadas em 2026-11-08, **sem o dono ter respondido, usando as sugestões do plano** (revisar se discordar):
+Tomadas em 2026-11-08 usando as sugestões do plano e **confirmadas pelo dono no mesmo dia** ("concordo com isto tudo"):
 1. **Três níveis** (`observer`, `operator`, `admin`), com **`operator` como padrão** do visitante.
 2. `credentials` (secret) com URL de fora dos providers: **não tratado**; continua aberto (o secret não tem
    host associado). Um visitante `admin` ainda consegue mandá-lo para fora.

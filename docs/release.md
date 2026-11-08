@@ -204,7 +204,7 @@ fora do ar não impede o outro (`fail-fast: false`).
   `config.toml` respondendo 200.
 - **NÃO verificado:** o fluxo inteiro **num servidor real** (gerar a mestra, reiniciar, entrar na GUI/webui com a mestra, agente com a chave antiga); a GUI e a webui com a chave de
   visitante (o que a pessoa vê ao ser recusada); o `access-key --master` contra um `config.toml` de produção. As decisões sobre níveis (três níveis, `operator` padrão; `state_git` e criar
-  serviços em `admin`; o operador liga/desliga jobs) foram tomadas com as sugestões do plano, sem resposta do dono.
+  serviços em `admin`; o operador liga/desliga jobs) foram tomadas com as sugestões do plano e **confirmadas pelo dono em 2026-11-08**.
 
 ## v0.1.47 (2026-11-07): a credencial do provider git só vai para o servidor do provider
 
