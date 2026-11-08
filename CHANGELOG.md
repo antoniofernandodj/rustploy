@@ -1,6 +1,6 @@
 # Changelog
 
-Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.48`, de 28/10/2026 a 08/11/2026), do mais novo para o mais antigo.
+Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.49`, de 28/10/2026 a 08/11/2026), do mais novo para o mais antigo.
 Levantado a partir das tags do agregador, dos ponteiros dos submódulos, dos commits entre cada par de tags, das releases do GitHub
 e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação, com o que foi e o que **não** foi verificado).
 
@@ -19,6 +19,7 @@ e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação,
 
 | Tag | Data | Daemon (`rustploy`) | App (`rustploy-gui`) | `rustploy-shared` | Destaque |
 |---|---|---|---|---|---|
+| [v0.1.49](#v0149--2026-11-08) | 2026-11-08 | **0.1.41** | **0.1.45** | **0.21.0** | Deploy com dependências e Deploy do projeto, com modal da ordem |
 | [v0.1.48](#v0148--2026-11-08) | 2026-11-08 | **0.1.40** | 0.1.44 | 0.20.0 | Chave mestra e de visitante; níveis do agente |
 | [v0.1.47](#v0147--2026-11-07) | 2026-11-07 | **0.1.39** | 0.1.44 | 0.20.0 | A credencial do provider git só vai para o servidor do provider |
 | [v0.1.46](#v0146--2026-11-07) | 2026-11-07 | **0.1.38** | 0.1.44 | 0.20.0 | Deploy `Live` não é mais condenado no boot do daemon |
@@ -62,6 +63,26 @@ lá, a data do commit da tag; o horário de publicação no GitHub, em UTC, est�
 Cada release traz também o `checksums.sha256` e um `.minisig` para cada `.deb` e para o zip.
 
 ---
+
+## v0.1.49 — 2026-11-08
+
+Deploy com dependências e Deploy do projeto. Daemon **0.1.41**, app **0.1.45**, `rustploy-shared` **0.21.0**.
+
+### Adicionado
+- **O botão Deploy do serviço enfileira a árvore de dependências inteira**, na ordem (`depends_on` do mesmo projeto mais as arestas implícitas do acesso a banco
+  compartilhado), em vez de só o serviço. Se uma dependência falha ou é parada, quem espera por ela é **pulado** na fila.
+- **Modal com a ordem** no app e na web UI: ao clicar em Deploy num serviço com dependências, aparece a lista na ordem da fila e os botões **Confirmar**, **Só o serviço** e
+  **Rejeitar**. Sem dependências o deploy sai direto, como antes. No app o modal do serviço é um diálogo de escolha (lista com as três ações); na web UI são três botões.
+- **Botão Deploy do projeto** (cabeçalho do projeto, nos dois clientes): o modal mostra a ordem de tudo que será deployado, com **Aceitar** e **Rejeitar**.
+- Protocolo (`rustploy-shared` 0.21.0): `DeployWithDependencies`, `ProjectDeploy` e os planos sem efeito `DeployWithDependenciesPlan` e `ProjectDeployPlan`; resposta
+  `DeployBatch` (serviço, onda, estado e id do deploy de cada item). Níveis do agente: `operator` para os dois deploys e `observer` para os planos.
+
+### Corrigido
+- **Dependência impossível de resolver agora dá erro ao salvar**: serviço de outro projeto, inexistente ou ciclo, inclusive o formado pelo acesso a um banco compartilhado
+  (`SharedAccessGrant` também recusa o ciclo). Nada é salvo.
+
+### Atenção
+- Atualize **daemon, app e web UI juntos**: o app 0.1.45 chama comandos que só o daemon 0.1.41 conhece (um daemon antigo recusa o plano e o app cai no deploy simples).
 
 ## v0.1.48 — 2026-11-08
 

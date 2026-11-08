@@ -22,6 +22,18 @@ ServiceGet | daemon: services/service_get | gui: handlers/services | web: app
 
 ## Deployments
 DeployStart | daemon: features/deploy/start | gui: handlers/services | web: app
+
+## / `skip_running`, as dependências que já estão no ar não entram na fila. Resposta: `DeployBatch`.
+DeployWithDependencies — Faz o deploy de um serviço **e da árvore de dependências dele**: enfil… | daemon: features/deploy/tree/deploy_with_dependencies | gui: handlers/services | web: app
+
+## / inteiro). Resposta: `DeployBatch`.
+ProjectDeploy — Faz o deploy de **todos os serviços do projeto**, cada um com as suas … | daemon: features/deploy/tree/project_deploy | gui: handlers/services | web: app
+
+## / É o que a tela mostra antes de a pessoa confirmar. Resposta: `DeployBatch` (sem `deployment_id`).
+DeployWithDependenciesPlan — **Só mostra** o plano de `DeployWithDependencies`, sem enfileirar nada… | daemon: features/deploy/tree/plan_for_service | gui: handlers/services | web: app
+
+## / Como `DeployWithDependenciesPlan`, para o `ProjectDeploy` (o projeto inteiro).
+ProjectDeployPlan — Como `DeployWithDependenciesPlan`, para o `ProjectDeploy` (o projeto i… | daemon: features/deploy/tree/plan_for_project | gui: handlers/services | web: app
 DeployAbort | daemon: deploys/deploy_abort | gui: handlers/deploy_queue | web: app
 DeployRollback | daemon: deploys/deploy_rollback | gui: — | web: app
 DeployHistory | daemon: deploys/deploy_history | gui: handlers/services | web: app

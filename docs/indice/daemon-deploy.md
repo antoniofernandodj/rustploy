@@ -37,9 +37,10 @@ type Graph = BTreeMap<String, BTreeSet<String>> — `id do serviço → ids dos 
 fn waves(graph) -> Result<Vec<Vec<String>>, Vec<String>> — Ordena em ondas: a onda 0 não depende de ninguém; a onda *n* só depende de ondas anteriores.
 fn dependents_transitive(graph, id) -> BTreeSet<String> — Quem depende (direta ou indiretamente) de `id`.
 struct DepError { code, message } — Erro de validação de `depends_on`: código estável + mensagem para a pessoa.
+fn shared_cycle(all, implicit, self_id, depends_on) -> Result<(), Vec<String>> — Ciclo no grafo **completo**: o `depends_on` de todos os serviços (de todos os projetos) mais as ares…
 fn validate(project_services, self_id, depends_on) -> Result<(), DepError> — Valida o `depends_on` de um serviço (novo ou editado) contra os do projeto.
 fn direct_dependents(project_services, id) -> Vec<(String, String)> — Serviços que dependem diretamente de `id` (para a guarda de exclusão).
-(12 testes)
+(14 testes)
 
 ### env_resolve.rs — Resolução de env vars com secrets decifradas — extraído de `DeployExecutor::resolve_env` pra ser rea…
 fn secret_value(secrets, project_id, service_id, secret_name, env_key, owner) -> Result<String> — Resolve o valor de uma env `Secret(nome)`.
@@ -62,11 +63,13 @@ fn extract_percent(line) -> u8 — Extracts the integer percentage from a git pr
 ### mod.rs — Motor de deploy: fila global, executor, recuperação no boot, clone git e resolução de env vars.
 
 ### queue.rs — Fila **global** de deploys: no máximo um deploy rodando por vez no daemon.
-struct QueueInner { queued, running, paused }
+struct QueueInner { queued, running, paused, waits }
 struct DeployQueue { inner, notify, slot, paused_tx } — Handle compartilhado da fila (fica no `DeployContext`).
 impl DeployQueue
   fn new() -> Arc<Self>
   fn lock() -> std::sync::MutexGuard<'_, QueueInner> — Trava o estado da fila.
+  fn set_waits(dep_id, waits) — Registra de quais deployments `dep_id` depende (um lote).
+  fn take_waits(dep_id) -> Vec<String> — Tira (e devolve) os deployments de que `dep_id` depende.
   fn enqueue(dep_id) — Enfileira um deployment e acorda o worker.
   fn remove_queued(dep_id) -> bool — Remove um deployment **enfileirado** (não afeta o que está rodando — abortar o running é papel do `a…
   fn promote(dep_id) — Move um enfileirado para o início da fila ("furar fila").
@@ -102,12 +105,28 @@ fn disconnect_from_project(db, docker, svc, project_id) -> Result<()> — Descon
 
 ### start.rs — Iniciar um deploy (`Command::DeployStart`): valida a fonte do serviço, cria o deployment e o enfilei…
 fn handle(state, service_id) -> RpResponse
+fn handle_with_waits(state, service_id, waits) -> RpResponse — Como [`handle`], para um deploy de **lote**: `waits` são os deployments de que este depende (a trava…
 
 ### stop.rs — Parar um serviço (`Command::ServiceStop`): para um serviço (todas as réplicas live, ou a stack Compo…
 fn handle(state, service_id) -> RpResponse
 fn stop(state, service_id) -> RpResponse
 fn stop_compose(state, service_id, project_name, content, network_name, env_vars) -> RpResponse
 fn finish_stop(state, service_id, container_id) -> RpResponse
+
+### tree.rs — Deploy com a árvore de dependências (`Command::DeployWithDependencies` e `Command::ProjectDeploy`).
+struct PlanStep { id, name, wave, depends_on, skip } — Um passo do plano: um serviço, a onda dele na árvore e de quais outros passos ele depende.
+enum PlanError { NotFound, Cycle }
+fn plan(services, implicit, targets, skip_running) -> Result<Vec<PlanStep>, PlanError> — Monta o plano para `targets`: eles e **todas** as suas dependências (diretas e indiretas), em ordem …
+fn run_plan(ctx, steps) -> Vec<DeployBatchItem> — Enfileira o plano, na ordem.
+fn plan_from_db(ctx, targets, skip_running) -> Result<Vec<PlanStep>, RpResponse> — Carrega o necessário do banco e devolve o plano para `targets`.
+fn plan_response(steps) -> RpResponse — O plano como a resposta (`DeployBatch`), **sem enfileirar**: `Queued` = entraria na fila.
+fn plan_for_service(ctx, service_id, skip_running) -> RpResponse — `Command::DeployWithDependenciesPlan`: o que o `DeployWithDependencies` faria, sem fazer.
+fn plan_for_project(ctx, project_id, skip_running) -> RpResponse — `Command::ProjectDeployPlan`: o que o `ProjectDeploy` faria, sem fazer.
+fn deploy_with_dependencies(ctx, service_id, skip_running) -> RpResponse — `Command::DeployWithDependencies`.
+fn project_deploy(ctx, project_id, skip_running) -> RpResponse — `Command::ProjectDeploy`.
+fn failed_dependency(db, waits) -> Option<String> — Algum dos deployments de que o deploy depende terminou **mal** (falhou ou foi interrompido)? Devolve…
+fn skip_for_dependency(state, dep_id, motivo) — Não roda o deploy `dep_id`: o marca como `Failed` com o `motivo` e devolve o serviço ao estado que e…
+(8 testes)
 
 ## rustploy-daemon/crates/daemon/src/features/deploy/executor/
 

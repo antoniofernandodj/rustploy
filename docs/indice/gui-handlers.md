@@ -242,7 +242,11 @@ function delete_deployment(deployment_id)
 function M.set_webhook_url(url) — A URL do webhook é longa (base + service_id + token de 48 hex).
 function regenerate_webhook() — Regenerar invalida o token antigo NA HORA: qualquer webhook já cadastrado no GitHub/Gitea/Docker Hub…
 local service_lifecycle(command, message)
-local start_deploy(requested_service_id) — Deploy de um serviço (a partir de um card / detalhe).
+local deploy_single(requested_service_id) — Deploy de um serviço (a partir de um card / detalhe).
+local plan_order_text(items) — Texto da ordem do plano: "1.
+local run_batch(command) — Executa um comando em lote (DeployWithDependencies/ProjectDeploy) e avisa quantos serviços entraram …
+local start_deploy(requested_service_id)
+function project_deploy() — Botão "Deploy" do projeto: mostra a ordem de tudo e pede aceitar/rejeitar.
 function running_deploy(service_id) — Atalho "Deploy" do painel "Em execução": dispara o deploy sem abrir o serviço.
 function service_deploy()
 function service_rebuild()

@@ -157,6 +157,7 @@ fn view(state, svc) -> Vec<SharedAccess>
 fn list(state, server_service_id) -> RpResponse
 fn grant(state, server_service_id, project_id) -> RpResponse
 fn revoke(state, server_service_id, project_id) -> RpResponse
+fn refuse_cycle(state, server_id, project_id) -> Result<(), RpResponse> — `Err` (já como resposta) se conceder `project_id` acesso a `server_id` criaria um ciclo de dependênc…
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/deploys/
 
@@ -540,7 +541,7 @@ fn accepts_gzip(req) -> bool — O cliente aceita gzip? (`Accept-Encoding` cont�
 fn json_response(bytes, accept_gzip) -> Response<ApiBody> — Resposta JSON, comprimida com gzip quando o cliente aceita e o corpo passa de [`GZIP_MIN`].
 fn gzip(data) -> std::io::Result<Vec<u8>> — Comprime `data` em gzip (flate2, mesmo crate do tar do build Docker).
 fn constant_time_eq(a, b) -> bool — Short-circuits on length mismatch but is otherwise constant-time over the compared bytes.
-(13 testes)
+(19 testes)
 
 ### public_routes.rs — Rotas HTTP **públicas** (sem Bearer): o webhook de deploy e o callback OAuth do Gitea.
 fn webhook(req, state) -> Response<Full<Bytes>> — `POST /webhook/{service_id}/{token}` — valida o token e dispara um deploy, a menos que o serviço sej…
@@ -575,7 +576,7 @@ fn seed_connected(page) — Semeia a sessão (bypassa login/SSE, mesma ideia de 
 fn eval_str(page, js) -> String — Avalia `js` (uma expressão, possivelmente uma Promise) e devolve o resultado como `String` — os test…
 fn visible(page, selector) -> bool — `true` se o elemento existir e estiver de fato visível (`x-show` escreve `display:none` inline; `off…
 fn errors(page) -> Vec<String>
-(16 testes)
+(17 testes)
 
 ### mod.rs — Servidor de estáticos da web UI/PWA (`crates/daemon/webui/`) — alternativa ao client iced (`rustploy…
 type ApiBody = BoxBody<Bytes, std::convert::Infallible>

@@ -190,6 +190,18 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.49 (2026-11-08): Deploy com dependências e Deploy do projeto
+
+- **O que muda:** daemon **0.1.41**, app **0.1.45**, `rustploy-shared` **0.21.0**. `features/deploy/tree.rs` (planejamento por ondas, `run_plan`), espera por dependência em
+  `queue::run_one`, validação de dependência impossível em `check_depends_on` e no `SharedAccessGrant`. Comandos `DeployWithDependencies`, `ProjectDeploy` e os dois `*Plan`;
+  modal da ordem no app (`prompt` de três opções) e na web UI (três botões); botão Deploy no cabeçalho do projeto. Docs pt e en (guia de dependências, telas de serviço e projeto,
+  referência gerada).
+- **crates.io:** `rustploy-shared` 0.21.0 (2026-11-08); `rustploy` 0.1.41 e `rustploy-gui` 0.1.45 (ver abaixo).
+- **Verificado:** shared 48 testes; daemon 522 testes e `clippy -D warnings` (seis testes de integração do lote, cenários de ordem, pulo por falha e ciclo); web UI com Chrome
+  headless (modal com ordem e botões); `glacier test` 413; site com 0 links quebrados.
+- **NÃO verificado:** o fluxo **num servidor real** (deploy de um projeto com banco + api + worker, a fila na ordem, o pulo quando o banco falha); o modal do app visto na tela
+  (só `glacier test`, sem janela); o app contra um daemon antigo.
+
 ## v0.1.48 (2026-11-08): chave mestra e de visitante, com níveis
 
 - **O que muda:** só o daemon, **0.1.40** (app 0.1.44 e `rustploy-shared` 0.20.0 inalterados). `[api].master_token` e `[api].visitor_level`; com a mestra, a chave atual vira
