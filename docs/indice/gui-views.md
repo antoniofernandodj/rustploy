@@ -28,6 +28,8 @@
 
 ### service_export_window.gv
 
+### services_reorder_window.gv
+
 ### shell.gv
 
 ## rustploy-gui/views/components/

@@ -91,6 +91,7 @@
 - plano-pre-deploy-gate.md — Pré-deploy gate: rodar um check antes do deploy, e só prosseguir se ele passar
 - plano-reforma-gui-glacier-0.102.md — Plano: reforma do `rustploy-gui` sobre o glacier-ui moderno (0.87 → 0.102)
 - plano-registry-embutido.md — Registry Docker embutido no rustployd
+- plano-reordenar-servicos.md — Reordenar os serviços de um projeto
 - plano-reorganizacao-daemon-e-shared.md — Plano (preliminar): reorganizar o daemon e o shared
 - plano-site-documentacao.md — Plano: site de documentação do Rustploy (SSG, SEO e GEO)
 - plano-tray-bandeja-e-ciclo-de-vida.md — Plano — ícone de bandeja e o app que sobrevive à última janela
@@ -231,6 +232,7 @@
 - project_delete.rs — `Command::ProjectDelete`: apaga um projeto; recusa se ainda tiver serviços ou jo…
 - project_env_set.rs — `Command::ProjectEnvSet`: substitui as env vars (e comentários) de nível de proj…
 - project_list.rs — `Command::ProjectList`: todos os projetos.
+- project_services_reorder.rs — `Command::ProjectServicesReorder`: ordem de exibição dos serviços de um projeto.
 - project_update.rs — `Command::ProjectUpdate`: renomeia/redescreve um projeto.
 
 ### rustploy-daemon/crates/daemon/src/api/handlers/registry/ → daemon-api.md
@@ -1703,6 +1705,7 @@
 - new_service_window.gv
 - service.gv
 - service_export_window.gv
+- services_reorder_window.gv
 - shell.gv
 
 ### rustploy-gui/views/components/ → gui-views.md
@@ -1763,6 +1766,7 @@
 - new_registry_token_window.luau — script da JANELA "Novo token do registry", um motor Glacier próprio e ISOLADO do…
 - new_service_window.luau — script da JANELA do wizard "Novo serviço", um motor Glacier próprio e ISOLADO do…
 - service_export_window.luau — script da JANELA "Exportar serviço", um motor Glacier próprio e ISOLADO do app p…
+- services_reorder_window.luau — script da JANELA "Reordenar serviços", um motor Glacier próprio e ISOLADO do app…
 - state.luau — estado mutável compartilhado entre todos os handlers/*.luau (mesmo interpretador…
 - stylua.toml
 

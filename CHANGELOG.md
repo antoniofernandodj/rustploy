@@ -1,6 +1,6 @@
 # Changelog
 
-Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.49`, de 28/10/2026 a 08/11/2026), do mais novo para o mais antigo.
+Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.50`, de 28/10/2026 a 08/11/2026), do mais novo para o mais antigo.
 Levantado a partir das tags do agregador, dos ponteiros dos submódulos, dos commits entre cada par de tags, das releases do GitHub
 e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação, com o que foi e o que **não** foi verificado).
 
@@ -19,6 +19,7 @@ e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação,
 
 | Tag | Data | Daemon (`rustploy`) | App (`rustploy-gui`) | `rustploy-shared` | Destaque |
 |---|---|---|---|---|---|
+| [v0.1.50](#v0150--2026-11-08) | 2026-11-08 | **0.1.42** | **0.1.46** | **0.22.0** | Reordenar os serviços de um projeto |
 | [v0.1.49](#v0149--2026-11-08) | 2026-11-08 | **0.1.41** | **0.1.45** | **0.21.0** | Deploy com dependências e Deploy do projeto, com modal da ordem |
 | [v0.1.48](#v0148--2026-11-08) | 2026-11-08 | **0.1.40** | 0.1.44 | 0.20.0 | Chave mestra e de visitante; níveis do agente |
 | [v0.1.47](#v0147--2026-11-07) | 2026-11-07 | **0.1.39** | 0.1.44 | 0.20.0 | A credencial do provider git só vai para o servidor do provider |
@@ -63,6 +64,24 @@ lá, a data do commit da tag; o horário de publicação no GitHub, em UTC, est�
 Cada release traz também o `checksums.sha256` e um `.minisig` para cada `.deb` e para o zip.
 
 ---
+
+## v0.1.50 — 2026-11-08
+
+Reordenar os serviços de um projeto. Daemon **0.1.42**, app **0.1.46**, `rustploy-shared` **0.22.0**.
+
+### Adicionado
+- **Botão "Reordenar serviços"** no cabeçalho do projeto (app e web UI): abre um modal com a lista de serviços para arrastar (como as variáveis de ambiente; na web UI também
+  com ↑/↓) e os botões **Reordenar** e **Cancelar**. Ao confirmar, os cards se reordenam na hora.
+- **A ordem fica no servidor**, no `project.yml` (campo `service_order`, lista de ids, omitido quando vazio), portanto vai para o git. Serviço novo entra no fim; serviço apagado
+  sai da ordem sozinho. Projetos nunca reordenados mantêm o YAML de antes.
+- Protocolo (`rustploy-shared` 0.22.0): `ProjectServicesReorder { project_id, service_ids }`; nível `operator` para o agente. Id de outro projeto, repetido ou projeto
+  inexistente dá erro e não muda nada.
+
+### Alterado
+- O daemon deixou de ordenar todos os serviços por data de criação: lista projeto por projeto, na ordem de exibição (`service_order`, depois criação).
+
+### Atenção
+- Atualize **daemon, app e web UI juntos**: o app 0.1.46 chama um comando que só o daemon 0.1.42 conhece.
 
 ## v0.1.49 — 2026-11-08
 

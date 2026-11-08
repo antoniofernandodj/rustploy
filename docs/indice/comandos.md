@@ -11,6 +11,9 @@ ProjectCreate | daemon: projects/project_create | gui: handlers/projects, new_pr
 ProjectDelete | daemon: projects/project_delete | gui: handlers/projects | web: app
 ProjectUpdate | daemon: projects/project_update | gui: handlers/projects | web: app
 ProjectList | daemon: projects/project_list | gui: handlers/projects, handlers/services | web: screens/service_detail
+
+## / que não é do projeto ou repetido é erro. Response: `Ok`.
+ProjectServicesReorder — Define a ordem de exibição dos serviços do projeto: `service_ids` na o… | daemon: projects/project_services_reorder | gui: services_reorder_window | web: app
 ProjectEnvSet | daemon: projects/project_env_set | gui: handlers/projects | web: app
 
 ## Services

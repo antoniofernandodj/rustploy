@@ -193,11 +193,12 @@ type RuntimeRow = (String, String, Option<String>, String, DateTime<…
 fn runtimes(db) -> Result<HashMap<String, Runtime>>
 fn parse_status(s) -> ServiceStatus
 fn assemble(s, rt) -> Service — Junta a parte declarada (YAML) com o runtime (SQL).
-fn all_services(db) -> Result<Vec<(Service, Option<Runtime>)>> — Todos os serviços do YAML, em ordem de criação, com o runtime junto.
+fn all_services(db) -> Result<Vec<(Service, Option<Runtime>)>> — Todos os serviços do YAML, com o runtime junto: projeto por projeto, e dentro de cada um na ordem de…
 fn filtered(db, keep) -> Result<Vec<Service>>
 fn new_compose_project(st, id, name) -> String — Nome de stack para um serviço Compose novo: o curto (`rp_<últimos 8 do ID>_<nome>`); se já está em u…
 fn check_shared_rules(spec) -> Result<()> — Regras de nome/`shared` (prefixo `rp-shared-` reservado etc.) — ver `crate::platform::connection::va…
 fn create(db, spec) -> Result<Service>
+fn reorder(db, project_id, ids) -> Result<std::result::Result<(), String>> — Define a ordem de exibição dos serviços de um projeto: `ids` na ordem desejada; os que não vierem fi…
 fn list(db, project_id) -> Result<Vec<Service>>
 fn get(db, id) -> Result<Option<Service>>
 fn update_spec(db, id, spec) -> Result<Option<Service>>
@@ -217,7 +218,7 @@ fn list_all(db) -> Result<Vec<Service>>
 fn test_compose_spec(name, project_id) -> ServiceSpec
 fn compose_service_keys(content) -> std::collections::BTreeSet<String> — Chaves de serviço (`services:`) de um compose, para casar com as de uma stack viva.
 fn backfill_compose_projects(db, live) -> Result<()> — Grava `compose_project` nos serviços Compose que ainda não têm, com o nome **que a stack já usa** — …
-(23 testes)
+(25 testes)
 
 ### shared_access.rs — Tabela `shared_access`: quais projetos podem alcançar cada servidor de banco compartilhado.
 fn grant(db, server_id, project_id) -> Result<()>
@@ -281,7 +282,9 @@ const SCHEMA — Versão do formato dos arquivos.
 struct InfraState { settings, providers, projects }
 struct SettingsInfra { acme_email, registry_domain, docker_cleanup_config } — As chaves de configuração do `daemon_settings` (R2.1).
 struct ProviderInfra { id, kind, name, base_url, auth_mode, oauth_client_id, oauth_client_secret_enc, account_login, account_avatar, created_at } — Config de um git provider.
-struct ProjectInfra { id, name, description, env_vars, env_comments, network_name, created_at, services, jobs, secrets, managed_databases, shared_access }
+struct ProjectInfra { id, name, description, env_vars, env_comments, network_name, created_at, services, jobs, secrets, managed_databases, shared_access, service_order }
+impl ProjectInfra
+  fn services_in_order() -> Vec<&ServiceInfra> — Serviços na ordem de exibição: primeiro os de `service_order`, na ordem dela; os que ela não cita (c…
 struct ServiceInfra { id, spec, compose_project, created_at, webhook_token, secrets }
 struct JobInfra { id, trigger_service_id, name, compose, git_source, main_service, env_vars, env_comments, enabled, recurrence, created_at }
 struct SecretInfra { id, key, value } — Hoje o `value` já vem cifrado pelo `SecretsManager` (passphrase).

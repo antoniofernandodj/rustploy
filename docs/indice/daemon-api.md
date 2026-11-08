@@ -380,6 +380,9 @@ fn handle(state, project_id, env_vars, env_comments) -> RpResponse
 ### project_list.rs — `Command::ProjectList`: todos os projetos.
 fn handle(state) -> RpResponse
 
+### project_services_reorder.rs — `Command::ProjectServicesReorder`: ordem de exibição dos serviços de um projeto.
+fn handle(state, project_id, service_ids) -> RpResponse
+
 ### project_update.rs — `Command::ProjectUpdate`: renomeia/redescreve um projeto.
 fn handle(state, id, name, description) -> RpResponse
 
@@ -576,7 +579,7 @@ fn seed_connected(page) — Semeia a sessão (bypassa login/SSE, mesma ideia de 
 fn eval_str(page, js) -> String — Avalia `js` (uma expressão, possivelmente uma Promise) e devolve o resultado como `String` — os test…
 fn visible(page, selector) -> bool — `true` se o elemento existir e estiver de fato visível (`x-show` escreve `display:none` inline; `off…
 fn errors(page) -> Vec<String>
-(17 testes)
+(18 testes)
 
 ### mod.rs — Servidor de estáticos da web UI/PWA (`crates/daemon/webui/`) — alternativa ao client iced (`rustploy…
 type ApiBody = BoxBody<Bytes, std::convert::Infallible>

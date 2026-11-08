@@ -190,6 +190,14 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.50 (2026-11-08): reordenar os serviços de um projeto
+
+- **O que muda:** daemon **0.1.42**, app **0.1.46**, `rustploy-shared` **0.22.0**. Comando `ProjectServicesReorder`; ordem em `ProjectInfra.service_order` (`project.yml`),
+  `services_in_order()` e poda no `normalize`; `store::services::reorder`; modal na web UI e janela própria no app (`services_reorder_window`). Docs pt e en.
+- **crates.io:** `rustploy-shared` 0.22.0, `rustploy` 0.1.42 e `rustploy-gui` 0.1.46 (2026-11-08).
+- **Verificado:** shared 48 testes; daemon 525 testes e `clippy -D warnings` (dois do store, um headless do modal); app: clippy, `cargo test` e `glacier test` 416; site com 0 links quebrados.
+- **NÃO verificado:** a janela do app e o arraste com o mouse; o arraste da web UI num navegador (o teste move por código); o comando contra um daemon real e o ida-e-volta do `project.yml` pelo git.
+
 ## v0.1.49 (2026-11-08): Deploy com dependências e Deploy do projeto
 
 - **O que muda:** daemon **0.1.41**, app **0.1.45**, `rustploy-shared` **0.21.0**. `features/deploy/tree.rs` (planejamento por ondas, `run_plan`), espera por dependência em

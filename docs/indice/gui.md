@@ -635,6 +635,11 @@ function test_janela_novo_servico__pedida_para_importar_abre_direto_no_passo() �
 function test_janela_novo_servico__o_passo_de_importacao_nasce_zerado() — - o passo de importação nasce zerado
 function test_janela_novo_servico__catalogo_ilegivel_nao_derruba_a_janela() — - catálogo ilegível não derruba a janela
 function test_janela_novo_servico__o_setter_field_existe_nesta_janela_digitar() — - o setter field existe nesta janela (digitar nos inputs escreve no ctx)
+local reordenar()
+local ordem(tela)
+function test_janela_reordenar_servicos__o_init_mostra_a_ordem_recebida() — - o init mostra os serviços na ordem recebida, numerados
+function test_janela_reordenar_servicos__arrastar_reescreve_a_ordem() — - arrastar reescreve a ordem das linhas; o que o arraste não cita vai ao fim
+function test_janela_reordenar_servicos__json_invalido_nao_mexe_na_ordem() — - arraste com JSON inválido não mexe na ordem
 
 ## rustploy-gui/vendor/iced_tiny_skia/src/
 

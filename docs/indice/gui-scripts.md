@@ -104,6 +104,14 @@ local generate() — Pede o pacote ao daemon com as escolhas da tela.
 function export_save()
 function export_show() — Mostra o pacote como texto (com o botão Copiar) para quem não quer arquivo.
 
+### services_reorder_window.luau — script da JANELA "Reordenar serviços", um motor Glacier próprio e ISOLADO do app principal (aberto v…
+local client()
+local render()
+function init()
+function services_reorder_drag(reorder_json) — Arraste: `reorder_json` é um JSON array de ids na nova ordem (o `reorder_key` do foreach é `id`).
+function services_reorder_apply() — Botão "Reordenar": grava no daemon, avisa a janela principal e fecha.
+function cancel() — Botão "Cancelar": fecha ESTA janela sem gravar.
+
 ### state.luau — estado mutável compartilhado entre todos os handlers/*.luau (mesmo interpretador, mesma tabela: `req…
 types: DeployTrack, State
 
