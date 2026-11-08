@@ -199,7 +199,9 @@ fora do ar não impede o outro (`fail-fast: false`).
 - **crates.io:** `rustploy` 0.1.40 (2026-11-08).
 - **Verificado:** daemon 505 testes e `clippy -D warnings`; a política por testes automatizados (chamador por chave, proibições e níveis pelo mesmo caminho do `/api/rpc`, senha mascarada
   para o visitante e visível para a mestra, `ServiceUpdate` e `JobUpdate` do operador recusados ao mudar volumes/comando/compose, geração e gravação da mestra no `config.toml`);
-  site com 0 links quebrados.
+  site com 0 links quebrados; `workflow_dispatch` antes da tag (todos os jobs verdes); release **assinada** (5 arquivos + 4 `.minisig`, checksums e assinaturas conferidos com
+  `keys/rustploy-update.pub`); `install.sh gui` pela URL pública num `debian:12` limpo (via podman) instalou o app `0.1.44-1`; docs no ar (pt e en) com as páginas de segurança e do
+  `config.toml` respondendo 200.
 - **NÃO verificado:** o fluxo inteiro **num servidor real** (gerar a mestra, reiniciar, entrar na GUI/webui com a mestra, agente com a chave antiga); a GUI e a webui com a chave de
   visitante (o que a pessoa vê ao ser recusada); o `access-key --master` contra um `config.toml` de produção. As decisões sobre níveis (três níveis, `operator` padrão; `state_git` e criar
   serviços em `admin`; o operador liga/desliga jobs) foram tomadas com as sugestões do plano, sem resposta do dono.
