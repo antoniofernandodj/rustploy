@@ -163,7 +163,7 @@ fn default_external_range_start() -> u16
 fn default_external_range_end() -> u16
 impl ExternalPortsConfig
   fn contains(port) -> bool
-struct ApiConfig { enabled, bind_address, port, token, domain, max_connections } — Configuration for the HTTP/JSON + SSE control API — o canal administrativo remoto.
+struct ApiConfig { enabled, bind_address, port, token, master_token, visitor_level, domain, max_connections } — Configuration for the HTTP/JSON + SSE control API — o canal administrativo remoto.
 fn default_api_enabled() -> bool
 fn default_api_bind() -> String
 fn default_api_port() -> u16

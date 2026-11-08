@@ -1,8 +1,9 @@
 # Limites do agente (MCP): o que ele pode editar, e como fechar os buracos
 
-> **Status (2026-11-07):** o **item A está implementado** (ver a seção 4); os itens 0, B, C e D estão **só
-> planejados** (o dono interrompeu a implementação por hoje; seguem outro dia). Estudado só lendo o código;
-> nenhum teste foi feito contra um servidor de verdade.
+> **Status (2026-11-08):** os itens **A, C, 0, B e D estão implementados** no daemon (sem release ainda); ver as
+> seções de cada um e a seção 10 (decisões tomadas). Testados por testes automatizados (daemon 505 testes);
+> **nenhum teste foi feito contra um servidor de verdade**, e a GUI e a webui não foram exercitadas com a
+> chave de visitante.
 
 ## 1. De onde veio e o achado principal
 
@@ -226,9 +227,37 @@ Respondidas em 2026-11-07:
 - Fazer o plano, nesta ordem: A (feito), C, 0, B, D.
 - Item 0: a chave atual vira **visitante**, a mestra é opcional e gerá-la liga a proteção (ver a seção 3).
 
-Ainda em aberto:
-1. Níveis de agente (observador, operador, administrador) ou um só? Sugestão: três, com **operador** como
-   padrão do visitante.
-2. `credentials` (secret) com URL de fora dos providers: recusar para o visitante, ou aceitar?
-3. O visitante pode configurar o `state_git` (agora que o item A impede o desvio da credencial)?
-4. O visitante pode **criar** serviços novos, ou só mexer nos existentes?
+Tomadas em 2026-11-08, **sem o dono ter respondido, usando as sugestões do plano** (revisar se discordar):
+1. **Três níveis** (`observer`, `operator`, `admin`), com **`operator` como padrão** do visitante.
+2. `credentials` (secret) com URL de fora dos providers: **não tratado**; continua aberto (o secret não tem
+   host associado). Um visitante `admin` ainda consegue mandá-lo para fora.
+3. Configurar o `state_git` (`StateGitConfigure`) e **criar** serviços novos: ficam em **`admin`** (mais
+   estrito que a sugestão do plano de deixar para o operador). `StateGitSyncNow`, `Resume` e `DismissRemoval`
+   são `operator`.
+4. O operador **liga e desliga jobs** e edita as variáveis deles (`JobUpdate` é `operator`, com `compose`,
+   `git_source` e `main_service` congelados), além do que o plano previa.
+
+## 11. Como ficou (implementação, 2026-11-08)
+
+- `api/agent/policy.rs`: `Level`, `Caller`, `required_level` (um `match` **exaustivo** sobre os 127 `Command`,
+  sem curinga: um comando novo não compila até ter nível), `check`, e as listas de campos congelados do
+  operador (`OPERATOR_FROZEN_SPEC_FIELDS`, `OPERATOR_FROZEN_JOB_FIELDS`).
+- `api/http/mod.rs`: `Auth` (token, mestra, nível); `Auth::caller` reconhece quem chama; `/api/rpc` e `/mcp`
+  passam o nível (via `task_local`) à mesma `tools::rpc`; `/api/events` e o upload de zip recusam o visitante
+  (zip: abaixo de `admin`); a mestra nunca é devolvida por `/api/access-key` nem aceita em `/api/login`.
+- `api/agent/tools.rs`: `InfraAuditAllow` proibido (B); `JobUpdate` restaura as variáveis mascaradas (C);
+  `ServiceUpdate`/`JobUpdate` abaixo de `admin` não mudam o que roda.
+- `[api].master_token` e `[api].visitor_level` no `config.toml`; `rustployd access-key --master` gera (256 bits,
+  falha em vez de gerar fraco), grava e imprime o token de conexão da mestra.
+- Docs pt e en: `instalacao/config-toml`, `agentes/seguranca`; manual do agente.
+
+**Sem mestra configurada nada muda**, exceto: o MCP passa a recusar `InfraAuditAllow` (B) e a restaurar
+máscaras no `JobUpdate` (C), para todo mundo.
+
+## 12. O que ainda falta
+
+- Exercitar na GUI e na webui com a chave de visitante (o que a pessoa vê ao ser recusada) e, num servidor
+  real, gerar a mestra e conferir o fluxo inteiro (`access-key --master`, reiniciar, entrar com a mestra,
+  agente com a antiga).
+- `credentials` (secret) sem host associado (decisão 2).
+- A GUI/webui não mostram o nível do visitante nem explicam o 403; hoje ele aparece como erro de comando.

@@ -190,6 +190,20 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.48 (2026-11-08): chave mestra e de visitante, com níveis
+
+- **O que muda:** só o daemon, **0.1.40** (app 0.1.44 e `rustploy-shared` 0.20.0 inalterados). `[api].master_token` e `[api].visitor_level`; com a mestra, a chave atual vira
+  a de visitante e passa pelas proibições, pelo nível, pela restauração de máscaras e pela redação em **qualquer** rota (`/mcp` e `/api/rpc`). Níveis `observer`/`operator`/`admin`
+  (`api/agent/policy.rs`, `match` exaustivo sobre os 127 comandos); `rustployd access-key --master`; `JobUpdate` restaura variáveis mascaradas; `InfraAuditAllow` proibido ao agente;
+  `/api/events` e o upload de zip recusados ao visitante. Docs pt e en (`instalacao/config-toml`, `agentes/seguranca`) e manual do agente. Plano: `docs/plano-limites-do-agente-mcp.md`.
+- **crates.io:** `rustploy` 0.1.40 (2026-11-08).
+- **Verificado:** daemon 505 testes e `clippy -D warnings`; a política por testes automatizados (chamador por chave, proibições e níveis pelo mesmo caminho do `/api/rpc`, senha mascarada
+  para o visitante e visível para a mestra, `ServiceUpdate` e `JobUpdate` do operador recusados ao mudar volumes/comando/compose, geração e gravação da mestra no `config.toml`);
+  site com 0 links quebrados.
+- **NÃO verificado:** o fluxo inteiro **num servidor real** (gerar a mestra, reiniciar, entrar na GUI/webui com a mestra, agente com a chave antiga); a GUI e a webui com a chave de
+  visitante (o que a pessoa vê ao ser recusada); o `access-key --master` contra um `config.toml` de produção. As decisões sobre níveis (três níveis, `operator` padrão; `state_git` e criar
+  serviços em `admin`; o operador liga/desliga jobs) foram tomadas com as sugestões do plano, sem resposta do dono.
+
 ## v0.1.47 (2026-11-07): a credencial do provider git só vai para o servidor do provider
 
 - **O que muda:** só o daemon, **0.1.39** (app 0.1.44 e `rustploy-shared` 0.20.0 inalterados). `features/git_providers::{https_authority, provider_authority,

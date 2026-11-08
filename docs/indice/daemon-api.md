@@ -46,12 +46,33 @@ fn extract_key(body) -> Result<String, KeyFormatError> — Tira o token de conex
 fn format_error(fail) -> Value — O `400` do login: o que falhou **e** o formato certo, para um agente acertar na tentativa seguinte s…
 fn public_address(api, fallback_host) -> String — `host:porta` público deste daemon: `[api].domain` quando definido, senão o IP de saída; a porta é se…
 fn access_key_for(address, token) -> Option<String> — Monta o token de conexão a partir do endereço e do `[api].token`.
-fn print_access_key_and_exit(config) -> ! — Imprime o token de conexão e sai — `rustployd access-key`.
+const MASTER_TOKEN_KEY — Chave do `config.toml` da chave mestra.
+fn generate_master_token() -> anyhow::Result<String> — Gera uma chave mestra (256 bits, hex).
+fn with_master_token(contents, master) -> Option<String> — O texto do `config.toml` com `master_token = "<chave>"` logo abaixo do `token` de `[api]` (trocando …
+fn print_master_key_and_exit(config) -> ! — `rustployd access-key --master`: imprime o token de conexão da chave **mestra**, gerando-a e gravand…
+fn print_access_key_and_exit(config) -> ! — Imprime o token de conexão e sai — `rustployd access-key` (`--master`: o da chave mestra).
 const CONNECTION_TOKEN_KEY — Chave do `config.toml` onde o daemon deixa o token de conexão pronto.
 fn write_connection_token(config) -> anyhow::Result<()> — Grava `connection_token = "<token de conexão>"` logo abaixo do `token` da seção `[api]` do `config.t…
 fn config_file_in_use() -> Option<std::path::PathBuf> — O mesmo arquivo que `RustployConfig::load` escolhe: o primeiro da lista que existe **e** faz parse.
 fn with_connection_token(contents, api_token, key) -> Option<String> — O texto do `config.toml` com a linha do token de conexão no lugar (logo abaixo do `token` de `[api]`…
-(9 testes)
+(12 testes)
+
+### policy.rs — Níveis da chave de **visitante** (docs/plano-limites-do-agente-mcp.md, itens 0 e D).
+enum Level { Observer, Operator, Admin }
+impl Level
+  fn parse(s) -> Option<Self>
+  fn as_str() -> &'static str
+enum Caller { Master, Visitor } — Quem está chamando.
+impl Caller
+  fn level() -> Option<Level> — O nível a impor, ou `None` para quem não tem limite de nível.
+fn current_level() -> Option<Level> — O nível a impor agora, vindo do contexto da requisição.
+fn required_level(cmd) -> Level — O nível mínimo para executar o comando.
+fn check(cmd, have) -> Result<(), String> — `Ok` se um chamador de nível `have` pode executar `cmd`.
+const OPERATOR_FROZEN_SPEC_FIELDS — Campos de um serviço que um **operador** não pode mudar: são o que decide **o que roda**.
+const OPERATOR_FROZEN_JOB_FIELDS — Campos de um job que um **operador** não pode mudar (o que o job roda).
+fn frozen_job_changes(atual, novo) -> Vec<&'static str> — Quais campos congelados diferem entre o job atual e o novo (JSON do `Job`).
+fn frozen_spec_changes(atual, novo) -> Vec<&'static str> — Quais campos congelados diferem entre o spec atual e o novo (JSON do `ServiceSpec`).
+(5 testes)
 
 ### redigir.rs — Redação de segredos nas respostas que vão para o **agente** (MCP/`rpc`).
 const MASCARA — O que substitui um valor escondido.
@@ -79,6 +100,8 @@ fn call(state, name, args) -> Result<Value, ToolError> — Executa a ferramenta 
 fn proibido_ao_agente(cmd) -> Option<&'static str> — Comandos que o agente (MCP/`rpc`) **nunca** pode executar, qualquer que seja a configuração.
 fn rpc(state, command) -> Result<Value, ToolError> — Executa um `Command` (em JSON) e converte `Response::Err` em falha.
 fn restaurar_mascaras(state, cmd) -> Result<(), ToolError> — O agente só vê as envs mascaradas (`redigir`), e `ServiceUpdate`/`ProjectEnvSet` substituem tudo: se…
+fn verificar_servico_congelado(state, id, novo) -> Result<(), ToolError> — Um visitante abaixo de `admin` não muda o que um serviço **roda** (fonte, comando, volumes…): isso é…
+fn verificar_job_congelado(state, id, compose, git_source, main_service) -> Result<(), ToolError> — Idem para um job: o operador liga/desliga, renomeia e edita variáveis e recorrência, mas não muda o …
 fn rpc_expect(state, command, variante) -> Result<Value, ToolError> — Como [`rpc`], mas exige a variante `variante` e devolve só o payload dela.
 fn status(state) -> Result<Value, ToolError>
 fn snapshot(state) -> Result<Value, ToolError> — `Snapshot` devolve JSON **dentro** de uma string.
@@ -481,16 +504,16 @@ const DATABASE_KINDS, BROKER_KINDS, STORAGE_KINDS
 ### mod.rs — HTTP/JSON + SSE control API — the daemon's remote administrative channel.
 type ApiBody = BoxBody<Bytes, Infallible> — Unified response body: both the buffered (`Full`) replies and the streaming (`StreamBody`) SSE body …
 fn run(state, cfg, tls) — Starts the API listener.
-fn serve_conn(io, state, token, peer) — Serves one HTTP/1.1 connection over `io` (plain TCP or a TLS stream).
-fn handle(req, state, token, peer) -> Result<Response<ApiBody>, Infallible> — Roteia uma requisição HTTP da API: rotas públicas (webhook, callback OAuth) antes do gate do token B…
+fn serve_conn(io, state, auth, peer) — Serves one HTTP/1.1 connection over `io` (plain TCP or a TLS stream).
+fn handle(req, state, auth, peer) -> Result<Response<ApiBody>, Infallible> — Roteia uma requisição HTTP da API: rotas públicas (webhook, callback OAuth) antes do gate do token B…
 fn login(req, expected, peer, scheme) -> Response<ApiBody> — `POST /api/login`: troca o token de conexão pelo token da API (ver `agent::login`).
-fn mcp(req, state) -> Response<ApiBody> — `POST /mcp`: o servidor MCP do agente (ver `agent::mcp`).
+fn mcp(req, state, caller) -> Response<ApiBody> — `POST /mcp`: o servidor MCP do agente (ver `agent::mcp`).
 fn json_value(status, body) -> Response<ApiBody>
 fn service_archive_upload(req, state, service_id) -> Response<ApiBody>
 fn legacy_product_key(body) -> Option<String> — Cliente antigo (GUI/webui anteriores ao rename `db_kind` → `product`) gravando um serviço de banco/b…
 fn omitted_spec_fields(current, payload) -> Vec<String> — Campos do `spec` atual que o payload de um `ServiceUpdate` simplesmente não traz.
 fn partial_update_refusal(body, state) -> Option<String> — Recusa um `ServiceUpdate` que omite campos preenchidos do serviço (ver [`omitted_spec_fields`]).
-fn rpc(req, state) -> Response<ApiBody> — `POST /api/rpc`: decode a `Command`, run it through `dispatch`, encode the `Response` back as JSON.
+fn rpc(req, state, caller) -> Response<ApiBody> — `POST /api/rpc`: decode a `Command`, run it through `dispatch`, encode the `Response` back as JSON.
 fn events(state) -> Response<ApiBody> — `GET /api/events`: SSE stream.
 fn service_logs(state, service_id) -> Response<ApiBody> — `GET /api/services/{id}/logs`: SSE dedicado aos logs de container de UM serviço.
 fn deployment_build_logs(state, deployment_id) -> Response<ApiBody> — `GET /api/deployments/{id}/build-logs`: SSE dedicado à saída de `docker build` de UM deployment.
@@ -504,7 +527,11 @@ fn sse_response(rx) -> Response<ApiBody> — Response body comum dos endpoints S
 fn snapshot(state) -> String — Builds the full dashboard snapshot as one JSON object, reusing `dispatch` for each piece — the same …
 fn sse_frame(event, data) -> Bytes — Formats one SSE record.
 fn send_log_batch(tx, batch) -> Result<(), ()> — Envia um lote coalescido de eventos de log como uma única frame SSE `bus_batch` (ver o produtor em […
-fn auth_check(req, expected) -> Result<(), String> — Checks the `Authorization: Bearer <token>` header against `expected`.
+struct Auth { token, master, visitor_level } — Checks the `Authorization: Bearer <token>` header against `expected`.
+impl Auth
+  fn caller(req) -> Result<Caller, String> — Quem chama.
+fn visitor_forbidden(o_que, nivel) -> Response<ApiBody> — `403` para a chave de visitante, dizendo o que fazer.
+fn auth_check(req, expected) -> Result<(), String>
 fn boxed(resp) -> Response<ApiBody> — As rotas públicas (`public_routes`) devolvem `Full<Bytes>`; o listener unificado fala `ApiBody`.
 fn text(status, body) -> Response<ApiBody>
 fn json_ok(bytes) -> Response<ApiBody>
@@ -513,7 +540,7 @@ fn accepts_gzip(req) -> bool — O cliente aceita gzip? (`Accept-Encoding` cont�
 fn json_response(bytes, accept_gzip) -> Response<ApiBody> — Resposta JSON, comprimida com gzip quando o cliente aceita e o corpo passa de [`GZIP_MIN`].
 fn gzip(data) -> std::io::Result<Vec<u8>> — Comprime `data` em gzip (flate2, mesmo crate do tar do build Docker).
 fn constant_time_eq(a, b) -> bool — Short-circuits on length mismatch but is otherwise constant-time over the compared bytes.
-(7 testes)
+(13 testes)
 
 ### public_routes.rs — Rotas HTTP **públicas** (sem Bearer): o webhook de deploy e o callback OAuth do Gitea.
 fn webhook(req, state) -> Response<Full<Bytes>> — `POST /webhook/{service_id}/{token}` — valida o token e dispara um deploy, a menos que o serviço sej…

@@ -1,6 +1,6 @@
 # Changelog
 
-Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.45`, de 28/10/2026 a 07/11/2026), do mais novo para o mais antigo.
+Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.48`, de 28/10/2026 a 08/11/2026), do mais novo para o mais antigo.
 Levantado a partir das tags do agregador, dos ponteiros dos submódulos, dos commits entre cada par de tags, das releases do GitHub
 e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação, com o que foi e o que **não** foi verificado).
 
@@ -19,6 +19,7 @@ e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação,
 
 | Tag | Data | Daemon (`rustploy`) | App (`rustploy-gui`) | `rustploy-shared` | Destaque |
 |---|---|---|---|---|---|
+| [v0.1.48](#v0148--2026-11-08) | 2026-11-08 | **0.1.40** | 0.1.44 | 0.20.0 | Chave mestra e de visitante; níveis do agente |
 | [v0.1.47](#v0147--2026-11-07) | 2026-11-07 | **0.1.39** | 0.1.44 | 0.20.0 | A credencial do provider git só vai para o servidor do provider |
 | [v0.1.46](#v0146--2026-11-07) | 2026-11-07 | **0.1.38** | 0.1.44 | 0.20.0 | Deploy `Live` não é mais condenado no boot do daemon |
 | [v0.1.45](#v0145--2026-11-07) | 2026-11-07 | **0.1.37** | **0.1.44** | **0.20.0** | Edição de variável no lugar, push-to-deploy do registry, `EnvValueSet` |
@@ -62,6 +63,43 @@ Cada release traz também o `checksums.sha256` e um `.minisig` para cada `.deb` 
 
 ---
 
+## v0.1.48 — 2026-11-08
+
+Chave mestra e chave de visitante, com níveis. Só o daemon muda (**0.1.40**); o app (0.1.44) e o `rustploy-shared` (0.20.0) ficam como estão.
+
+### Adicionado (segurança)
+- **Chave mestra opcional** (`[api].master_token`). Até aqui o `/api/rpc` ignorava as proibições do agente que valiam só no `/mcp`, e as duas rotas
+  usavam o mesmo token: quem o tinha (um agente com `curl`, por exemplo) fazia `SecretReveal` e lia as senhas em claro. Agora, **com a mestra
+  configurada**, a chave atual (`[api].token`) vira a de **visitante**: ela passa pelas proibições, pelo nível, pela restauração de variáveis
+  mascaradas e pela redação das respostas em **qualquer rota** (`/mcp` e `/api/rpc`). Só a mestra tem acesso total.
+- `rustployd access-key --master` gera a mestra (256 bits; falha em vez de gerar uma chave fraca), grava `master_token` no `config.toml` e
+  imprime o token de conexão dela; vale depois de reiniciar o daemon. **Sem mestra, nada muda.**
+- **Níveis do visitante** (`[api].visitor_level`): `observer` (só lê), `operator` (padrão: deploy, parar/reiniciar, variáveis, secrets, domínios,
+  réplicas, ligar/desligar jobs; **não** muda o que um serviço ou job roda — fonte, imagem, comando, volumes, compose) e `admin`. A tabela de níveis é
+  um `match` exaustivo sobre os 127 comandos: um comando novo só compila depois de escolher o nível.
+- Para o visitante: `GET /api/events` (traz variáveis em claro) e o upload de código de um serviço (abaixo de `admin`) são recusados; a mestra nunca é
+  devolvida por `/api/access-key` nem aceita em `/api/login`.
+
+### Corrigido
+- **`JobUpdate` restaura as variáveis mascaradas**, como o `ServiceUpdate`: o agente via `DB_PASSWORD=***` num job e não conseguia editá-lo (nem
+  ligá-lo ou desligá-lo) sem reenviar uma senha que nunca viu.
+- **`InfraAuditAllow` é proibido ao agente**: marcar uma suspeita como "não é segredo" tira a trava que impede valor em claro de ir para o git.
+
+### Atenção
+- **Quem gerar a mestra precisa entrar de novo na GUI e na webui**, com o token de conexão **da mestra**; quem continuar com a chave antiga vê
+  "proibido" nas ações que o nível dela não cobre. Perdeu a mestra? Edite `[api].master_token` no `config.toml` e reinicie.
+- Um visitante `admin` ainda consegue, no limite, montar pastas do servidor num container próprio (ele cria serviços): trate `admin` como acesso total.
+  O token de um **secret** usado em `credentials` continua sem host associado.
+
+### Planejado, não feito
+- `docs/plano-exportar-importar-dados-de-servico.md`: exportar e importar os **dados** de um serviço (dump lógico para banco, tar para volume, sempre por
+  `service_id`); aguarda a revisão do dono.
+
+### Publicação
+- `rustploy` 0.1.40 no crates.io; release assinada.
+
+---
+
 ## v0.1.47 — 2026-11-07
 
 Só o daemon muda (**0.1.39**); o app (0.1.44) e o `rustploy-shared` (0.20.0) ficam como estão.
@@ -80,8 +118,7 @@ Só o daemon muda (**0.1.39**); o app (0.1.44) e o `rustploy-shared` (0.20.0) fi
   `LogsSubscribe`/`Unsubscribe`, `MetricsSubscribe`/`Unsubscribe`) ficavam de fora sem ninguém ver.
 
 ### Planejado, não feito
-- `docs/plano-limites-do-agente-mcp.md`: as restrições do agente valem só no `/mcp`; o `/api/rpc` com o mesmo token as ignora. Itens C (`JobUpdate`),
-  0 (chave de visitante e mestra), B (`InfraAuditAllow`) e D (níveis do agente) aguardam outro dia.
+- `docs/plano-limites-do-agente-mcp.md`: as restrições do agente valem só no `/mcp`; o `/api/rpc` com o mesmo token as ignora (feito na `v0.1.48`).
 
 ### Publicação
 - `rustploy` 0.1.39 no crates.io; release assinada.
