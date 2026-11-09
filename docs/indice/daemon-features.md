@@ -265,7 +265,7 @@ fn counts(t) -> Result<Option<String>> — `tabela|contagem` por linha; `None` p
 fn version_of(svc) -> Option<String> — Imagem do servidor (`postgres:18`), se o compose a declara.
 fn compatible(dest_engine, dest_image, src_engine, src_image) -> Result<()> — O destino aceita um dump vindo de `origem`? Motor igual e versão igual ou mais nova.
 fn diff_counts(before, after) -> Vec<String> — Diferenças entre as contagens `tabela|n` gravadas e as de agora (vazio = igual).
-(3 testes)
+(4 testes)
 
 ### mod.rs — Exportar e importar os **dados** de um serviço (volumes).
 const HELPER_IMAGE — Imagem descartável que monta o volume só para ler/gravar o tar.
@@ -296,6 +296,9 @@ fn bind_name(container_path) -> String — Nome lógico de um bind: `bind:<desti
 fn resolve(docker, svc) -> Result<Vec<Part>> — As partes do serviço, em ordem estável (por nome lógico).
 fn list_project_volumes(project) -> Result<Vec<String>>
 (2 testes)
+
+### stream.rs — Roda um comando do motor ligando o stdin/stdout a **arquivos por cópia explícita** (pipes), em vez d…
+fn run(cmd, stdin_from, stdout_to) -> Result<()> — Executa `cmd`.
 
 ### transfer.rs — Mover os bytes: tirar o tar de cada volume (exportar) e devolvê-los (importar), com rede de seguranç…
 struct Busy(String) — Trava de "exportando/importando": solta ao sair de escopo.

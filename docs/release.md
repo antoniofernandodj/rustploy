@@ -190,6 +190,15 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.52 (2026-11-09): correção da importação de dados no Podman
+
+- **O que muda:** daemon **0.1.44** (app 0.1.47 e shared 0.23.0 iguais). `features/service_data/stream.rs` copia stdin/stdout por pipe; Postgres recria o database no restore.
+- **Como foi achado:** depois de publicar a v0.1.51 descobri que **havia Podman na máquina** (meu `which docker podman` voltou vazio por causa do filtro do terminal) e rodei os testes
+  `#[ignore]` contra ele (`RP_TEST_SOCKET=/run/user/1000/podman/podman.sock`): `volume_vai_e_volta_pelo_tar` falhou (`tar: short read`) e `postgres_dump_e_restore_de_verdade` mostrou a tabela que sobrava.
+  **Lição:** antes de afirmar "sem motor de containers", cheque `command -v podman` por fora do filtro, e rode os `#[ignore]` ANTES de publicar.
+- **Verificado:** os dois testes de integração passam no Podman rootless; daemon 538 testes + clippy.
+- **NÃO verificado:** MySQL, MariaDB e MongoDB reais; falha no meio da importação; export→import cifrado; as abas na tela; Docker (só Podman rootless foi usado).
+
 ## v0.1.51 (2026-11-09): exportar e importar os dados de um serviço
 
 - **O que muda:** daemon **0.1.43**, app **0.1.47**, `rustploy-shared` **0.23.0**. `features/service_data` (partes, pacote `.rpdata`, dump de banco, transferência com rede de segurança),
