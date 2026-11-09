@@ -8,11 +8,11 @@
 
 ### app.gv
 
-### home.gv
+### home.component.gv
 
 ### log_window.gv
 
-### login.gv
+### login.component.gv
 
 ### new_job_window.gv
 
@@ -20,141 +20,141 @@
 
 ### new_registry_token_window.gv
 
-### new_service.gv
+### new_service.component.gv
 
 ### new_service_window.gv
 
-### service.gv
+### service.component.gv
 
 ### service_export_window.gv
 
 ### services_reorder_window.gv
 
-### shell.gv
+### shell.component.gv
 
 ## rustploy-gui/views/components/
 
-### badge.gv
+### badge.component.gv
 
-### job_actions.gv
+### job_actions.component.gv
 
-### loading_row.gv
+### loading_row.component.gv
 
-### nav_item.gv
+### nav_item.component.gv
 
-### picker_row.gv
+### picker_row.component.gv
 
-### project_card.gv
+### project_card.component.gv
 
-### running_card.gv
+### running_card.component.gv
 
-### service_card.gv
+### service_card.component.gv
 
-### stat_card.gv
+### stat_card.component.gv
 
-### state_cell.gv
+### state_cell.component.gv
 
-### tab_button.gv
+### tab_button.component.gv
 
-### table_link.gv
+### table_link.component.gv
 
-### template_row.gv
+### template_row.component.gv
 
 ## rustploy-gui/views/home/
 
-### deploy_engine.gv
+### deploy_engine.component.gv
 
-### docker.gv
+### docker.component.gv
 
-### ingress.gv
+### ingress.component.gv
 
-### monitoring.gv
+### monitoring.component.gv
 
-### running.gv
+### running.component.gv
 
-### schedules.gv
+### schedules.component.gv
 
-### settings.gv
+### settings.component.gv
 
 ## rustploy-gui/views/home/deploy_engine/
 
-### executando.gv
+### executando.component.gv
 
-### fila.gv
+### fila.component.gv
 
-### historico.gv
+### historico.component.gv
 
 ## rustploy-gui/views/home/docker/
 
-### containers.gv
+### containers.component.gv
 
-### images.gv
+### images.component.gv
 
-### networks.gv
+### networks.component.gv
 
-### registry.gv
+### registry.component.gv
 
-### volumes.gv
+### volumes.component.gv
 
 ## rustploy-gui/views/home/settings/
 
-### git.gv
+### git.component.gv
 
-### gitsync.gv
+### gitsync.component.gv
 
-### language.gv
+### language.component.gv
 
-### maintenance.gv
+### maintenance.component.gv
 
-### updates.gv
+### updates.component.gv
 
-### web.gv
+### web.component.gv
 
 ## rustploy-gui/views/service/
 
-### advanced.gv
+### advanced.component.gv
 
-### connection.gv
+### connection.component.gv
 
-### dados.gv
+### dados.component.gv
 
-### databases.gv
+### databases.component.gv
 
-### deployments.gv
+### deployments.component.gv
 
-### domains.gv
+### domains.component.gv
 
-### environment.gv
+### environment.component.gv
 
-### general.gv
+### general.component.gv
 
-### general_compose.gv
+### general_compose.component.gv
 
-### general_git.gv
+### general_git.component.gv
 
-### general_gitea.gv
+### general_gitea.component.gv
 
-### general_zip.gv
+### general_zip.component.gv
 
-### healthcheck.gv
+### healthcheck.component.gv
 
-### logs.gv
+### logs.component.gv
 
-### migrar.gv
+### migrar.component.gv
 
 ## rustploy-gui/views/shell/
 
-### deployments.gv
+### deployments.component.gv
 
-### project_env.gv
+### project_env.component.gv
 
-### project_jobs.gv
+### project_jobs.component.gv
 
-### project_secrets.gv
+### project_secrets.component.gv
 
-### project_services.gv
+### project_services.component.gv
 
-### projects.gv
+### projects.component.gv
 
 ## rustploy-gui/views/styles/
 

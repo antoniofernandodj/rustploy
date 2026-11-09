@@ -1706,62 +1706,62 @@
 
 ### rustploy-gui/views/ → gui-views.md
 - app.gv
-- home.gv
+- home.component.gv
 - log_window.gv
-- login.gv
+- login.component.gv
 - new_job_window.gv
 - new_project_form.gv
 - new_registry_token_window.gv
-- new_service.gv
+- new_service.component.gv
 - new_service_window.gv
-- service.gv
+- service.component.gv
 - service_export_window.gv
 - services_reorder_window.gv
-- shell.gv
+- shell.component.gv
 
 ### rustploy-gui/views/components/ → gui-views.md
-- badge.gv
-- job_actions.gv
-- loading_row.gv
-- nav_item.gv
-- picker_row.gv
-- project_card.gv
-- running_card.gv
-- service_card.gv
-- stat_card.gv
-- state_cell.gv
-- tab_button.gv
-- table_link.gv
-- template_row.gv
+- badge.component.gv
+- job_actions.component.gv
+- loading_row.component.gv
+- nav_item.component.gv
+- picker_row.component.gv
+- project_card.component.gv
+- running_card.component.gv
+- service_card.component.gv
+- stat_card.component.gv
+- state_cell.component.gv
+- tab_button.component.gv
+- table_link.component.gv
+- template_row.component.gv
 
 ### rustploy-gui/views/home/ → gui-views.md
-- deploy_engine.gv
-- docker.gv
-- ingress.gv
-- monitoring.gv
-- running.gv
-- schedules.gv
-- settings.gv
+- deploy_engine.component.gv
+- docker.component.gv
+- ingress.component.gv
+- monitoring.component.gv
+- running.component.gv
+- schedules.component.gv
+- settings.component.gv
 
 ### rustploy-gui/views/home/deploy_engine/ → gui-views.md
-- executando.gv
-- fila.gv
-- historico.gv
+- executando.component.gv
+- fila.component.gv
+- historico.component.gv
 
 ### rustploy-gui/views/home/docker/ → gui-views.md
-- containers.gv
-- images.gv
-- networks.gv
-- registry.gv
-- volumes.gv
+- containers.component.gv
+- images.component.gv
+- networks.component.gv
+- registry.component.gv
+- volumes.component.gv
 
 ### rustploy-gui/views/home/settings/ → gui-views.md
-- git.gv
-- gitsync.gv
-- language.gv
-- maintenance.gv
-- updates.gv
-- web.gv
+- git.component.gv
+- gitsync.component.gv
+- language.component.gv
+- maintenance.component.gv
+- updates.component.gv
+- web.component.gv
 
 ### rustploy-gui/views/scripts/ → gui-scripts.md
 - access_key.luau — o token de conexão: endereço do daemon + token da API numa string só, para o log…
@@ -1807,7 +1807,7 @@
 - projects.luau — grade de projetos: criar/editar/remover projeto, variáveis de ambiente de projet…
 - registry.luau — sub-aba Docker > Registry: navega repo→tags (fetch sob demanda, tags não vêm no …
 - secrets.luau — aba "Secrets" do projeto: criar/sobrescrever e apagar valores cifrados, e o atal…
-- services.luau — detalhe do serviço (service.gv): fetch completo, mutações de spec/env, ciclo de …
+- services.luau — detalhe do serviço (service.component.gv): fetch completo, mutações de spec/env,…
 - settings.luau — Settings (Web Server) e Settings → Git (provedores Gitea: conectar via OAuth/PAT…
 - state_git.luau — Settings → Sync: a sincronização do estado de infra com um repositório git (Fase…
 - stream.luau — consumidor do SSE de /api/events: aplica o snapshot periódico (2s) e os eventos …
@@ -1817,29 +1817,29 @@
 - api.luau — cliente HTTP/JSON da API do daemon.
 
 ### rustploy-gui/views/service/ → gui-views.md
-- advanced.gv
-- connection.gv
-- dados.gv
-- databases.gv
-- deployments.gv
-- domains.gv
-- environment.gv
-- general.gv
-- general_compose.gv
-- general_git.gv
-- general_gitea.gv
-- general_zip.gv
-- healthcheck.gv
-- logs.gv
-- migrar.gv
+- advanced.component.gv
+- connection.component.gv
+- dados.component.gv
+- databases.component.gv
+- deployments.component.gv
+- domains.component.gv
+- environment.component.gv
+- general.component.gv
+- general_compose.component.gv
+- general_git.component.gv
+- general_gitea.component.gv
+- general_zip.component.gv
+- healthcheck.component.gv
+- logs.component.gv
+- migrar.component.gv
 
 ### rustploy-gui/views/shell/ → gui-views.md
-- deployments.gv
-- project_env.gv
-- project_jobs.gv
-- project_secrets.gv
-- project_services.gv
-- projects.gv
+- deployments.component.gv
+- project_env.component.gv
+- project_jobs.component.gv
+- project_secrets.component.gv
+- project_services.component.gv
+- projects.component.gv
 
 ### rustploy-gui/views/styles/ → gui-views.md
 - app.gss — Rustploy — glacier-ui stylesheet.
