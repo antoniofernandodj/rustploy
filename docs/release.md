@@ -190,6 +190,17 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.51 (2026-11-09): exportar e importar os dados de um serviço
+
+- **O que muda:** daemon **0.1.43**, app **0.1.47**, `rustploy-shared` **0.23.0**. `features/service_data` (partes, pacote `.rpdata`, dump de banco, transferência com rede de segurança),
+  rotas `/data/export` e `/data/import` (só chave mestra), cifra `age` de arquivo em `platform/age_format.rs`, aba **Dados** na web UI e no app, guia `guias/dados-do-servico` (pt e en).
+- **crates.io:** `rustploy-shared` 0.23.0, `rustploy` 0.1.43 e `rustploy-gui` 0.1.47 (2026-11-09). O app foi publicado de um **worktree limpo**: o `rustploy-gui` tinha alterações
+  de outra frente na árvore de trabalho (janelas renomeadas para `*.screen.gv`, `app.gv`, `app.gss`) que **não** entraram.
+- **Verificado:** shared 48 testes e clippy; daemon 538 testes e `clippy -D warnings`; app (worktree limpo): `cargo test`, clippy e `glacier test` (um teste meu de ordem alfabética de `busy_actions` falhou e foi corrigido);
+  site com 0 links quebrados.
+- **NÃO verificado:** nada disto rodou contra um motor de containers (sem Docker/Podman na máquina de desenvolvimento): o teste `volume_vai_e_volta_pelo_tar` (`#[ignore]`) nunca rodou, nem dump/restore
+  de Postgres/MySQL/Mongo reais, nem a falha no meio da importação, nem o ciclo cifrado export→import, nem as duas abas na tela.
+
 ## v0.1.50 (2026-11-08): reordenar os serviços de um projeto
 
 - **O que muda:** daemon **0.1.42**, app **0.1.46**, `rustploy-shared` **0.22.0**. Comando `ProjectServicesReorder`; ordem em `ProjectInfra.service_order` (`project.yml`),

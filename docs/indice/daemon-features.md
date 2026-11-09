@@ -250,6 +250,81 @@ fn container_is_running(docker, container_id) -> bool
 fn mark_service(db, bus, service_id, status, container_id)
 const BASE_TICK, MAX_RESTART_ATTEMPTS, RESTART_WAIT
 
+## rustploy-daemon/crates/daemon/src/features/service_data/
+
+### database.rs — Dump lógico de banco (Postgres, MySQL/MariaDB, MongoDB), feito **dentro do container do próprio serv…
+struct DbTarget { engine, container, db } — Um banco que sabemos despejar e restaurar.
+fn engine_of(svc) -> Option<Engine> — O motor do serviço, se for um que despejamos (e não um servidor compartilhado).
+fn db_name_script(e) -> &'static str — Script `sh` que imprime o nome do database (lido das env vars do container).
+fn dump_script(e) -> &'static str — `sh -c` que escreve o dump no stdout.
+fn restore_script(e) -> &'static str — `sh -c` que lê o dump do stdin e o aplica, substituindo o conteúdo do database.
+fn target(docker, svc) -> Result<DbTarget> — Motor do container do serviço, ou a causa de não dar (serviço parado…).
+fn dump_to(t, out) -> Result<()> — Despeja o database em `out`.
+fn restore_from(t, from) -> Result<()> — Restaura o dump `from` no database.
+fn counts(t) -> Result<Option<String>> — `tabela|contagem` por linha; `None` para MongoDB (a instância inteira, sem conferência).
+fn version_of(svc) -> Option<String> — Imagem do servidor (`postgres:18`), se o compose a declara.
+fn compatible(dest_engine, dest_image, src_engine, src_image) -> Result<()> — O destino aceita um dump vindo de `origem`? Motor igual e versão igual ou mais nova.
+fn diff_counts(before, after) -> Vec<String> — Diferenças entre as contagens `tabela|n` gravadas e as de agora (vazio = igual).
+(3 testes)
+
+### mod.rs — Exportar e importar os **dados** de um serviço (volumes).
+const HELPER_IMAGE — Imagem descartável que monta o volume só para ler/gravar o tar.
+fn is_running(status) -> bool
+fn plan(state, service_id) -> RpResponse — `Command::ServiceDataPlan`: o que um export levaria.
+
+### pack.rs — O pacote `.rpdata`: um tar aberto com `manifest.json` **primeiro**, depois `parts/<arquivo>`, um por…
+struct ManifestPart { name, file, size, sha256, kind, engine, version, counts }
+fn kind_volume() -> String
+struct Manifest { format, rustploy_version, service_name, created_at, parts }
+struct StagedPart { name, path, kind, engine, version, counts } — Uma parte já tirada do volume, esperando entrar no pacote.
+impl StagedPart
+  fn volume(name, path) -> Self
+fn hash_file(path) -> Result<(String, u64)> — SHA-256 e tamanho de um arquivo, lendo em blocos.
+fn write_pack(service_name, staged, out) -> Result<Manifest> — Monta o pacote em `out`.
+fn read_manifest(pack) -> Result<Manifest> — Lê só o manifesto (primeira entrada), sem extrair nada.
+fn extract_verified(pack, dest) -> Result<Manifest> — Extrai as partes do pacote para `dest` (arquivos `dest/<file>`), conferindo SHA-256 e tamanho de cad…
+const FORMAT, MANIFEST, MAX_MANIFEST
+(4 testes)
+
+### parts.rs — Quais volumes pertencem a um serviço.
+enum Source { Database, Named, Bind }
+struct Part { name, source }
+const BIND_DENYLIST — Caminhos do servidor que nunca entram, mesmo se o serviço os montar: o estado do próprio Rustploy e …
+fn bind_allowed(path) -> bool — `path` pode virar parte de um pacote? Só absoluto, nunca `/`, `..`, nem dentro/acima da denylist.
+fn logical_name(compose_project, volume) -> String — Nome lógico de um volume da stack: tira o prefixo `<projeto>_`.
+fn bind_name(container_path) -> String — Nome lógico de um bind: `bind:<destino no container>`.
+fn resolve(docker, svc) -> Result<Vec<Part>> — As partes do serviço, em ordem estável (por nome lógico).
+fn list_project_volumes(project) -> Result<Vec<String>>
+(2 testes)
+
+### transfer.rs — Mover os bytes: tirar o tar de cada volume (exportar) e devolvê-los (importar), com rede de seguranç…
+struct Busy(String) — Trava de "exportando/importando": solta ao sair de escopo.
+impl Busy
+  fn take(service_id) -> Result<Self>
+struct Workdir(PathBuf) — Pasta de trabalho (apagada ao final) dentro da pasta de dados do daemon.
+impl Workdir
+  fn create(state) -> Result<Self>
+  fn path() -> &Path
+fn mount_arg(source, ro) -> String
+fn read_part(source, out) -> Result<()> — Lê a parte para `out`: tar do volume ou dump do banco.
+fn write_part(source, from) -> Result<()> — Substitui o conteúdo da parte pelo arquivo `from`.
+fn tar_out(source, out) -> Result<()> — Grava em `out` o tar do conteúdo do volume.
+fn tar_in(source, from) -> Result<()> — Esvazia o volume e extrai o tar `from` nele.
+fn stop_service(state, service_id) -> Result<()>
+fn start_service(state, service_id) — Religa (um deploy novo, como o "Iniciar" de sempre).
+fn load(state, service_id) -> Result<shared::Service>
+struct Exported { _workdir, file, filename }
+fn export(state, service_id, stop, encrypt) -> Result<Exported> — Gera o pacote do serviço.
+fn stage_all(svc, found, dir) -> Result<Vec<StagedPart>>
+struct ImportReport { parts, applied, service_was_running, checks }
+fn match_parts(manifest, found, dest_image) — Partes do pacote × partes do serviço: devolve a lista a substituir, ou a causa da recusa.
+fn import(state, service_id, pack_file, confirm) -> Result<ImportReport> — Importa o pacote em `pack_file`.
+fn apply(plan, incoming, work) — Substitui as partes uma a uma.
+const BUSY
+impl Drop for Busy
+impl Drop for Workdir
+(4 testes)
+
 ## rustploy-daemon/crates/daemon/src/features/state_git/
 
 ### git.rs — Invólucro fino do binário `git` do sistema (decisão da R9.0: nada de `git2`/`reqwest`).

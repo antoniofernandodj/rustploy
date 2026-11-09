@@ -137,10 +137,14 @@ fn spawn_stateful(state, registry_storage, tls) — Laços que dependem do `AppS
 fn is_enc(value) -> bool — O valor está no formato `ENC[age:…]`?
 fn encrypt(plaintext, recipients) -> Result<String> — Cifra para todos os `recipients` (a chave do servidor e, se houver, a de recuperação).
 fn decrypt(value, identity) -> Result<String> — Decifra um `ENC[age:…]` com a identidade.
+const AGE_MAGIC — Cabeçalho de todo arquivo age (binário).
+fn is_age_file(path) -> bool — O arquivo `path` é um arquivo age? (Só olha os primeiros bytes.)
+fn encrypt_file(src, dst, recipients) -> Result<()> — Cifra o arquivo `src` em `dst` (em fluxo: não carrega o arquivo na memória).
+fn decrypt_file(src, dst, identity) -> Result<()> — Decifra o arquivo age `src` em `dst` com a identidade (em fluxo).
 fn parse_identity(text) -> Result<x25519::Identity>
 fn parse_recipient(text) -> Result<x25519::Recipient>
 const ENC_PREFIX
-(3 testes)
+(4 testes)
 
 ### config.rs — Configuração do daemon (`config.toml`): structs de cada seção com defaults e o singleton `CONFIG`.
 const CONFIG — Process-wide configuration singleton.
@@ -334,6 +338,8 @@ impl SecretsManager
   fn has_recovery() -> bool — Há uma chave de recuperação (`[secrets] recovery_recipient`) configurada?
   fn public_key() -> String — A chave pública do servidor (`age1…`).
   fn encrypt(plaintext) -> Result<String> — Cifra para a identidade do servidor (e a de recuperação, se houver).
+  fn encrypt_file(src, dst) -> Result<()> — Cifra um arquivo para a identidade do servidor (e a de recuperação, se houver).
+  fn decrypt_file(src, dst) -> Result<()> — Decifra um arquivo age com a identidade deste servidor.
   fn decrypt(value) -> Result<String> — Decifra um valor `ENC[age:…]` com a identidade deste servidor.
   fn get_raw(project_id, name) -> Result<String> — Secret do **projeto**.
   fn get_scoped(project_id, service_id, name) -> Result<String> — Secret de um escopo: `service_id: Some` = só daquele serviço; `None` = só do projeto.

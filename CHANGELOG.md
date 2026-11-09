@@ -1,6 +1,6 @@
 # Changelog
 
-Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.50`, de 28/10/2026 a 08/11/2026), do mais novo para o mais antigo.
+Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.51`, de 28/10/2026 a 09/11/2026), do mais novo para o mais antigo.
 Levantado a partir das tags do agregador, dos ponteiros dos submódulos, dos commits entre cada par de tags, das releases do GitHub
 e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação, com o que foi e o que **não** foi verificado).
 
@@ -19,6 +19,7 @@ e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação,
 
 | Tag | Data | Daemon (`rustploy`) | App (`rustploy-gui`) | `rustploy-shared` | Destaque |
 |---|---|---|---|---|---|
+| [v0.1.51](#v0151--2026-11-09) | 2026-11-09 | **0.1.43** | **0.1.47** | **0.23.0** | Exportar e importar os dados de um serviço (aba Dados), com cifra `age` |
 | [v0.1.50](#v0150--2026-11-08) | 2026-11-08 | **0.1.42** | **0.1.46** | **0.22.0** | Reordenar os serviços de um projeto |
 | [v0.1.49](#v0149--2026-11-08) | 2026-11-08 | **0.1.41** | **0.1.45** | **0.21.0** | Deploy com dependências e Deploy do projeto, com modal da ordem |
 | [v0.1.48](#v0148--2026-11-08) | 2026-11-08 | **0.1.40** | 0.1.44 | 0.20.0 | Chave mestra e de visitante; níveis do agente |
@@ -64,6 +65,23 @@ lá, a data do commit da tag; o horário de publicação no GitHub, em UTC, est�
 Cada release traz também o `checksums.sha256` e um `.minisig` para cada `.deb` e para o zip.
 
 ---
+
+## v0.1.51 — 2026-11-09
+
+Exportar e importar os dados de um serviço. Daemon **0.1.43**, app **0.1.47**, `rustploy-shared` **0.23.0**.
+
+### Adicionado
+- **Aba Dados** no serviço (app e web UI): leva os dados para um arquivo `.rpdata` e os traz de volta em outro serviço do mesmo tipo, no mesmo servidor ou em outro.
+  Tudo parte de um `service_id`: o daemon descobre os volumes sozinho (etiqueta da stack Compose e `volumes` do spec; pastas do servidor só passando por uma lista de proibidas).
+- **Bancos** (Postgres, MySQL, MariaDB, MongoDB): dump lógico feito dentro do container do serviço, com ele no ar, sem passar credencial pelo daemon. **Volumes comuns**: tar,
+  com o serviço parado durante a cópia e religado depois.
+- **Importar com rede de segurança:** o pacote é conferido (SHA-256, motor, versão) antes de tocar em qualquer volume; o conteúdo atual é guardado e devolvido se a troca falhar.
+- **Cifra com `age`:** ligada por padrão quando há `recovery_recipient`; abre no servidor de origem ou num restaurado com a mesma identidade.
+- Protocolo (`rustploy-shared` 0.23.0): `ServiceDataPlan { service_id }` (permitido ao observador). Os bytes vão por `GET /api/services/<id>/data/export` e
+  `POST /api/services/<id>/data/import`, **só com a chave mestra**.
+
+### Atenção
+- Atualize **daemon e app juntos**: a aba Dados do app 0.1.47 chama um comando que só o daemon 0.1.43 conhece.
 
 ## v0.1.50 — 2026-11-08
 

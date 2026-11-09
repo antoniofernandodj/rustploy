@@ -513,6 +513,8 @@ fn handle(req, state, auth, peer) -> Result<Response<ApiBody>, Infallible> — R
 fn login(req, expected, peer, scheme) -> Response<ApiBody> — `POST /api/login`: troca o token de conexão pelo token da API (ver `agent::login`).
 fn mcp(req, state, caller) -> Response<ApiBody> — `POST /mcp`: o servidor MCP do agente (ver `agent::mcp`).
 fn json_value(status, body) -> Response<ApiBody>
+fn query_flag(query, key) -> bool
+fn service_data_transfer(req, state, service_id, export, query) -> Response<ApiBody> — Exporta (GET, em stream) ou importa (POST, o corpo vai para um arquivo temporário, sem ficar inteiro…
 fn service_archive_upload(req, state, service_id) -> Response<ApiBody>
 fn legacy_product_key(body) -> Option<String> — Cliente antigo (GUI/webui anteriores ao rename `db_kind` → `product`) gravando um serviço de banco/b…
 fn omitted_spec_fields(current, payload) -> Vec<String> — Campos do `spec` atual que o payload de um `ServiceUpdate` simplesmente não traz.

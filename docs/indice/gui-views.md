@@ -116,6 +116,8 @@
 
 ### connection.gv
 
+### dados.gv
+
 ### databases.gv
 
 ### deployments.gv

@@ -353,6 +353,10 @@ function test_connect_so_o_que_falha_antes_da_rede__chave_corrompida_avisa_e() �
 function test_disconnect__apaga_o_contexto_da_sessao_e_volta_ao_login() — - apaga o contexto da sessão e volta ao login
 function test_disconnect__nao_enumera_chaves_o_init_semeia_os_defaults_de() — - não enumera chaves: o init semeia os defaults de novo, como no boot
 
+### dados.test.luau — Aba Dados: sem conexão os handlers são inertes (o botão pode ser clicado quando a sessão cai).
+local nova(ctx_inicial)
+function test_dados_sem_conexao__nada_acontece() — - sem sessão, exportar, conferir e importar não fazem nada
+
 ### env_edit.test.luau — Edição no lugar da chave/valor de uma variável (handlers/secrets.luau), sem conexão.
 local nova()
 function test_edicao_no_lugar__a_chave_comeca_com_a_chave_atual() — - ✏️ arma o campo da CHAVE na própria linha, com a chave atual como rascunho

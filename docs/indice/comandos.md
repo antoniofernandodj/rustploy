@@ -159,6 +159,9 @@ ServiceExportPlan — O que dá para levar do serviço: suas variáveis e as do 
 ## / `ServiceBundleYaml`.
 ServiceExport — Gera o pacote (YAML) do serviço. | daemon: features/iac/service_export/export | gui: service_export_window | web: screens/service_bundle
 
+## / Resposta: `ServiceDataPlan`.
+ServiceDataPlan — Dados do serviço (volumes): o que um export levaria. | daemon: (inline em dispatch.rs) | gui: handlers/services | web: screens/service_detail
+
 ## / `dry_run` só devolve o relatório. Resposta: `ServiceImportReport`.
 ServiceImport — Cria UM serviço novo a partir de um pacote, sem sobrescrever nada. | daemon: features/iac/service_import | gui: handlers/bundle_import | web: screens/service_bundle
 

@@ -218,6 +218,13 @@ function pre_deploy_check_reorder(reorder_json) — Reordena a fila (arraste): `
 function general_save()
 function archive_upload_cancel()
 function archive_upload()
+function M.data_reset()
+function M.data_parts_text(parts) — - Texto das partes do plano: uma por linha, `BD`/`VOL` na frente.
+function M.data_load() — - Abre a aba: pede o plano (só metadados) e mostra o que um export levaria.
+function data_export()
+function data_pick_file()
+function data_preview() — - 1º passo: o daemon confere o pacote e diz o que seria substituído (nada muda).
+function data_confirm() — - 2º passo: confirmado, envia de novo e aplica.
 function env_show_validation_errors(_erros_json) — on_validation_error do form(name = env_add) — a chave é `rules="required"`; o motor publica {error_e…
 function env_add()
 function service_secret_add_show_validation_errors(_erros_json) — on_validation_error do form(name = service_secret_add) — nome e valor são `rules="required"`.

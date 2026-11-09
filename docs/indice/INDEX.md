@@ -410,6 +410,13 @@
 - push_deploy.rs — Push-to-deploy: cada tag publicada no registry embutido redeploya os serviços qu…
 - storage.rs — CAS (content-addressable store) do registry: blobs em disco, sessões de upload e…
 
+### rustploy-daemon/crates/daemon/src/features/service_data/ → daemon-features.md
+- database.rs — Dump lógico de banco (Postgres, MySQL/MariaDB, MongoDB), feito **dentro do conta…
+- mod.rs — Exportar e importar os **dados** de um serviço (volumes).
+- pack.rs — O pacote `.rpdata`: um tar aberto com `manifest.json` **primeiro**, depois `part…
+- parts.rs — Quais volumes pertencem a um serviço.
+- transfer.rs — Mover os bytes: tirar o tar de cada volume (exportar) e devolvê-los (importar), …
+
 ### rustploy-daemon/crates/daemon/src/features/services/ → daemon-deploy.md
 - context.rs — O que criar, atualizar e remover um serviço precisam do resto do daemon.
 - create.rs — `Command::ServiceCreate`: cria um serviço, alocando a porta externa automática e…
@@ -659,6 +666,7 @@
 - chaves-e-segredos.mdx
 - compose.mdx
 - copiar-servico.mdx
+- dados-do-servico.mdx
 - dependencias-e-religar.mdx
 - diagnosticar-502.mdx
 - dominios-e-tls.mdx
@@ -1118,6 +1126,7 @@
 - chaves-e-segredos.mdx
 - compose.mdx
 - copiar-servico.mdx
+- dados-do-servico.mdx
 - dependencias-e-religar.mdx
 - diagnosticar-502.mdx
 - dominios-e-tls.mdx
@@ -1652,6 +1661,7 @@
 
 ### rustploy-gui/tests/handlers/ → gui.md
 - connection.test.luau — Sessão e login (handlers/connection.luau).
+- dados.test.luau — Aba Dados: sem conexão os handlers são inertes (o botão pode ser clicado quando …
 - env_edit.test.luau — Edição no lugar da chave/valor de uma variável (handlers/secrets.luau), sem cone…
 - misc.test.luau — Handlers que só mexem no ctx, ou que não fazem nada sem conexão: deploy_queue, s…
 - nav.test.luau — Navegação da sidebar, abas e busca (handlers/nav.luau), sem conexão.
@@ -1808,6 +1818,7 @@
 ### rustploy-gui/views/service/ → gui-views.md
 - advanced.gv
 - connection.gv
+- dados.gv
 - databases.gv
 - deployments.gv
 - domains.gv
@@ -1856,6 +1867,7 @@
 - registry.rs
 - service.rs
 - service_bundle.rs
+- service_data.rs — Dados de um serviço (volumes) que podem ser exportados e importados.
 - source.rs
 - state_git.rs — Sincronização do estado de infra com um repositório git (plano `docs/plano-backu…
 - update.rs — Verificação de versão: o que o daemon responde a `Command::CheckUpdate`.
