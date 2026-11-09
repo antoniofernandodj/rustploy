@@ -325,8 +325,9 @@ impl Repo
 
 ### seal.rs — Cifra no lugar o que a migração SQL → YAML deixou em claro.
 fn seal_plaintext(repo, secrets) -> Result<usize> — Cifra os tokens de webhook e os `client_secret` de provider que estão em claro.
+fn seal_provider_tokens(db, secrets) -> Result<usize> — Cifra os tokens de login dos providers Git (`access_token_enc` e `refresh_token_enc`) que estão em c…
 fn count_plaintext(st) -> usize
-(4 testes)
+(6 testes)
 
 ### txn.rs — Transação de "tudo ou nada" sobre um conjunto de arquivos num diretório.
 struct Tx { writes, deletes } — Conjunto de mudanças aplicado atomicamente por [`FileTree::commit`].
