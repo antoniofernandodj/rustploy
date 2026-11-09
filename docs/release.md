@@ -190,6 +190,13 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.53 (2026-11-09): o daemon cifra no boot o que a migração deixou em claro
+
+- **O que muda:** daemon **0.1.45** (app 0.1.48 e shared 0.23.0 iguais). `store/infra/seal.rs` cifra no lugar o token de webhook e o `client_secret` de provider que estavam em claro, sem mudar o valor; roda no boot, é idempotente e só avisa se falhar. Motivo: o `InfraAudit` os trata como certeza e o sync com o git recusava ligar no servidor dev (6 achados: 5 webhooks do projeto Flow e o provider GitHub).
+- **Verificado:** 4 testes novos (cifra sem mudar o valor, idempotência, infra vazia, provider sem secret); daemon 559 testes + clippy + fmt; site com 0 links quebrados; `workflow_dispatch` verde antes da tag; release **assinada** (9 arquivos); `sha256sum -c` e `minisign -V` com a chave da máquina 1 nos 4 pacotes; `install.sh` e `install.sh -- gui` pela URL pública num `debian:12` limpo (podman) instalaram `rustployd 0.1.45-1` e `rustploy-gui 0.1.48-1`; `install.ps1` num PowerShell no Linux (com `LOCALAPPDATA`/`APPDATA`/`USERPROFILE`) chegou até o SHA-256 e parou no `minisign.exe`, como esperado; docs no ar (pt e en com 200 e o texto novo).
+- **NÃO verificado:** a migração contra os dados reais do servidor dev (só testes que reproduzem o estado legado; falta atualizar o servidor e rodar o `InfraAudit`); ligar o sync de fato; `make lint`/`make test` do gui e do shared (não mudaram); `install.ps1` num Windows de verdade.
+- **Nota de ambiente:** nesta máquina o `docker` não existe, só o `podman`; os testes de instalação rodaram com `podman run docker.io/library/debian:12`.
+
 ## v0.1.52 (2026-11-09): correção da importação de dados no Podman
 
 - **Histórico do nome:** uma primeira tentativa de tag `v0.1.52` foi cancelada pelo dono depois do CI verde, antes de assinar (tag e rascunho apagados). O nome foi reaproveitado, a pedido do dono, para a release de fato: daemon 0.1.44 e app 0.1.48 já estavam no crates.io (sem *yank*) e na `main`.

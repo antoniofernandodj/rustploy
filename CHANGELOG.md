@@ -1,6 +1,6 @@
 # Changelog
 
-Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.52`, de 28/10/2026 a 09/11/2026), do mais novo para o mais antigo.
+Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.53`, de 28/10/2026 a 09/11/2026), do mais novo para o mais antigo.
 Levantado a partir das tags do agregador, dos ponteiros dos submódulos, dos commits entre cada par de tags, das releases do GitHub
 e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação, com o que foi e o que **não** foi verificado).
 
@@ -19,6 +19,7 @@ e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação,
 
 | Tag | Data | Daemon (`rustploy`) | App (`rustploy-gui`) | `rustploy-shared` | Destaque |
 |---|---|---|---|---|---|
+| [v0.1.53](#v0153--2026-11-09) | 2026-11-09 | **0.1.45** | 0.1.48 | 0.23.0 | O daemon cifra no boot o token de webhook e o `client_secret` que a migração deixou em claro (destrava o sync com o git) |
 | [v0.1.52](#v0152--2026-11-09) | 2026-11-09 | **0.1.44** | **0.1.48** | 0.23.0 | Corrige a importação de dados no Podman e os nomes na janela Reordenar serviços |
 | [v0.1.51](#v0151--2026-11-09) | 2026-11-09 | **0.1.43** | **0.1.47** | **0.23.0** | Exportar e importar os dados de um serviço (aba Dados), com cifra `age` |
 | [v0.1.50](#v0150--2026-11-08) | 2026-11-08 | **0.1.42** | **0.1.46** | **0.22.0** | Reordenar os serviços de um projeto |
@@ -66,6 +67,10 @@ lá, a data do commit da tag; o horário de publicação no GitHub, em UTC, est�
 Cada release traz também o `checksums.sha256` e um `.minisig` para cada `.deb` e para o zip.
 
 ---
+
+## v0.1.53 — 2026-11-09
+
+Daemon **0.1.45**; app **0.1.48** e `rustploy-shared` **0.23.0** não mudaram. Servidores migrados do SQLite para o YAML podiam ter tokens de webhook e o `client_secret` de um provider Git em claro (a migração copiou os valores como estavam), e o sync com o git recusava ligar (`PlaintextFound`). No boot, o daemon agora cifra esses valores **no lugar, sem mudar o valor** (a URL de webhook cadastrada no provedor segue valendo). É idempotente e, se falhar, não impede o boot. Código em `store/infra/seal.rs`.
 
 ## v0.1.52 — 2026-11-09
 
