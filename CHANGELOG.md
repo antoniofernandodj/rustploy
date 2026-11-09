@@ -19,7 +19,7 @@ e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação,
 
 | Tag | Data | Daemon (`rustploy`) | App (`rustploy-gui`) | `rustploy-shared` | Destaque |
 |---|---|---|---|---|---|
-| [v0.1.52](#v0152--2026-11-09) | 2026-11-09 | **0.1.44** | 0.1.47 | 0.23.0 | Corrige a importação de dados no Podman; banco é recriado antes de restaurar |
+| [v0.1.52](#v0152--2026-11-09) | 2026-11-09 | **0.1.44** | **0.1.48** | 0.23.0 | Corrige a importação de dados no Podman; nomes voltam à janela Reordenar serviços |
 | [v0.1.51](#v0151--2026-11-09) | 2026-11-09 | **0.1.43** | **0.1.47** | **0.23.0** | Exportar e importar os dados de um serviço (aba Dados), com cifra `age` |
 | [v0.1.50](#v0150--2026-11-08) | 2026-11-08 | **0.1.42** | **0.1.46** | **0.22.0** | Reordenar os serviços de um projeto |
 | [v0.1.49](#v0149--2026-11-08) | 2026-11-08 | **0.1.41** | **0.1.45** | **0.21.0** | Deploy com dependências e Deploy do projeto, com modal da ordem |
@@ -69,9 +69,10 @@ Cada release traz também o `checksums.sha256` e um `.minisig` para cada `.deb` 
 
 ## v0.1.52 — 2026-11-09
 
-Correção da `v0.1.51`. Daemon **0.1.44**; app **0.1.47** e `rustploy-shared` **0.23.0** não mudaram.
+Correção da `v0.1.51`. Daemon **0.1.44** e app **0.1.48**; `rustploy-shared` **0.23.0** não mudou.
 
 ### Corrigido
+- **App: os nomes dos serviços sumiam na janela Reordenar serviços.** O índice ("1.") usava `.env__key`, com `width: 400`, numa janela de 440 px: comia a linha e empurrava o nome para fora. Agora tem classe própria (`.reorder__index`, largura 32).
 - **Importar dados de um volume falhava no Podman** com `tar: short read`: o arquivo era passado como stdin/stdout herdado do `podman --remote`. Agora a cópia é explícita (pipe), em volumes e bancos.
   Achado ao rodar, pela primeira vez, o teste de integração contra um Podman de verdade; a `v0.1.51` **não** deve ser usada para importar.
 - **Postgres:** a importação recria o database antes de restaurar (antes, uma tabela que não estava no pacote sobrava, e o rollback não a desfazia). MySQL/MariaDB já recriavam; no MongoDB só as coleções do pacote são substituídas.
