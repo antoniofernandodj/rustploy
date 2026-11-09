@@ -199,6 +199,7 @@ fora do ar não impede o outro (`fail-fast: false`).
   `#[ignore]` contra ele (`RP_TEST_SOCKET=/run/user/1000/podman/podman.sock`): `volume_vai_e_volta_pelo_tar` falhou (`tar: short read`) e `postgres_dump_e_restore_de_verdade` mostrou a tabela que sobrava.
   **Lição:** antes de afirmar "sem motor de containers", cheque `command -v podman` por fora do filtro, e rode os `#[ignore]` ANTES de publicar.
 - **Verificado:** os dois testes de integração passam no Podman rootless; daemon 538 testes + clippy.
+- **Release:** `workflow_dispatch` verde antes da tag; release **assinada** (9 arquivos: 4 pacotes, 4 `.minisig`, `checksums.sha256`); `install.sh` e `install.sh -- gui` pela URL pública num `debian:12` limpo instalaram `rustployd 0.1.44-1` e `rustploy-gui 0.1.48-1`; app testado num worktree limpo (`cargo test`, clippy, `glacier test` 417); docs no ar (pt e en, 0 links quebrados).
 - **NÃO verificado:** a janela Reordenar serviços rodando depois do conserto (só `glacier test`, `cargo test` e lint); MySQL, MariaDB e MongoDB reais; falha no meio da importação; export→import cifrado; as abas na tela; Docker (só Podman rootless foi usado).
 
 ## v0.1.51 (2026-11-09): exportar e importar os dados de um serviço
