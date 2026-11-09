@@ -190,6 +190,13 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.54 (2026-11-09): também os tokens de login do provider Git
+
+- **O que muda:** daemon **0.1.46** (app 0.1.48 e shared 0.23.0 iguais). `seal_provider_tokens` (em `store/infra/seal.rs`) cifra no lugar o `access_token_enc` e o `refresh_token_enc` em claro da tabela `git_provider_token`, sem mudar o valor.
+- **Como foi achado:** a v0.1.53 zerou os "valores em claro", mas o **Salvar e aplicar** do Sync falhou com `StateGitFailed: valor não está no formato ENC[age:…]` (`configure` → `refuse_unrelated_history` → `usable_token` → `decrypt`). **Lição:** o `InfraAudit` só vê o YAML; segredo que mora no SQLite não aparece nele. Ao cifrar legado, siga **todos** os caminhos que chamam `decrypt`, não só os que o audit lista.
+- **Verificado:** 2 testes novos (cifra sem mudar o valor, só access, já cifrado intacto, idempotência); daemon 561 testes + clippy + fmt; site com 0 links quebrados; `workflow_dispatch` verde antes da tag; release **assinada** (9 arquivos); `sha256sum -c` e `minisign -V` (chave da máquina 1) nos 4 pacotes; `install.sh` e `install.sh -- gui` pela URL pública num `debian:12` limpo (podman) instalaram `rustployd 0.1.46-1` e `rustploy-gui 0.1.48-1`; `install.ps1` no Linux chegou até o SHA-256 (para no `minisign.exe`, como esperado); docs no ar (pt e en, 200 e texto novo).
+- **NÃO verificado:** a migração contra o SQLite real do servidor dev (só dados sintéticos); ligar o sync de fato; outros valores em claro fora do YAML e de `git_provider_token` (só revisei os `decrypt` do caminho do sync); `install.ps1` num Windows de verdade.
+
 ## v0.1.53 (2026-11-09): o daemon cifra no boot o que a migração deixou em claro
 
 - **O que muda:** daemon **0.1.45** (app 0.1.48 e shared 0.23.0 iguais). `store/infra/seal.rs` cifra no lugar o token de webhook e o `client_secret` de provider que estavam em claro, sem mudar o valor; roda no boot, é idempotente e só avisa se falhar. Motivo: o `InfraAudit` os trata como certeza e o sync com o git recusava ligar no servidor dev (6 achados: 5 webhooks do projeto Flow e o provider GitHub).
