@@ -10,25 +10,25 @@
 
 ### home.component.gv
 
-### log_window.gv
+### log_window.screen.gv
 
 ### login.component.gv
 
-### new_job_window.gv
+### new_job_window.screen.gv
 
-### new_project_form.gv
+### new_project_form.screen.gv
 
-### new_registry_token_window.gv
+### new_registry_token_window.screen.gv
 
 ### new_service.component.gv
 
-### new_service_window.gv
+### new_service_window.screen.gv
 
 ### service.component.gv
 
-### service_export_window.gv
+### service_export_window.screen.gv
 
-### services_reorder_window.gv
+### services_reorder_window.screen.gv
 
 ### shell.component.gv
 
