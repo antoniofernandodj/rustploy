@@ -323,6 +323,11 @@ impl Repo
   fn update(f) -> Result<R> — Aplica `f` ao estado e grava.
 (4 testes)
 
+### seal.rs — Cifra no lugar o que a migração SQL → YAML deixou em claro.
+fn seal_plaintext(repo, secrets) -> Result<usize> — Cifra os tokens de webhook e os `client_secret` de provider que estão em claro.
+fn count_plaintext(st) -> usize
+(4 testes)
+
 ### txn.rs — Transação de "tudo ou nada" sobre um conjunto de arquivos num diretório.
 struct Tx { writes, deletes } — Conjunto de mudanças aplicado atomicamente por [`FileTree::commit`].
 impl Tx
