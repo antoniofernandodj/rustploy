@@ -19,7 +19,7 @@ e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação,
 
 | Tag | Data | Daemon (`rustploy`) | App (`rustploy-gui`) | `rustploy-shared` | Destaque |
 |---|---|---|---|---|---|
-| [v0.1.52](#v0152--2026-11-09) | 2026-11-09 | **0.1.44** | **0.1.48** | 0.23.0 | Corrige a importação de dados no Podman; nomes voltam à janela Reordenar serviços |
+| [v0.1.52](#v0152--2026-11-09) | 2026-11-09 | **0.1.44** | **0.1.48** | 0.23.0 | Tag descartada (sem release); as correções entram na próxima |
 | [v0.1.51](#v0151--2026-11-09) | 2026-11-09 | **0.1.43** | **0.1.47** | **0.23.0** | Exportar e importar os dados de um serviço (aba Dados), com cifra `age` |
 | [v0.1.50](#v0150--2026-11-08) | 2026-11-08 | **0.1.42** | **0.1.46** | **0.22.0** | Reordenar os serviços de um projeto |
 | [v0.1.49](#v0149--2026-11-08) | 2026-11-08 | **0.1.41** | **0.1.45** | **0.21.0** | Deploy com dependências e Deploy do projeto, com modal da ordem |
@@ -69,7 +69,7 @@ Cada release traz também o `checksums.sha256` e um `.minisig` para cada `.deb` 
 
 ## v0.1.52 — 2026-11-09
 
-Correção da `v0.1.51`. Daemon **0.1.44** e app **0.1.48**; `rustploy-shared` **0.23.0** não mudou.
+**Não houve release.** A tag foi criada e apagada no mesmo dia (o rascunho nunca foi assinado nem publicado); as correções abaixo já estão no crates.io e na `main` e saem na próxima release. Até lá a `v0.1.51` **não** deve ser usada para importar dados. Correção da `v0.1.51`. Daemon **0.1.44** e app **0.1.48**; `rustploy-shared` **0.23.0** não mudou.
 
 ### Corrigido
 - **App: os nomes dos serviços sumiam na janela Reordenar serviços.** O índice ("1.") usava `.env__key`, com `width: 400`, numa janela de 440 px: comia a linha e empurrava o nome para fora. Agora tem classe própria (`.reorder__index`, largura 32).

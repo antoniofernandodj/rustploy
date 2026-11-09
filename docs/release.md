@@ -190,7 +190,9 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
-## v0.1.52 (2026-11-09): correção da importação de dados no Podman
+## v0.1.52 (2026-11-09): correção da importação de dados no Podman — TAG DESCARTADA
+
+- **Cancelada pelo dono** depois do CI verde (artefatos conferidos), antes de assinar: tag e rascunho apagados. Daemon 0.1.44 e app 0.1.48 já estão no crates.io (sem *yank*) e na `main`; saem juntos com a próxima release (daemon 0.1.45, app 0.1.49 ou o que vier).
 
 - **O que muda:** daemon **0.1.44** e app **0.1.48** (shared 0.23.0 igual). App: `.reorder__index` no lugar de `.env__key` (width 400) na janela Reordenar serviços; os nomes sumiam. `features/service_data/stream.rs` copia stdin/stdout por pipe; Postgres recria o database no restore.
 - **Como foi achado:** depois de publicar a v0.1.51 descobri que **havia Podman na máquina** (meu `which docker podman` voltou vazio por causa do filtro do terminal) e rodei os testes
