@@ -190,6 +190,15 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.58 (2026-11-10): jobs e aquecimentos na fila de deploys
+
+- **O que muda:** daemon **0.1.50**, app **0.1.52** e `rustploy-shared` **0.25.0**. Execução de job (agendada ou "Executar agora") e aquecimento viram itens da fila global (`QueueTask` em `features/deploy/queue.rs`, ids `jrun_`/`jwarm_`), com selo nas três listas do Deploy Engine (app e web UI), promover/reordenar/cancelar pelos botões de sempre (`DeployAbort` aceita os dois ids). `ActiveDeployInfo.kind` com `serde(default)`. Removido `esperar_vaga` (sem uso).
+- **Verificado:** shared 53 testes; daemon 554 (os 19 de `web_ui` só passam sozinhos: sob `cargo test --workspace` junto, 8 falharam por carga e passaram isolados, como já registrado na v0.1.56); app `cargo test --bins`, `app_manifest` e `glacier test` (422); `make lint` verde (o clippy pegou um `sort_by`, corrigido; o `fmt` pegou 4 trechos); site 929 páginas, 0 links quebrados; `workflow_dispatch` verde antes da tag; `.deb` com versão certa; release **assinada** (9 arquivos); `sha256sum -c` e `minisign -V` nos 4 pacotes; `install.sh` e `install.sh -- gui` pela URL pública num `debian:12` (podman) instalaram `rustployd 0.1.50-1` e `rustploy-gui 0.1.52-1`; docs no ar (pt e en, 200 e texto novo, conferido na URL do worker).
+- **NÃO verificado:** um daemon de verdade com um job esperando atrás de um deploy; as telas com o selo (nunca vistas); `DeployAbort` de job ponta a ponta; `install.ps1` num Windows. O servidor dev ainda precisa ser atualizado para a 0.1.50.
+- **Fora da fila:** limpeza diária do Docker e aquecimento de serviço (`service_warm`) ainda usam a vaga por fora; contadores de 24h só contam deploys; aquecimento não aparece no Histórico; aquecimento em execução não é abortável.
+- **Interrupção:** a sessão caiu durante o `cargo publish`; conferi no crates.io que o daemon já tinha saído e publiquei só o app.
+- **Assinatura:** feita por mim com o `minisign.pass`, autorizada de novo pelo dono neste pedido ("publica, pode assinar com o minisign.pass"); shim só para `-S`, `--dry-run` antes, shim apagado.
+
 ## v0.1.57 (2026-11-10): acabamento da tela da retenção de tags
 
 - **O que muda:** daemon **0.1.49** e app **0.1.51** (shared 0.24.0 igual). App: o texto do resumo do registry no pt-BR usava `@x` em vez de `{x}`; **TAGS A MANTER** virou spinbox (1 a 1000) em duas linhas, sem ser espremido pelo interruptor; o formulário segue o valor salvo do servidor quando ele muda (antes copiava uma vez só e ficava vazio/desligado); classe `.env__toolbar` (espaçamento 16) nas barras de Volumes, Imagens e Networks. Web UI: o campo virou `<input type="number" min=1 max=1000>` e o Salvar limita a 1000.
