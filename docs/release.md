@@ -190,6 +190,15 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.57 (2026-11-10): acabamento da tela da retenção de tags
+
+- **O que muda:** daemon **0.1.49** e app **0.1.51** (shared 0.24.0 igual). App: o texto do resumo do registry no pt-BR usava `@x` em vez de `{x}`; **TAGS A MANTER** virou spinbox (1 a 1000) em duas linhas, sem ser espremido pelo interruptor; o formulário segue o valor salvo do servidor quando ele muda (antes copiava uma vez só e ficava vazio/desligado); classe `.env__toolbar` (espaçamento 16) nas barras de Volumes, Imagens e Networks. Web UI: o campo virou `<input type="number" min=1 max=1000>` e o Salvar limita a 1000.
+- **Como foi achado:** o dono abriu a tela da v0.1.56 e mandou capturas. A 0.1.56 foi publicada sem ninguém ver a tela, e ela tinha o texto cru, o campo espremido e o formulário vazio. **Lição:** o que o `glacier test` não cobre (layout, espaçamento, tradução do pt-BR) só aparece olhando; aqui o dono viu antes de qualquer teste.
+- **Verificado:** `make lint` verde; daemon 553 testes (e os 19 de `web_ui` sozinhos); app `cargo test --bins`, `app_manifest` e `glacier test` (421); site 929 páginas, 0 links quebrados; `workflow_dispatch` verde antes da tag; release **assinada pelo dono** (9 arquivos); `sha256sum -c` e `minisign -V` nos 4 pacotes; `install.sh` e `install.sh -- gui` pela URL pública num `debian:12` limpo (podman) instalaram `rustployd 0.1.49-1` e `rustploy-gui 0.1.51-1`; docs no ar (pt e en, 200 e texto novo).
+- **NÃO verificado:** as telas **depois** desta correção (spinbox alinhado ao Salvar, espaçamento das barras, campo numérico da web UI) não foram vistas; a web UI pode ter nas barras de Volumes/Imagens/Networks o mesmo problema de espaçamento (não foi olhada); a retenção contra um registry real; `install.ps1` num Windows de verdade.
+- **Falha do CI que não era do código:** na tag, o job arm64 caiu no `apt` ("File has unexpected size… Mirror sync in progress?", espelho do Ubuntu), o amd64 foi cancelado junto. `gh run rerun <id> --failed` bastou; a tag não foi mexida porque a release ainda não existia.
+- **Assinatura:** feita pelo dono (a autorização do `minisign.pass` da v0.1.56 valeu só para aquele publish; perguntei antes).
+
 ## v0.1.56 (2026-11-10): retenção de tags do registry embutido
 
 - **O que muda:** daemon **0.1.48**, app **0.1.50** e `rustploy-shared` **0.24.0**. `features/registry/retention.rs`: antes de cada GC (o job diário e o botão), com a política ligada, apaga em cada repositório as tags além das `keep_last` mais recentes e **nunca** a que um serviço de fonte Registry usa (`push_deploy::tags_in_use`). Só a linha da tag (`delete_tag_only`). Guardada em `settings.yml` (`registry_retention`). `RegistryRetentionSet` (Admin) e `RegistryStatusInfo.retention`. Interruptor e "TAGS A MANTER" em Docker → Registry (app e web UI). Desligada por padrão.
