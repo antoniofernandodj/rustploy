@@ -50,9 +50,10 @@ impl DeployState
 struct StateTransition { from, to, at, message }
 struct DeploymentSummary { deployment, service_name, project_name }
 struct DaemonStatus { version, uptime_secs, services_running, services_total }
-struct ActiveDeployInfo { deployment_id, service_id, service_name, project_name, state, started_at, elapsed_secs, current_state_secs, states }
+enum QueueItemKind { Deploy, Job, Warm } — O que um item da fila global é: um deploy, a execução de um job avulso (Agendamentos) ou o aquecimen…
+struct ActiveDeployInfo { deployment_id, service_id, service_name, project_name, state, started_at, elapsed_secs, current_state_secs, states, kind }
 struct DeployEngineSummary { version, uptime_secs, active, recent, total_24h, successful_24h, failed_24h, queued, paused }
-(6 testes)
+(8 testes)
 
 ### docker_inventory.rs
 struct DockerImageInfo { id, tags, size_bytes, created, containers, project, service } — One Docker image (from `docker system df`), independent of whether it's currently used by any servic…

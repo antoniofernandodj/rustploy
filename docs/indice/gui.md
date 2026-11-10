@@ -178,6 +178,7 @@ function test_motor_de_deploy__detalhe_a_transicao_corrente_mostra_o_tempo_no() 
 function test_motor_de_deploy__detalhe_timestamp_invalido_nao_da_duracao() — - detalhe: timestamp inválido não dá duração negativa
 function test_motor_de_deploy__executando_agora_traz_estado_tempos_e_os() — - executando agora traz estado, tempos e os passos
 function test_motor_de_deploy__a_fila_numera_de_1_e_guarda_o_id_para_cancelar() — - a fila numera de 1 e guarda o id para cancelar
+function test_motor_de_deploy__job_e_aquecimento_levam_selo_nas_tres_listas() — - job e aquecimento entram nas três listas, com o selo antes do nome; só deploy tem "Detalhes"
 function test_motor_de_deploy__o_historico_escolhe_o_icone_pelo_resultado() — - o histórico escolhe o ícone pelo resultado
 function test_motor_de_deploy__o_historico_leva_o_id_do_projeto() — - o histórico leva o id do projeto, achado pelo serviço
 function test_motor_de_deploy__ativos_e_fila_levam_o_id_do_projeto() — - ativos e fila levam o id do projeto, achado pelo serviço

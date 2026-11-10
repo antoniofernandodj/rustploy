@@ -235,7 +235,8 @@ function monitoringRows(pairs, metricsById) — Monitoring: uma linha por servi�
 function deployStepIndex(state)
 function deployStepper(info) — Linha de passos: [{label, status}] com status done|current|failed|pending.
 function deployDetailRows(info) — Detalhe do deploy para o modal: uma linha por transição (estado em que entrou, quanto durou, mensage…
-function deployEngineActiveRows(active) — Deploy Engine: "Executando agora".
+function itemLabel(info) — Deploy Engine: "Executando agora".
+function deployEngineActiveRows(active)
 function deployEngineQueuedRows(queued) — Deploy Engine: "Na fila" (o primeiro é o próximo a rodar).
 function dockerContainerRows(list, term) — Containers do host (rodando + parados).
 function containerStateLabel(state) — Rótulo/kind de um estado bruto do Docker ("running","exited",...).

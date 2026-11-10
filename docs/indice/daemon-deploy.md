@@ -63,7 +63,11 @@ fn extract_percent(line) -> u8 — Extracts the integer percentage from a git pr
 ### mod.rs — Motor de deploy: fila global, executor, recuperação no boot, clone git e resolução de env vars.
 
 ### queue.rs — Fila **global** de deploys: no máximo um deploy rodando por vez no daemon.
-struct QueueInner { queued, running, paused, waits }
+type QueueTaskFuture = Pin<Box<dyn Future<Output = ()> + Send>> — O que roda quando a vez de um item que **não é deploy** chega (a execução de um job ou o aquecimento…
+type QueueTaskFn = Box<dyn FnOnce () -> QueueTaskFuture + Send>
+struct QueueTaskInfo { kind, job_id } — Para a tela (Deploy Engine) saber o que é cada item que não é deploy.
+struct QueueTask { run, on_cancel } — Um item da fila que não é deploy: o que rodar na vez dele e o que fazer se for tirado da fila antes …
+struct QueueInner { tasks, infos, queued, running, paused, waits }
 struct DeployQueue { inner, notify, slot, paused_tx } — Handle compartilhado da fila (fica no `DeployContext`).
 impl DeployQueue
   fn new() -> Arc<Self>
@@ -71,11 +75,16 @@ impl DeployQueue
   fn set_waits(dep_id, waits) — Registra de quais deployments `dep_id` depende (um lote).
   fn take_waits(dep_id) -> Vec<String> — Tira (e devolve) os deployments de que `dep_id` depende.
   fn enqueue(dep_id) — Enfileira um deployment e acorda o worker.
+  fn enqueue_task(id, info, run, on_cancel) — Enfileira um item que **não é deploy** (a execução de um job, o aquecimento de um): entra na mesma l…
+  fn take_task(id) -> Option<QueueTask> — Tira (e devolve) o que rodar do item `id`, se ele é um que não é deploy.
+  fn task_infos() -> HashMap<String, QueueTaskInfo> — Os itens que não são deploy e ainda não terminaram (esperando ou rodando), por id.
+  fn cancel_queued(id) -> Option<QueueTaskFuture> — Tira da fila um item que não é deploy **e ainda não começou**.
   fn remove_queued(dep_id) -> bool — Remove um deployment **enfileirado** (não afeta o que está rodando — abortar o running é papel do `a…
   fn promote(dep_id) — Move um enfileirado para o início da fila ("furar fila").
   fn reorder(order) — Reordena a fila para a ordem dada.
   fn set_paused(paused) — Pausa/retoma a fila.
   fn snapshot() -> (Option<String>, Vec<String>, bool) — Snapshot para o handler de status: `(running, queued_em_ordem, paused)`.
+  fn is_idle() -> bool — Nada rodando, nada esperando e a fila não está pausada: um item novo começa na hora.
   fn has_ready() -> bool — Há algo na fila e ela não está pausada?
   fn acquire_next() -> (OwnedSemaphorePermit, String) — Espera a vaga e o próximo deploy da fila, nesta ordem: só depois de ter a vaga o deployment sai da f…
   fn acquire_job_slot() -> OwnedSemaphorePermit — A vaga para um **job avulso**: espera a fila estar despausada e a vaga livre, em ordem de chegada.
@@ -85,7 +94,7 @@ impl DeployQueue
   fn wait()
 fn run_worker(state) — Worker único da fila global.
 fn run_one(state, dep_id) — Roda um deployment: marca o serviço como `Deploying`, spawna o executor como task (guardando o `Abor…
-(12 testes)
+(16 testes)
 
 ### recovery.rs — Recuperação no boot: aborta deploys interrompidos, reconcilia status com o Docker e restaura as rota…
 fn recover(db, docker, ingress, bus, secrets, tls, db_path, drain_secs, registry_internal_token) -> Vec<String> — Recuperação no boot: devolve os deployments que estavam só na fila (para re-enfileirar), aborta os q…
@@ -219,14 +228,12 @@ const INTERRUPTED_EXIT_CODE — Exit code de uma execução interrompida por rei
 ### runner.rs — Execução de um `Job` (tarefa one-shot via docker-compose): resolve rede + env vars do serviço gatilh…
 struct JobRunner { db, docker, bus, secrets, db_path, registry_internal_token }
 fn spawn(state, job) -> Result<JobRun> — Cria o `job_run` e dispara a execução em background (`tokio::spawn`) — usado tanto pelo `scheduler_l…
-fn esperar_vaga(queue, cancel_rx, avisar_espera) -> Option<OwnedSemaphorePermit> — Espera a vaga única da fila (ver [`DeployQueue::acquire_job_slot`]).
 impl JobRunner
   fn run(job, run_id, cancel_rx)
   fn run_inner_mirrored(job, run_id, mirror_deployment, cancel_rx) -> Result<i32> — Roda `job` até o `main_service` terminar e devolve o exit code — sem tocar em `job.recurrence`/`resc…
   fn linha(job_id, run_id, texto) — Uma linha no log da execução (banco + evento ao vivo).
   fn cancelar_antes_de_comecar(job, run_id) — Cancelada enquanto esperava a vez: nunca começou.
   fn reschedule(job)
-(4 testes)
 
 ### scheduler.rs — Ticker de agendamento dos jobs one-shot — mesmo formato de `metrics.rs`/`env_backup.rs`: `tokio::tim…
 fn scheduler_loop(state)
@@ -248,6 +255,7 @@ fn cache_pruned_since(warmed_at, prune) -> bool — O corte de idade da limpeza 
 fn judge(job, record, missing_image, prune) -> Verdict — A decisão, sem tocar em Docker nem no banco: `missing_image` é a primeira imagem do registro ausente…
 fn status(state, job) -> JobWarmStatus — Fonte única da verdade: se o job está quente agora, e por que não, se frio.
 fn request(state, job, force) -> Result<bool, String> — Pede o aquecimento de `job`.
+fn finish(state, job, result) — Fecha um aquecimento (feito, falho ou tirado da fila): solta o "aquecendo" e avisa as telas.
 fn warm_once(state, job, force) -> Result<()> — Aquece com a vaga já em mãos.
 fn warm_in_dir(state, job, project_name, network_name, env_vars, build_dir, force) -> Result<ComposeImages>
 (9 testes)

@@ -130,6 +130,7 @@ local iso_to_epoch_seconds(iso_timestamp)
 function M.deploy_engine_detail(info)
 function M.deploy_engine_detail_steps(info)
 local project_by_service_id(service_pairs) — O resumo do Deploy Engine traz só o id do serviço; o do projeto (link da coluna PROJETO) sai dos par…
+local item_label(info, budget) — A fila do Deploy Engine tem deploys, execuções de job e aquecimentos de job.
 
 ### docker_cleanup.luau — resumo textual da limpeza automática de Docker (Settings → Manutenção).
 function M.resource_label(name)

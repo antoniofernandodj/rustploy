@@ -92,11 +92,12 @@ fn create(db, job_id) -> Result<JobRun>
 fn finish(db, id, exit_code) -> Result<Option<JobRun>> — Fecha uma execução com o exit code do processo `docker compose`.
 fn has_unfinished(db, job_id) -> Result<bool> — Há execução deste job **sem fim** — esperando a vez na fila ou rodando? O agendador usa para não emp…
 fn list_unfinished(db) -> Result<Vec<JobRun>> — Todas as execuções sem fim, de qualquer job.
+fn list_finished_last_24h(db, limit) -> Result<Vec<JobRun>> — Execuções terminadas nas últimas 24 h, das mais novas para as mais antigas (o "Histórico 24h" do Dep…
 fn get(db, id) -> Result<Option<JobRun>>
 fn list_for_job(db, job_id, limit) -> Result<Vec<JobRun>>
 fn latest_for_job(db, job_id) -> Result<Option<JobRun>>
 const SELECT_COLS
-(3 testes)
+(4 testes)
 
 ### log_sink.rs — Grava as linhas de log de build/job nas tabelas `build_log` e `job_log`.
 impl LogSink for Db: append_build_line, append_job_line
