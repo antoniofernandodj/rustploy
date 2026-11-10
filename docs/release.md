@@ -190,6 +190,14 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.55 (2026-11-10): a rota do domínio não some num deploy; aba Registry com selects
+
+- **O que muda:** daemon **0.1.47** e app **0.1.49** (shared 0.23.0 igual). `features/deploy/recovery.rs`: o reconcile de 30 s pula serviços com deploy em andamento (`services_with_deploy_in_flight`); `executor/promote.rs`: o `Promoting` registra a rota de novo depois do rename. App e web UI: sub-aba **Registry** em General, com selects de repositório e tag (`RegistryTagList`), imagem montada como `127.0.0.1:<porta>/repo:tag`.
+- **Como foi achado:** no servidor dev, depois de converter o `ui` para Registry e fazer o deploy (Live), `dev.itemize.com.br` deu 404 e a rota sumiu da tabela do ingress; `ingress_reconcile` a trouxe de volta. Pelo código: entre o `SwappingIn` (para o container antigo) e o `Promoting` (renomeia o novo) não há container live com IP, e o reconcile lia isso como serviço caído. **Lição:** rotina periódica que "corrige" estado precisa ignorar o que um deploy está mudando.
+- **Verificado:** teste novo do daemon (`in_flight_tests`); daemon 562 testes, app `cargo test --bins` 30 + `app_manifest` 7 + `glacier test` 420, shared 48; `make lint` verde; site 929 páginas, 0 links quebrados; `workflow_dispatch` verde antes da tag; release **assinada** (9 arquivos); `sha256sum -c` e `minisign -V` (chave do repositório) nos 4 pacotes; `install.sh` e `install.sh -- gui` pela URL pública num `debian:12` limpo (podman) instalaram `rustployd 0.1.47-1` e `rustploy-gui 0.1.49-1`; docs no ar (pt e en, 200 e texto novo).
+- **NÃO verificado:** a causa da rota **não** foi confirmada em log do daemon (dedução do código e do sintoma); o conserto não foi exercitado num deploy real (o teste novo só cobre a seleção dos serviços em andamento, não a corrida); a aba Registry nunca foi vista na tela, nem no app nem na web UI (só `glacier test`, `node --check` e leitura do código); `install.ps1` num Windows de verdade; o push-to-deploy disparado por um push real do CI.
+- **Para conferir depois de atualizar o servidor dev:** um deploy do `ui` e ver se `ingress_routes` mantém `dev.itemize.com.br`.
+
 ## v0.1.54 (2026-11-09): também os tokens de login do provider Git
 
 - **O que muda:** daemon **0.1.46** (app 0.1.48 e shared 0.23.0 iguais). `seal_provider_tokens` (em `store/infra/seal.rs`) cifra no lugar o `access_token_enc` e o `refresh_token_enc` em claro da tabela `git_provider_token`, sem mudar o valor.
