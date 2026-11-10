@@ -397,6 +397,12 @@ function test_abas_e_campos__cada_aba_grava_a_sua_chave() — - cada aba grava a
 function test_abas_e_campos__o_setter_generico_field_grava_a_chave_com_o() — - o setter genérico field grava a chave com o valor
 function test_abas_e_campos__a_busca_guarda_o_texto_como_veio_e_nao_quebra() — - a busca guarda o texto como veio e não quebra sem snapshot
 
+### registry_picker.test.luau — Sub-aba Registry do serviço: o select de repositório/tag monta a imagem do registry embutido.
+local nova(ctx_inicial)
+function test_registry_picker__repo_e_tag_montam_a_imagem() — - repo + tag viram a imagem pelo loopback do registry
+function test_registry_picker__trocar_o_repo_zera_a_tag() — - trocar o repositório zera a tag
+function test_registry_picker__carrega_a_imagem_atual() — - imagem existente é desmontada em repo e tag (host descartado)
+
 ## rustploy-gui/tests/lib/
 
 ### access_key.test.luau

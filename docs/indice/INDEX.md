@@ -1667,6 +1667,7 @@
 - env_edit.test.luau — Edição no lugar da chave/valor de uma variável (handlers/secrets.luau), sem cone…
 - misc.test.luau — Handlers que só mexem no ctx, ou que não fazem nada sem conexão: deploy_queue, s…
 - nav.test.luau — Navegação da sidebar, abas e busca (handlers/nav.luau), sem conexão.
+- registry_picker.test.luau — Sub-aba Registry do serviço: o select de repositório/tag monta a imagem do regis…
 
 ### rustploy-gui/tests/lib/ → gui.md
 - access_key.test.luau
@@ -1829,6 +1830,7 @@
 - general_compose.component.gv
 - general_git.component.gv
 - general_gitea.component.gv
+- general_registry.component.gv
 - general_zip.component.gv
 - healthcheck.component.gv
 - logs.component.gv

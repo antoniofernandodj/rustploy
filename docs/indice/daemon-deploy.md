@@ -93,6 +93,8 @@ fn reconcile(db, docker, ingress, tls) — Reconciles every service's DB status 
 fn compose_ingress_ip(docker, svc, net) -> Option<String> — IP do container que atende o ingress numa stack Compose, ou `None` quando a stack não está no ar.
 fn reconcile_routes(svc, ips, ingress, tls)
 fn restore_routes(db, docker, ingress, tls) — Recria no ingress as rotas de domínio e de porta dos serviços no ar (réplicas live, ou o container d…
+fn services_with_deploy_in_flight(db) — IDs dos serviços que têm um deploy fora de estado terminal.
+(1 testes)
 
 ### shared_net.rs — Servidor de banco compartilhado: conecta o container dele às redes dos projetos autorizados, sob o a…
 fn alias_of(svc) -> String — Alias global do servidor (`shared::shared_alias` sobre a stack gravada).

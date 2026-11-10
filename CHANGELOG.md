@@ -1,6 +1,6 @@
 # Changelog
 
-Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.54`, de 28/10/2026 a 09/11/2026), do mais novo para o mais antigo.
+Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.55`, de 28/10/2026 a 09/11/2026), do mais novo para o mais antigo.
 Levantado a partir das tags do agregador, dos ponteiros dos submódulos, dos commits entre cada par de tags, das releases do GitHub
 e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação, com o que foi e o que **não** foi verificado).
 
@@ -19,6 +19,7 @@ e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação,
 
 | Tag | Data | Daemon (`rustploy`) | App (`rustploy-gui`) | `rustploy-shared` | Destaque |
 |---|---|---|---|---|---|
+| [v0.1.55](#v0155--2026-11-09) | 2026-11-09 | **0.1.47** | **0.1.49** | 0.23.0 | A rota do domínio não some mais num deploy; aba Registry (selects de repositório e tag) no serviço |
 | [v0.1.54](#v0154--2026-11-09) | 2026-11-09 | **0.1.46** | 0.1.48 | 0.23.0 | O daemon também cifra, no boot, os tokens de login do provider Git (corrige o erro ao salvar o sync) |
 | [v0.1.53](#v0153--2026-11-09) | 2026-11-09 | **0.1.45** | 0.1.48 | 0.23.0 | O daemon cifra no boot o token de webhook e o `client_secret` que a migração deixou em claro (destrava o sync com o git) |
 | [v0.1.52](#v0152--2026-11-09) | 2026-11-09 | **0.1.44** | **0.1.48** | 0.23.0 | Corrige a importação de dados no Podman e os nomes na janela Reordenar serviços |
@@ -68,6 +69,16 @@ lá, a data do commit da tag; o horário de publicação no GitHub, em UTC, est�
 Cada release traz também o `checksums.sha256` e um `.minisig` para cada `.deb` e para o zip.
 
 ---
+
+## v0.1.55 — 2026-11-09
+
+Daemon **0.1.47** e app **0.1.49**; `rustploy-shared` **0.23.0** não mudou.
+
+### Corrigido
+- **O domínio do serviço podia ficar em 404 depois de um deploy Live.** O reconcile de 30 s lia a janela entre parar o container antigo e promover o novo (sem container live com IP) como "serviço caído", marcava Stopped e apagava a rota; o `Promoting` marcava Running, mas não registrava a rota de novo. Agora o reconcile pula serviços com deploy em andamento e o `Promoting` registra a rota depois do rename. A causa foi deduzida do código e do sintoma, **não** confirmada em log do daemon.
+
+### Adicionado
+- **Aba Registry** em General do serviço (app e web UI): dois selects, repositório e tag, entre as imagens do registry embutido; a imagem fica `127.0.0.1:<porta>/repo:tag`. Antes era preciso digitar a imagem no campo da aba Git.
 
 ## v0.1.54 — 2026-11-09
 

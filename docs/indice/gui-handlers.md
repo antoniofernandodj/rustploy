@@ -215,6 +215,13 @@ local materialize_pre_deploy(spec) — Move o `pre_deploy_job_id` legado pra `pr
 function pre_deploy_check_add() — Adiciona o job escolhido (ctx.service_form_pre_deploy_check_add_job_id) ao FIM da fila — a ordem de …
 function pre_deploy_check_delete(job_id)
 function pre_deploy_check_reorder(reorder_json) — Reordena a fila (arraste): `v` é um JSON array de job_ids na nova ordem (mesmo formato de `env_reord…
+local split_registry_image(image) — Separa `host/repo:tag` em (repo, tag).
+function registry_picker_image() — Imagem montada a partir da seleção; sempre pelo loopback do registry embutido (o mesmo endereço que …
+local registry_picker_refresh_image()
+local registry_picker_fetch_tags(repo)
+function registry_picker_load(image) — Chamada quando o serviço abre: preenche repo/tag a partir da imagem atual.
+function registry_picker_repo_pick(repo)
+function registry_picker_tag_pick(tag)
 function general_save()
 function archive_upload_cancel()
 function archive_upload()

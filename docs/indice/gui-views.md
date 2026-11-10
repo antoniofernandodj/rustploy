@@ -134,6 +134,8 @@
 
 ### general_gitea.component.gv
 
+### general_registry.component.gv
+
 ### general_zip.component.gv
 
 ### healthcheck.component.gv

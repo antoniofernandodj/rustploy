@@ -278,7 +278,7 @@ Snapshot — Snapshot completo do dashboard como JSON (o mesmo que o SSE `/api/e
 ## delete; criar conteúdo só acontece via `docker push` externo).
 RegistryStatus | daemon: registry/commands::status | gui: — | web: —
 RegistryRepoList | daemon: registry/commands::repo_list | gui: — | web: —
-RegistryTagList | daemon: registry/commands::tag_list | gui: handlers/registry | web: app
+RegistryTagList | daemon: registry/commands::tag_list | gui: handlers/registry, handlers/services | web: app, screens/service_detail
 
 ## / digest, não por tag).
 RegistryTagDelete — Remove a tag; se outra tag apontar pro mesmo digest (mesmo manifest), … | daemon: registry/commands::tag_delete | gui: handlers/registry | web: app
