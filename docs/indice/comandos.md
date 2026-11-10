@@ -287,6 +287,9 @@ RegistryRepoDelete | daemon: registry/commands::repo_delete | gui: handlers/regi
 ## / `RegistryGcResult`.
 RegistryGc — Garbage collection do registry: remove manifests pendurados (sem tag e… | daemon: registry/commands::gc | gui: handlers/registry | web: app
 
+## / A leitura vem em `RegistryStatus(.retention)`. Resposta: `Ok`.
+RegistryRetentionSet — Grava a política de retenção de tags (ligar/desligar e quantas manter)… | daemon: registry/commands::retention_set | gui: handlers/registry | web: app
+
 ## / Resposta traz o segredo em texto plano UMA ÚNICA VEZ.
 RegistryTokenCreate — Cria um token de acesso (Basic auth) — `scope` é `"pull"` ou `"push"`. | daemon: registry/commands::token_create | gui: new_registry_token_window | web: app
 RegistryTokenList | daemon: registry/commands::token_list | gui: handlers/registry | web: app

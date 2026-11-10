@@ -1,6 +1,6 @@
 # Changelog
 
-Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.55`, de 28/10/2026 a 09/11/2026), do mais novo para o mais antigo.
+Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.56`, de 28/10/2026 a 09/11/2026), do mais novo para o mais antigo.
 Levantado a partir das tags do agregador, dos ponteiros dos submódulos, dos commits entre cada par de tags, das releases do GitHub
 e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação, com o que foi e o que **não** foi verificado).
 
@@ -19,6 +19,7 @@ e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação,
 
 | Tag | Data | Daemon (`rustploy`) | App (`rustploy-gui`) | `rustploy-shared` | Destaque |
 |---|---|---|---|---|---|
+| [v0.1.56](#v0156--2026-11-10) | 2026-11-10 | **0.1.48** | **0.1.50** | **0.24.0** | Retenção de tags do registry embutido: mantém só as últimas N de cada repositório |
 | [v0.1.55](#v0155--2026-11-09) | 2026-11-09 | **0.1.47** | **0.1.49** | 0.23.0 | A rota do domínio não some mais num deploy; aba Registry (selects de repositório e tag) no serviço |
 | [v0.1.54](#v0154--2026-11-09) | 2026-11-09 | **0.1.46** | 0.1.48 | 0.23.0 | O daemon também cifra, no boot, os tokens de login do provider Git (corrige o erro ao salvar o sync) |
 | [v0.1.53](#v0153--2026-11-09) | 2026-11-09 | **0.1.45** | 0.1.48 | 0.23.0 | O daemon cifra no boot o token de webhook e o `client_secret` que a migração deixou em claro (destrava o sync com o git) |
@@ -69,6 +70,15 @@ lá, a data do commit da tag; o horário de publicação no GitHub, em UTC, est�
 Cada release traz também o `checksums.sha256` e um `.minisig` para cada `.deb` e para o zip.
 
 ---
+
+## v0.1.56 — 2026-11-10
+
+Daemon **0.1.48**, app **0.1.50** e `rustploy-shared` **0.24.0**.
+
+### Adicionado
+- **Retenção de tags do registry embutido.** O GC só apaga o que nenhuma tag aponta, e um CI que publica uma tag por commit acumulava uma imagem por push sem que nada a soltasse. Com a retenção **ligada** (desligada por padrão), antes de cada GC (o diário e o do botão) o daemon apaga, em cada repositório, as tags mais antigas e deixa as **N mais recentes** (padrão 10, mínimo 1). **Nunca** apaga a tag que um serviço de fonte Registry usa, e apaga só a linha da tag (nunca por digest, que levaria junto outra tag de mesmo digest). Guardada no `settings.yml` da infra (entra no sync com o git).
+- App e web UI: interruptor e **TAGS A MANTER** em Docker → Registry. O botão **Executar GC** avisa, na confirmação, quando a retenção está ligada.
+- Protocolo (`rustploy-shared` 0.24.0): `RegistryRetentionSet { config }` (nível Admin) e `RegistryStatusInfo.retention` (com `serde(default)`, compatível com daemon antigo).
 
 ## v0.1.55 — 2026-11-09
 

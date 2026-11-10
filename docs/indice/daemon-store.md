@@ -13,19 +13,20 @@ fn delete_for_deployment(db, deployment_id) -> Result<()>
 fn get_for_deployment(db, deployment_id) -> Result<Vec<BuildLogLine>>
 
 ### daemon_settings.rs — Tabela chave-valor de configurações do daemon editáveis pela UI (ACME, registry, limpeza do Docker).
-fn is_infra_key(key) -> bool — As três chaves de **configuração** moram no YAML de infra (`settings.yml`); as demais (`*_last_run`,…
+fn is_infra_key(key) -> bool — As quatro chaves de **configuração** moram no YAML de infra (`settings.yml`); as demais (`*_last_run…
 fn get(db, key) -> Result<Option<String>>
 fn set(db, key, value) -> Result<()>
 fn delete(db, key) -> Result<()>
 fn sql_get(db, key) -> Result<Option<String>> — Leitura **direta da tabela**, sem desviar para o YAML.
 const KEY_WEBHOOK_BASE_URL — DEPRECADA: a base pública passou a ser derivada de `[api] domain`/`port` (ver `AppState::public_base…
 const KEY_DOCKER_CLEANUP_CONFIG — JSON de `shared::DockerCleanupConfig` — ver `crate::features::maintenance`.
+const KEY_REGISTRY_RETENTION — JSON de `shared::RegistryRetentionConfig` — ver `crate::features::registry::retention`.
 const KEY_DOCKER_CLEANUP_LAST_RUN — JSON de `shared::DockerCleanupLastRun`, ausente até a primeira execução.
 const KEY_BUILD_CACHE_LAST_PRUNE — JSON de `BuildCachePrune`: quando o cache de build foi limpo pela última vez e com qual corte de ida…
 const KEY_JOB_WARM_PREFIX — Prefixo das chaves `job_warm:<job_id>` (JSON de `jobs::warm::WarmRecord`).
 const KEY_SERVICE_WARM_PREFIX — Prefixo das chaves `service_warm:<service_id>` (JSON de `maintenance::service_warm::WarmRecord`).
 const KEY_ACME_EMAIL, KEY_REGISTRY_DOMAIN
-(1 testes)
+(2 testes)
 
 ### deployments.rs — Tabela `deployment`: criar, transicionar de estado, histórico por serviço e estatísticas de 24h.
 type DeploymentRow = (String, String, String, String, String, DateTime<…
@@ -172,6 +173,7 @@ fn upsert_tag(db, repo_id, tag, manifest_digest) -> Result<()>
 fn get_tag_digest(db, repo_id, tag) -> Result<Option<String>>
 fn list_tags(db, repo_id) -> Result<Vec<String>>
 fn delete_manifest(db, repo_id, digest) -> Result<bool> — Remove o manifest deste repo e as tags dele que apontavam para ele — só metadados (blobs órfãos são …
+fn delete_tag_only(db, repo_id, tag) -> Result<bool> — Remove **só a linha da tag**, sem tocar no manifest nem em outras tags que apontem para o mesmo dige…
 fn gc_metadata(db) -> Result<()> — Fase de metadados do GC (`crate::features::registry::gc`), numa transação só:
 fn all_cas_digests(db) -> Result<Vec<String>> — Todos os digests que DEVEM existir no CAS (blobs + manifests) — o conjunto "vivo" que o sweep do GC …
 (13 testes)
@@ -280,7 +282,7 @@ fn first_difference(a, b) -> String — Mensagem útil quando a ida e volta dive
 ### model.rs — O **estado de infra tipado** (Fase 4 do plano `docs/plano-backup-estado-em-git.md`, R2/R3) e como el…
 const SCHEMA — Versão do formato dos arquivos.
 struct InfraState { settings, providers, projects }
-struct SettingsInfra { acme_email, registry_domain, docker_cleanup_config } — As chaves de configuração do `daemon_settings` (R2.1).
+struct SettingsInfra { acme_email, registry_domain, docker_cleanup_config, registry_retention } — As chaves de configuração do `daemon_settings` (R2.1).
 struct ProviderInfra { id, kind, name, base_url, auth_mode, oauth_client_id, oauth_client_secret_enc, account_login, account_avatar, created_at } — Config de um git provider.
 struct ProjectInfra { id, name, description, env_vars, env_comments, network_name, created_at, services, jobs, secrets, managed_databases, shared_access, service_order }
 impl ProjectInfra

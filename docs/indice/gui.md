@@ -403,6 +403,10 @@ function test_registry_picker__repo_e_tag_montam_a_imagem() — - repo + tag vir
 function test_registry_picker__trocar_o_repo_zera_a_tag() — - trocar o repositório zera a tag
 function test_registry_picker__carrega_a_imagem_atual() — - imagem existente é desmontada em repo e tag (host descartado)
 
+### registry_retention.test.luau — Retenção de tags do registry: o botão Salvar da sub-aba Docker > Registry.
+local nova(ctx_inicial)
+function test_registry_retention__salvar_sem_conexao_e_inerte() — - sem conexão, salvar não faz nada (nem mensagem, nem toast)
+
 ## rustploy-gui/tests/lib/
 
 ### access_key.test.luau

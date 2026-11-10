@@ -395,6 +395,7 @@ fn tag_list(state, repo) -> RpResponse
 fn tag_delete(state, repo, tag) -> RpResponse
 fn repo_delete(state, repo) -> RpResponse
 fn gc(state) -> RpResponse
+fn retention_set(state, config) -> RpResponse
 fn generate_secret() -> String — Gera 32 bytes aleatórios via `/dev/urandom` (mesmo padrão de `secrets.rs::generate_key`/`db::webhook…
 fn token_create(state, name, scope) -> RpResponse
 fn token_list(state) -> RpResponse

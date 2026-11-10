@@ -144,6 +144,7 @@ function registry_close_repo()
 function registry_remove_tag(tag_name)
 function registry_remove_repo(name)
 function registry_gc()
+function registry_retention_save() — Salva a política de retenção de tags (ligar/desligar e quantas manter).
 function registry_refresh_tokens() — ── Tokens de acesso (Basic auth) ──────────────────────────────────────── Lista não vem no snapshot …
 function registry_open_token_window() — Abre a janela separada de criação (segredo só aparece lá, uma vez — ver new_registry_token_window.gv…
 function registry_remove_token(name)
