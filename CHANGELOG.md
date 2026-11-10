@@ -1,6 +1,6 @@
 # Changelog
 
-Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.56`, de 28/10/2026 a 09/11/2026), do mais novo para o mais antigo.
+Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.57`, de 28/10/2026 a 10/11/2026), do mais novo para o mais antigo.
 Levantado a partir das tags do agregador, dos ponteiros dos submódulos, dos commits entre cada par de tags, das releases do GitHub
 e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação, com o que foi e o que **não** foi verificado).
 
@@ -19,6 +19,7 @@ e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação,
 
 | Tag | Data | Daemon (`rustploy`) | App (`rustploy-gui`) | `rustploy-shared` | Destaque |
 |---|---|---|---|---|---|
+| [v0.1.57](#v0157--2026-11-10) | 2026-11-10 | **0.1.49** | **0.1.51** | 0.24.0 | Painel de retenção do registry arrumado (spinbox, layout, texto em pt-BR); barras das abas Docker com espaçamento |
 | [v0.1.56](#v0156--2026-11-10) | 2026-11-10 | **0.1.48** | **0.1.50** | **0.24.0** | Retenção de tags do registry embutido: mantém só as últimas N de cada repositório |
 | [v0.1.55](#v0155--2026-11-09) | 2026-11-09 | **0.1.47** | **0.1.49** | 0.23.0 | A rota do domínio não some mais num deploy; aba Registry (selects de repositório e tag) no serviço |
 | [v0.1.54](#v0154--2026-11-09) | 2026-11-09 | **0.1.46** | 0.1.48 | 0.23.0 | O daemon também cifra, no boot, os tokens de login do provider Git (corrige o erro ao salvar o sync) |
@@ -70,6 +71,17 @@ lá, a data do commit da tag; o horário de publicação no GitHub, em UTC, est�
 Cada release traz também o `checksums.sha256` e um `.minisig` para cada `.deb` e para o zip.
 
 ---
+
+## v0.1.57 — 2026-11-10
+
+Daemon **0.1.49** e app **0.1.51**; `rustploy-shared` **0.24.0** não mudou. Acabamento da tela da retenção de tags (`v0.1.56`), vista pela primeira vez na tela.
+
+### Corrigido
+- **App, Docker → Registry:** a linha de resumo saía com `@registry_status_label` literal no pt-BR (marcador `@x` no lugar de `{x}`); o campo **TAGS A MANTER** era espremido pelo interruptor; e o formulário só copiava o valor do servidor uma vez, então ficava desligado e vazio se o app subisse antes do dado. Agora o formulário acompanha o valor salvo quando ele muda.
+- **App, abas Volumes, Imagens e Networks:** a barra de ferramentas não tinha espaço entre os itens e o rótulo de um checkbox encostava no seguinte.
+
+### Alterado
+- **TAGS A MANTER** virou um campo numérico (spinbox no app; `<input type="number">` na web UI), de 1 a 1000, em vez de texto livre.
 
 ## v0.1.56 — 2026-11-10
 
