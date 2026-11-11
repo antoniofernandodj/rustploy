@@ -98,6 +98,8 @@
 
 ## rustploy-gui/views/home/settings/
 
+### backups.component.gv
+
 ### git.component.gv
 
 ### gitsync.component.gv
@@ -105,6 +107,8 @@
 ### language.component.gv
 
 ### maintenance.component.gv
+
+### recover.component.gv
 
 ### updates.component.gv
 

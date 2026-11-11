@@ -83,6 +83,86 @@ fn restore_snapshot(db, backup_dir, snapshot) -> anyhow::Result<usize>
 fn cleanup_old(backup_dir) -> anyhow::Result<()>
 const _
 
+## rustploy-daemon/crates/daemon/src/features/data_backup/
+
+### destination.rs — O destino S3 dos backups.
+struct Stored { endpoint, region, bucket, prefix, path_style, access_key, secret_key } — Como o destino é gravado.
+fn yes() -> bool
+fn load(db) -> Option<Stored>
+fn view(db, secrets) -> BackupDestinationView — O destino gravado, sem a chave secreta.
+fn normalize(d) -> BackupDestination — Apara o que a pessoa digitou (espaços, `/` sobrando no endpoint e no prefixo).
+fn to_config(db_secret, d) -> Result<S3Config> — Une o rascunho da tela com o gravado: `secret_key: None` usa a chave que já está no servidor.
+fn saved_secret(db, secrets) -> Result<Option<String>> — A chave secreta gravada, já decifrada.
+fn save(db, secrets, dest) -> Result<BackupDestinationView> — Grava o destino.
+fn clear(db) -> Result<()>
+fn resolve(db, secrets, draft) -> Result<(S3Config, String)> — O destino pronto para usar: o cliente S3 e o prefixo.
+fn test(db, secrets, draft) -> Result<()> — **Testar conexão**: grava, lê e apaga um objeto pequeno.
+(4 testes)
+
+### mod.rs — Backup dos **dados** dos serviços (volumes e bancos) para um S3.
+
+### policy.rs — A política de backup automático de cada serviço e a conta de "está na hora?" (`docs/plano-backup-de-…
+fn get(db, service_id) -> Option<BackupInfra> — A política gravada do serviço e desde quando vale.
+fn enabled(db) -> Vec<(String, BackupInfra)> — Todos os serviços com política **ligada**.
+fn set(db, service_id, policy, destination_ok, recovery_ok) -> Result<()> — Grava (ou, com `None`, apaga) a política.
+fn next_run(b, last_start) -> DateTime<Utc> — O próximo disparo: um período depois da última vez que rodou (ou, se nunca rodou, depois de `since`)…
+fn is_due(b, last_start, now) -> bool — Está na hora? Perder vários horários (daemon desligado) dispara **uma** vez só.
+(4 testes)
+
+### recover.rs — **Recuperar este servidor** (`docs/plano-backup-de-dados-para-s3.md`, Fase 4): num servidor limpo, t…
+const IDLE_TTL — Parado em "pronto" por mais que isto, a chave sai da memória.
+fn cell() -> &'static Mutex<ServerRecoverInfo>
+fn status() -> ServerRecoverInfo
+fn update(f)
+fn set_step(service_id, step, error)
+fn is_database(svc) -> bool
+fn start(ctx, state_git, remote, provider_id, branch, recovery_key) -> Result<ServerRecoverInfo> — Restaura a infra e monta o resumo.
+fn restore_infra(ctx, state_git, remote, provider_id, branch) -> Result<()>
+fn summarize(ctx, public) -> ServerRecoverInfo — O que foi achado: projetos, serviços e o backup mais recente de cada um.
+fn run(ctx) -> Result<()> — Dispara a restauração dos dados e o religamento, em segundo plano.
+fn run_inner(ctx) -> Result<()>
+struct RecoveryBringer { inner, ctx, restored } — Sobe cada serviço como o autostart, mas restaurando os dados no momento certo.
+impl RecoveryBringer
+  fn find_latest(svc) -> Result<Option<String>, String> — O backup mais recente do serviço.
+  fn restore(svc, key, database) -> Result<(), String>
+  fn already(id) -> bool
+  fn mark(id)
+impl Bringer for RecoveryBringer: bring_up, report
+fn cancel(ctx) -> ServerRecoverInfo — Desiste: a chave sai da memória.
+const INFO
+
+### scheduler.rs — O agendador dos backups automáticos (`docs/plano-backup-de-dados-para-s3.md`, Fase 3): a cada minuto…
+fn scheduler_loop(ctx)
+const TICK_SECS
+
+### service_backup.rs — Backup dos dados de **um serviço** para o S3 e a restauração a partir dele (`docs/plano-backup-de-da…
+const STALE_RUNNING_HOURS — Uma operação "em andamento" há mais que isto é lixo de um daemon que caiu no meio: a tela a mostra c…
+fn service_prefix(dest_prefix, project_id, service_id) -> String — A "pasta" do serviço no bucket, sempre terminada em `/`.
+fn new_key(prefix) -> String
+fn key_belongs(prefix, key) -> bool — A chave pertence mesmo a este serviço? Barra `..` e chaves de outro serviço: restaurar/apagar só mex…
+fn to_prune(keys, keep) -> Vec<String> — Quais chaves saem para sobrar só as `keep` mais novas.
+fn run_key(service_id) -> String
+fn last_run(ctx, service_id) -> Option<BackupRun>
+fn save_run(ctx, service_id, run)
+fn last_start_key(service_id) -> String
+fn last_start(ctx, service_id) -> Option<chrono::DateTime<Utc>> — Quando o último backup deste serviço **começou** (manual ou agendado): é daqui que o agendador conta…
+fn mark_start(ctx, service_id)
+fn note_attempt(ctx, service_id, error) — Um disparo do agendador que nem chegou a começar (sem destino, serviço ocupado…): conta como tentati…
+fn running(op) -> BackupRun
+fn finish(run, result) -> BackupRun
+struct Ready { cfg, prefix }
+fn ready(ctx, service_id) -> Result<Ready> — O que tem de estar de pé antes de qualquer operação: serviço, destino S3 e chave de recuperação.
+fn list(ctx, service_id) -> ServiceBackups
+fn start_backup(ctx, service_id, stop, keep) -> Result<()> — Confere tudo o que dá para conferir na hora e dispara o backup em segundo plano.
+fn run_backup(ctx, service_id, r, stop, keep) -> Result<(String, u64)>
+fn start_restore(ctx, service_id, key) -> Result<()>
+fn run_restore(ctx, service_id, r, key) -> Result<Vec<String>>
+fn latest(ctx, service_id) -> Result<Option<BackupEntry>> — O backup mais recente do serviço no S3, se houver.
+fn fetch(ctx, service_id, key, dest) -> Result<()> — Baixa um backup do serviço para `dest` (confere que a chave é da pasta do serviço).
+fn policy_set(ctx, service_id, policy) -> Result<ServiceBackups> — `Command::ServiceBackupPolicySet`: grava a política e devolve a listagem já com ela.
+fn delete(ctx, service_id, key) -> Result<()>
+(4 testes)
+
 ## rustploy-daemon/crates/daemon/src/features/databases/
 
 ### context.rs — O que a migração de banco precisa do resto do daemon.
@@ -293,9 +373,10 @@ const BIND_DENYLIST — Caminhos do servidor que nunca entram, mesmo se o servi�
 fn bind_allowed(path) -> bool — `path` pode virar parte de um pacote? Só absoluto, nunca `/`, `..`, nem dentro/acima da denylist.
 fn logical_name(compose_project, volume) -> String — Nome lógico de um volume da stack: tira o prefixo `<projeto>_`.
 fn bind_name(container_path) -> String — Nome lógico de um bind: `bind:<destino no container>`.
+fn synthesize(svc, name) -> Option<Part> — Uma parte de **volume** que o pacote traz e o serviço ainda não tem (servidor recém-recuperado: o vo…
 fn resolve(docker, svc) -> Result<Vec<Part>> — As partes do serviço, em ordem estável (por nome lógico).
 fn list_project_volumes(project) -> Result<Vec<String>>
-(2 testes)
+(5 testes)
 
 ### stream.rs — Roda um comando do motor ligando o stdin/stdout a **arquivos por cópia explícita** (pipes), em vez d…
 fn run(cmd, stdin_from, stdout_to) -> Result<()> — Executa `cmd`.
@@ -322,6 +403,7 @@ fn stage_all(svc, found, dir) -> Result<Vec<StagedPart>>
 struct ImportReport { parts, applied, service_was_running, checks }
 fn match_parts(manifest, found, dest_image) — Partes do pacote × partes do serviço: devolve a lista a substituir, ou a causa da recusa.
 fn import(state, service_id, pack_file, confirm) -> Result<ImportReport> — Importa o pacote em `pack_file`.
+fn import_with(state, service_id, pack_file, confirm, precreate) -> Result<ImportReport> — Como [`import`].
 fn apply(plan, incoming, work) — Substitui as partes uma a uma.
 const BUSY
 impl Drop for Busy
@@ -370,7 +452,7 @@ enum Reconciled { Push, Done }
 struct RetryLater — O pull precisa esperar: há mudança local ainda não commitada.
 struct GitStuck(String) — O estado foi aplicado, mas o `git reset` que alinha o repositório falhou.
 struct Runtime { paused, incoming_error, last_fetch_at, ahead, behind, last_commit, last_push_ok, last_push_at, last_error, blocked, needs_push }
-struct StateGit { db, secrets, rt, wake, cycle_lock, debounce, fetch_every, after_restore }
+struct StateGit { db, secrets, rt, wake, cycle_lock, debounce, fetch_every, after_restore, hold_restore }
 fn fingerprint(project, scope, what) -> String
 fn blocking(state, allow) -> Vec<Finding> — Achados que **impedem** o commit: as certezas sempre, e as suspeitas que o usuário não liberou.
 fn validate_incoming(root, new, allow, secrets, require_clean) -> anyhow::Result<()> — Valida uma árvore vinda de fora ANTES de aplicar qualquer coisa (R6, itens 1 e 2): sem valor em clar…
@@ -383,7 +465,8 @@ impl StateGit
   fn new(db, secrets) -> Arc<Self>
   fn with_debounce(db, secrets, debounce) -> Arc<Self>
   fn with_intervals(db, secrets, debounce, fetch_every) -> Arc<Self>
-  fn set_after_restore(f) — Define o que fazer depois de uma restauração (uma vez só, no bootstrap).
+  fn set_hold_restore(hold) — Define o que fazer depois de uma restauração (uma vez só, no bootstrap).
+  fn set_after_restore(f)
   fn settings() -> anyhow::Result<Settings>
   fn allow_set() -> anyhow::Result<BTreeSet<String>>
   fn allowed() -> BTreeSet<String> — As suspeitas que o usuário liberou (fingerprints), para marcar a lista do `InfraAudit`.

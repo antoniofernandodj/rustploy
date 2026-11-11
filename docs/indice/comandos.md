@@ -162,6 +162,45 @@ ServiceExport — Gera o pacote (YAML) do serviço. | daemon: features/iac/servi
 ## / Resposta: `ServiceDataPlan`.
 ServiceDataPlan — Dados do serviço (volumes): o que um export levaria. | daemon: (inline em dispatch.rs) | gui: handlers/services | web: screens/service_detail
 
+## / O destino S3 dos backups de dados (sem a chave secreta). Resposta: `BackupDestination`.
+BackupDestinationGet — O destino S3 dos backups de dados (sem a chave secreta). | daemon: data_backup/backup_destination_get | gui: handlers/data_backup | web: app
+
+## / conecta (use `BackupDestinationTest`). Resposta: `BackupDestination`.
+BackupDestinationSet — Grava o destino S3. | daemon: data_backup/backup_destination_set | gui: handlers/data_backup | web: app
+
+## / Apaga o destino gravado (os backups já enviados ficam no S3). Resposta: `Ok`.
+BackupDestinationClear — Apaga o destino gravado (os backups já enviados ficam no S3). | daemon: data_backup/backup_destination_clear | gui: handlers/data_backup | web: app
+
+## / valor, testa o rascunho da tela (e `secret_key: None` usa a chave gravada). Resposta: `Ok`.
+BackupDestinationTest — Testa a conexão: grava, lê e apaga um objeto pequeno. | daemon: data_backup/backup_destination_test | gui: handlers/data_backup | web: app
+
+## / Os backups de dados de um serviço no S3 e a última operação. Resposta: `ServiceBackups`.
+ServiceBackupList — Os backups de dados de um serviço no S3 e a última operação. | daemon: data_backup/service_backup_list | gui: handlers/service_backup | web: screens/service_detail
+
+## / `true`; banco não para). `keep`: depois de enviar, manter só os `keep` mais novos.
+ServiceBackupNow — Faz o backup dos dados do serviço para o S3 **em segundo plano** (volu… | daemon: data_backup/service_backup_now | gui: handlers/service_backup | web: screens/service_detail
+
+## / caminho e a mesma rede de segurança da importação). Exige `confirm: true`. Resposta: `Ok`.
+ServiceBackupRestore — Restaura um backup do S3 **substituindo** os dados atuais do serviço, … | daemon: data_backup/service_backup_restore | gui: handlers/service_backup | web: screens/service_detail
+
+## / Apaga um backup do S3. Resposta: `Ok`.
+ServiceBackupDelete — Apaga um backup do S3. | daemon: data_backup/service_backup_delete | gui: handlers/service_backup | web: screens/service_detail
+
+## / disparo).
+ServiceBackupPolicySet — Grava (ou, com `None`, apaga) a política de backup automático do servi… | daemon: data_backup/service_backup_policy_set | gui: handlers/service_backup | web: screens/service_detail
+
+## / `ServerRecover` (`phase: "ready"`, com o que foi achado e os backups por serviço).
+ServerRecoverStart — **Recuperar este servidor** (passo 1): num servidor **limpo**, traz a … | daemon: data_backup/server_recover::start | gui: handlers/recover | web: app
+
+## / Em que ponto a recuperação está. Resposta: `ServerRecover`.
+ServerRecoverStatus — Em que ponto a recuperação está. | daemon: data_backup/server_recover::status | gui: handlers/recover | web: app
+
+## / Resposta: `Ok`.
+ServerRecoverRun — Recuperação (passo 2): restaura os dados e sobe cada serviço na ordem … | daemon: data_backup/server_recover::run | gui: handlers/recover | web: app
+
+## / Resposta: `ServerRecover`.
+ServerRecoverCancel — Desiste: esquece a chave de recuperação da memória. | daemon: data_backup/server_recover::cancel | gui: handlers/recover | web: app
+
 ## / `dry_run` só devolve o relatório. Resposta: `ServiceImportReport`.
 ServiceImport — Cria UM serviço novo a partir de um pacote, sem sobrescrever nada. | daemon: features/iac/service_import | gui: handlers/bundle_import | web: screens/service_bundle
 

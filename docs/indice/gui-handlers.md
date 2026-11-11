@@ -38,6 +38,16 @@ local resolve_base(address) — O esquema de um `host:porta`: o token de conexã
 function connect() — on_submit/on_click do formulário de login: decodifica o token de conexão (base64 de `host:porta::tok…
 function disconnect() — Logout: nada da sessão anterior pode sobreviver em RAM — nem no `ctx` (o espelho do contexto do moto…
 
+### data_backup.luau — Settings → Backups: o destino S3 dos backups de dados dos serviços (docs/plano-backup-de-dados-para-…
+local secret_or_nil()
+local draft() — O que a tela digitou, no formato do `BackupDestination` do protocolo.
+local apply_view(view) — Espalha o que o daemon devolveu (sem a chave secreta) no formulário.
+function M.load() — Lê o destino gravado (ao abrir Settings).
+function backup_destination_load()
+function backup_destination_save()
+function backup_destination_test() — Grava, lê e apaga um objeto pequeno no S3, com o que está na tela (não precisa salvar antes).
+function backup_destination_clear()
+
 ### deploy_queue.luau — gerência da fila global de deploys (um por vez) na tela Deploy Engine: cancelar/promover um item enf…
 function queue_cancel(deployment_id) — Cancela um deploy que ainda está esperando na fila (não começou).
 function queue_promote(deployment_id) — Move um deploy enfileirado para o topo da fila ("furar fila").
@@ -138,6 +148,16 @@ function service_stop_id(service_id)
 function stop_delete_service(service_id)
 function stop_all()
 
+### recover.luau — Settings → Recuperar: recuperar este servidor a partir do git + chave de recuperação + backups no S3…
+function M.step_label(step) — - O rótulo de uma etapa.
+function M.service_row(service) — - A linha de um serviço na tela, a partir do que o daemon devolveu.
+local apply(info)
+function M.load() — - Lê em que ponto a recuperação está e, enquanto roda, repolla.
+function recover_refresh()
+function recover_start() — - Passo 1: traz a infra do git, recifra os segredos e lista o que foi achado.
+function recover_run() — - Passo 2: restaura os dados e sobe os serviços na ordem das dependências (em segundo plano).
+function recover_cancel()
+
 ### registry.luau — sub-aba Docker > Registry: navega repo→tags (fetch sob demanda, tags não vêm no snapshot periódico),…
 function registry_open_repo(name) — Abre a visão de tags de um repositório: fetch on-demand (tags não vêm no snapshot periódico, só a li…
 function registry_close_repo()
@@ -179,6 +199,21 @@ function service_env_edit_value(key)
 function env_edit_apply()
 function secret_reveal(name)
 function secret_hide(name)
+
+### service_backup.luau — aba Dados → "Backup no S3": os backups dos dados do serviço no S3 (docs/plano-backup-de-dados-para-s…
+function M.reset()
+function M.run_label(run) — - Uma linha para a última operação: "backup · concluído 11/11 10:00:05 (3 MB)" / "· falhou: …".
+function M.form_from_policy(policy) — - O formulário (valores em texto, como moram no `ctx`) a partir da política do daemon.
+function M.policy_from_values(form) — - O `BackupPolicy` do protocolo (horário em UTC) a partir dos valores do formulário.
+local fill_form(policy)
+local policy_from_form()
+local apply(list, fill)
+function M.load(fill) — - Lê os backups e a última operação; enquanto roda (e a aba segue aberta) repolla.
+function service_backup_refresh()
+function service_backup_now()
+function service_backup_policy_save()
+function service_backup_restore(key)
+function service_backup_delete(key)
 
 ### services.luau — detalhe do serviço (service.component.gv): fetch completo, mutações de spec/env, ciclo de vida (depl…
 local pre_deploy_checks_ids(spec) — Fila efetiva de pré-deploy check: `pre_deploy_job_ids` quando não vazia, senão cai no `pre_deploy_jo…

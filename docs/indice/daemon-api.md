@@ -130,6 +130,46 @@ const TOOLS
 fn erro(e) -> RpResponse
 fn dispatch(state, cmd) -> RpResponse
 
+## rustploy-daemon/crates/daemon/src/api/handlers/data_backup/
+
+### backup_destination_clear.rs — `Command::BackupDestinationClear`: apaga o destino gravado (os backups já enviados ficam no S3).
+fn handle(state) -> Response
+
+### backup_destination_get.rs — `Command::BackupDestinationGet`: o destino S3 dos backups, sem a chave secreta.
+fn handle(state) -> Response
+
+### backup_destination_set.rs — `Command::BackupDestinationSet`: grava o destino S3 (chave secreta cifrada).
+fn handle(state, destination) -> Response
+
+### backup_destination_test.rs — `Command::BackupDestinationTest`: grava, lê e apaga um objeto pequeno no S3.
+fn handle(state, destination) -> Response
+
+### mod.rs — Handlers do backup de dados para S3: o `dispatch` recebe os `Command` da seção e chama o handler cer…
+fn dispatch(state, cmd) -> RpResponse
+
+### server_recover.rs — Handlers `Command::ServerRecover*`: recuperar um servidor limpo (git + chave de recuperação + S3).
+fn provider_for(remote) -> (GitProviderKind, String) — `https://host[:porta]/…` → `(github|gitea, base_url)`.
+fn start(state, remote, token, branch, recovery_key) -> Response
+fn status() -> Response
+fn run(state) -> Response
+fn cancel(state) -> Response
+(1 testes)
+
+### service_backup_delete.rs — `Command::ServiceBackupDelete`: apaga um backup do S3.
+fn handle(state, service_id, key) -> Response
+
+### service_backup_list.rs — `Command::ServiceBackupList`: os backups de dados de um serviço no S3 e a última operação.
+fn handle(state, service_id) -> Response
+
+### service_backup_now.rs — `Command::ServiceBackupNow`: começa o backup dos dados do serviço (em segundo plano).
+fn handle(state, service_id, stop, keep) -> Response
+
+### service_backup_policy_set.rs — `Command::ServiceBackupPolicySet`: grava a política de backup automático do serviço.
+fn handle(state, service_id, policy) -> Response
+
+### service_backup_restore.rs — `Command::ServiceBackupRestore`: restaura um backup do S3 **substituindo** os dados atuais (em segun…
+fn handle(state, service_id, key, confirm) -> Response
+
 ## rustploy-daemon/crates/daemon/src/api/handlers/databases/
 
 ### managed_database.rs — `Command::ManagedDatabase{List,Create,Delete}`: databases (com usuário próprio) dentro de um servido…
@@ -585,7 +625,7 @@ fn seed_connected(page) — Semeia a sessão (bypassa login/SSE, mesma ideia de 
 fn eval_str(page, js) -> String — Avalia `js` (uma expressão, possivelmente uma Promise) e devolve o resultado como `String` — os test…
 fn visible(page, selector) -> bool — `true` se o elemento existir e estiver de fato visível (`x-show` escreve `display:none` inline; `off…
 fn errors(page) -> Vec<String>
-(18 testes)
+(22 testes)
 
 ### mod.rs — Servidor de estáticos da web UI/PWA (`crates/daemon/webui/`) — alternativa ao client iced (`rustploy…
 type ApiBody = BoxBody<Bytes, std::convert::Infallible>

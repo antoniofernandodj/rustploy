@@ -13,7 +13,7 @@ fn delete_for_deployment(db, deployment_id) -> Result<()>
 fn get_for_deployment(db, deployment_id) -> Result<Vec<BuildLogLine>>
 
 ### daemon_settings.rs — Tabela chave-valor de configurações do daemon editáveis pela UI (ACME, registry, limpeza do Docker).
-fn is_infra_key(key) -> bool — As quatro chaves de **configuração** moram no YAML de infra (`settings.yml`); as demais (`*_last_run…
+fn is_infra_key(key) -> bool — As cinco chaves de **configuração** moram no YAML de infra (`settings.yml`); as demais (`*_last_run`…
 fn get(db, key) -> Result<Option<String>>
 fn set(db, key, value) -> Result<()>
 fn delete(db, key) -> Result<()>
@@ -21,6 +21,7 @@ fn sql_get(db, key) -> Result<Option<String>> — Leitura **direta da tabela**, 
 const KEY_WEBHOOK_BASE_URL — DEPRECADA: a base pública passou a ser derivada de `[api] domain`/`port` (ver `AppState::public_base…
 const KEY_DOCKER_CLEANUP_CONFIG — JSON de `shared::DockerCleanupConfig` — ver `crate::features::maintenance`.
 const KEY_REGISTRY_RETENTION — JSON de `shared::RegistryRetentionConfig` — ver `crate::features::registry::retention`.
+const KEY_BACKUP_DESTINATION — JSON do destino S3 dos backups de dados (chave secreta cifrada) — ver `crate::features::data_backup:…
 const KEY_DOCKER_CLEANUP_LAST_RUN — JSON de `shared::DockerCleanupLastRun`, ausente até a primeira execução.
 const KEY_BUILD_CACHE_LAST_PRUNE — JSON de `BuildCachePrune`: quando o cache de build foi limpo pela última vez e com qual corte de ida…
 const KEY_JOB_WARM_PREFIX — Prefixo das chaves `job_warm:<job_id>` (JSON de `jobs::warm::WarmRecord`).
@@ -283,12 +284,13 @@ fn first_difference(a, b) -> String — Mensagem útil quando a ida e volta dive
 ### model.rs — O **estado de infra tipado** (Fase 4 do plano `docs/plano-backup-estado-em-git.md`, R2/R3) e como el…
 const SCHEMA — Versão do formato dos arquivos.
 struct InfraState { settings, providers, projects }
-struct SettingsInfra { acme_email, registry_domain, docker_cleanup_config, registry_retention } — As chaves de configuração do `daemon_settings` (R2.1).
+struct SettingsInfra { acme_email, registry_domain, docker_cleanup_config, registry_retention, backup_destination } — As chaves de configuração do `daemon_settings` (R2.1).
 struct ProviderInfra { id, kind, name, base_url, auth_mode, oauth_client_id, oauth_client_secret_enc, account_login, account_avatar, created_at } — Config de um git provider.
 struct ProjectInfra { id, name, description, env_vars, env_comments, network_name, created_at, services, jobs, secrets, managed_databases, shared_access, service_order }
 impl ProjectInfra
   fn services_in_order() -> Vec<&ServiceInfra> — Serviços na ordem de exibição: primeiro os de `service_order`, na ordem dela; os que ela não cita (c…
-struct ServiceInfra { id, spec, compose_project, created_at, webhook_token, secrets }
+struct ServiceInfra { id, spec, compose_project, created_at, webhook_token, secrets, backup }
+struct BackupInfra { policy, since } — A política de backup e **desde quando** vale (referência do primeiro disparo: um `Daily 03:00` ligad…
 struct JobInfra { id, trigger_service_id, name, compose, git_source, main_service, env_vars, env_comments, enabled, recurrence, created_at }
 struct SecretInfra { id, key, value } — Hoje o `value` já vem cifrado pelo `SecretsManager` (passphrase).
 struct ManagedDatabaseInfra { id, server_service_id, name, password, env_var, connection_limit, statement_timeout_ms, created_at } — **Atenção:** `password` está em claro (é assim no SQL hoje).
@@ -308,6 +310,11 @@ impl InfraState
 fn upgrade_project_v1(bytes) -> Result<ProjectInfra> — Lê um `project.yml` do schema 1: renomeia `db_kind` → `product` em cada `services[].spec` antes de t…
 const MANIFEST, SETTINGS, PROVIDERS
 (7 testes)
+
+### rekey.rs — Recifra **tudo** o que está cifrado (`ENC[age:…]`) na infra para a identidade deste servidor e a cha…
+fn walk(v, path, f) -> Result<usize> — Recifra o que `f` conseguir; devolve quantos valores trocou.
+fn rekey_all(repo, secrets) -> Result<usize> — Recifra toda a infra.
+(3 testes)
 
 ### repo.rs — O **repositório** do estado de infra: o `InfraState` em memória (as leituras vêm daqui) mais a pasta…
 struct Repo { tree, changes, state, gate, _tmp }

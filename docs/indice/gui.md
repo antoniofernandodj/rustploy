@@ -358,6 +358,12 @@ function test_disconnect__nao_enumera_chaves_o_init_semeia_os_defaults_de() — 
 local nova(ctx_inicial)
 function test_dados_sem_conexao__nada_acontece() — - sem sessão, exportar, conferir e importar não fazem nada
 
+### data_backup.test.luau — Settings → Backups: o destino S3 dos backups.
+local nova(ctx_inicial)
+function test_data_backup__salvar_sem_conexao_e_inerte() — - sem conexão, salvar não faz nada (nem mensagem, nem toast)
+function test_data_backup__testar_e_limpar_sem_conexao_sao_inertes() — - sem conexão, testar e limpar também são inertes
+function test_data_backup__formulario_nasce_com_defaults() — - o formulário nasce com defaults seguros: região padrão, path-style ligado, nada configurado
+
 ### env_edit.test.luau — Edição no lugar da chave/valor de uma variável (handlers/secrets.luau), sem conexão.
 local nova()
 function test_edicao_no_lugar__a_chave_comeca_com_a_chave_atual() — - ✏️ arma o campo da CHAVE na própria linha, com a chave atual como rascunho
@@ -398,6 +404,13 @@ function test_abas_e_campos__cada_aba_grava_a_sua_chave() — - cada aba grava a
 function test_abas_e_campos__o_setter_generico_field_grava_a_chave_com_o() — - o setter genérico field grava a chave com o valor
 function test_abas_e_campos__a_busca_guarda_o_texto_como_veio_e_nao_quebra() — - a busca guarda o texto como veio e não quebra sem snapshot
 
+### recover.test.luau — Settings → Recuperar: sem conexão os handlers são inertes (o botão pode ser clicado quando a sessão …
+local nova(ctx_inicial)
+function test_recover__sem_conexao_e_inerte() — - sem sessão, nada acontece (nem toast) e a chave NÃO é apagada: não houve envio
+function test_recover__estado_inicial() — - a tela nasce no estado "nada em curso", com o formulário vazio
+function test_recover__linha_do_servico() — - a linha de um serviço: banco/volume, projeto/nome, backup achado (ou "sobe vazio") e a etapa
+function test_recover__etapa_desconhecida_aparece_como_veio() — - etapa desconhecida aparece como veio (nunca some)
+
 ### registry_picker.test.luau — Sub-aba Registry do serviço: o select de repositório/tag monta a imagem do registry embutido.
 local nova(ctx_inicial)
 function test_registry_picker__repo_e_tag_montam_a_imagem() — - repo + tag viram a imagem pelo loopback do registry
@@ -407,6 +420,14 @@ function test_registry_picker__carrega_a_imagem_atual() — - imagem existente �
 ### registry_retention.test.luau — Retenção de tags do registry: o botão Salvar da sub-aba Docker > Registry.
 local nova(ctx_inicial)
 function test_registry_retention__salvar_sem_conexao_e_inerte() — - sem conexão, salvar não faz nada (nem mensagem, nem toast)
+
+### service_backup.test.luau — Aba Dados → Backup no S3: sem conexão os handlers são inertes (o botão pode ser clicado quando a ses…
+local nova(ctx_inicial)
+function test_service_backup__sem_conexao_e_inerte() — - sem sessão, fazer backup, restaurar e apagar não fazem nada (nem toast)
+function test_service_backup__estado_inicial() — - a aba nasce sem lista e sem o botão pronto (o markup nunca lê nil)
+function test_service_backup__linha_da_ultima_operacao() — - a última operação vira uma linha legível nos três estados
+function test_service_backup__formulario_da_politica_ida_e_volta() — - o formulário da política ida e volta: semanal, a cada N horas, diário e "nunca configurada" (UTC)
+function test_service_backup__salvar_politica_sem_conexao_e_inerte() — - sem sessão, salvar a política não faz nada
 
 ## rustploy-gui/tests/lib/
 

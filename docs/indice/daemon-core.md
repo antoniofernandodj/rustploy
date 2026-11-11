@@ -329,18 +329,63 @@ const FLUSH_EVERY, META_FILE, GLOBAL
 
 ### mod.rs — Infraestrutura transversal (barramento de eventos, segredos, health checks), sem regra de negócio.
 
+### s3.rs — Cliente S3 mínimo, em hyper cru (o daemon não usa `reqwest`), para o backup dos dados dos serviços (…
+type HmacSha256 = Hmac<Sha256>
+const PART_SIZE — Tamanho de cada parte do multipart (o S3 exige no mínimo 5 MiB, exceto na última).
+const SINGLE_PUT_MAX — Até este tamanho o objeto sobe num único PUT.
+struct S3Config { endpoint, region, bucket, access_key, secret_key, path_style } — Destino S3.
+struct Object { key, size, last_modified } — Um objeto da listagem.
+impl S3Config
+  fn validate() -> Result<()>
+fn uri_encode(s, keep_slash) -> String — Codifica como o SigV4 pede (só `A-Z a-z 0-9 - _ .
+fn hmac(key, data) -> Vec<u8>
+fn sha256_hex(data) -> String
+fn canonical_query(query) -> String — Query canônica: pares codificados e ordenados.
+fn authorization(method, host, path, query, payload_hash, amz_date, region, access_key, secret_key) -> String — O cabeçalho `Authorization` de uma requisição.
+struct Target { host_header, connect_host, port, tls, path }
+fn target(cfg, key) -> Result<Target>
+struct Reply { status, headers, body }
+impl Reply
+  fn header(name) -> Option<&str>
+  fn text() -> Result<String>
+fn send_once(cfg, method, key, query, body) -> Result<Reply>
+fn exchange(io, request) -> Result<hyper::Response<Incoming>>
+fn send(cfg, method, key, query, body) -> Result<Reply> — Envia com até [`ATTEMPTS`] tentativas em falha de rede ou 5xx (espera 1 s, 2 s).
+fn s3_error(xml) -> String — `Code: Message` de um corpo de erro do S3.
+fn expect_ok(reply, what) -> Result<Reply> — Confere o status e, se falhou, devolve o erro com a causa do S3.
+fn xml_unescape(s) -> String
+fn xml_escape(s) -> String
+fn first_tag(xml, tag) -> Option<String> — Conteúdo da primeira `<tag>…</tag>`.
+fn blocks(xml, tag) -> Vec<&'a str> — Os blocos `<tag>…</tag>` (conteúdo cru), na ordem.
+fn read_full(f, buf) -> Result<usize> — Lê até `buf.len()` bytes (menos só no fim do arquivo).
+fn put_file(cfg, key, path) -> Result<()> — Sobe `path` como o objeto `key`.
+fn upload_parts(cfg, key, upload_id, file) -> Result<()>
+fn get_to_file(cfg, key, dest) -> Result<u64> — Baixa `key` para `dest`.
+fn list(cfg, prefix) -> Result<Vec<Object>> — Lista os objetos sob `prefix` (segue a paginação).
+fn delete(cfg, key) -> Result<()> — Apaga `key` (apagar o que não existe também é sucesso, como no S3).
+fn test(cfg, prefix) -> Result<()> — **Testar conexão**: grava um objeto pequeno, lê de volta, confere e apaga.
+fn prefix_with_slash(prefix) -> String
+const REQUEST_TIMEOUT, MAX_XML, ATTEMPTS
+impl std::fmt::Debug for S3Config
+(8 testes)
+
 ### secrets.rs — `SecretsManager`: cifra e decifra os segredos do daemon.
-struct SecretsManager { identity, recovery, db }
+struct SecretsManager { identity, recovery, transient, config_path, db }
 impl SecretsManager
   fn open(key_file, db, cfg, config_path) -> Result<Self> — Abre o gerenciador do daemon.
   fn new(db) -> Result<Self> — Para testes: identidade efêmera (some quando o objeto some), sem tocar na config.
   fn with_keys(db, identity, recovery) -> Result<Self> — Para testes: com uma identidade e uma recuperação escolhidas.
   fn has_recovery() -> bool — Há uma chave de recuperação (`[secrets] recovery_recipient`) configurada?
+  fn recovery() -> Option<x25519::Recipient>
   fn public_key() -> String — A chave pública do servidor (`age1…`).
   fn encrypt(plaintext) -> Result<String> — Cifra para a identidade do servidor (e a de recuperação, se houver).
   fn encrypt_file(src, dst) -> Result<()> — Cifra um arquivo para a identidade do servidor (e a de recuperação, se houver).
-  fn decrypt_file(src, dst) -> Result<()> — Decifra um arquivo age com a identidade deste servidor.
-  fn decrypt(value) -> Result<String> — Decifra um valor `ENC[age:…]` com a identidade deste servidor.
+  fn decrypt_file(src, dst) -> Result<()> — Decifra um arquivo age com a identidade deste servidor (ou, durante uma recuperação, com a identidad…
+  fn decrypt(value) -> Result<String> — Decifra um valor `ENC[age:…]` com a identidade deste servidor (ou, durante uma recuperação, com a de…
+  fn begin_recovery(secret_key) -> Result<String> — Começa uma recuperação: guarda a identidade **privada** de recuperação só na memória (para abrir o q…
+  fn recovery_in_progress() -> bool — Há uma recuperação em curso (a identidade de recuperação está na memória)?
+  fn end_recovery() — Termina a recuperação: descarta a identidade privada de recuperação da memória.
+  fn rekey(value) -> Result<String> — Recifra um valor `ENC[age:…]` para a identidade **deste** servidor e a chave pública de recuperação …
   fn get_raw(project_id, name) -> Result<String> — Secret do **projeto**.
   fn get_scoped(project_id, service_id, name) -> Result<String> — Secret de um escopo: `service_id: Some` = só daquele serviço; `None` = só do projeto.
   fn resolve(project_id, service_id, name) -> Result<String> — Resolução de uma env `Secret(name)`: o escopo do **serviço** primeiro, depois o do projeto.
@@ -370,7 +415,8 @@ fn parse_identity(text) -> Result<x25519::Identity>
 fn has_enc_values(db) -> bool — Há algum segredo já no formato novo gravado no YAML?
 fn persist_identity(identity, config_path, key_file) -> Result<()> — Grava a identidade recém-gerada no `config.toml` (seção `[secrets]`); se não der, no `age.key` (0600…
 fn write_identity_into_config(path, line) -> Result<()> — Insere `line` logo abaixo de `[secrets]` (ou cria a seção no fim), preservando o resto do arquivo e …
-(24 testes)
+fn set_secrets_key_in_config(path, key, value) -> Result<()> — Define `key = "value"` em `[secrets]` do `config.toml` (troca a linha se já existe, senão insere log…
+(29 testes)
 
 ### ttl_cache.rs — Cache de um valor só, com TTL, que junta chamadas concorrentes numa só ida à fonte lenta.
 struct TtlCache { ttl, slot } — Single-slot value cache with a TTL.
