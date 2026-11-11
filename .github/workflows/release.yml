@@ -159,7 +159,14 @@ jobs:
           curl -fsSL https://apt.llvm.org/llvm.sh -o llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh 20
-          sudo apt-get install -y llvm-20 lld-20 nasm
+          # Com tentativas: em 2026-11-11 o DNS dos espelhos do runner falhou no meio do download
+          # ("Temporary failure resolving 'azure.archive.ubuntu.com'").
+          ok=0
+          for i in 1 2 3; do
+            if sudo apt-get update && sudo apt-get install -y --fix-missing llvm-20 lld-20 nasm; then ok=1; break; fi
+            echo "apt falhou (tentativa $i de 3); esperando para repetir"; sleep 20
+          done
+          [ "$ok" = 1 ]
           echo "/usr/lib/llvm-20/bin" >> "$GITHUB_PATH"
           ls /usr/lib/llvm-20/bin | grep -E '^(clang-cl|lld-link|llvm-lib)$'
 
