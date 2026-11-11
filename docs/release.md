@@ -190,6 +190,14 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.59 (2026-11-10): job em execução sem a faixa de etapas do deploy
+
+- **O que muda:** daemon **0.1.51** e app **0.1.53** (shared 0.25.0 igual). Na aba Executando, job e aquecimento mostram o estado **EXECUTANDO** e nenhuma faixa de etapas (Fila, Checks, Deps, Obter…). Web UI (`format.js`, `index.html`) e app (`dashboard.luau`, `executando.component.gv`).
+- **Como foi achado:** o dono viu na tela do dev, com a v0.1.58, o `[job] migrate` com a faixa e "Construindo". **Lição:** eu tinha dito que a faixa ficava só nos deploys sem ter visto a tela; o mapeamento job→`ComposingUp` vazava para o rótulo.
+- **Verificado:** `make lint` verde; app 422 no `glacier test` (+asserções), `cargo test --bins` e `app_manifest`; web UI headless 19 sozinhos; site 929 páginas, 0 links quebrados; `workflow_dispatch` verde antes da tag; `.deb` com as versões certas; release **assinada** (9 arquivos); `sha256sum -c` e `minisign -V` nos 4 pacotes; `install.sh` e `install.sh -- gui` num `debian:12` (podman) instalaram `rustployd 0.1.51-1` e `rustploy-gui 0.1.53-1`; docs no ar (200).
+- **NÃO verificado:** a tela depois da correção (nem app nem web UI); promover/reordenar/cancelar job em daemon real; `install.ps1`. O dev precisa ser atualizado para a 0.1.51.
+- **Assinatura:** feita por mim com o `minisign.pass`, autorizada pelo dono neste pedido ("retoma da tag, pode assinar"); shim só para `-S`, `--dry-run` antes, shim apagado. A sessão foi interrompida antes da tag e retomada daí.
+
 ## v0.1.58 (2026-11-10): jobs e aquecimentos na fila de deploys
 
 - **O que muda:** daemon **0.1.50**, app **0.1.52** e `rustploy-shared` **0.25.0**. Execução de job (agendada ou "Executar agora") e aquecimento viram itens da fila global (`QueueTask` em `features/deploy/queue.rs`, ids `jrun_`/`jwarm_`), com selo nas três listas do Deploy Engine (app e web UI), promover/reordenar/cancelar pelos botões de sempre (`DeployAbort` aceita os dois ids). `ActiveDeployInfo.kind` com `serde(default)`. Removido `esperar_vaga` (sem uso).
