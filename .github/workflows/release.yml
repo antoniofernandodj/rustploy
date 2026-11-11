@@ -19,11 +19,15 @@ jobs:
       matrix:
         include:
           - arch: amd64
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
           - arch: arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
-    container: ubuntu:22.04
+    # DNS público explícito: em 2026-11-11 os contêineres do runner passaram a não resolver
+    # `archive.ubuntu.com` (`apt-get update` falhava com "Could not resolve"). Runner fixo em vez de `latest`.
+    container:
+      image: ubuntu:22.04
+      options: --dns 1.1.1.1 --dns 8.8.8.8
     env:
       DEBIAN_FRONTEND: noninteractive
     steps:
@@ -72,8 +76,11 @@ jobs:
   # mais novo (24.04, glibc 2.39) não instalaria em Ubuntu 22.04 nem Debian 12.
   build-gui-linux:
     name: Build rustploy-gui (.deb)
-    runs-on: ubuntu-latest
-    container: ubuntu:22.04
+    runs-on: ubuntu-24.04
+    # DNS público explícito (ver o job do daemon).
+    container:
+      image: ubuntu:22.04
+      options: --dns 1.1.1.1 --dns 8.8.8.8
     env:
       DEBIAN_FRONTEND: noninteractive
     steps:
