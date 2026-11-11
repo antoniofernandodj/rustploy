@@ -1,6 +1,6 @@
 # Changelog
 
-Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.58`, de 28/10/2026 a 10/11/2026), do mais novo para o mais antigo.
+Histórico das últimas versões do Rustploy (`v0.1.25` a `v0.1.59`, de 28/10/2026 a 10/11/2026), do mais novo para o mais antigo.
 Levantado a partir das tags do agregador, dos ponteiros dos submódulos, dos commits entre cada par de tags, das releases do GitHub
 e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação, com o que foi e o que **não** foi verificado).
 
@@ -19,6 +19,7 @@ e do [`docs/release.md`](docs/release.md) (onde estão as notas de publicação,
 
 | Tag | Data | Daemon (`rustploy`) | App (`rustploy-gui`) | `rustploy-shared` | Destaque |
 |---|---|---|---|---|---|
+| [v0.1.59](#v0159--2026-11-10) | 2026-11-10 | **0.1.51** | **0.1.53** | 0.25.0 | Job em execução não mostra mais a faixa de etapas do deploy |
 | [v0.1.58](#v0158--2026-11-10) | 2026-11-10 | **0.1.50** | **0.1.52** | 0.25.0 | Execuções de job e aquecimentos entram na fila de deploys (Fila, Executando e Histórico) |
 | [v0.1.57](#v0157--2026-11-10) | 2026-11-10 | **0.1.49** | **0.1.51** | 0.24.0 | Painel de retenção do registry arrumado (spinbox, layout, texto em pt-BR); barras das abas Docker com espaçamento |
 | [v0.1.56](#v0156--2026-11-10) | 2026-11-10 | **0.1.48** | **0.1.50** | **0.24.0** | Retenção de tags do registry embutido: mantém só as últimas N de cada repositório |
@@ -72,6 +73,13 @@ lá, a data do commit da tag; o horário de publicação no GitHub, em UTC, est�
 Cada release traz também o `checksums.sha256` e um `.minisig` para cada `.deb` e para o zip.
 
 ---
+
+## v0.1.59 — 2026-11-10
+
+Daemon **0.1.51** e app **0.1.53**; `rustploy-shared` **0.25.0** não mudou.
+
+### Corrigido
+- **Deploy Engine, aba Executando (app e web UI):** um job ou aquecimento mostrava a faixa de etapas do deploy (Fila, Checks, Deps, Obter…) e o estado "Construindo". Agora mostra o estado **Executando** e nenhuma faixa.
 
 ## v0.1.58 — 2026-11-10
 
