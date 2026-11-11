@@ -156,15 +156,18 @@ jobs:
       # MSVC STL baixados pelo cargo-xwin exigem Clang >= 19 (o do runner é o 18): LLVM 20 do apt.llvm.org.
       - name: Install LLVM 20 toolchain and NASM
         run: |
+          # Em 2026-11-11 o DNS do runner falhou no meio do apt ("Temporary failure resolving
+          # 'azure.archive.ubuntu.com'"), inclusive dentro do `llvm.sh`: resolvedor público no host e o passo
+          # inteiro repetido até 3 vezes (falha de verdade se as três falharem).
+          sudo mkdir -p /etc/systemd/resolved.conf.d
+          printf '[Resolve]\nDNS=1.1.1.1 8.8.8.8\n' | sudo tee /etc/systemd/resolved.conf.d/release-dns.conf >/dev/null
+          sudo systemctl restart systemd-resolved || true
           curl -fsSL https://apt.llvm.org/llvm.sh -o llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 20
-          # Com tentativas: em 2026-11-11 o DNS dos espelhos do runner falhou no meio do download
-          # ("Temporary failure resolving 'azure.archive.ubuntu.com'").
           ok=0
           for i in 1 2 3; do
-            if sudo apt-get update && sudo apt-get install -y --fix-missing llvm-20 lld-20 nasm; then ok=1; break; fi
-            echo "apt falhou (tentativa $i de 3); esperando para repetir"; sleep 20
+            if sudo apt-get update && sudo ./llvm.sh 20 && sudo apt-get install -y --fix-missing llvm-20 lld-20 nasm; then ok=1; break; fi
+            echo "instalação do LLVM falhou (tentativa $i de 3); esperando para repetir"; sleep 20
           done
           [ "$ok" = 1 ]
           echo "/usr/lib/llvm-20/bin" >> "$GITHUB_PATH"
