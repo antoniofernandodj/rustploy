@@ -190,6 +190,33 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.60 (2026-11-11): backup dos dados no S3, agendador e recuperação do servidor
+
+Daemon **0.1.52**, app **0.1.54**, `rustploy-shared` **0.26.0** (os três no crates.io). Plano e estado: `docs/plano-backup-de-dados-para-s3.md`.
+
+- **O que entrou:** cliente S3 só em hyper (SigV4, multipart, sem crate da AWS); destino S3 único por servidor (chave secreta
+  cifrada, nunca devolvida, vai ao git); backup/restauração/exclusão por serviço em segundo plano; política por serviço no YAML
+  e agendador a cada minuto na fila de deploy; **recuperação de um servidor limpo** (git + chave privada de recuperação,
+  que só vive na memória, com os segredos recifrados). Abas **Backups** e **Recuperar** em Settings e bloco na aba Dados, na
+  web UI e no app. Guias `backup-no-s3` e `recuperar-servidor` (pt e en).
+- **Verificado de verdade:** a recuperação com **dois daemons reais** (Podman rootless, RustFS, repositório git `file://`):
+  Postgres Compose (250 linhas) e volume (2 MB) voltaram com `md5` idêntico num servidor virgem com outra identidade; backup
+  cifrado, retenção, agendador disparando sozinho, falha visível sem repetir a cada minuto. Release: `sha256sum -c` e
+  `minisign -V` (os 4 arquivos) pela URL pública; `install.sh gui` num `debian:12` instalou o app 0.1.54-1; docs no ar (200 e
+  conteúdo novo; 933 páginas, 0 links quebrados).
+- **Não verificado:** as abas novas **vistas rodando** (só testes automatizados e headless); a recuperação com um remoto
+  `https://` real (só `file://`); Docker (só Podman); MySQL/MariaDB/MongoDB; o daemon pelo `install.sh` (a rodada
+  foi só do app); o `install.ps1`.
+- **O CI quebrou por infraestrutura (três rodadas seguidas, depois de horas de sucesso):** `apt-get update` nos contêineres
+  `ubuntu:22.04` dos jobs `.deb` falhava com `Could not resolve 'archive.ubuntu.com'`; e, no host do job do Windows,
+  `Temporary failure resolving 'azure.archive.ubuntu.com'`, inclusive **dentro do `llvm.sh`**. Correção no
+  `release.yml`: jobs `.deb` em `ubuntu-24.04` (em vez de `ubuntu-latest`) com `options: --dns 1.1.1.1 --dns 8.8.8.8`; no
+  Windows, resolvedor público no host (`systemd-resolved`) e o passo inteiro do LLVM/NASM (com o `llvm.sh`) repetido até 3
+  vezes. Lição: o erro de uma rodada que passou horas antes não é do código; ler o **log do passo** (`gh api
+  repos/.../actions/jobs/<id>/logs`), e `gh run view --log-failed` só funciona com a rodada **terminada**.
+- **Armadilha de teste:** `rustployd --help` **sobe o daemon** (não há CLI) e migrou o banco dev real; para um daemon de
+  teste use `RUSTPLOY_CONFIG` com tudo em um diretório temporário (receita na memória do projeto).
+
 ## v0.1.59 (2026-11-10): job em execução sem a faixa de etapas do deploy
 
 - **O que muda:** daemon **0.1.51** e app **0.1.53** (shared 0.25.0 igual). Na aba Executando, job e aquecimento mostram o estado **EXECUTANDO** e nenhuma faixa de etapas (Fila, Checks, Deps, Obter…). Web UI (`format.js`, `index.html`) e app (`dashboard.luau`, `executando.component.gv`).
