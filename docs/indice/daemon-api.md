@@ -175,6 +175,7 @@ fn handle(state, service_id, key, confirm) -> Response
 ### managed_database.rs — `Command::ManagedDatabase{List,Create,Delete}`: databases (com usuário próprio) dentro de um servido…
 fn server(state, id) -> Result<(Service, Engine), RpResponse>
 fn views(state, svc, engine) -> RpResponse
+fn open_views(state, svc, engine, rows) — As linhas viram visões (com a connection URL): a senha é aberta aqui, só em memória.
 fn list(state, server_service_id) -> RpResponse
 fn create(state, req) -> RpResponse
 fn delete(state, id) -> RpResponse

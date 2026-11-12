@@ -80,42 +80,11 @@ function History.drop(key, id) — - Esquece os retratos que apontam para `id` e
 function History.clear()
 function History.size()
 
-### job_env.luau — tela "Variáveis e secrets do job" (shell/job_env.component.gv): as envs e os secrets de UM job, com …
-local ask(title, message, confirm_label, destructive)
-local job_scope()
-function M.load() — Relê o job (e os nomes dos secrets dele) e espalha no ctx.
-local reset_forms()
+### job_env.luau — tela "Variáveis e secrets do job" (shell/job_env.component.gv).
 local close_job_actions()
 local show(job_id)
 function job_env_open(job_id) — "🔑 Variáveis e secrets" no painel "Ações do job".
 function job_env_back() — "‹ Voltar": a mesma ação do Backspace.
-local save_env(vars, comments, done_message) — Reenvia o Job inteiro com as envs novas (o daemon não tem PATCH parcial).
-function job_env_show_validation_errors(_erros_json)
-function job_env_add()
-function job_env_delete(key)
-function job_env_text_toggle()
-function job_env_text_cancel()
-function job_env_import()
-function job_env_reorder(reorder_json) — Reordena (arraste): `reorder_json` é um JSON array de keys na nova ordem (linhas `__c<idx>` são come…
-local env_row(key)
-local edit_start(field, key)
-function job_env_edit_key(key)
-function job_env_edit_value(key)
-function job_env_edit_cancel()
-function job_env_edit_apply()
-function job_secret_rename_pick(name)
-function job_rename_cancel()
-function job_rename_apply()
-local job_move(op, name, done_message)
-function job_env_to_secret(key) — 🔒 numa variável em claro: o valor passa a ser guardado cifrado.
-function job_secret_to_env(name) — 🔓: volta a ser variável em claro (o valor deixa de ser cifrado).
-function job_env_to_project(key) — ↑ variável em claro do job → variável do projeto.
-function job_secret_to_project(name) — ↑ secret do job → secret do projeto.
-function job_secret_add_show_validation_errors(_erros_json)
-function job_secret_add()
-function job_secret_delete(name)
-function job_secret_reveal(name) — 👁: pede o valor ao daemon (SecretReveal grava auditoria: quem, qual, quando; nunca o valor).
-function job_secret_hide(name)
 
 ### jobs.luau — ações da tela global "Schedules" (sidebar) e da aba "Jobs" do projeto: rodar agora, aquecer, pausar/…
 local close_job_actions() — Fecha o painel "Ações do job" (`JobActions`) de todas as linhas: cada painel guarda o aberto/fechado…

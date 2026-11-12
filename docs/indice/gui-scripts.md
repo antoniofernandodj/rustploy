@@ -46,6 +46,68 @@ function M.is_true(value) — Um booleano do `ctx` chega como o `boolean` (um ch
 function M.is_false(value) — O par de `is_true`.
 function M.list_is_empty(value) — `true` se a chave JSON do `ctx` é uma lista vazia (ou não é uma lista legível).
 
+### job_env_actions.luau — as funções globais que os botões do painel das envs do job chamam (components/job_env_panel.componen…
+function job_env_show_validation_errors(_erros_json)
+function job_env_add()
+function job_env_delete(key)
+function job_env_text_toggle()
+function job_env_text_cancel()
+function job_env_import()
+function job_env_reorder(reorder_json)
+function job_env_edit_key(key)
+function job_env_edit_value(key)
+function job_env_edit_cancel()
+function job_env_edit_apply()
+function job_secret_rename_pick(name)
+function job_rename_cancel()
+function job_rename_apply()
+function job_env_to_secret(key)
+function job_secret_to_env(name)
+function job_env_to_project(key)
+function job_secret_to_project(name)
+function job_secret_add_show_validation_errors(_erros_json)
+function job_secret_add()
+function job_secret_delete(name)
+function job_secret_reveal(name)
+function job_secret_hide(name)
+function job_secret_copy(ref)
+
+### job_env_core.luau — a lógica das envs e secrets de UM job, sem depender da janela principal (sem State/Stream/History), …
+function Core.setup(opts, project_id, job_id, after_change)
+function Core.job() — O Job cru mais recente (envs atuais), para quem precisa reenviar o JobUpdate.
+local ask(title, message, confirm_label, destructive)
+local changed()
+function Core.reset_forms()
+function Core.load() — Relê o job (e os nomes dos secrets dele) e espalha no ctx.
+local save_env(vars, comments, done_message) — Reenvia o Job inteiro com as envs novas (o daemon não tem PATCH parcial).
+function Core.show_validation_errors()
+function Core.add()
+function Core.delete(key)
+function Core.text_toggle()
+function Core.text_cancel()
+function Core.import()
+function Core.reorder(reorder_json) — Reordena (arraste): `reorder_json` é um JSON array de keys na nova ordem (linhas `__c<idx>` são come…
+local env_row(key)
+local edit_start(field, key)
+function Core.edit_key(key)
+function Core.edit_value(key)
+function Core.edit_cancel()
+function Core.edit_apply()
+function Core.secret_rename_pick(name)
+function Core.rename_cancel()
+function Core.rename_apply()
+local job_move(op, name, done_message)
+function Core.env_to_secret(key) — 🔒 numa variável em claro: o valor passa a ser guardado cifrado.
+function Core.secret_to_env(name) — 🔓: volta a ser variável em claro (o valor deixa de ser cifrado).
+function Core.env_to_project(key) — ↑ variável em claro do job → variável do projeto.
+function Core.secret_to_project(name) — ↑ secret do job → secret do projeto.
+function Core.secret_add_show_validation_errors()
+function Core.secret_add()
+function Core.secret_delete(name)
+function Core.secret_reveal(name) — 👁: pede o valor ao daemon (SecretReveal grava auditoria: quem, qual, quando; nunca o valor).
+function Core.secret_hide(name)
+function Core.secret_copy(ref) — Copia o valor já revelado (a chave é "job:<id>:<nome>", a mesma da linha).
+
 ### log_window.luau — script da JANELA de logs (runtime OU build) de um serviço/deployment, um motor Glacier próprio e ISO…
 local with_date() — Set COMPLETO do textarea a partir do buf (usado no seed e no corte).
 local set_full()
@@ -69,6 +131,9 @@ function new_job_pick_no_service() — Job 100% autônomo: sem serviço gatilho,
 function new_job_back()
 function new_job_kind(kind_choice)
 function new_job_create()
+function open_env_step(job_id, project_id)
+function new_job_open_env() — "🔑 Variáveis e secrets" no formulário de EDIÇÃO.
+function new_job_env_back() — Do painel de volta ao formulário (só na edição; na criação o job já foi salvo e só resta fechar).
 function cancel()
 
 ### new_project_window.luau — script da JANELA de "Novo projeto", um motor Glacier próprio e ISOLADO do app principal (aberto via …

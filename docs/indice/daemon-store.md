@@ -105,6 +105,7 @@ impl LogSink for Db: append_build_line, append_job_line
 
 ### managed_database.rs — Tabela `managed_database`: databases criados em servidores compartilhados.
 struct Row { id, server_service_id, project_id, name, password, env_var, connection_limit, statement_timeout_ms, created_at }
+fn open(secrets, r) -> Result<Row> — A linha com a senha **aberta** (em claro, em memória).
 fn to_row(project_id, m) -> Row
 fn all_rows(db) -> Vec<Row>
 fn insert(db, r) -> Result<Row>
@@ -293,7 +294,7 @@ struct ServiceInfra { id, spec, compose_project, created_at, webhook_token, secr
 struct BackupInfra { policy, since } — A política de backup e **desde quando** vale (referência do primeiro disparo: um `Daily 03:00` ligad…
 struct JobInfra { id, trigger_service_id, name, compose, git_source, main_service, env_vars, env_comments, secrets, enabled, recurrence, created_at }
 struct SecretInfra { id, key, value } — Hoje o `value` já vem cifrado pelo `SecretsManager` (passphrase).
-struct ManagedDatabaseInfra { id, server_service_id, name, password, env_var, connection_limit, statement_timeout_ms, created_at } — **Atenção:** `password` está em claro (é assim no SQL hoje).
+struct ManagedDatabaseInfra { id, server_service_id, name, password, env_var, connection_limit, statement_timeout_ms, created_at } — `password` é gravada **cifrada** (`ENC[age:…]`); quem precisa do valor abre com `store::managed_data…
 struct SharedAccessInfra { server_service_id, created_at }
 struct ProvidersFile { providers }
 struct ManifestFile { schema }
@@ -337,7 +338,7 @@ impl Repo
 fn seal_plaintext(repo, secrets) -> Result<usize> — Cifra os tokens de webhook e os `client_secret` de provider que estão em claro.
 fn seal_provider_tokens(db, secrets) -> Result<usize> — Cifra os tokens de login dos providers Git (`access_token_enc` e `refresh_token_enc`) que estão em c…
 fn count_plaintext(st) -> usize
-(6 testes)
+(7 testes)
 
 ### txn.rs — Transação de "tudo ou nada" sobre um conjunto de arquivos num diretório.
 struct Tx { writes, deletes } — Conjunto de mudanças aplicado atomicamente por [`FileTree::commit`].

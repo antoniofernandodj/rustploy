@@ -38,6 +38,8 @@
 
 ### job_actions.component.gv
 
+### job_env_panel.component.gv
+
 ### loading_row.component.gv
 
 ### nav_item.component.gv

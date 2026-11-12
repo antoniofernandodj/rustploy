@@ -178,6 +178,8 @@ impl ApiConfig
 struct RegistryConfig { enabled, port, domain, storage_dir } — Registry Docker OCI (Distribution API v2) embutido no daemon.
 fn default_registry_port() -> u16
 struct DaemonConfig { db_path, log_level }
+fn default_db_path() -> String
+fn default_log_level() -> String
 struct IngressConfig { http_port, https_port, bind_address, acme }
 struct AcmeConfig { enabled, email, directory }
 struct DockerConfig { socket_path }
@@ -196,6 +198,7 @@ fn dirs_config_path() -> Option<PathBuf>
 fn outbound_ip() -> String — Detecta o IP de saída da máquina conectando um socket UDP em 8.8.8.8:80 (sem enviar dados) e lendo o…
 const CONFIG_PATH
 impl Default for ApiConfig
+impl Default for DaemonConfig
 impl Default for EnvBackupConfig
 impl Default for ExternalPortsConfig
 impl Default for LogsConfig
@@ -203,7 +206,7 @@ impl Default for RegistryConfig
 impl Default for RustployConfig
 impl Default for StateGitConfig
 impl Default for UpdateConfig
-(3 testes)
+(4 testes)
 
 ### connection.rs — Connection string de banco/broker, montada num lugar só.
 fn pct_encode(s) -> String — Percent-encoding de um componente de userinfo (`@`, `:`, `/`, `?`, `#`…).

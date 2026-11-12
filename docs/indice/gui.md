@@ -617,7 +617,8 @@ function test_novo_job_modo_edicao__recorrencia_semanal_guarda_o_dia_e_o() — -
 function test_novo_job_modo_edicao__sem_recorrencia_ou_desconhecida_e_manual() — - sem recorrência (ou desconhecida) é manual com os padrões
 function test_novo_job_modo_edicao__job_com_fonte_git_troca_a_fonte_e_os() — - job com fonte git troca a fonte e os campos do picker
 function test_novo_job_modo_edicao__git_sem_compose_path_usa_o_padrao() — - git sem compose_path usa o padrão
-function test_novo_job_modo_edicao__as_variaveis_do_job_voltam_como_env_com() — - as variáveis do job voltam como .env, com segredo e comentário
+function test_novo_job_modo_edicao__as_envs_do_job_ficam_guardadas_para_o_salvar() — - as envs do job ficam guardadas para o "Salvar" reenviá-las (o painel as gerencia direto no daemon)
+function test_novo_job_passo_env_avalia() — - o painel de envs é um passo da janela e a tela avalia
 function test_novo_job_modo_edicao__json_de_edicao_ilegivel_e_ignorado_abre() — - JSON de edição ilegível é ignorado: abre como job novo
 local com_catalogo()
 function test_novo_job_passos__escolher_o_projeto_filtra_os_servicos_dele_e() — - escolher o projeto filtra os serviços dele e avança
