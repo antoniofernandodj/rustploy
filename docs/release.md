@@ -190,6 +190,27 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.64 (2026-11-12): Limpar configuração do sync, projeto editado no lugar
+
+Daemon **0.1.56**, app **0.1.58**, `rustploy-shared` **0.28.0** (sem mudança; os três no crates.io).
+
+- **Por quê:** uma instalação local apontada para o repositório de infra de produção sobrescreveu o estado dele (provider GitHub
+  recriado, secrets recifrados com outra identidade); o daemon de prod recusou o commit de volta (`incoming_rejected`: o secret não
+  decifra) e a única saída era mexer no banco. O sync não tinha como ser desconfigurado depois de ligado.
+- **O que entrou:** botão **Limpar configuração** em Settings → Sincronização (app e web UI): `StateGitConfigure` em `off` sem
+  remoto/branch/conta (sem mudar o protocolo); o remoto e o histórico não são apagados. No app, nome e descrição do projeto passam a
+  editar no lugar (debounce de 0,5 s, como o título do serviço; saiu o botão "Editar projeto"), e **Adicionar**/**Salvar secret** ficam na
+  linha do valor. No daemon, o erro de pré-deploy check traz a causa e as 5 últimas linhas do log do job, e o `recover` avisa quando
+  providers voltam sem token.
+- **Verificado de verdade:** `make lint`; testes do daemon (592 de 593, ver abaixo), da GUI (40 + 449 Luau) e do shared (120); CI de teste e
+  da tag verdes; `sha256sum -c` e `minisign -V` dos 4 arquivos pela URL pública; `install.sh` (daemon) e `install.sh gui` num `debian:12`
+  (podman) instalaram `rustployd 0.1.56-1` e `rustploy-gui 0.1.58-1`; docs no ar (200 e conteúdo novo; 933 páginas, 0 links quebrados).
+- **Não verificado:** o botão e a edição do projeto **vistos rodando** (só testes e render headless); `install.ps1` no Windows; o restore do
+  repositório de infra de prod no daemon real foi conferido só pelo `StateGitStatus` (sem `incoming_rejected`, `behind 0`).
+- **Armadilha:** `allocate_pula_porta_ocupada_no_so` (daemon) falha quando a primeira porta da faixa externa (20000) já está em uso na
+  máquina (aqui, containers locais); não é regressão. Rode-o numa máquina sem nada na 20000, ou ignore-o com `--skip`.
+- **Armadilha:** `make test` para no primeiro pacote que falha (o daemon) e não roda GUI nem shared; rode-os à parte.
+
 ## v0.1.63 (2026-11-12): conta git em uso não é mais removida sem aviso
 
 Daemon **0.1.55**, app **0.1.57**, `rustploy-shared` **0.28.0** (os três no crates.io).
