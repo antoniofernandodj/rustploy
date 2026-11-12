@@ -135,10 +135,10 @@ function open_services_reorder_window() — Abre a janela "Reordenar serviços" 
 function on_broadcast(event, payload) — Recebe mensagens de OUTRAS janelas (glacier broadcast).
 function create_project() — NOTA: create_project (formulário inline, removido da UI em favor da janela acima) é mantido por ser …
 function delete_project(project_id)
-function edit_project_toggle()
-function cancel_project_edit()
-function project_edit_show_validation_errors(_erros_json) — on_validation_error do form(name = edit_project) — o motor já publicou {error_edit_project_name} e a…
-function save_project_edit() — on_submit: só roda com a validação (rules="required" no NOME) aprovada.
+local project_edit_save()
+local project_edit_schedule()
+function project_title_change(value) — on_change do nome (título do cabeçalho).
+function project_description_change(value) — on_change da descrição (subtítulo do cabeçalho).
 local with_project_env(mutate)
 function project_env_show_validation_errors(_erros_json) — on_validation_error do form(name = project_env_add) — a chave é `rules="required"`; o motor publica …
 function project_env_add()
@@ -353,6 +353,7 @@ function update_rollback() — Volta os binários para os do backup da última a
 ### state_git.luau — Settings → Sync: a sincronização do estado de infra com um repositório git (Fases 6 e 7 de docs/plan…
 function state_git_provider_pick(provider_id) — O <select> da conta Git só escreve na chave via on_change.
 function state_git_save() — Liga/desliga/configura.
+function state_git_clear() — Limpa a configuração do sync: modo `off` e sem repositório, branch nem conta.
 function state_git_sync_now() — "Sincronizar agora": commit pendente, fetch, aplicação do que veio de fora e push.
 function state_git_resume() — Depois de resolver à mão (por SSH): o daemon RELÊ a pasta e valida antes de voltar a andar.
 local resolve(choice, question)

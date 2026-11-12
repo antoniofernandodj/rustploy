@@ -364,6 +364,20 @@ function test_data_backup__salvar_sem_conexao_e_inerte() — - sem conexão, sal
 function test_data_backup__testar_e_limpar_sem_conexao_sao_inertes() — - sem conexão, testar e limpar também são inertes
 function test_data_backup__formulario_nasce_com_defaults() — - o formulário nasce com defaults seguros: região padrão, path-style ligado, nada configurado
 
+### deploy_plan.test.luau — "Deploy com dependências": start_deploy pede o plano ao daemon, mostra a ordem num `dialog` declarad…
+local nova()
+local com_api(tela, respostas) — Injeta o api falso.
+local enviados(tela) — Os comandos enviados ao daemon, na ordem, separados por vírgula.
+function test_deploy_plan__sem_conexao_o_deploy_e_inerte() — - sem conexão, pedir o deploy não prepara dialog nenhum (nem toast)
+function test_deploy_plan__com_dependencias_semeia_o_plano_e_espera_a_escolha() — - com dependências: pede o plano, semeia a ordem no corpo e para no diálogo, sem deployar nada
+function test_deploy_plan__ordem_indica_o_que_nao_entra_na_fila() — - o plano marca ao lado do nome o que não entra na fila
+function test_deploy_plan__sem_dependencias_vai_direto_ao_deploy_simples() — - sem dependências (plano de um item só): o deploy simples de sempre, sem abrir diálogo
+function test_deploy_plan__plano_com_erro_cai_no_deploy_simples() — - plano indisponível (erro do daemon): também cai no deploy simples
+function test_deploy_plan__aceitar_deploya_com_dependencias() — - Aceitar: deploya com as dependências, na ordem mostrada, para o serviço pedido
+function test_deploy_plan__so_o_servico_faz_o_deploy_simples() — - Só o serviço: o deploy simples do serviço pedido, sem o lote
+function test_deploy_plan__rejeitar_nao_deploya_nada() — - Rejeitar (ou fechar o diálogo): nada mais é enviado ao daemon, nem toast
+function test_deploy_plan__sem_dialogo_pendente_answer_lanca() — - sem diálogo aberto não há o que responder
+
 ### env_edit.test.luau — Edição no lugar da chave/valor de uma variável (handlers/secrets.luau), sem conexão.
 local nova()
 function test_edicao_no_lugar__a_chave_comeca_com_a_chave_atual() — - ✏️ arma o campo da CHAVE na própria linha, com a chave atual como rascunho
@@ -428,6 +442,15 @@ function test_service_backup__estado_inicial() — - a aba nasce sem lista e sem
 function test_service_backup__linha_da_ultima_operacao() — - a última operação vira uma linha legível nos três estados
 function test_service_backup__formulario_da_politica_ida_e_volta() — - o formulário da política ida e volta: semanal, a cada N horas, diário e "nunca configurada" (UTC)
 function test_service_backup__salvar_politica_sem_conexao_e_inerte() — - sem sessão, salvar a política não faz nada
+
+### state_git_clear.test.luau — Settings → Sincronização → "Limpar configuração" (`state_git_clear`) e o projeto editado no lugar (`…
+local nova()
+local com_api(tela)
+local enviados(tela)
+function test_state_git_clear__flag_de_configurado() — - o botão só aparece com algo gravado: modo ligado, repositório ou conta
+function test_state_git_clear__recusar_nao_envia() — - recusar a confirmação não manda nada ao daemon
+function test_state_git_clear__confirmar_desliga_e_limpa_o_formulario() — - confirmar manda StateGitConfigure em `off` sem repositório/branch/conta e limpa o formulário
+function test_project_title__digitar_marca_pendente_sem_gravar_na_hora() — - projeto: digitar o nome marca "pendente" (o stream não pisa no campo) e não grava na hora
 
 ## rustploy-gui/tests/lib/
 
