@@ -106,6 +106,8 @@ function savePrefs(preferences)
     serviceWarm(serviceId) — Aquece o serviço (constrói a imagem para popular o cache de build) sem fazer deploy: o container no …
     openJobActions(jobId)
     closeJobActions()
+    openJobEnv(jobId)
+    closeJobEnv()
     jobCreate(payload) — `payload` = { project_id, trigger_service_id, name, compose, main_service, recurrence }.
     openNewJob()
     closeNewJob()
@@ -288,8 +290,8 @@ function registerIcons(Alpine)
 
 ### index.html — Casca única da webui (Alpine.js): login, shell e todas as telas, uma seção por view, cada uma com o …
 seções: Login, Shell (sidebar + topbar + conteúdo), Deploy Engine, Monitoring, Ingress, Docker, Schedules, Modais globais de Jobs, Settings, Projects, Projeto aberto, Novo serviço (wizard por passos, porta de new_service.gv), Janela: novo/editar projeto (wm.js), Janela: exportar serviço (screens/service_bundle.js), Janela: logs ao vivo do serviço (destacável da aba Logs), Janela: log de uma execução passada (histórico, sem ao vivo), Detalhe de serviço
-x-data: dashboard, deployEngine, docker, ingress, login, monitoring, newService, projectDetail, projectWin, projects, running, schedules, serviceDetail, serviceExport, serviceImport, settings
-chama: String, abortDeployment, addDomain, addEnvVar, addServiceSecret, analyze, backupDestinationClear, backupDestinationLoad, backupDestinationSave, backupDestinationTest, backupNow, cancel, cancelCompose, cancelEnvEdit, chooseEnv, clear, clearFinished, close, closeBuildLog, closeDeployPlan, closeDetail, closeEnvText, closeJobActions, closeJobLogs, closeNewJob, closeNewService, closeProjectWin, closeServicesReorder, closeTokenModal, commitEnvEdit, confirmDeployPlan, confirmImportData, copy, copySecret, copyServiceSecret, copyText, copyToClipboard, create, createSharedDatabase, deleteBackup, deleteDomain, deleteEnvVar, deleteProject, deleteSecret, deleteService, deleteServiceSecret, deleteSharedDatabase, dependencyAdd, dependencyDelete, deployPlanOnlyService, deployRollback, deployServiceFromList, deployStart, discardOldDatabase, disconnect, dismissToast, dockerCleanupRunNow, dockerCleanupSave, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, dockerStopContainer, download, dragEnd, dragStart, dropOn, envToProject, envToSecret, exportData, gitProviderConnect, gitProviderDelete, gitProviderRefresh, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDatabase, gotoImport, gotoStorage, gotoTemplate, gotoType, hideSecret, hideServiceSecret, infraDownload, initAdvancedForm, initGeneralForm, initHealthcheckForm, jobDelete, jobRebuild, jobRunCancel, jobRunNow, jobToggle, jobWarm, loadBackups, loadData, loadMigration, nav, newJobBack, newJobCreate, newJobGitProviderPick, newJobGitRepoPick, newJobPickNoService, newJobPickProject, newJobPickService, newJobSetSourceTab, newRegistryTokenCreate, onArchiveFileChange, open, openDetail, openEditJob, openEnvText, openExportWin, openJobActions, openJobLogs, openNewJob, openNewService, openProject, openProjectWin, openService, openServicesReorder, openTokenModal, persistPrefs, pickAll, pickBroker, pickDataFile, pickDatabase, pickFile, pickNone, pickStorage, pickSuggested, pickTemplate, preDeployCheckAdd, preDeployCheckDelete, preDeployCheckMove, previewImportData, projectEnvToSecret, projectEnvToService, projectRename, projectSecretToEnv, projectSecretToService, queueCancel, queuePromote, queueTogglePause, recoverCancel, recoverRun, recoverStart, recoverStatusLoad, regenWebhook, registryCloseRepo, registryGc, registryOpenRepo, registryPickerRepoPick, registryRemoveRepo, registryRemoveTag, registryRemoveToken, removeDeployment, renameService, requestProjectDeploy, reset, restoreBackup, revealSecret, revealServiceSecret, rollbackMigration, saveAdvanced, saveBackupPolicy, saveCompose, saveEnvText, saveHealthcheck, saveRetention, saveServicesReorder, saveSource, searchChanged, select, serviceLogExecutionDelete, serviceLogExecutionLoadOlder, serviceLogExecutionOpen, serviceLogLoadOlder, serviceLogSelectedDelete, serviceLogToggle, serviceLogToggleAll, serviceReload, serviceRename, serviceSecretToEnv, serviceSecretToProject, serviceStop, serviceWarm, servicesReorderMove, servicesReorderStep, set, setData, setProviderTab, setServiceTab, setShared, settingsSave, showSharedDatabase, startEnvEdit, startMigration, stateGitAllowFinding, stateGitConfigure, stateGitDismissRemoval, stateGitFormLoad, stateGitOpen, stateGitResolve, stateGitResume, stateGitSyncNow, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDatabase, submitSecret, submitStorage, submitTemplate, toggleReveal, updateApply, updateCheckNow, updateRollback, uploadArchive, viewBuildLog
+x-data: dashboard, deployEngine, docker, ingress, jobEnv, login, monitoring, newService, projectDetail, projectWin, projects, running, schedules, serviceDetail, serviceExport, serviceImport, settings
+chama: String, abortDeployment, addDomain, addEnvVar, addSecret, addServiceSecret, analyze, backupDestinationClear, backupDestinationLoad, backupDestinationSave, backupDestinationTest, backupNow, cancel, cancelCompose, cancelEnvEdit, chooseEnv, clear, clearFinished, close, closeBuildLog, closeDeployPlan, closeDetail, closeEnvText, closeJobActions, closeJobEnv, closeJobLogs, closeNewJob, closeNewService, closeProjectWin, closeServicesReorder, closeTokenModal, commitEnvEdit, confirmDeployPlan, confirmImportData, copy, copySecret, copyServiceSecret, copyText, copyToClipboard, create, createSharedDatabase, deleteBackup, deleteDomain, deleteEnvVar, deleteProject, deleteSecret, deleteService, deleteServiceSecret, deleteSharedDatabase, dependencyAdd, dependencyDelete, deployPlanOnlyService, deployRollback, deployServiceFromList, deployStart, discardOldDatabase, disconnect, dismissToast, dockerCleanupRunNow, dockerCleanupSave, dockerPruneContainers, dockerPruneImages, dockerPruneNetworks, dockerPruneVolumes, dockerRemoveContainer, dockerRemoveImage, dockerRemoveNetwork, dockerRemoveVolume, dockerSetTab, dockerStopContainer, download, dragEnd, dragStart, dropOn, envToProject, envToSecret, exportData, gitProviderConnect, gitProviderDelete, gitProviderRefresh, giteaProviderPick, giteaRepoPick, gotoApp, gotoBroker, gotoCompose, gotoDatabase, gotoImport, gotoStorage, gotoTemplate, gotoType, hideSecret, hideServiceSecret, infraDownload, initAdvancedForm, initGeneralForm, initHealthcheckForm, jobDelete, jobRebuild, jobRunCancel, jobRunNow, jobToggle, jobWarm, loadBackups, loadData, loadMigration, nav, newJobBack, newJobCreate, newJobGitProviderPick, newJobGitRepoPick, newJobPickNoService, newJobPickProject, newJobPickService, newJobSetSourceTab, newRegistryTokenCreate, onArchiveFileChange, open, openDetail, openEditJob, openEnvText, openExportWin, openJobActions, openJobEnv, openJobLogs, openNewJob, openNewService, openProject, openProjectWin, openService, openServicesReorder, openTokenModal, persistPrefs, pickAll, pickBroker, pickDataFile, pickDatabase, pickFile, pickNone, pickStorage, pickSuggested, pickTemplate, preDeployCheckAdd, preDeployCheckDelete, preDeployCheckMove, previewImportData, projectEnvToSecret, projectEnvToService, projectRename, projectSecretToEnv, projectSecretToService, queueCancel, queuePromote, queueTogglePause, recoverCancel, recoverRun, recoverStart, recoverStatusLoad, regenWebhook, registryCloseRepo, registryGc, registryOpenRepo, registryPickerRepoPick, registryRemoveRepo, registryRemoveTag, registryRemoveToken, removeDeployment, rename, renameService, requestProjectDeploy, reset, restoreBackup, revealSecret, revealServiceSecret, rollbackMigration, saveAdvanced, saveBackupPolicy, saveCompose, saveEnvText, saveHealthcheck, saveRetention, saveServicesReorder, saveSource, searchChanged, secretToEnv, secretToProject, select, serviceLogExecutionDelete, serviceLogExecutionLoadOlder, serviceLogExecutionOpen, serviceLogLoadOlder, serviceLogSelectedDelete, serviceLogToggle, serviceLogToggleAll, serviceReload, serviceRename, serviceSecretToEnv, serviceSecretToProject, serviceStop, serviceWarm, servicesReorderMove, servicesReorderStep, set, setData, setProviderTab, setServiceTab, setShared, settingsSave, showSharedDatabase, startEnvEdit, startMigration, stateGitAllowFinding, stateGitConfigure, stateGitDismissRemoval, stateGitFormLoad, stateGitOpen, stateGitResolve, stateGitResume, stateGitSyncNow, stopAll, stopAndDeleteService, stopService, submit, submitApp, submitBroker, submitCompose, submitDatabase, submitSecret, submitStorage, submitTemplate, toggleReveal, updateApply, updateCheckNow, updateRollback, uploadArchive, viewBuildLog
 
 ### sw.js — service worker do PWA Rustploy.
 
@@ -359,6 +361,34 @@ function openStream(baseUrl, token, path, handlers) — Abre a stream em `path` 
 ### ingress.js — tela "Ingress": rotas ativas no reverse proxy (por domínio) e portas TCP de host expostas diretament…
   Alpine.data("ingress")
     get: store, pairs, routes, hostPorts
+
+### job_env.js — janela "Variáveis do job": as envs e os secrets de UM job, com os mesmos botões da aba Environment d…
+  Alpine.data("jobEnv")
+    init()
+    afterChange()
+    saveEnv(vars, comments, doneMessage) — Reenvia o Job inteiro com as envs novas (o daemon não tem PATCH parcial).
+    addEnvVar()
+    deleteEnvVar(key)
+    openEnvText() — ── Editor .env de texto ───────────────────────────────────────────
+    closeEnvText()
+    saveEnvText()
+    startEnvEdit(row, field) — ── Edição no lugar da chave/valor ─────────────────────────────────
+    isEnvEditing(key, field)
+    cancelEnvEdit()
+    commitEnvEdit(row)
+    rename(kind, from) — ✏️ num secret/variável: renomeia sem o valor passar pela tela.
+    move(op, name, doneMessage) — ── Movimentos (SecretMove) ────────────────────────────────────────
+    envToSecret(key) — 🔒: a variável em claro passa a ser guardada cifrada.
+    secretToEnv(name) — 🔓: volta a ser variável em claro.
+    envToProject(key) — ↑ numa variável: sobe para o projeto (todos os serviços e jobs do projeto passam a herdar).
+    secretToProject(name) — ↑ num secret: sobe para o projeto.
+    loadSecrets() — ── Secrets do job ─────────────────────────────────────────────────
+    addSecret()
+    deleteSecret(name)
+    revealSecret(name) — 👁: pede o valor ao daemon (SecretReveal grava auditoria: quem, qual, quando; nunca o valor).
+    hideSecret(name)
+    copySecret(name)
+    get: store, job, envVars, envCount, scope
 
 ### login.js — tela de login.
   Alpine.data("login")

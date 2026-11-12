@@ -291,7 +291,7 @@ impl ProjectInfra
   fn services_in_order() -> Vec<&ServiceInfra> — Serviços na ordem de exibição: primeiro os de `service_order`, na ordem dela; os que ela não cita (c…
 struct ServiceInfra { id, spec, compose_project, created_at, webhook_token, secrets, backup }
 struct BackupInfra { policy, since } — A política de backup e **desde quando** vale (referência do primeiro disparo: um `Daily 03:00` ligad…
-struct JobInfra { id, trigger_service_id, name, compose, git_source, main_service, env_vars, env_comments, enabled, recurrence, created_at }
+struct JobInfra { id, trigger_service_id, name, compose, git_source, main_service, env_vars, env_comments, secrets, enabled, recurrence, created_at }
 struct SecretInfra { id, key, value } — Hoje o `value` já vem cifrado pelo `SecretsManager` (passphrase).
 struct ManagedDatabaseInfra { id, server_service_id, name, password, env_var, connection_limit, statement_timeout_ms, created_at } — **Atenção:** `password` está em claro (é assim no SQL hoje).
 struct SharedAccessInfra { server_service_id, created_at }

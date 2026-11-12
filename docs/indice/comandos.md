@@ -106,12 +106,12 @@ GetDaemonSettings | daemon: settings/get_daemon_settings | gui: handlers/connect
 SetDaemonSettings | daemon: settings/set_daemon_settings | gui: handlers/settings | web: app
 
 ## não mandam o campo, continuam falando só do escopo de projeto.
-SecretSet | daemon: secrets/secret_set | gui: handlers/secrets, handlers/services | web: app, screens/service_detail
-SecretDelete | daemon: secrets/secret_delete | gui: handlers/secrets, handlers/services | web: app, screens/service_detail
-SecretList | daemon: secrets/secret_list | gui: handlers/services | web: screens/service_detail
+SecretSet | daemon: secrets/secret_set | gui: handlers/job_env, handlers/secrets, handlers/services | web: app, screens/job_env, screens/service_detail
+SecretDelete | daemon: secrets/secret_delete | gui: handlers/job_env, handlers/secrets, handlers/services | web: app, screens/job_env, screens/service_detail
+SecretList | daemon: secrets/secret_list | gui: handlers/job_env, handlers/services | web: screens/job_env, screens/service_detail
 
 ## / grava uma linha de auditoria (quem, qual secret, quando — nunca o valor).
-SecretReveal — Devolve o **valor** de um secret (botão "ver valor"). | daemon: secrets/secret_reveal | gui: handlers/secrets, handlers/services | web: screens/project_detail, screens/service_detail
+SecretReveal — Devolve o **valor** de um secret (botão "ver valor"). | daemon: secrets/secret_reveal | gui: handlers/job_env, handlers/secrets, handlers/services | web: screens/job_env, screens/project_detail, screens/service_detail
 
 ## / sincronização com git, e o guia de "o que ainda falta mover para secret". Nunca devolve valores.
 InfraAudit — Lista o que está em claro (ou parece estar) no estado de infra — a tra… | daemon: secrets/infra_audit | gui: — | web: —
@@ -144,14 +144,14 @@ InfraAuditAllow — Marca (ou desmarca) uma **suspeita** da auditoria como "não
 StopContainer — Para um container (`id` completo, vindo de `DockerContainers`). | daemon: docker/docker_remove::stop_container | gui: handlers/docker | web: app
 
 ## / Falha se o destino já tem um item com o mesmo nome. Ver [`SecretMoveOp`].
-SecretMove — Move um item entre env e secret, ou entre escopos. | daemon: secrets/secret_move | gui: handlers/secrets, handlers/services | web: screens/project_detail, screens/service_detail
+SecretMove — Move um item entre env e secret, ou entre escopos. | daemon: secrets/secret_move | gui: handlers/job_env, handlers/secrets, handlers/services | web: screens/job_env, screens/project_detail, screens/service_detail
 
 ## / Resposta: `Ok`.
-EnvKeyRename — Renomeia a **chave** de uma env (do projeto, ou do serviço se `service… | daemon: secrets/env_key_rename | gui: handlers/secrets, handlers/services | web: screens/project_detail, screens/service_detail
-EnvValueSet — Troca só o **valor** de uma env existente (do projeto, ou do serviço s… | daemon: secrets/env_value_set | gui: handlers/secrets | web: screens/project_detail, screens/service_detail
+EnvKeyRename — Renomeia a **chave** de uma env (do projeto, ou do serviço se `service… | daemon: secrets/env_key_rename | gui: handlers/job_env, handlers/secrets, handlers/services | web: screens/job_env, screens/project_detail, screens/service_detail
+EnvValueSet — Troca só o **valor** de uma env existente (do projeto, ou do serviço s… | daemon: secrets/env_value_set | gui: handlers/job_env, handlers/secrets | web: screens/job_env, screens/project_detail, screens/service_detail
 
 ## / Falha se `from` não existe ou `to` já existe no escopo. Resposta: `Ok`.
-SecretRename — Renomeia um **secret** (do projeto, ou do serviço se `service_id` vier… | daemon: secrets/secret_rename | gui: handlers/secrets, handlers/services | web: screens/project_detail, screens/service_detail
+SecretRename — Renomeia um **secret** (do projeto, ou do serviço se `service_id` vier… | daemon: secrets/secret_rename | gui: handlers/job_env, handlers/secrets, handlers/services | web: screens/job_env, screens/project_detail, screens/service_detail
 
 ## / `ServiceExportPlan`.
 ServiceExportPlan — O que dá para levar do serviço: suas variáveis e as do projeto (com a … | daemon: features/iac/service_export/plan | gui: handlers/bundle | web: screens/service_bundle
@@ -206,11 +206,11 @@ ServiceImport — Cria UM serviço novo a partir de um pacote, sem sobrescrever 
 
 ## Jobs (tarefas one-shot via docker-compose, agendadas ou manuais)
 JobCreate | daemon: jobs/job_create | gui: new_job_window | web: app
-JobUpdate | daemon: jobs/job_update | gui: handlers/jobs, new_job_window | web: app
+JobUpdate | daemon: jobs/job_update | gui: handlers/job_env, handlers/jobs, new_job_window | web: app, screens/job_env
 JobDelete | daemon: jobs/job_delete | gui: handlers/jobs | web: app
 
 ## / Jobs de um único projeto (aba "Jobs" do projeto).
-JobList — Jobs de um único projeto (aba "Jobs" do projeto). | daemon: jobs/job_list | gui: handlers/services | web: —
+JobList — Jobs de um único projeto (aba "Jobs" do projeto). | daemon: jobs/job_list | gui: handlers/job_env, handlers/services | web: —
 
 ## / Todos os jobs, de todos os projetos (tela global da sidebar "Schedules").
 JobListAll — Todos os jobs, de todos os projetos (tela global da sidebar "Schedules… | daemon: jobs/job_list_all | gui: — | web: —

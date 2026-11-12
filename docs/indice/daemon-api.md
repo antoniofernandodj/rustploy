@@ -450,10 +450,10 @@ fn dispatch(state, cmd) -> RpResponse
 ## rustploy-daemon/crates/daemon/src/api/handlers/secrets/
 
 ### env_key_rename.rs — `Command::EnvKeyRename`: renomeia a chave de uma env (projeto ou serviço) mantendo o valor.
-fn handle(state, project_id, service_id, from, to) -> Response
+fn handle(state, project_id, service_id, job_id, from, to) -> Response
 
 ### env_value_set.rs — `Command::EnvValueSet`: troca só o valor de uma env (projeto ou serviço), na mesma posição.
-fn handle(state, project_id, service_id, key, value) -> Response
+fn handle(state, project_id, service_id, job_id, key, value) -> Response
 
 ### infra_audit.rs — `Command::InfraAudit`: o que está em claro no estado de infra (sem os valores).
 fn handle(state) -> Response
@@ -465,22 +465,22 @@ fn handle(state) -> Response
 fn dispatch(state, cmd) -> RpResponse
 
 ### secret_delete.rs — `Command::SecretDelete`: apaga um secret (do projeto, ou de um serviço).
-fn handle(state, project_id, service_id, name) -> Response
+fn handle(state, project_id, service_id, job_id, name) -> Response
 
 ### secret_list.rs — `Command::SecretList`: nomes (nunca valores) dos secrets de um projeto, ou de um serviço.
-fn handle(state, project_id, service_id) -> Response
+fn handle(state, project_id, service_id, job_id) -> Response
 
 ### secret_move.rs — `Command::SecretMove`: mover entre env e secret, ou entre escopos (R5 do plano).
-fn handle(state, project_id, service_id, name, op) -> Response
+fn handle(state, project_id, service_id, job_id, name, op) -> Response
 
 ### secret_rename.rs — `Command::SecretRename`: renomeia um secret e reaponta as envs que o referenciam.
-fn handle(state, project_id, service_id, from, to) -> Response
+fn handle(state, project_id, service_id, job_id, from, to) -> Response
 
 ### secret_reveal.rs — `Command::SecretReveal`: o valor de um secret ("ver valor").
-fn handle(state, project_id, service_id, name) -> Response
+fn handle(state, project_id, service_id, job_id, name) -> Response
 
 ### secret_set.rs — `Command::SecretSet`: cria/sobrescreve um secret cifrado (do projeto, ou de um serviço).
-fn handle(state, project_id, service_id, name, value) -> Response
+fn handle(state, project_id, service_id, job_id, name, value) -> Response
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/services/
 

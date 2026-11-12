@@ -56,6 +56,7 @@
 - empacotamento-styles-e-cross-compile-windows.md — Empacotamento do rustploy-gui: mover styles/ e cross-compile Windows (cargo-xwin…
 - env-backup.md — Backup automático de env vars
 - estudo-seguranca-e-desempenho.md — Estudo: segurança, desempenho e economia de recursos (daemon, GUI e glacier-ui)
+- explicacao-chaves-de-segredos.md — As chaves do Rustploy, explicadas do zero (e repetidas de propósito)
 - ingress-proxy.md — Como funciona o ingress proxy e o zero-downtime deploy
 - internal-networking.md — Comunicação interna entre serviços do projeto
 - inventario-paridade-telas.md — Inventário de paridade — GUI iced × webui
@@ -549,6 +550,7 @@
 - deploy_engine.js — tela "Deploy Engine": fila global (um deploy por vez), execução em andamento e h…
 - docker.js — tela "Docker": containers/imagens/volumes/networks do host inteiro (não só recur…
 - ingress.js — tela "Ingress": rotas ativas no reverse proxy (por domínio) e portas TCP de host…
+- job_env.js — janela "Variáveis do job": as envs e os secrets de UM job, com os mesmos botões …
 - login.js — tela de login.
 - monitoring.js — tela "Monitoring": uso de CPU/memória do host e por container.
 - new_service.js
@@ -1841,6 +1843,7 @@
 - deploy_queue.luau — gerência da fila global de deploys (um por vez) na tela Deploy Engine: cancelar/…
 - docker.luau — limpeza de recursos Docker sem uso (imagens, volumes, redes).
 - history.luau — a pilha do "voltar" (Backspace, Alt+← e o botão "voltar" do mouse; o motor chama…
+- job_env.luau — tela "Variáveis e secrets do job" (shell/job_env.component.gv): as envs e os sec…
 - jobs.luau — ações da tela global "Schedules" (sidebar) e da aba "Jobs" do projeto: rodar ago…
 - language.luau — idioma da interface: restaura o escolhido da última vez, troca ao vivo e lembra.
 - nav.luau — navegação da sidebar/tabs e busca do topbar.
@@ -1878,6 +1881,7 @@
 
 ### rustploy-gui/views/shell/ → gui-views.md
 - deployments.component.gv
+- job_env.component.gv
 - project_env.component.gv
 - project_jobs.component.gv
 - project_secrets.component.gv

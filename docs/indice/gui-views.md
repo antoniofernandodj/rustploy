@@ -152,6 +152,8 @@
 
 ### deployments.component.gv
 
+### job_env.component.gv
+
 ### project_env.component.gv
 
 ### project_jobs.component.gv

@@ -387,18 +387,19 @@ impl SecretsManager
   fn end_recovery() — Termina a recuperação: descarta a identidade privada de recuperação da memória.
   fn rekey(value) -> Result<String> — Recifra um valor `ENC[age:…]` para a identidade **deste** servidor e a chave pública de recuperação …
   fn get_raw(project_id, name) -> Result<String> — Secret do **projeto**.
-  fn get_scoped(project_id, service_id, name) -> Result<String> — Secret de um escopo: `service_id: Some` = só daquele serviço; `None` = só do projeto.
+  fn get_scoped(project_id, scope, name) -> Result<String> — Secret de um escopo: serviço = só daquele serviço; job = só daquele job; projeto = só do projeto.
+  fn resolve_for_job(project_id, job_id, trigger_service_id, name) -> Result<String> — Resolução de uma env `Secret(name)` **de um job**: o secret do **job** primeiro, depois o do serviço…
   fn resolve(project_id, service_id, name) -> Result<String> — Resolução de uma env `Secret(name)`: o escopo do **serviço** primeiro, depois o do projeto.
   fn set(project_id, name, value) -> Result<()>
-  fn set_scoped(project_id, service_id, name, value) -> Result<()>
-  fn delete_scoped(project_id, service_id, name) -> Result<()>
+  fn set_scoped(project_id, scope, name, value) -> Result<()>
+  fn delete_scoped(project_id, scope, name) -> Result<()>
   fn list_names(project_id) -> Result<Vec<String>>
-  fn list_names_scoped(project_id, service_id) -> Result<Vec<String>>
-  fn reveal(project_id, service_id, name) -> Result<String> — "Ver valor": decifra e **grava uma linha de auditoria** (quem/qual/quando — nunca o valor).
-  fn move_secret(project_id, service_id, name, op) -> Result<()> — As quatro movimentações manuais da R5, cada uma **atômica** (uma transação do repositório): ou o sec…
-  fn rename_env_key(project_id, service_id, from, to) -> Result<()> — Renomeia a **chave** de uma env do projeto (`service_id: None`) ou de um serviço, sem tocar no valor…
-  fn set_env_value(project_id, service_id, key, value) -> Result<()> — Troca só o **valor** de uma env do projeto (`service_id: None`) ou de um serviço, na mesma posição d…
-  fn rename_secret(project_id, service_id, from, to) -> Result<()> — Renomeia um **secret** (do projeto, ou de um serviço) e, na mesma transação, reaponta as envs `Secre…
+  fn list_names_scoped(project_id, scope) -> Result<Vec<String>>
+  fn reveal(project_id, scope, name) -> Result<String> — "Ver valor": decifra e **grava uma linha de auditoria** (quem/qual/quando — nunca o valor).
+  fn move_secret(project_id, scope, name, op) -> Result<()> — As quatro movimentações manuais da R5, cada uma **atômica** (uma transação do repositório): ou o sec…
+  fn rename_env_key(project_id, scope, from, to) -> Result<()> — Renomeia a **chave** de uma env do projeto (`service_id: None`) ou de um serviço, sem tocar no valor…
+  fn set_env_value(project_id, scope, key, value) -> Result<()> — Troca só o **valor** de uma env do projeto (`service_id: None`) ou de um serviço, na mesma posição d…
+  fn rename_secret(project_id, scope, from, to) -> Result<()> — Renomeia um **secret** (do projeto, ou de um serviço) e, na mesma transação, reaponta as envs `Secre…
 fn valid_env_key(name) -> Result<()> — Nome válido para a chave de uma env: `[A-Za-z_][A-Za-z0-9_]*` (o que o Docker e o `.env` aceitam).
 fn valid_secret_name(name) -> Result<()> — Nome válido para um secret: não vazio, só `[A-Za-z0-9_.-]` — fica de fora o que quebraria a referênc…
 fn rename_in_list(list, from, to, onde) -> Result<()> — Renomeia o secret `from` para `to` na lista, recusando se `from` não existe ou `to` já existe.
@@ -406,7 +407,11 @@ fn repoint_secret_refs(vars, from, to) — Reaponta toda env `Secret(from)` para
 fn new_secret(name, encrypted) -> SecretInfra
 fn project_mut(st, project_id) -> Result<&'a mut ProjectInfra>
 fn service_mut(p, service_id) -> Result<&'a mut ServiceInfra>
-fn secret_list_mut(st, project_id, service_id) -> Result<&'a mut Vec<SecretInfra>> — A lista de secrets do escopo pedido (projeto, ou um serviço dele).
+fn job_mut(p, job_id) -> Result<&'a mut JobInfra>
+fn secret_list_mut(st, project_id, scope) -> Result<&'a mut Vec<SecretInfra>> — A lista de secrets do escopo pedido (projeto, um serviço ou um job dele).
+enum Scope { Project, Service, Job } — De quem é um secret/env: do projeto, de um serviço ou de um job.
+impl Scope<'a>
+  fn from_ids(service_id, job_id) -> Result<Self> — O escopo pedido por um `Command` (`service_id` e `job_id` são exclusivos).
 fn take_plain_env(vars, key, onde) -> Result<String> — Tira o valor `Plain` da env `key` (erro claro se não existe ou já é um secret).
 fn set_env(vars, key, value)
 fn secret_into_env(vars, name, plain, onde) -> Result<()> — Secret → env: as envs que apontavam para o secret viram `Plain(valor)`; se nenhuma apontava, cria-se…
@@ -416,7 +421,8 @@ fn has_enc_values(db) -> bool — Há algum segredo já no formato novo gravado 
 fn persist_identity(identity, config_path, key_file) -> Result<()> — Grava a identidade recém-gerada no `config.toml` (seção `[secrets]`); se não der, no `age.key` (0600…
 fn write_identity_into_config(path, line) -> Result<()> — Insere `line` logo abaixo de `[secrets]` (ou cria a seção no fim), preservando o resto do arquivo e …
 fn set_secrets_key_in_config(path, key, value) -> Result<()> — Define `key = "value"` em `[secrets]` do `config.toml` (troca a linha se já existe, senão insere log…
-(29 testes)
+impl From<Option<&'a str>> for Scope<'a>
+(30 testes)
 
 ### ttl_cache.rs — Cache de um valor só, com TTL, que junta chamadas concorrentes numa só ida à fonte lenta.
 struct TtlCache { ttl, slot } — Single-slot value cache with a TTL.

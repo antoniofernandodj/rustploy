@@ -585,6 +585,7 @@ function test_servico_aba_logs_lista_execucoes_anteriores() — - aba Logs: a li
 function test_acoes_do_servico_viram_icones_quando_estreito() — - as ações do serviço viram ícones quando a janela estreita
 function test_acao_em_andamento_trava_o_botao() — - o botão de uma ação suspensa num fetch fica travado até ela terminar O init semeia `busy_<ação>` e…
 function test_projeto_mover_so_destrava_com_destino() — - projeto: o ↓ de mover só destrava com um serviço de destino escolhido (a opção nula "escolha…" o t…
+function test_job_env_tela() — - a tela do job avalia e mostra envs, secrets e os mesmos botões do serviço
 
 ### running.test.luau
 local service(overrides)
