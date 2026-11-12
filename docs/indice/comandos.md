@@ -300,7 +300,9 @@ UpdateRollback — Volta os binários para os do backup da última atualização
 ## Git providers (Gitea OAuth2 / PAT)
 GitProviderList | daemon: git/git_provider_list | gui: handlers/bundle_import, handlers/connection, handlers/jobs, handlers/services, handlers/settings, new_job_window | web: app, screens/service_bundle, screens/service_detail
 GitProviderCreate | daemon: git/git_provider_create | gui: handlers/settings | web: app
-GitProviderDelete | daemon: git/git_provider_delete | gui: handlers/settings | web: app
+
+## / Os clientes avisam o usuário antes e só então mandam `force`. Resposta: `Ok`.
+GitProviderDelete — Remove uma conta git. | daemon: git/git_provider_delete | gui: handlers/settings | web: app
 
 ## / Returns the Gitea authorization URL for the client to open in a browser.
 GitOAuthStart — Returns the Gitea authorization URL for the client to open in a browse… | daemon: git/git_oauth_start | gui: handlers/settings | web: app

@@ -329,6 +329,7 @@ function git_provider_kind(selected_kind) — Alterna o tipo de provedor (gitea 
 local git_provider_refresh_list()
 function git_provider_refresh()
 function git_provider_connect()
+local git_provider_users(provider_id) — Quem (serviço ou job) ainda clona com esta conta, como "projeto/nome" — do snapshot.
 function git_provider_delete(provider_id)
 function infra_download()
 local docker_cleanup_unpack_recurrence(recurrence) — Recorrência (Option<Recurrence>, externally-tagged) → (kind, hours, hour, minute, weekday) — mesmo f…

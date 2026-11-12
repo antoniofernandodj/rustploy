@@ -313,7 +313,9 @@ fn pct(s) -> String — Percent-encodes a query-string value (RFC 3986 unreserve
 fn handle(state, kind, name, base_url, auth_mode, oauth_client_id, oauth_client_secret, pat) -> Response — Registers a Git provider.
 
 ### git_provider_delete.rs — `Command::GitProviderDelete`: desconecta (apaga) um provedor git.
-fn handle(state, id) -> Response
+fn users_of(db, provider_id) -> anyhow::Result<Vec<String>> — Quem usa a conta: `projeto/serviço` e `projeto/job (job)`, em ordem estável.
+fn handle(state, id, force) -> Response
+(1 testes)
 
 ### git_provider_list.rs — `Command::GitProviderList`: provedores git conectados, sem os tokens.
 fn handle(state) -> Response
