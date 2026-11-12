@@ -190,6 +190,26 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.62 (2026-11-12): senha dos databases compartilhados cifrada, config.toml tolerante, envs do job ao criar/editar
+
+Daemon **0.1.54**, app **0.1.56**, `rustploy-shared` **0.27.0** (sem mudança; os três no crates.io).
+
+- **O que entrou:** `ManagedDatabaseInfra.password` (a senha do usuário de cada database de um servidor compartilhado) passa a ser
+  gravada `ENC[age:…]` e aberta só no uso (URL de conexão e migração); o selo do boot cifra o legado sem mudar o valor, e o
+  `InfraAudit` só aponta o que está sem cifra (antes apontava toda senha de banco, o que travava a sincronização com o git mesmo com as
+  envs já em secrets). `[daemon]` sem `db_path`/`log_level` não derruba mais o `config.toml` inteiro, e um `config.toml` inválido
+  agora é **avisado** no journal (antes o daemon caía nos defaults em silêncio: API em loopback, sem token). O log do `git clone` não
+  mostra mais o token da URL. `install.sh` não pergunta o motor quando o rustploy já usa Podman. App e web UI: o painel de envs do job
+  também na janela de criar (passo seguinte a "Criar job") e na de editar.
+- **Verificado de verdade:** testes do daemon (592) e da GUI (436 Luau + manifesto/locales), clippy e fmt; CI de teste e da tag verdes;
+  `sha256sum -c` e `minisign -V` dos 4 arquivos pela URL pública; `install.sh gui` num `debian:12` (podman) instalou o app 0.1.56-1;
+  docs no ar (200 e conteúdo novo; 933 páginas, 0 links quebrados).
+- **Não verificado:** a janela nova de criar/editar job **vista rodando** (só testes e render headless); o selo da senha dos databases
+  **num servidor real** (testado só em banco de teste); o `install.sh` do daemon e o `install.ps1`.
+- **Achados:** (1) um `config.toml` com `[daemon]` vazio (só comentários) fazia o daemon ignorar o arquivo todo, daí a API só em
+  `127.0.0.1` e o motor padrão; o instalador cortado no meio agravou o diagnóstico. (2) o disco da máquina de build encheu (100%) no
+  meio das checagens: o `target/debug/incremental` do daemon passa de 25 GB; liberar com `rm -rf */target/debug/incremental`.
+
 ## v0.1.61 (2026-11-11): variáveis e secrets de job, com confirmação em toda operação de env
 
 Daemon **0.1.53**, app **0.1.55**, `rustploy-shared` **0.27.0** (os três no crates.io).
