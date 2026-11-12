@@ -190,6 +190,25 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.63 (2026-11-12): conta git em uso não é mais removida sem aviso
+
+Daemon **0.1.55**, app **0.1.57**, `rustploy-shared` **0.28.0** (os três no crates.io).
+
+- **Por quê:** num servidor real, remover a conta git para cadastrar outro token deixou 13 serviços com `provider_id` apontando para uma
+  conta que não existia mais (o clone deles falharia no próximo deploy), sem nenhum aviso.
+- **O que entrou:** `GitProviderDelete` ganhou `force` (padrão `false`). Sem ele, o daemon **recusa** (`InUse`, com a lista
+  `projeto/serviço` e `projeto/job (job)`) enquanto algum serviço ou job usa a conta; vale também para o agente MCP. O app e a web UI
+  avisam antes, listando os afetados, e só mandam `force` se o usuário confirmar. O shared mudou (protocolo), por isso 0.28.0.
+- **Verificado de verdade:** testes do daemon (593, com um novo de `users_of`) e da GUI (436 Luau + manifesto/locales), clippy e fmt; CI de
+  teste e da tag verdes; `sha256sum -c` e `minisign -V` dos 4 arquivos pela URL pública; `install.sh gui` num `debian:12` (podman) instalou
+  o app 0.1.57-1; docs no ar (200 e conteúdo novo; 933 páginas, 0 links quebrados).
+- **Não verificado:** a janela de confirmação **vista rodando** (só testes e render headless); a recusa `InUse` **num servidor real**.
+- **Armadilha:** `npm run build` do site leva mais de 100 s; com `timeout` ele é cortado, o `tail` devolve sucesso e o `wrangler deploy`
+  publica um `dist` incompleto. Conferir `Complete!` e o conteúdo no ar com `curl` (foi assim que apareceu).
+- **No mesmo dia, fora do release:** os 13 serviços do servidor da Itemize foram reapontados para a conta nova pelo MCP (`ServiceUpdate`
+  só com o `provider_id`); o token novo é pessoal (`antoniofernandodj`) e **não enxerga a organização `itemizebi`**, então só os 2
+  serviços do `nfe_watcher` clonam com ele.
+
 ## v0.1.62 (2026-11-12): senha dos databases compartilhados cifrada, config.toml tolerante, envs do job ao criar/editar
 
 Daemon **0.1.54**, app **0.1.56**, `rustploy-shared` **0.27.0** (sem mudança; os três no crates.io).
