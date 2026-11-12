@@ -125,6 +125,12 @@ choose_engine() {
         ENGINE="$(head -n 1 "$ENGINE_CHOICE")"
         case "$ENGINE" in docker) say "Motor de containers: docker (escolha salva em $ENGINE_CHOICE; apague o arquivo para ser perguntado de novo).";; *) ENGINE="";; esac
     fi
+    # Já no Podman não há o que perguntar: voltar ao Docker é recusado mais abaixo, então a única
+    # escolha possível é continuar. (Perguntar aqui quebrava a atualização por `curl | sh` sem terminal.)
+    if [ -z "$ENGINE" ] && [ "$CURRENT" = "podman" ]; then
+        ENGINE=podman
+        say "Motor de containers: podman (já em uso nesta máquina)."
+    fi
     if [ -z "$ENGINE" ]; then
         DEFAULT="${CURRENT:-docker}"
         if can_prompt; then
