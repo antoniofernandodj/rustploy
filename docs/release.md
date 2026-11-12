@@ -190,6 +190,22 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.61 (2026-11-11): variáveis e secrets de job, com confirmação em toda operação de env
+
+Daemon **0.1.53**, app **0.1.55**, `rustploy-shared` **0.27.0** (os três no crates.io).
+
+- **O que entrou:** escopo de job (`job_id`, exclusivo com `service_id`) nos comandos de secret e env; `JobInfra.secrets` cifrados
+  (`ENC[age:…]`), com precedência job > serviço gatilho > projeto; moves `EnvJobToProject` e `JobSecretToProject`; auditoria,
+  state-git e rekey cobrem os secrets do job. Tela "Variáveis e secrets" do job (menu ⋯) na web UI e no app, com os mesmos botões do
+  serviço. **Confirmação em toda operação de env** (excluir, mover, cifrar, ver, colar `.env`) nos três escopos; só reordenar não pede.
+- **Verificado de verdade:** testes do daemon (590, incluindo o de escopo de job), da GUI (435 Luau + manifesto/locales), clippy e fmt;
+  CI de teste e da tag verdes; `sha256sum -c` e `minisign -V` dos 4 arquivos pela URL pública; `install.sh gui` num `debian:12`
+  (via podman) instalou o app 0.1.55-1; docs no ar (200 e conteúdo novo; 933 páginas, 0 links quebrados).
+- **Não verificado:** as telas novas **vistas rodando** (só testes automatizados e render headless); o `install.sh` do daemon e o
+  `install.ps1`; a edição no lugar e o renomear **não** pedem confirmação (já são ações explícitas).
+- **Armadilha de teste:** os testes headless da webui (`headless_tests`) dependem do Chrome subir; sob carga da máquina
+  (clippy em paralelo) dois deram `LaunchTimeout` e passaram ao reexecutar sozinhos.
+
 ## v0.1.60 (2026-11-11): backup dos dados no S3, agendador e recuperação do servidor
 
 Daemon **0.1.52**, app **0.1.54**, `rustploy-shared` **0.26.0** (os três no crates.io). Plano e estado: `docs/plano-backup-de-dados-para-s3.md`.
