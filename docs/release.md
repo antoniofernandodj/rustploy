@@ -190,6 +190,31 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.67 (2026-11-13): botão de gerar a chave voltou sem chave; sidebar com gradiente
+
+Daemon **0.1.59**, app **0.1.61**, `rustploy-shared` **0.29.0** (sem mudança; os três no crates.io).
+
+- **Por quê:** num servidor sem chave de recuperação (daemon 0.1.58 do dono, e num daemon de teste) a aba mostrava o aviso vermelho e um
+  espaço vazio: o botão **Gerar e baixar não aparecia**. O dono tinha dito "funcionou depois de atualizar" na v0.1.66, mas a captura
+  seguinte mostrou o mesmo no servidor da Itemize, e a reprodução local já o tinha pegado.
+- **Causa:** a coluna condicional (`if = @recovery_key_generated, equals = false`) por fora do botão o escondia **quando não havia
+  chave** (com chave aparecia). Trocar o `equals = false` por uma flag com `equals = true` **não** resolveu (testado); o que resolveu foi
+  tirar a coluna e deixar o botão como elemento solto, único, com o rótulo vindo do `ctx` (`recovery_key_generate_label`). O aviso de
+  troca ganhou a própria flag (`recovery_key_warn`), calculada em `refresh_flags()`, para sumir depois de gerar. Se o daemon não responder
+  `RecoveryKeyStatus` (anterior à 0.1.57), a tela mostra o erro em vez de ficar muda.
+- **Também:** o item ativo da sidebar usa o gradiente dos botões azuis (`.btn--blue`: claro em cima, escuro embaixo), no app e na web
+  UI (o bloco final do `app.css` que achata a webui para imitar o app passou a usar o gradiente).
+- **Verificado de verdade:** a GUI rodando num Xvfb contra um daemon de teste, nos três estados da aba (**sem chave**, **com chave** e
+  **logo depois de gerar**, onde o aviso some e aparecem os 3 botões), com o arquivo gravado em Downloads sem sobrescrever o anterior
+  (`…-1.txt`); a sidebar com o gradiente. `make lint`; testes do daemon (596), da GUI, do manifesto (7) e `glacier test` (451); CI de
+  teste e da tag verdes; os 9 arquivos da release baixados pela URL pública: `sha256sum -c` e `minisign -V` OK; o comando da documentação
+  (`install.sh` e `install.sh gui`) num `debian:12` limpo (podman) instalou `rustployd 0.1.59-1` e `rustploy-gui 0.1.61-1`. **Docs:** nenhuma
+  página mudou nem cita versão, então o deploy não foi repetido (o do v0.1.66 segue no ar).
+- **Não verificado:** a web UI no Chrome (extensão desconectada), incluindo o gradiente da sidebar da webui; `install.ps1` no Windows; o
+  diálogo de troca já foi visto na v0.1.66.
+- **Armadilha:** um `if` aninhado num `column` condicional pode esconder o filho em silêncio (sem erro, com o espaço reservado);
+  `glacier test` e o `missing()` não pegam isso, só a tela rodando. Para ver o estado "sem chave" é preciso um daemon **sem** chave.
+
 ## v0.1.66 (2026-11-13): botões da chave de recuperação menores e reorganizados
 
 Daemon **0.1.58**, app **0.1.60**, `rustploy-shared` **0.29.0** (sem mudança; os três no crates.io).
