@@ -166,6 +166,7 @@ function recover_cancel()
 
 ### recovery_key.luau — Settings → Chave de recuperação (docs/plano-chave-de-recuperacao.md).
 local set_defaults()
+local refresh_flags() — - Deriva do estado (`configured`, `generated`) as flags e o rótulo que a tela usa.
 function M.load() — - Lê se há chave configurada e qual é a pública.
 local save_file_now()
 function recovery_key_open() — - Abre a aba (usada pelos avisos de "sem chave" em Backups e Sincronização).
