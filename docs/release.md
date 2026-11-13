@@ -190,6 +190,31 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.66 (2026-11-13): botões da chave de recuperação menores e reorganizados
+
+Daemon **0.1.58**, app **0.1.60**, `rustploy-shared` **0.29.0** (sem mudança; os três no crates.io).
+
+- **Por quê:** na v0.1.65 a aba Chave de recuperação tinha botões grandes e o diálogo "Trocar a chave?" quebrava os dois botões em duas
+  linhas (o rótulo "Gerar outra chave" não cabia na largura do diálogo).
+- **O que entrou:** app e web UI com botões pequenos (`btn--sm` / `btn--sm-*`), rótulos mais curtos ("Gerar e baixar", "Gerar outra
+  chave"), "Guardei em lugar seguro" como botão principal e Copiar/Baixar de novo secundários; no diálogo o botão virou "Trocar chave",
+  e os dois cabem lado a lado. Docs pt/en com os rótulos novos.
+- **Verificado de verdade:** desta vez **vi o app rodando**: GUI do código local num Xvfb (cópia das `views/` com outro `app id`, porque o
+  app instalado do dono segura a trava de instância única) contra um daemon de teste isolado: a aba renderiza, o diálogo mostra os botões
+  lado a lado, gerar grava `rustploy-recovery-key-<host>-<data>.txt` em Downloads com `0600` e mostra o caminho. `make lint`; testes do
+  daemon (596), da GUI, do manifesto (7) e `glacier test`; CI de teste e da tag verdes; os 9 arquivos da release baixados pela URL
+  pública: `sha256sum -c` e `minisign -V` OK; o comando da documentação (`install.sh` e `install.sh gui`) num `debian:12` limpo (podman)
+  instalou `rustployd 0.1.58-1` e `rustploy-gui 0.1.60-1`; docs no ar (933 páginas, 0 links quebrados; as 4 páginas tocadas respondem 200
+  com os rótulos novos).
+- **Não verificado:** a web UI no Chrome (extensão desconectada); `install.ps1` no Windows; o estado **sem chave** na GUI contra o daemon real do dono (numa
+  reprodução com daemon de teste sem chave o botão de gerar **não apareceu**; no servidor do dono funcionou depois de atualizar, e a
+  investigação foi interrompida a pedido, sem mudar código); restaurar um backup S3 com a chave nova.
+- **Armadilha:** com `HOME` temporário o `save_download` só grava em Downloads se existir `~/.config/user-dirs.dirs` com
+  `XDG_DOWNLOAD_DIR`; sem isso cai no diálogo `save_file`, que não aparece num Xvfb (o botão "Baixar de novo" fica desabilitado esperando).
+- **Armadilha:** a linha `connection_token = "..."  # gerado pelo rustployd` do `config.toml` tem comentário depois da aspa; extraí-la
+  com `sed` guloso pega lixo (use `awk -F'"' '{print $2}'`). O app guarda em `app.json` o **token de API** (`[api].token`), não o token de
+  conexão; ele monta a chave `base64(host:porta::token)` por cima.
+
 ## v0.1.65 (2026-11-13): chave de recuperação gerada pela interface
 
 Daemon **0.1.57**, app **0.1.59**, `rustploy-shared` **0.29.0**, `glacier-ui` **0.160.0** (os quatro no crates.io).
