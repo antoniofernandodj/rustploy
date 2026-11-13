@@ -112,6 +112,8 @@
 
 ### recover.component.gv
 
+### recoverykey.component.gv
+
 ### updates.component.gv
 
 ### web.component.gv

@@ -425,6 +425,11 @@ function test_recover__estado_inicial() — - a tela nasce no estado "nada em cu
 function test_recover__linha_do_servico() — - a linha de um serviço: banco/volume, projeto/nome, backup achado (ou "sobe vazio") e a etapa
 function test_recover__etapa_desconhecida_aparece_como_veio() — - etapa desconhecida aparece como veio (nunca some)
 
+### recovery_key.test.luau — Settings → Chave de recuperação: sem conexão os handlers são inertes, a tela nasce sem chave, e "Gua…
+local nova(ctx_inicial)
+function test_recovery_key__sem_conexao_e_inerte() — - sem sessão, gerar não faz nada (nem toast, nem privada na tela)
+function test_recovery_key__dismiss_esquece_a_privada() — - "Guardei em lugar seguro" apaga a privada e o conteúdo do arquivo do estado da tela
+
 ### registry_picker.test.luau — Sub-aba Registry do serviço: o select de repositório/tag monta a imagem do registry embutido.
 local nova(ctx_inicial)
 function test_registry_picker__repo_e_tag_montam_a_imagem() — - repo + tag viram a imagem pelo loopback do registry

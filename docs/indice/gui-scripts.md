@@ -25,6 +25,9 @@ function M.install(names)
 
 ### busy_actions.luau — ações (on_click/on_submit) que ganham a trava de busy.luau.
 
+### download.luau — salvar um arquivo "para baixar" (chave de recuperação, token do registry): vai direto para a pasta D…
+function M.save(filename, contents, dialog_title) — - Grava `contents` e devolve `(true, caminho)`, ou `(false, mensagem)`.
+
 ### format.luau — fachada: reexporta os builders de views/scripts/fmt_*.luau sob um único módulo, para os handlers seg…
 
 ### glacier.d.luau — Definições dos globais que o motor glacier-ui injeta no interpretador Luau em runtime (não existem c…

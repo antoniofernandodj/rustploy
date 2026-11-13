@@ -201,6 +201,12 @@ ServerRecoverRun — Recuperação (passo 2): restaura os dados e sobe cada serv
 ## / Resposta: `ServerRecover`.
 ServerRecoverCancel — Desiste: esquece a chave de recuperação da memória. | daemon: data_backup/server_recover::cancel | gui: handlers/recover | web: app
 
+## / Plano: `docs/plano-chave-de-recuperacao.md`.
+RecoveryKeyStatus — A chave **pública** de recuperação deste servidor (`[secrets] recovery… | daemon: data_backup/recovery_key_status | gui: handlers/recovery_key | web: app
+
+## / `RecoveryKeyGenerated`.
+RecoveryKeyGenerate — **Gera** a chave de recuperação: grava só a pública no `config.toml` e… | daemon: data_backup/recovery_key_generate | gui: handlers/recovery_key | web: app
+
 ## / `dry_run` só devolve o relatório. Resposta: `ServiceImportReport`.
 ServiceImport — Cria UM serviço novo a partir de um pacote, sem sobrescrever nada. | daemon: features/iac/service_import | gui: handlers/bundle_import | web: screens/service_bundle
 

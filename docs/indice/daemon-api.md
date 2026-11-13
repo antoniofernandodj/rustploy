@@ -147,6 +147,13 @@ fn handle(state, destination) -> Response
 ### mod.rs — Handlers do backup de dados para S3: o `dispatch` recebe os `Command` da seção e chama o handler cer…
 fn dispatch(state, cmd) -> RpResponse
 
+### recovery_key_generate.rs — `Command::RecoveryKeyGenerate`: gera a chave de recuperação; a privada sai só nesta resposta.
+fn handle(state, replace) -> Response
+fn server_name() -> String — Nome do servidor para o arquivo: o hostname, só com letras/dígitos/`-`/`.`.
+
+### recovery_key_status.rs — `Command::RecoveryKeyStatus`: há chave de recuperação e qual é a pública (nunca a privada).
+fn handle(state) -> Response
+
 ### server_recover.rs — Handlers `Command::ServerRecover*`: recuperar um servidor limpo (git + chave de recuperação + S3).
 fn provider_for(remote) -> (GitProviderKind, String) — `https://host[:porta]/…` → `(github|gitea, base_url)`.
 fn start(state, remote, token, branch, recovery_key) -> Response
