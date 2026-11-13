@@ -190,6 +190,32 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.65 (2026-11-13): chave de recuperação gerada pela interface
+
+Daemon **0.1.57**, app **0.1.59**, `rustploy-shared` **0.29.0**, `glacier-ui` **0.160.0** (os quatro no crates.io).
+
+- **Por quê:** a chave de recuperação só nascia pelo terminal (`rustploy-cli keygen`) e a pública era colada à mão no `config.toml`;
+  as abas Backups e Sincronização apenas avisavam "configure no config.toml".
+- **O que entrou:** Settings → **Chave de recuperação** (app e web UI): `RecoveryKeyStatus` e `RecoveryKeyGenerate`. O daemon gera o
+  par `age`, grava só a pública em `[secrets] recovery_recipient`, **recifra os segredos existentes** e devolve a privada uma única
+  vez; o cliente baixa o arquivo (app: `save_download` do glacier-ui, em Downloads sem sobrescrever; web UI: download do navegador).
+  Recusa gerar de novo sem `replace`; o agente MCP não pode gerá-la. O token do registry criado também é baixado como `.txt`. O app
+  ganhou o aviso de versão nova na tela de login (ficou na árvore de outra sessão e entrou junto).
+- **Verificado de verdade:** `make lint`; testes do daemon (596), da GUI, do shared (60) e `glacier test`; **daemon de teste isolado**
+  (Podman rootless): gerou a chave, gravou só a pública, recifrou, recusou a segunda chamada sem `replace`, `SecretReveal` seguiu
+  funcionando e a privada baixada abriu o segredo com `age -d -i`; CI de teste e da tag verdes; os 9 arquivos da release (4 pacotes,
+  4 `.minisig`, `checksums.sha256`) baixados pela URL pública: `sha256sum -c` e `minisign -V` com a chave pública OK; o comando da
+  documentação (`install.sh` e `install.sh gui`) num `debian:12` limpo (podman) instalou `rustployd 0.1.57-1` e `rustploy-gui
+  0.1.59-1`; docs no ar (933 páginas, 0 links quebrados; as 4 páginas tocadas respondem 200 com o conteúdo novo).
+- **Não verificado:** a aba **vista rodando** no app e na web UI (o app instalado do dono segura a trava de instância única e o Chrome
+  estava desconectado; só testes e o backend por HTTP); `install.ps1` no Windows; restaurar um backup S3 com a chave gerada pela interface; Windows (`dirs` e a
+  permissão `0600` do arquivo); o aviso de versão no login.
+- **Armadilha:** `rustployd` com um `config.toml` inválido **ignora o arquivo e abre o banco real do usuário** (cai em
+  `~/.local/share/rustploy/db`) antes de falhar no socket; o config de teste precisa ter `[deploy]`, `[metrics]` e `[ingress.acme]`
+  com `directory`. Com `api.domain` a API exige TLS por ACME (alerta "access denied"): em teste, não ponha `domain`.
+- **Armadilha:** `allocate_pula_porta_ocupada_no_so` assumia a primeira porta da faixa (20000) livre e quebrava com um daemon de dev
+  rodando; agora ocupa a primeira porta livre.
+
 ## v0.1.64 (2026-11-12): Limpar configuração do sync, projeto editado no lugar
 
 Daemon **0.1.56**, app **0.1.58**, `rustploy-shared` **0.28.0** (sem mudança; os três no crates.io).
