@@ -218,7 +218,7 @@ fi
 say "Removendo drop-ins e configs do instalador..."
 run rm -rf /etc/systemd/system/rustployd.service.d
 run rm -f /etc/systemd/system/podman.socket.d/rustploy.conf
-run rmdir --ignore-fail-on-non-empty /etc/systemd/system/podman.socket.d
+[ -d /etc/systemd/system/podman.socket.d ] && run rmdir --ignore-fail-on-non-empty /etc/systemd/system/podman.socket.d
 run rm -f /etc/containers/registries.conf.d/rustploy.conf /etc/containers/containers.conf.d/rustploy.conf
 if have_systemd; then
     run systemctl daemon-reload
