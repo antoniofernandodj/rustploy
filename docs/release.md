@@ -190,6 +190,22 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.70 (2026-11-14): confirmação de Remover/Reconstruir job por cima do painel ⋯
+
+App **0.1.64** (daemon **0.1.61** e `rustploy-shared` **0.30.0** sem mudança).
+
+- **Por quê:** ao fazer a captura do "Remover job?" para as docs (item do `TODO.md`), o dono viu a confirmação abrir **por baixo**
+  do painel ⋯ dos jobs; ela só aparecia ao clicar fora do painel.
+- **Causa e correção:** o painel é um `popup` (camada flutuante) e o `confirm` era aberto com ele ainda aberto. Agora
+  `job_delete` e `job_rebuild` (`handlers/jobs.luau`) fecham o painel antes da confirmação. Cancelar volta à lista sem o painel
+  (reabrir exigiria saber o valor que o `popup` grava ao abrir). É o único `popup` do app.
+- **Verificado:** teste `tests/handlers/jobs.test.luau` (falha no código antigo, passa no novo); visto rodando no Xvfb contra o
+  daemon local em 1600×860 (Remover mostra a confirmação na hora, Cancelar mantém o job); GUI 458 testes Luau, `cargo test`,
+  `clippy -D warnings`; CI antes da tag; release assinada (checksums e 4 `.minisig` conferidos); app 0.1.64 instalado pelo comando
+  de uma linha num `debian:12`; docs no ar com a captura nova (projetos e host borrados), 0 links quebrados.
+- **Achado de ambiente:** no Xvfb, o tamanho da janela não vem do arquivo de geometria da cópia de teste; redimensionar pelo X11
+  (`python-xlib`, `window.configure(width, height)`) funciona sem gerenciador de janelas.
+
 ## v0.1.69 (2026-11-14): correção das portas TCP no app desktop; textos da GUI em português
 
 Daemon **0.1.61**, app **0.1.63**, `rustploy-shared` **0.30.0** (sem mudança; daemon e app no crates.io).
