@@ -163,6 +163,7 @@ function test_docker__containers_a_busca_olha_nome_imagem_estado_e_dono() — - 
 function test_ingress_portas_e_monitoramento__ingress_uma_linha_por_rota_com() — - ingress: uma linha por rota, com a porta do upstream
 function test_ingress_portas_e_monitoramento__ingress_ignora_dominio_em() — - ingress ignora domínio em branco e entende o campo legado
 function test_ingress_portas_e_monitoramento__portas_de_host_so_quem_tem_host() — - portas de host: só quem tem host_port, em ordem numérica
+function test_ingress_portas_e_monitoramento__uma_linha_por_porta_tcp() — - portas de host: uma linha por porta da lista nova, com a porta do container e o rótulo
 function test_ingress_portas_e_monitoramento__monitoramento_so_servicos_com() — - monitoramento: só serviços com métricas vivas, com valores crus
 local info(estado, extras)
 local status_dos_passos(i)
@@ -250,6 +251,8 @@ function test_deployments_e_dominios__linha_de_deployment_id_estado_duracao_e() 
 function test_deployments_e_dominios__todo_estado_terminal_pode_ser_apagado() — - todo estado terminal pode ser apagado, nenhum em andamento
 function test_deployments_e_dominios__a_rota_sem_porta_propria_herda_a_do() — - a rota sem porta própria herda a do serviço
 function test_deployments_e_dominios__sem_dominio_da() — - sem domínio dá []
+function test_deployments_e_dominios__portas_tcp_lista_e_legado() — - portas TCP: a lista nova, ou o host_port legado virando uma porta para a porta do serviço
+function test_deployments_e_dominios__sugestoes_de_porta() — - sugestões: o texto do botão traz porta, nome e "escutando agora" ou "interna"
 function test_nomes_e_hosts__safe_name_minusculas_nao_alfanumerico_vira() — - safe_name: minúsculas, não-alfanumérico vira _ colapsado e sem bordas
 function test_nomes_e_hosts__compose_host_ingress_service_declarado_vence() — - compose_host: ingress_service declarado vence
 function test_nomes_e_hosts__compose_host_primeira_chave_de_services() — - compose_host: primeira chave de services:
@@ -596,6 +599,7 @@ function test_configuracoes_sincronizacao_git() — - Sincronização com o git:
 function test_configuracoes_atualizacoes() — - Atualizações: sem consulta ainda, com versão nova e com erro do daemon
 local servico(aba)
 function test_servico_cada_aba() — - cada aba da tela de serviço avalia
+function test_servico_domains_portas_tcp() — - aba Domains: portas TCP (lista, sugestões clicáveis e botões) e o estado vazio
 function test_servico_environment_secrets_do_servico() — - aba Environment: secrets do serviço aparecem (nome + cadeado), com o botão "→ secret" nas variávei…
 function test_servico_advanced_dependencias() — - aba Advanced: dependências (lista, seletor e botão) e a caixa de religar no boot
 function test_dependencias_candidatos_e_removido() — - o formatter: o próprio serviço e as dependências já postas não entram como candidatos

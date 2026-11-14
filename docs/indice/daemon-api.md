@@ -157,6 +157,8 @@ fn handle(state) -> Response
 ### server_recover.rs — Handlers `Command::ServerRecover*`: recuperar um servidor limpo (git + chave de recuperação + S3).
 fn provider_for(remote) -> (GitProviderKind, String) — `https://host[:porta]/…` → `(github|gitea, base_url)`.
 fn start(state, remote, token, branch, recovery_key) -> Response
+fn create_recovery_provider(state, remote, token) -> Result<String, Response> — Cria a conta Git "Recuperação" com o token informado (a chamada valida o token no provedor).
+fn keep_sync_credential(state, provider_id, token, remote, branch) — Restaurar a infra do git **substitui** os providers pelos que estão no repositório, e leva embora a …
 fn status() -> Response
 fn run(state) -> Response
 fn cancel(state) -> Response
@@ -635,7 +637,7 @@ fn seed_connected(page) — Semeia a sessão (bypassa login/SSE, mesma ideia de 
 fn eval_str(page, js) -> String — Avalia `js` (uma expressão, possivelmente uma Promise) e devolve o resultado como `String` — os test…
 fn visible(page, selector) -> bool — `true` se o elemento existir e estiver de fato visível (`x-show` escreve `display:none` inline; `off…
 fn errors(page) -> Vec<String>
-(22 testes)
+(23 testes)
 
 ### mod.rs — Servidor de estáticos da web UI/PWA (`crates/daemon/webui/`) — alternativa ao client iced (`rustploy…
 type ApiBody = BoxBody<Bytes, std::convert::Infallible>

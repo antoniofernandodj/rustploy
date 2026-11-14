@@ -144,13 +144,16 @@ fn find_compose_ingress_container(docker, project_name, ingress_service, want_po
 
 ## rustploy-daemon/crates/daemon/src/features/ingress/
 
-### external_ports.rs — Alocação automática de portas externas (`ServiceSpec.host_port`).
-const AUTO_PORT — Sentinela em `ServiceSpec.host_port` que pede alocação automática.
-fn resolve_host_port(db, spec, exclude_id) -> Result<(), String> — Resolve o `host_port` do spec antes de persistir: - `Some(0)` → aloca uma porta livre da faixa confi…
+### external_ports.rs — Alocação automática de portas externas (`ServiceSpec.tcp_ports`, e o `host_port` legado).
+const AUTO_PORT — Sentinela em `TcpPortRoute.host_port` (e no `host_port` legado) que pede alocação automática.
+fn resolve_host_port(db, spec, exclude_id) -> Result<(), String> — Resolve as portas TCP do spec antes de persistir: - move o `host_port` legado para `tcp_ports` (e es…
+fn assign(routes, used, alloc) -> Result<(), String> — Confere as portas manuais e aloca as automáticas (`0`), atualizando `used`.
+fn tcp_targets(spec, ips) -> Vec<(u16, Vec<String>)> — Para cada porta TCP do spec: a porta do host e os destinos `ip:porta_do_container` (um por IP em `ip…
+fn host_ports(spec) -> Vec<u16> — Portas de host de um spec (as automáticas ainda não resolvidas ficam de fora).
 fn port_in_use_by_other(db, port, exclude_id) -> bool — True se `port` ainda é reservada por algum serviço ≠ `exclude_id` (ou pelo próprio daemon) — usado a…
-fn used_ports(db, exclude_id) -> Result<Vec<u16>, String> — Portas de host indisponíveis: `host_port` de todos os serviços (exceto `exclude_id`) + portas do pró…
+fn used_ports(db, exclude_id) -> Result<Vec<u16>, String> — Portas de host indisponíveis: as portas TCP de todos os serviços (exceto `exclude_id`) + portas do p…
 fn allocate(used) -> Result<u16, String> — Varre a faixa configurada e devolve a primeira porta que (a) nenhum serviço reserva e (b) nenhum pro…
-(2 testes)
+(5 testes)
 
 ### firewall.rs — Cliente do helper privilegiado de firewall (`rustployd-fw`).
 const TIMEOUT — `ufw` normalmente responde em milissegundos; o timeout largo cobre o primeiro start do helper via so…
@@ -165,6 +168,18 @@ fn do_request(op, port) -> Result<String, String>
 const DEFAULT_SOCKET
 
 ### mod.rs — Ingress: proxy reverso HTTP/HTTPS embutido, tabela de rotas e TLS/ACME.
+
+### port_suggestions.rs — Sugestões de porta do container para as portas TCP de um serviço (`Command::ServicePortSuggestions`)…
+fn product_ports(product) -> &'static [(u16, &'static str, bool)] — Portas conhecidas por produto: (porta, nome, interna).
+fn listening_ports(proc_net_tcp) -> Vec<u16> — Portas em LISTEN de um `/proc/net/tcp` (ou `tcp6`), **fora do loopback**: o ingress chega pelo IP do…
+fn compose_ports(content, only) -> Vec<u16> — Portas do container que o compose declara (`ports:` e `expose:`), no serviço `only` (o que recebe o …
+fn container_port_of(item) -> Option<u16> — A porta do container de um item de `ports:`/`expose:`: `80`, `"8080:80"`, `"127.0.0.1:8080:80/tcp"`,…
+fn merge(product, listening, image, compose, skip) -> Vec<PortSuggestion> — Junta as fontes: uma sugestão por porta, com o nome da tabela, as origens e "interna".
+fn engine_out(args) -> Option<String> — Roda o CLI do motor e devolve a saída, ou `None` se falhar (fonte indisponível, sem erro).
+fn suggest(svc) -> Vec<PortSuggestion> — `Command::ServicePortSuggestions`.
+fn exposed_ports(json) -> Vec<u16> — Portas TCP de um `{"9000/tcp":{},"53/udp":{}}` (o `Config.ExposedPorts` do motor).
+const LISTENING, IMAGE, COMPOSE, PRODUCT
+(6 testes)
 
 ### proxy.rs — Proxy reverso HTTP/1.1 embutido, construído sobre hyper.
 type ProxyBody = BoxBody<Bytes, hyper::Error>

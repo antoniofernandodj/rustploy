@@ -256,8 +256,12 @@ function save_service_name() — (legado: o botão "Renomear" da aba General foi
 local materialize_domains(spec) — Move o domínio legado (domain/tls_enabled) para a lista `domains`.
 function domain_add()
 function domain_delete(domain)
-function domain_hostport_save()
-function domain_hostport_auto() — Sentinela 0 = "aloque para mim": o daemon troca por uma porta livre da faixa [external_ports] e a li…
+local materialize_tcp_ports(spec) — Mesmo idioma de `materialize_domains`: move o `host_port` legado para a lista e o zera.
+local parse_port(text) — Porta válida (1..65535) ou nil.
+function tcp_port_add()
+function tcp_port_delete(host_port)
+function tcp_port_suggest() — "Sugerir portas": pergunta ao daemon quais portas o container provavelmente tem (o que ele escuta, o…
+function tcp_port_pick(port) — Clicar numa sugestão preenche a porta do container (e o rótulo, se a porta tem nome).
 function compose_save()
 function compose_cancel()
 function healthcheck_save()

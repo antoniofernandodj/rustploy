@@ -38,6 +38,7 @@
 - TODO.md — TODO
 - install.ps1
 - install.sh
+- uninstall.sh
 
 ### .claude/
 - settings.json
@@ -64,6 +65,7 @@
 - limites-dos-testes-luau.md — Limites dos testes Luau do rustploy-gui
 - memoria-threads-e-runtime.md — Memória de threads e runtime async — base teórica
 - plano-acao-banco-compartilhado.md — Plano de ação: implementar o banco compartilhado (Postgres) e migrar rdo-itemize…
+- plano-ajustes-da-recuperacao.md — Plano: ajustes da recuperação de servidor (achados no teste de 2026-11-13)
 - plano-aquecer-job.md — Aquecer job: saber se o cache existe e deixá-lo pronto antes de rodar
 - plano-backend-podman.md — Plano: backend Podman (alternativa ao Docker)
 - plano-backup-de-dados-para-s3.md — Backup dos dados dos serviços para S3, com restauração por uma tela de recuperaç…
@@ -91,6 +93,7 @@
 - plano-limpeza-automatica-docker.md — Limpeza automática do Docker: liberar espaço em disco sozinho, todos os dias
 - plano-log-de-runtime-persistido.md — Plano: persistir o log de runtime dos containers
 - plano-multi-login-clients.md — Plano: login multi-servidor no client iced + login simplificado na webui
+- plano-multiplas-portas-tcp.md — Plano: mais de uma porta TCP por serviço
 - plano-nome-gravado-rede-e-stack.md — Plano: nome de rede e de stack Compose gravados, não derivados
 - plano-nomes-descritivos.md — Plano: nomes descritivos em toda a base (GUI glacier + webui)
 - plano-pre-deploy-gate.md — Pré-deploy gate: rodar um check antes do deploy, e só prosseguir se ele passar
@@ -397,9 +400,10 @@
 - service_import.rs — `Command::ServiceImport`: cria UM serviço novo a partir de um [`crate::features:…
 
 ### rustploy-daemon/crates/daemon/src/features/ingress/ → daemon-engine.md
-- external_ports.rs — Alocação automática de portas externas (`ServiceSpec.host_port`).
+- external_ports.rs — Alocação automática de portas externas (`ServiceSpec.tcp_ports`, e o `host_port`…
 - firewall.rs — Cliente do helper privilegiado de firewall (`rustployd-fw`).
 - mod.rs — Ingress: proxy reverso HTTP/HTTPS embutido, tabela de rotas e TLS/ACME.
+- port_suggestions.rs — Sugestões de porta do container para as portas TCP de um serviço (`Command::Serv…
 - proxy.rs — Proxy reverso HTTP/1.1 embutido, construído sobre hyper.
 - router.rs — Tabela de rotas do ingress (domínio → backends, porta → backends) com round-robi…
 - tls.rs — Certificados TLS: resolução por SNI, emissão e renovação ACME (Let's Encrypt) e …

@@ -191,7 +191,7 @@ local project_card(project, service_pairs) — Card de projeto, agregando contag
 function M.docker_rows(service_pairs, term) — Linhas Docker (containers gerenciados) derivadas dos serviços, ordenadas.
 function M.docker_containers(containers, term) — Containers do host (DockerContainerInfo): todos, rodando + parados.
 function M.ingress(service_pairs) — Ingress: uma linha por rota de domínio (não filtrado pela busca).
-function M.host_ports(service_pairs) — Portas TCP de host: uma linha por serviço com `host_port` configurado — exposição direta de porta TC…
+function M.host_ports(service_pairs) — Portas TCP de host: uma linha por porta TCP de cada serviço (a lista `tcp_ports`, ou o `host_port` l…
 local deploy_step_index(state)
 local deploy_stepper(info)
 local iso_to_epoch_seconds(iso_timestamp)
@@ -243,6 +243,8 @@ local log_rows(log_entries) — Linhas de log (LogEntry/BuildLogLine: {stream, l
 function M.join_log_lines(log_entries, with_date) — Junta linhas de log num blob de texto ("HH:MM:SS line") p/ o TextArea/copiar.
 local execution_outcome(outcome) — Cor do desfecho do deploy de uma execução (lista "Execuções anteriores").
 function M.deployments_detail(deployments) — Histórico de deployments de um serviço (aba Deployments).
+function M.tcp_ports_json(spec) — Portas TCP do host de um spec (aba Domains): uma linha por porta, com a porta do container efetiva (…
+function M.port_suggestions_json(suggestions) — Sugestões de porta do container (`ServicePortSuggestions`): o texto do botão traz a porta, o nome (s…
 function M.domains_json(spec) — Rotas HTTP de um spec (aba Domains).
 function M.safe_name(name) — normalize_name: minúsculas, não-alfanumérico → '_' (colapsado), trim '_'.
 local internal_scheme(product)
@@ -277,7 +279,7 @@ function M.hour_minute_join(hour, minute) — (hour, minute) -> "HH:MM".
 function M.hour_minute_split(hour_minute_text) — "HH:MM" -> hour, minute (números).
 
 ### types.luau — tipos compartilhados entre os submódulos fmt_*.luau (as formas dos modelos que chegam via `json.deco…
-types: EnvValue, EnvVar, EnvComment, DomainRoute, ServiceSpec, ManagedContainer, Service, MetricEntry, ServicePair, GridCard, MetricsMap
+types: EnvValue, EnvVar, EnvComment, DomainRoute, TcpPortRoute, ServiceSpec, ManagedContainer, Service, MetricEntry, ServicePair, GridCard, MetricsMap
 
 ### util.luau — busca, codificação de array e mapas de estado (paleta = view.rs).
 function M.matches(term, fields) — ── Busca ──────────────────────────────────────────────────────────────── Termo vazio sempre casa (a…
@@ -294,6 +296,7 @@ function M.in_use_kind(in_use)
 function M.container_state(state) — Estado bruto de um container Docker ("running"/"exited"/… ) → (rótulo, kind).
 function M.container_stopped(state) — `true` quando o container está PARADO (removível sem force).
 function M.source_summary(source) — ServiceSource → texto de "imagem/origem" (source_summary().1).
+function M.tcp_routes(spec) — tcp_routes(): a lista `tcp_ports` nova, ou o legado `host_port` (uma porta para a `port` do serviço)…
 function M.domain_routes(spec) — domain_routes(): a lista `domains` nova, ou o legado `domain`/`tls_enabled`.
 function M.pre_deploy_checks(spec) — Fila efetiva de pré-deploy check: `pre_deploy_job_ids` quando não vazia, senão cai no `pre_deploy_jo…
 function M.service_pair_list(services) — `services` do snapshot é uma lista de { project_name, service }.

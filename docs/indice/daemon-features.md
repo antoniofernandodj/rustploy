@@ -67,7 +67,7 @@ fn db_form(req) -> DbFormInput
 fn effective_name(req) -> String — Nome efetivo: `app_name` tem precedência sobre `name` (ambos trimados).
 fn build_spec(req) -> Result<ServiceSpec, String> — Monta o `ServiceSpec` a partir da requisição do wizard.
 fn build_spec_inner(req) -> Result<ServiceSpec, String>
-(5 testes)
+(6 testes)
 
 ## rustploy-daemon/crates/daemon/src/features/backup/
 
@@ -116,6 +116,12 @@ fn status() -> ServerRecoverInfo
 fn update(f)
 fn set_step(service_id, step, error)
 fn is_database(svc) -> bool
+const STARTING — `true` durante a restauração da infra do [`start`] (a fase ainda é "idle" nessa janela).
+const INFRA_PENDING — A infra deste servidor veio de uma recuperação cujos **dados ainda não foram tocados** (liga ao fim …
+struct StartingGuard — Liga [`STARTING`] e desliga em qualquer saída de `start` (erro, `?` ou sucesso).
+impl StartingGuard
+  fn new() -> Self
+fn in_progress() -> bool — Há uma recuperação em curso (restaurando a infra, esperando a confirmação ou restaurando dados)?
 fn start(ctx, state_git, remote, provider_id, branch, recovery_key) -> Result<ServerRecoverInfo> — Restaura a infra e monta o resumo.
 fn restore_infra(ctx, state_git, remote, provider_id, branch) -> Result<()>
 fn summarize(ctx, public) -> ServerRecoverInfo — O que foi achado: projetos, serviços e o backup mais recente de cada um.
@@ -128,8 +134,12 @@ impl RecoveryBringer
   fn already(id) -> bool
   fn mark(id)
 impl Bringer for RecoveryBringer: bring_up, report
+impl RecoveryBringer
+  fn bring_up_steps(svc) -> Result<(), String> — Os passos de [`Bringer::bring_up`]: achar o backup, restaurar (volume antes, banco depois) e subir.
 fn cancel(ctx) -> ServerRecoverInfo — Desiste: a chave sai da memória.
 const INFO
+impl Drop for StartingGuard
+(1 testes)
 
 ### scheduler.rs — O agendador dos backups automáticos (`docs/plano-backup-de-dados-para-s3.md`, Fase 3): a cada minuto…
 fn scheduler_loop(ctx)
@@ -158,6 +168,8 @@ fn run_backup(ctx, service_id, r, stop, keep) -> Result<(String, u64)>
 fn start_restore(ctx, service_id, key) -> Result<()>
 fn run_restore(ctx, service_id, r, key) -> Result<Vec<String>>
 fn latest(ctx, service_id) -> Result<Option<BackupEntry>> — O backup mais recente do serviço no S3, se houver.
+const HEAD_BYTES — Os primeiros bytes lidos de um backup para conferir a chave: cabe com folga o cabeçalho age (poucos …
+fn opens_with_current_keys(ctx, service_id, key) -> Result<bool> — **Este servidor consegue abrir o backup `key`?** (com a identidade dele ou, durante uma recuperação,…
 fn fetch(ctx, service_id, key, dest) -> Result<()> — Baixa um backup do serviço para `dest` (confere que a chave é da pasta do serviço).
 fn policy_set(ctx, service_id, policy) -> Result<ServiceBackups> — `Command::ServiceBackupPolicySet`: grava a política e devolve a listagem já com ela.
 fn delete(ctx, service_id, key) -> Result<()>
@@ -224,7 +236,7 @@ impl IacContext
   fn public_base_url() -> String — URL pública do daemon, sem barra final (base do webhook de cada serviço).
 
 ### manifest.rs — Infra-as-Code: structs do manifesto declarativo (`rustploy.yml`).
-struct ServiceManifest { name, source, port, host_port, domain, tls, domains, env, env_comments, volumes, healthcheck, replicas, resources, command, args, product, shared }
+struct ServiceManifest { name, source, port, host_port, tcp_ports, domain, tls, domains, env, env_comments, volumes, healthcheck, replicas, resources, command, args, product, shared }
 struct SourceManifest { registry, git, compose, compose_ingress } — Origem do serviço: exatamente uma das três chaves deve estar presente.
 struct GitManifest { url, branch, root_path, dockerfile, context, build_stage, submodules, watch_paths, username, credentials, provider }
 struct HealthcheckManifest { kind, path, status, interval, timeout, retries, start_period }
@@ -375,7 +387,12 @@ fn logical_name(compose_project, volume) -> String — Nome lógico de um volume
 fn bind_name(container_path) -> String — Nome lógico de um bind: `bind:<destino no container>`.
 fn synthesize(svc, name) -> Option<Part> — Uma parte de **volume** que o pacote traz e o serviço ainda não tem (servidor recém-recuperado: o vo…
 fn resolve(docker, svc) -> Result<Vec<Part>> — As partes do serviço, em ordem estável (por nome lógico).
-fn list_project_volumes(project) -> Result<Vec<String>>
+const SERVICE_LABEL — Etiqueta que o Rustploy põe nos volumes que ele mesmo cria: o **ID do serviço** dono do volume.
+fn list_project_volumes(project, service_id) -> Result<Vec<String>> — Os volumes da stack, **só por etiqueta** (nunca por semelhança de nome): os que o Compose etiquetou …
+fn mounted_by_stack(project) -> Result<Vec<String>> — Volumes nomeados montados pelos containers da stack (parados também: `ps -a`).
+fn engine_lines(args) -> Result<Vec<String>> — Roda o CLI do motor e devolve as linhas não vazias da saída.
+fn volume_ls(filter) -> Result<Vec<String>>
+fn create_stack_volume(service_id, project, logical) — Cria o volume `<projeto>_<nome>` de uma stack Compose com o **ID do serviço** ([`SERVICE_LABEL`]) e …
 (5 testes)
 
 ### stream.rs — Roda um comando do motor ligando o stdin/stdout a **arquivos por cópia explícita** (pipes), em vez d…

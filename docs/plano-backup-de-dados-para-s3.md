@@ -3,6 +3,9 @@
 > **Plano** (2026-11-11). **Estado: Fases 0 a 5 implementadas em 2026-11-11 (commitadas e publicadas no crates.io em 2026-11-11: shared 0.26.0, daemon 0.1.52, app 0.1.54). Falta ver as telas rodando e a recuperação com um remoto https real.** Origem: item "Backup de volumes para S3" do `TODO.md`, com as
 > decisões do dono desta sessão: **a configuração do backup fica na aba Dados de cada serviço**, e a
 > **restauração é uma tela de recuperação** (git + chave; o S3 só se o git não o trouxer) que recupera tudo sozinho. Vale para **todos os motores**.
+>
+> **Continuação (2026-11-13):** os defeitos achados no primeiro teste real da recuperação, e o que falta corrigir,
+> estão em `docs/plano-ajustes-da-recuperacao.md`.
 
 ## 1. O problema, em linguagem simples
 

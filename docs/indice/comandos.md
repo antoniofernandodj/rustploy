@@ -162,6 +162,9 @@ ServiceExport — Gera o pacote (YAML) do serviço. | daemon: features/iac/servi
 ## / Resposta: `ServiceDataPlan`.
 ServiceDataPlan — Dados do serviço (volumes): o que um export levaria. | daemon: (inline em dispatch.rs) | gui: handlers/services | web: screens/service_detail
 
+## / Resposta: `ServicePortSuggestions`.
+ServicePortSuggestions — Portas do container que o serviço provavelmente tem (o que o container… | daemon: (inline em dispatch.rs) | gui: handlers/services | web: screens/service_detail
+
 ## / O destino S3 dos backups de dados (sem a chave secreta). Resposta: `BackupDestination`.
 BackupDestinationGet — O destino S3 dos backups de dados (sem a chave secreta). | daemon: data_backup/backup_destination_get | gui: handlers/data_backup | web: app
 
