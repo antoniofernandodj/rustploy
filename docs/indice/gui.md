@@ -390,6 +390,13 @@ function test_edicao_no_lugar__chave_inexistente_nao_arma_nada() — - uma chave
 function test_edicao_no_lugar__cancelar_limpa_tudo() — - ✕ desiste e limpa o rascunho
 function test_edicao_no_lugar__sem_conexao_o_rascunho_fica() — - sem conexão, gravar não faz nada e não perde o que foi digitado
 
+### jobs.test.luau — Painel ⋯ dos jobs (`components/job_actions.component.gv`): Remover e Reconstruir pedem confirmação, …
+local nova()
+local enviados(tela)
+function test_job_delete__painel_fecha_antes_da_confirmacao() — - Remover: com a confirmação aberta, o painel já fechou; cancelar não manda nada
+function test_job_delete__confirmar_remove() — - Remover: confirmar manda JobDelete
+function test_job_rebuild__painel_fecha_antes_da_confirmacao() — - Reconstruir sem cache: o mesmo painel, a mesma regra
+
 ### misc.test.luau — Handlers que só mexem no ctx, ou que não fazem nada sem conexão: deploy_queue, secrets e bundle.
 local nova(ctx_inicial)
 function test_deploy_queue_sem_conexao__cancelar_promover_reordenar_e_pausar() — - cancelar, promover, reordenar e pausar são inertes

@@ -264,8 +264,12 @@ acrescentar um item, encaixe-o na posição certa em vez de colar no fim.
 - [ ] **Assinar o `.exe` do Windows** (SignPath, tier OSS): o job `sign-gui-windows` é pulado enquanto a variável de
   repositório `SIGNPATH_ORGANIZATION_ID` não existe. Passos em `docs/windows-code-signing.md`.
 
-- [ ] **Capturar o diálogo "Remover job?" do app desktop e usar em
-  `interface/schedules` (pt e en).** O desktop passou a pedir confirmação ao
+- [x] **Capturar o diálogo "Remover job?" do app desktop e usar em
+  `interface/schedules` (pt e en).** **Feito em 2026-11-14:** a captura achou um defeito — a confirmação abria
+  POR BAIXO do painel ⋯ (só aparecia ao clicar fora). Corrigido em `handlers/jobs.luau` (o painel fecha antes do
+  `confirm`, em Remover e em Reconstruir; teste `tests/handlers/jobs.test.luau`, que falha no código antigo), visto
+  rodando (Cancelar mantém o job, Remover mostra a confirmação na hora) e a captura borrada (projetos e host) entrou
+  nas duas páginas. GUI 0.1.64, sem commit nem publicação. Texto original abaixo. O desktop passou a pedir confirmação ao
   remover um job (`rustploy-gui`, `handlers/jobs.luau::job_delete`, commit
   `05bd708`), e a página já diz isso, mas sem imagem. Só dá para capturar depois
   de compilar e instalar o app novo. Borrar host, projeto e nome do job. Depois,
