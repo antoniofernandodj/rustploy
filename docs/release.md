@@ -190,6 +190,33 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.68 (2026-11-14): várias portas TCP por serviço; recuperação de desastre testada de verdade
+
+Daemon **0.1.60**, app **0.1.62**, `rustploy-shared` **0.30.0** (os três no crates.io).
+
+- **Origem:** o dono destruiu o rustploy local e recuperou tudo pela tela Recuperar, várias vezes (2026-11-13). Cada rodada
+  achou um defeito; o que foi corrigido e o que falta está em `docs/plano-ajustes-da-recuperacao.md`. No caminho, o console do
+  RustFS (9001) e o painel do RabbitMQ (15672) se mostraram inalcançáveis por porta: daí `docs/plano-multiplas-portas-tcp.md`.
+- **Portas TCP:** `ServiceSpec.tcp_ports` (porta do host → porta do container, rótulo; até 8), o `host_port` antigo vira
+  espelho da porta que leva à `port` (clientes e daemons antigos continuam vendo essa); `ServicePortSuggestions` junta o que o
+  container escuta, o `EXPOSE`, o compose e uma tabela por produto. Editor nas duas interfaces (a webui nunca tinha tido).
+- **Recuperação:** log de cada etapa; agendador de backup parado durante a recuperação; conta Git do sync recriada; checagem
+  da chave contra o cabeçalho do backup; volumes achados pelo que o container monta e por etiqueta com o ID do serviço (nunca
+  por nome: decisão do dono); RabbitMQ do assistente com `hostname` fixo. **`uninstall.sh`** novo, na raiz.
+- **Verificado:** shared 65 testes; daemon 609 e `clippy -D warnings` (inclui o editor de portas da webui num Chrome headless);
+  GUI `cargo test` e `glacier test` 455 (inclui a aba Domains renderizada); site com 0 links quebrados e 0 âncoras ruins.
+  `workflow_dispatch` antes da tag com os `.deb` nas versões certas; release **assinada** (checksums e 4 `.minisig` conferidos
+  com `keys/rustploy-update.pub`); pela URL pública num `debian:12` limpo (podman): daemon 0.1.60 e app 0.1.62 instalaram, e o
+  `uninstall.sh` (`--dry-run` e `--yes`) removeu pacote, dados e usuário; `install.ps1` achou a release e conferiu o SHA-256 (parou
+  no `minisign.exe`, como sempre no Linux). Docs no ar (pt e en) com as páginas novas respondendo 200.
+- **Achados:** (1) o FAQ e a referência do manifesto são **gerados** (`scripts/data/faq.mjs`, `scripts/gen-manifest.mjs`): editar o
+  `.mdx` à mão some no build, e um tipo `Vec<X>` sem nome amigável no gerador vira tag MDX e **quebra o build**. (2) Renomear uma
+  seção quebra âncoras em outras páginas; o `check-links` as pega (`âncoras ruins`). (3) O `uninstall.sh` avisava falha ao remover
+  uma pasta que não existia; corrigido na `main` depois da tag (o script é servido da `main`, não da release).
+- **NÃO verificado:** as telas novas num daemon instalado de verdade (a do `s3` com 9000 e 9001); a recuperação com a checagem da
+  chave errada (o caso que inutilizava o servidor continua: item 2 do plano de ajustes); as capturas da aba Domains nas docs
+  continuam as antigas.
+
 ## v0.1.67 (2026-11-13): botão de gerar a chave voltou sem chave; sidebar com gradiente
 
 Daemon **0.1.59**, app **0.1.61**, `rustploy-shared` **0.29.0** (sem mudança; os três no crates.io).
