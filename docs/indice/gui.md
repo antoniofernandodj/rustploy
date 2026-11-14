@@ -107,7 +107,7 @@ fn read_catalog(name) -> BTreeMap<String, String>
 fn gv_files(directory, out)
 fn keys_used_in_views() -> BTreeSet<String> — Toda chave de `{t('chave'…)}` escrita nas views.
 fn looks_semantic(key) -> bool
-(3 testes)
+(4 testes)
 
 ## rustploy-gui/tests/fixtures/
 

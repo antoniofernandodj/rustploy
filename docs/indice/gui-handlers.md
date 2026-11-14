@@ -256,7 +256,7 @@ function save_service_name() — (legado: o botão "Renomear" da aba General foi
 local materialize_domains(spec) — Move o domínio legado (domain/tls_enabled) para a lista `domains`.
 function domain_add()
 function domain_delete(domain)
-local materialize_tcp_ports(spec) — Mesmo idioma de `materialize_domains`: move o `host_port` legado para a lista e o zera.
+local materialize_tcp_ports(spec) — Mesmo idioma de `materialize_domains`: move o `host_port` legado para a lista.
 local parse_port(text) — Porta válida (1..65535) ou nil.
 function tcp_port_add()
 function tcp_port_delete(host_port)
