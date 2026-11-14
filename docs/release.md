@@ -190,6 +190,30 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.69 (2026-11-14): correção das portas TCP no app desktop; textos da GUI em português
+
+Daemon **0.1.61**, app **0.1.63**, `rustploy-shared` **0.30.0** (sem mudança; daemon e app no crates.io).
+
+- **Por quê:** na v0.1.68 o dono não conseguia usar as portas TCP no app desktop: (1) a aba Domains tinha altura fixa e o bloco
+  de portas ficava cortado, sem rolagem; (2) "Adicionar porta" dava **HTTP 400**.
+- **Causas:** (1) faltava o `scrollable` em volta da aba (agora como a Avançado, dois painéis) e a porta usava a classe `env__key`
+  (400 px fixos). (2) A GUI apagava o `host_port` do spec com um `json.null` que **não existe** no Luau: o campo sumia e o
+  `/api/rpc` recusava o update por omitir um campo gravado (`partial_update_refusal`). O MCP não tem essa proteção, por isso a
+  reprodução pelo MCP passava. A GUI ainda escondia o motivo e mostrava só "HTTP 400".
+- **Correções:** GUI mantém o `host_port` (é espelho); daemon descarta o espelho antigo quando a lista chega vazia
+  (`clear_stale_mirror`) e **recalcula as rotas na hora** ao salvar portas/domínios (antes a porta só valia no próximo deploy);
+  `failure_text` mostra o corpo da resposta. Também: **548 textos do Luau** apareciam em **inglês** com a tela em português (idioma
+  padrão `en` + texto sem entrada em `pt-BR.json`); entradas identidade e um teste em `tests/locales.rs`.
+- **Verificado de verdade:** GUI de teste isolada (Xvfb, outro `app id`, só o servidor localhost semeado) contra o daemon local:
+  rolagem até o fim da aba, "9001 console (escutando agora)", e broker → "15672 painel" → Adicionar porta → "salvo"; depois do
+  recálculo, `http://localhost:20000` abriu o "RabbitMQ Management". Daemon 612 testes, GUI `cargo test` e 455 Luau, `clippy -D
+  warnings`; CI antes da tag; release assinada (checksums e 4 `.minisig` conferidos); daemon 0.1.61 e app 0.1.63 instalados pelos
+  comandos de uma linha num `debian:12` limpo.
+- **Achados para o futuro:** o `luau-lsp` não acusou `json.null` (campo inexistente); no Xvfb, a GUI de teste precisa de outro
+  `id` no `app.gv` (a trava de instância única do app instalado) e de `locales/` ligado ao lado das `views/`.
+- **NÃO verificado:** o recálculo automático das rotas ao salvar (o daemon local ainda é o 0.1.60; o recálculo foi feito à mão);
+  apagar a última porta pela GUI (coberto por teste de unidade no daemon).
+
 ## v0.1.68 (2026-11-14): várias portas TCP por serviço; recuperação de desastre testada de verdade
 
 Daemon **0.1.60**, app **0.1.62**, `rustploy-shared` **0.30.0** (os três no crates.io).
