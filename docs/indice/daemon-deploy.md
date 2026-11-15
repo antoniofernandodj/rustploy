@@ -106,7 +106,7 @@ fn services_with_deploy_in_flight(db) — IDs dos serviços que têm um deploy f
 (1 testes)
 
 ### shared_net.rs — Servidor de banco compartilhado: conecta o container dele às redes dos projetos autorizados, sob o a…
-fn alias_of(svc) -> String — Alias global do servidor (`shared::shared_alias` sobre a stack gravada).
+fn alias_of(svc) -> String — Alias global do servidor (`crate::domain::shared_alias` sobre a stack gravada).
 fn server_container(docker, svc) -> Option<String> — Container do servidor: o mesmo que o deploy elege como alvo da stack.
 fn alias_holder(docker, network, alias, me) -> Option<String> — Outro container (≠ `me`) que já responde por `alias` em `network`.
 fn connect_with_alias(docker, container_id, network, alias) -> Result<()> — Conecta `container_id` à rede com `alias` — e só com ele, sem o alias curto do Compose.
@@ -333,7 +333,7 @@ fn handle(state, id) -> RpResponse
 
 ### mod.rs — Ciclo de vida de um serviço: criar, atualizar (com a sincronização do firewall) e remover.
 fn project_deps(db, project_id) — `(id, nome, depends_on)` de todos os serviços do projeto, para a validação de dependências.
-fn check_depends_on(db, spec, self_id) -> Result<(), shared::Response> — Valida o `depends_on` de um spec que vai ser gravado (`self_id`: `None` na criação).
+fn check_depends_on(db, spec, self_id) -> Result<(), crate::protocol::Response> — Valida o `depends_on` de um spec que vai ser gravado (`self_id`: `None` na criação).
 
 ### update.rs — `Command::ServiceUpdate`: grava um ServiceSpec novo (porta externa, TLS dos domínios, firewall) sem …
 fn handle(state, id, spec) -> RpResponse

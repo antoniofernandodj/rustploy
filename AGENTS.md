@@ -119,7 +119,7 @@ rustploy/                     ← agregador (VOCÊ ESTÁ AQUI)
 ├── rustploy-daemon/          daemon, importer, webui, packaging/, scripts/, install.sh
 ├── rustploy-gui/             cliente glacier-ui (views/, src/, assets/, packaging/)
 ├── rustploy-docs/            site de documentação (Astro Starlight), deploy na Cloudflare
-└── rustploy-shared/          crate publicado no crates.io: domínio, protocolo e nomes derivados
+└── rustploy-shared/          repo do crate `rustploy-update-core` (crates.io), usado pelo daemon e pela gui
 ```
 
 - Clone com `git clone --recurse-submodules <agregador>`; sem a flag os três
@@ -129,12 +129,12 @@ rustploy/                     ← agregador (VOCÊ ESTÁ AQUI)
   commite aqui o novo ponteiro (`git add rustploy-daemon`…). Sem isso o agregador
   continua apontando para o commit antigo. Mexeu em algo que muda símbolos?
   `make index` e commite `docs/indice/` junto do ponteiro.
-- **`rustploy-shared` não é `path`.** O daemon e a gui o consomem **do
-  crates.io** (`version = "0.1.0"`), como o `glacier-ui`. Mudou o shared? Bump da
-  versão → commit → `git push` → `cargo publish` (`--dry-run` antes) → subir a
-  versão no `Cargo.toml` do daemon e da gui → `cargo update -p rustploy-shared`.
-  Para **experimentar** sem publicar, use só na linha de comando (nunca commite):
-  `cargo check --config 'patch.crates-io.rustploy-shared.path="../rustploy-shared"'`
+- **`rustploy-update-core` não é `path`.** O daemon e a gui o consomem **do
+  crates.io**, como o `glacier-ui`. Mudou o update-core? Bump da versão → commit →
+  `git push` → `cargo publish` (`--dry-run` antes) → subir a versão no `Cargo.toml`
+  do daemon e da gui → `cargo update -p rustploy-update-core`. Para **experimentar**
+  sem publicar, use só na linha de comando (nunca commite):
+  `cargo check --config 'patch.crates-io.rustploy-update-core.path="../rustploy-shared/update-core"'`
   (a partir de `rustploy-daemon/` ou `rustploy-gui/`).
 - Cada repo tem o seu `Cargo.lock`, o seu `[profile]` e o seu `target/`. O
   `[patch.crates-io]` do `iced_tiny_skia` mora no `Cargo.toml` da **gui**.
@@ -143,15 +143,16 @@ rustploy/                     ← agregador (VOCÊ ESTÁ AQUI)
   imagens dos logos moram na gui (`assets/blueprint-logos/<id>/<arquivo>`); o daemon
   só guarda o nome de cada uma em `templates/logos.txt` (o pacote estourava o limite
   de 10 MB do crates.io com elas).
-- **O que o `rustploy-shared` guarda** (0.5.0 em diante): só o que trafega entre
-  daemon e clientes — `domain/` (modelos, um arquivo por assunto, reexportados na
-  raiz: `shared::ServiceSpec`), `protocol/` (`Command`, `Response`, `Event`, logs) e
-  `naming.rs` (nomes de container, rede e stack). Config, wizard, templates,
-  manifesto/IaC e connection string são do daemon.
+- **Domínio e protocolo moram no daemon**: `crates/daemon/src/domain/` (modelos, um
+  arquivo por assunto, reexportados no módulo: `crate::domain::ServiceSpec`; inclui
+  `naming.rs`, os nomes de container, rede e stack) e `crates/daemon/src/protocol/`
+  (`Command`, `Response`, `Event`, logs). Eram um crate à parte enquanto a GUI os
+  usava; hoje ela fala só HTTP/JSON pelo Luau. O importer monta os mesmos arquivos
+  por `#[path]` (`crates/importer/src/main.rs`) — não há segunda cópia.
 - **Caminhos neste arquivo:** `docs/…` e `tools/…` são da raiz (agregador).
   `crates/daemon/…`, `crates/importer/…`, `webui/…`, `packaging/…` e `scripts/…`
   são de `rustploy-daemon/`. `views/…`, `assets/…` e o `src/…` da GUI são de
-  `rustploy-gui/`; o `src/…` do shared, de `rustploy-shared/`.
+  `rustploy-gui/`; o `update-core/…`, de `rustploy-shared/`.
 
 ## Achar código: comece por `docs/indice/` (no agregador)
 
@@ -609,16 +610,16 @@ página, um bump esquecido), **faça também**: "e tudo mais que faltar" faz par
 4. **Documentação em dia.** Mudou comportamento, tela, comando ou instalador? Atualize as páginas **em pt e
    em en**, as capturas (**borre** host, nomes, ids e segredos; veja a nota do site), o FAQ e, se couber,
    `TODO.md` e o cabeçalho de `docs/plano-*.md`. Páginas geradas não se editam à mão.
-5. **Bump de versão** de tudo que mudou, e só do que mudou: `rustploy-shared/Cargo.toml` (0.4.0),
-   `rustploy-daemon/crates/daemon/Cargo.toml` (pacote `rustploy`, 0.1.1) e `rustploy-gui/Cargo.toml`
-   (0.1.5). Os `.deb` e a release herdam essas versões. Mudou o **shared**: bump → commit → push →
+5. **Bump de versão** de tudo que mudou, e só do que mudou: `rustploy-shared/update-core/Cargo.toml`,
+   `rustploy-daemon/crates/daemon/Cargo.toml` (pacote `rustploy`) e `rustploy-gui/Cargo.toml`.
+   Os `.deb` e a release herdam essas versões. Mudou o **update-core**: bump → commit → push →
    `cargo publish` (`--dry-run` antes) → subir a versão no `Cargo.toml` do daemon e da gui → `cargo update
-   -p rustploy-shared`. O `glacier-ui` segue a regra de nunca `path`: publicado e subido por versão.
+   -p rustploy-update-core`. O `glacier-ui` segue a regra de nunca `path`: publicado e subido por versão.
 6. **Commit e push**, **completos e antes de qualquer `cargo publish`** (o crate publicado tem que bater com
-   a `main`). Ordem: `rustploy-shared` → `rustploy-daemon` e `rustploy-gui` → `rustploy-docs` → **agregador**
+   a `main`). Ordem: `rustploy-shared` (update-core) → `rustploy-daemon` e `rustploy-gui` → `rustploy-docs` → **agregador**
    (com os ponteiros novos, `docs/indice/` e `TODO.md`). Mensagens no padrão do repo, com a linha
    `Co-Authored-By` do ambiente.
-7. **crates.io.** `cargo publish` (com `--dry-run` antes) do que mudou: `rustploy-shared`, depois `rustploy`
+7. **crates.io.** `cargo publish` (com `--dry-run` antes) do que mudou: `rustploy-update-core`, depois `rustploy`
    (daemon) e `rustploy-gui`. A documentação oferece `cargo install` como alternativa, então ele tem que
    refletir a `main`.
 8. **CI & CD completos (o deploy dos apps).** O deploy do daemon e do app desktop é a **release no GitHub**,
@@ -643,7 +644,7 @@ O que **não** entra no "publish": instalar no servidor do usuário (ele mesmo r
 
 ## Build & Run
 
-Cada repo compila **sozinho** (o `rustploy-shared` vem do crates.io). Da raiz do
+Cada repo compila **sozinho** (o `rustploy-update-core` vem do crates.io). Da raiz do
 agregador, o `Makefile` roda nos três: `make build`, `make check`, `make test`,
 `make fmt`, `make clippy` (`make help` lista o resto).
 
@@ -672,7 +673,7 @@ resolve. O daemon não tem lib target, então seus testes ficam sob `--bins`.
 ```bash
 # em rustploy-daemon/: cargo test -p rustploy --bins <nome_do_teste>
 #                       cargo check --workspace
-# em rustploy-shared/:  cargo test
+# em rustploy-shared/:  cargo test -p rustploy-update-core
 # em rustploy-gui/:     cargo test --bins
 #                       cargo test --test app_manifest       # manifesto, estrutura dos .gvb, widgets do iced
 #                       glacier test                         # testes Luau (tests/**/*.test.luau)
@@ -783,13 +784,13 @@ termina TLS com certificado ACME.
 
 | Crate | Binário | Papel |
 |---|---|---|
-| `shared` | — | Modelos, tipos do protocolo e structs de config, usados pelo daemon e pela GUI |
+| `rustploy-update-core` | — | Atualização comum ao daemon e ao app: comparação de versões, assinatura minisign, instalador do `.deb` |
 | `daemon` | `rustployd` | Servidor: API, banco, Docker, ingress, motor de deploy, registry |
 | `rustploy-gui` | `rustploy-gui` | Cliente desktop glacier-ui (XML→iced). Toda a rede e lógica de negócio vive em **Luau** (`views/scripts/`), falando com o daemon pela API HTTP/JSON + SSE |
-| `fw-helper` | `rustployd-fw` | Helper privilegiado de firewall (root, socket activation em `/run/rustploy/fw.sock`). O daemon pede allow/deny de portas externas (`daemon/src/firewall.rs`); o helper só aceita portas dentro da faixa `[external_ports]` e só fala com o ufw. **Sem dependência da crate `shared`, de propósito.** Ver `docs/relatorio-porta-externa-automatica.md` |
+| `fw-helper` | `rustployd-fw` | Helper privilegiado de firewall (root, socket activation em `/run/rustploy/fw.sock`). O daemon pede allow/deny de portas externas (`daemon/src/firewall.rs`); o helper só aceita portas dentro da faixa `[external_ports]` e só fala com o ufw. **Sem dependência de `domain`/`protocol`, de propósito.** Ver `docs/relatorio-porta-externa-automatica.md` |
 | `tools/indexer` | `indexer` | Gera `docs/indice/` (`make index`): o mapa de arquivos e símbolos da seção "Achar código" da Parte 2. Não é publicado nem empacotado |
 
-Repos: `shared` é o repo `rustploy-shared`, `rustploy-gui` é o repo `rustploy-gui`;
+Repos: `rustploy-update-core` é do repo `rustploy-shared`, `rustploy-gui` é o repo `rustploy-gui`;
 `daemon`, `fw-helper` (bin `rustployd-fw`, dentro de `crates/daemon`) e o importer são
 do repo `rustploy-daemon`; `tools/indexer` é do agregador.
 
@@ -810,7 +811,7 @@ O daemon tem **um** protocolo voltado a cliente: HTTP/JSON + SSE
 | `POST /api/services/<id>/archive` | upload de zip (corpo binário — **não** é um `Command`) |
 | `/webhook/…`, `/oauth/…` | rotas públicas, autenticação própria, fora do gate de bearer |
 
-`Command`, `Response` e `Event` vivem em `rustploy-shared/src/protocol/` e são
+`Command`, `Response` e `Event` vivem em `crates/daemon/src/protocol/` e são
 despachados por `dispatch()` (`api/dispatch.rs`: um `match` curto por assunto, e o
 `dispatch` de cada pasta de `api/handlers/<assunto>/` escolhe o handler).
 
@@ -836,7 +837,7 @@ linha `event:` e só enxerga o `data:`.
 Organizado em camadas; **a dependência só desce** (`docs/plano-reorganizacao-daemon-e-shared.md`):
 
 ```
-api  →  features  →  engine · store · platform  →  rustploy-shared
+api  →  features  →  engine · store · platform  →  domain · protocol
         (bootstrap monta tudo e entrega o AppState)
 ```
 
@@ -1174,6 +1175,6 @@ Buracos conhecidos, todos com o porquê registrado em
 - **`ServiceUpdate` é substituição total, não patch.** Um round-trip mal feito
   apaga configuração sem aviso.
 - **Não há schema do protocolo.** A lista de comandos do manual do agente
-  (`api/agent/manual.md`) é curada à mão; gerar de verdade exigiria `schemars` sobre a crate `shared`.
+  (`api/agent/manual.md`) é curada à mão; gerar de verdade exigiria `schemars` sobre `domain`/`protocol`.
 - **Não há CLI.** O binário `rustploy` na raiz é um shell script de uma linha
   apontando para um alvo que não é mais construído.

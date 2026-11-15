@@ -1,7 +1,7 @@
 # Índice: Command → handler no daemon → quem chama
 
 > Gerado por `make index`; não editar à mão. Uma linha por variante do
-> `enum Command` (`rustploy-shared/src/protocol/command.rs`), agrupada pelos comentários do enum.
+> `enum Command` (`rustploy-daemon/crates/daemon/src/protocol/command.rs`), agrupada pelos comentários do enum.
 > `daemon:` = `<assunto>/<arquivo>` sob `rustploy-daemon/crates/daemon/src/api/handlers/` (ou `features/…` quando o handler delega a lógica), `::fn` quando não é `handle`;
 > `gui:` = arquivos sob `rustploy-gui/views/scripts/`; `web:` = sob `rustploy-daemon/crates/daemon/webui/`; `—` = ninguém;
 > `agente:` (só quando há) = sob `rustploy-gui/src/agent/` (API de agente da GUI; `catalog` = só documentado).
@@ -66,7 +66,7 @@ LogsUnsubscribe | daemon: (inline em dispatch.rs) | gui: — | web: —
 MetricsSubscribe | daemon: (inline em dispatch.rs) | gui: — | web: —
 MetricsUnsubscribe | daemon: (inline em dispatch.rs) | gui: — | web: —
 
-## / daemon por `shared::connection`, para GUI e webui não divergirem).
+## / daemon por `crate::domain::connection`, para GUI e webui não divergirem).
 ServiceConnectionInfo — Host e URL de conexão **dentro** da rede Docker do projeto (montada no… | daemon: services/service_connection_info | gui: handlers/services | web: screens/service_detail
 
 ## / Projetos autorizados a alcançar um servidor de banco compartilhado.
@@ -260,7 +260,7 @@ DockerCleanupConfigGet | daemon: docker/docker_cleanup::get_config | gui: handle
 DockerCleanupConfigSet | daemon: docker/docker_cleanup::set_config | gui: handlers/settings | web: app
 DockerCleanupRunNow | daemon: docker/docker_cleanup::run_now | gui: handlers/settings | web: app
 
-## rustploy-managed ones — see `shared::DockerImageInfo` etc.)
+## rustploy-managed ones — see `crate::domain::DockerImageInfo` etc.)
 DockerImages | daemon: docker/docker_inventory::list_images | gui: — | web: —
 DockerVolumes | daemon: docker/docker_inventory::list_volumes | gui: — | web: —
 DockerNetworks | daemon: docker/docker_inventory::list_networks | gui: — | web: —

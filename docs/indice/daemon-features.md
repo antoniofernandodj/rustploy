@@ -275,7 +275,7 @@ struct BundleOrigin { server, project, exported_at, daemon } — De onde o pacot
 struct ServiceBundle { api_version, kind, origin, service, project_env } — O arquivo.
 impl ServiceBundle
   fn from_service(svc, providers, project_env, include_values, origin) -> Result<Self, String> — Monta o pacote a partir de um serviço do banco.
-  fn validate() -> Result<(), String> — Confere um pacote JÁ desserializado (o parse do YAML é de quem chama — o `rustploy-shared` não depen…
+  fn validate() -> Result<(), String> — Confere um pacote JÁ desserializado (o parse do YAML é de quem chama).
   fn project_env_vars() -> Vec<EnvVar> — Variáveis do projeto do pacote, já como `EnvVar` (para gravar no destino).
 fn redact_values(map) — Todo valor `Plain` vira `${CHAVE}`; `secret:` passa intacto.
 fn referenced_names(text, out) — Nomes de variáveis citados em `text` como `${NOME}`, `${NOME:-padrão}` ou `$NOME` (sintaxe de shell/…
@@ -413,7 +413,7 @@ fn tar_out(source, out) -> Result<()> — Grava em `out` o tar do conteúdo do v
 fn tar_in(source, from) -> Result<()> — Esvazia o volume e extrai o tar `from` nele.
 fn stop_service(state, service_id) -> Result<()>
 fn start_service(state, service_id) — Religa (um deploy novo, como o "Iniciar" de sempre).
-fn load(state, service_id) -> Result<shared::Service>
+fn load(state, service_id) -> Result<crate::domain::Service>
 struct Exported { _workdir, file, filename }
 fn export(state, service_id, stop, encrypt) -> Result<Exported> — Gera o pacote do serviço.
 fn stage_all(svc, found, dir) -> Result<Vec<StagedPart>>

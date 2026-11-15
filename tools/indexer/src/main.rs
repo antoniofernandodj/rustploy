@@ -27,9 +27,17 @@ const COMMANDS_MD: &str = "comandos.md";
 /// O primeiro prefixo que casar vence, por isso os mais específicos vêm antes.
 const AREAS: &[(&str, &str, &[&str])] = &[
     (
-        "shared.md",
-        "rustploy-shared — domínio, protocolo e nomes",
-        &["rustploy-shared/"],
+        "daemon-domain.md",
+        "daemon: domínio, protocolo e nomes derivados",
+        &[
+            "rustploy-daemon/crates/daemon/src/domain/",
+            "rustploy-daemon/crates/daemon/src/protocol/",
+        ],
+    ),
+    (
+        "update-core.md",
+        "update-core — atualização comum ao daemon e ao app",
+        &["rustploy-shared/update-core/"],
     ),
     (
         "daemon-api.md",

@@ -18,7 +18,7 @@ use std::fs;
 use std::path::Path;
 use syn::visit::Visit;
 
-const PROTOCOL: &str = "rustploy-shared/src/protocol/command.rs";
+const PROTOCOL: &str = "rustploy-daemon/crates/daemon/src/protocol/command.rs";
 const HANDLERS: &str = "rustploy-daemon/crates/daemon/src/api/handlers/";
 const GUI_SCRIPTS: &str = "rustploy-gui/views/scripts/";
 const WEBUI: &str = "rustploy-daemon/crates/daemon/webui/";

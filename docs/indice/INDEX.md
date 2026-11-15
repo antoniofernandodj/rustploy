@@ -6,7 +6,8 @@
 
 ## Índices de símbolos por área
 
-- `shared.md` — rustploy-shared — domínio, protocolo e nomes (rustploy-shared/)
+- `daemon-domain.md` — daemon: domínio, protocolo e nomes derivados (rustploy-daemon/crates/daemon/src/domain/, rustploy-daemon/crates/daemon/src/protocol/)
+- `update-core.md` — update-core — atualização comum ao daemon e ao app (rustploy-shared/update-core/)
 - `daemon-api.md` — daemon: API HTTP, web UI, agente MCP e handlers de Command (rustploy-daemon/crates/daemon/src/api/)
 - `daemon-deploy.md` — daemon: deploy, jobs, manutenção e ciclo de vida do serviço (rustploy-daemon/crates/daemon/src/features/deploy/, rustploy-daemon/crates/daemon/src/features/jobs/, rustploy-daemon/crates/daemon/src/features/maintenance/, rustploy-daemon/crates/daemon/src/features/services/)
 - `daemon-store.md` — daemon: persistência (store/) (rustploy-daemon/crates/daemon/src/store/)
@@ -316,6 +317,29 @@
 - state.rs — Estado compartilhado do daemon (`AppState`) e os caches do inventário Docker.
 - workers.rs — Tarefas de fundo do daemon: backup de env, métricas, logs, GC do registry, watch…
 
+### rustploy-daemon/crates/daemon/src/domain/ → daemon-domain.md
+- audit.rs — Auditoria de valores em claro no estado de infra (plano `docs/plano-backup-estad…
+- data_backup.rs — Backup dos dados dos serviços para um S3.
+- database.rs
+- deployment.rs
+- docker_inventory.rs
+- env.rs
+- git.rs
+- ingress.rs
+- job.rs
+- metrics.rs
+- mod.rs — Modelos de domínio: projeto, serviço e suas fontes, deployment, jobs, bancos, re…
+- naming.rs — Nomes derivados de um projeto ou serviço: containers, redes, stacks Compose e al…
+- project.rs
+- registry.rs
+- service.rs
+- service_bundle.rs
+- service_data.rs — Dados de um serviço (volumes) que podem ser exportados e importados.
+- source.rs
+- state_git.rs — Sincronização do estado de infra com um repositório git (plano `docs/plano-backu…
+- update.rs — Verificação de versão: o que o daemon responde a `Command::CheckUpdate`.
+- wizard.rs
+
 ### rustploy-daemon/crates/daemon/src/engine/ → daemon-engine.md
 - images.rs — Imagens: pull (com credenciais) e build a partir de um contexto empacotado em ta…
 - inventory_cache.rs — Cache do inventário do host (imagens, volumes, redes), que é lento de consultar.
@@ -486,6 +510,13 @@
 - s3.rs — Cliente S3 mínimo, em hyper cru (o daemon não usa `reqwest`), para o backup dos …
 - secrets.rs — `SecretsManager`: cifra e decifra os segredos do daemon.
 - ttl_cache.rs — Cache de um valor só, com TTL, que junta chamadas concorrentes numa só ida à fon…
+
+### rustploy-daemon/crates/daemon/src/protocol/ → daemon-domain.md
+- command.rs — `Command`: tudo o que o cliente pede ao daemon.
+- event.rs — `Event`: o que o SSE entrega ao cliente.
+- logs.rs — Linhas de log: stream de origem e entradas de container/build.
+- mod.rs — Protocolo da API: `Command` (o que o cliente pede), `Response` e `Event` (o que …
+- response.rs — `Response`: a resposta a cada `Command`.
 
 ### rustploy-daemon/crates/daemon/src/store/ → daemon-store.md
 - build_logs.rs — Tabela `build_log`: linhas do log de build de cada deployment.
@@ -1913,11 +1944,11 @@
 - .gitignore
 - Cargo.toml — Shared types and protocol definitions for the Rustploy PaaS platform
 
-### rustploy-shared/src/ → shared.md
+### rustploy-shared/src/
 - lib.rs — Tipos compartilhados entre o daemon e os clientes: domínio, protocolo e nomes de…
 - naming.rs — Nomes derivados de um projeto ou serviço: containers, redes, stacks Compose e al…
 
-### rustploy-shared/src/domain/ → shared.md
+### rustploy-shared/src/domain/
 - audit.rs — Auditoria de valores em claro no estado de infra (plano `docs/plano-backup-estad…
 - data_backup.rs — Backup dos dados dos serviços para um S3.
 - database.rs
@@ -1939,7 +1970,7 @@
 - update.rs — Verificação de versão: o que o daemon responde a `Command::CheckUpdate`.
 - wizard.rs
 
-### rustploy-shared/src/protocol/ → shared.md
+### rustploy-shared/src/protocol/
 - command.rs — `Command`: tudo o que o cliente pede ao daemon.
 - event.rs — `Event`: o que o SSE entrega ao cliente.
 - logs.rs — Linhas de log: stream de origem e entradas de container/build.
@@ -1949,7 +1980,7 @@
 ### rustploy-shared/update-core/
 - Cargo.toml — Shared update logic for the Rustploy daemon and desktop app: release version com…
 
-### rustploy-shared/update-core/src/ → shared.md
+### rustploy-shared/update-core/src/ → update-core.md
 - dpkg_version.rs — Comparação de versões de **pacote Debian** (`1:0.1.10-1`), pelo algoritmo da pol…
 - installer.rs — A instalação de um pacote assinado, em duas fases:
 - lib.rs — Lógica de atualização comum ao daemon e ao app: um só lugar decide se uma versão…

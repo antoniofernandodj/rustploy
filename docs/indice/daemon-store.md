@@ -19,10 +19,10 @@ fn set(db, key, value) -> Result<()>
 fn delete(db, key) -> Result<()>
 fn sql_get(db, key) -> Result<Option<String>> — Leitura **direta da tabela**, sem desviar para o YAML.
 const KEY_WEBHOOK_BASE_URL — DEPRECADA: a base pública passou a ser derivada de `[api] domain`/`port` (ver `AppState::public_base…
-const KEY_DOCKER_CLEANUP_CONFIG — JSON de `shared::DockerCleanupConfig` — ver `crate::features::maintenance`.
-const KEY_REGISTRY_RETENTION — JSON de `shared::RegistryRetentionConfig` — ver `crate::features::registry::retention`.
+const KEY_DOCKER_CLEANUP_CONFIG — JSON de `crate::domain::DockerCleanupConfig` — ver `crate::features::maintenance`.
+const KEY_REGISTRY_RETENTION — JSON de `crate::domain::RegistryRetentionConfig` — ver `crate::features::registry::retention`.
 const KEY_BACKUP_DESTINATION — JSON do destino S3 dos backups de dados (chave secreta cifrada) — ver `crate::features::data_backup:…
-const KEY_DOCKER_CLEANUP_LAST_RUN — JSON de `shared::DockerCleanupLastRun`, ausente até a primeira execução.
+const KEY_DOCKER_CLEANUP_LAST_RUN — JSON de `crate::domain::DockerCleanupLastRun`, ausente até a primeira execução.
 const KEY_BUILD_CACHE_LAST_PRUNE — JSON de `BuildCachePrune`: quando o cache de build foi limpo pela última vez e com qual corte de ida…
 const KEY_JOB_WARM_PREFIX — Prefixo das chaves `job_warm:<job_id>` (JSON de `jobs::warm::WarmRecord`).
 const KEY_SERVICE_WARM_PREFIX — Prefixo das chaves `service_warm:<service_id>` (JSON de `maintenance::service_warm::WarmRecord`).

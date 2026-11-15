@@ -218,7 +218,7 @@ impl IngressController
   fn register_domains(spec, ips, service_id) — Registra as rotas de domínio de um serviço e poda as órfãs dele.
   fn remove_domains(spec) — Remove todas as rotas de domínio do serviço (parada/remoção/reconcile).
   fn _lookup(domain) -> Option<RouteEntry>
-  fn snapshot() -> shared::IngressSnapshot — Foto da tabela de rotas viva, para `Command::IngressRoutes`.
+  fn snapshot() -> crate::domain::IngressSnapshot — Foto da tabela de rotas viva, para `Command::IngressRoutes`.
   fn table_handle() -> RouteHandle
   fn upsert_port_route(host_port, backends) — Aponta `host_port` para os `backends` fornecidos.
   fn remove_port_route(host_port) — Remove o roteamento de `host_port` (conexões novas são recusadas com reset).
