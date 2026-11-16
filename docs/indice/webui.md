@@ -71,7 +71,6 @@ function savePrefs(preferences)
     deployStart()
     deployStartNow()
     deployAbort(deploymentId)
-    deployRollback()
     deleteDeployment(deploymentId)
     queueCancel(deploymentId) — Cancela um deploy que ainda espera na fila — reaproveita DeployAbort (o daemon já trata remoção da f…
     queuePromote(deploymentId)

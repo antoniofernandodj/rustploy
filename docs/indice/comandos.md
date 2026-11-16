@@ -38,7 +38,7 @@ DeployWithDependenciesPlan — **Só mostra** o plano de `DeployWithDependencies
 ## / Como `DeployWithDependenciesPlan`, para o `ProjectDeploy` (o projeto inteiro).
 ProjectDeployPlan — Como `DeployWithDependenciesPlan`, para o `ProjectDeploy` (o projeto i… | daemon: features/deploy/tree/plan_for_project | gui: handlers/services | web: app
 DeployAbort | daemon: deploys/deploy_abort | gui: handlers/deploy_queue | web: app
-DeployRollback | daemon: deploys/deploy_rollback | gui: — | web: app
+DeployRollback | daemon: deploys/deploy_rollback | gui: — | web: —
 DeployHistory | daemon: deploys/deploy_history | gui: handlers/services | web: app
 DeployDelete | daemon: deploys/deploy_delete | gui: handlers/services, handlers/stream | web: app
 
@@ -353,5 +353,5 @@ DeployQueuePause — Pausa (`true`) ou retoma (`false`) a fila global. | daemon:
 ## Paridade
 
 - Só GUI (2): ServiceList, JobList
-- Só webui (2): ServiceCreate, DeployRollback
-- Nem GUI nem webui (28): RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, InfraAudit, StateGitStatus, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList
+- Só webui (1): ServiceCreate
+- Nem GUI nem webui (29): DeployRollback, RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, InfraAudit, StateGitStatus, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList
