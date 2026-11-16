@@ -57,11 +57,14 @@ function job_env_text_toggle()
 function job_env_text_cancel()
 function job_env_import()
 function job_env_reorder(reorder_json)
-function job_env_edit_key(key)
-function job_env_edit_value(key)
-function job_env_edit_cancel()
-function job_env_edit_apply()
-function job_secret_rename_pick(name)
+function job_env_row_key(key, value) — Linha editável no lugar (o sufixo da ação é a chave gravada da variável).
+function job_env_row_value(key, value)
+function job_env_row_use_secret(key, value)
+function job_env_row_secret(key, value)
+function job_env_row_save(key)
+function job_env_row_reset(key)
+function job_env_new_use_secret(value)
+function job_secret_rename_pick(name) — Substituídos pela linha editável (2026-11-16): function job_env_edit_key(key: string): () Core.edit_…
 function job_rename_cancel()
 function job_rename_apply()
 function job_env_to_secret(key)
@@ -81,21 +84,21 @@ function Core.job() — O Job cru mais recente (envs atuais), para quem precisa 
 local ask(title, message, confirm_label, destructive)
 local changed()
 function Core.reset_forms()
+local secret_names(service_id) — Os nomes dos secrets de um escopo (do projeto, ou do serviço com `service_id`).
+local secret_options(job, job_names) — Os secrets que uma variável do job pode usar, na ordem em que o daemon procura (env_resolve): os do …
 function Core.load() — Relê o job (e os nomes dos secrets dele) e espalha no ctx.
 local save_env(vars, comments, done_message) — Reenvia o Job inteiro com as envs novas (o daemon não tem PATCH parcial).
 function Core.show_validation_errors()
 function Core.add()
+function Core.new_use_secret(value) — Checkbox "usar secret" do form de adicionar: liga/desliga o modo e limpa o valor — num modo ele é o …
 function Core.delete(key)
 function Core.text_toggle()
 function Core.text_cancel()
 function Core.import()
 function Core.reorder(reorder_json) — Reordena (arraste): `reorder_json` é um JSON array de keys na nova ordem (linhas `__c<idx>` são come…
-local env_row(key)
-local edit_start(field, key)
-function Core.edit_key(key)
-function Core.edit_value(key)
-function Core.edit_cancel()
-function Core.edit_apply()
+function Core.row_change(key, field, value)
+function Core.row_reset(key)
+function Core.row_save(key)
 function Core.secret_rename_pick(name)
 function Core.rename_cancel()
 function Core.rename_apply()

@@ -70,6 +70,21 @@ function docker_remove_volume(name)
 function docker_only_used(key, value) — "Somente em uso" (on_toggle="docker_only_used:<chave>"): grava a chave e remonta as listas — o filtr…
 function docker_remove_network(network_id)
 
+### env_rows.luau — a linha de variável editável no lugar, na aba Variáveis do projeto (shell/project_env.component.gv),…
+local owner_id(scope) — Projeto (e serviço) a que a lista do escopo pertence: o rascunho de uma variável de um serviço não p…
+local draft_id(scope, key)
+local is_secret_row(row)
+local saved_state(row) — O que está gravado, na forma do rascunho.
+local raw_rows(scope) — As linhas cruas do escopo (as de format.env_json_with_comments), decodificadas.
+function M.row(scope, key) — A linha crua da variável `key` (nil se ela não existe mais).
+function M.row_state(scope, row) — O que a linha mostra: o rascunho, se houver, senão o que está gravado.
+function M.changes(row, state) — O que mudou em relação ao gravado: a chave nova (ou nil) e o EnvVarValue novo (ou nil).
+function M.publish(scope, rows_json) — Republica a lista do escopo no ctx: as linhas cruas + as chaves de cada campo + `dirty`.
+function M.set_secret_options(scope, options) — Os secrets que uma variável do escopo pode usar ({name, label}); republica a lista.
+function M.set_draft(scope, row, field, value) — Um campo da linha mudou (tecla, checkbox ou select): grava no rascunho e republica.
+function M.reset(scope, key) — Desfaz o rascunho da linha (✕, ou depois de gravar).
+types: Draft
+
 ### history.luau — a pilha do "voltar" (Backspace, Alt+← e o botão "voltar" do mouse; o motor chama `on_back()`, em nav…
 local snapshot()
 local same(a, b)
@@ -193,6 +208,8 @@ function secret_add()
 function secret_delete(name)
 function secret_use(name) — Chip "usar secret" (aba Variáveis): arma o form de adicionar var em modo secret com o nome escolhido…
 function project_env_secret_toggle()
+function project_env_new_use_secret(value) — Checkbox "usar secret" do form de adicionar (projeto e serviço): liga/desliga o modo e limpa o valor…
+function env_new_use_secret(value)
 function move_target_pick(service_id)
 local target_service() — Devolve o serviço de destino escolhido, ou avisa e devolve nil.
 function project_env_to_secret(key)
@@ -206,14 +223,19 @@ function service_env_rename_pick(key)
 function service_secret_rename_pick(name)
 function rename_cancel()
 function project_rename_apply()
-local env_row(raw, key)
-local env_edit_start(scope, field, key)
-function env_edit_cancel()
-function project_env_edit_key(key)
-function project_env_edit_value(key)
-function service_env_edit_key(key)
-function service_env_edit_value(key)
-function env_edit_apply()
+local env_row_save(scope, key)
+function project_env_row_key(key, value)
+function project_env_row_value(key, value)
+function project_env_row_use_secret(key, value)
+function project_env_row_secret(key, value)
+function project_env_row_save(key)
+function project_env_row_reset(key)
+function service_env_row_key(key, value)
+function service_env_row_value(key, value)
+function service_env_row_use_secret(key, value)
+function service_env_row_secret(key, value)
+function service_env_row_save(key)
+function service_env_row_reset(key)
 function secret_reveal(name)
 function secret_hide(name)
 

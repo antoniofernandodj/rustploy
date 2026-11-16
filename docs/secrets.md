@@ -86,15 +86,28 @@ Aba **Secrets** do projeto:
 
 Há três caminhos, todos equivalentes (todos gravam `EnvVarValue::Secret`):
 
-- **Variáveis do projeto** — ligue o toggle **"usar secret"** no formulário de
-  adicionar variável e clique no nome do secret na lista que aparece. A variável
-  passa a valer para todos os serviços do projeto.
-- **Environment do serviço** — em **KEY** o nome da variável, em **valor**
-  `<secret:API_KEY>`.
+- **Formulário de adicionar variável** (projeto ou serviço) — marque **"usar
+  secret"** e escolha o secret na lista que toma o lugar do campo do valor. Na
+  variável de um serviço a lista traz os secrets do serviço e os do projeto
+  (marcados "(projeto)"); na do projeto, só os do projeto; na de um job
+  (janela "Variáveis do job", aberta pela aba Jobs do projeto ou pelo editar
+  job em Agendamentos), os do job, os do serviço gatilho (marcados "(serviço)")
+  e os do projeto. Um nome que um escopo de cima já tem fica de fora da lista,
+  porque é o de cima que vale.
+- **Numa variável que já existe** — marque **"usar secret"** na própria linha e
+  escolha o secret; o **OK** da linha pede confirmação e grava. Desmarcar volta
+  a variável para um valor em claro (digitado na linha).
 - **Editor `.env`** (projeto ou serviço) — a linha `API_KEY=<secret:API_KEY>`.
+  Escrever `<secret:API_KEY>` ou `secret:API_KEY` como valor no formulário de
+  adicionar também funciona.
 
-Depois de salvar, a linha aparece como `secret:API_KEY`, indicando que é uma
-referência e não um valor.
+Depois de salvar, a linha mostra **"usar secret"** marcado e o nome do secret na
+lista. Um secret que a variável usa mas que foi apagado aparece na lista como
+"(não encontrado)".
+
+A chave e o valor de cada linha se editam no lugar: clicar no campo já edita, e
+nada grava sozinho — o **OK** aparece quando a linha muda, pede confirmação e
+grava; o **✕** ao lado desfaz.
 
 ### Como o deploy usa isso
 

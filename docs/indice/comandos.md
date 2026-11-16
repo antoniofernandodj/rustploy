@@ -147,8 +147,8 @@ StopContainer — Para um container (`id` completo, vindo de `DockerContainers`)
 SecretMove — Move um item entre env e secret, ou entre escopos. | daemon: secrets/secret_move | gui: handlers/secrets, handlers/services, job_env_core | web: screens/job_env, screens/project_detail, screens/service_detail
 
 ## / Resposta: `Ok`.
-EnvKeyRename — Renomeia a **chave** de uma env (do projeto, ou do serviço se `service… | daemon: secrets/env_key_rename | gui: handlers/secrets, handlers/services, job_env_core | web: screens/job_env, screens/project_detail, screens/service_detail
-EnvValueSet — Troca só o **valor** de uma env existente (do projeto, ou do serviço s… | daemon: secrets/env_value_set | gui: handlers/secrets, job_env_core | web: screens/job_env, screens/project_detail, screens/service_detail
+EnvKeyRename — Renomeia a **chave** de uma env (do projeto, ou do serviço se `service… | daemon: secrets/env_key_rename | gui: handlers/secrets, handlers/services, job_env_core | web: env_rows, screens/job_env, screens/project_detail, screens/service_detail
+EnvValueSet — Troca só o **valor** de uma env existente (do projeto, ou do serviço s… | daemon: secrets/env_value_set | gui: handlers/secrets, job_env_core | web: env_rows
 
 ## / Falha se `from` não existe ou `to` já existe no escopo. Resposta: `Ok`.
 SecretRename — Renomeia um **secret** (do projeto, ou do serviço se `service_id` vier… | daemon: secrets/secret_rename | gui: handlers/secrets, handlers/services, job_env_core | web: screens/job_env, screens/project_detail, screens/service_detail

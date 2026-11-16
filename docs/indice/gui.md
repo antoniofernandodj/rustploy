@@ -382,14 +382,26 @@ function test_deploy_plan__so_o_servico_faz_o_deploy_simples() — - Só o servi
 function test_deploy_plan__rejeitar_nao_deploya_nada() — - Rejeitar (ou fechar o diálogo): nada mais é enviado ao daemon, nem toast
 function test_deploy_plan__sem_dialogo_pendente_answer_lanca() — - sem diálogo aberto não há o que responder
 
-### env_edit.test.luau — Edição no lugar da chave/valor de uma variável (handlers/secrets.luau), sem conexão.
+### env_rows.test.luau — Linha de variável editável no lugar (handlers/env_rows.luau + os handlers `*_env_row_*` de handlers/…
 local nova()
-function test_edicao_no_lugar__a_chave_comeca_com_a_chave_atual() — - ✏️ arma o campo da CHAVE na própria linha, com a chave atual como rascunho
-function test_edicao_no_lugar__o_valor_comeca_com_o_valor_ou_a_referencia_do_secret() — - ✎ arma o campo do VALOR: em claro mostra o valor; secret mostra a referência, nunca o valor
-function test_edicao_no_lugar__o_escopo_do_servico() — - a variável do serviço usa o escopo do serviço
-function test_edicao_no_lugar__chave_inexistente_nao_arma_nada() — - uma chave que não existe na lista não arma nada
-function test_edicao_no_lugar__cancelar_limpa_tudo() — - ✕ desiste e limpa o rascunho
-function test_edicao_no_lugar__sem_conexao_o_rascunho_fica() — - sem conexão, gravar não faz nada e não perde o que foi digitado
+local publica(tela, secrets) — Publica as linhas do projeto e os secrets que o select oferece (o que stream.luau faz).
+local linha(tela, n, campo) — Um campo (`campo`) da linha publicada `n` (1 = A, 2 = SENHA).
+local com_api(tela)
+local enviados(tela)
+function test_env_rows__publica_os_campos_com_o_valor_gravado() — - cada linha ganha as chaves dos seus campos, com o que está gravado, e nasce sem alteração
+function test_env_rows__digitar_marca_a_linha_sem_gravar() — - digitar só muda o rascunho: aparece o OK, nada vai ao daemon
+function test_env_rows__o_rascunho_sobrevive_ao_snapshot() — - o snapshot republica a lista sem apagar o que está sendo digitado
+function test_env_rows__desfazer_volta_ao_gravado() — - ✕ desfaz: volta ao gravado e o OK some
+function test_env_rows__usar_secret_liga_e_desliga() — - marcar "usar secret" troca o valor pela lista; desmarcar de novo não deixa alteração
+function test_env_rows__secret_sumido_fica_na_lista() — - um secret que a variável usa mas sumiu continua na lista, marcado
+function test_env_rows__secret_sem_escolha_nao_grava() — - "usar secret" sem escolher um secret não grava nem pede confirmação
+function test_env_rows__recusar_a_confirmacao_mantem_o_rascunho() — - recusar a confirmação não manda nada e mantém o rascunho
+function test_env_rows__confirmar_grava_valor_e_depois_a_chave() — - confirmar grava o valor (pelo nome antigo) e depois a chave, e limpa o rascunho
+function test_env_rows__deixar_de_usar_secret_grava_valor_em_claro() — - desmarcar "usar secret" numa variável secret grava um valor em claro
+local job(tela) — Abre o job "job_1" (gatilho svc_1) com um daemon falso: os secrets do job são J, os do serviço S e J…
+function test_env_rows__job_lista_secrets_do_job_servico_e_projeto() — - a lista do job traz os secrets dele, os do serviço gatilho e os do projeto, sem repetir nome
+function test_env_rows__job_ok_grava_com_job_id() — - no job, o OK pede confirmação e grava com o job_id
+function test_env_rows__job_adicionar_com_secret() — - form de adicionar do job: "usar secret" grava a referência ao secret escolhido
 
 ### jobs.test.luau — Painel ⋯ dos jobs (`components/job_actions.component.gv`): Remover e Reconstruir pedem confirmação, …
 local nova()
@@ -597,7 +609,7 @@ local projeto()
 function test_projeto_cada_aba() — - cada aba do projeto avalia
 function test_projeto_aba_jobs_mostra_estado_e_acoes() — - a aba Jobs do projeto mostra o estado e as ações
 function test_projeto_env_em_modo_secret_e_sem_secrets() — - variáveis em modo secret, e sem nenhum secret cadastrado
-function test_projeto_edicao_no_lugar_da_chave_e_do_valor() — - edição no lugar: a linha em edição ganha ✓ e ✕ no lugar do texto; as outras linhas seguem normais
+function test_projeto_linha_editavel_no_lugar() — - linha editável no lugar: chave e valor são campos ligados às chaves da PRÓPRIA linha; o OK só - ap…
 function test_projeto_movimentos_entre_escopos() — - projeto: botões de mover (🔒 ↓ nas variáveis em claro, 🔓 nas que apontam para secret e nos secrets)
 function test_projeto_secret_ver_valor() — - projeto: secret escondido mostra 👁 e "encrypted"; revelado mostra o valor, 🙈 e copiar
 function test_configuracoes_git() — - Git: provedor OAuth e token
