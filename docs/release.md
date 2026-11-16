@@ -805,3 +805,21 @@ Daemon **0.1.52**, app **0.1.54**, `rustploy-shared` **0.26.0** (os três no cra
 - A migração Docker -> Podman com dados reais (só testada com stubs; ver `TODO.md`).
 - O `install.sh` numa VPS com systemd de verdade (os testes foram em container, sem systemd): subir o serviço e o
   helper de firewall.
+
+## v0.1.73 (2026-11-16): variáveis editáveis no lugar, com "usar secret" e OK + confirmação
+
+Daemon **0.1.64** e app **0.1.66** (`rustploy-update-core` **0.3.3** sem mudança). Ambos no crates.io.
+
+- **O quê:** nas variáveis do projeto, do serviço e do job (GUI e web UI), chave e valor viram campos sem borda; mexer só
+  muda um rascunho e faz aparecer o **OK** (pede confirmação e grava: `EnvValueSet` e depois `EnvKeyRename`) e o **✕**
+  (desfaz). O checkbox "usar secret" troca o valor por uma lista de secrets (serviço: os dele e os do projeto; job: os
+  dele, os do serviço gatilho e os do projeto). Saíram os botões ✏️/✎ das variáveis.
+- **`make test` pegou o que o `glacier test` não pega:** `tests/locales.rs` da GUI falha com chave de locale sem uso nas
+  views (sobraram `environment.edit_value` e três `project_env.*` dos chips antigos). Rode o `cargo test` da GUI, não só
+  o `glacier test`, depois de tirar texto de um `.gv`.
+- **`make lint`** reprovou só o `rustfmt` de um teste headless novo; `cargo fmt --all` no daemon resolveu.
+- **Conferido:** CI de teste verde (`.deb` 0.1.64/0.1.66, `libc6 (>= 2.34)`), rascunho assinado pelo agente com o shim
+  (dry-run antes, shim apagado), `sha256sum -c` e `minisign -V` dos quatro arquivos, `releases/latest` → v0.1.73;
+  comando de uma linha em `debian:12` (podman) instalou `rustployd 0.1.64-1` e, com `-- gui`, `rustploy-gui 0.1.66-1`;
+  `install.ps1` chegou ao SHA-256 (para no `minisign.exe`, como sempre no Linux). Docs publicadas e conferidas por `curl`.
+- **Não testado:** as telas novas abertas de verdade (GUI e web UI) contra um daemon real; `install.ps1` num Windows.
