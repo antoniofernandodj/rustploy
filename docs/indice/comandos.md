@@ -9,7 +9,7 @@
 ## Projects
 ProjectCreate | daemon: projects/project_create | gui: handlers/projects, new_project_window | web: app
 ProjectDelete | daemon: projects/project_delete | gui: handlers/projects | web: app
-ProjectUpdate | daemon: projects/project_update | gui: handlers/projects | web: app
+ProjectUpdate | daemon: projects/project_update | gui: handlers/projects | web: app, screens/project_detail
 ProjectList | daemon: projects/project_list | gui: handlers/projects, handlers/services | web: screens/service_detail
 
 ## / que não é do projeto ou repetido é erro. Response: `Ok`.
@@ -18,7 +18,7 @@ ProjectEnvSet | daemon: projects/project_env_set | gui: handlers/projects | web:
 
 ## Services
 ServiceCreate | daemon: features/services/create | gui: — | web: app
-ServiceUpdate | daemon: features/services/update | gui: handlers/services | web: app
+ServiceUpdate | daemon: features/services/update | gui: handlers/services | web: app, screens/service_detail
 ServiceDelete | daemon: features/services/delete | gui: handlers/projects | web: app
 ServiceList | daemon: services/service_list | gui: handlers/services | web: —
 ServiceGet | daemon: services/service_get | gui: handlers/services | web: app
