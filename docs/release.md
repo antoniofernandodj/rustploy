@@ -190,6 +190,32 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.71 (2026-11-15): web UI mais próxima do app desktop
+
+Daemon **0.1.62** (app **0.1.64** e `rustploy-update-core` **0.3.3** sem mudança). Primeira release depois de o
+`rustploy-shared` ser absorvido pelo daemon (tipos em `crate::domain`/`crate::protocol`).
+
+- **O que mudou (só a web UI):** nome/descrição do projeto e nome do serviço editados no título, com gravação por debounce;
+  painel lateral no serviço; abas General/Domínios/Avançado/Deployments/Conexão/Dados no layout da GUI; Rebuild no lugar de
+  Rollback (a GUI nunca teve) e Parar com confirmação; botões das variáveis compactos com ícones de traço; modo "usar secret"
+  nas variáveis do projeto; menu lateral traduzido com "Projetos (N)"; idioma em Configurações → Idioma; tabela de
+  Deployments ordenável.
+- **Correção junto:** na web UI, `<secret:NOME>` digitado como valor de variável do **projeto** gravava o texto puro em vez da
+  referência (a GUI já convertia).
+- **Teste que pegou a mudança:** `web_ui::headless_tests::rename_service_in_general_tab` falhou no `cargo test` (testava o card
+  de renomear que saiu); virou `rename_service_in_title`, e entrou `project_title_and_env_secret_reference`.
+- **Paridade gerada:** com o botão Rollback fora, o método `deployRollback` da web UI foi comentado; o `make index` e a página
+  `referencia/paridade` passaram `DeployRollback` para "nem GUI nem webui" (o comando segue no daemon e no MCP).
+- **Verificado:** `cargo test --workspace` do daemon (761 ok), clippy e fmt limpos; telas vistas no Chrome contra um daemon de
+  teste; CI sem tag verde (daemon 0.1.62 amd64/arm64 com `libc6 >= 2.34`); release assinada (checksums e 4 `.minisig`
+  conferidos com `keys/rustploy-update.pub`); daemon 0.1.62 e app 0.1.64 instalados pelo comando de uma linha num `debian:12`;
+  `install.ps1` até o SHA-256 (o `minisign.exe` não roda no Linux); docs no ar (idioma, serviço, web UI, FAQ e paridade).
+- **Não verificado:** a GUI não foi recompilada nem testada (não mudou); a captura da aba General em `interface/servico` ainda
+  mostra o campo de nome antigo da GUI (o título editável já existia na GUI antes desta release), e trocá-la exige rodar a GUI;
+  o e2e do updater não foi rodado (o helper e o empacotamento não mudaram, só caminhos de import).
+- **Ambiente:** ao trocar o binário do daemon de teste, derrube o anterior antes; senão o novo não sobe e o navegador continua no
+  velho. Os assets da web UI ficam em cache imutável: force `fetch(url, {cache: 'reload'})` antes de recarregar.
+
 ## v0.1.70 (2026-11-14): confirmação de Remover/Reconstruir job por cima do painel ⋯
 
 App **0.1.64** (daemon **0.1.61** e `rustploy-shared` **0.30.0** sem mudança).
