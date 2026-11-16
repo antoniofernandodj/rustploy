@@ -190,6 +190,32 @@ Os servidores precisam de `sudo` sem senha para esse usuário (o `make install-r
 dpkg/systemctl) e compilam o daemon na própria máquina, então o job demora (teto de 90 min). Um servidor
 fora do ar não impede o outro (`fail-fast: false`).
 
+## v0.1.72 (2026-11-16): motivo de "frio" e Pausar/Ativar traduzidos
+
+Daemon **0.1.63** e app **0.1.65** (`rustploy-update-core` **0.3.3** sem mudança). Ambos no crates.io.
+
+- **Por quê:** ao refazer as capturas das docs com a GUI em inglês, apareceram três textos em português: "cold: nunca
+  aquecido" sob o selo do serviço, o botão "‖ Pausar"/"Ativar" dos jobs e, na web UI, "frio:".
+- **Causa:** o daemon manda o motivo do aquecimento (`warm.reason`) como texto livre em português, com partes variáveis (a
+  imagem, a data da limpeza), e os dois clientes o mostravam cru. O rótulo do botão de job estava fixo em
+  `format/jobs.luau` (GUI) e `format.js` (web UI). Na web UI, `$t('frio: ')` tinha um espaço no fim e não casava com a chave
+  `"frio:"` do catálogo (o `lookup` não normaliza).
+- **Correção:** `warm_reason` (GUI) e `warmReasonText` (web UI) reconhecem os cinco formatos que o daemon emite e traduzem,
+  mantendo as partes variáveis; um motivo desconhecido (daemon mais novo) passa cru. O daemon continua mandando português:
+  traduzir no cliente evita mudar o protocolo.
+- **Testes que pegaram a mudança:** `format::jobs::test_tela_schedules__uma_linha_por_job_com_o_total` (Luau) esperava
+  "Pausar"; `job_actions_window_lists_actions_and_warm_status` (headless) procurava "nunca aquecido". Os dois agora conferem o
+  inglês, e entrou `test_estado__motivo_de_frio_traduzido`.
+- **Verificado:** `make lint` e `make test` nos três repos; `glacier test` (459 ok) e os 25 testes headless da web UI; CI sem
+  tag verde (daemon 0.1.63 amd64/arm64 com `libc6 >= 2.34`, app 0.1.65); release assinada (checksums e 4 `.minisig`
+  conferidos com `keys/rustploy-update.pub`); daemon 0.1.63 e app 0.1.65 instalados pelo comando de uma linha num `debian:12`;
+  `install.ps1` até o SHA-256; docs no ar.
+- **Não verificado:** a tela traduzida não foi vista rodando na GUI nem no Chrome depois da correção (cobertura só pelos testes);
+  o e2e do updater não foi rodado (helper e empacotamento sem mudança).
+- **Ambiente:** o `install.ps1` num container `mcr.microsoft.com/powershell` precisa de `-e LOCALAPPDATA=… -e TEMP=…`; sem
+  elas ele para antes do download com *"Cannot bind argument to parameter 'Path' because it is null"* (no Windows elas existem).
+  Aqui o `docker` não existe: use `podman run` com o nome completo da imagem (`docker.io/library/debian:12`).
+
 ## v0.1.71 (2026-11-15): web UI mais próxima do app desktop
 
 Daemon **0.1.62** (app **0.1.64** e `rustploy-update-core` **0.3.3** sem mudança). Primeira release depois de o
