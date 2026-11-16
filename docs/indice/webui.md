@@ -271,7 +271,8 @@ function recurrenceLabel(recurrence) — Resumo textual de uma `Recurrence?` (ni
 function jobRunStateLabel(run) — Rótulo/kind da última execução de um job.
 function retentionHours(text) — Horas de retenção da limpeza do Docker, do formulário → inteiro >= 0. Vazio ou inválido volta ao pad…
 function jobWarmLabel(warm) — Rótulo/cor do aquecimento de um job.
-function serviceWarmLabel(warm) — Rótulo/cor do aquecimento de um serviço com build.
+function warmReasonText(reason) — Rótulo/cor do aquecimento de um serviço com build.
+function serviceWarmLabel(warm)
 function jobSummaryRows(list, term, inflight) — Tela global "Schedules": uma linha por job, de todos os projetos.
 function oauthRedirectUri(base, kind) — Redirect URI do OAuth (`{base}/oauth/{gitea|github}/callback`).
 function gitKindLabel(kind)
@@ -601,7 +602,7 @@ function maskWebhook(url) — `https://host/webhook/<id>/<token>` → `https://h
     closeBuildLog()
     abortDeployment(deploymentId)
     removeDeployment(deploymentId)
-    get: store, webhookSupported, backupRunning, backupRunLabel, dataIsDatabase, canMigrate, migrationSteps, canShare, isShared, svc, projectName, statusLabel, statusKind, warm, warmLabel, warmKind, sourceText, isCompose, registryPickerRepos, registryLoopback, registryPickerImage, renameNote, liveContainers, connectionInfo, envVars, domains, tcpPorts, runArgsText, projectServicesForDeps, dependencyRows, dependencyOptions, preDeployQueueIds, preDeployChecks, preDeployAvailableJobs, deployments
+    get: store, webhookSupported, backupRunning, backupRunLabel, dataIsDatabase, canMigrate, migrationSteps, canShare, isShared, svc, projectName, statusLabel, statusKind, warm, warmLabel, warmKind, warmReason, sourceText, isCompose, registryPickerRepos, registryLoopback, registryPickerImage, renameNote, liveContainers, connectionInfo, envVars, domains, tcpPorts, runArgsText, projectServicesForDeps, dependencyRows, dependencyOptions, preDeployQueueIds, preDeployChecks, preDeployAvailableJobs, deployments
 
 ### settings.js — tela "Settings": Web Server / Git / Sync / Manutenção / Updates.
   Alpine.data("settings")

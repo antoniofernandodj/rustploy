@@ -208,6 +208,7 @@ function test_recorrencia__forma_desconhecida_vira_traco() — - forma desconhec
 function test_estado__ultima_execucao_nunca_rodando_ok_falhou() — - última execução: nunca, rodando, ok, falhou
 function test_estado__aquecimento_aquecendo_vence_quente_e_nil_conta_como() — - aquecimento: aquecendo vence quente, e nil conta como frio
 function test_estado__servico_sem_build_nao_tem_selo() — - serviço sem build não tem selo
+function test_estado__motivo_de_frio_traduzido() — - o motivo de frio vem do daemon em português: os formatos conhecidos são traduzidos, o resto passa …
 local resumo(sobrescrita)
 function test_tela_schedules__uma_linha_por_job_com_o_total() — - uma linha por job, com o total
 function test_tela_schedules__o_dono_mostra_projeto_servico_gatilho_ou_so_o() — - o dono mostra projeto / serviço gatilho, ou só o projeto quando autônomo
