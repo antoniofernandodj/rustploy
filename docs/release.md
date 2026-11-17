@@ -823,3 +823,35 @@ Daemon **0.1.64** e app **0.1.66** (`rustploy-update-core` **0.3.3** sem mudanç
   comando de uma linha em `debian:12` (podman) instalou `rustployd 0.1.64-1` e, com `-- gui`, `rustploy-gui 0.1.66-1`;
   `install.ps1` chegou ao SHA-256 (para no `minisign.exe`, como sempre no Linux). Docs publicadas e conferidas por `curl`.
 - **Não testado:** as telas novas abertas de verdade (GUI e web UI) contra um daemon real; `install.ps1` num Windows.
+
+## v0.1.74 (2026-11-17): widgets da fase gpui-kit do glacier-ui no app; erros de campo visíveis
+
+App **0.1.69** (glacier-ui **0.165**); daemon **0.1.64** e `rustploy-update-core` **0.3.3** sem mudança (o daemon só foi
+recompilado). App no crates.io.
+
+- **O bug:** nenhuma mensagem de erro de campo validado aparecia no app. O `form` do glacier-ui publica a mensagem em
+  `{erro_<campo>}` (o `error_prefix` padrão, desde a 0.102), as telas e os scripts liam `{error_<campo>}`, e nenhum dos 21
+  `form` declarava o prefixo; seis condições ainda testavam a string com `not_empty`, que só vale para array JSON. Só a borda
+  `:invalid` e o toast funcionavam. Correção: `error_prefix = error_` em todo `form` e `not_equals = ""`.
+- **O que mudou na tela:** 94 pares rótulo → campo viraram o builtin `field` (rótulo, ajuda e erro num lugar só); oito
+  valores para copiar (URL da API, redirect do git, comandos de instalação, webhook, `docker login`) viraram um campo só de
+  leitura com o Copiar colado (`inputgroup` + `textinput(readonly)`); o cabeçalho do serviço tem um split button de Deploy
+  com Reload/Rebuild/Warm/Exportar no "▾" (os `busy_*` desligam os itens) e o Stop à parte; as faixas de aviso do sync com o
+  git e da fila pausada viraram `alert`; 37 tooltips das tabelas de variáveis/secrets e dos cartões ganharam
+  `tooltip_delay = "500ms"`.
+- **Testes que pegaram a mudança:** `no_semantic_key_is_left_unused` (a dica do botão de ícone do Warm ficou sem uso e saiu dos
+  dois catálogos); `tela::render::test_acoes_do_servico_viram_icones_quando_estreito` (as ações viraram um `menu`; o teste agora
+  conta o Stop e os dois split buttons); `tela::missing` das janelas de novo projeto e de token (com o `error_prefix = error_` o
+  motor passou a publicar a chave de erro dos campos com `rules`).
+- **Verificado:** `make lint` e `make test` nos três repos; `glacier test` (466 ok); `npm run build` e `check-links` (933
+  páginas, 0 links quebrados); CI sem tag verde (daemon 0.1.64 amd64/arm64 com `libc6 >= 2.34`, app 0.1.69 com `>= 2.35`);
+  release assinada e publicada, baixada pela URL pública (checksums e 4 `.minisig` conferidos com `keys/rustploy-update.pub`);
+  daemon 0.1.64 e app 0.1.69 instalados pelo comando de uma linha num `debian:12` (`podman`); `install.ps1` até o SHA-256;
+  docs no ar (pt e en).
+- **Não verificado:** as telas novas não foram vistas rodando no app (a sessão desta máquina não deixa capturar a tela); as
+  capturas das docs do cabeçalho do serviço ficaram desatualizadas; o e2e do updater não foi rodado (helper e empacotamento sem
+  mudança).
+- **Armadilha nova:** o `tools/sign-release.sh` pede a senha a cada arquivo. Para alimentar o `minisign` por um pipe, cada cópia
+  da senha precisa terminar em quebra de linha (`while :; do cat ARQUIVO; echo; done | tools/sign-release.sh vX.Y.Z`); um
+  arquivo de senha sem `\n` no fim faz as cópias se colarem e o `minisign` responde *Wrong password for that key* — sem enviar
+  nada, a release fica em rascunho.
