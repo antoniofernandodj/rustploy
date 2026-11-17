@@ -919,3 +919,14 @@ App e daemon no crates.io.
 - **Armadilha:** o `.deb` do app embute as telas e os scripts no binário. Instalar um `.deb` novo com o app aberto não
   muda nada até ele ser fechado e reaberto; o dono viu o bug "ainda lá" por isso. Antes de mexer no código, compare a hora
   do processo (`ps -eo lstart,args`) com a da instalação (mtime de `/var/lib/dpkg/info/rustploy-gui.list`).
+- **Verificado:** `make lint` (0 avisos) e `make test` (930 ok) nos três repos; `glacier test` (471 ok); `npm run build` e
+  `check-links` (933 páginas, 0 quebrados); CI sem tag verde (daemon 0.1.65 amd64/arm64 com `libc6 >= 2.34`, app 0.1.73
+  com `>= 2.35`), com a correção conferida dentro dos pacotes (o `stream.luau` novo no binário do app; a webui nova nos
+  blocos gzip do `rustployd`); release assinada pelo `minisign.pass` (shim só para `-S`, apagado depois) e publicada;
+  baixada pela URL pública, `checksums.sha256` e os 4 `.minisig` conferidos com `keys/rustploy-update.pub`; daemon 0.1.65
+  e app 0.1.73 instalados pelo comando de uma linha num `debian:12` (`podman`), com a assinatura conferida pelo
+  `install.sh`; `install.ps1` até o SHA-256; docs no ar (rótulos dos estados em `conceitos/ciclo-de-vida`, pt e en).
+- **Não verificado:** a webui corrigida rodando no navegador (só os testes headless); o rótulo SUBSTITUÍDO numa lista
+  real do app. A correção do cabeçalho foi vista pelo dono no app compilado da `main` (depois de reabri-lo).
+- **`install.ps1` no PowerShell de Linux** precisa de `-e LOCALAPPDATA=… -e TEMP=…` no `podman run`; sem elas para em
+  "Cannot bind argument to parameter 'Path' because it is null", antes do download.
