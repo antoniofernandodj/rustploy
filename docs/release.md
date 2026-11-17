@@ -899,3 +899,23 @@ App **0.1.72** (glacier-ui **0.167**); daemon **0.1.64** e `rustploy-update-core
   (470); `npm run build` e `check-links` (0 quebrados).
 - **Não verificado:** o rename no lugar com o daemon de verdade (o foco do campo depois que a lista recarrega); a webui
   embutida no daemon ainda tem o botão de renomear; as capturas de Settings nas docs mostram a barra de abas antiga.
+
+## v0.1.78 (2026-11-17): estado do deploy consistente; código da GUI em 79 colunas
+
+App **0.1.73** e daemon **0.1.65** (só a webui embutida); `rustploy-update-core` **0.3.3** sem mudança.
+App e daemon no crates.io.
+
+- **O bug:** depois de um deploy concluído, o cabeçalho do serviço ficava em "deploy · Pruning" com o selo "⏱" ligado.
+  Ao promover o deploy novo, o daemon publica `Pruning` para o deployment **anterior**, com o mesmo `service_id`; os dois
+  clientes casavam o evento só pelo serviço. Pelo mesmo motivo, parar o serviço depois de um deploy notificava "Deploy
+  falhou: Stopped" na GUI, e religá-lo dizia "deploy concluído" na webui. Agora só conta o evento do deployment em voo
+  (`deploy_track.deployment_id` na GUI; `inFlightDeploymentByService` na webui).
+- **Rótulos:** `Pruning` aparecia como **BUILDING** azul e pulsante na aba Deployments, na lista global e no Deploy
+  Engine (e `RollingBack` também). Agora: SUBSTITUÍDO/REPLACED (cinza) e REVERTENDO/ROLLING BACK (amarelo). Na webui
+  os rótulos passam pelo `t()` como na GUI ("NO AR" em pt-BR, não "LIVE"), e um deployment `Pruning` ganha a lixeira.
+- **79 colunas:** `.gv`, `.gss` e `.luau` do app reformatados (stylua com o `stylua.toml` do projeto; atributos de tag e
+  regras GSS um por linha). 8 chaves de i18n longas encurtadas nos dois catálogos; `new_service_template_variable_value_*`
+  virou `new_service_template_value_*`. O `glacier.d.luau` ficou de fora (o stylua não o lê).
+- **Armadilha:** o `.deb` do app embute as telas e os scripts no binário. Instalar um `.deb` novo com o app aberto não
+  muda nada até ele ser fechado e reaberto; o dono viu o bug "ainda lá" por isso. Antes de mexer no código, compare a hora
+  do processo (`ps -eo lstart,args`) com a da instalação (mtime de `/var/lib/dpkg/info/rustploy-gui.list`).
