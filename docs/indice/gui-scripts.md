@@ -26,7 +26,6 @@ function M.install(names)
 ### busy_actions.luau — ações (on_click/on_submit) que ganham a trava de busy.luau.
 
 ### download.luau — salvar um arquivo "para baixar" (chave de recuperação, token do registry): vai direto para a pasta D…
-function M.save(filename, contents, dialog_title) — - Grava `contents` e devolve `(true, caminho)`, ou `(false, mensagem)`.
 
 ### format.luau — fachada: reexporta os builders de views/scripts/fmt_*.luau sob um único módulo, para os handlers seg…
 
@@ -35,7 +34,6 @@ types: FetchResult, StreamHandle, Viewport, FetchProgress, AbortController, Http
 
 ### helpers.luau — utilitários puros compartilhados pelos handlers_*.luau (sem estado, sem I/O).
 function M.trim(value)
-function M.env_value_from_draft(draft, was_secret) — Referência a secret num valor de env var → nome do secret (ou nil se o valor for texto comum).
 function M.parse_secret_ref(text)
 function M.valid_env_key(key) — Nome de env var aceito: começa com letra ou `_`; o resto são letras, dígitos, `_`, `.` e `-`.
 function M.confirm_env_key(key, existing_json) — Valida a chave nova antes de gravar: nome inválido avisa e aborta; chave que já existe pede confirma…
@@ -77,15 +75,12 @@ function job_secret_hide(name)
 function job_secret_copy(ref)
 
 ### job_env_core.luau — a lógica das envs e secrets de UM job, sem depender da janela principal (sem State/Stream/History), …
-function Core.setup(opts, project_id, job_id, after_change)
 function Core.job() — O Job cru mais recente (envs atuais), para quem precisa reenviar o JobUpdate.
-local ask(title, message, confirm_label, destructive)
 local changed()
 function Core.reset_forms()
 local secret_names(service_id) — Os nomes dos secrets de um escopo (do projeto, ou do serviço com `service_id`).
 local secret_options(job, job_names) — Os secrets que uma variável do job pode usar, na ordem em que o daemon procura (env_resolve): os do …
 function Core.load() — Relê o job (e os nomes dos secrets dele) e espalha no ctx.
-local save_env(vars, comments, done_message) — Reenvia o Job inteiro com as envs novas (o daemon não tem PATCH parcial).
 function Core.show_validation_errors()
 function Core.add()
 function Core.new_use_secret(value) — Checkbox "usar secret" do form de adicionar: liga/desliga o modo e limpa o valor — num modo ele é o …
@@ -205,7 +200,6 @@ local deploy_stepper(info)
 local iso_to_epoch_seconds(iso_timestamp)
 function M.deploy_engine_detail(info)
 function M.deploy_engine_detail_steps(info)
-local project_by_service_id(service_pairs) — O resumo do Deploy Engine traz só o id do serviço; o do projeto (link da coluna PROJETO) sai dos par…
 local item_label(info, budget) — A fila do Deploy Engine tem deploys, execuções de job e aquecimentos de job.
 
 ### docker_cleanup.luau — resumo textual da limpeza automática de Docker (Settings → Manutenção).
@@ -242,12 +236,10 @@ local matches(term, texts)
 
 ### service_detail.luau — builders da tela de detalhe de serviço (source, healthcheck, env vars, logs, deployments, domains, c…
 function M.containers(containers) — Lista de containers do serviço (id + nome + estado) → linhas para a UI de detalhe.
-local is_terminal(state)
 function M.source_summary_parts(source) — ServiceSource → (kind, detail, build_engine) — source_summary().
 function M.healthcheck_summary(healthcheck) — Resumo de uma linha do healthcheck.
 local env_var_row(env_var) — Uma linha de var de ambiente (secret exibido por referência).
 function M.dependency_rows(spec, services) — Dependências do serviço (`spec.depends_on`: ids de serviços do MESMO projeto) como linhas {id, name,…
-function M.dependency_options(spec, self_id, services) — Serviços do projeto que ainda podem virar dependência: não o próprio, e nenhum que já esteja na list…
 local log_rows(log_entries) — Linhas de log (LogEntry/BuildLogLine: {stream, line, timestamp}) coloridas, limpas de ANSI e limitad…
 function M.join_log_lines(log_entries, with_date) — Junta linhas de log num blob de texto ("HH:MM:SS line") p/ o TextArea/copiar.
 local execution_outcome(outcome) — Cor do desfecho do deploy de uma execução (lista "Execuções anteriores").
@@ -301,6 +293,7 @@ function M.status_label_color(status) — ServiceStatus vem como string ("Runnin
 function M.status_kind(status)
 function M.state_label_color(state) — DeployState vem como string ("Live", "Failed", "BuildingImage", ...).
 function M.state_kind(state)
+function M.deploy_state_terminal(state) — Estados em que o deployment não anda mais (domain::DeployState::is_terminal).
 function M.in_use_kind(in_use)
 function M.container_state(state) — Estado bruto de um container Docker ("running"/"exited"/… ) → (rótulo, kind).
 function M.container_stopped(state) — `true` quando o container está PARADO (removível sem force).

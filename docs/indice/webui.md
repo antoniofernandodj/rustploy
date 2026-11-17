@@ -68,6 +68,7 @@ function savePrefs(preferences)
     deployPlanOnlyService() — "Só o serviço": ignora as dependências.
     deployPlanLine(item, index) — Texto de uma linha do plano: "1.
     deploySingle(serviceId, fromDetail)
+    trackDeployStart(serviceId, deployStartResponse) — Arma o acompanhamento do deploy que esta aba disparou: o desfecho vira toast (`deployTrackId`) e o d…
     deployStart()
     deployStartNow()
     deployAbort(deploymentId)
@@ -224,6 +225,7 @@ function formatSeconds(secs) — Ns ou Mm Ns.
 function formatUptime(secs) — dd hh mm / hh mm / mm ss, o maior campo não-zero primeiro.
 function formatDuration(deployment) — Duração de um deployment (finished_at ou agora) − started_at.
 function stateLabelKind(state) — DeployState → (rótulo, kind semântico p/ .state_<kind>).
+function deployStateTerminal(state) — Estados em que o deployment não anda mais (domain::DeployState::is_terminal).
 function serviceStatusLabelKind(status) — ServiceStatus (string ou `{Error: "..."}`) → (rótulo, kind).
 function shortReason(message, max) — Tamanho de bytes legível ("—" para 0/ausente).
 function formatBytes(bytes)

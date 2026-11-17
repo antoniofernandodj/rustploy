@@ -163,7 +163,7 @@ function test_docker__containers_a_busca_olha_nome_imagem_estado_e_dono() — - 
 function test_ingress_portas_e_monitoramento__ingress_uma_linha_por_rota_com() — - ingress: uma linha por rota, com a porta do upstream
 function test_ingress_portas_e_monitoramento__ingress_ignora_dominio_em() — - ingress ignora domínio em branco e entende o campo legado
 function test_ingress_portas_e_monitoramento__portas_de_host_so_quem_tem_host() — - portas de host: só quem tem host_port, em ordem numérica
-function test_ingress_portas_e_monitoramento__uma_linha_por_porta_tcp() — - portas de host: uma linha por porta da lista nova, com a porta do container e o rótulo
+function test_ingress_portas_e_monitoramento__uma_linha_por_porta_tcp() — - portas de host: uma linha por porta da lista nova, com a porta do container - e o rótulo
 function test_ingress_portas_e_monitoramento__monitoramento_so_servicos_com() — - monitoramento: só serviços com métricas vivas, com valores crus
 local info(estado, extras)
 local status_dos_passos(i)
@@ -179,7 +179,7 @@ function test_motor_de_deploy__detalhe_a_transicao_corrente_mostra_o_tempo_no() 
 function test_motor_de_deploy__detalhe_timestamp_invalido_nao_da_duracao() — - detalhe: timestamp inválido não dá duração negativa
 function test_motor_de_deploy__executando_agora_traz_estado_tempos_e_os() — - executando agora traz estado, tempos e os passos
 function test_motor_de_deploy__a_fila_numera_de_1_e_guarda_o_id_para_cancelar() — - a fila numera de 1 e guarda o id para cancelar
-function test_motor_de_deploy__job_e_aquecimento_levam_selo_nas_tres_listas() — - job e aquecimento entram nas três listas, com o selo antes do nome; só deploy tem "Detalhes"
+function test_motor_de_deploy__job_e_aquecimento_levam_selo_nas_tres_listas() — - job e aquecimento entram nas três listas, com o selo antes do nome; só - deploy tem "Detalhes"
 function test_motor_de_deploy__o_historico_escolhe_o_icone_pelo_resultado() — - o histórico escolhe o ícone pelo resultado
 function test_motor_de_deploy__o_historico_leva_o_id_do_projeto() — - o histórico leva o id do projeto, achado pelo serviço
 function test_motor_de_deploy__ativos_e_fila_levam_o_id_do_projeto() — - ativos e fila levam o id do projeto, achado pelo serviço
@@ -208,7 +208,7 @@ function test_recorrencia__forma_desconhecida_vira_traco() — - forma desconhec
 function test_estado__ultima_execucao_nunca_rodando_ok_falhou() — - última execução: nunca, rodando, ok, falhou
 function test_estado__aquecimento_aquecendo_vence_quente_e_nil_conta_como() — - aquecimento: aquecendo vence quente, e nil conta como frio
 function test_estado__servico_sem_build_nao_tem_selo() — - serviço sem build não tem selo
-function test_estado__motivo_de_frio_traduzido() — - o motivo de frio vem do daemon em português: os formatos conhecidos são traduzidos, o resto passa …
+function test_estado__motivo_de_frio_traduzido() — - o motivo de frio vem do daemon em português: os formatos conhecidos são - traduzidos, o resto pass…
 local resumo(sobrescrita)
 function test_tela_schedules__uma_linha_por_job_com_o_total() — - uma linha por job, com o total
 function test_tela_schedules__o_dono_mostra_projeto_servico_gatilho_ou_so_o() — - o dono mostra projeto / serviço gatilho, ou só o projeto quando autônomo
@@ -252,8 +252,8 @@ function test_deployments_e_dominios__linha_de_deployment_id_estado_duracao_e() 
 function test_deployments_e_dominios__todo_estado_terminal_pode_ser_apagado() — - todo estado terminal pode ser apagado, nenhum em andamento
 function test_deployments_e_dominios__a_rota_sem_porta_propria_herda_a_do() — - a rota sem porta própria herda a do serviço
 function test_deployments_e_dominios__sem_dominio_da() — - sem domínio dá []
-function test_deployments_e_dominios__portas_tcp_lista_e_legado() — - portas TCP: a lista nova, ou o host_port legado virando uma porta para a porta do serviço
-function test_deployments_e_dominios__sugestoes_de_porta() — - sugestões: o texto do botão traz porta, nome e "escutando agora" ou "interna"
+function test_deployments_e_dominios__portas_tcp_lista_e_legado() — - portas TCP: a lista nova, ou o host_port legado virando uma porta para a - porta do serviço
+function test_deployments_e_dominios__sugestoes_de_porta() — - sugestões: o texto do botão traz porta, nome e "escutando agora" ou - "interna"
 function test_nomes_e_hosts__safe_name_minusculas_nao_alfanumerico_vira() — - safe_name: minúsculas, não-alfanumérico vira _ colapsado e sem bordas
 function test_nomes_e_hosts__compose_host_ingress_service_declarado_vence() — - compose_host: ingress_service declarado vence
 function test_nomes_e_hosts__compose_host_primeira_chave_de_services() — - compose_host: primeira chave de services:
@@ -275,17 +275,17 @@ function test_url_externa__senha_com_caracteres_reservados_e_percent_encoded() �
 function test_url_externa__segredo_referencia_nao_vira_credencial() — - segredo (referência) não vira credencial
 function test_url_externa__o_host_sai_do_api_url_ou_host_quando_ele_falta() — - o host sai do api_url, ou <host> quando ele falta
 function test_logs__history_rows_marca_a_troca_de_container() — - history_rows marca onde o container muda e devolve o último container
-function test_logs__a_fachada_format_exporta_history_rows() — - a fachada `format` reexporta history_rows (open_logs_window a chama por ela; faltou uma vez)
+function test_logs__a_fachada_format_exporta_history_rows() — - a fachada `format` reexporta history_rows (open_logs_window a chama por - ela; faltou uma vez)
 function test_logs__log_execution_rows_monta_a_lista_de_execucoes() — - lista "Execuções anteriores": resumo, desfecho com cor, parcial e seleção
-function test_logs__join_log_lines_com_data_completa() — - a data completa só entra nas linhas quando pedida (janela de uma execução passada)
-function test_logs__a_fachada_format_exporta_log_execution_rows_e_date_time_full() — - a fachada `format` reexporta o que a aba Logs usa (o bug da 0.1.41: faltar aqui)
+function test_logs__join_log_lines_com_data_completa() — - a data completa só entra nas linhas quando pedida (janela de uma execução - passada)
+function test_logs__fachada_format_exporta_execution_rows_e_date_time_full() — - a fachada `format` reexporta o que a aba Logs usa (o bug da 0.1.41: faltar - aqui)
 
 ### state_git.test.luau
 function test_state_git__sem_status_ou_desligado_nao_ha_aviso() — - sem status ou desligado: nenhum aviso
-function test_state_git__avisos_por_prioridade() — - pausa, commit recusado e commits suspensos viram aviso (nessa ordem de prioridade)
+function test_state_git__avisos_por_prioridade() — - pausa, commit recusado e commits suspensos viram aviso (nessa ordem de - prioridade)
 function test_state_git__pending_ids() — - conjunto de serviços com mudança pendente de deploy
 function test_state_git__removed_rows() — - removidos no git: nome, tipo, projeto e sha curto; vazio vira "[]"
-function test_state_git__audit_rows() — - auditoria: certeza não pode ser liberada; suspeita sim; liberada pode voltar a travar
+function test_state_git__audit_rows() — - auditoria: certeza não pode ser liberada; suspeita sim; liberada pode - voltar a travar
 function test_state_git__container_owner() — - dono do container: o órfão é dito como tal
 function test_state_git__context_padroes_e_booleans() — - contexto: booleans viram "true"/"false" e os padrões não deixam `nil`
 function test_state_git__docker_containers_can_stop_so_no_orfao_rodando() — - Runtime → Containers: só o órfão que ainda roda oferece "Parar"
@@ -324,6 +324,7 @@ function test_arrays__encode_array_codifica_a_lista_quando_ha_itens() — - enco
 function test_estados__status_label_color_e_status_kind_concordam_em_todos_os() — - status_label_color e status_kind concordam em todos os estados
 function test_estados__status_com_erro_tabela_ou_desconhecido_cai_em_error() — - status com erro (tabela) ou desconhecido cai em Error/bad
 function test_estados__estado_de_deploy_rotulo_cor_e_kind() — - estado de deploy: rótulo, cor e kind
+function test_estados__deploy_state_terminal() — - deploy_state_terminal espelha domain::DeployState::is_terminal
 function test_estados__in_use_kind() — - in_use_kind
 function test_estados__container_state_normaliza_a_caixa_e_classifica() — - container_state normaliza a caixa e classifica
 function test_estados__container_state_parado_ou_desconhecido_e_muted_vazio() — - container_state: parado ou desconhecido é muted; vazio vira exited
@@ -366,18 +367,18 @@ function test_dados_sem_conexao__nada_acontece() — - sem sessão, exportar, co
 local nova(ctx_inicial)
 function test_data_backup__salvar_sem_conexao_e_inerte() — - sem conexão, salvar não faz nada (nem mensagem, nem toast)
 function test_data_backup__testar_e_limpar_sem_conexao_sao_inertes() — - sem conexão, testar e limpar também são inertes
-function test_data_backup__formulario_nasce_com_defaults() — - o formulário nasce com defaults seguros: região padrão, path-style ligado, nada configurado
+function test_data_backup__formulario_nasce_com_defaults() — - o formulário nasce com defaults seguros: região padrão, path-style ligado, - nada configurado
 
 ### deploy_plan.test.luau — "Deploy com dependências": start_deploy pede o plano ao daemon, mostra a ordem num `dialog` declarad…
 local nova()
 local com_api(tela, respostas) — Injeta o api falso.
 local enviados(tela) — Os comandos enviados ao daemon, na ordem, separados por vírgula.
 function test_deploy_plan__sem_conexao_o_deploy_e_inerte() — - sem conexão, pedir o deploy não prepara dialog nenhum (nem toast)
-function test_deploy_plan__com_dependencias_semeia_o_plano_e_espera_a_escolha() — - com dependências: pede o plano, semeia a ordem no corpo e para no diálogo, sem deployar nada
+function test_deploy_plan__com_dependencias_semeia_o_plano_e_espera_a_escolha() — - com dependências: pede o plano, semeia a ordem no corpo e para no diálogo, - sem deployar nada
 function test_deploy_plan__ordem_indica_o_que_nao_entra_na_fila() — - o plano marca ao lado do nome o que não entra na fila
-function test_deploy_plan__sem_dependencias_vai_direto_ao_deploy_simples() — - sem dependências (plano de um item só): o deploy simples de sempre, sem abrir diálogo
+function test_deploy_plan__sem_dependencias_vai_direto_ao_deploy_simples() — - sem dependências (plano de um item só): o deploy simples de sempre, sem - abrir diálogo
 function test_deploy_plan__plano_com_erro_cai_no_deploy_simples() — - plano indisponível (erro do daemon): também cai no deploy simples
-function test_deploy_plan__aceitar_deploya_com_dependencias() — - Aceitar: deploya com as dependências, na ordem mostrada, para o serviço pedido
+function test_deploy_plan__aceitar_deploya_com_dependencias() — - Aceitar: deploya com as dependências, na ordem mostrada, para o serviço - pedido
 function test_deploy_plan__so_o_servico_faz_o_deploy_simples() — - Só o serviço: o deploy simples do serviço pedido, sem o lote
 function test_deploy_plan__rejeitar_nao_deploya_nada() — - Rejeitar (ou fechar o diálogo): nada mais é enviado ao daemon, nem toast
 function test_deploy_plan__sem_dialogo_pendente_answer_lanca() — - sem diálogo aberto não há o que responder
@@ -388,25 +389,25 @@ local publica(tela, secrets) — Publica as linhas do projeto e os secrets que o
 local linha(tela, n, campo) — Um campo (`campo`) da linha publicada `n` (1 = A, 2 = SENHA).
 local com_api(tela)
 local enviados(tela)
-function test_env_rows__publica_os_campos_com_o_valor_gravado() — - cada linha ganha as chaves dos seus campos, com o que está gravado, e nasce sem alteração
+function test_env_rows__publica_os_campos_com_o_valor_gravado() — - cada linha ganha as chaves dos seus campos, com o que está gravado, e nasce - sem alteração
 function test_env_rows__digitar_marca_a_linha_sem_gravar() — - digitar só muda o rascunho: aparece o OK, nada vai ao daemon
 function test_env_rows__o_rascunho_sobrevive_ao_snapshot() — - o snapshot republica a lista sem apagar o que está sendo digitado
 function test_env_rows__desfazer_volta_ao_gravado() — - ✕ desfaz: volta ao gravado e o OK some
-function test_env_rows__usar_secret_liga_e_desliga() — - marcar "usar secret" troca o valor pela lista; desmarcar de novo não deixa alteração
+function test_env_rows__usar_secret_liga_e_desliga() — - marcar "usar secret" troca o valor pela lista; desmarcar de novo não deixa - alteração
 function test_env_rows__secret_sumido_fica_na_lista() — - um secret que a variável usa mas sumiu continua na lista, marcado
 function test_env_rows__secret_sem_escolha_nao_grava() — - "usar secret" sem escolher um secret não grava nem pede confirmação
 function test_env_rows__recusar_a_confirmacao_mantem_o_rascunho() — - recusar a confirmação não manda nada e mantém o rascunho
-function test_env_rows__confirmar_grava_valor_e_depois_a_chave() — - confirmar grava o valor (pelo nome antigo) e depois a chave, e limpa o rascunho
+function test_env_rows__confirmar_grava_valor_e_depois_a_chave() — - confirmar grava o valor (pelo nome antigo) e depois a chave, e limpa o - rascunho
 function test_env_rows__deixar_de_usar_secret_grava_valor_em_claro() — - desmarcar "usar secret" numa variável secret grava um valor em claro
 local job(tela) — Abre o job "job_1" (gatilho svc_1) com um daemon falso: os secrets do job são J, os do serviço S e J…
-function test_env_rows__job_lista_secrets_do_job_servico_e_projeto() — - a lista do job traz os secrets dele, os do serviço gatilho e os do projeto, sem repetir nome
+function test_env_rows__job_lista_secrets_do_job_servico_e_projeto() — - a lista do job traz os secrets dele, os do serviço gatilho e os do projeto, - sem repetir nome
 function test_env_rows__job_ok_grava_com_job_id() — - no job, o OK pede confirmação e grava com o job_id
-function test_env_rows__job_adicionar_com_secret() — - form de adicionar do job: "usar secret" grava a referência ao secret escolhido
+function test_env_rows__job_adicionar_com_secret() — - form de adicionar do job: "usar secret" grava a referência ao secret - escolhido
 
 ### jobs.test.luau — Painel ⋯ dos jobs (`components/job_actions.component.gv`): Remover e Reconstruir pedem confirmação, …
 local nova()
 local enviados(tela)
-function test_job_delete__painel_fecha_antes_da_confirmacao() — - Remover: com a confirmação aberta, o painel já fechou; cancelar não manda nada
+function test_job_delete__painel_fecha_antes_da_confirmacao() — - Remover: com a confirmação aberta, o painel já fechou; cancelar não manda - nada
 function test_job_delete__confirmar_remove() — - Remover: confirmar manda JobDelete
 function test_job_rebuild__painel_fecha_antes_da_confirmacao() — - Reconstruir sem cache: o mesmo painel, a mesma regra
 
@@ -443,15 +444,15 @@ function test_abas_e_campos__a_busca_guarda_o_texto_como_veio_e_nao_quebra() —
 
 ### recover.test.luau — Settings → Recuperar: sem conexão os handlers são inertes (o botão pode ser clicado quando a sessão …
 local nova(ctx_inicial)
-function test_recover__sem_conexao_e_inerte() — - sem sessão, nada acontece (nem toast) e a chave NÃO é apagada: não houve envio
+function test_recover__sem_conexao_e_inerte() — - sem sessão, nada acontece (nem toast) e a chave NÃO é apagada: não houve - envio
 function test_recover__estado_inicial() — - a tela nasce no estado "nada em curso", com o formulário vazio
-function test_recover__linha_do_servico() — - a linha de um serviço: banco/volume, projeto/nome, backup achado (ou "sobe vazio") e a etapa
+function test_recover__linha_do_servico() — - a linha de um serviço: banco/volume, projeto/nome, backup achado (ou "sobe - vazio") e a etapa
 function test_recover__etapa_desconhecida_aparece_como_veio() — - etapa desconhecida aparece como veio (nunca some)
 
 ### recovery_key.test.luau — Settings → Chave de recuperação: sem conexão os handlers são inertes, a tela nasce sem chave, e "Gua…
 local nova(ctx_inicial)
 function test_recovery_key__sem_conexao_e_inerte() — - sem sessão, gerar não faz nada (nem toast, nem privada na tela)
-function test_recovery_key__dismiss_esquece_a_privada() — - "Guardei em lugar seguro" apaga a privada e o conteúdo do arquivo do estado da tela
+function test_recovery_key__dismiss_esquece_a_privada() — - "Guardei em lugar seguro" apaga a privada e o conteúdo do arquivo do estado - da tela
 
 ### registry_picker.test.luau — Sub-aba Registry do serviço: o select de repositório/tag monta a imagem do registry embutido.
 local nova(ctx_inicial)
@@ -468,7 +469,7 @@ local nova(ctx_inicial)
 function test_service_backup__sem_conexao_e_inerte() — - sem sessão, fazer backup, restaurar e apagar não fazem nada (nem toast)
 function test_service_backup__estado_inicial() — - a aba nasce sem lista e sem o botão pronto (o markup nunca lê nil)
 function test_service_backup__linha_da_ultima_operacao() — - a última operação vira uma linha legível nos três estados
-function test_service_backup__formulario_da_politica_ida_e_volta() — - o formulário da política ida e volta: semanal, a cada N horas, diário e "nunca configurada" (UTC)
+function test_service_backup__formulario_da_politica_ida_e_volta() — - o formulário da política ida e volta: semanal, a cada N horas, diário e - "nunca configurada" (UTC…
 function test_service_backup__salvar_politica_sem_conexao_e_inerte() — - sem sessão, salvar a política não faz nada
 
 ### state_git_clear.test.luau — Settings → Sincronização → "Limpar configuração" (`state_git_clear`) e o projeto editado no lugar (`…
@@ -477,8 +478,8 @@ local com_api(tela)
 local enviados(tela)
 function test_state_git_clear__flag_de_configurado() — - o botão só aparece com algo gravado: modo ligado, repositório ou conta
 function test_state_git_clear__recusar_nao_envia() — - recusar a confirmação não manda nada ao daemon
-function test_state_git_clear__confirmar_desliga_e_limpa_o_formulario() — - confirmar manda StateGitConfigure em `off` sem repositório/branch/conta e limpa o formulário
-function test_project_title__digitar_marca_pendente_sem_gravar_na_hora() — - projeto: digitar o nome marca "pendente" (o stream não pisa no campo) e não grava na hora
+function test_state_git_clear__confirmar_desliga_e_limpa_o_formulario() — - confirmar manda StateGitConfigure em `off` sem repositório/branch/conta e - limpa o formulário
+function test_project_title__digitar_marca_pendente_sem_gravar_na_hora() — - projeto: digitar o nome marca "pendente" (o stream não pisa no campo) e não - grava na hora
 
 ## rustploy-gui/tests/lib/
 
@@ -548,8 +549,8 @@ function test_urls__provedor_desconhecido_cai_em_gitea_e_base_vazia_avisa() — 
 function test_urls__looks_like_git_url_reconhece_os_esquemas_e_o_sufixo_git() — - looks_like_git_url reconhece os esquemas e o sufixo .git
 function test_urls__normalize_url_fixa_o_esquema_e_descarta_caminho_query_e() — - normalize_url fixa o esquema e descarta caminho, query e fragmento
 function test_urls__normalize_url_recusa_vazio_e_esquema_que_nao_e_http_s() — - normalize_url recusa vazio e esquema que não é http(s)
-function test_booleanos__is_true_aceita_boolean_e_texto() — - is_true aceita o boolean (checkbox/toggle) e o texto "true"; o resto é falso
-function test_booleanos__is_false_nao_confunde_ausente_com_falso() — - is_false só é verdadeiro para o false explícito; ausente não é falso (padrão ligado)
+function test_booleanos__is_true_aceita_boolean_e_texto() — - is_true aceita o boolean (checkbox/toggle) e o texto "true"; o resto é - falso
+function test_booleanos__is_false_nao_confunde_ausente_com_falso() — - is_false só é verdadeiro para o false explícito; ausente não é falso - (padrão ligado)
 function test_env_value_from_draft__plain_secret_e_variavel_que_ja_era_secret() — - o valor digitado na edição no lugar vira Plain ou Secret
 
 ## rustploy-gui/tests/tela/
@@ -609,21 +610,21 @@ local projeto()
 function test_projeto_cada_aba() — - cada aba do projeto avalia
 function test_projeto_aba_jobs_mostra_estado_e_acoes() — - a aba Jobs do projeto mostra o estado e as ações
 function test_projeto_env_em_modo_secret_e_sem_secrets() — - variáveis em modo secret, e sem nenhum secret cadastrado
-function test_projeto_linha_editavel_no_lugar() — - linha editável no lugar: chave e valor são campos ligados às chaves da PRÓPRIA linha; o OK só - ap…
-function test_projeto_movimentos_entre_escopos() — - projeto: botões de mover (🔒 ↓ nas variáveis em claro, 🔓 nas que apontam para secret e nos secrets)
-function test_projeto_secret_ver_valor() — - projeto: secret escondido mostra 👁 e "encrypted"; revelado mostra o valor, 🙈 e copiar
-function test_configuracoes_menu_vertical() — - Settings: menu vertical (lista à esquerda), um item ativo, clicar troca a seção
+function test_projeto_linha_editavel_no_lugar() — - linha editável no lugar: chave e valor são campos ligados às chaves da - PRÓPRIA linha; o OK só ap…
+function test_projeto_movimentos_entre_escopos() — - projeto: botões de mover (🔒 ↓ nas variáveis em claro, 🔓 nas que apontam - para secret e nos secret…
+function test_projeto_secret_ver_valor() — - projeto: secret escondido mostra 👁 e "encrypted"; revelado mostra o valor, - 🙈 e copiar
+function test_configuracoes_menu_vertical() — - Settings: menu vertical (lista à esquerda), um item ativo, clicar troca a - seção
 function test_configuracoes_git() — - Git: provedor OAuth e token
 function test_configuracoes_web() — - Web Server
 function test_configuracoes_manutencao() — - Manutenção: limpeza do Docker em cada recorrência
-function test_configuracoes_sincronizacao_git() — - Sincronização com o git: desligada, ligada, pausada (divergência), commit recusado, - removidos no…
+function test_configuracoes_sincronizacao_git() — - Sincronização com o git: desligada, ligada, pausada (divergência), commit - recusado, removidos no…
 function test_configuracoes_atualizacoes() — - Atualizações: sem consulta ainda, com versão nova e com erro do daemon
 local servico(aba)
 function test_servico_cada_aba() — - cada aba da tela de serviço avalia
-function test_servico_domains_portas_tcp() — - aba Domains: portas TCP (lista, sugestões clicáveis e botões) e o estado vazio
-function test_servico_environment_secrets_do_servico() — - aba Environment: secrets do serviço aparecem (nome editável no lugar), com o botão "→ secret" nas …
-function test_servico_advanced_dependencias() — - aba Advanced: dependências (lista, seletor e botão) e a caixa de religar no boot
-function test_dependencias_candidatos_e_removido() — - o formatter: o próprio serviço e as dependências já postas não entram como candidatos
+function test_servico_domains_portas_tcp() — - aba Domains: portas TCP (lista, sugestões clicáveis e botões) e o estado - vazio
+function test_servico_environment_secrets_do_servico() — - aba Environment: secrets do serviço aparecem (nome editável no lugar), com - o botão "→ secret" na…
+function test_servico_advanced_dependencias() — - aba Advanced: dependências (lista, seletor e botão) e a caixa de religar no - boot
+function test_dependencias_candidatos_e_removido() — - o formatter: o próprio serviço e as dependências já postas não entram como - candidatos
 function test_servico_geral_por_origem() — - aba Geral: origem Git, zip e compose
 function test_servico_webhook() — - aba Deployments: webhook sem token e em serviço compose
 function test_so_a_tela_ativa_e_avaliada() — - só a tela ativa é avaliada: o login não vaza para dentro do shell
@@ -634,10 +635,10 @@ function test_nav_projects_fica_aceso_nas_subtelas() — - o item Projects da si
 function test_nav_settings_mostra_ponto_com_versao_nova() — - Settings mostra um ponto quando há versão nova do daemon, e só então
 function test_nav_item_aceso_recolore_os_filhos_pelo_combinador() — - o item aceso recolore ícone e rótulo pelo combinador `.nav-item--active > - …` Se a regra composta…
 function test_sidebar_e_uma_gaveta_ligada_a_chave_menu() — - a sidebar é uma <drawer> ligada à chave `menu`
-function test_servico_aba_logs_lista_execucoes_anteriores() — - aba Logs: a lista "Execuções anteriores" só aparece com execuções, e cada linha tem Ver logs / Exc…
+function test_servico_aba_logs_lista_execucoes_anteriores() — - aba Logs: a lista "Execuções anteriores" só aparece com execuções, e cada - linha tem Ver logs / E…
 function test_acoes_do_servico_viram_icones_quando_estreito() — - as ações do serviço viram ícones quando a janela estreita
 function test_acao_em_andamento_trava_o_botao() — - o botão de uma ação suspensa num fetch fica travado até ela terminar O init semeia `busy_<ação>` e…
-function test_projeto_mover_so_destrava_com_destino() — - projeto: o ↓ de mover só destrava com um serviço de destino escolhido (a opção nula "escolha…" o t…
+function test_projeto_mover_so_destrava_com_destino() — - projeto: o ↓ de mover só destrava com um serviço de destino escolhido (a - opção nula "escolha…" o…
 function test_job_env_tela() — - a tela do job avalia e mostra envs, secrets e os mesmos botões do serviço
 
 ### running.test.luau
@@ -670,7 +671,7 @@ function test_novo_job_modo_edicao__recorrencia_semanal_guarda_o_dia_e_o() — -
 function test_novo_job_modo_edicao__sem_recorrencia_ou_desconhecida_e_manual() — - sem recorrência (ou desconhecida) é manual com os padrões
 function test_novo_job_modo_edicao__job_com_fonte_git_troca_a_fonte_e_os() — - job com fonte git troca a fonte e os campos do picker
 function test_novo_job_modo_edicao__git_sem_compose_path_usa_o_padrao() — - git sem compose_path usa o padrão
-function test_novo_job_modo_edicao__as_envs_do_job_ficam_guardadas_para_o_salvar() — - as envs do job ficam guardadas para o "Salvar" reenviá-las (o painel as gerencia direto no daemon)
+function test_novo_job_modo_edicao__envs_do_job_ficam_guardadas_para_salvar() — - as envs do job ficam guardadas para o "Salvar" reenviá-las (o painel as - gerencia direto no daemo…
 function test_novo_job_passo_env_avalia() — - o painel de envs é um passo da janela e a tela avalia
 function test_novo_job_modo_edicao__json_de_edicao_ilegivel_e_ignorado_abre() — - JSON de edição ilegível é ignorado: abre como job novo
 local com_catalogo()
@@ -694,9 +695,9 @@ function test_novo_job_criar_so_ate_a_validacao_recusar__fonte_git_pede() — - 
 function test_novo_job_criar_so_ate_a_validacao_recusar__git_com_repositorio() — - git com repositório que não está na lista pede para selecionar de novo
 function test_novo_job_criar_so_ate_a_validacao_recusar__o_erro_some_quando_o() — - o erro some quando o formulário passa a validar (limpa antes de ir à rede)
 function test_novo_job_criar_so_ate_a_validacao_recusar__o_formulario() — - o formulário recusado não deixa o botão travado
-function test_novo_job_envs_na_criacao__o_formulario_tem_o_form_de_variaveis() — - ir ao formulário de um job novo zera a lista de variáveis e mostra o form de adicionar
+function test_novo_job_envs_na_criacao__o_formulario_tem_o_form_de_variaveis() — - ir ao formulário de um job novo zera a lista de variáveis e mostra o form - de adicionar
 function test_novo_job_envs_na_criacao__adicionar_editar_e_remover() — - adicionar, editar no lugar e remover mexem só na lista local
-function test_novo_job_envs_na_criacao__chave_vazia_e_secret_sem_nome_nao_entram() — - secret sem escolher e chave vazia não entram
+function test_novo_job_envs_na_criacao__chave_vazia_e_secret_sem_nome_fora() — - secret sem escolher e chave vazia não entram
 
 ### windows.test.luau — Scripts das janelas auxiliares (cada uma é um motor isolado, aberto por open_window com `data`).
 local janela(caminho, ctx_inicial)

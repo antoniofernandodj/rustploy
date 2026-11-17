@@ -176,12 +176,12 @@ local apply(info)
 function M.load() — - Lê em que ponto a recuperação está e, enquanto roda, repolla.
 function recover_refresh()
 function recover_start() — - Passo 1: traz a infra do git, recifra os segredos e lista o que foi achado.
-function recover_run() — - Passo 2: restaura os dados e sobe os serviços na ordem das dependências (em segundo plano).
+function recover_run() — - Passo 2: restaura os dados e sobe os serviços na ordem das dependências (em - segundo plano).
 function recover_cancel()
 
 ### recovery_key.luau — Settings → Chave de recuperação (docs/plano-chave-de-recuperacao.md).
 local set_defaults()
-local refresh_flags() — - Deriva do estado (`configured`, `generated`) as flags e o rótulo que a tela usa.
+local refresh_flags() — - Deriva do estado (`configured`, `generated`) as flags e o rótulo que a tela - usa.
 function M.load() — - Lê se há chave configurada e qual é a pública.
 local save_file_now()
 function recovery_key_open() — - Abre a aba (usada pelos avisos de "sem chave" em Backups e Sincronização).
@@ -240,13 +240,13 @@ function secret_hide(name)
 
 ### service_backup.luau — aba Dados → "Backup no S3": os backups dos dados do serviço no S3 (docs/plano-backup-de-dados-para-s…
 function M.reset()
-function M.run_label(run) — - Uma linha para a última operação: "backup · concluído 11/11 10:00:05 (3 MB)" / "· falhou: …".
-function M.form_from_policy(policy) — - O formulário (valores em texto, como moram no `ctx`) a partir da política do daemon.
-function M.policy_from_values(form) — - O `BackupPolicy` do protocolo (horário em UTC) a partir dos valores do formulário.
+function M.run_label(run) — - Uma linha para a última operação: "backup · concluído 11/11 10:00:05 (3 - MB)" / "· falhou: …".
+function M.form_from_policy(policy) — - O formulário (valores em texto, como moram no `ctx`) a partir da política - do daemon.
+function M.policy_from_values(form) — - O `BackupPolicy` do protocolo (horário em UTC) a partir dos valores do - formulário.
 local fill_form(policy)
 local policy_from_form()
 local apply(list, fill)
-function M.load(fill) — - Lê os backups e a última operação; enquanto roda (e a aba segue aberta) repolla.
+function M.load(fill) — - Lê os backups e a última operação; enquanto roda (e a aba segue aberta) - repolla.
 function service_backup_refresh()
 function service_backup_now()
 function service_backup_policy_save()
@@ -308,7 +308,7 @@ function M.data_parts_text(parts) — - Texto das partes do plano: uma por linha
 function M.data_load() — - Abre a aba: pede o plano (só metadados) e mostra o que um export levaria.
 function data_export()
 function data_pick_file()
-function data_preview() — - 1º passo: o daemon confere o pacote e diz o que seria substituído (nada muda).
+function data_preview() — - 1º passo: o daemon confere o pacote e diz o que seria substituído (nada - muda).
 function data_confirm() — - 2º passo: confirmado, envia de novo e aplica.
 function env_show_validation_errors(_erros_json) — on_validation_error do form(name = env_add) — a chave é `rules="required"`; o motor publica {error_e…
 function env_add()
