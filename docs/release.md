@@ -833,7 +833,7 @@ recompilado). App no crates.io.
   `{erro_<campo>}` (o `error_prefix` padrão, desde a 0.102), as telas e os scripts liam `{error_<campo>}`, e nenhum dos 21
   `form` declarava o prefixo; seis condições ainda testavam a string com `not_empty`, que só vale para array JSON. Só a borda
   `:invalid` e o toast funcionavam. Correção: `error_prefix = error_` em todo `form` e `not_equals = ""`.
-- **O que mudou na tela:** 94 pares rótulo → campo viraram o builtin `field` (rótulo, ajuda e erro num lugar só); oito
+- **O que mudou na tela:** 90 pares rótulo → campo (além das quatro telas da 0.1.68) viraram o builtin `field` (rótulo, ajuda e erro num lugar só); oito
   valores para copiar (URL da API, redirect do git, comandos de instalação, webhook, `docker login`) viraram um campo só de
   leitura com o Copiar colado (`inputgroup` + `textinput(readonly)`); o cabeçalho do serviço tem um split button de Deploy
   com Reload/Rebuild/Warm/Exportar no "▾" (os `busy_*` desligam os itens) e o Stop à parte; as faixas de aviso do sync com o
