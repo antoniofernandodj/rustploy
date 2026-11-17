@@ -855,3 +855,15 @@ recompilado). App no crates.io.
   da senha precisa terminar em quebra de linha (`while :; do cat ARQUIVO; echo; done | tools/sign-release.sh vX.Y.Z`); um
   arquivo de senha sem `\n` no fim faz as cópias se colarem e o `minisign` responde *Wrong password for that key* — sem enviar
   nada, a release fica em rascunho.
+
+## v0.1.75 (2026-11-17): Deploy verde e da altura do Stop
+
+App **0.1.70** (glacier-ui **0.166**); daemon **0.1.64** e `rustploy-update-core` **0.3.3** sem mudança. App no crates.io.
+
+- **O que mudou:** o split button de Deploy do cabeçalho do serviço saía no azul primário do tema, mais baixo e com outra fonte
+  que o Stop ao lado. O glacier-ui 0.166 deixa o `dropdownbutton` ser pintado por uma classe do app (`button_class`), e o
+  Deploy passou a usar `btn btn--primary` — o verde dos botões principais. As duas metades agora se tocam, com um traço
+  escuro de 1 px entre elas.
+- **Verificado:** o desenho no exemplo `gpui_kit_luau` do glacier-ui, com as mesmas classes, conferido pelo usuário numa
+  captura; `make lint` e `make test`; o resto como na v0.1.74 (abaixo, no relatório da sessão).
+- **Não verificado:** a tela do serviço no próprio app.
