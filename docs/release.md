@@ -879,3 +879,23 @@ App **0.1.71** (glacier-ui **0.167**); daemon **0.1.64** e `rustploy-update-core
 - **Verificado:** o diálogo no exemplo `gpui_kit_luau` do glacier-ui, com rótulos mais longos que os do app, conferido pelo
   usuário numa captura; `make lint` e `make test`; CI, assinatura e instalação como na v0.1.75.
 - **Não verificado:** o diálogo no próprio app.
+
+## v0.1.77 (2026-11-17): secret renomeado no lugar, variáveis do job na criação, Settings em lista vertical
+
+App **0.1.72** (glacier-ui **0.167**); daemon **0.1.64** e `rustploy-update-core` **0.3.3** sem mudança. App no crates.io.
+
+- **Secrets sem botão de renomear:** no projeto, no serviço e no job, o ✏️ e o mini-formulário "Renomear X para:" saíram;
+  o nome é um campo sem borda que renomeia sozinho (`SecretRename`) meio segundo depois da última tecla, como o nome do
+  projeto e do serviço (`views/scripts/handlers/secret_rows.luau`). Nome vazio ou já usado não grava.
+- **Secrets do job e do serviço** no layout dos do projeto: cada secret numa linha, com "cifrado" (ou o valor revelado)
+  ao lado, sem o nome repetido embaixo.
+- **Variáveis do job na criação:** o formulário de Novo job já adiciona e edita as variáveis (lista local que vai no
+  `JobCreate`), com "usar secret" dos secrets do serviço gatilho e do projeto. Os secrets do próprio job continuam no passo
+  seguinte. A janela passou de 560×700 para 760×760, para a lista de secrets ser legível.
+- **Settings** em menu vertical, como as configurações de um IDE: as seções numa lista à esquerda.
+- **Testes que pegaram a mudança:** `tela::missing` da janela de Novo job (chaves novas publicadas no `init`) e
+  `app_manifest::windows_declare_title_and_size` (o tamanho da janela).
+- **Verificado:** a janela de Novo job conferida pelo usuário numa captura; `make lint`, `make test`, `glacier test`
+  (470); `npm run build` e `check-links` (0 quebrados).
+- **Não verificado:** o rename no lugar com o daemon de verdade (o foco do campo depois que a lista recarrega); a webui
+  embutida no daemon ainda tem o botão de renomear; as capturas de Settings nas docs mostram a barra de abas antiga.

@@ -64,9 +64,7 @@ function job_env_row_secret(key, value)
 function job_env_row_save(key)
 function job_env_row_reset(key)
 function job_env_new_use_secret(value)
-function job_secret_rename_pick(name) — Substituídos pela linha editável (2026-11-16): function job_env_edit_key(key: string): () Core.edit_…
-function job_rename_cancel()
-function job_rename_apply()
+function job_secret_name_change(name, value) — Substituídos pela linha editável (2026-11-16): function job_env_edit_key(key: string): () Core.edit_…
 function job_env_to_secret(key)
 function job_secret_to_env(name)
 function job_env_to_project(key)
@@ -99,9 +97,7 @@ function Core.reorder(reorder_json) — Reordena (arraste): `reorder_json` é um
 function Core.row_change(key, field, value)
 function Core.row_reset(key)
 function Core.row_save(key)
-function Core.secret_rename_pick(name)
-function Core.rename_cancel()
-function Core.rename_apply()
+function Core.secret_name_change(name, value)
 local job_move(op, name, done_message)
 function Core.env_to_secret(key) — 🔒 numa variável em claro: o valor passa a ser guardado cifrado.
 function Core.secret_to_env(name) — 🔓: volta a ser variável em claro (o valor deixa de ser cifrado).
@@ -127,6 +123,15 @@ function init()
 local client()
 local decode(json_text)
 function init()
+local draft_env_publish()
+local draft_env_secret_options() — Os secrets que a variável pode usar, na ordem em que o daemon procura: serviço gatilho, projeto.
+function draft_env_start()
+function new_job_env_use_secret(value)
+function new_job_env_add()
+function new_job_env_delete(index)
+function new_job_env_row_key(index, value)
+function new_job_env_row_value(index, value)
+local draft_env_vars() — As linhas como o JobCreate as quer (`{ key, value = { Plain } | { Secret } }`); chave vazia sai.
 function field(key, value) — onChange dos inputs (mesma convenção `field:<chave>` do app principal).
 function new_job_source(kind)
 function new_job_git_provider_pick(provider_id)

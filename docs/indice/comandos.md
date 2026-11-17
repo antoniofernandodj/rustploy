@@ -108,7 +108,7 @@ SetDaemonSettings | daemon: settings/set_daemon_settings | gui: handlers/setting
 ## não mandam o campo, continuam falando só do escopo de projeto.
 SecretSet | daemon: secrets/secret_set | gui: handlers/secrets, handlers/services, job_env_core | web: app, screens/job_env, screens/service_detail
 SecretDelete | daemon: secrets/secret_delete | gui: handlers/secrets, handlers/services, job_env_core | web: app, screens/job_env, screens/service_detail
-SecretList | daemon: secrets/secret_list | gui: handlers/services, job_env_core | web: screens/job_env, screens/service_detail
+SecretList | daemon: secrets/secret_list | gui: handlers/services, job_env_core, new_job_window | web: screens/job_env, screens/service_detail
 
 ## / grava uma linha de auditoria (quem, qual secret, quando — nunca o valor).
 SecretReveal — Devolve o **valor** de um secret (botão "ver valor"). | daemon: secrets/secret_reveal | gui: handlers/secrets, handlers/services, job_env_core | web: screens/job_env, screens/project_detail, screens/service_detail
@@ -147,7 +147,7 @@ StopContainer — Para um container (`id` completo, vindo de `DockerContainers`)
 SecretMove — Move um item entre env e secret, ou entre escopos. | daemon: secrets/secret_move | gui: handlers/secrets, handlers/services, job_env_core | web: screens/job_env, screens/project_detail, screens/service_detail
 
 ## / Resposta: `Ok`.
-EnvKeyRename — Renomeia a **chave** de uma env (do projeto, ou do serviço se `service… | daemon: secrets/env_key_rename | gui: handlers/secrets, handlers/services, job_env_core | web: env_rows, screens/job_env, screens/project_detail, screens/service_detail
+EnvKeyRename — Renomeia a **chave** de uma env (do projeto, ou do serviço se `service… | daemon: secrets/env_key_rename | gui: handlers/secrets, job_env_core | web: env_rows, screens/job_env, screens/project_detail, screens/service_detail
 EnvValueSet — Troca só o **valor** de uma env existente (do projeto, ou do serviço s… | daemon: secrets/env_value_set | gui: handlers/secrets, job_env_core | web: env_rows
 
 ## / Falha se `from` não existe ou `to` já existe no escopo. Resposta: `Ok`.

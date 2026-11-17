@@ -201,6 +201,11 @@ function registry_refresh_tokens() — ── Tokens de acesso (Basic auth) ─�
 function registry_open_token_window() — Abre a janela separada de criação (segredo só aparece lá, uma vez — ver new_registry_token_window.gv…
 function registry_remove_token(name)
 
+### secret_rows.luau — o NOME do secret editável no lugar, nas listas de secrets do projeto (shell/project_secrets.componen…
+local draft_id(scope, name)
+function M.bind(scope, rows_json) — Recebe o JSON de `format.secret_rows` e devolve o mesmo com `bind_name` em cada linha, depois de gra…
+local bind_key_of(list_key, name) — A chave do ctx do campo do secret `name` na lista publicada em `ctx[list_key]`.
+
 ### secrets.luau — aba "Secrets" do projeto: criar/sobrescrever e apagar valores cifrados, e o atalho "usar secret" da …
 local known_names() — Nomes atualmente conhecidos (do snapshot já renderizado), para saber se um SecretSet cria ou substit…
 function secret_add_show_validation_errors(_erros_json) — on_validation_error do form(name = secret_add) — NOME e valor são `rules="required"` no form(...); o…
@@ -216,13 +221,7 @@ function project_env_to_secret(key)
 function project_secret_to_env(name)
 function project_secret_to_service(name)
 function project_env_to_service(key)
-local rename_pick(tag, name)
-function project_env_rename_pick(key)
-function project_secret_rename_pick(name)
-function service_env_rename_pick(key)
-function service_secret_rename_pick(name)
-function rename_cancel()
-function project_rename_apply()
+function project_secret_name_change(name, value)
 local env_row_save(scope, key)
 function project_env_row_key(key, value)
 function project_env_row_value(key, value)
@@ -320,7 +319,7 @@ function env_to_secret(key) — "→ secret" numa variável em claro: o valor pa
 function service_secret_reveal(name) — 👁 num secret do serviço: pede o valor ao daemon (SecretReveal, que grava auditoria: quem, qual, quan…
 function service_secret_hide(name)
 function secret_copy(ref) — Copia o valor já revelado (a chave é "escopo:nome", a mesma da linha).
-function service_rename_apply() — Grava o mini-formulário de renomear (armado por service_env_rename_pick / service_secret_rename_pick…
+function service_secret_name_change(name, value) — O nome de um secret do SERVIÇO aberto, editado no lugar (handlers/secret_rows.luau): renomeia meio s…
 local service_move(op, name, done_message) — Move genérico (SecretMove) de uma coisa do SERVIÇO aberto; `done_message` é o aviso de sucesso.
 function service_secret_to_env(name) — 🔓 num secret do serviço (ou numa variável que aponta para um): volta a ser uma variável em claro do …
 function service_secret_to_project(name) — ↑ secret do serviço → secret do projeto (todos os serviços do projeto passam a enxergá-lo).
@@ -386,6 +385,7 @@ local update_progress_text(update_progress) — Texto do que o daemon sabe sobre
 function M.update_load_progress()
 function update_apply() — Atualiza o daemon pelo app (Command::ApplyUpdate).
 function update_rollback() — Volta os binários para os do backup da última atualização (Command::UpdateRollback).
+function settings_tab_pick(id) — Item do menu vertical de Settings (home/settings.component.gv): abre a seção.
 
 ### state_git.luau — Settings → Sync: a sincronização do estado de infra com um repositório git (Fases 6 e 7 de docs/plan…
 function state_git_provider_pick(provider_id) — O <select> da conta Git só escreve na chave via on_change.

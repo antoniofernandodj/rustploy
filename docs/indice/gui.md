@@ -612,6 +612,7 @@ function test_projeto_env_em_modo_secret_e_sem_secrets() — - variáveis em mod
 function test_projeto_linha_editavel_no_lugar() — - linha editável no lugar: chave e valor são campos ligados às chaves da PRÓPRIA linha; o OK só - ap…
 function test_projeto_movimentos_entre_escopos() — - projeto: botões de mover (🔒 ↓ nas variáveis em claro, 🔓 nas que apontam para secret e nos secrets)
 function test_projeto_secret_ver_valor() — - projeto: secret escondido mostra 👁 e "encrypted"; revelado mostra o valor, 🙈 e copiar
+function test_configuracoes_menu_vertical() — - Settings: menu vertical (lista à esquerda), um item ativo, clicar troca a seção
 function test_configuracoes_git() — - Git: provedor OAuth e token
 function test_configuracoes_web() — - Web Server
 function test_configuracoes_manutencao() — - Manutenção: limpeza do Docker em cada recorrência
@@ -620,7 +621,7 @@ function test_configuracoes_atualizacoes() — - Atualizações: sem consulta ai
 local servico(aba)
 function test_servico_cada_aba() — - cada aba da tela de serviço avalia
 function test_servico_domains_portas_tcp() — - aba Domains: portas TCP (lista, sugestões clicáveis e botões) e o estado vazio
-function test_servico_environment_secrets_do_servico() — - aba Environment: secrets do serviço aparecem (nome + cadeado), com o botão "→ secret" nas variávei…
+function test_servico_environment_secrets_do_servico() — - aba Environment: secrets do serviço aparecem (nome editável no lugar), com o botão "→ secret" nas …
 function test_servico_advanced_dependencias() — - aba Advanced: dependências (lista, seletor e botão) e a caixa de religar no boot
 function test_dependencias_candidatos_e_removido() — - o formatter: o próprio serviço e as dependências já postas não entram como candidatos
 function test_servico_geral_por_origem() — - aba Geral: origem Git, zip e compose
@@ -693,6 +694,9 @@ function test_novo_job_criar_so_ate_a_validacao_recusar__fonte_git_pede() — - 
 function test_novo_job_criar_so_ate_a_validacao_recusar__git_com_repositorio() — - git com repositório que não está na lista pede para selecionar de novo
 function test_novo_job_criar_so_ate_a_validacao_recusar__o_erro_some_quando_o() — - o erro some quando o formulário passa a validar (limpa antes de ir à rede)
 function test_novo_job_criar_so_ate_a_validacao_recusar__o_formulario() — - o formulário recusado não deixa o botão travado
+function test_novo_job_envs_na_criacao__o_formulario_tem_o_form_de_variaveis() — - ir ao formulário de um job novo zera a lista de variáveis e mostra o form de adicionar
+function test_novo_job_envs_na_criacao__adicionar_editar_e_remover() — - adicionar, editar no lugar e remover mexem só na lista local
+function test_novo_job_envs_na_criacao__chave_vazia_e_secret_sem_nome_nao_entram() — - secret sem escolher e chave vazia não entram
 
 ### windows.test.luau — Scripts das janelas auxiliares (cada uma é um motor isolado, aberto por open_window com `data`).
 local janela(caminho, ctx_inicial)
