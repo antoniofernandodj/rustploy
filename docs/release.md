@@ -867,3 +867,15 @@ App **0.1.70** (glacier-ui **0.166**); daemon **0.1.64** e `rustploy-update-core
 - **Verificado:** o desenho no exemplo `gpui_kit_luau` do glacier-ui, com as mesmas classes, conferido pelo usuário numa
   captura; `make lint` e `make test`; o resto como na v0.1.74 (abaixo, no relatório da sessão).
 - **Não verificado:** a tela do serviço no próprio app.
+
+## v0.1.76 (2026-11-17): botões do diálogo de confirmação numa linha só
+
+App **0.1.71** (glacier-ui **0.167**); daemon **0.1.64** e `rustploy-update-core` **0.3.3** sem mudança. App no crates.io.
+
+- **O que mudou:** o `confirm` de "Subir para o projeto?" (variável/secret do serviço → projeto) empilhava "Cancelar" e
+  "Subir para o projeto": o cartão do diálogo do glacier-ui tinha 380 px fixos, e na fonte monoespaçada do app os dois
+  botões passavam por 3 px. Desde a 0.167 o cartão alarga, até 600 px, para os botões caberem numa linha — vale para todo
+  `confirm`/diálogo do app, sem mudança de código aqui.
+- **Verificado:** o diálogo no exemplo `gpui_kit_luau` do glacier-ui, com rótulos mais longos que os do app, conferido pelo
+  usuário numa captura; `make lint` e `make test`; CI, assinatura e instalação como na v0.1.75.
+- **Não verificado:** o diálogo no próprio app.
