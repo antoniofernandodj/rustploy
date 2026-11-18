@@ -147,9 +147,13 @@ fn handle(state, destination) -> Response
 ### mod.rs — Handlers do backup de dados para S3: o `dispatch` recebe os `Command` da seção e chama o handler cer…
 fn dispatch(state, cmd) -> RpResponse
 
-### recovery_key_generate.rs — `Command::RecoveryKeyGenerate`: gera a chave de recuperação; a privada sai só nesta resposta.
-fn handle(state, replace) -> Response
+### recovery_key_generate.rs — `Command::RecoveryKeyGenerate`: gera a chave de recuperação; a privada sai só nesta resposta, dentro…
+struct InfraAccess { remote, branch, token, warning } — O que vai no arquivo além da chave, já conferido.
+fn is_local(remote) -> bool — Remoto local (`file://` ou caminho absoluto): não tem credencial.
+fn infra_access(state, infra_remote, infra_branch, provider_id) -> Result<InfraAccess, Response> — Confere repositório, branch e conta e tira o token.
+fn handle(state, replace, infra_remote, infra_branch, provider_id) -> Response
 fn server_name() -> String — Nome do servidor para o arquivo: o hostname, só com letras/dígitos/`-`/`.`.
+(4 testes)
 
 ### recovery_key_status.rs — `Command::RecoveryKeyStatus`: há chave de recuperação e qual é a pública (nunca a privada).
 fn handle(state) -> Response
@@ -640,7 +644,7 @@ fn seed_connected(page) — Semeia a sessão (bypassa login/SSE, mesma ideia de 
 fn eval_str(page, js) -> String — Avalia `js` (uma expressão, possivelmente uma Promise) e devolve o resultado como `String` — os test…
 fn visible(page, selector) -> bool — `true` se o elemento existir e estiver de fato visível (`x-show` escreve `display:none` inline; `off…
 fn errors(page) -> Vec<String>
-(25 testes)
+(26 testes)
 
 ### mod.rs — Servidor de estáticos da web UI/PWA (`crates/daemon/webui/`) — alternativa ao client iced (`rustploy…
 type ApiBody = BoxBody<Bytes, std::convert::Infallible>

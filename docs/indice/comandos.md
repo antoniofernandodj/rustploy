@@ -210,7 +210,7 @@ ServerRecoverCancel — Desiste: esquece a chave de recuperação da memória. |
 ## / Plano: `docs/plano-chave-de-recuperacao.md`.
 RecoveryKeyStatus — A chave **pública** de recuperação deste servidor (`[secrets] recovery… | daemon: data_backup/recovery_key_status | gui: handlers/recovery_key | web: app
 
-## / `RecoveryKeyGenerated`.
+## / Plano: `docs/plano-arquivo-de-recuperacao.md`.
 RecoveryKeyGenerate — **Gera** a chave de recuperação: grava só a pública no `config.toml` e… | daemon: data_backup/recovery_key_generate | gui: handlers/recovery_key | web: app
 
 ## / `dry_run` só devolve o relatório. Resposta: `ServiceImportReport`.

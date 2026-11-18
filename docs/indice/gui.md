@@ -453,6 +453,17 @@ function test_recover__etapa_desconhecida_aparece_como_veio() — - etapa descon
 local nova(ctx_inicial)
 function test_recovery_key__sem_conexao_e_inerte() — - sem sessão, gerar não faz nada (nem toast, nem privada na tela)
 function test_recovery_key__dismiss_esquece_a_privada() — - "Guardei em lugar seguro" apaga a privada e o conteúdo do arquivo do estado - da tela
+function test_recovery_key__formulario_comeca_com_o_git_sync() — - o formulário do arquivo de recuperação começa com o repositório, a branch e - a conta que o Git Sy…
+function test_recovery_key__o_que_falta_para_gerar() — - sem repositório, com SSH ou sem conta (para https), o que falta é dito - antes de ir ao daemon; re…
+
+### recovery_kit.test.luau — O arquivo de recuperação (`.rpkit`): o leitor em Luau abre o MESMO vetor de bytes que o teste do dae…
+local from_hex(hex)
+local nova(ctx_inicial)
+function test_recovery_kit__crc32_de_referencia() — - o CRC-32 é o IEEE de sempre (o "check value" da especificação)
+function test_recovery_kit__le_o_vetor_do_daemon() — - abre o vetor do daemon com todos os campos
+function test_recovery_kit__qualquer_byte_mudado_e_recusado() — - qualquer byte mudado é recusado, com mensagem (nunca um kit errado)
+function test_recovery_kit__mensagens_de_cada_estrago() — - truncado, com sobra, em modo texto ou sem ser um kit: cada um diz o quê
+function test_recovery_kit__preenche_a_tela_recuperar() — - a tela Recuperar preenche os quatro campos com o que o arquivo trouxe
 
 ### registry_picker.test.luau — Sub-aba Registry do serviço: o select de repositório/tag monta a imagem do registry embutido.
 local nova(ctx_inicial)
@@ -612,10 +623,12 @@ function test_projeto_aba_jobs_mostra_estado_e_acoes() — - a aba Jobs do proje
 function test_projeto_env_em_modo_secret_e_sem_secrets() — - variáveis em modo secret, e sem nenhum secret cadastrado
 function test_projeto_linha_editavel_no_lugar() — - linha editável no lugar: chave e valor são campos ligados às chaves da - PRÓPRIA linha; o OK só ap…
 function test_projeto_movimentos_entre_escopos() — - projeto: botões de mover (🔒 ↓ nas variáveis em claro, 🔓 nas que apontam - para secret e nos secret…
+function test_projeto_secrets_mover_so_com_secret() — - projeto: "Mover para o serviço" só aparece com algum secret na lista (sem - nenhum, era um seletor…
 function test_projeto_secret_ver_valor() — - projeto: secret escondido mostra 👁 e "encrypted"; revelado mostra o valor, - 🙈 e copiar
 function test_configuracoes_menu_vertical() — - Settings: menu vertical (lista à esquerda), um item ativo, clicar troca a - seção
 function test_configuracoes_git() — - Git: provedor OAuth e token
 function test_configuracoes_web() — - Web Server
+function test_configuracoes_backups_chave_e_recuperar() — - Backups, chave de recuperação e recuperar: cada uma sobe, nos estados que - trocam o painel (chave…
 function test_configuracoes_manutencao() — - Manutenção: limpeza do Docker em cada recorrência
 function test_configuracoes_sincronizacao_git() — - Sincronização com o git: desligada, ligada, pausada (divergência), commit - recusado, removidos no…
 function test_configuracoes_atualizacoes() — - Atualizações: sem consulta ainda, com versão nova e com erro do daemon

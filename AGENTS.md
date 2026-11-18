@@ -520,6 +520,22 @@ precisa de explicação, acrescente-a ao README (citando `arquivo.rs::item` ou
   `if="{x}"` **como atributo** num elemento real condiciona **só aquele
   elemento**. Não reintroduza `<if>`/`<foreach>`.
 
+### Tipografia: sans na interface, mono só no que é código (os dois clientes)
+
+A interface usa a sans do sistema; a mono (JetBrains Mono) fica para URL, token, comando,
+chave, versão e hash. Não volte a pôr mono em tudo: na GUI isso mistura fontes em
+silêncio, porque no glacier-ui o `bold: true` ignora a fonte padrão do `app` e cai na sans
+do sistema, e `font: mono` é a mono **do sistema**, não a JetBrains.
+
+- **GUI:** `class = u-mono` ou `font: JetBrains Mono` (sem aspas) no `.gss`. Mono e
+  negrito não combinam (o negrito vence e cai na sans). Explicação completa em
+  `rustploy-gui/README.md`, "Tipografia".
+- **Webui:** `var(--font-ui)` no corpo, `var(--font-mono)` / `.u-mono` no que é código.
+- **Formulário de configuração:** cada campo é um grupo (rótulo + controle + ajuda) num
+  `form-panel--grouped`: na GUI, `field(label, description)`; na webui, `<column
+  class="field">` com `.field-description`. Valor copiável: `copy-row`. Rótulo → valor:
+  `info-list`/`info-row`. As mesmas classes nos dois clientes.
+
 ### Dividir um template grande em arquivos (`.gvb`)
 
 Um arquivo de view passa de ~300 linhas → divida. Todo `if @view/@tab == …` com

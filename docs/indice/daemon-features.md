@@ -141,6 +141,22 @@ const INFO
 impl Drop for StartingGuard
 (1 testes)
 
+### recovery_kit.rs — Arquivo de recuperação (`.rpkit`): a chave privada de recuperação junto com o que a tela Recuperar p…
+const MAGIC — A assinatura dos 8 primeiros bytes.
+const VERSION — A versão que esta build escreve (e a única que lê).
+const MAX_FIELD — Teto de um campo: nada aqui passa de alguns KB; um tamanho absurdo é corrupção.
+const HEADER_LEN — Assinatura + versão + contagem.
+const FIELD_HEADER_LEN — Etiqueta + tamanho.
+struct RecoveryKit { infra_remote, infra_branch, infra_token, private_key, public_key, server, created_at } — O conteúdo de um arquivo de recuperação.
+fn crc32(bytes) -> u32 — CRC-32 (IEEE 802.3, o do zip e do PNG), bit a bit: sem tabela e sem crate.
+fn u16_at(bytes, at) -> Option<u16> — `u16` little-endian em `bytes[at..at+2]`.
+fn u32_at(bytes, at) -> Option<u32> — `u32` little-endian em `bytes[at..at+4]`.
+impl RecoveryKit
+  fn encode() -> Result<Vec<u8>> — Os bytes do arquivo.
+  fn decode(bytes) -> Result<Self> — Lê e confere um arquivo.
+const TAG_INFRA_REMOTE, TAG_INFRA_BRANCH, TAG_INFRA_TOKEN, TAG_PRIVATE_KEY, TAG_PUBLIC_KEY, TAG_SERVER, TAG_CREATED_AT
+(9 testes)
+
 ### scheduler.rs — O agendador dos backups automáticos (`docs/plano-backup-de-dados-para-s3.md`, Fase 3): a cada minuto…
 fn scheduler_loop(ctx)
 const TICK_SECS

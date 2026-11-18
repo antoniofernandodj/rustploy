@@ -175,6 +175,8 @@ function M.service_row(service) — - A linha de um serviço na tela, a partir d
 local apply(info)
 function M.load() — - Lê em que ponto a recuperação está e, enquanto roda, repolla.
 function recover_refresh()
+function M.fill_from_kit(kit) — - Preenche os quatro campos a partir de um kit já lido.
+function recover_load_kit() — - "Carregar arquivo de recuperação": lê o `.rpkit` gerado junto com a chave - e preenche repositório…
 function recover_start() — - Passo 1: traz a infra do git, recifra os segredos e lista o que foi achado.
 function recover_run() — - Passo 2: restaura os dados e sobe os serviços na ordem das dependências (em - segundo plano).
 function recover_cancel()
@@ -185,7 +187,9 @@ local refresh_flags() — - Deriva do estado (`configured`, `generated`) as flag
 function M.load() — - Lê se há chave configurada e qual é a pública.
 local save_file_now()
 function recovery_key_open() — - Abre a aba (usada pelos avisos de "sem chave" em Backups e Sincronização).
-function recovery_key_generate() — - Gera a chave e já a baixa em Downloads.
+function recovery_key_provider_pick(provider_id) — - O `<select>` da conta Git só escreve na chave via `on_change`.
+function M.missing_field() — - O que falta para gerar o arquivo, ou `nil` se está tudo lá.
+function recovery_key_generate() — - Gera a chave e já baixa o arquivo de recuperação em Downloads.
 function recovery_key_save_again() — - "Baixar de novo" (a pessoa moveu/apagou o arquivo antes de guardar).
 function recovery_key_copy()
 function recovery_key_dismiss() — - "Guardei em lugar seguro": esquece a privada.

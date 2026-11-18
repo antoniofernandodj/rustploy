@@ -54,7 +54,7 @@ fn read_secret_value() -> Result<String> — O valor sensível: do stdin; se for
 fn secret_encrypt(args) -> Result<String>
 fn secret_decrypt(args) -> Result<String>
 const DEFAULT_CONFIG, USAGE
-(6 testes)
+(7 testes)
 
 ### rustployd-fw.rs — `rustployd-fw` — helper privilegiado de firewall do rustploy.
 struct Request { op, port }
@@ -378,6 +378,7 @@ impl std::fmt::Debug for S3Config
 struct SecretsManager { identity, recovery, transient, config_path, db }
 impl SecretsManager
   fn open(key_file, db, cfg, config_path) -> Result<Self> — Abre o gerenciador do daemon.
+  fn set_config_path_for_tests(path) — Para testes de outros módulos: o `config.toml` onde a chave de recuperação é gravada.
   fn new(db) -> Result<Self> — Para testes: identidade efêmera (some quando o objeto some), sem tocar na config.
   fn with_keys(db, identity, recovery) -> Result<Self> — Para testes: com uma identidade e uma recuperação escolhidas.
   fn has_recovery() -> bool — Há uma chave de recuperação (`[secrets] recovery_recipient`) configurada?

@@ -24,6 +24,7 @@ O que procurar lá:
 | Regra do `glacier-ui` (nunca `path`/`[patch]`, sempre publicar) | Parte 2 — Convenções |
 | GUI e webui são **dois** clientes; feature de UI entra nos dois | Parte 2 — Convenções |
 | Ferramental e convenções de Luau, armadilhas de `.gv`/GSS | Parte 2 — Convenções |
+| **Tipografia** (sans na interface, mono só em código) e formulário em grupos | Parte 2 — Convenções → Tipografia |
 | **Como nomear** chaves, handlers, variáveis e classes (por extenso, inglês, BEM) | Parte 2 — Convenções → Nomes |
 | **"Publish": o checklist completo** (índice, bump, commit, push, crates.io, release, deploy das docs) | Parte 2 — "Publish" |
 | Comandos de build e de teste (os pacotes **não** se chamam `daemon`/`shared`) | Parte 2 — Build & Run |

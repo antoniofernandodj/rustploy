@@ -160,6 +160,13 @@ function new_registry_token_create()
 function init()
 function field(key, value) — Setter genérico de campo (on_change="field:<chave>" dos inputs do wizard).
 
+### recovery_kit.luau — lê o arquivo de recuperação (`.rpkit`) que o daemon gera junto com a chave (Settings → Chave de recu…
+function M.crc32(bytes) — - CRC-32 (IEEE), bit a bit — o mesmo do daemon.
+local u16_at(bytes, at) — - `u16` little-endian que começa no byte `at` (1-based); `nil` se faltar.
+local u32_at(bytes, at) — - `u32` little-endian que começa no byte `at` (1-based); `nil` se faltar.
+function M.decode(bytes) — - Lê e confere o arquivo.
+types: Kit
+
 ### service_export_window.luau — script da JANELA "Exportar serviço", um motor Glacier próprio e ISOLADO do app principal (aberto via…
 local client()
 local render() — Reconstrói a lista exibida (☑/☐ por variável do projeto) a partir de `picked`.
