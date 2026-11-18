@@ -120,7 +120,7 @@ rustploy/                     ← agregador (VOCÊ ESTÁ AQUI)
 ├── rustploy-gui/             cliente glacier-ui (views/, src/, assets/, packaging/)
 ├── rustploy-docs/            site de documentação (Astro Starlight), deploy na Cloudflare
 ├── rustploy-shared/          repo do crate `rustploy-update-core` (crates.io), usado pelo daemon e pela gui
-└── rustploy-skills/          marketplace de plugins do Claude Code (skill `rustploy-app`: criar e publicar apps pelo MCP)
+└── rustploy-skills/          marketplace de plugins do Claude Code e do Codex (skill `rustploy-app`: criar e publicar apps pelo MCP)
 ```
 
 - Clone com `git clone --recurse-submodules <agregador>`; sem a flag os três
