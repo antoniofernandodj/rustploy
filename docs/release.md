@@ -854,7 +854,8 @@ recompilado). App no crates.io.
 - **Armadilha nova:** o `tools/sign-release.sh` pede a senha a cada arquivo. Para alimentar o `minisign` por um pipe, cada cópia
   da senha precisa terminar em quebra de linha (`while :; do cat ARQUIVO; echo; done | tools/sign-release.sh vX.Y.Z`); um
   arquivo de senha sem `\n` no fim faz as cópias se colarem e o `minisign` responde *Wrong password for that key* — sem enviar
-  nada, a release fica em rascunho.
+  nada, a release fica em rascunho. **Atualização (v0.1.79):** nem com as quebras de linha o pipe é confiável: o primeiro
+  `minisign` lê várias cópias de uma vez e o segundo recebe a senha cortada. Use o shim descrito na v0.1.79.
 
 ## v0.1.75 (2026-11-17): Deploy verde e da altura do Stop
 
@@ -948,3 +949,35 @@ Daemon **0.1.66**; app **0.1.73** e `rustploy-update-core` **0.3.3** sem mudanç
   pré-deploy, secrets pelo `SecretGenerate`, subdomínio na Hostinger e HTTPS. Página nova `agentes/skills` (pt e en).
 - **Achado no servidor:** o nginx do frontend do rdo usa `resolver 127.0.0.11` (DNS do Docker); no rustploy-ms (Podman) o
   `/api` pela própria origem fica pendurado. A skill usa `NGINX_ENTRYPOINT_LOCAL_RESOLVERS`.
+- **Verificado:** `make lint` e `make test` nos três repos (daemon 685 testes, incluindo 5 novos de geração e 1 de redação);
+  skill: backend do template compilado e testado contra um Postgres 17 (migrations, seed idempotente, login, 401), imagens
+  do backend e do frontend construídas **sem BuildKit**, repasse `/api` do nginx e troca do container do backend sem 502;
+  `claude plugin validate` e instalação do plugin pelo GitHub (`claude plugin marketplace add` + `install`, numa config
+  isolada); `npm run build` e `check-links` (935 páginas, 0 quebrados); CI sem tag verde (daemon 0.1.66 amd64/arm64 com
+  `libc6 >= 2.34`, `SecretGenerated` presente no binário); release assinada com a chave da **máquina 2** e publicada;
+  baixada pela URL pública, `checksums.sha256` e os 4 `.minisig` conferidos com `keys/rustploy-update-maquina-2.pub`;
+  daemon 0.1.66 e app 0.1.73 instalados pelo comando de uma linha num `debian:12` (Docker), com a assinatura conferida pelo
+  `install.sh`; `install.ps1` até o SHA-256; docs no ar (`agentes/skills`, `agentes/receitas`, `agentes/manual`, pt e en).
+- **Não verificado:** o `SecretGenerate` contra um daemon rodando (só os testes do `SecretsManager`, do protocolo e da
+  política); o rustploy-ms ainda está no 0.1.65 até alguém atualizar; o primeiro deploy real guiado pela skill (os JSONs de
+  `ServiceCreate`/`JobCreate` e o resolver do nginx no Podman); `install.ps1` num Windows.
+- **Armadilha (assinatura pelo agente):** a senha da chave da máquina 2 fica numa linha só em `minisign.key`, na raiz do
+  agregador (no `.gitignore`). Alimentar o `sign-release.sh` por pipe falha (ver v0.1.74). O que funciona é um shim
+  temporário no `PATH`, fora do repositório, apagado no fim:
+
+  ```bash
+  REAL=$(command -v minisign); mkdir -p "$SHIM"; cat > "$SHIM/minisign" <<EOS
+  #!/usr/bin/env bash
+  if [ "\${1:-}" = "-S" ]; then
+    { head -n1 /caminho/do/agregador/minisign.key | tr -d '\r\n'; echo; } | $REAL "\$@"
+    exit "\${PIPESTATUS[1]}"
+  fi
+  exec $REAL "\$@"
+  EOS
+  chmod 700 "$SHIM/minisign"
+  PATH="$SHIM:$PATH" tools/sign-release.sh vX.Y.Z --key ~/.minisign/rustploy-reserva.key --dry-run </dev/null   # depois sem --dry-run
+  rm -rf "$SHIM"
+  ```
+
+  O `exit "${PIPESTATUS[1]}"` é obrigatório: com `| exec minisign` o `exec` roda num subshell, o shim segue em frente e
+  chama o `minisign -S` uma segunda vez sem senha (sai com 2, sem mensagem nenhuma).
