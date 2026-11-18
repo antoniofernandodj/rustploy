@@ -85,7 +85,7 @@ fn redigir(valor) — Percorre o JSON de uma resposta escondendo o que não pode
 fn redigir_resposta(resposta) — [`redigir`] mais os pacotes de exportação, que carregam texto (YAML/`.env`) em vez de envs estrutura…
 fn restaurar_envs(novas, atuais) — Devolve o valor real das envs que o agente reenviou mascaradas (ver o doc do módulo).
 fn sobrou_mascara(envs) -> Option<&str> — Sobrou valor mascarado depois de [`restaurar_envs`]? Então o agente está tentando gravar o literal `…
-(7 testes)
+(8 testes)
 
 ### tools.rs — As ferramentas do agente: os caminhos frequentes já resolvidos ("deployou? por quê não?", "qual é o …
 const POLL_INTERVAL — De quanto em quanto tempo o `wait` de um deploy reconsulta o histórico.
@@ -478,6 +478,9 @@ fn dispatch(state, cmd) -> RpResponse
 
 ### secret_delete.rs — `Command::SecretDelete`: apaga um secret (do projeto, ou de um serviço).
 fn handle(state, project_id, service_id, job_id, name) -> Response
+
+### secret_generate.rs — `Command::SecretGenerate`: sorteia e grava um secret cifrado sem que o valor saia do daemon.
+fn handle(state, project_id, service_id, job_id, name, kind, length, on_exists) -> Response
 
 ### secret_list.rs — `Command::SecretList`: nomes (nunca valores) dos secrets de um projeto, ou de um serviço.
 fn handle(state, project_id, service_id, job_id) -> Response

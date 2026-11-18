@@ -119,7 +119,8 @@ rustploy/                     ← agregador (VOCÊ ESTÁ AQUI)
 ├── rustploy-daemon/          daemon, importer, webui, packaging/, scripts/, install.sh
 ├── rustploy-gui/             cliente glacier-ui (views/, src/, assets/, packaging/)
 ├── rustploy-docs/            site de documentação (Astro Starlight), deploy na Cloudflare
-└── rustploy-shared/          repo do crate `rustploy-update-core` (crates.io), usado pelo daemon e pela gui
+├── rustploy-shared/          repo do crate `rustploy-update-core` (crates.io), usado pelo daemon e pela gui
+└── rustploy-skills/          marketplace de plugins do Claude Code (skill `rustploy-app`: criar e publicar apps pelo MCP)
 ```
 
 - Clone com `git clone --recurse-submodules <agregador>`; sem a flag os três
@@ -136,6 +137,10 @@ rustploy/                     ← agregador (VOCÊ ESTÁ AQUI)
   sem publicar, use só na linha de comando (nunca commite):
   `cargo check --config 'patch.crates-io.rustploy-update-core.path="../rustploy-shared/update-core"'`
   (a partir de `rustploy-daemon/` ou `rustploy-gui/`).
+- **`rustploy-skills`** (público) é um marketplace de plugins do Claude Code; o
+  `README.md` dele diz como mantê-lo. Mudou uma skill? Suba a `version` no `plugin.json` **e**
+  no `.claude-plugin/marketplace.json` (sem isso quem instalou não recebe), anote no
+  `CHANGELOG.md`, commit e push lá e o ponteiro aqui. Nada de segredo nele: é lido por quem instala.
 - Cada repo tem o seu `Cargo.lock`, o seu `[profile]` e o seu `target/`. O
   `[patch.crates-io]` do `iced_tiny_skia` mora no `Cargo.toml` da **gui**.
 - O catálogo de templates (`templates/blueprints/`) é do **daemon**

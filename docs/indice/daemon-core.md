@@ -400,6 +400,7 @@ impl SecretsManager
   fn resolve(project_id, service_id, name) -> Result<String> — Resolução de uma env `Secret(name)`: o escopo do **serviço** primeiro, depois o do projeto.
   fn set(project_id, name, value) -> Result<()>
   fn set_scoped(project_id, scope, name, value) -> Result<()>
+  fn generate_scoped(project_id, scope, name, kind, length, on_exists) -> Result<GenerateOutcome> — Sorteia um valor e o grava como secret **sem que ele saia do daemon** (`Command::SecretGenerate`).
   fn delete_scoped(project_id, scope, name) -> Result<()>
   fn list_names(project_id) -> Result<Vec<String>>
   fn list_names_scoped(project_id, scope) -> Result<Vec<String>>
@@ -409,6 +410,12 @@ impl SecretsManager
   fn set_env_value(project_id, scope, key, value) -> Result<()> — Troca só o **valor** de uma env do projeto (`service_id: None`) ou de um serviço, na mesma posição d…
   fn rename_secret(project_id, scope, from, to) -> Result<()> — Renomeia um **secret** (do projeto, ou de um serviço) e, na mesma transação, reaponta as envs `Secre…
 fn valid_env_key(name) -> Result<()> — Nome válido para a chave de uma env: `[A-Za-z_][A-Za-z0-9_]*` (o que o Docker e o `.env` aceitam).
+enum GenerateOutcome { Created, Exists, KeptExisting } — Resultado de [`SecretsManager::generate_scoped`].
+struct Generated { length, fingerprint } — Metadados não sensíveis de um valor: tamanho e impressão digital.
+impl Generated
+  fn of(value) -> Self
+const GENERATED_SECRET_MIN_LENGTH — Menor e maior tamanho aceitos por [`generate_secret_value`], em caracteres.
+fn generate_secret_value(kind, length) -> Result<String> — Sorteia um valor de `kind` com `length` caracteres (vazio = o padrão do tipo), de `/dev/urandom`.
 fn valid_secret_name(name) -> Result<()> — Nome válido para um secret: não vazio, só `[A-Za-z0-9_.-]` — fica de fora o que quebraria a referênc…
 fn rename_in_list(list, from, to, onde) -> Result<()> — Renomeia o secret `from` para `to` na lista, recusando se `from` não existe ou `to` já existe.
 fn repoint_secret_refs(vars, from, to) — Reaponta toda env `Secret(from)` para `Secret(to)`.
@@ -429,8 +436,9 @@ fn has_enc_values(db) -> bool — Há algum segredo já no formato novo gravado 
 fn persist_identity(identity, config_path, key_file) -> Result<()> — Grava a identidade recém-gerada no `config.toml` (seção `[secrets]`); se não der, no `age.key` (0600…
 fn write_identity_into_config(path, line) -> Result<()> — Insere `line` logo abaixo de `[secrets]` (ou cria a seção no fim), preservando o resto do arquivo e …
 fn set_secrets_key_in_config(path, key, value) -> Result<()> — Define `key = "value"` em `[secrets]` do `config.toml` (troca a linha se já existe, senão insere log…
+const GENERATED_SECRET_MAX_LENGTH
 impl From<Option<&'a str>> for Scope<'a>
-(33 testes)
+(37 testes)
 
 ### ttl_cache.rs — Cache de um valor só, com TTL, que junta chamadas concorrentes numa só ida à fonte lenta.
 struct TtlCache { ttl, slot } — Single-slot value cache with a TTL.

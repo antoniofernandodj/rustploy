@@ -930,3 +930,21 @@ App e daemon no crates.io.
   real do app. A correção do cabeçalho foi vista pelo dono no app compilado da `main` (depois de reabri-lo).
 - **`install.ps1` no PowerShell de Linux** precisa de `-e LOCALAPPDATA=… -e TEMP=…` no `podman run`; sem elas para em
   "Cannot bind argument to parameter 'Path' because it is null", antes do download.
+
+## v0.1.79 (2026-11-18): SecretGenerate; senha mascarada em qualquer URL que o agente recebe; skill de apps
+
+Daemon **0.1.66**; app **0.1.73** e `rustploy-update-core` **0.3.3** sem mudança. Daemon no crates.io. Submódulo novo
+`rustploy-skills` (público).
+
+- **`SecretGenerate`** (fase G1 de `docs/plano-geracao-e-rotacao-de-segredos.md`, sem o `SecretRotate` nem os botões): o daemon
+  sorteia o valor e grava o secret cifrado; a resposta `SecretGenerated` traz só tamanho e impressão digital. É o que deixa
+  um agente criar senhas sem vê-las. A pessoa lê pelo 👁 (auditado). Sem tela na GUI nem na webui ainda.
+- **Vazamento corrigido:** a resposta de `ManagedDatabaseList`/`ManagedDatabaseListAll` ao **agente** trazia a senha do
+  banco no `connection_url` (o `redigir` só olhava o `internal_url`). Agora qualquer texto com `esquema://usuário:senha@`
+  é mascarado, em qualquer campo. As senhas dos databases `gestao` e `rdo_itemize` do rustploy-ms passaram por uma conversa
+  com o agente antes da correção: **trocar**.
+- **Skill `rustploy-app`** (`rustploy-skills/`, plugin `rustploy-apps`): orienta o Claude Code a criar apps (Rust/Axum/SQLx em
+  camadas + Vue/nginx) e publicá-los no rustploy pelo MCP, com banco no servidor compartilhado, migrations e seed num job de
+  pré-deploy, secrets pelo `SecretGenerate`, subdomínio na Hostinger e HTTPS. Página nova `agentes/skills` (pt e en).
+- **Achado no servidor:** o nginx do frontend do rdo usa `resolver 127.0.0.11` (DNS do Docker); no rustploy-ms (Podman) o
+  `/api` pela própria origem fica pendurado. A skill usa `NGINX_ENTRYPOINT_LOCAL_RESOLVERS`.

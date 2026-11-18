@@ -53,7 +53,6 @@
 
 ### docs/
 - api-agente-no-gui.md — A API de agente vive no app, não no daemon
-- comparacao-dokploy.md — Rustploy × Dokploy: quem tem o quê, e o que falta para alcançar
 - conectar-agente-mcp.md — Conectar um agente (Claude Code) ao MCP de um rustploy
 - correcao-persistencia-geometria-janela.md — Correção: a janela não reabria no último tamanho (glacier 0.49.0 → 0.49.1)
 - empacotamento-styles-e-cross-compile-windows.md — Empacotamento do rustploy-gui: mover styles/ e cross-compile Windows (cargo-xwin…
@@ -74,7 +73,6 @@
 - plano-backup-estado-em-git.md — Plano: YAML como fonte da verdade da infra, com git e religamento em ordem
 - plano-banco-compartilhado.md — Plano: banco compartilhado entre projetos + migração dos bancos antigos
 - plano-cancelamento-de-jobs.md — Cancelamento de `job_run` em andamento
-- plano-capturas-en.md — Capturas em inglês para o site en (levantamento)
 - plano-chave-de-acesso-e-mcp.md — Plano: chave de acesso única + API de agente no daemon (via MCP)
 - plano-chave-de-recuperacao.md — Plano: chave de recuperação gerada e baixada pela interface
 - plano-colisao-nome-container.md — Plano: colisão de nome de container entre projetos
@@ -272,6 +270,7 @@
 - infra_download.rs — `Command::InfraDownload`: a infra como os arquivos que o `state_git` grava no re…
 - mod.rs — Handlers de secrets: o `dispatch` recebe os `Command` da seção e chama o handler…
 - secret_delete.rs — `Command::SecretDelete`: apaga um secret (do projeto, ou de um serviço).
+- secret_generate.rs — `Command::SecretGenerate`: sorteia e grava um secret cifrado sem que o valor sai…
 - secret_list.rs — `Command::SecretList`: nomes (nunca valores) dos secrets de um projeto, ou de um…
 - secret_move.rs — `Command::SecretMove`: mover entre env e secret, ou entre escopos (R5 do plano).
 - secret_rename.rs — `Command::SecretRename`: renomeia um secret e reaponta as envs que o referenciam…
@@ -682,6 +681,7 @@
 - manual.md
 - receitas.mdx
 - seguranca.mdx
+- skills.mdx
 - visao-geral.mdx
 
 ### rustploy-docs/src/content/docs/comece/
@@ -711,6 +711,7 @@
 - ferramentas.mdx
 - receitas.mdx
 - seguranca.mdx
+- skills.mdx
 - visao-geral.mdx
 
 ### rustploy-docs/src/content/docs/en/comece/
@@ -2006,6 +2007,92 @@
 - payload.bin.minisig
 - payload.noclaims.minisig
 - test.pub
+
+### rustploy-skills/
+- CHANGELOG.md — Changelog
+- README.md — rustploy-skills
+
+### rustploy-skills/.claude-plugin/
+- marketplace.json
+
+### rustploy-skills/plugins/rustploy-apps/.claude-plugin/
+- plugin.json
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/
+- SKILL.md — Apps da Itemize no rustploy-ms
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/references/
+- backend-rust-axum.md — Backend: Rust + Axum + Postgres, em camadas
+- dns-hostinger.md — Subdomínio na Hostinger e HTTPS no rustploy
+- erros-comuns.md — Erros que acontecem (e como evitar)
+- frontend-vue.md — Frontend: Vue 3 + Vite + TypeScript, servido por nginx
+- rustploy-mcp.md — Operar o rustploy-ms pelo MCP
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/templates/
+- README.app.md — <Nome do app>
+- gitignore
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/templates/backend/
+- .dockerignore
+- .env.example
+- Cargo.toml
+- Dockerfile
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/templates/backend/migrations/
+- 20260101000001_create_users.sql
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/templates/backend/migrator/
+- docker-compose.yml
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/templates/backend/src/
+- config.rs — Configuração lida do ambiente.
+- error.rs — Erro único da aplicação.
+- main.rs — Ponto de entrada.
+- security.rs — Senhas (argon2) e tokens (JWT), mais o extrator `AuthUser` para rotas protegidas…
+- seed.rs — Usuário inicial.
+- state.rs — Estado compartilhado: monta repositories e services uma vez, na subida.
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/templates/backend/src/models/
+- mod.rs — Entidades (o que vem do banco) e DTOs (o que entra e sai pela API).
+- user.rs
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/templates/backend/src/repositories/
+- mod.rs — Camada de dados: o único lugar com SQL.
+- user_repository.rs
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/templates/backend/src/routes/
+- auth.rs
+- health.rs
+- mod.rs — Camada HTTP: só traduz requisição → service → resposta.
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/templates/backend/src/services/
+- auth_service.rs
+- mod.rs — Regras de negócio.
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/templates/frontend/
+- .dockerignore
+- Dockerfile
+- vite.config.ts
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/templates/frontend/docker/
+- default.conf.template
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/templates/frontend/src/
+- App.vue
+- main.ts
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/templates/frontend/src/api/
+- http.ts
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/templates/frontend/src/router/
+- index.ts
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/templates/frontend/src/stores/
+- auth.ts
+
+### rustploy-skills/plugins/rustploy-apps/skills/rustploy-app/templates/frontend/src/views/
+- HomeView.vue
+- LoginView.vue
 
 ### tools/
 - busy_actions.py

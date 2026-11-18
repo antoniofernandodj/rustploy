@@ -1,8 +1,12 @@
 # Geração e rotação de segredos (senha de banco, broker, storage, token JWT, par VAPID)
 
-> **Estado: SÓ PROJETADO, não implementado.** Plano à parte, ainda não fechado: o desenho abaixo nasceu dentro de
-> `docs/plano-credenciais-cifradas-e-storage.md` e foi tirado de lá porque **rotacionar é mais amplo que gerar**. Antes de
-> implementar é preciso fechar as perguntas das seções 2 e 3 e reescrever isto como plano de fases.
+> **Estado: G1 em parte implementado (2026-11-18).** Existe o `SecretGenerate` (daemon + manual do agente),
+> com `kind` = `Password` | `Hex` | `Base64Url`, `length` em caracteres (16–512), `on_exists` = `Fail` | `Keep` |
+> `Replace`, resposta `SecretGenerated{name, created, length, fingerprint}` e linha `generate` na auditoria
+> (`platform/secrets.rs::generate_scoped`, `api/handlers/secrets/secret_generate.rs`). Ficaram de fora: o
+> `SecretRotate`, os botões "Gerar"/"Rotacionar" na GUI e na webui, os tipos `Token`/`Uuid`/`Symbols`, o par de
+> chaves (G2), as receitas de rotação por motor (G3) e o `generate:` do manifesto (G4). Respondido pelo dono: o valor
+> gerado **não** é mostrado na criação; a leitura é só pelo 👁 auditado (pergunta 1). O resto das perguntas segue aberto.
 
 ## 1. O que "rotacionar a senha do banco" realmente é
 

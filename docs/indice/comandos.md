@@ -107,6 +107,9 @@ SetDaemonSettings | daemon: settings/set_daemon_settings | gui: handlers/setting
 
 ## não mandam o campo, continuam falando só do escopo de projeto.
 SecretSet | daemon: secrets/secret_set | gui: handlers/secrets, handlers/services, job_env_core | web: app, screens/job_env, screens/service_detail
+
+## / senhas sem vê-las. Grava uma linha `generate` na auditoria de secrets.
+SecretGenerate — Sorteia um valor **dentro do daemon** e o grava como secret cifrado (d… | daemon: secrets/secret_generate | gui: — | web: —
 SecretDelete | daemon: secrets/secret_delete | gui: handlers/secrets, handlers/services, job_env_core | web: app, screens/job_env, screens/service_detail
 SecretList | daemon: secrets/secret_list | gui: handlers/services, job_env_core, new_job_window | web: screens/job_env, screens/service_detail
 
@@ -354,4 +357,4 @@ DeployQueuePause — Pausa (`true`) ou retoma (`false`) a fila global. | daemon:
 
 - Só GUI (2): ServiceList, JobList
 - Só webui (1): ServiceCreate
-- Nem GUI nem webui (29): DeployRollback, RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, InfraAudit, StateGitStatus, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList
+- Nem GUI nem webui (30): DeployRollback, RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, SecretGenerate, InfraAudit, StateGitStatus, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList

@@ -10,3 +10,6 @@
 [submodule "rustploy-docs"]
 	path = rustploy-docs
 	url = https://github.com/antoniofernandodj/rustploy-docs.git
+[submodule "rustploy-skills"]
+	path = rustploy-skills
+	url = https://github.com/antoniofernandodj/rustploy-skills.git
