@@ -1017,3 +1017,10 @@ app no crates.io; `glacier-ui` 0.168.0 e `glacier-cli` 0.28.19 também.
 - **Não verificado:** as telas novas numa janela real da GUI e na webui contra um daemon de verdade (só a tela de login
   da GUI foi vista, numa build de teste, para conferir a fonte); uma recuperação completa a partir de um `.rpkit` real;
   `install.ps1` num Windows; as capturas de tela das abas de Settings nas docs continuam as antigas (fonte mono).
+- **CI quebrou depois da release, sem relação com a mudança:** o `ci.yml` usa `dtolnay/rust-toolchain@stable`, que virou
+  o **Rust 1.100.0** (2026-11-09), e o clippy novo acusou `result_large_err` em doze handlers que já devolviam
+  `Result<_, Response>` (o `Response` tem ~300 bytes). Aqui a máquina estava no 1.90, por isso o `make lint` passou.
+  Corrigido com `#![allow(clippy::result_large_err)]` no `main.rs` do daemon (com o motivo) e tirando `age` e
+  `serde_yaml`, sem uso, do importer. Para reproduzir o CI sem atualizar o `stable` (que aqui tem vários targets e
+  demora): `rustup toolchain install 1.100.0 --profile minimal -c clippy -c rustfmt` e `cargo +1.100.0 clippy
+  --workspace --all-targets -- -D warnings`. A release em si não muda: o código publicado é o mesmo.
