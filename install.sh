@@ -116,6 +116,28 @@ norm_ref() {
 # Tamanho de um diretório em KB.
 dir_kb() { du -sk "$1" 2>/dev/null | cut -f1; }
 
+# Candidato instalável de um pacote apt (vazio se o pacote não existe nos repositórios).
+apt_candidate() {
+    LC_ALL=C apt-cache policy "$1" 2>/dev/null | awk '/Candidate:/ && $2 != "(none)" {print $2}'
+}
+
+# Versão do Podman que esta máquina tem ou teria pelo apt (vazio = não dá para saber).
+# "1:4.9.3+ds1-1ubuntu0.2" -> "4.9.3".
+podman_version() {
+    if command -v podman >/dev/null 2>&1; then
+        podman --version 2>/dev/null | awk '{print $3}'
+    else
+        apt_candidate podman | sed 's/^[0-9]*://; s/[+~-].*//'
+    fi
+}
+
+# O Podman desta máquina é antigo demais? `podman compose` só existe a partir da 4.7 (Ubuntu 22.04
+# traz a 3.4, Debian 12 a 4.3). Versão desconhecida não conta como antiga: o install_podman confere de novo.
+podman_too_old() {
+    PV="$(podman_version)"
+    [ -n "$PV" ] && [ "$(printf '%s\n%s\n' "4.7" "$PV" | sort -V | head -n 1)" != "4.7" ]
+}
+
 # Decide ENGINE (pergunta se não foi dado) e se isso é uma TROCA docker -> podman (SWITCH=1).
 choose_engine() {
     CURRENT="$(current_engine)"
@@ -135,23 +157,33 @@ choose_engine() {
         DEFAULT="${CURRENT:-docker}"
         if can_prompt; then
             [ -n "$CURRENT" ] && printf '\nO rustploy desta máquina usa hoje: %s\n' "$CURRENT" > /dev/tty
-            cat > /dev/tty <<'ASK'
+            if podman_too_old; then
+                # Nem oferece: escolher 2 instalaria um Podman que não serve e só então falharia.
+                say "Motor de containers: docker (o Podman deste sistema é o $PV; o rustploy precisa do 'podman compose', >= 4.7 — Debian 13+/Ubuntu 24.04+)."
+                ENGINE=docker
+            else
+                cat > /dev/tty <<'ASK'
 
 Qual motor de containers usar?
   1) Docker  - o padrão; dockerd + containerd ficam sempre rodando (~150 MB de RAM parados)
   2) Podman  - sem daemon residente: economiza ~150 MB de RAM parado (precisa de Debian 13+/Ubuntu 24.04+)
 ASK
-            [ "$DEFAULT" = "podman" ] && D=2 || D=1
-            ask "Escolha [1/2] (padrão $D):" "$D" \
-                || die "não consegui ler a resposta do terminal (sem entrada interativa). Rode de novo com --engine docker ou --engine podman, num terminal de verdade (ssh -t)."
-            case "$ANSWER" in 2|podman|Podman) ENGINE=podman ;; *) ENGINE=docker ;; esac
-            # Escolheu continuar no Docker: grava para não perguntar de novo (só com o rustploy já instalado).
-            if [ "$ENGINE" = "docker" ] && [ -n "$CURRENT" ] && [ "$DRY" != "1" ] && [ -d /etc/rustploy ]; then
-                echo docker > "$ENGINE_CHOICE" 2>/dev/null || true
+                [ "$DEFAULT" = "podman" ] && D=2 || D=1
+                ask "Escolha [1/2] (padrão $D):" "$D" \
+                    || die "não consegui ler a resposta do terminal (sem entrada interativa). Rode de novo com --engine docker ou --engine podman, num terminal de verdade (ssh -t)."
+                case "$ANSWER" in 2|podman|Podman) ENGINE=podman ;; *) ENGINE=docker ;; esac
+                # Escolheu continuar no Docker: grava para não perguntar de novo (só com o rustploy já instalado).
+                if [ "$ENGINE" = "docker" ] && [ -n "$CURRENT" ] && [ "$DRY" != "1" ] && [ -d /etc/rustploy ]; then
+                    echo docker > "$ENGINE_CHOICE" 2>/dev/null || true
+                fi
             fi
         else
             ENGINE="$DEFAULT"
         fi
+    fi
+    # --engine podman num sistema de Podman velho: recusa ANTES de instalar qualquer pacote.
+    if [ "$ENGINE" = "podman" ] && [ "$CURRENT" != "podman" ] && podman_too_old; then
+        die "o Podman deste sistema é o $PV; o rustploy precisa do 'podman compose' (>= 4.7): use Debian 13+ ou Ubuntu 24.04+, ou fique no Docker. Nada foi alterado."
     fi
     if [ "$CURRENT" = "podman" ] && [ "$ENGINE" = "docker" ]; then
         die "este rustploy já usa o Podman; voltar ao Docker não é automático (apague /etc/systemd/system/rustployd.service.d/podman.conf e aponte [docker] socket_path de $CONFIG para /var/run/docker.sock)."
@@ -478,11 +510,6 @@ has_compose_provider() {
         [ -x "$d/docker-compose" ] && return 0
     done
     return 1
-}
-
-# Candidato instalável de um pacote apt (vazio se o pacote não existe nos repositórios).
-apt_candidate() {
-    apt-cache policy "$1" 2>/dev/null | awk '/Candidate:/ && $2 != "(none)" {print $2}'
 }
 
 install_podman() {
