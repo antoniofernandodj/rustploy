@@ -981,3 +981,39 @@ Daemon **0.1.66**; app **0.1.73** e `rustploy-update-core` **0.3.3** sem mudanç
 
   O `exit "${PIPESTATUS[1]}"` é obrigatório: com `| exec minisign` o `exec` roda num subshell, o shim segue em frente e
   chama o `minisign -S` uma segunda vez sem senha (sai com 2, sem mensagem nenhuma).
+
+## v0.1.80 (2026-11-18): arquivo de recuperação (.rpkit); telas de Settings legíveis
+
+Daemon **0.1.67**, app **0.1.74** (`glacier-ui` **0.168.0**); `rustploy-update-core` **0.3.3** sem mudança. Daemon e
+app no crates.io; `glacier-ui` 0.168.0 e `glacier-cli` 0.28.19 também.
+
+- **Arquivo de recuperação** (`docs/plano-arquivo-de-recuperacao.md`): gerar a chave de recuperação pede o repositório da
+  infra, a branch e a conta Git, e a privada sai num binário `.rpkit` com o que a tela Recuperar pede; a tela carrega o
+  arquivo e preenche os quatro campos. Pedido inválido não troca a chave; o token só entra para o host da conta.
+  `rustploy-cli secret decrypt -i` aceita o `.rpkit`.
+- **Tipografia** (GUI e webui): a interface era "monospaced throughout", mas no glacier o `bold` cai na sans do sistema e
+  o `font: mono` é a mono do sistema: três fontes na mesma tela. Agora a sans do sistema é a fonte da interface e a
+  JetBrains Mono fica para código. Settings em grupos (rótulo, controle e ajuda juntos).
+- **glacier-ui 0.168:** `write_file`/`append_file`/`save_download` gravam bytes (recebiam `String` e recusavam binário),
+  `read_file` e `base64`. Publicado antes da GUI, que o exige. O `glacier-cli` publica com `make publish-cli` (o
+  `cargo publish -p glacier-cli` direto falha: falta o `engine-version.txt` que o `sync-extensions` grava).
+- **Referência do protocolo parada:** o `gen-protocol.mjs` do site lia `rustploy-shared/src/protocol/`, que deixou de ter
+  o protocolo quando ele foi para o daemon. As páginas de comandos e respostas estavam desatualizadas; agora o script lê
+  `rustploy-daemon/crates/daemon/src/protocol/`.
+- **Disco a 99%** no meio do publish (4,9 GB livres): o `target/` do glacier-ui tinha 180 GB. `target/package` (13 GB) e
+  `target/debug/incremental` (8 GB) são descartáveis; os exemplos compilados (121 GB) ficaram.
+- **Flaky:** `recover_tab_sends_the_fields_and_forgets_the_secrets` (headless) espera 100 ms pelo resumo e falhou uma vez
+  no `make test` com a máquina carregada; sozinho passa.
+- **Verificado:** `make lint` (daemon, gui, shared); daemon 699+ testes (o flaky acima à parte, verde sozinho), CLI 21
+  (inclui `-i` com `.rpkit`), GUI `cargo test` e `glacier test` (480, contra o glacier 0.168 publicado); leitor JS em Node
+  contra o vetor de bytes compartilhado; teste headless novo da webui (gerar → baixar o binário → carregar → campos
+  preenchidos; byte trocado recusado); `npm run build` e `check-links` (935 páginas, 0 quebrados); CI sem tag verde
+  (daemon 0.1.67 amd64/arm64 `libc6 >= 2.34`, app 0.1.74 `>= 2.35`, `rustploy-recuperacao-` presente no `rustployd`);
+  tag `v0.1.80`, rascunho assinado com a chave da **máquina 2** (shim acima) e publicado; baixado pela URL pública,
+  `checksums.sha256` e os 4 `.minisig` conferidos com `keys/rustploy-update-maquina-2.pub`; daemon 0.1.67 e app 0.1.74
+  instalados pelo comando de uma linha num `debian:12` (Docker), com a assinatura conferida pelo `install.sh`;
+  `install.ps1` até o SHA-256; docs no ar (chaves e segredos, recuperar servidor, configurações, referência de respostas
+  com `file_base64`).
+- **Não verificado:** as telas novas numa janela real da GUI e na webui contra um daemon de verdade (só a tela de login
+  da GUI foi vista, numa build de teste, para conferir a fonte); uma recuperação completa a partir de um `.rpkit` real;
+  `install.ps1` num Windows; as capturas de tela das abas de Settings nas docs continuam as antigas (fonte mono).
