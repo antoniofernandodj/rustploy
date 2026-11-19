@@ -1024,3 +1024,30 @@ app no crates.io; `glacier-ui` 0.168.0 e `glacier-cli` 0.28.19 também.
   `serde_yaml`, sem uso, do importer. Para reproduzir o CI sem atualizar o `stable` (que aqui tem vários targets e
   demora): `rustup toolchain install 1.100.0 --profile minimal -c clippy -c rustfmt` e `cargo +1.100.0 clippy
   --workspace --all-targets -- -D warnings`. A release em si não muda: o código publicado é o mesmo.
+
+## v0.1.81 (2026-11-19): backup automático visível na aba Dados do app
+
+App **0.1.75**; daemon **0.1.67** e `rustploy-update-core` **0.3.3** sem mudança. App no crates.io.
+
+- **Defeito:** no app desktop, a aba Dados mostrava "Fazer backup agora", mas não o formulário de **backup automático**
+  nem a lista de backups: só um buraco vazio. Sem o formulário, ninguém ligava a política e o backup no S3 ficava manual.
+  **Causa:** os `column` do bloco não tinham `width` e encolhiam até os filhos, todos `fill` (`field`, `.env__add`,
+  `.kv-list__row`). Fill dentro de shrink dá largura zero: altura reservada, nada desenhado. Com a política ligada, os
+  textos de largura própria lá dentro faziam o formulário voltar, por isso o defeito ia e voltava. `width = fill` nos três.
+  Armadilha registrada no `AGENTS.md` ("Armadilhas de template"). A webui não tinha o problema.
+- **No rustploy-ms:** política diária às 06:00 UTC, guardando 7, ligada pelo MCP em pg-central, cci/db-dev, nfe/db,
+  hiperdocs/db e nfe/storage (antes só havia backups manuais; o nfe/storage nunca tinha tido um).
+- **Verificado:** o defeito reproduzido e a correção vista numa janela real do app de dev contra o rustploy-ms (serviço
+  com política e sem política, lista de backups); `make lint` e `make test` (daemon 699); `glacier test` (480); clippy do
+  Rust 1.100 no app; CI sem tag verde (app 0.1.75 `libc6 >= 2.35`, compilado do `2db101f`); tag `v0.1.81`, assinada com
+  a chave da máquina 2 (shim da v0.1.79) e publicada; baixada pela URL pública, `checksums.sha256` e os 4 `.minisig`
+  conferidos com `keys/rustploy-update-maquina-2.pub`; app 0.1.75 e daemon 0.1.67 instalados pelo comando de uma linha
+  num `debian:12` (Docker), com a assinatura conferida pelo `install.sh`; `install.ps1` até o SHA-256 (o `minisign.exe`
+  não roda no Linux). Docs sem mudança (a página de backup já descrevia o formulário), então não foram reimplantadas.
+- **Não verificado:** o primeiro disparo automático real (20/11 às 06:00 UTC); `install.ps1` num Windows.
+- **Testes não pegam isso:** o `glacier test` avalia a árvore e não desenha; o formulário estava na árvore. Só a tela pega.
+- **Rodar o app de dev com o instalado aberto:** sem Xvfb nesta máquina, o build de dev sai em silêncio pela trava de
+  instância única. Troque `single_instance = true` por `false` no `views/app.gv` só localmente (não commite) e rode em
+  `DISPLAY=:0`; o build de debug relê `views/` do disco, então dá para testar o `.gv` sem recompilar. Captura com
+  `import -window <id>` e cliques com `xdotool mousemove --window <id> X Y click 1`. Cuidado com `pkill -f`: o padrão
+  casa com a linha de comando do próprio shell.
