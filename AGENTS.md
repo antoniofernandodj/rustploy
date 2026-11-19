@@ -519,6 +519,17 @@ precisa de explicação, acrescente-a ao README (citando `arquivo.rs::item` ou
   `<template if="{x}" equals="y">` envolve **vários** filhos sem criar caixa;
   `if="{x}"` **como atributo** num elemento real condiciona **só aquele
   elemento**. Não reintroduza `<if>`/`<foreach>`.
+- **`column`/`row` sem `width` encolhe até os filhos; filho `fill` dentro dele
+  fica com largura zero.** O bloco some sem erro e **com a altura reservada**
+  (um buraco vazio na tela). Acontece quando todos os filhos são `fill`: o
+  builtin `field` (`width = "{width|fill}"`), `.env__add`, `.kv-list__row`,
+  `.info-row`... Basta um `text` solto dentro para o bloco "voltar", espremido
+  na largura do texto, e por isso o defeito vai e volta com o estado.
+  **Regra:** container que agrupa controles leva `width = fill`. O `glacier test`
+  não pega isso (avalia a árvore, não desenha); só a tela pega. Caso real: o
+  formulário de backup automático da aba Dados (2026-11-19). O comentário
+  "sem coluna condicional por fora" em `recoverykey.component.gv` é o mesmo
+  defeito, contornado antes de ter sido entendido.
 
 ### Tipografia: sans na interface, mono só no que é código (os dois clientes)
 
