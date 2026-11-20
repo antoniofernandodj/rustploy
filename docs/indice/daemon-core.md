@@ -115,7 +115,7 @@ fn run() -> Result<()> — Sobe o daemon inteiro e segura o processo (encerramen
 
 ### state.rs — Estado compartilhado do daemon (`AppState`) e os caches do inventário Docker.
 type OAuthStates = Arc<Mutex<HashMap<String, String>>> — Pending OAuth handshakes: CSRF `state` → `provider_id`, consumed by the `/oauth/gitea/callback` rout…
-struct AppState { db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, started_at, oauth_states, active_deploys, active_jobs, warming_jobs, warming_services, deploy_queue, docker_cache, registry_storage, registry_internal_token, update_checker, update_applier, state_git }
+struct AppState { db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, started_at, oauth_states, active_deploys, active_jobs, warming_jobs, warming_services, deploy_queue, docker_cache, registry_storage, registry_internal_token, update_checker, update_applier, state_git, snapshot_hub }
 impl AppState
   fn new(db, docker, ingress, bus, secrets, tls, db_path, backup_dir, drain_secs, api, update, registry_storage, registry_internal_token) -> Self
   fn deploy_ctx() -> DeployContext
@@ -235,6 +235,7 @@ struct EventBus { sender }
 impl EventBus
   fn new() -> Self
   fn publish(event) — Publica um evento no bus, para os assinantes conectados no momento.
+  fn receiver_count() -> usize — Quantos assinantes vivos (clientes SSE conectados).
   fn subscribe() -> broadcast::Receiver<Event>
 const CHANNEL_CAPACITY
 impl Default for EventBus

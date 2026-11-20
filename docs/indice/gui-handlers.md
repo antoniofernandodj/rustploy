@@ -411,7 +411,9 @@ local update_open_project() — Cabeçalho + grade de serviços do projeto abert
 local refresh_jobs_summary_local() — Recomputa SÓ `ctx.jobs_summary`/`ctx.jobs_count` (tela global "Schedules") a partir do último snapsh…
 local refresh_deploy_engine_detail(active)
 function M.apply_update_info(update_info) — Preenche a aba Atualizações e o selo do Settings com um UpdateInfo.
-local apply_snapshot(snapshot)
+local apply_status_section(daemon_status) — Status do daemon (versão, uptime, contagem de serviços).
+local apply_engine_section(engine) — Deploy Engine: contadores, fila e o cronômetro do deploy em voo.
+local only_light_sections(changed)
 local refresh_now() — Refresh imediato após uma mutação: pega o snapshot completo num único RPC (o mesmo builder do SSE) e…
 function deployments_clear_finished() — Limpeza em massa da tela Deployments: apaga (DeployDelete) todo deployment em estado terminal Stoppe…
 local apply_bus_event(bus_event) — Eventos vivos do bus: métricas e transições de deploy.

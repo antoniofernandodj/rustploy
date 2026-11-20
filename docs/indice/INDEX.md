@@ -53,10 +53,12 @@
 
 ### docs/
 - api-agente-no-gui.md — A API de agente vive no app, não no daemon
+- comparacao-dokploy.md — Rustploy × Dokploy: quem tem o quê, e o que falta para alcançar
 - conectar-agente-mcp.md — Conectar um agente (Claude Code) ao MCP de um rustploy
 - correcao-persistencia-geometria-janela.md — Correção: a janela não reabria no último tamanho (glacier 0.49.0 → 0.49.1)
 - empacotamento-styles-e-cross-compile-windows.md — Empacotamento do rustploy-gui: mover styles/ e cross-compile Windows (cargo-xwin…
 - env-backup.md — Backup automático de env vars
+- estudo-consumo-de-ram.md — Estudo: consumo de RAM (daemon, GUI e glacier-ui)
 - estudo-seguranca-e-desempenho.md — Estudo: segurança, desempenho e economia de recursos (daemon, GUI e glacier-ui)
 - explicacao-chaves-de-segredos.md — As chaves do Rustploy, explicadas do zero (e repetidas de propósito)
 - ingress-proxy.md — Como funciona o ingress proxy e o zero-downtime deploy
@@ -74,6 +76,7 @@
 - plano-backup-estado-em-git.md — Plano: YAML como fonte da verdade da infra, com git e religamento em ordem
 - plano-banco-compartilhado.md — Plano: banco compartilhado entre projetos + migração dos bancos antigos
 - plano-cancelamento-de-jobs.md — Cancelamento de `job_run` em andamento
+- plano-capturas-en.md — Capturas em inglês para o site en (levantamento)
 - plano-chave-de-acesso-e-mcp.md — Plano: chave de acesso única + API de agente no daemon (via MCP)
 - plano-chave-de-recuperacao.md — Plano: chave de recuperação gerada e baixada pela interface
 - plano-colisao-nome-container.md — Plano: colisão de nome de container entre projetos
@@ -299,6 +302,7 @@
 - dashboard.rs — O painel "Em execução" (`dashboard` no snapshot): só os projetos que têm serviço…
 - mod.rs — HTTP/JSON + SSE control API — the daemon's remote administrative channel.
 - public_routes.rs — Rotas HTTP **públicas** (sem Bearer): o webhook de deploy e o callback OAuth do …
+- snapshot.rs — O snapshot do painel (o `kind:"snapshot"` do SSE `/api/events` e o `Command::Sna…
 
 ### rustploy-daemon/crates/daemon/src/api/web_ui/ → daemon-api.md
 - headless_tests.rs — Testes da web UI num Chrome sem cabeça (exigem `google-chrome` instalado): login…

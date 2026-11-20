@@ -583,7 +583,7 @@ fn legacy_product_key(body) -> Option<String> — Cliente antigo (GUI/webui ante
 fn omitted_spec_fields(current, payload) -> Vec<String> — Campos do `spec` atual que o payload de um `ServiceUpdate` simplesmente não traz.
 fn partial_update_refusal(body, state) -> Option<String> — Recusa um `ServiceUpdate` que omite campos preenchidos do serviço (ver [`omitted_spec_fields`]).
 fn rpc(req, state, caller) -> Response<ApiBody> — `POST /api/rpc`: decode a `Command`, run it through `dispatch`, encode the `Response` back as JSON.
-fn events(state) -> Response<ApiBody> — `GET /api/events`: SSE stream.
+fn events(state, patch) -> Response<ApiBody> — `GET /api/events`: SSE stream.
 fn service_logs(state, service_id) -> Response<ApiBody> — `GET /api/services/{id}/logs`: SSE dedicado aos logs de container de UM serviço.
 fn deployment_build_logs(state, deployment_id) -> Response<ApiBody> — `GET /api/deployments/{id}/build-logs`: SSE dedicado à saída de `docker build` de UM deployment.
 fn job_run_logs(state, job_run_id) -> Response<ApiBody> — `GET /api/jobs/runs/{id}/logs`: SSE dedicado à saída de UMA execução de job one-shot.
@@ -593,7 +593,7 @@ fn mark_seen(seen, ts, line) -> bool — Marca uma linha como entregue.
 fn recover_lines(db_lines, since, seen) -> Vec<crate::protocol::BuildLogLine> — As linhas do banco que o consumidor perdeu quando o canal descartou eventos (`RecvError::Lagged`): a…
 const SSE_KEEPALIVE — Intervalo do comentário de "sinal de vida" nos SSE.
 fn sse_response(rx) -> Response<ApiBody> — Response body comum dos endpoints SSE (`events`/`service_logs`/`deployment_build_logs`/`job_run_logs…
-fn snapshot(state) -> String — Builds the full dashboard snapshot as one JSON object, reusing `dispatch` for each piece — the same …
+fn snapshot(state) -> String — O snapshot completo do painel (o `Command::Snapshot`, que os clientes pedem depois de uma mutação pa…
 fn sse_frame(event, data) -> Bytes — Formats one SSE record.
 fn send_log_batch(tx, batch) -> Result<(), ()> — Envia um lote coalescido de eventos de log como uma única frame SSE `bus_batch` (ver o produtor em […
 struct Auth { token, master, visitor_level } — Checks the `Authorization: Bearer <token>` header against `expected`.
@@ -628,6 +628,24 @@ fn callback_redirect_uri(state, kind) -> Option<String> — Builds `{public_base
 fn url_decode_pairs(query) -> Vec<(String, String)> — Tiny `application/x-www-form-urlencoded` query parser (percent-decoding).
 fn percent_decode(s) -> String
 (13 testes)
+
+### snapshot.rs — O snapshot do painel (o `kind:"snapshot"` do SSE `/api/events` e o `Command::Snapshot`): calculado *…
+const TICK — De quanto em quanto tempo o laço recalcula o snapshot.
+struct Snapshot { sections, full } — Um snapshot calculado: as seções na ordem fixa em que o JSON as escreve.
+impl Snapshot
+  fn get(name) -> Option<&Arc<str>>
+  fn full_json() -> &str — O snapshot inteiro, como o SSE sempre mandou.
+  fn patch_json(prev) -> Option<String> — Só o que mudou desde `prev`: `{"kind":"snapshot_patch", <seções novas ou trocadas>, "removed":[<seçõ…
+fn push_field(out, key, raw_json)
+struct SnapshotHub { tx, computed_at, computing, producer_started } — O produtor único do snapshot.
+impl SnapshotHub
+  fn new() -> Arc<Self>
+  fn refresh(state) -> Arc<Snapshot> — Calcula agora, publica para todos os assinantes se algo mudou e devolve o atual.
+  fn subscribe(state) — Para uma conexão SSE nova: o receptor do `watch` e o snapshot a mandar primeiro (o publicado, se for…
+  fn ensure_producer(state)
+fn put(out, key, value) — Serializa `value` direto para texto — sem passar por uma árvore `serde_json::Value`, que para listas…
+fn build_sections(state) -> Vec<(&'static str, String)> — As seções do snapshot, cada uma já em JSON, reusando `dispatch` para cada pedaço — o mesmo pacote qu…
+(3 testes)
 
 ## rustploy-daemon/crates/daemon/src/api/web_ui/
 

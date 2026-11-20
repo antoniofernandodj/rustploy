@@ -20,6 +20,7 @@ fn assets() -> EmbeddedDirs — Cada pasta sob o prefixo lógico que o markup us
 
 ### main.rs — Rustploy (glacier-ui) — desktop client whose UI is described in XML templates and rendered by the pu…
 fn main() -> iced::Result
+fn limit_malloc_arenas() — Limita o malloc do glibc a 2 arenas (o mesmo que `MALLOC_ARENA_MAX=2`), antes de subir qualquer thre…
 
 ## rustploy-gui/src/app/
 

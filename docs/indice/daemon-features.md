@@ -341,7 +341,7 @@ struct WatchdogContext { db, docker, bus, deploy_queue }
 
 ### metrics.rs — Coleta periódica de métricas de CPU/memória/disco do host e por container, publicadas no event bus.
 fn collect_loop(docker, db, bus, interval_secs)
-fn collect_system_metrics(sys) -> SystemMetricsPoint
+fn collect_system_metrics(sys, disks) -> SystemMetricsPoint
 fn collect_container_metrics(docker, container_id, service_id, _prev_cpu) -> anyhow::Result<ContainerMetricsPoint>
 
 ### mod.rs — Observabilidade: watchdog dos serviços, métricas do host e transmissão de logs de container.
