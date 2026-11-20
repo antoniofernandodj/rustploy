@@ -1051,3 +1051,35 @@ App **0.1.75**; daemon **0.1.67** e `rustploy-update-core` **0.3.3** sem mudanç
   `DISPLAY=:0`; o build de debug relê `views/` do disco, então dá para testar o `.gv` sem recompilar. Captura com
   `import -window <id>` e cliques com `xdotool mousemove --window <id> X Y click 1`. Cuidado com `pkill -f`: o padrão
   casa com a linha de comando do próprio shell.
+
+## v0.1.82 (2026-11-20): menos RAM e CPU — snapshot do SSE por seção, métricas só com cliente
+
+Daemon **0.1.68**, app **0.1.76** (glacier-ui **0.168.1**, glacier-cli **0.28.20**); `rustploy-update-core` **0.3.3**
+sem mudança. Daemon e app no crates.io. Estudo e medições em `docs/estudo-consumo-de-ram.md`.
+
+- **Daemon:** o snapshot do `/api/events` é calculado **uma vez por tick para todos os clientes** (`SnapshotHub`, em
+  `api/http/snapshot.rs`) e não é calculado sem cliente. Com `?patch=1` o cliente recebe o snapshot inteiro ao conectar e
+  depois só as seções que mudaram (`snapshot_patch`): 12 KB → 118–446 B por tick, medido. Sem o parâmetro, como antes
+  (cliente antigo segue funcionando; daemon antigo ignora o parâmetro). Métricas sem a lista de processos do host e sem
+  coleta (nem `docker stats`) quando ninguém está conectado. `sqlx` sem `native-tls`: o OpenSSL saiu do daemon.
+- **App:** junta o patch; tick só com `status`/`engine` (o uptime) não refaz as listas. `mallopt(M_ARENA_MAX, 2)` no
+  `main.rs`: −4,5 MB de memória anônima medidos (jemalloc foi pior, +5 MB). **webui:** também pede `?patch=1`.
+- **glacier-ui 0.168.1:** contexto JSON sem cópia por turno, `GLACIER_PERF` com a linha `memória:` (RSS e heap de cada
+  VM Luau), imagens embutidas sem cópia; junto, a doc do `inputgroup` (`prefix`/`suffix` são rótulo, não valor) que
+  estava pendente no checkout.
+- **Verificado:** `make lint` e `make test` (daemon 702, com a webui no Chrome headless e 3 testes novos do patch);
+  `glacier test` (480); glacier-ui 452 (lib) + 718 (integração); de ponta a ponta, daemon de teste isolado + app real
+  num Xvfb: o patch de `projects` atualizou o contador e o uptime seguiu pelo caminho leve; `curl` no SSE com e sem
+  `?patch=1`. CI sem tag verde (`libc6 >= 2.34`/`2.35`, versões certas nos `.deb`); tag `v0.1.82`, assinada com a chave
+  da **máquina 1** (shim da v0.1.79, autorizado pelo dono neste pedido, dry-run antes, shim apagado) e publicada;
+  baixada pela URL pública, `checksums.sha256` e os 4 `.minisig` conferidos com `keys/rustploy-update.pub`; app 0.1.76 e
+  daemon 0.1.68 instalados pelo comando de uma linha num `debian:12` (podman), com a assinatura conferida pelo
+  `install.sh`; `install.ps1` até o SHA-256. Docs (api-http e eventos, pt e en) reimplantadas e conferidas com `curl`.
+- **Não verificado:** a economia num servidor grande (o daemon local tem 4 serviços; a do contexto JSON não apareceu
+  nele); CPU do daemon antes/depois com vários clientes (a conta é 1 cálculo por tick em vez de 1 por cliente, não foi
+  cronometrada); `install.ps1` num Windows.
+- **`make index` recusa rodar sem o submódulo `rustploy-skills` clonado** ("docs/indice/ NÃO foi alterado"): o pull
+  trouxe o submódulo novo, mas não o clona. `git submodule update --init rustploy-skills` e rode de novo — antes disso o
+  índice parece em dia e não está.
+- **Publish em outra máquina de novo:** o crates.io tinha app 0.1.75 e glacier-ui 0.168.0 enquanto o checkout local
+  estava atrás. `git fetch` nos cinco repos e no glacier-ui **antes** do bump; o glacier-ui saiu como 0.168.1, não 0.168.0.
