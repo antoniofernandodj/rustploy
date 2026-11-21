@@ -189,6 +189,7 @@ impl DeployExecutor
 ### rollback.rs — Estágio `RollingBack`: remove o staging e restaura o estado anterior, guardando a causa.
 impl DeployExecutor
   fn step_rolling_back(dep, svc) -> Result<DeployState>
+fn compose_stack_was_touched(dep) -> bool — O deploy chegou a mexer no stack Compose (entrou em `ComposingUp`)? Antes disso — pré-deploy check, …
 fn rollback_cause(dep) -> String — Texto que vai para `ServiceStatus::Error` quando um deploy cai em rollback.
 fn truncate_chars(s, max) -> String — Trunca por CARACTERE (não por byte): cortar um `&str` com índice de byte no meio de um multibyte ent…
 
@@ -212,7 +213,7 @@ impl DeployExecutor
 fn failure_log_lines(state_label, err) -> Vec<String> — Quebra a causa de um step falho nas linhas que vão para o `build_log`.
 
 ### tests.rs
-(20 testes)
+(22 testes)
 
 ## rustploy-daemon/crates/daemon/src/features/jobs/
 
