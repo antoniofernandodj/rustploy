@@ -1052,6 +1052,41 @@ App **0.1.75**; daemon **0.1.67** e `rustploy-update-core` **0.3.3** sem mudanç
   `import -window <id>` e cliques com `xdotool mousemove --window <id> X Y click 1`. Cuidado com `pkill -f`: o padrão
   casa com a linha de comando do próprio shell.
 
+## v0.1.86 (2026-11-21): vínculos entre serviços, confirmação em toda ação destrutiva, atualizar por comando
+
+Daemon **0.1.71**, app **0.1.79** (no crates.io); `rustploy-update-core` 0.3.4 sem mudança. Plano:
+`docs/plano-recursos-e-vinculos.md` (Fases 0, 1 e C feitas; 2 e 3 por fazer).
+
+- **Vínculos** (`ServiceSpec.links`): o serviço declara o que usa; vira dependência (deploy em árvore, boot,
+  ciclo) e entrega `<PREFIXO>_HOST/_PORT/_URL` com a menor precedência. Editável dos dois lados (Usa / Quem
+  usa este serviço), no app e na web UI. De outro projeto, só banco compartilhado, com a trava
+  `shared.accept_links` e acesso concedido sozinho; a `_URL` de um compartilhado é a do database gerenciado
+  do consumidor, nunca a do superusuário. Campos novos com valor padrão: sem migração de dados; um daemon
+  antigo ignora os campos, mas perde o `links` de um serviço se regravá-lo.
+- **Confirmação em toda ação destrutiva** (pedido do dono depois de perder um servidor salvo no "Esquecer este
+  servidor"): 12 ações no app e 23 na web UI passaram a confirmar; a tabela está no §6 do plano.
+- **`ApplyAppUpdate`** + verbo `install_app` no helper root: atualiza o app desktop desta máquina por
+  comando, sem a senha do `pkexec`, com as mesmas regras (assinado, sem downgrade, backup próprio em
+  `/var/lib/rustploy-update/app`).
+- **Skill** `.claude/skills/entrega-autonoma` no agregador.
+- **Verificado:** `make lint` e `make test` (974); `glacier test` (485, com os novos de vínculos e das
+  recusas de confirmação); `e2e-updater` com S12/S12b (o helper troca o app sem reiniciar o daemon e recusa
+  pacote trocado nos dois verbos); headless da web UI (vínculos e porta TCP com confirmação); ponta a ponta
+  num daemon isolado com Podman (vínculo vira onda 0 → 1 no deploy; dentro do container do `api`:
+  `DB_HOST=rp_db`, `DB_URL=postgresql://…`, e a `DB_PORT` digitada ganhou; `LinkNotAllowed` para serviço
+  comum de outro projeto); app real num Xvfb conectado a esse daemon (diálogo de "Esquecer este servidor",
+  seção Usa, "Quem usa" no provedor, confirmação de desfazer). CI sem tag verde; tag `v0.1.86` assinada
+  (máquina 1, shim, autorizado pelo dono neste pedido) e publicada; checksums e 4 `.minisig` conferidos;
+  `install.sh` (daemon e gui) num `debian:12`; `install.ps1` até o SHA-256; docs no ar (pt e en). **Nesta
+  máquina, por comando:** daemon local 0.1.68 → 0.1.71 pelo `ApplyUpdate` (Succeeded) e app 0.1.78 →
+  0.1.79 pelo `ApplyAppUpdate` (`AppUpdated`), sem senha.
+- **Não verificado:** vínculo entre projetos com banco compartilhado de verdade (só teste unitário das
+  regras); a trava ligada pela tela; a seção na web UI vista no navegador (só o teste headless); captura em
+  inglês da seção (a página en ficou só com texto); o app aberto do dono segue na versão antiga até ser
+  reaberto.
+- **Armadilha:** no modo de teste do `glacier test`, `i18n.tr` responde em inglês; teste que compara texto
+  traduzido precisa não depender do idioma.
+
 ## v0.1.85 (2026-11-21): falha antes do compose up não derruba o stack Compose
 
 Daemon **0.1.70** (no crates.io); app 0.1.78 e `rustploy-update-core` 0.3.4 sem mudança.
