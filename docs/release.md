@@ -1052,6 +1052,35 @@ App **0.1.75**; daemon **0.1.67** e `rustploy-update-core` **0.3.3** sem mudanç
   `import -window <id>` e cliques com `xdotool mousemove --window <id> X Y click 1`. Cuidado com `pkill -f`: o padrão
   casa com a linha de comando do próprio shell.
 
+## v0.1.85 (2026-11-21): falha antes do compose up não derruba o stack Compose
+
+Daemon **0.1.70** (no crates.io); app 0.1.78 e `rustploy-update-core` 0.3.4 sem mudança.
+
+- **O incidente (Chiquitos, 2026-11-20):** o `s3` (Compose) tinha como pré-deploy check o job `bucket`, que cria o bucket
+  **no próprio S3**. O check roda antes do serviço subir, então só passava porque o container antigo do S3 seguia de pé.
+  Às 01:11, junto com a reinstalação do daemon, o check não conectou em `rp_s3:9000`, e o `RollingBack` do Compose rodou
+  `compose down`: **o stack que estava servindo foi apagado**. A partir daí o check nunca mais passou (o S3 não subia porque o
+  check falhava, e o check falhava porque o S3 não subia), e por dependência o `api` e o `ui` também falharam.
+- **Recuperação no servidor, pelo MCP:** tirado o `bucket` do pré-deploy do `s3` (o `api` já o roda, e é ali que ele faz
+  sentido); `DeployWithDependencies` do `api` com `skip_running` (s3 Live → api Live, com `migrations` e `bucket` passando) e
+  depois do `ui`. Os 8 serviços `Running`, `app.chiquitos.tech` respondendo 200.
+- **Correção, `executor/rollback.rs`:** o rollback de um serviço Compose só derruba o stack se o deploy entrou em
+  `ComposingUp` (`compose_stack_was_touched`). Antes disso (pré-deploy check, dependências), o stack fica como estava, e o
+  log do deploy diz isso. Docs (pt e en): `guias/pre-deploy` (não pendurar num serviço um job que precisa dele próprio; uma
+  falha no check não mexe no que está no ar) e `conceitos/ciclo-de-vida` (a ressalva do Compose).
+- **Verificado:** testes da função (2 novos); de ponta a ponta num daemon isolado com Podman (serviço Compose no ar + check
+  que falha): com o código **antigo** o container sumiu (`step[RollingBack]: derrubando compose stack`), com o **novo**
+  continuou `Up` (`stack anterior preservado`). `make lint`, `make test` (968), docs `build` + `check-links` (0 quebrados).
+  CI sem tag verde; tag `v0.1.85`, assinada com a chave da **máquina 1** (shim, autorizado pelo dono neste pedido, dry-run
+  antes, shim apagado) e publicada; `checksums.sha256` e os 4 `.minisig` conferidos; daemon 0.1.70 e app 0.1.78 pelo comando
+  de uma linha num `debian:12`, assinatura conferida pelo `install.sh`; `install.ps1` até o SHA-256; docs reimplantadas e
+  conferidas com `curl`.
+- **Não verificado:** por que o primeiro check falhou às 01:11 com o S3 ainda no ar (coincide com a reinstalação do daemon;
+  o log só diz `client error (Connect)`); o que parou `api` e `ui` com código 137 por volta de 01:2x (os deploys deles
+  falharam ainda em `Pending`). O Chiquitos segue no daemon 0.1.68 até o dono atualizar.
+- **Armadilha (só desta máquina):** com o Podman rootless, o `docker-compose` de um job cujo container sai muito rápido
+  (`sh -c 'exit 1'`) não percebe a saída e fica pendurado; no teste, o processo foi encerrado à mão para seguir.
+
 ## v0.1.84 (2026-11-20): pool do SQLite com uma conexão; reinstalar depois de reverter
 
 Daemon **0.1.69**, app **0.1.78**, `rustploy-update-core` **0.3.4**. Os três no crates.io.
