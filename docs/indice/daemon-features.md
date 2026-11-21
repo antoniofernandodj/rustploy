@@ -594,6 +594,11 @@ impl UpdateApplier
   fn run(plan) — Roda a atualização inteira em segundo plano; qualquer erro vira `Failed` com a causa.
   fn run_steps(plan) -> Result<(), String>
   fn rollback() -> Result<(), String> — `UpdateRollback`: pede ao helper que restaure os binários do último backup.
+const APP_INSTALL_TIMEOUT — Quanto o `ApplyAppUpdate` espera o helper terminar o `dpkg -i` do app.
+impl UpdateApplier
+  fn apply_app(release, repo) -> Result<(String, String), String> — `ApplyAppUpdate`: atualiza o **app desktop** (`rustploy-gui`) desta máquina pelo helper root do daem…
+  fn app_outcome_file() -> PathBuf — O `last.json` do app: o helper guarda o estado dele num subdiretório (`app/`) do seu.
+fn installed_package_version(package) -> Option<String> — A versão instalada de um pacote (`dpkg-query`), ou `None` se ele não está instalado.
 fn from_outcome(outcome, target_version, running_version, from_this_attempt)
 fn package_matches_running(package_version, running_version) -> bool — `0.1.10-1` (versão do pacote) casa com `0.1.10` (versão do crate em execução).
 fn prepare_updates_dir(directory) -> std::io::Result<()> — Cria o diretório e tira o que sobrou de tentativas anteriores (pacote velho não pode ser confundido …

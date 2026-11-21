@@ -17,7 +17,8 @@ struct Outcome { ready, failed, blocked } — Resultado da última rodada.
 impl Outcome
   fn all_ready() -> bool
 fn orchestrate(services, implicit, bringer, policy) -> Outcome — Sobe `services` na ordem das dependências.
-fn implicit_edges(access, all_services) -> Vec<(String, String)> — Arestas `(dependente, dependência)` derivadas de `shared_access`: todo serviço de um projeto autoriz…
+fn implicit_edges(access, all_services) -> Vec<(String, String)> — Arestas `(dependente, dependência)` que não estão no `depends_on`: - de `shared_access`: todo serviç…
+fn link_edges(all_services) -> Vec<(String, String)> — Só as arestas dos vínculos (ver [`implicit_edges`]).
 struct DockerBringer { ctx, policy }
 impl Bringer for DockerBringer: bring_up, report
 impl DockerBringer
@@ -46,9 +47,12 @@ fn direct_dependents(project_services, id) -> Vec<(String, String)> — Serviço
 fn secret_value(secrets, project_id, service_id, secret_name, env_key, owner) -> Result<String> — Resolve o valor de uma env `Secret(nome)`.
 fn resolve_project_env(db, secrets, project_id) -> Result<HashMap<String, String>> — Só as env vars do projeto (base), secrets decifradas — sem nenhuma específica de serviço.
 fn resolve(db, secrets, svc) -> Result<Vec<(String, String)>> — Funde env vars do projeto (base) com as do serviço (sobrescreve por chave), decifrando `EnvVarValue:…
+fn link_env(db, secrets, svc) -> Vec<(String, String)> — As variáveis que os **vínculos** do serviço entregam (`<PREFIXO>_HOST`, `_PORT`, `_URL`).
+fn managed_url_for(db, server, project_id) -> Option<String> — A URL do database gerenciado de `project_id` no servidor compartilhado `server`, se houver exatament…
+fn resolve_own(db, secrets, svc) -> Result<Vec<(String, String)>> — Projeto + serviço, **sem** os vínculos (o que o serviço declara por si).
 fn resolve_project_only(db, secrets, project_id) -> Result<Vec<(String, String)>> — Só as env vars do projeto — usado por jobs sem serviço gatilho (`Job::trigger_service_id: None`, job…
 fn resolve_job(db, secrets, job) -> Result<Vec<(String, String)>> — Env vars completas de um `Job`: base (projeto, + serviço gatilho quando houver) por baixo, `job.env_…
-(3 testes)
+(4 testes)
 
 ### git.rs — Clone de repositório git para build, com progresso, credenciais de provedor conectado ou secret, e U…
 struct CloneOptions { url, branch, token, username, dir }
@@ -331,6 +335,12 @@ fn handle(state, spec) -> RpResponse
 ### delete.rs — `Command::ServiceDelete`: para e REMOVE os containers do serviço (ou a stack Compose), apaga o servi…
 fn remove_containers(state, id) -> Result<(), RpResponse> — Containers do serviço: para (réplicas, ou `compose down`, que já os remove) e remove o que sobrar, i…
 fn handle(state, id) -> RpResponse
+
+### links.rs — Validação dos **vínculos** de um spec que vai ser gravado (`ServiceSpec::links`).
+struct LinkPlan { grant_servers } — O que a gravação precisa fazer além de salvar: os servidores compartilhados (de outros projetos) que…
+fn check(db, spec, self_id) -> Result<LinkPlan, RpResponse>
+fn plan_links(spec, self_id, all, access, stored_links) -> Result<LinkPlan, RpResponse> — As regras que não precisam de grafo (separadas para teste).
+(3 testes)
 
 ### mod.rs — Ciclo de vida de um serviço: criar, atualizar (com a sincronização do firewall) e remover.
 fn project_deps(db, project_id) — `(id, nome, depends_on)` de todos os serviços do projeto, para a validação de dependências.

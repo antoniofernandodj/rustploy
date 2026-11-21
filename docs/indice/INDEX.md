@@ -44,6 +44,9 @@
 ### .claude/
 - settings.json
 
+### .claude/skills/entrega-autonoma/
+- SKILL.md — Entrega autônoma
+
 ### .github/workflows/
 - ci.yml
 - release.yml
@@ -102,6 +105,7 @@
 - plano-nome-gravado-rede-e-stack.md — Plano: nome de rede e de stack Compose gravados, não derivados
 - plano-nomes-descritivos.md — Plano: nomes descritivos em toda a base (GUI glacier + webui)
 - plano-pre-deploy-gate.md — Pré-deploy gate: rodar um check antes do deploy, e só prosseguir se ele passar
+- plano-recursos-e-vinculos.md — Plano: vínculos entre serviços (e confirmação em toda ação destrutiva)
 - plano-reforma-gui-glacier-0.102.md — Plano: reforma do `rustploy-gui` sobre o glacier-ui moderno (0.87 → 0.102)
 - plano-registry-embutido.md — Registry Docker embutido no rustployd
 - plano-reordenar-servicos.md — Reordenar os serviços de um projeto
@@ -486,6 +490,7 @@
 - context.rs — O que criar, atualizar e remover um serviço precisam do resto do daemon.
 - create.rs — `Command::ServiceCreate`: cria um serviço, alocando a porta externa automática e…
 - delete.rs — `Command::ServiceDelete`: para e REMOVE os containers do serviço (ou a stack Com…
+- links.rs — Validação dos **vínculos** de um spec que vai ser gravado (`ServiceSpec::links`)…
 - mod.rs — Ciclo de vida de um serviço: criar, atualizar (com a sincronização do firewall) …
 - update.rs — `Command::ServiceUpdate`: grava um ServiceSpec novo (porta externa, TLS dos domí…
 
@@ -1741,6 +1746,7 @@
 - dashboard.test.luau
 - git_registry.test.luau
 - jobs.test.luau
+- links.test.luau — Vínculos (aba Advanced): docs/plano-recursos-e-vinculos.md.
 - service_detail.test.luau
 - state_git.test.luau
 - time.test.luau

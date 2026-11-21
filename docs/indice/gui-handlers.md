@@ -291,6 +291,13 @@ function compose_save()
 function compose_cancel()
 function healthcheck_save()
 function advanced_save()
+function M.refresh_links(spec, service_id) — ── Vínculos ────────────────────────────────────────────────────────────────
+local with_other_spec(other_id, mutate) — Grava o spec de OUTRO serviço (o consumidor), do mesmo jeito que o with_spec grava o deste: lê, muda…
+function link_add() — "Este serviço usa ...": acrescenta o vínculo.
+function link_delete(target_id)
+function consumer_add() — "Quem usa este serviço": a mesma edição, feita do lado de quem é usado (grava no serviço consumidor)…
+function consumer_delete(consumer_id)
+function accept_links_toggle(_scope, value) — A trava do banco compartilhado: aceita vínculos novos de outros projetos?
 function dependency_add() — Adiciona o serviço escolhido às dependências.
 function dependency_delete(dependency_id)
 local materialize_pre_deploy(spec) — Move o `pre_deploy_job_id` legado pra `pre_deploy_job_ids` — mesmo idioma de `materialize_domains`.

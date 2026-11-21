@@ -387,6 +387,7 @@ fn dispatch(state, cmd) -> RpResponse
 
 ### apply_update.rs — `Command::ApplyUpdate`: atualiza o daemon para a última release estável.
 fn handle(state, allow_active_deploys) -> RpResponse
+fn handle_app(state) -> RpResponse — `Command::ApplyAppUpdate`: atualiza o app desktop desta máquina e espera o resultado.
 
 ### check_update.rs — `Command::CheckUpdate`: há release mais nova que este daemon? Só consulta, nunca instala.
 fn handle(state, force) -> RpResponse
@@ -509,6 +510,7 @@ fn build_url(state, service_id, token) -> String — `{public_base_url}/webhook/
 
 ### mod.rs — Handlers de services: o `dispatch` recebe os `Command` da seção e chama o handler certo.
 fn dispatch(state, cmd) -> RpResponse
+fn prepare_links(state, spec, self_id) -> Result<(), RpResponse> — Antes de gravar um spec: valida os vínculos e concede ao projeto o acesso aos bancos compartilhados …
 
 ### regenerate_webhook_token.rs — `Command::RegenerateWebhookToken`: gera um token novo de webhook para o serviço e devolve a URL nova…
 fn handle(state, service_id) -> RpResponse
@@ -662,7 +664,7 @@ fn seed_connected(page) — Semeia a sessão (bypassa login/SSE, mesma ideia de 
 fn eval_str(page, js) -> String — Avalia `js` (uma expressão, possivelmente uma Promise) e devolve o resultado como `String` — os test…
 fn visible(page, selector) -> bool — `true` se o elemento existir e estiver de fato visível (`x-show` escreve `display:none` inline; `off…
 fn errors(page) -> Vec<String>
-(26 testes)
+(27 testes)
 
 ### mod.rs — Servidor de estáticos da web UI/PWA (`crates/daemon/webui/`) — alternativa ao client iced (`rustploy…
 type ApiBody = BoxBody<Bytes, std::convert::Infallible>

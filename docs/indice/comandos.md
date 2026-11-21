@@ -21,7 +21,7 @@ ServiceCreate | daemon: features/services/create | gui: — | web: app
 ServiceUpdate | daemon: features/services/update | gui: handlers/services | web: app, screens/service_detail
 ServiceDelete | daemon: features/services/delete | gui: handlers/projects | web: app
 ServiceList | daemon: services/service_list | gui: handlers/services | web: —
-ServiceGet | daemon: services/service_get | gui: handlers/services | web: app
+ServiceGet | daemon: services/service_get | gui: handlers/services | web: app, screens/service_detail
 
 ## Deployments
 DeployStart | daemon: features/deploy/start | gui: handlers/services | web: app
@@ -309,6 +309,9 @@ UpdateStatus — Estado da atualização em curso, ou o resultado da última. | 
 ## / uma versão menor). Mesma trava do agente MCP que `ApplyUpdate`. Resposta: `Ok`.
 UpdateRollback — Volta os binários para os do backup da última atualização (o único cam… | daemon: observability/update_status::rollback | gui: handlers/settings | web: app
 
+## / `ApplyUpdate`. O app aberto segue na versão antiga até ser reaberto. Resposta: `AppUpdated`.
+ApplyAppUpdate — Atualiza o **app desktop** (`rustploy-gui`) desta máquina para o da úl… | daemon: observability/apply_update::handle_app | gui: — | web: —
+
 ## Git providers (Gitea OAuth2 / PAT)
 GitProviderList | daemon: git/git_provider_list | gui: handlers/bundle_import, handlers/connection, handlers/jobs, handlers/services, handlers/settings, new_job_window | web: app, screens/service_bundle, screens/service_detail
 GitProviderCreate | daemon: git/git_provider_create | gui: handlers/settings | web: app
@@ -357,4 +360,4 @@ DeployQueuePause — Pausa (`true`) ou retoma (`false`) a fila global. | daemon:
 
 - Só GUI (2): ServiceList, JobList
 - Só webui (1): ServiceCreate
-- Nem GUI nem webui (30): DeployRollback, RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, SecretGenerate, InfraAudit, StateGitStatus, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, RegistryStatus, RegistryRepoList
+- Nem GUI nem webui (31): DeployRollback, RecentDeployments, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, MigrationGet, SecretGenerate, InfraAudit, StateGitStatus, JobListAll, JobRunHistory, JobWarmStatus, ServiceWarmStatusList, PruneBuildCache, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DeployEngineStatus, ApplyAppUpdate, RegistryStatus, RegistryRepoList

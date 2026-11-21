@@ -228,6 +228,12 @@ function test_fila_de_pre_deploy__sem_jobs_da() — - sem jobs dá []
 function test_historico__cada_execucao_com_seu_estado_codigo_de_saida_e() — - cada execução com seu estado, código de saída e horários
 function test_historico__sem_execucoes_da() — - sem execuções dá []
 
+### links.test.luau — Vínculos (aba Advanced): docs/plano-recursos-e-vinculos.md.
+local par(id, nome, projeto, extras)
+function test_vinculos__prefixo_padrao_igual_ao_do_daemon() — - prefixo padrão igual ao do daemon
+function test_vinculos__opcoes_do_mesmo_projeto_e_banco_compartilhado_aberto() — - opções: o mesmo projeto e só banco compartilhado destravado de fora
+function test_vinculos__quem_usa_e_quem_pode_passar_a_usar() — - quem usa: lista e opções, com outros projetos só para banco compartilhado
+
 ### service_detail.test.luau
 local postgres_vars()
 function test_origem_e_healthcheck__source_summary_parts_de_cada_origem() — - source_summary_parts de cada origem
@@ -359,6 +365,7 @@ function test_connect_so_o_que_falha_antes_da_rede__o_token_da_api_no_lugar() �
 function test_connect_so_o_que_falha_antes_da_rede__chave_corrompida_avisa_e() — - chave corrompida avisa e não muda de tela
 function test_disconnect__apaga_o_contexto_da_sessao_e_volta_ao_login() — - apaga o contexto da sessão e volta ao login
 function test_disconnect__nao_enumera_chaves_o_init_semeia_os_defaults_de() — - não enumera chaves: o init semeia os defaults de novo, como no boot
+function test_forget_server__recusar_a_confirmacao_nao_apaga() — - "Esquecer este servidor" pede confirmação: recusar não apaga nada (o caminho - que confirma não é …
 
 ### dados.test.luau — Aba Dados: sem conexão os handlers são inertes (o botão pode ser clicado quando a sessão cai).
 local nova(ctx_inicial)
@@ -454,6 +461,7 @@ function test_recover__etapa_desconhecida_aparece_como_veio() — - etapa descon
 local nova(ctx_inicial)
 function test_recovery_key__sem_conexao_e_inerte() — - sem sessão, gerar não faz nada (nem toast, nem privada na tela)
 function test_recovery_key__dismiss_esquece_a_privada() — - "Guardei em lugar seguro" apaga a privada e o conteúdo do arquivo do estado - da tela
+function test_recovery_key__recusar_a_confirmacao_mantem_a_privada() — - fechar pede confirmação: recusar mantém a chave privada na tela
 function test_recovery_key__formulario_comeca_com_o_git_sync() — - o formulário do arquivo de recuperação começa com o repositório, a branch e - a conta que o Git Sy…
 function test_recovery_key__o_que_falta_para_gerar() — - sem repositório, com SSH ou sem conta (para https), o que falta é dito - antes de ir ao daemon; re…
 

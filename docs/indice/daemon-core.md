@@ -81,13 +81,14 @@ fn listener() -> (UnixListener, bool) — Socket herdado do systemd (LISTEN_FDS,
 fn trusted_keys() -> Vec<String> — As chaves em que este helper confia: as de produção embutidas em `update-core`.
 fn directory(variable, default, development) -> PathBuf
 fn main()
-fn serve(stream, updater)
-fn handle_line(updater, line, reply) — Um pedido.
+fn settings_like(settings) -> Settings — As mesmas chaves e limites do daemon (o `Settings` não é `Clone`).
+fn serve(stream, updater, app_updater)
+fn handle_line(updater, app_updater, line, reply) — Um pedido.
 const ALLOWED_DIR, STATE_DIR, MAX_DEB_BYTES, MAX_REQUEST_BYTES
-(4 testes)
+(5 testes)
 
 ### protocol.rs — O protocolo do socket: uma linha JSON por pedido, uma de resposta.
-enum Request { Install, Rollback }
+enum Request { Install, Rollback, InstallApp }
 struct Response { ok, version, error }
 impl Response
   fn accepted(version) -> Self
