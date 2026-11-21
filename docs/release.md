@@ -1052,6 +1052,33 @@ App **0.1.75**; daemon **0.1.67** e `rustploy-update-core` **0.3.3** sem mudanç
   `import -window <id>` e cliques com `xdotool mousemove --window <id> X Y click 1`. Cuidado com `pkill -f`: o padrão
   casa com a linha de comando do próprio shell.
 
+## v0.1.83 (2026-11-20): rolagem leve no renderizador de software
+
+App **0.1.77** (glacier-ui **0.168.2**); daemon **0.1.68** e `rustploy-update-core` **0.3.3** sem mudança. App no crates.io.
+
+- **Por quê:** a tela Deployments travava ao rolar numa Intel HD 2500 (Ivy Bridge). Ali o app não usa GPU: o wgpu não acha
+  adaptador (`ICED_BACKEND=wgpu` falha; `WGPU_BACKEND=vulkan` com o `hasvk` sobe, mas a ~1 quadro/s) e o iced cai no
+  **tiny-skia**. O Xvfb também cai nele, então reproduz o desempenho; o gasto foi achado amostrando a pilha com `eu-stack`
+  (o `perf` está bloqueado nesta máquina; o processo roda com um `LD_PRELOAD` que chama `prctl(PR_SET_PTRACER_ANY)`).
+- **glacier-ui 0.168.2:** o `grid` não mede no 1º passo do layout as células de coluna fixa (a largura natural delas não era
+  usada, e os limites alternados entre os dois passos refaziam o parágrafo de cada texto). Quadro parado: ~15 → ~4 ms.
+- **App, `vendor/iced_tiny_skia` (patch 3):** retângulo liso de cor sólida pintado com `fill_rect` recortado por interseção,
+  em vez de `fill_path` com supersampling pela máscara de recorte. Quadro de rolagem: ~110–125 → ~35–40 ms. A primeira
+  versão pintava fios das linhas por cima do cabeçalho fixo (o `Rect::round` do tiny-skia dá 1 px mínimo); o encaixe nos
+  pixels agora é feito à mão. Detalhes em `rustploy-gui/vendor/README.md`. **O `cargo install` não leva este patch**
+  (o `[patch.crates-io]` não vai para o crates.io), só os `.deb` e o zip.
+- **Verificado:** medições com `GLACIER_PERF_STRESS=1` no app real (release) conectado a um servidor de produção, só para ver
+  e rolar; capturas antes/depois de Deployments, Em execução e Projetos (sem artefato depois da correção dos fios);
+  `make lint` e `make test` (daemon 702); `glacier test` (480); glacier-ui 452 (lib) + integração. CI sem tag verde (`libc6
+  >= 2.34`/`2.35`, versões certas); tag `v0.1.83`, assinada com a chave da **máquina 1** (shim, autorizado pelo dono neste
+  pedido, dry-run antes, shim apagado) e publicada; baixada, `checksums.sha256` e os 4 `.minisig` conferidos com
+  `keys/rustploy-update.pub`; app 0.1.77 e daemon 0.1.68 instalados pelo comando de uma linha num `debian:12` (podman), com
+  a assinatura conferida pelo `install.sh`; `install.ps1` até o SHA-256. Docs sem mudança (nada nelas cita a versão).
+- **Não verificado:** o app instalado na sessão Wayland do dono (daqui a janela Wayland não chega a desenhar); a tela Em
+  execução continua cara (~8–10 ms por quadro, picos de ~45 ms ao rolar) e não foi investigada; `install.ps1` num Windows.
+- **Armadilha:** o `install.ps1` num PowerShell de Linux para em `Cannot bind argument to parameter 'Path' because it is null`
+  sem `$env:LOCALAPPDATA` (e `$env:TEMP`); defina os dois antes do `irm … | iex` para chegar ao SHA-256.
+
 ## v0.1.82 (2026-11-20): menos RAM e CPU — snapshot do SSE por seção, métricas só com cliente
 
 Daemon **0.1.68**, app **0.1.76** (glacier-ui **0.168.1**, glacier-cli **0.28.20**); `rustploy-update-core` **0.3.3**
