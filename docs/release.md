@@ -1052,6 +1052,36 @@ App **0.1.75**; daemon **0.1.67** e `rustploy-update-core` **0.3.3** sem mudanç
   `import -window <id>` e cliques com `xdotool mousemove --window <id> X Y click 1`. Cuidado com `pkill -f`: o padrão
   casa com a linha de comando do próprio shell.
 
+## v0.1.84 (2026-11-20): pool do SQLite com uma conexão; reinstalar depois de reverter
+
+Daemon **0.1.69**, app **0.1.78**, `rustploy-update-core` **0.3.4**. Os três no crates.io.
+
+- **update-core 0.3.4 (daemon e app):** o "reverter" (e a volta automática de uma instalação instável) só restaura os
+  binários do backup; o `dpkg` segue registrando a versão nova. A regra "sem downgrade" comparava a release com essa versão
+  e recusava reinstalá-la ("não é mais nova que a instalada"), e o `apt install` do mesmo `.deb` dizia "already the newest
+  version": o servidor do dono ficou preso na 0.1.67 com o dpkg dizendo 0.1.68 (destravado à mão com `dpkg -i` do `.deb` da
+  release). Agora vale a versão dos binários: idênticos byte a byte aos do backup ⇒ a versão gravada no backup, que também
+  passa a ser o rótulo do backup seguinte. Docs: `instalacao/atualizar` (pt e en) com o contorno para quem está até o 0.1.68.
+- **Daemon, `store/mod.rs`:** pool do SQLite com `max_connections(1)`. O padrão do sqlx (até 10) deixava as 10 abertas no
+  servidor (`ps -T`: 10 threads `sqlx-sqlite-worker`, e só 1 `tokio-rt-worker`, porque a VPS tem 1 núcleo). Nenhuma transação
+  consulta pelo pool antes do `commit`, e os testes já rodavam com uma conexão. Daemon de teste isolado, 3 clientes SSE + 600
+  chamadas em paralelo: 7 → 1 thread `sqlx`, RSS 67,6 → 56,4 MB, mesma vazão (1,23 × 1,30 s). No servidor (antes da
+  mudança): `anon` 41 MB, `file` 80 MB.
+- **Verificado:** `make lint` e `make test` (966); `update-core` 64 (2 novos); `e2e-updater` do daemon com o
+  `rustploy-shared` local, com o cenário novo **S10b** (rollback e reinstalar a mesma versão); `e2e-updater-gui` com o 0.3.4
+  do crates.io; docs `npm run build` + `check-links` (0 quebrados). CI sem tag verde (versões certas); tag `v0.1.84`,
+  assinada com a chave da **máquina 1** (shim, autorizado pelo dono neste pedido, dry-run antes, shim apagado) e publicada;
+  `checksums.sha256` e os 4 `.minisig` conferidos; daemon 0.1.69 e app 0.1.78 pelo comando de uma linha num `debian:12`, com
+  a assinatura conferida pelo `install.sh`; `install.ps1` até o SHA-256. Docs reimplantadas e conferidas com `curl` (pt e en).
+- **Não verificado:** a economia de memória no servidor do dono depois de atualizar (medida só no daemon de teste); o
+  "reverter" seguido de "atualizar" pelo botão num servidor real (só no e2e com systemd num contêiner).
+- **Armadilhas:** (1) o `e2e-updater` do daemon compila com `--config patch…` apontando para o `rustploy-shared` local, e isso
+  **suja o `Cargo.lock`** do daemon (fonte local + `[[patch.unused]]`): `git checkout Cargo.lock` antes do `cargo update`.
+  (2) Logo depois de publicar, o `install.sh` ainda pode pegar a release anterior (cache do "latest" da API do GitHub); repita.
+  (3) O disco desta máquina encheu no meio (as pastas `target/` somam ~50 GB): `rustc-LLVM ERROR: … No space left on device`
+  aparece como "exit status: 101" sem mensagem. Liberado com `cargo clean` no glacier-ui e no release do app, e
+  `podman image prune`.
+
 ## v0.1.83 (2026-11-20): rolagem leve no renderizador de software
 
 App **0.1.77** (glacier-ui **0.168.2**); daemon **0.1.68** e `rustploy-update-core` **0.3.3** sem mudança. App no crates.io.
