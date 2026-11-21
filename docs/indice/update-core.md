@@ -34,6 +34,8 @@ impl Updater<'_, S>
   fn acquire_lock() -> Result<fs::File, String>
   fn verify_and_check(deb, signature_path, known_version)
   fn installed_version() -> Result<Option<String>, String>
+  fn effective_installed_version() -> Result<Option<String>, String> — A versão que **está nos binários**, que nem sempre é a do dpkg.
+  fn binaries_match_backup(backup_dir) -> bool — Todo binário gerenciado que tem cópia no backup é igual a ela (e há pelo menos uma).
   fn execute(prepared) -> UpdateOutcome
   fn prepare_rollback() -> Result<RollbackPlan, String> — Fase 1 do rollback: só **recusa** (trava e backup existente), sem mexer em nada.
   fn execute_rollback(plan) -> UpdateOutcome — Fase 2: volta os binários para os do último backup (o único caminho que aceita uma versão menor), re…
@@ -50,7 +52,7 @@ fn replace_atomically(source, target) -> io::Result<()> — Troca `target` por u
 fn restore_note(restored) -> String
 fn tail(output) -> String — Últimas linhas do que o comando disse, para a mensagem que a pessoa vai ler.
 const MAX_SIGNATURE_BYTES
-(12 testes)
+(14 testes)
 
 ### lib.rs — Lógica de atualização comum ao daemon e ao app: um só lugar decide se uma versão é mais nova que out…
 
