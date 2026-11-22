@@ -351,7 +351,7 @@ fn handle(state, id) -> RpResponse
 struct LinkPlan { grant_servers } — O que a gravação precisa fazer além de salvar: os servidores compartilhados (de outros projetos) que…
 fn check(db, spec, self_id) -> Result<LinkPlan, RpResponse>
 fn plan_links(spec, self_id, all, access, stored_links) -> Result<LinkPlan, RpResponse> — As regras que não precisam de grafo (separadas para teste).
-(5 testes)
+(7 testes)
 
 ### mod.rs — Ciclo de vida de um serviço: criar, atualizar (com a sincronização do firewall) e remover.
 fn project_deps(db, project_id) — `(id, nome, depends_on)` de todos os serviços do projeto, para a validação de dependências.

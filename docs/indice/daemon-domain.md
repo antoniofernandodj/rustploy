@@ -146,7 +146,10 @@ impl Default for RegistryRetentionConfig
 ### service.rs
 struct ServiceSpec { name, project_id, source, port, host_port, tcp_ports, domain, tls_enabled, env_vars, env_comments, volumes, healthcheck, replicas, resources, run_command, run_args, product, domains, pre_deploy_job_id, pre_deploy_job_ids, shared, depends_on, autostart, registry_auto_deploy, links }
 fn default_autostart() -> bool
-struct ServiceLink { service_id, env_prefix, resource } — "Este serviço usa aquele": ver [`ServiceSpec::links`].
+struct ServiceLink { service_id, env_prefix, resource, env_names } — "Este serviço usa aquele": ver [`ServiceSpec::links`].
+const LINK_ENV_SUFFIXES — Os sufixos das variáveis que um vínculo pode entregar, na ordem em que aparecem na tela.
+impl ServiceLink
+  fn env_name(default_prefix, suffix) -> Option<String> — O nome com que a variável `suffix` entra no container, ou `None` se não deve ser entregue.
 struct LinkResource { name, public_read } — O recurso de um vínculo: o nome dele no provedor.
 enum ResourceKind { Bucket, Database } — Que tipo de recurso um provedor oferece, pelo `product` dele.
 fn resource_kind(product) -> Option<ResourceKind>

@@ -103,6 +103,7 @@
 - plano-multi-login-clients.md — Plano: login multi-servidor no client iced + login simplificado na webui
 - plano-multiplas-portas-tcp.md — Plano: mais de uma porta TCP por serviço
 - plano-nome-gravado-rede-e-stack.md — Plano: nome de rede e de stack Compose gravados, não derivados
+- plano-nomes-das-variaveis-do-vinculo.md — Plano: escolher o nome de cada variável que o vínculo entrega
 - plano-nomes-descritivos.md — Plano: nomes descritivos em toda a base (GUI glacier + webui)
 - plano-pre-deploy-gate.md — Pré-deploy gate: rodar um check antes do deploy, e só prosseguir se ele passar
 - plano-recursos-e-vinculos.md — Plano: vínculos entre serviços (e confirmação em toda ação destrutiva)
