@@ -146,7 +146,11 @@ impl Default for RegistryRetentionConfig
 ### service.rs
 struct ServiceSpec { name, project_id, source, port, host_port, tcp_ports, domain, tls_enabled, env_vars, env_comments, volumes, healthcheck, replicas, resources, run_command, run_args, product, domains, pre_deploy_job_id, pre_deploy_job_ids, shared, depends_on, autostart, registry_auto_deploy, links }
 fn default_autostart() -> bool
-struct ServiceLink { service_id, env_prefix } — "Este serviço usa aquele": ver [`ServiceSpec::links`].
+struct ServiceLink { service_id, env_prefix, resource } — "Este serviço usa aquele": ver [`ServiceSpec::links`].
+struct LinkResource { name, public_read } — O recurso de um vínculo: o nome dele no provedor.
+enum ResourceKind { Bucket, Database } — Que tipo de recurso um provedor oferece, pelo `product` dele.
+fn resource_kind(product) -> Option<ResourceKind>
+fn is_valid_resource_name(kind, name) -> bool — O nome do recurso é válido para o tipo? É a única barreira antes de ele entrar numa URL S3 ou num SQ…
 fn link_env_prefix(provider_name) -> String — O prefixo padrão das variáveis de um vínculo: o nome do provedor em maiúsculas, com tudo que não for…
 fn is_valid_env_prefix(prefix) -> bool — Um prefixo escrito pela pessoa é aceito? Só `A-Z`, `0-9` e `_`, sem começar por dígito.
 struct SharedServerConfig { accept_links } — Configuração de um servidor de banco compartilhado.

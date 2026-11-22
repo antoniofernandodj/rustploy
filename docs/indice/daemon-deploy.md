@@ -184,6 +184,17 @@ impl DeployExecutor
   fn step_swapping_in(dep, svc) -> Result<DeployState>
   fn step_promoting(dep, svc) -> Result<DeployState>
 
+### provision.rs — Recursos dos vínculos (`ServiceLink::resource`): no deploy do consumidor, antes dos pré-deploy check…
+const PROVISION_TIMEOUT — Quanto o provisionamento de um recurso pode levar antes de o deploy desistir com a causa.
+impl DeployExecutor
+  fn ensure_link_resources(dep, svc) -> Result<()> — Garante os recursos de todos os vínculos do serviço.
+  fn provider_container(target) -> Option<String> — O container do provedor: o alvo da stack (Compose) ou a primeira réplica no ar.
+  fn ensure_bucket(target, container, env, resource) -> Result<bool> — Bucket: pela API S3 do próprio provedor, no IP do container na rede do projeto.
+fn s3_credentials(product, env) -> Option<(String, String)> — As credenciais de administrador de um S3 local, pelas convenções de cada imagem.
+fn ensure_database(target, container, name) -> Result<bool> — Database: SQL no cliente de administração dentro do container.
+fn database_scripts(engine, name) -> Result<(&'static str, String, String)> — `(sh do cliente em modo "só valores", SQL que imprime algo se existe, SQL que cria)`.
+(3 testes)
+
 ### resolve.rs — Estágios iniciais: rede do projeto, pré-deploy checks e escolha do caminho pela fonte do serviço.
 impl DeployExecutor
   fn step_pending(dep, svc) -> Result<DeployState>
@@ -340,7 +351,7 @@ fn handle(state, id) -> RpResponse
 struct LinkPlan { grant_servers } — O que a gravação precisa fazer além de salvar: os servidores compartilhados (de outros projetos) que…
 fn check(db, spec, self_id) -> Result<LinkPlan, RpResponse>
 fn plan_links(spec, self_id, all, access, stored_links) -> Result<LinkPlan, RpResponse> — As regras que não precisam de grafo (separadas para teste).
-(3 testes)
+(5 testes)
 
 ### mod.rs — Ciclo de vida de um serviço: criar, atualizar (com a sincronização do firewall) e remover.
 fn project_deps(db, project_id) — `(id, nome, depends_on)` de todos os serviços do projeto, para a validação de dependências.

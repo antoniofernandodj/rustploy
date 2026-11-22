@@ -1,8 +1,8 @@
 # Plano: vínculos entre serviços (e confirmação em toda ação destrutiva)
 
-> **Status (2026-11-21):** Fase 0, Fase 1 e Confirmações **implementadas** nesta entrega (daemon 0.1.71,
-> app 0.1.79). Fases 2 e 3 são o próximo passo, **não começaram**. Pedido do dono, com decisões dele
-> registradas em §2.
+> **Status (2026-11-22):** Fase 0, Fase 1 e Confirmações **publicadas** na v0.1.86 (daemon 0.1.71, app
+> 0.1.79). **Fase 2 implementada** nesta entrega (§7; daemon 0.1.72, app 0.1.80). Fase 3 **não começou**.
+> Decisões do dono em §2; as que tomei sem ele, na entrega autônoma da Fase 2, estão marcadas em §7.4.
 
 ## 1. O problema, em termos simples
 
@@ -95,7 +95,7 @@ conferidas está em §6.
 | **0** | `ApplyAppUpdate`: o helper root do daemon instala o `rustploy-gui` assinado desta máquina, por comando, sem senha | **feita** |
 | **1** | vínculos declarados no consumidor, editáveis dos dois lados, trava, ordem e variáveis deduzidas, acesso entre projetos | **feita** |
 | **C** | confirmação em toda ação destrutiva, nos dois clientes | **feita** |
-| 2 | **recursos provisionados**: o vínculo diz "o bucket `uploads`", "o banco `app`", e o Rustploy cria no provedor depois que ele sobe e antes do consumidor (substitui jobs como o `bucket` do Chiquitos) | não começou |
+| 2 | **recursos provisionados**: o vínculo diz "o bucket `uploads`", "o banco `app`", e o Rustploy cria no provedor depois que ele sobe e antes do consumidor (substitui jobs como o `bucket` do Chiquitos) | **feita** (§7) |
 | 3 | credencial **por vínculo** (cada serviço com o próprio usuário no banco); exportar/importar levando os vínculos; converter os acessos por projeto em vínculos por serviço | não começou |
 
 ### 5.1 Atualizar por comando (Fase 0)
@@ -116,8 +116,9 @@ aberto continua na versão antiga até ser reaberto. Pelo agente MCP vale a mesm
 
 - **Serviço Compose como consumidor:** as variáveis do vínculo vão para o `.env` da stack, como
   qualquer variável; só chegam ao container se o YAML as referenciar (`${DB_URL}`).
-- **Jobs** (inclusive os de pré-deploy) ainda não recebem as variáveis dos vínculos do serviço
-  gatilho: continuam usando as do projeto e do serviço. Entra junto com a Fase 2.
+- ~~Jobs não recebem as variáveis dos vínculos~~ **(correção, 2026-11-22):** recebem desde a v0.1.86,
+  porque o `resolve_job` usa o `resolve()` do serviço gatilho, que já inclui os vínculos. O texto
+  original desta seção e o aviso nas docs estavam errados; ver §7.3.
 - **Banco compartilhado de outro projeto:** a `_URL` é a do database gerenciado do projeto
   consumidor nesse servidor, se houver exatamente um; nunca a do superusuário do servidor. Sem
   database gerenciado, vão só `_HOST` e `_PORT`.
@@ -146,3 +147,69 @@ Ações que só cancelam um formulário ou limpam estado local não entram.
 | Apagar deployment | já confirmava | **passou a confirmar** |
 | Desfazer vínculo (dos dois lados) | novo, confirma | novo, confirma |
 | Apagar projeto, serviço, secret, variável, job, backup, log, banco gerenciado; parar tudo; reverter atualização; regenerar webhook; restaurar backup; migração | já confirmavam | já confirmavam |
+
+## 7. Fase 2: recursos provisionados
+
+### 7.1 O problema
+
+No Chiquitos, o bucket `chickie-uploads` é criado por um **job** (`bucket`), pendurado como pré-deploy
+check. Isso funciona, mas é frágil: o job precisa de um repositório, de um build, de variáveis
+digitadas à mão para achar o S3 e, como se viu em 2026-11-20, alguém pode pendurá-lo no lugar errado.
+Criar um bucket ou um database é uma coisa que o Rustploy sabe fazer sozinho, desde que saiba **qual**.
+
+### 7.2 O modelo
+
+O vínculo ganha um **recurso** opcional: o nome de uma coisa que o provedor guarda para o consumidor.
+
+```yaml
+links:
+  - service_id: svc_s3
+    resource: { name: chickie-uploads, public_read: true }   # um bucket
+  - service_id: svc_db
+    resource: { name: loja }                                  # um database
+```
+
+| Provedor (`product`) | O recurso é | Criado com | Variável a mais |
+|---|---|---|---|
+| `rustfs`, `minio` | um **bucket** | a API S3 do próprio provedor (as credenciais dele) | `<PREFIXO>_BUCKET` |
+| `postgres`, `mysql`, `mariadb` | um **database** | SQL dentro do container do provedor (o usuário dele) | `<PREFIXO>_DATABASE`, e a `_URL` passa a apontar para ele |
+
+- **Quando:** no deploy do consumidor, **antes** dos pré-deploy checks. Assim um job de migração já
+  encontra o database, e o deploy em árvore garante que o provedor subiu antes.
+- **Idempotente:** se já existe, não faz nada (só registra "já existia" no log do deploy).
+- **Falhou?** O deploy para antes de mexer em qualquer coisa, com a causa no log; o que estava no ar
+  continua (inclusive num consumidor Compose, desde a v0.1.85).
+- **Leitura pública** (`public_read`, só bucket): aplica a política que deixa qualquer um **ler** os
+  objetos (o que o job do Chiquitos faz hoje para servir as imagens).
+- **Desfazer o vínculo não apaga o recurso.** Apagar dados nunca é efeito colateral.
+
+### 7.3 Jobs recebem as variáveis dos vínculos
+
+Um job com serviço gatilho (inclusive os de pré-deploy) recebe as variáveis dos vínculos desse serviço,
+com a mesma menor precedência: a migração do `api` enxerga `DB_URL` sem cópia manual. Isso já valia
+desde a v0.1.86 (o `resolve_job` reaproveita o `resolve()` do serviço); a Fase 2 só corrigiu a
+documentação, que dizia o contrário.
+
+### 7.5 Verificação e o que mudou no caminho
+
+- Ponta a ponta num daemon isolado com Podman, rodando no namespace de rede rootless
+  (`podman unshare --rootless-netns`, onde os IPs dos containers são alcançáveis como num host rootful):
+  1º deploy criou o bucket (com leitura pública) no RustFS e o database no Postgres; 2º deploy disse
+  "já existia"; o container do consumidor recebeu `S3_BUCKET`, `DB_DATABASE` e `DB_URL` apontando para o
+  database; acesso anônimo a um objeto do bucket deu 404 (sem a política, 403).
+- O primeiro roteiro, fora do namespace, mostrou um defeito: com o provedor inalcançável, o deploy
+  ficava pendurado até 15 minutos (o cliente S3 do backup tenta 3 vezes com 300 s). O provisionamento
+  ganhou um teto de 60 s, com a causa no log.
+
+### 7.4 Decisões tomadas sem o dono (entrega autônoma)
+
+1. **Só no mesmo projeto.** Recurso num banco compartilhado de outro projeto é recusado: para isso já
+   existe o database gerenciado (com usuário próprio), e duas formas de fazer a mesma coisa confundem.
+2. **Database sem usuário próprio:** é dono o usuário do provedor. Usuário por vínculo é a Fase 3.
+3. **MongoDB e RabbitMQ (vhost) ficam de fora:** o Mongo cria database sozinho no primeiro uso, e o
+   vhost do RabbitMQ não tinha caso real pedindo.
+4. **O Chiquitos não foi alterado:** produção só leitura nesta entrega. Para trocar o job `bucket` por um
+   recurso: no `api`, vincular ao `s3` com recurso `chickie-uploads` e leitura pública, fazer um deploy,
+   e só então tirar o job da fila de pré-deploy.
+5. **Migração de dados:** nenhuma; `resource` é campo novo e opcional. Um daemon antigo ignora o campo
+   (e o perde se regravar o serviço), como na Fase 1.

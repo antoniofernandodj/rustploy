@@ -604,6 +604,7 @@ function maskWebhook(url) — `https://host/webhook/<id>/<token>` → `https://h
     dependencyDelete(dependencyId)
     linkEnvPrefix(name)
     linkDisplayName(pair)
+    resourceKind(product) — Que recurso um provedor oferece (o mesmo de `domain::resource_kind`): "bucket", "database" ou null.
     linkAdd()
     linkDelete(targetId)
     updateOtherSpec(otherId, mutate, okMessage) — "Quem usa este serviço": grava no serviço consumidor.

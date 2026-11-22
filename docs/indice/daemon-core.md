@@ -370,6 +370,9 @@ fn get_to_file(cfg, key, dest) -> Result<u64> — Baixa `key` para `dest`.
 fn get_head(cfg, key, max) -> Result<Vec<u8>> — Lê só o **início** de `key` (até `max` bytes) e larga a conexão: serve para olhar o cabeçalho de um …
 fn list(cfg, prefix) -> Result<Vec<Object>> — Lista os objetos sob `prefix` (segue a paginação).
 fn delete(cfg, key) -> Result<()> — Apaga `key` (apagar o que não existe também é sucesso, como no S3).
+fn ensure_bucket(cfg) -> Result<bool> — Garante que o bucket existe: confere (`HEAD`) e, se não existe, cria (`PUT`).
+fn public_read_policy(bucket) -> String — Política que deixa qualquer um **ler** os objetos do bucket (`s3:GetObject` para `*`).
+fn set_public_read(cfg) -> Result<()> — Aplica a [`public_read_policy`] ao bucket (`PUT ?policy`).
 fn test(cfg, prefix) -> Result<()> — **Testar conexão**: grava um objeto pequeno, lê de volta, confere e apaga.
 fn prefix_with_slash(prefix) -> String
 const REQUEST_TIMEOUT, MAX_XML, ATTEMPTS
