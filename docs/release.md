@@ -1052,6 +1052,34 @@ App **0.1.75**; daemon **0.1.67** e `rustploy-update-core` **0.3.3** sem mudanç
   `import -window <id>` e cliques com `xdotool mousemove --window <id> X Y click 1`. Cuidado com `pkill -f`: o padrão
   casa com a linha de comando do próprio shell.
 
+## v0.1.87 (2026-11-22): recursos nos vínculos (bucket e database criados no deploy)
+
+Daemon **0.1.72**, app **0.1.80** (no crates.io); `rustploy-update-core` 0.3.4 sem mudança. Entrega autônoma
+(skill `/entrega-autonoma`), Fase 2 de `docs/plano-recursos-e-vinculos.md` (§7, com as decisões tomadas sem o dono).
+
+- **Recurso no vínculo** (`resource: {name, public_read?}`): num S3 (`rustfs`/`minio`), um bucket criado pela API
+  S3 do provedor, com política de leitura anônima opcional; num `postgres`/`mysql`/`mariadb`, um database criado
+  por SQL dentro do container. No deploy do consumidor, antes dos pré-deploy checks, idempotente, teto de 60 s.
+  Entrega `<PREFIXO>_BUCKET`/`<PREFIXO>_DATABASE`; a `_URL` passa a apontar para o database. Só no mesmo projeto.
+  Desfazer o vínculo não apaga o recurso. Campos na seção Usa (app e web UI).
+- **Correção de documentação:** jobs com serviço gatilho **já** recebiam as variáveis dos vínculos desde a v0.1.86
+  (o `resolve_job` usa o `resolve()` do serviço); o aviso "jobs ainda não recebem" foi tirado das docs e do plano.
+- **Verificado:** `make lint` e `make test` (979), `glacier test` (486), testes novos (regras e nomes de recurso,
+  credenciais S3, scripts SQL, política, variáveis; headless da web UI com o recurso). Ponta a ponta num daemon
+  isolado com RustFS e Postgres reais, rodando em `podman unshare --rootless-netns` (com Podman rootless o host não
+  alcança os IPs dos containers): bucket e database criados no 1º deploy, "já existia" no 2º, variáveis certas no
+  container, anônimo 404 no bucket público e 403 fora dele. App real num Xvfb (no mesmo namespace) mostrando os
+  campos e as linhas com recurso. CI sem tag verde (um HTTP 500 do GitHub no primeiro disparo; o segundo foi);
+  tag `v0.1.87` assinada (máquina 1, shim, autorizado pela skill) e publicada; checksums e 4 `.minisig` conferidos;
+  `install.sh` (daemon e gui) num `debian:12`; `install.ps1` até o SHA-256; docs no ar (pt e en). Nesta máquina,
+  por comando: daemon 0.1.71 → 0.1.72 (`ApplyUpdate`, Succeeded) e app 0.1.79 → 0.1.80 (`ApplyAppUpdate`).
+- **Achado no caminho:** com o provedor inalcançável, o primeiro desenho pendurava o deploy por até 15 min (o cliente
+  S3 do backup tenta 3 × 300 s); corrigido com o teto de 60 s antes do publish.
+- **Não verificado:** MySQL/MariaDB e MinIO de verdade (só testes dos scripts e das credenciais); o Chiquitos não
+  foi alterado (o job `bucket` segue no pré-deploy do `api`; a troca está descrita no plano §7.4); captura em inglês.
+- **Armadilha (só desta máquina):** o scratchpad foi apagado entre um dia e outro (o `config.toml` do daemon de teste
+  sumiu e o daemon saiu com erro na subida); recriar antes de testar.
+
 ## v0.1.86 (2026-11-21): vínculos entre serviços, confirmação em toda ação destrutiva, atualizar por comando
 
 Daemon **0.1.71**, app **0.1.79** (no crates.io); `rustploy-update-core` 0.3.4 sem mudança. Plano:
