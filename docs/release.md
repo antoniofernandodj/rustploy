@@ -1052,6 +1052,39 @@ App **0.1.75**; daemon **0.1.67** e `rustploy-update-core` **0.3.3** sem mudanç
   `import -window <id>` e cliques com `xdotool mousemove --window <id> X Y click 1`. Cuidado com `pkill -f`: o padrão
   casa com a linha de comando do próprio shell.
 
+## v0.1.89 (2026-11-22): nomes das variáveis do vínculo
+
+Daemon **0.1.74**, app **0.1.82** (no crates.io); `rustploy-update-core` sem mudança. Entrega autônoma, plano em
+`docs/plano-nomes-das-variaveis-do-vinculo.md`. Pedido do dono: escolher o nome de cada variável que o vínculo
+entrega, em vez de só o prefixo (o `api` do Chiquitos lê `S3_ENDPOINT` e `S3_BUCKET_NAME_1`, que nenhum prefixo gera).
+
+- **Modelo:** `ServiceLink.env_names: {SUFIXO: NOME}` (`HOST`, `PORT`, `URL`, `BUCKET`, `DATABASE`); `""` = não
+  entregar; sufixo fora do mapa = prefixo + sufixo, como antes. Validado ao gravar: sufixo conhecido, nome válido,
+  e um nome trocado não repete outro entregue pelos vínculos do serviço (só os trocados: dois vínculos antigos com o
+  mesmo prefixo continuam gravando). A precedência não muda: a variável digitada ganha. Sem migração; um daemon
+  anterior ignora o campo e entrega os nomes padrão.
+- **Tela (app e web UI):** bloco **Nomes das variáveis** no formulário do vínculo (campo do nome com o padrão como
+  dica e a chave **Entregar**; `BUCKET`/`DATABASE` só no tipo que os entrega); a linha do vínculo mostra os nomes
+  efetivos e avisa em amarelo os que já estão digitados no projeto ou no serviço; botão **Editar** carrega o vínculo
+  e **Salvar vínculo** o substitui no lugar. Manual do agente e docs pt/en (com captura nova) atualizados.
+- **Verificado:** `make lint`, `make test` (daemon 716 + os demais), `glacier test` (489, 2 novos), testes novos do
+  modelo, da validação e da entrega; headless da web UI (renomear, não entregar, editar, aviso visível). **Ponta a
+  ponta** num daemon isolado com Postgres real: o container do `api` recebeu `DATABASE_URL` (senha com `@` e `/`
+  codificada), não recebeu `DB_PORT`/`DB_URL`/`DB_HOST`, e o `PGHOST` digitado ganhou do trocado; nome inválido
+  recusado. O **mesmo roteiro no daemon 0.1.73** falhou (entregou os nomes padrão), então o teste pega a diferença.
+  **App real num Xvfb:** nomes efetivos e aviso na linha, Editar carregando bucket/PORT desligada/nomes, Salvar
+  gravando certo (conferido no daemon), `db` mostrando HOST/PORT/URL/DATABASE com as dicas. CI sem tag verde (versões
+  certas nos `.deb`); tag `v0.1.89` assinada (shim, dry-run antes, shim apagado) e publicada; checksums e 4
+  `.minisig` conferidos; `install.sh` (daemon e gui) num `debian:12`; `install.ps1` até o SHA-256; docs no ar (200 e
+  conteúdo novo em pt, en e no manual). Nesta máquina, por comando: daemon 0.1.73 → 0.1.74 (Succeeded) e app
+  0.1.81 → 0.1.82.
+- **Não verificado:** a web UI num navegador de verdade (só o headless); captura em inglês; o Chiquitos não foi
+  alterado (o `api` segue com as variáveis digitadas; trocar por vínculos renomeados é decisão do dono).
+- **Armadilhas:** (1) a sessão caiu durante o `cargo publish` do app; o crates.io ainda mostrava 0.1.81, então foi
+  repetido. (2) O `ApplyUpdate` logo depois da release respondeu `NoUpdateAvailable` (verificação em cache):
+  `{"CheckUpdate":{"force":true}}` antes resolve. (3) `pkill -f` com o caminho do binário matou o próprio shell
+  (o padrão casa com a linha de comando); use `pgrep -f '^…$'` e `kill` do PID.
+
 ## v0.1.88 (2026-11-22): campo de recurso do vínculo específico por tipo
 
 Daemon **0.1.73**, app **0.1.81** (no crates.io). Pedido do dono depois da v0.1.87: o campo genérico "Recurso
