@@ -1052,6 +1052,33 @@ App **0.1.75**; daemon **0.1.67** e `rustploy-update-core` **0.3.3** sem mudanç
   `import -window <id>` e cliques com `xdotool mousemove --window <id> X Y click 1`. Cuidado com `pkill -f`: o padrão
   casa com a linha de comando do próprio shell.
 
+## v0.1.90 (2026-11-22): Detalhes do Deploy Engine no app; Chiquitos com vínculos renomeados
+
+App **0.1.83** (no crates.io); daemon 0.1.74 sem mudança de versão (só um teste novo). Entrega autônoma, a pedido do dono.
+
+- **App, Deploy Engine → Executando → Detalhes:** o botão não abria nada. O handler ligava a chave e achava o deploy
+  (conferido com `print` num Xvfb, com um deploy real em `HealthcheckPolling`), mas o `popup` centrado não era
+  desenhado nesta tela. Virou um painel na própria aba, abaixo da tabela, com as etapas e o histórico ao vivo;
+  **Fechar** esconde. A causa no glacier-ui (overlay do `popup` sem âncora) não foi investigada: é o único `popup`
+  sem âncora do app.
+- **Web UI:** o mesmo botão já funcionava (modal em janela, fecha pelo ✕). Teste headless novo clica de verdade e
+  confere o modal e o fechamento.
+- **Chiquitos (pelo MCP, a pedido do dono):** `api`, `worker` e `scheduler` ganharam os vínculos renomeados
+  (`s3` → `S3_ENDPOINT`/`S3_BUCKET_NAME_1` com o recurso `chickie-uploads`; `db` → `DATABASE_URL`; `cache` →
+  `REDIS_URL`; `broker` → `RABBITMQ_URL`; HOST/PORT não entregues). Saíram do projeto `S3_ENDPOINT`,
+  `S3_BUCKET_NAME_1`, `REDIS_HOST/PORT/PASSWORD` e, depois de o worker aceitar `RABBITMQ_URL` (commit `0d65302` no
+  chickie), `RABBITMQ_HOST/PORT/USER/PASS/VHOST`. Ficaram `POSTGRES_*` (o compose do `db` e o job `migrations`
+  usam), `RABBITMQ_EXCHANGE` e as credenciais do S3. Os três deploys Live; o `worker` redeployado sem as
+  `RABBITMQ_*` conectou com `amqp://rabbit:***@rp_broker:5672` (a URL do vínculo); `app.chiquitos.tech` 200.
+  Cópia do estado anterior no scratchpad da sessão (`chiquitos-backup-2026-11-22.json`, só referências a segredos).
+- **Verificado:** `make lint`, `make test` (982), `glacier test` (489); o painel aberto e fechado no app real num
+  Xvfb; CI sem tag verde; tag `v0.1.90` assinada (shim, dry-run antes, shim apagado) e publicada; checksums e 4
+  `.minisig` conferidos; `install.sh` (daemon e gui) num `debian:12`; `install.ps1` até o SHA-256; docs no ar
+  (`interface/deploy-engine`, pt e en). App desta máquina 0.1.82 → 0.1.83 por comando.
+- **Não verificado:** o painel do app na sessão Wayland do dono (só no Xvfb); a web UI num navegador de verdade.
+- **Armadilha:** o `print` do Luau vai para o stdout do C, em buffer quando redirecionado a arquivo: rode o app
+  com `stdbuf -o0` para ver as mensagens na hora.
+
 ## v0.1.89 (2026-11-22): nomes das variáveis do vínculo
 
 Daemon **0.1.74**, app **0.1.82** (no crates.io); `rustploy-update-core` sem mudança. Entrega autônoma, plano em
