@@ -234,6 +234,7 @@ function test_vinculos__prefixo_padrao_igual_ao_do_daemon() — - prefixo padrã
 function test_vinculos__opcoes_do_mesmo_projeto_e_banco_compartilhado_aberto() — - opções: o mesmo projeto e só banco compartilhado destravado de fora
 function test_vinculos__quem_usa_e_quem_pode_passar_a_usar() — - quem usa: lista e opções, com outros projetos só para banco compartilhado
 function test_vinculos__linha_mostra_o_recurso() — - Fase 2: a linha mostra o recurso e a variável a mais; o tipo vem do product
+function test_vinculos__campo_de_recurso_segue_o_servico_escolhido() — - o campo de recurso segue o tipo do serviço escolhido em "Vincular a"
 
 ### service_detail.test.luau
 local postgres_vars()
