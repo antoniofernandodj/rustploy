@@ -211,5 +211,8 @@ documentação, que dizia o contrário.
 4. **O Chiquitos não foi alterado:** produção só leitura nesta entrega. Para trocar o job `bucket` por um
    recurso: no `api`, vincular ao `s3` com recurso `chickie-uploads` e leitura pública, fazer um deploy,
    e só então tirar o job da fila de pré-deploy.
+   **Feito em 2026-11-22, a pedido do dono, pelo MCP:** o `api` ganhou o vínculo ao `s3` (recurso
+   `chickie-uploads`, leitura pública) e o job `bucket` saiu da fila de pré-deploy, sem ser apagado (dá para
+   recolocar). O deploy logou "já existia em s3" e "com leitura pública" antes das migrações e ficou Live.
 5. **Migração de dados:** nenhuma; `resource` é campo novo e opcional. Um daemon antigo ignora o campo
    (e o perde se regravar o serviço), como na Fase 1.

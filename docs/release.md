@@ -1052,6 +1052,28 @@ App **0.1.75**; daemon **0.1.67** e `rustploy-update-core` **0.3.3** sem mudanç
   `import -window <id>` e cliques com `xdotool mousemove --window <id> X Y click 1`. Cuidado com `pkill -f`: o padrão
   casa com a linha de comando do próprio shell.
 
+## v0.1.88 (2026-11-22): campo de recurso do vínculo específico por tipo
+
+Daemon **0.1.73**, app **0.1.81** (no crates.io). Pedido do dono depois da v0.1.87: o campo genérico "Recurso
+(opcional)", que valia para bucket ou database, era confuso.
+
+- **Formulário do vínculo** (app e web UI): o campo aparece só depois de escolher o serviço em "Vincular a", e é
+  o do tipo dele: **Bucket (opcional)** com **Leitura pública** num RustFS/MinIO, **Database (opcional)** num
+  Postgres/MySQL/MariaDB, nenhum nos outros. Cada um com a sua explicação. Trocar de serviço limpa o que foi
+  digitado; `public_read` só vai num bucket. Docs pt e en atualizadas.
+- **Chiquitos (pelo MCP, a pedido do dono):** o job `bucket` foi trocado pelo vínculo `api` → `s3` com o recurso
+  `chickie-uploads` e leitura pública; o job saiu da fila de pré-deploy mas não foi apagado. Deploy do `api`:
+  "já existia em s3", "com leitura pública", migrações, Live. A migração levou 9 min em vez de 5 s: o cache de
+  build não sobreviveu à atualização do daemon de lá e a imagem foi refeita do zero (não tem a ver com a troca).
+- **Verificado:** `make lint`, `make test` (979), `glacier test` (487, com teste novo do tipo do campo), headless
+  da web UI (campo Database num Postgres; nenhum num serviço sem recurso; texto digitado ignorado). **App real
+  num Xvfb** contra um daemon de teste 0.1.73: nada escolhido → só "Vincular a" e prefixo; `s3` → Bucket + Leitura
+  pública; `db` → Database; `api` → nenhum. CI sem tag verde; tag assinada (shim) e publicada; checksums e 4
+  `.minisig` conferidos; `install.sh` (daemon e gui) num `debian:12`; `install.ps1` até o SHA-256; docs no ar.
+  Nesta máquina, por comando: daemon 0.1.72 → 0.1.73 (Succeeded) e app 0.1.80 → 0.1.81.
+- **Não verificado:** a web UI num navegador de verdade (só o teste headless); a captura das docs ainda mostra só
+  a lista de vínculos, não o campo novo.
+
 ## v0.1.87 (2026-11-22): recursos nos vínculos (bucket e database criados no deploy)
 
 Daemon **0.1.72**, app **0.1.80** (no crates.io); `rustploy-update-core` 0.3.4 sem mudança. Entrega autônoma
