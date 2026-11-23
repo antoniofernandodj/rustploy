@@ -1052,6 +1052,40 @@ App **0.1.75**; daemon **0.1.67** e `rustploy-update-core` **0.3.3** sem mudanç
   `import -window <id>` e cliques com `xdotool mousemove --window <id> X Y click 1`. Cuidado com `pkill -f`: o padrão
   casa com a linha de comando do próprio shell.
 
+## v0.1.91 (2026-11-23): releases — comparar e voltar para uma versão
+
+Daemon **0.1.75** e app **0.1.84** (os dois no crates.io). Entrega autônoma, a pedido do dono; primeira das quatro
+abstrações de `docs/plano-releases-ambientes-rotas-volumes.md` (as outras três esperam a confirmação dele).
+
+- **Release:** todo deploy que chega a Live grava a imagem fixada (id ou digest), o `ServiceSpec` e as variáveis do
+  projeto (tabela `release`; secrets só como referência). `ReleaseList`, `ReleaseDiff` e `ReleaseRollback`: este
+  grava o spec da release no serviço (nome e projeto ficam os de agora) e faz o deploy **sem build**
+  (`deployment.from_release_id` → `executor::release::prepare_release_image`, que marca a imagem com o nome que o
+  staging usa). O `DeployRollback` antigo continua só consultando. A limpeza de imagens poupa as das 3 releases
+  mais novas de cada serviço; apagar o serviço apaga as releases.
+- **Telas:** selo `vN`/atual, **Comparar** e **Voltar para esta** (com confirmação) nos dois clientes; na GUI o
+  Comparar é um painel rolável que ocupa o lugar da lista, na webui uma janela.
+- **Verificado:** `make lint`, `make test` (daemon 725), `glacier test` (489); ponta a ponta num daemon isolado
+  com Podman (zip v1 → v2 → diff → voltar para a v1 sem build, container servindo "v1", v3 "volta da v1" com a
+  mesma imagem, releases apagadas com o serviço); voltar pela GUI num Xvfb (v4 "volta da v2"); webui no Chrome
+  headless; CI sem tag verde (`531d8d6`); tag `v0.1.91` assinada com a chave da máquina 1 (shim, dry-run antes,
+  shim apagado) e publicada; checksums e os 4 `.minisig` conferidos pela URL pública; `install.sh` (daemon e
+  gui) num `debian:12`; `install.ps1` até o SHA-256; docs no ar (`interface/servico`, tutorial, FAQ e
+  referência, pt e en).
+- **Não verificado:** a limpeza de imagens de verdade (no Podman desta máquina apagaria imagens do dono; só o
+  teste unitário cobre a escolha); voltar uma imagem de registry baixando pelo digest; rollback de Compose; a
+  instalação nesta máquina (abaixo).
+- **Instalação nesta máquina por comando: recusada.** O `ApplyUpdate` e o `ApplyAppUpdate` pelo MCP local
+  responderam `forbidden` (`allow_agent_apply` desligado em `[update]`). Não liguei a opção: é uma trava do dono.
+  Atualize por Settings → Atualizações.
+- **Armadilha do ambiente:** nesta máquina o AppArmor nega ao serviço de API do Podman o sinal ao `pasta`
+  (`apparmor="DENIED" operation="signal" profile="pasta" ... peer="podman"`), e um deploy de Application cai
+  no SwappingIn com "rootless netns: kill network process: permission denied" quando o último container sai de
+  uma rede bridge. O daemon local daqui também está sujeito a isso. No teste, um container dormindo numa rede
+  à parte mantém a netns viva. Pelo CLI o mesmo desconectar funciona.
+- **Instabilidade:** `recovery_kit_generate_sends_the_fields_and_recover_loads_the_file` (headless da webui)
+  falhou uma vez numa rodada e passou nas duas seguintes.
+
 ## v0.1.90 (2026-11-22): Detalhes do Deploy Engine no app; Chiquitos com vínculos renomeados
 
 App **0.1.83** (no crates.io); daemon 0.1.74 sem mudança de versão (só um teste novo). Entrega autônoma, a pedido do dono.

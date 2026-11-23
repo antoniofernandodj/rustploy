@@ -1,6 +1,6 @@
 # Plano: quatro abstrações novas — Release, Ambiente, Rota e Volume
 
-> **Status (2026-11-23):** **1. Release — Fase 1 implementada** (daemon 0.1.75, app 0.1.84, release
+> **Status (2026-11-23):** **1. Release — Fase 1 publicada** (daemon 0.1.75, app 0.1.84, release
 > v0.1.91; o que foi verificado está no §1.9). 2, 3 e 4 **não começaram**. Ordem de entrega: 1 → 2 → 3 → 4,
 > uma por vez, com confirmação do dono entre uma e outra (pedido dele). Cada uma sai na sua própria versão
 > publicada. As decisões que tomei sem o dono estão marcadas com **[decisão minha]** e reunidas no §7.
