@@ -109,6 +109,12 @@ fn restore_routes(db, docker, ingress, tls) — Recria no ingress as rotas de do
 fn services_with_deploy_in_flight(db) — IDs dos serviços que têm um deploy fora de estado terminal.
 (1 testes)
 
+### release.rs — Releases fora do executor: a lista com o estado de cada uma (é a atual? a imagem ainda existe?) e o …
+const RELEASE_LIST_LIMIT — Quantas releases a lista devolve, no máximo.
+fn image_status(docker, release) -> ReleaseImageStatus — A disponibilidade da imagem de uma release.
+fn list(db, docker, service_id) -> Result<Vec<Release>> — As releases do serviço, da mais nova para a mais velha, com `is_current` e `image_status`.
+fn diff(db, release_id, against_release_id) -> Result<ReleaseDiff> — O que muda indo de `release_id` para `against_release_id` — ou, sem ele, indo do que está **declarad…
+
 ### shared_net.rs — Servidor de banco compartilhado: conecta o container dele às redes dos projetos autorizados, sob o a…
 fn alias_of(svc) -> String — Alias global do servidor (`crate::domain::shared_alias` sobre a stack gravada).
 fn server_container(docker, svc) -> Option<String> — Container do servidor: o mesmo que o deploy elege como alvo da stack.
@@ -121,6 +127,8 @@ fn disconnect_from_project(db, docker, svc, project_id) -> Result<()> — Descon
 ### start.rs — Iniciar um deploy (`Command::DeployStart`): valida a fonte do serviço, cria o deployment e o enfilei…
 fn handle(state, service_id) -> RpResponse
 fn handle_with_waits(state, service_id, waits) -> RpResponse — Como [`handle`], para um deploy de **lote**: `waits` são os deployments de que este depende (a trava…
+fn handle_from_release(state, service_id, release_id) -> RpResponse — Deploy que é um "voltar para a release `release_id`": o executor pula pull e build e usa a imagem da…
+fn start(state, service_id, waits, from_release_id) -> RpResponse
 
 ### stop.rs — Parar um serviço (`Command::ServiceStop`): para um serviço (todas as réplicas live, ou a stack Compo…
 fn handle(state, service_id) -> RpResponse
@@ -194,6 +202,11 @@ fn s3_credentials(product, env) -> Option<(String, String)> — As credenciais d
 fn ensure_database(target, container, name) -> Result<bool> — Database: SQL no cliente de administração dentro do container.
 fn database_scripts(engine, name) -> Result<(&'static str, String, String)> — `(sh do cliente em modo "só valores", SQL que imprime algo se existe, SQL que cria)`.
 (3 testes)
+
+### release.rs — Releases no executor: gravar a release quando o deploy chega a Live e, num deploy que é um "voltar p…
+impl DeployExecutor
+  fn record_release(dep, svc) — Grava a release de um deploy que acabou de virar Live.
+  fn prepare_release_image(dep, svc) -> Result<bool> — Deploy que é um "voltar para a vN" (`deployment.from_release_id`), de fonte que não é Compose: garan…
 
 ### resolve.rs — Estágios iniciais: rede do projeto, pré-deploy checks e escolha do caminho pela fonte do serviço.
 impl DeployExecutor
@@ -289,6 +302,9 @@ struct PruneStat { count, reclaimed_bytes } — Resultado tipado de uma limpeza 
 fn prune_containers_core(state) -> Result<PruneStat, String>
 fn prune_volumes_core(state, all) -> Result<PruneStat, String>
 fn prune_images_core(state, all, older_than_hours) -> Result<PruneStat, String> — `older_than_hours > 0` só considera imagens CRIADAS há mais tempo que isso (filtro `until` do Docker…
+struct ImageCandidate { id, repo_tags, repo_digests, created, size } — Uma imagem do inventário, só com o que a escolha da limpeza precisa.
+fn images_to_remove(images, used_image_ids, protected, all, created_before) -> Vec<&'a ImageCandidate> — Quais imagens a limpeza remove, poupando as protegidas: só as sem container (nem parado); com `all =…
+fn prune_images_sparing(state, all, older_than_hours, protected) -> Result<PruneStat, String>
 fn image_prune_filters(all, older_than_hours)
 fn build_cache_prune_args(older_than_hours) -> Vec<String>
 fn build_cache_prune_args_for(engine, older_than_hours) -> Vec<String> — O Podman não tem `builder prune`: o cache do Buildah sai por `system prune --build`.
@@ -298,7 +314,7 @@ fn record_build_cache_prune(db, older_than_hours)
 fn last_build_cache_prune(db) -> Option<BuildCachePrune>
 fn parse_reclaimed_space(output) -> u64
 fn prune_networks_core(state) -> Result<PruneStat, String>
-(4 testes)
+(5 testes)
 
 ### run.rs — Execução de uma limpeza (agendada ou "Executar agora"): roda os recursos marcados em `DockerCleanupC…
 const RUN_TIMEOUT — Teto de uma limpeza inteira: ela segura a vaga única da fila de deploy, e uma limpeza pendurada trav…

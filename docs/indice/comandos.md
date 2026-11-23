@@ -38,7 +38,18 @@ DeployWithDependenciesPlan — **Só mostra** o plano de `DeployWithDependencies
 ## / Como `DeployWithDependenciesPlan`, para o `ProjectDeploy` (o projeto inteiro).
 ProjectDeployPlan — Como `DeployWithDependenciesPlan`, para o `ProjectDeploy` (o projeto i… | daemon: features/deploy/tree/plan_for_project | gui: handlers/services | web: app
 DeployAbort | daemon: deploys/deploy_abort | gui: handlers/deploy_queue | web: app
-DeployRollback | daemon: deploys/deploy_rollback | gui: — | web: —
+
+## / `ReleaseRollback`.
+DeployRollback — Legado: só **consulta** o deploy Live anterior (não redeploya). | daemon: deploys/deploy_rollback | gui: — | web: —
+
+## / mais velha, com `is_current` e `image_status`. Resposta: `Releases`.
+ReleaseList — As releases do serviço (o que rodou em cada deploy que chegou a Live),… | daemon: deploys/releases::list | gui: handlers/services | web: app
+
+## / aparecem como `secret:NOME`, nunca o valor. Resposta: `ReleaseDiff`.
+ReleaseDiff — O que muda indo de `against_release_id` para `release_id`; sem `agains… | daemon: deploys/releases::diff | gui: handlers/services | web: app
+
+## / refaz o `compose up` com o conteúdo da release. Resposta: `Deployment`.
+ReleaseRollback — **Voltar para uma release**: grava o spec dela como o spec atual do se… | daemon: deploys/releases::rollback | gui: handlers/services | web: app
 DeployHistory | daemon: deploys/deploy_history | gui: handlers/services | web: app
 DeployDelete | daemon: deploys/deploy_delete | gui: handlers/services, handlers/stream | web: app
 

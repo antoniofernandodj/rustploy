@@ -192,6 +192,21 @@ fn verify_scope(db, token_sha256) -> Result<Option<String>> — Retorna o escopo
 fn touch_last_used(db, token_sha256) -> Result<()> — Best-effort, chamado em background (`tokio::spawn`) pelo caminho de auth — não deve atrasar a respos…
 (7 testes)
 
+### releases.rs — Tabela `release`: o que rodou em cada deploy que chegou a Live (imagem fixada + configuração congela…
+type ReleaseRow = (String, String, String, i64, String, Option<Strin…
+fn row_to_release(row) -> Result<Release>
+struct NewRelease { service_id, deployment_id, image, image_ref, spec, project_env, restored_from_number } — O que gravar de uma release nova (o número é dado aqui, na mesma transação).
+fn create(db, new) -> Result<Release> — Grava a release com o próximo número do serviço.
+fn get(db, id) -> Result<Option<Release>>
+fn get_by_deployment(db, deployment_id) -> Result<Option<Release>>
+fn list_for_service(db, service_id, limit) -> Result<Vec<Release>> — As releases do serviço, da mais nova para a mais velha.
+fn protected_image_refs(db, per_service) -> Result<Vec<String>> — As imagens que a limpeza do Docker não pode apagar: as das `per_service` releases mais novas de cada…
+fn delete_for_service(db, service_id) -> Result<u64> — Apaga o histórico de releases de um serviço (o serviço foi apagado).
+fn set_deployment_source(db, deployment_id, release_id) -> Result<()> — Marca um deployment como "voltar para a release X": o executor pula o build e usa a imagem dela.
+fn deployment_source(db, deployment_id) -> Result<Option<String>> — A release de que este deployment é um "voltar", se for.
+const SELECT_COLS
+(2 testes)
+
 ### services.rs — Serviços: o `ServiceSpec` e o nome da stack Compose moram no **YAML de infra** (`store::infra`); o *…
 type Runtime = (String, Option<String>, String, DateTime<Utc>) — Linha de `service_runtime`: `(status, live_container_id, desired_state, updated_at)`.
 type RuntimeRow = (String, String, Option<String>, String, DateTime<…

@@ -263,7 +263,8 @@ function M.consumer_options(spec, self_id, pairs_list) — Quem ainda pode passa
 local log_rows(log_entries) — Linhas de log (LogEntry/BuildLogLine: {stream, line, timestamp}) coloridas, limpas de ANSI e limitad…
 function M.join_log_lines(log_entries, with_date) — Junta linhas de log num blob de texto ("HH:MM:SS line") p/ o TextArea/copiar.
 local execution_outcome(outcome) — Cor do desfecho do deploy de uma execução (lista "Execuções anteriores").
-function M.deployments_detail(deployments) — Histórico de deployments de um serviço (aba Deployments).
+function M.deployments_detail(deployments, releases) — Histórico de deployments de um serviço (aba Deployments).
+function M.release_diff_groups(changes)
 function M.tcp_ports_json(spec) — Portas TCP do host de um spec (aba Domains): uma linha por porta, com a porta do container efetiva (…
 function M.port_suggestions_json(suggestions) — Sugestões de porta do container (`ServicePortSuggestions`): o texto do botão traz a porta, o nome (s…
 function M.domains_json(spec) — Rotas HTTP de um spec (aba Domains).

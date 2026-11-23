@@ -262,6 +262,11 @@ fn is_container_running(state, service_id) -> bool
 const RUNNING_CHECK_RETRIES, RUNNING_CHECK_DELAY
 (2 testes)
 
+### releases.rs — `Command::ReleaseList`, `ReleaseDiff` e `ReleaseRollback`.
+fn list(state, service_id) -> RpResponse
+fn diff(state, release_id, against_release_id) -> RpResponse
+fn rollback(state, release_id) -> RpResponse — Voltar para uma release: grava o spec dela no serviço (pela mesma validação de um `ServiceUpdate`) e…
+
 ## rustploy-daemon/crates/daemon/src/api/handlers/docker/
 
 ### docker_cleanup.rs — `Command::DockerCleanupConfig*` e `DockerCleanupRunNow`: config e disparo manual da limpeza automáti…
