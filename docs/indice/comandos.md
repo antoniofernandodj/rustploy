@@ -26,6 +26,9 @@ EnvironmentCompare — Compara o ambiente `project_id` com a origem: serviço a 
 
 ## / configuração do destino **não muda**. Resposta: `Deployment`.
 EnvironmentPromote — **Promove** a release no ar de `from_service_id` para o serviço irmão … | daemon: projects/environments::promote | gui: handlers/environments | web: screens/project_detail
+
+## / (`external`) nunca saem por aqui. Não toca na origem. Resposta: `Ok`.
+EnvironmentDestroy — **Destrói** o ambiente `project_id` (só um projeto que é ambiente; a o… | daemon: projects/environments::destroy | gui: handlers/environments | web: screens/project_detail
 ProjectEnvSet | daemon: projects/project_env_set | gui: handlers/projects | web: app
 
 ## Services

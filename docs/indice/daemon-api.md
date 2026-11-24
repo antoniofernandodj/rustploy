@@ -435,11 +435,13 @@ fn rollback(state) -> RpResponse — `Command::UpdateRollback`: o helper restaur
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/projects/
 
-### environments.rs — `Command::EnvironmentCreate`, `EnvironmentList`, `EnvironmentCompare` e `EnvironmentPromote`.
+### environments.rs — `Command::EnvironmentCreate`, `EnvironmentList`, `EnvironmentCompare`, `EnvironmentPromote` e `Envir…
 fn create(state, project_id, name) -> RpResponse
 fn list(state, project_id) -> RpResponse
 fn compare(state, project_id) -> RpResponse
 fn promote(state, from_service_id, to_service_id) -> RpResponse — Promove a release no ar de um serviço para o irmão no outro ambiente: deploy da mesma imagem, sem bu…
+fn destroy(state, project_id, confirm_name, delete_volumes) -> RpResponse — Destrói um ambiente: os serviços (parados e apagados, volumes próprios só com `delete_volumes`), os …
+fn removal_order(services) -> Vec<String> — A ordem de apagar os serviços de um projeto: primeiro os que dependem (ou usam por vínculo), depois …
 
 ### mod.rs — Handlers de projects: o `dispatch` recebe os `Command` da seção e chama o handler certo.
 fn dispatch(state, cmd) -> RpResponse

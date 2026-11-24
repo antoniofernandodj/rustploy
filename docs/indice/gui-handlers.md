@@ -88,6 +88,7 @@ types: Draft
 ### environments.luau — aba Ambientes do projeto (shell/project_environments.component.gv).
 local open_project_record()
 local release_label(number)
+local note_label(note) — O que a tela diz quando um par não tem botão (ou o que o botão vai fazer).
 local change_rows(changes)
 function M.load()
 function environment_name_change(value)
@@ -98,6 +99,11 @@ function environment_refresh()
 local promote(index_text, direction)
 function environment_promote_to_origin(index_text)
 function environment_bring_from_origin(index_text)
+local open_destroy(project_id, name)
+function environment_destroy_here()
+function environment_destroy_ask(project_id)
+function environment_destroy_cancel()
+function environment_destroy_confirm()
 
 ### history.luau — a pilha do "voltar" (Backspace, Alt+← e o botão "voltar" do mouse; o motor chama `on_back()`, em nav…
 local snapshot()
@@ -404,6 +410,7 @@ local start_deploy(requested_service_id)
 function project_deploy() — Botão "Deploy" do projeto: mostra a ordem de tudo e pede aceitar/rejeitar.
 function running_deploy(service_id) — Atalho "Deploy" do painel "Em execução": dispara o deploy sem abrir o serviço.
 function service_deploy()
+function service_card_deploy(service_id) — Botão ▶ do cartão do serviço na lista do projeto: o mesmo deploy da tela do serviço, sem abri-la.
 function service_rebuild()
 function service_reload()
 function service_stop()
