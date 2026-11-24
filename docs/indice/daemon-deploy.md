@@ -165,7 +165,10 @@ impl DeployExecutor
 impl DeployExecutor
   fn step_healthcheck_polling(dep, svc) -> Result<DeployState>
   fn wait_compose_healthcheck(ip, svc, dep) — Espera o container de staging ficar saudável (healthcheck do spec ou o HEALTHCHECK nativo da imagem)…
+  fn report_stopped_container(dep, svc, container_id, exit_code, quando) -> anyhow::Error — O container de staging parou: grava as últimas linhas dele no build log (antes do rollback removê-lo…
   fn poll_healthcheck(ip, container_id, svc, dep) -> Result<()>
+fn stopped_container_message(exit_code, quando, last_line) -> String — Mensagem do deploy que falhou porque o container de staging parou.
+(2 testes)
 
 ### mod.rs — `DeployExecutor`: roda um deployment pela máquina de estados (clone/pull/build, staging, healthcheck…
 struct DeployExecutor { db, docker, ingress, bus, secrets, tls, db_path, drain_secs, registry_internal_token }
@@ -263,6 +266,13 @@ impl JobRunner
   fn linha(job_id, run_id, texto) — Uma linha no log da execução (banco + evento ao vivo).
   fn cancelar_antes_de_comecar(job, run_id) — Cancelada enquanto esperava a vez: nunca começou.
   fn reschedule(job)
+struct PreDeployRunGuard { db, bus, job_id, run_id, armed } — Fecha o `job_run` de um pré-deploy check se o deploy for **abortado** no meio.
+impl PreDeployRunGuard
+  fn new(db, bus, job_id, run_id) -> Self
+  fn disarm()
+fn close_aborted_run(db, bus, job_id, run_id) — Fecha como cancelada (mesmo exit code do `JobRunCancel`) uma execução que ainda não terminou, com um…
+impl Drop for PreDeployRunGuard
+(3 testes)
 
 ### scheduler.rs — Ticker de agendamento dos jobs one-shot — mesmo formato de `metrics.rs`/`env_backup.rs`: `tokio::tim…
 fn scheduler_loop(state)

@@ -74,6 +74,7 @@
 - plano-ajustes-da-recuperacao.md — Plano: ajustes da recuperação de servidor (achados no teste de 2026-11-13)
 - plano-aquecer-job.md — Aquecer job: saber se o cache existe e deixá-lo pronto antes de rodar
 - plano-arquivo-de-recuperacao.md — Plano: arquivo de recuperação (`.rpkit`)
+- plano-atritos-do-agente.md — Plano: os atritos que um agente encontrou subindo um projeto do zero
 - plano-backend-podman.md — Plano: backend Podman (alternativa ao Docker)
 - plano-backup-de-dados-para-s3.md — Backup dos dados dos serviços para S3, com restauração por uma tela de recuperaç…
 - plano-backup-estado-em-git.md — Plano: YAML como fonte da verdade da infra, com git e religamento em ordem

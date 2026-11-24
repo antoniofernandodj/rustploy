@@ -98,6 +98,7 @@ struct ToolSpec { name, description, input_schema } — Uma ferramenta: nome, de
 fn no_arguments() -> Value
 fn call(state, name, args) -> Result<Value, ToolError> — Executa a ferramenta `name`.
 fn proibido_ao_agente(cmd) -> Option<&'static str> — Comandos que o agente (MCP/`rpc`) **nunca** pode executar, qualquer que seja a configuração.
+fn normalize_command(command) -> Value — Aceita o `command` como valor JSON **ou** como texto JSON.
 fn rpc(state, command) -> Result<Value, ToolError> — Executa um `Command` (em JSON) e converte `Response::Err` em falha.
 fn restaurar_mascaras(state, cmd) -> Result<(), ToolError> — O agente só vê as envs mascaradas (`redigir`), e `ServiceUpdate`/`ProjectEnvSet` substituem tudo: se…
 fn verificar_servico_congelado(state, id, novo) -> Result<(), ToolError> — Um visitante abaixo de `admin` não muda o que um serviço **roda** (fonte, comando, volumes…): isso é…
@@ -120,7 +121,7 @@ fn service_index(snapshot) -> Vec<Value> — Achata o snapshot no índice de ser
 fn status_label(status) -> Value — `ServiceStatus` é externally-tagged e só `Error` tem campo — vira `"Running"` ou `"Error: <causa>"`.
 fn source_label(source) -> Value — `ServiceSource` achatado no que identifica a origem, sem arrastar o `compose.content` inteiro (dezen…
 const TOOLS
-(6 testes)
+(7 testes)
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/
 

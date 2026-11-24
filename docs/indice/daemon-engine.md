@@ -66,8 +66,18 @@ fn warm(source, project_name, network_name, env_vars, build_dir, registry_intern
 fn warm_images(project_name, compose_rel_path, build_dir, docker, force) -> Result<ComposeImages>
 fn warm_build_args(project_name, compose_rel_path, force) -> Vec<String> — Argumentos do `compose build` do aquecimento.
 fn run_once(source, project_name, network_name, main_service, job_id, job_run_id, bus, db, env_vars, build_dir, registry_internal_token, mirror_deployment, cancel_rx) -> Result<(i32, Option<ComposeImages>)> — Executa um job uma vez: prepara o compose (colado ou do repositório git) com a rede do projeto, roda…
+const EXIT_WATCH_INTERVAL — De quanto em quanto tempo o vigia olha o container do `main_service`.
+const EXIT_GRACE — Quanto tempo o `docker compose up` tem para sair sozinho depois que o `main_service` terminou.
+enum MainServiceState { NotExited, Exited } — Estado do container do `main_service` como o motor o vê.
+fn parse_container_state(container_id, inspect_out) -> MainServiceState — Interpreta a saída de `inspect --format '{{.State.Status}}|{{.State.ExitCode}}'`.
+struct ExitWatch { exited_since } — Decide quando o compose travou: o `main_service` saiu e continua saído por `grace` sem o compose sai…
+impl ExitWatch
+  fn observe(state, now, grace) -> bool
+fn main_service_state(project_name, main_service) -> MainServiceState — Olha o container do `main_service` pelos rótulos que o compose põe (nos dois motores).
+fn wait_for_stuck_compose(project_name, main_service) -> (String, i32) — Espera até o compose ser dado como travado; devolve o container e o exit code.
+fn container_log_lines(container_id, tail) -> Vec<String> — Últimas linhas de saída de um container (stdout e stderr juntos), pelo CLI.
 fn run_once_up(project_name, compose_rel_path, main_service, job_id, job_run_id, bus, db, build_dir, mirror_deployment, cancel_rx) -> Result<i32> — Roda o `docker compose up` de um job até o `main_service` sair, transmitindo stdout/stderr para o lo…
-(2 testes)
+(6 testes)
 
 ### logs.rs — Leitura e limpeza da saída do compose, linha a linha, para o log do job/deploy.
 const COMPOSE_TAIL_MAX — Quantas linhas do próprio `docker compose` (build, pull, erros de container) o job guarda pra despej…
@@ -75,7 +85,7 @@ fn split_service_prefix(line) -> Option<(&str, &str)> — Separa o prefixo `<ser
 fn filter_main_service_line(line, main_service) -> Option<&'a str> — Filtra uma linha bruta de `docker compose up` (sem `-d`) pra só sobrar a saída do `main_service`: se…
 fn clean_compose_line(line) -> Option<String> — Limpa uma linha de controle do compose pra caber no log do job: fica só o último quadro de um spinne…
 fn record_job_line(bus, db, job_id, job_run_id, mirror, stream, line) — Grava uma linha no log do job (tabela `job_log` + evento ao vivo) e, se o job espelha um deployment,…
-fn read_compose_output(reader, stream, main_service, bus, db, job_id, job_run_id, mirror, compose_tail) — Lê um dos pipes do `docker compose up` até fechar.
+fn read_compose_output(reader, stream, main_service, bus, db, job_id, job_run_id, mirror, compose_tail, main_lines) — Lê um dos pipes do `docker compose up` até fechar.
 
 ### mod.rs — Serviços e jobs Docker Compose: `up` de stack com a rede do projeto injetada, execução one-shot de j…
 fn stderr_tail(stderr) -> String — Última parte da saída de erro de um subprocesso, para a mensagem de falha.
