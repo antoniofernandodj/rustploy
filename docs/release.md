@@ -1097,6 +1097,26 @@ pelo MCP do Chiquitos) encontrou ao subir um projeto inteiro sem abrir a GUI. Pl
   ~5 GB livres; o mesmo código compilou e passou nos testes, e o CI compila do zero).
 - **Instalação nesta máquina por comando: recusada** de novo (`allow_agent_apply` desligado). Não liguei a trava.
 
+## v0.1.95 (2026-11-24): volumes — montar, adotar órfão e o volume nomeado que não funcionava
+
+Daemon **0.1.79** e app **0.1.86** (no crates.io). Entrega autônoma ("a questão dos volumes"): Fase 2 da abstração
+Volume, §4.6 de `docs/plano-releases-ambientes-rotas-volumes.md`.
+
+- **Corrigido:** volume nomeado em serviço Application quebrava o deploy nos dois motores (a montagem era sempre
+  bind). Agora caminho absoluto = bind; nome = volume nomeado, criado antes com a etiqueta `rustploy.service_id`.
+- **Novo:** `ServiceVolumeAttach`/`ServiceVolumeDetach` e a seção **VOLUMES** na aba Dados (GUI e webui): montar um
+  volume existente (órfãos primeiro), um nome novo ou uma pasta; desmontar sem apagar. Recusa Compose, caminho
+  relativo, pasta do sistema, caminho repetido e volume de outro serviço.
+- **Novo:** o inventário do Docker é invalidado quando um deploy termina (volume novo não espera mais 5 min).
+- **Corrigido de passagem:** na GUI, a segunda seção da aba Dados sumia (o `scrollable` só desenha um filho).
+- **Verificado:** `make lint`, `make test` (daemon 747), `glacier test` (489); ponta a ponta no daemon isolado
+  (Compose grava → apagado mantendo → órfão → Application adota → deploy → o container lê os dados antigos; dono,
+  etiqueta, as cinco recusas, desmontar); GUI no Xvfb e webui no Chrome headless; CI sem tag verde (`450d80a`); tag
+  assinada (máquina 1, shim, dry-run, shim apagado) e publicada; checksums e 4 `.minisig` conferidos; `install.sh`
+  (daemon e gui) num `debian:12`; `install.ps1` até o SHA-256; docs no ar (`guias/dados-do-servico`, pt e en).
+- **Não verificado:** montar clicando até o fim na GUI (o Xvfb não entrega teclado); volume nomeado no Docker (só
+  Podman aqui); backup por volume ficou para depois. Instalação nesta máquina não feita (`allow_agent_apply`).
+
 ## v0.1.94 (2026-11-24): ambientes, rotas próprias e volumes com dono
 
 Daemon **0.1.78** e app **0.1.85** (no crates.io). Entrega autônoma, a pedido do dono ("vá até o fim"): as
