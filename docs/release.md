@@ -1097,6 +1097,21 @@ pelo MCP do Chiquitos) encontrou ao subir um projeto inteiro sem abrir a GUI. Pl
   ~5 GB livres; o mesmo código compilou e passou nos testes, e o CI compila do zero).
 - **Instalação nesta máquina por comando: recusada** de novo (`allow_agent_apply` desligado). Não liguei a trava.
 
+## v0.1.97 (2026-11-24): campos na altura dos selects e de onde vêm os volumes
+
+Daemon **0.1.81** e app **0.1.88** (no crates.io). Só interface; nada no protocolo, no estado ou no motor.
+
+- **GUI:** classe `.form-input` com a altura do `.form-select`; o input ao lado de um select ficava mais baixo
+  (aba Dados do serviço, Adotar da tela Volumes, editor de rota do Ingress).
+- **GUI e webui:** a tela Volumes diz de onde os volumes vêm (aba Dados, campo "nome novo", ou o arquivo Compose).
+
+**Verificado:** `make lint`/`make test` e `glacier test` (489) verdes; GUI no Xvfb (editor de rota, Adotar, a
+linha nova) e webui headless (a linha nova); CI sem tag verde com as versões certas nos `.deb`.
+**Não verificado:** a aba Dados de um serviço Application no Xvfb (o daemon de teste não tinha um).
+**Atualizar um servidor com dados:** seguro; teste de atualização não se aplica (só telas).
+
+**Armadilha:** `target/debug/incremental` do daemon chegou a 24 GB; apagá-lo libera o disco sem perder o build.
+
 ## v0.1.96 (2026-11-24): tela Volumes, volume existente no Compose e volumes emprestados
 
 Daemon **0.1.80** e app **0.1.87** (no crates.io). Entrega autônoma; plano em
