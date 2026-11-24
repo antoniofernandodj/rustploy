@@ -1097,6 +1097,39 @@ pelo MCP do Chiquitos) encontrou ao subir um projeto inteiro sem abrir a GUI. Pl
   ~5 GB livres; o mesmo código compilou e passou nos testes, e o CI compila do zero).
 - **Instalação nesta máquina por comando: recusada** de novo (`allow_agent_apply` desligado). Não liguei a trava.
 
+## v0.1.94 (2026-11-24): ambientes, rotas próprias e volumes com dono
+
+Daemon **0.1.78** e app **0.1.85** (no crates.io). Entrega autônoma, a pedido do dono ("vá até o fim"): as
+abstrações 2, 3 e 4 de `docs/plano-releases-ambientes-rotas-volumes.md`, juntas numa versão.
+
+- **Ambiente:** `EnvironmentCreate/List/Compare/Promote`. Cópia de um projeto com rede, variáveis e nomes de
+  container próprios (sem domínios, portas, push-to-deploy, backup nem acesso aos bancos da origem; jobs agendados
+  desligados), comparação por serviço e promoção da imagem no ar nos dois sentidos, sem build e sem mudar a
+  configuração do destino (`release.promoted_from`). Aba **Ambientes** no projeto, selo na lista de projetos.
+- **Rota:** `RouteList/RouteSave/RouteDelete`. Um domínio por vários serviços (prefixo mais longo, tirar
+  prefixo), redirect com o caminho, basic auth (senha cifrada, nunca devolvida), na hora. O proxy passou a
+  guardar os IPs de **todo** serviço no ar. Rota sem TLS é servida em HTTP. Seção e editor na tela Ingress.
+- **Volume:** `DockerVolumes` traz o dono, `orphan_of` e `has_backup_policy`; `ServiceDelete.delete_volumes`;
+  volumes mantidos ficam anotados (tabela `orphan_volume`). Coluna DONO e filtro Só órfãos em Runtime →
+  Volumes; segunda pergunta ao apagar serviço.
+- **Corrigido de passagem:** na GUI em inglês o botão **Remover** de Volumes, Imagens e Redes nunca aparecia.
+- **Verificado:** `make lint`, `make test` (daemon 746), `glacier test` (489); três roteiros de ponta a ponta num
+  daemon isolado com Podman (ambiente com zip copiado e promoção; rotas com 404/502/301/401 e reinício; volume
+  dono → órfão → removido, e `delete_volumes`); GUI no Xvfb (selo e aba Ambientes, lista e editor de rotas com
+  salvar, volumes órfãos); webui no Chrome headless (as mesmas telas, criar rota com senha); CI sem tag verde
+  (`21fd659`); tag assinada com a chave da máquina 1 (shim, dry-run antes, shim apagado) e publicada; checksums
+  e 4 `.minisig` conferidos pela URL pública; `install.sh` (daemon e gui) num `debian:12`; `install.ps1` até o
+  SHA-256; docs no ar (`guias/ambientes`, `guias/rotas`, `interface/docker-e-registry`, pt e en).
+- **Não verificado:** encaminhar de uma rota até o container (no Podman rootless daqui o host não alcança o IP
+  do container: só o teste unitário prova o 200); certificado de rota com TLS; criar ambiente e a pergunta dos
+  volumes **clicados na GUI** (o Xvfb não entrega teclado; os comandos foram verificados pela API e pela webui);
+  "Trazer da origem" na prática (mesmo comando, outro sentido).
+- **Instalação nesta máquina:** não feita, pelo mesmo motivo da v0.1.91 (`allow_agent_apply` desligado).
+- **Armadilhas:** o `system df` do Podman não traz as etiquetas dos volumes; o Podman trata `host_path` sem barra
+  de um serviço Application como pasta relativa (no Docker é volume nomeado); o inventário do Docker tem cache de
+  5 min (um volume novo demora a aparecer); as sessões caíram duas vezes no meio, então os testes rodaram em
+  segundo plano.
+
 ## v0.1.91 (2026-11-23): releases — comparar e voltar para uma versão
 
 Daemon **0.1.75** e app **0.1.84** (os dois no crates.io). Entrega autônoma, a pedido do dono; primeira das quatro
