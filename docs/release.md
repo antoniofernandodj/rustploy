@@ -1052,6 +1052,51 @@ App **0.1.75**; daemon **0.1.67** e `rustploy-update-core` **0.3.3** sem mudanç
   `import -window <id>` e cliques com `xdotool mousemove --window <id> X Y click 1`. Cuidado com `pkill -f`: o padrão
   casa com a linha de comando do próprio shell.
 
+## v0.1.93 (2026-11-24): o compose de job morre inteiro; abort de pré-deploy limpa containers
+
+Daemon **0.1.77** (crates.io), app **0.1.84** sem mudança. Completa a v0.1.92, na mesma entrega autônoma
+(`docs/plano-atritos-do-agente.md`, item 1.4).
+
+- **Por que saiu outra versão:** o teste de ponta a ponta da 0.1.76 mostrou que matar o `podman --remote compose`
+  deixa o plugin `docker-compose` (neto) órfão e vivo: no vigia, no deploy abortado e também no `JobRunCancel` de
+  antes. O compose agora nasce num grupo de processos próprio e o `ComposeGroupGuard` mata o grupo. No abort, o
+  guarda do pré-deploy também remove os containers do projeto compose do run (pelo rótulo) e o diretório de build.
+- **Verificado:** `cargo clippy`, `cargo test` (daemon 738); teste unitário do neto (`sh` + `sleep`); ponta a ponta
+  num daemon isolado com Podman: depois do abort, nenhum `docker-compose` órfão, nenhum container e nenhum diretório
+  do job. CI sem tag verde (`038de00`), `.deb` 0.1.77 amd64/arm64; tag assinada com a chave da máquina 1 (shim,
+  dry-run antes, shim apagado); checksums e `.minisig` conferidos pela URL pública; `install.sh` (daemon) num
+  `debian:12` instalou `0.1.77-1`.
+- **Armadilha do ambiente:** o disco desta máquina chegou a 100% no meio do teste do `install.sh` (o Docker dentro do
+  contêiner não instalou: "No space left on device"). Os builds de debug do daemon acumulam ~9 GB em
+  `target/debug/incremental`; apagar só essa pasta resolveu sem perder nada além do cache.
+- **Não verificado:** o servidor Chiquitos (Podman) não foi atualizado: é instalação do dono. O processo órfão
+  `docker-compose` (usuário `rustploy`) que sobrou do teste de cancelamento no daemon 0.1.74 desta máquina continua
+  vivo: matá-lo pede root.
+
+## v0.1.92 (2026-11-24): atritos de um agente subindo um projeto do zero
+
+Daemon **0.1.76** (crates.io), app **0.1.84** sem mudança. Entrega autônoma, a partir do que um agente (Claude Code
+pelo MCP do Chiquitos) encontrou ao subir um projeto inteiro sem abrir a GUI. Plano: `docs/plano-atritos-do-agente.md`.
+
+- **Job de pré-deploy preso:** um vigia olha o container do `main_service`; se ele saiu e o `docker compose up` não sai
+  em 30 s (Podman), o daemon guarda a saída do container, encerra o compose e usa o exit code do container.
+  `kill_on_drop` no compose. Deploy abortado no meio do pré-deploy fecha o `job_run` como cancelado (`-2`).
+- **Staging morto sem log:** o healthcheck confere o container antes de pedir o IP (um container morto sai da rede e
+  o erro era "container não encontrado na rede"); o log dele vai para o build log e o erro traz código e última linha.
+- **Protocolo e agente:** `WizardCreate` só exige `kind`, `project_id` e `name`; a ferramenta `rpc` aceita o `command`
+  como texto JSON; `JobCreate` aceita `trigger_service_id: null`; manual com o formato do healthcheck e o
+  `WizardCreate` mínimo. Docs pt/en: ferramentas, receitas (vínculos, migração no pré-deploy) e guia de healthcheck.
+- **Verificado:** `make lint`, `make test` (daemon 737); o job que travava **reproduzido nesta máquina** no daemon
+  0.1.74 (container saiu com 0, compose vivo por minutos) e, num daemon isolado com o código novo, o mesmo job
+  terminando em 56 s pelo vigia; `rpc` com texto JSON, `WizardCreate` mínimo, `JobCreate` com `null`, staging morto
+  (caminho novo, com o container já fora da rede), abort de pré-deploy; CI sem tag verde (`fb9db64`); `.deb` 0.1.76
+  amd64/arm64 (`libc6 >= 2.34`); tag assinada com a chave da máquina 1 (shim, dry-run antes, shim apagado);
+  checksums e `.minisig` conferidos pela URL pública; `install.sh` (daemon) num `debian:12` instalou `0.1.76-1`;
+  `install.ps1` até o SHA-256; docs no ar (`curl` nas páginas novas, pt e en).
+- **Não verificado:** o `install.sh -- gui` (o app não mudou); o `cargo publish` foi com `--no-verify` (disco com
+  ~5 GB livres; o mesmo código compilou e passou nos testes, e o CI compila do zero).
+- **Instalação nesta máquina por comando: recusada** de novo (`allow_agent_apply` desligado). Não liguei a trava.
+
 ## v0.1.91 (2026-11-23): releases — comparar e voltar para uma versão
 
 Daemon **0.1.75** e app **0.1.84** (os dois no crates.io). Entrega autônoma, a pedido do dono; primeira das quatro
