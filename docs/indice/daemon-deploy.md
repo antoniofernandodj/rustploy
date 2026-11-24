@@ -266,11 +266,13 @@ impl JobRunner
   fn linha(job_id, run_id, texto) — Uma linha no log da execução (banco + evento ao vivo).
   fn cancelar_antes_de_comecar(job, run_id) — Cancelada enquanto esperava a vez: nunca começou.
   fn reschedule(job)
-struct PreDeployRunGuard { db, bus, job_id, run_id, armed } — Fecha o `job_run` de um pré-deploy check se o deploy for **abortado** no meio.
+struct PreDeployRunGuard { db, bus, job_id, run_id, build_dir, armed } — Fecha o `job_run` de um pré-deploy check se o deploy for **abortado** no meio.
 impl PreDeployRunGuard
   fn new(db, bus, job_id, run_id) -> Self
+  fn with_build_dir(db_path) -> Self — Diretório de build do job (`<db_path>/jobs/<run_id>`), para limpar no abort.
   fn disarm()
 fn close_aborted_run(db, bus, job_id, run_id) — Fecha como cancelada (mesmo exit code do `JobRunCancel`) uma execução que ainda não terminou, com um…
+fn clean_aborted_run(run_id, build_dir) — O resto do que o `run_once` faria no fim e a future abortada não fez: os containers do job (o projet…
 impl Drop for PreDeployRunGuard
 (3 testes)
 

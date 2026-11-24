@@ -75,9 +75,17 @@ impl ExitWatch
   fn observe(state, now, grace) -> bool
 fn main_service_state(project_name, main_service) -> MainServiceState — Olha o container do `main_service` pelos rótulos que o compose põe (nos dois motores).
 fn wait_for_stuck_compose(project_name, main_service) -> (String, i32) — Espera até o compose ser dado como travado; devolve o container e o exit code.
+fn remove_project_containers(project_name) — Remove (forçado) os containers de um projeto compose pelo rótulo, sem precisar do arquivo.
 fn container_log_lines(container_id, tail) -> Vec<String> — Últimas linhas de saída de um container (stdout e stderr juntos), pelo CLI.
+struct ComposeGroupGuard { pgid } — Mata o grupo de processos inteiro do `docker compose up` de um job.
+impl ComposeGroupGuard
+  fn new(pgid) -> Self
+  fn kill_now()
+  fn disarm()
+fn kill_process_group(pgid) — `kill -KILL -- -<pgid>`.
 fn run_once_up(project_name, compose_rel_path, main_service, job_id, job_run_id, bus, db, build_dir, mirror_deployment, cancel_rx) -> Result<i32> — Roda o `docker compose up` de um job até o `main_service` sair, transmitindo stdout/stderr para o lo…
-(6 testes)
+impl Drop for ComposeGroupGuard
+(7 testes)
 
 ### logs.rs — Leitura e limpeza da saída do compose, linha a linha, para o log do job/deploy.
 const COMPOSE_TAIL_MAX — Quantas linhas do próprio `docker compose` (build, pull, erros de container) o job guarda pra despej…

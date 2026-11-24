@@ -1,6 +1,7 @@
 # Plano: os atritos que um agente encontrou subindo um projeto do zero
 
-> **Status:** implementado no daemon 0.1.76 (entrega autônoma de 2026-11-24).
+> **Status:** implementado no daemon 0.1.76 (v0.1.92) e completado no 0.1.77 (v0.1.93),
+> na entrega autônoma de 2026-11-24.
 > Só o daemon muda; GUI e webui não têm tela nova (ver "Os dois clientes").
 
 ## De onde veio
@@ -52,6 +53,17 @@ esperando. Abortar o deploy liberou a fila, porém o `job_run` ficou para sempre
    abortado) antes de o job terminar, o `job_run` é fechado como **cancelado**
    (o mesmo exit code `-2` do `JobRunCancel`), com uma linha no log dizendo que
    o deploy foi abortado, e o evento `JobRunStateChanged` sai normalmente.
+
+4. **(0.1.77) O compose morre inteiro, e o abort limpa o que sobra.** O teste de ponta
+   a ponta da 0.1.76 mostrou que matar o processo do compose não bastava: com Podman o
+   comando é `podman --remote compose …`, que roda o plugin `docker-compose` como
+   **neto**. O `start_kill`/`kill_on_drop` matava só o filho, e o plugin ficava órfão
+   para sempre. Isso valia também para o `JobRunCancel` de antes desta entrega. Agora o
+   compose nasce num grupo de processos próprio (`process_group(0)`) e o
+   `ComposeGroupGuard` manda SIGKILL ao grupo inteiro quando o compose é abandonado
+   (vigia, cancelamento ou future derrubada). No abort do deploy, o guarda do pré-deploy
+   também remove os containers do projeto compose do run (pelo rótulo, sem o arquivo)
+   e o diretório de build, que o `down` do `run_once` não chegou a limpar.
 
 **Por que não mudar o compose para `-d` + `wait`.** Seria trocar o mecanismo
 inteiro de execução de jobs (logs ao vivo, cancelamento, aquecimento) por causa
@@ -137,8 +149,15 @@ esse mesmo `null` (`invalid type: null, expected a string`) e só aceitava `""`.
 - **Ponto 1, reproduzido nesta máquina** (daemon 0.1.74, Podman pelo socket): um
   job inline de uma linha (`busybox`, `echo migrations aplicadas; exit 0`) imprimiu a
   linha, o container saiu com 0, e o `docker compose up` continuou vivo por minutos,
-  com o `job_run` aberto. Era o mesmo defeito do servidor, e não só do servidor. O
-  mesmo job roda de novo depois da atualização.
+  com o `job_run` aberto. Era o mesmo defeito do servidor, e não só do servidor.
+- **Depois, num daemon de teste isolado com o código novo** (banco e portas próprios,
+  o mesmo Podman), pela ferramenta MCP como um agente faria: o mesmo job terminou em
+  56 s com sucesso e a linha do vigia no log; `"\"JobListAll\""` e um objeto em texto
+  JSON passaram no `rpc`; o `WizardCreate` mínimo criou o Postgres; o `JobCreate`
+  aceitou `trigger_service_id: null`; o container que morre ao subir falhou com
+  `o container saiu com código 3 antes do healthcheck: Error: …` e o log dele no build
+  log (o caminho novo, com o container já fora da rede); o deploy abortado durante o
+  pré-deploy fechou o run com `-2` e a linha "Interrompida".
 - **Pontos 3 e 4** reproduzidos no mesmo daemon antes da atualização
   (`missing field app_name`; ``unknown variant `"JobListAll"` ``).
 - **Ponto 2**: no localhost o container ainda tinha IP quando o healthcheck
@@ -146,6 +165,9 @@ esse mesmo `null` (`invalid type: null, expected a string`) e só aceitava `""`.
   fora da rede) não se reproduz aqui de forma determinística. O que muda e é
   conferível é a mensagem: antes `container stopped during healthcheck`, agora com
   o código de saída e a última linha.
+- **0.1.77**, no mesmo daemon isolado: depois do abort, nenhum `docker-compose` órfão,
+  nenhum container do job e nenhum diretório de build. Um teste unitário sobe um `sh`
+  que dispara um `sleep` neto e confere que o guarda mata os dois.
 - Testes unitários para o vigia (interpretação do `inspect`, carência, reinício),
   para o guarda do `job_run`, para a mensagem do container morto, para o
   `WizardCreateReq` mínimo, para a normalização do `rpc` e para o `JobCreate`.
