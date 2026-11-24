@@ -1097,6 +1097,38 @@ pelo MCP do Chiquitos) encontrou ao subir um projeto inteiro sem abrir a GUI. Pl
   ~5 GB livres; o mesmo código compilou e passou nos testes, e o CI compila do zero).
 - **Instalação nesta máquina por comando: recusada** de novo (`allow_agent_apply` desligado). Não liguei a trava.
 
+## v0.1.98 (2026-11-24): ambientes — notas, comparar por nomes, trazer o que está no ar, destruir
+
+Daemon **0.1.82** e app **0.1.89** (no crates.io). Entrega autônoma; plano em `docs/plano-ambientes-ajustes.md`.
+
+- **Nota por serviço** na aba Ambientes dizendo por que não há botão (Compose, sem release de um lado ou dos dois);
+  "imagens diferentes" só quando os dois lados têm release.
+- **Comparar por nomes**: `depends_on`, vínculos e pré-deploy deixam de aparecer como diferença só porque a cópia
+  tem ids próprios.
+- **Trazer/promover um serviço no ar desde antes das releases**: a imagem do container vira a release ao levar.
+- **Destruir ambiente** (`EnvironmentDestroy`, Admin): no topo do ambiente e em cada linha da lista da origem; nome
+  digitado como confirmação; serviços apagados na ordem das dependências; volumes só se marcado.
+- **▶ Deploy** no cartão do serviço na lista do projeto.
+
+**Verificado:** teste unitário da comparação por nomes; roteiro de ponta a ponta num daemon isolado com Podman
+(serviço sem release simulado apagando a linha no SQLite; nota, Trazer, release a partir do container, "promovida
+de … v1", recusas do Destruir, ambiente destruído com a origem no ar). A primeira rodada achou o defeito da ordem
+das dependências no Destruir, corrigido antes do publish. GUI no Xvfb (notas, os dois Destruir, o painel, o ▶
+disparando deploy) e webui headless (as mesmas telas e o Destruir completo). `make lint`/`make test`, `glacier test`
+(489); release assinada, checksums e assinaturas conferidos; `install.sh` (daemon e `gui`) num `debian:12`;
+`install.ps1` até o SHA-256; docs pt/en no ar.
+
+**Não verificado:** digitar o nome no painel da GUI (Xvfb sem teclado; provado pela webui e pela API).
+
+**Atualizar um servidor com dados:** seguro. Nenhum formato nem nome muda; a comparação só lê; a release a partir
+do container só é gravada quando alguém clica em levar. Teste de atualização não se aplica (não mexe em proxy,
+volumes, rede ou nomes). Voltar para a v0.1.97 lê o mesmo estado.
+
+**Armadilhas:** a cota do `/tmp/claude-1000` (tmpfs) estoura com testes e builds (o `age_format` e o `rustploy-cli`
+escrevem no temporário): rode `make test`, o build das docs e o `gh run download` com `TMPDIR` apontando para
+`rustploy-daemon/target/tmp`. Apagar um serviço do qual outro depende é recusado: quem apaga vários serviços tem
+de ir dos dependentes para os usados.
+
 ## v0.1.97 (2026-11-24): campos na altura dos selects e de onde vêm os volumes
 
 Daemon **0.1.81** e app **0.1.88** (no crates.io). Só interface; nada no protocolo, no estado ou no motor.
