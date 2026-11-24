@@ -36,7 +36,7 @@ ServiceUpdate | daemon: features/services/update | gui: handlers/services | web:
 ServiceDelete — Apaga o serviço. | daemon: features/services/delete | gui: handlers/projects | web: app
 
 ## / Recusa volume que já é de outro serviço. Vale no próximo deploy. Resposta: `Service`.
-ServiceVolumeAttach — Monta um volume num serviço Application: `host_path` é o nome de um vo… | daemon: features/services/volumes/attach | gui: handlers/services | web: screens/service_detail
+ServiceVolumeAttach — Monta um volume num serviço Application: `host_path` é o nome de um vo… | daemon: features/services/volumes/attach | gui: handlers/services, handlers/volumes | web: screens/service_detail, screens/volumes
 
 ## / Resposta: `Service`.
 ServiceVolumeDetach — Tira a montagem em `container_path` (os dados ficam no servidor). | daemon: features/services/volumes/detach | gui: handlers/services | web: screens/service_detail
@@ -305,7 +305,13 @@ DockerContainers — Todo container do host (rodando + parado), para a sub-aba C
 ## O Docker recusa remover recursos em uso (sem force) — o erro é propagado.
 RemoveContainer | daemon: docker/docker_remove::remove_container | gui: handlers/docker | web: app
 RemoveImage | daemon: docker/docker_remove::remove_image | gui: handlers/docker | web: app
-RemoveVolume | daemon: docker/docker_remove::remove_volume | gui: handlers/docker | web: app
+RemoveVolume | daemon: docker/docker_remove::remove_volume | gui: handlers/docker, handlers/volumes | web: app, screens/volumes
+
+## / caminho; `borrowed` = externo num Compose). Resposta: `Volumes`.
+VolumeList — A tela **Volumes**: cada volume com o dono, o órfão, o backup e **quem… | daemon: docker/docker_inventory::list_volume_info | gui: handlers/volumes | web: app, screens/service_detail, screens/volumes
+
+## / quem chama põe o texto no editor. Resposta: `ComposeWithVolume`.
+ComposeInsertExternalVolume — Insere no texto de um Compose a declaração `external: true` de um volu… | daemon: features/service_data/compose_volumes/insert_external_volume | gui: handlers/volumes | web: screens/service_detail
 RemoveNetwork | daemon: docker/docker_remove::remove_network | gui: handlers/docker | web: app
 
 ## / touches unrelated containers on the same Docker host.

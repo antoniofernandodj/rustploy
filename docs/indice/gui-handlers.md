@@ -141,6 +141,7 @@ function nav_running()
 function nav_monitoring()
 function nav_schedules()
 function nav_ingress()
+function nav_volumes()
 function nav_docker()
 function nav_projects()
 function nav_settings()
@@ -475,6 +476,25 @@ local refresh_now() — Refresh imediato após uma mutação: pega o snapshot co
 function deployments_clear_finished() — Limpeza em massa da tela Deployments: apaga (DeployDelete) todo deployment em estado terminal Stoppe…
 local apply_bus_event(bus_event) — Eventos vivos do bus: métricas e transições de deploy.
 function M.open_stream()
+
+### volumes.luau — tela Volumes (home/volumes.component.gv): cada volume com quem monta (serviço e caminho; "emprestado…
+local format_bytes(bytes)
+local mounts_label(volume)
+local status_label(volume)
+local application_service_options()
+function M.publish()
+function M.load()
+function M.unused_options() — Volumes que dá para escolher no "usar volume existente": nomeados, sem quem monte (os órfãos primeir…
+function M.borrowed_by(service_id) — Os volumes emprestados (externos) que um serviço Compose monta, pelo último VolumeList (recarregado …
+function volumes_refresh()
+function volumes_toggle(key, value)
+function volumes_adopt(volume_name)
+function volumes_adopt_cancel()
+function volumes_adopt_confirm()
+function volumes_remove(volume_name)
+function compose_volume_pick()
+function compose_volume_cancel()
+function compose_volume_insert()
 
 ### wizard.luau — wizard "Novo serviço".
 local new_service_is_broker(kind_id)

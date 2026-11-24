@@ -117,6 +117,7 @@
 - plano-tray-bandeja-e-ciclo-de-vida.md — Plano — ícone de bandeja e o app que sobrevive à última janela
 - plano-unificacao-webhook-api.md — Plano: unificar o webhook na porta da API
 - plano-updaters-daemon-e-gui.md — Plano: updaters (daemon e GUI) — um instalador root minúsculo para cada app
+- plano-volumes-tela-e-emprestados.md — Volumes: tela própria, "usar volume existente" e volumes emprestados
 - plano-webui-janelas-e-polimento.md — Plano: webui com acabamento da GUI, janelas arrastáveis e paridade total
 - plano-widgets-glacier-0.68.md — Widgets novos do glacier-ui (0.63 → 0.68): o que dá pra aproveitar no rustploy
 - prompt-depurar-infra-com-agente.md — Prompt: depurar a infra pela API de agente
@@ -492,6 +493,7 @@
 - storage.rs — CAS (content-addressable store) do registry: blobs em disco, sessões de upload e…
 
 ### rustploy-daemon/crates/daemon/src/features/service_data/ → daemon-features.md
+- compose_volumes.rs — O que um arquivo Compose diz sobre volumes: quais a stack monta, onde, e quais s…
 - database.rs — Dump lógico de banco (Postgres, MySQL/MariaDB, MongoDB), feito **dentro do conta…
 - mod.rs — Exportar e importar os **dados** de um serviço (volumes).
 - pack.rs — O pacote `.rpdata`: um tar aberto com `manifest.json` **primeiro**, depois `part…
@@ -629,6 +631,7 @@
 - service_bundle.js
 - service_detail.js — detalhe de um serviço.
 - settings.js — tela "Settings": Web Server / Git / Sync / Manutenção / Updates.
+- volumes.js — tela "Volumes": os volumes que guardam dados, com quem monta cada um (serviço e …
 
 ### rustploy-daemon/crates/importer/
 - Cargo.toml — Migration importer tool for the Rustploy PaaS platform
@@ -1865,6 +1868,7 @@
 - running.component.gv
 - schedules.component.gv
 - settings.component.gv
+- volumes.component.gv
 
 ### rustploy-gui/views/home/deploy_engine/ → gui-views.md
 - executando.component.gv
@@ -1950,6 +1954,7 @@
 - settings.luau — Settings (Web Server) e Settings → Git (provedores Gitea: conectar via OAuth/PAT…
 - state_git.luau — Settings → Sync: a sincronização do estado de infra com um repositório git (Fase…
 - stream.luau — consumidor do SSE de /api/events: aplica o snapshot periódico (2s) e os eventos …
+- volumes.luau — tela Volumes (home/volumes.component.gv): cada volume com quem monta (serviço e …
 - wizard.luau — wizard "Novo serviço".
 
 ### rustploy-gui/views/scripts/net/ → gui-scripts.md

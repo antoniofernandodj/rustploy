@@ -78,6 +78,8 @@
 
 ### settings.component.gv
 
+### volumes.component.gv
+
 ## rustploy-gui/views/home/deploy_engine/
 
 ### executando.component.gv

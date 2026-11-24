@@ -373,6 +373,15 @@ const BASE_TICK, MAX_RESTART_ATTEMPTS, RESTART_WAIT
 
 ## rustploy-daemon/crates/daemon/src/features/service_data/
 
+### compose_volumes.rs — O que um arquivo Compose diz sobre volumes: quais a stack monta, onde, e quais são **externos** (`ex…
+struct ComposeVolumeUse { volume_name, container_path, compose_service, external } — Um volume nomeado que a stack monta.
+fn declared_volumes(doc, compose_project) -> BTreeMap<String, (String, bool)> — Uma declaração do topo `volumes:`: o nome real e se é externo.
+fn compose_volume_uses(content, compose_project) -> Vec<ComposeVolumeUse> — Os volumes nomeados que a stack monta.
+fn external_volume_names(content, compose_project) -> Vec<String> — Os nomes dos volumes **externos** que a stack usa (montados ou só declarados).
+fn key_for(volume_name) -> String — A chave do volume no arquivo, derivada do nome real: só letras, dígitos, `_` e `-`.
+fn insert_external_volume(content, volume_name) -> Result<(String, String), String> — Insere a declaração `external` de um volume que já existe no texto do Compose, sem reformatar o rest…
+(2 testes)
+
 ### database.rs — Dump lógico de banco (Postgres, MySQL/MariaDB, MongoDB), feito **dentro do container do próprio serv…
 struct DbTarget { engine, container, db } — Um banco que sabemos despejar e restaurar.
 fn engine_of(svc) -> Option<Engine> — O motor do serviço, se for um que despejamos (e não um servidor compartilhado).
@@ -417,6 +426,7 @@ fn bind_name(container_path) -> String — Nome lógico de um bind: `bind:<desti
 fn synthesize(svc, name) -> Option<Part> — Uma parte de **volume** que o pacote traz e o serviço ainda não tem (servidor recém-recuperado: o vo…
 fn resolve(docker, svc) -> Result<Vec<Part>> — As partes do serviço, em ordem estável (por nome lógico).
 fn named_volumes(svc) -> Result<Vec<String>> — Os **volumes nomeados** do serviço (os da stack Compose e os que o spec monta por nome), sem pastas …
+fn borrowed_volumes(svc) -> Vec<String> — Os volumes **emprestados** de uma stack Compose: os declarados com `external: true` (já existiam; a …
 const SERVICE_LABEL — Etiqueta que o Rustploy põe nos volumes que ele mesmo cria: o **ID do serviço** dono do volume.
 fn list_project_volumes(project, service_id) -> Result<Vec<String>> — Os volumes da stack, **só por etiqueta** (nunca por semelhança de nome): os que o Compose etiquetou …
 fn mounted_by_stack(project) -> Result<Vec<String>> — Volumes nomeados montados pelos containers da stack (parados também: `ps -a`).
