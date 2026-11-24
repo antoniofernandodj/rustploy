@@ -1097,6 +1097,46 @@ pelo MCP do Chiquitos) encontrou ao subir um projeto inteiro sem abrir a GUI. Pl
   ~5 GB livres; o mesmo código compilou e passou nos testes, e o CI compila do zero).
 - **Instalação nesta máquina por comando: recusada** de novo (`allow_agent_apply` desligado). Não liguei a trava.
 
+## v0.1.96 (2026-11-24): tela Volumes, volume existente no Compose e volumes emprestados
+
+Daemon **0.1.80** e app **0.1.87** (no crates.io). Entrega autônoma; plano em
+`docs/plano-volumes-tela-e-emprestados.md`.
+
+- **Corrigido (dados):** apagar uma stack Compose com "Apagar os dados" apagava também os volumes
+  `external: true` (que já existiam e a stack só usava). Agora `delete_volumes` vale só para os volumes
+  próprios; os emprestados só saem com `ServiceDelete.delete_external_volumes` (padrão `false`), que as
+  telas pedem numa terceira pergunta, só quando há emprestados.
+- **Tela Volumes** (GUI e webui, barra lateral): quem monta cada volume, dono, órfão, backup; adotar num
+  serviço Application e apagar (com confirmação). Comando `VolumeList` (Observer).
+- **Usar volume existente** no editor do Compose: `ComposeInsertExternalVolume` insere o bloco `external`
+  sem reformatar o arquivo; nada é gravado até "Salvar compose".
+- **GUI:** botão **Cancelar** no editor de rota do Ingress (volta à lista).
+
+**Verificado:** `make lint`/`make test` (749 no daemon) e `glacier test` (489) verdes; roteiro de ponta a ponta
+dos emprestados num daemon isolado com Podman (inserir, montar, deploy lendo o dado antigo, dono e
+"emprestado" no `VolumeList`, apagar com `delete_volumes` mantém o emprestado e o deixa órfão, reusar,
+apagar com `delete_external_volumes`); **teste de atualização** a partir do binário da 0.1.79 publicado,
+com dados (o defeito se reproduz na 0.1.79; na nova, serviços, dados do banco, volume externo, domínio e
+redeploys intactos); GUI no Xvfb (tela Volumes, Adotar, Usar volume existente inserindo de verdade,
+Cancelar da rota) e webui headless (tela Volumes, lista do Compose); release assinada, checksums e
+assinaturas conferidos; `install.sh` (daemon e `gui`) num `debian:12`; `install.ps1` até o SHA-256;
+docs pt/en no ar.
+
+**Não verificado:** a terceira pergunta ao apagar foi coberta pelo comando no roteiro, não clicada nas
+telas; a instalação nesta máquina por `ApplyUpdate`/`ApplyAppUpdate` não foi tentada (`allow_agent_apply`
+desligado, como nas versões anteriores).
+
+**Atualizar um servidor com dados:** seguro. Nenhum nome, campo ou formato muda; só o "Apagar os dados"
+passa a apagar menos. Conferido pelo MCP: Chiquitos e Itemize não usam volume `external`; o servidor dev
+do Itemize (Flow) usa `flow_mysql_data` como externo e agora está protegido. Voltar para a 0.1.95 lê o
+mesmo estado (só volta o defeito).
+
+**Armadilhas:** `pkill -f <padrão>` num comando composto casa com a linha do próprio shell e o derruba
+(exit 144): mate pelo PID. Rodar o binário extraído com `--version` sobe o daemon no banco de
+desenvolvimento (memória `rustployd_sem_cli_sobe_o_daemon`). O `/tmp` é tmpfs pequeno: limpe os artefatos
+de releases antigas do scratchpad antes do `gh run download`. Esta máquina não tem Docker: os testes do
+instalador rodam com `podman run docker.io/library/debian:12`.
+
 ## v0.1.95 (2026-11-24): volumes — montar, adotar órfão e o volume nomeado que não funcionava
 
 Daemon **0.1.79** e app **0.1.86** (no crates.io). Entrega autônoma ("a questão dos volumes"): Fase 2 da abstração
