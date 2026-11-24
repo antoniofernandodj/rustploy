@@ -1105,7 +1105,7 @@ Daemon **0.1.81** e app **0.1.88** (no crates.io). Só interface; nada no protoc
   (aba Dados do serviço, Adotar da tela Volumes, editor de rota do Ingress).
 - **GUI e webui:** a tela Volumes diz de onde os volumes vêm (aba Dados, campo "nome novo", ou o arquivo Compose).
 
-**Verificado:** `make lint`/`make test` e `glacier test` (489) verdes; GUI no Xvfb (editor de rota, Adotar, a
+**Verificado:** release assinada (checksums e assinaturas conferidos), `install.sh` (daemon e `gui`) num `debian:12`, `install.ps1` até o SHA-256; `make lint`/`make test` e `glacier test` (489) verdes; GUI no Xvfb (editor de rota, Adotar, a
 linha nova) e webui headless (a linha nova); CI sem tag verde com as versões certas nos `.deb`.
 **Não verificado:** a aba Dados de um serviço Application no Xvfb (o daemon de teste não tinha um).
 **Atualizar um servidor com dados:** seguro; teste de atualização não se aplica (só telas).
