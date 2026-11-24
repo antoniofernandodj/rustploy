@@ -1,10 +1,10 @@
 # Plano: quatro abstrações novas — Release, Ambiente, Rota e Volume
 
 > **Status (2026-11-24):** as quatro abstrações implementadas. **1. Release** publicada na v0.1.91.
-> **2. Ambiente, 3. Rota e 4. Volume** (Fase 1 de cada) saem juntas na **v0.1.94** (daemon 0.1.78, app
-> 0.1.85): ver §2.7, §3.5 e §4.5. Juntas porque o código das três foi escrito na mesma árvore e um ciclo
-> só de testes e CI cobre tudo. As decisões que tomei sem o dono estão marcadas com **[decisão minha]**
-> e reunidas no §7.
+> **2. Ambiente, 3. Rota e 4. Volume** (Fase 1) publicadas juntas na v0.1.94. **4. Volume, Fase 2**
+> (volume nomeado em serviço Application, montar/adotar órfão, lista atualizada no fim do deploy) na
+> **v0.1.95** (daemon 0.1.79, app 0.1.86): §4.6. As decisões que tomei sem o dono estão marcadas com
+> **[decisão minha]** e reunidas no §7.
 
 ## 0. Por que estas quatro, e por que nesta ordem
 
@@ -360,6 +360,38 @@ Assim nada muda no formato do estado, e não há o que migrar.
   verificada pela API); volume nomeado de serviço Application no Podman (ele trata o nome como pasta
   relativa; no Docker é volume nomeado).
 
+
+### 4.6 Fase 2: montar, adotar e o volume nomeado que não funcionava (2026-11-24, v0.1.95)
+
+O dono pediu "a questão dos volumes" com entrega autônoma. **[decisão minha]** Entendi como as pendências
+da abstração Volume que apareceram na Fase 1:
+
+1. **Volume nomeado em serviço Application estava quebrado nos dois motores.** O container era criado
+   sempre com montagem *bind* (pasta do servidor), então `host_path = "pgdata"` falhava ("must be
+   absolute" no Docker; pasta relativa ao serviço de API no Podman). Agora: caminho absoluto = bind;
+   nome = volume nomeado, criado antes com a etiqueta `rustploy.service_id` (o dono aparece na lista).
+2. **Adotar um órfão** (era o "Depois" do §4.4): `ServiceVolumeAttach{service_id, volume}` e
+   `ServiceVolumeDetach{service_id, container_path}`, só para Application. Recusa: Compose, caminho
+   relativo ou `/` no container, pasta do sistema/do Rustploy (`bind_allowed`), caminho repetido e
+   volume que já é de **outro** serviço (pelo spec, pela etiqueta ou pela stack Compose: dois serviços
+   no mesmo volume corrompem os dados). Adotar tira a anotação de órfão. Desmontar não apaga nada.
+   Nenhuma das duas telas editava volumes de serviço antes: a seção **VOLUMES** entrou no topo da aba
+   **Dados**, com "volume existente" (sem dono; órfãos primeiro; anônimos de 64 hex fora) ou um nome
+   novo/pasta, o caminho no container e só leitura.
+3. **Volume novo demorava até 5 minutos para aparecer** (cache do inventário): um ouvinte do barramento
+   invalida o cache quando um deploy termina; montar e desmontar também invalidam.
+
+**Ficou para depois:** política de backup **por volume** (o backup continua por serviço, com todos os
+volumes dele).
+
+**Verificado:** teste unitário das regras de nome/montagem; ponta a ponta no daemon isolado com Podman
+(stack Compose grava um arquivo no volume → serviço apagado mantendo os volumes → órfão → serviço
+Application adota em `/www/dados` → deploy → `cat` no container lê `dados-antigos`; o volume passa a ter
+dono; volume novo nasce com a etiqueta e aparece logo depois do deploy; as cinco recusas; desmontar tira
+só aquela montagem e os dados ficam). Telas: GUI no Xvfb (seção, lista com o órfão primeiro, painel de
+exportação intacto) e webui no Chrome headless (seção e opções). **Não verificado:** montar pela tela da
+GUI até o fim (o Xvfb não entrega teclado; o comando foi provado pela API) e o volume nomeado no Docker
+(só Podman nesta máquina; a montagem `type: volume` é a mesma API nos dois).
 ---
 
 ## 5. Protocolo (resumo)
@@ -403,3 +435,5 @@ apagar), GUI no Xvfb com captura, webui no navegador. Depois o publish completo.
 10. Rota sem TLS servida em HTTP; domínios de serviço sem mudança (§3.4).
 11. Migração de banco mantém os volumes do serviço antigo (§4.4).
 12. Ambiente, Rota e Volume publicados juntos numa versão só (cabeçalho).
+13. "A questão dos volumes" = volume nomeado quebrado + adotar órfão + atualização da lista; backup por
+    volume ficou para depois (§4.6).

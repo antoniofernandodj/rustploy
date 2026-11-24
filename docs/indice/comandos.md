@@ -34,6 +34,12 @@ ServiceUpdate | daemon: features/services/update | gui: handlers/services | web:
 
 ## / com o nome do serviço de onde vieram.
 ServiceDelete — Apaga o serviço. | daemon: features/services/delete | gui: handlers/projects | web: app
+
+## / Recusa volume que já é de outro serviço. Vale no próximo deploy. Resposta: `Service`.
+ServiceVolumeAttach — Monta um volume num serviço Application: `host_path` é o nome de um vo… | daemon: features/services/volumes/attach | gui: handlers/services | web: screens/service_detail
+
+## / Resposta: `Service`.
+ServiceVolumeDetach — Tira a montagem em `container_path` (os dados ficam no servidor). | daemon: features/services/volumes/detach | gui: handlers/services | web: screens/service_detail
 ServiceList | daemon: services/service_list | gui: handlers/services | web: —
 ServiceGet | daemon: services/service_get | gui: handlers/services | web: app, screens/service_detail
 

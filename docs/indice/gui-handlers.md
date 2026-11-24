@@ -387,6 +387,9 @@ function env_text_cancel()
 function env_reorder(reorder_json) — Reordena env (arraste): `value` é um JSON array de keys na nova ordem.
 function deployment_logs(deployment_id) — Abre os build logs de um deployment numa JANELA à parte (mesma janela genérica dos runtime logs — ve…
 function delete_deployment(deployment_id)
+function M.publish_volumes(service_record)
+function service_volume_attach()
+function service_volume_detach(index_text)
 function release_compare(release_id) — "Comparar": o que um "voltar para esta" mudaria (do declarado agora para a release), num painel na p…
 function release_diff_close()
 function release_rollback(release_id) — "Voltar para esta": sobrescreve a configuração do serviço com a da release e faz o deploy com a imag…
