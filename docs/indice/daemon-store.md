@@ -142,6 +142,13 @@ fn ensure_unique_index(pool, name, target, why) — Cria um índice `UNIQUE` sem
 fn add_column_if_missing(pool, sql) -> Result<()> — Executa um `ALTER TABLE ...
 impl std::ops::Deref for Db
 
+### orphan_volumes.rs — Tabela `orphan_volume`: os volumes que ficaram para trás quando um serviço foi apagado sem "apagar t…
+struct OrphanVolume { service_name, project_name, deleted_at }
+fn record(db, name, service_name, project_name) -> Result<()>
+fn forget(db, name) -> Result<()>
+fn all(db) -> Result<HashMap<String, OrphanVolume>>
+(1 testes)
+
 ### projects.rs — Tabela `project`: CRUD de projetos e suas env vars de nível de projeto.
 fn to_project(p) -> Project
 fn create(db, name, description) -> Result<Project>
@@ -195,7 +202,7 @@ fn touch_last_used(db, token_sha256) -> Result<()> — Best-effort, chamado em b
 ### releases.rs — Tabela `release`: o que rodou em cada deploy que chegou a Live (imagem fixada + configuração congela…
 type ReleaseRow = (String, String, String, i64, String, Option<Strin…
 fn row_to_release(row) -> Result<Release>
-struct NewRelease { service_id, deployment_id, image, image_ref, spec, project_env, restored_from_number } — O que gravar de uma release nova (o número é dado aqui, na mesma transação).
+struct NewRelease { service_id, deployment_id, image, image_ref, spec, project_env, restored_from_number, promoted_from } — O que gravar de uma release nova (o número é dado aqui, na mesma transação).
 fn create(db, new) -> Result<Release> — Grava a release com o próximo número do serviço.
 fn get(db, id) -> Result<Option<Release>>
 fn get_by_deployment(db, deployment_id) -> Result<Option<Release>>
@@ -302,7 +309,7 @@ const SCHEMA — Versão do formato dos arquivos.
 struct InfraState { settings, providers, projects }
 struct SettingsInfra { acme_email, registry_domain, docker_cleanup_config, registry_retention, backup_destination } — As chaves de configuração do `daemon_settings` (R2.1).
 struct ProviderInfra { id, kind, name, base_url, auth_mode, oauth_client_id, oauth_client_secret_enc, account_login, account_avatar, created_at } — Config de um git provider.
-struct ProjectInfra { id, name, description, env_vars, env_comments, network_name, created_at, services, jobs, secrets, managed_databases, shared_access, service_order }
+struct ProjectInfra { id, name, description, env_vars, env_comments, network_name, created_at, services, jobs, secrets, managed_databases, shared_access, service_order, environment, routes }
 impl ProjectInfra
   fn services_in_order() -> Vec<&ServiceInfra> — Serviços na ordem de exibição: primeiro os de `service_order`, na ordem dela; os que ela não cita (c…
 struct ServiceInfra { id, spec, compose_project, created_at, webhook_token, secrets, backup }

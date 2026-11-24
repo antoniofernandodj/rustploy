@@ -263,6 +263,7 @@
 - update_status.rs — `Command::UpdateStatus`: o passo da atualização em curso, ou o resultado da últi…
 
 ### rustploy-daemon/crates/daemon/src/api/handlers/projects/ → daemon-api.md
+- environments.rs — `Command::EnvironmentCreate`, `EnvironmentList`, `EnvironmentCompare` e `Environ…
 - mod.rs — Handlers de projects: o `dispatch` recebe os `Command` da seção e chama o handle…
 - project_create.rs — `Command::ProjectCreate`: cria um projeto.
 - project_delete.rs — `Command::ProjectDelete`: apaga um projeto; recusa se ainda tiver serviços ou jo…
@@ -338,6 +339,7 @@
 - deployment.rs
 - docker_inventory.rs
 - env.rs
+- environment.rs — **Ambiente**: o mesmo projeto, outra instância (homologação, preview…).
 - git.rs
 - ingress.rs
 - job.rs
@@ -347,6 +349,7 @@
 - project.rs
 - registry.rs
 - release.rs — **Release**: o que rodou num deploy que chegou a Live — a imagem fixada e a conf…
+- route.rs — **Rota**: o que o proxy faz com um domínio, fora do serviço.
 - service.rs
 - service_bundle.rs
 - service_data.rs — Dados de um serviço (volumes) que podem ser exportados e importados.
@@ -376,6 +379,7 @@
 - query.rs — Busca de containers por label, nome e prefixo, e o índice dos gerenciados.
 
 ### rustploy-daemon/crates/daemon/src/features/ → daemon-features.md
+- environments.rs — **Ambientes** (homologação, preview…): criar a partir de um projeto, comparar co…
 - mod.rs — Um diretório por assunto de produto; a camada `api` só adapta pedidos para estas…
 - wizard.rs — Lógica do wizard "Novo serviço" (Application / Database / Broker / Storage / Com…
 
@@ -449,6 +453,7 @@
 - port_suggestions.rs — Sugestões de porta do container para as portas TCP de um serviço (`Command::Serv…
 - proxy.rs — Proxy reverso HTTP/1.1 embutido, construído sobre hyper.
 - router.rs — Tabela de rotas do ingress (domínio → backends, porta → backends) com round-robi…
+- routes.rs — Rotas próprias (`domain::Route`): gravar no estado de infra, apagar, listar sem …
 - tls.rs — Certificados TLS: resolução por SNI, emissão e renovação ACME (Let's Encrypt) e …
 
 ### rustploy-daemon/crates/daemon/src/features/jobs/ → daemon-deploy.md
@@ -550,6 +555,7 @@
 - managed_database.rs — Tabela `managed_database`: databases criados em servidores compartilhados.
 - migration.rs — Tabela `migration`: estado do assistente de migração (passos, log, o que foi par…
 - mod.rs — Conexão SQLite (`Db`) e as migrações do schema, feitas à mão com `add_column_if_…
+- orphan_volumes.rs — Tabela `orphan_volume`: os volumes que ficaram para trás quando um serviço foi a…
 - projects.rs — Tabela `project`: CRUD de projetos e suas env vars de nível de projeto.
 - registry.rs — Wrappers SQL do registry OCI embutido (metadados; os bytes de blob/manifest vive…
 - registry_tokens.rs — Tokens de acesso do registry OCI embutido (Basic auth — ver `crate::features::re…
@@ -616,7 +622,7 @@
 - monitoring.js — tela "Monitoring": uso de CPU/memória do host e por container.
 - new_service.js
 - project_detail.js — projeto aberto (view=project_services no client iced): sub-abas Serviços/Variáve…
-- projects.js — tela "Projects": grid de cards + criar/editar/remover.
+- projects.js
 - running.js — tela "Em execução": só os projetos com serviço rodando e, dentro de cada um, só …
 - schedules.js — tela "Schedules": jobs one-shot (docker-compose) agendados ou manuais, de todos …
 - service_bundle.js
@@ -754,6 +760,7 @@
 - variaveis-de-ambiente.mdx
 
 ### rustploy-docs/src/content/docs/en/guias/
+- ambientes.mdx
 - backup-no-s3.mdx
 - backup.mdx
 - banco-compartilhado.mdx
@@ -775,6 +782,7 @@
 - pre-deploy.mdx
 - recuperar-servidor.mdx
 - registry.mdx
+- rotas.mdx
 - sincronizacao-git.mdx
 - templates.mdx
 - variaveis-e-secrets.mdx
@@ -1216,6 +1224,7 @@
 - primeiro-deploy.mdx
 
 ### rustploy-docs/src/content/docs/guias/
+- ambientes.mdx
 - backup-no-s3.mdx
 - backup.mdx
 - banco-compartilhado.mdx
@@ -1237,6 +1246,7 @@
 - pre-deploy.mdx
 - recuperar-servidor.mdx
 - registry.mdx
+- rotas.mdx
 - sincronizacao-git.mdx
 - templates.mdx
 - variaveis-e-secrets.mdx
@@ -1921,6 +1931,7 @@
 - deploy_queue.luau — gerência da fila global de deploys (um por vez) na tela Deploy Engine: cancelar/…
 - docker.luau — limpeza de recursos Docker sem uso (imagens, volumes, redes).
 - env_rows.luau — a linha de variável editável no lugar, na aba Variáveis do projeto (shell/projec…
+- environments.luau — aba Ambientes do projeto (shell/project_environments.component.gv).
 - history.luau — a pilha do "voltar" (Backspace, Alt+← e o botão "voltar" do mouse; o motor chama…
 - job_env.luau — tela "Variáveis e secrets do job" (shell/job_env.component.gv).
 - jobs.luau — ações da tela global "Schedules" (sidebar) e da aba "Jobs" do projeto: rodar ago…
@@ -1930,6 +1941,7 @@
 - recover.luau — Settings → Recuperar: recuperar este servidor a partir do git + chave de recuper…
 - recovery_key.luau — Settings → Chave de recuperação (docs/plano-chave-de-recuperacao.md).
 - registry.luau — sub-aba Docker > Registry: navega repo→tags (fetch sob demanda, tags não vêm no …
+- routes.luau — rotas próprias na tela Ingress (home/ingress.component.gv): lista, editor num pa…
 - secret_rows.luau — o NOME do secret editável no lugar, nas listas de secrets do projeto (shell/proj…
 - secrets.luau — aba "Secrets" do projeto: criar/sobrescrever e apagar valores cifrados, e o atal…
 - service_backup.luau — aba Dados → "Backup no S3": os backups dos dados do serviço no S3 (docs/plano-ba…
@@ -1964,6 +1976,7 @@
 - deployments.component.gv
 - job_env.component.gv
 - project_env.component.gv
+- project_environments.component.gv
 - project_jobs.component.gv
 - project_secrets.component.gv
 - project_services.component.gv

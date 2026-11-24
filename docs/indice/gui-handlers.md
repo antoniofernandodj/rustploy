@@ -85,6 +85,20 @@ function M.set_draft(scope, row, field, value) — Um campo da linha mudou (tecl
 function M.reset(scope, key) — Desfaz o rascunho da linha (✕, ou depois de gravar).
 types: Draft
 
+### environments.luau — aba Ambientes do projeto (shell/project_environments.component.gv).
+local open_project_record()
+local release_label(number)
+local change_rows(changes)
+function M.load()
+function environment_name_change(value)
+function environment_create()
+function environment_open(project_id)
+function environment_open_origin()
+function environment_refresh()
+local promote(index_text, direction)
+function environment_promote_to_origin(index_text)
+function environment_bring_from_origin(index_text)
+
 ### history.luau — a pilha do "voltar" (Backspace, Alt+← e o botão "voltar" do mouse; o motor chama `on_back()`, em nav…
 local snapshot()
 local same(a, b)
@@ -204,6 +218,30 @@ function registry_retention_save() — Salva a política de retenção de tags (
 function registry_refresh_tokens() — ── Tokens de acesso (Basic auth) ──────────────────────────────────────── Lista não vem no snapshot …
 function registry_open_token_window() — Abre a janela separada de criação (segredo só aparece lá, uma vez — ver new_registry_token_window.gv…
 function registry_remove_token(name)
+
+### routes.luau — rotas próprias na tela Ingress (home/ingress.component.gv): lista, editor num painel e apagar.
+local service_name(service_id)
+local project_options()
+local service_options(project_id)
+local publish_rules() — Um campo de linha do `each` lê o valor de uma chave do ctx (não do item): cada linha ganha as suas (…
+local target_label(route)
+function M.load()
+local open_editor(route)
+function route_new()
+function route_edit(route_id)
+function route_editor_close()
+function route_form_project_change(value)
+function route_form_mode_forward()
+function route_form_mode_redirect()
+function route_rule_add()
+function route_rule_remove(index_text)
+local rule_at(index_text)
+function route_rule_path(index_text, value) — Durante a digitação só o estado local muda: republicar a lista a cada tecla recriaria os inputs e ti…
+function route_rule_service(index_text, value)
+function route_rule_port(index_text, value)
+function route_rule_strip(index_text, value)
+function route_save()
+function route_delete(route_id)
 
 ### secret_rows.luau — o NOME do secret editável no lugar, nas listas de secrets do projeto (shell/project_secrets.componen…
 local draft_id(scope, name)

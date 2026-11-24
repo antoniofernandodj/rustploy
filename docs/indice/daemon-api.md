@@ -278,13 +278,14 @@ fn service_warm_status_list(state) -> RpResponse — `Command::ServiceWarmStatus
 fn service_warm(state, service_id, force) -> RpResponse — `Command::ServiceWarm`: aquece um serviço sem fazer deploy dele (`maintenance::service_warm::request…
 
 ### docker_inventory.rs — Docker-wide inventory for the Docker tab: every image/volume/network on the host (not just rustploy-…
-struct ServiceIndex { by_safe_name, by_registry_image, by_network, by_service_id } — Best-effort project/service ownership lookup, built once per request from the current DB state.
+struct ServiceIndex { by_safe_name, by_registry_image, by_network, by_service_id, by_compose_project, by_named_volume, with_backup } — Best-effort project/service ownership lookup, built once per request from the current DB state.
 struct OrphanIndex { by_service_id, by_compose_project } — Serviços que **sumiram do estado por um commit externo** (marca `state_git_removed`), para apontar o…
 impl OrphanIndex
   fn build(state) -> Self
   fn lookup(labels) -> Option<String>
 impl ServiceIndex
   fn build(state) -> Self
+  fn volume_owner(name, labels) -> Option<String> — O serviço dono de um volume: pela etiqueta `rustploy.service_id`, pela stack Compose ou pelo nome qu…
   fn image_owner(tags) -> (Option<String>, Option<String>) — Resolves an image's owner from its tags: exact match for registry images, `rp_<safe_name>:...` prefi…
   fn network_project(name) -> Option<String> — Resolves a network's owning project from the stored network name.
 fn list_images(state) -> RpResponse — Lists every image on the host via `docker system df`, the one Docker Engine endpoint that always com…
@@ -404,6 +405,8 @@ fn handle(state) -> RpResponse
 ### ingress.rs — Leitura e conserto da tabela de rotas do ingress proxy.
 fn routes(state) -> RpResponse — Foto da tabela viva (domínios + portas).
 fn reconcile(state, service_id) -> RpResponse — Recalcula as rotas a partir dos containers que existem de fato no Docker e devolve a tabela já corri…
+fn route_save(state, route) -> RpResponse — `RouteSave`: grava e leva ao proxy na hora (sem redeploy).
+fn route_delete(state, route_id) -> RpResponse — `RouteDelete`.
 
 ### logs_executions.rs — `Command::LogsExecutions` e `Command::LogsExecutionDelete`: as execuções (um container = uma execuçã…
 fn service_and_store(state, service_id) — Serviço existente e com log persistido ligado, ou a resposta de erro pronta.
@@ -430,6 +433,12 @@ fn handle(state) -> RpResponse
 fn rollback(state) -> RpResponse — `Command::UpdateRollback`: o helper restaura os binários do último backup.
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/projects/
+
+### environments.rs — `Command::EnvironmentCreate`, `EnvironmentList`, `EnvironmentCompare` e `EnvironmentPromote`.
+fn create(state, project_id, name) -> RpResponse
+fn list(state, project_id) -> RpResponse
+fn compare(state, project_id) -> RpResponse
+fn promote(state, from_service_id, to_service_id) -> RpResponse — Promove a release no ar de um serviço para o irmão no outro ambiente: deploy da mesma imagem, sem bu…
 
 ### mod.rs — Handlers de projects: o `dispatch` recebe os `Command` da seção e chama o handler certo.
 fn dispatch(state, cmd) -> RpResponse

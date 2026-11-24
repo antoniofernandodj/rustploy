@@ -7,6 +7,19 @@
 
 ## rustploy-daemon/crates/daemon/src/features/
 
+### environments.rs — **Ambientes** (homologação, preview…): criar a partir de um projeto, comparar com a origem e promove…
+fn new_secret_copy(secret) -> SecretInfra
+struct CopyNotes { archives } — O que a cópia deixou de fora, para a pessoa saber (vai para o log e a resposta da tela).
+fn build_environment(origin, environment_name, taken_compose_project) -> (ProjectInfra, CopyNotes) — Monta o projeto-ambiente a partir do de origem (pura, sem disco nem banco: testável).
+fn archive_dir(db_path, service_id, archive_id) -> std::path::PathBuf — A pasta do zip extraído de um serviço (a mesma de `service_archive_upload::archive_extract_dir` e do…
+fn copy_dir(source, target) -> std::io::Result<()>
+fn create(db, db_path, project_id, name) -> Result<Project> — Cria o ambiente `name` a partir do projeto `project_id`.
+fn list(db, origin_project_id) -> Vec<EnvironmentSummary> — Os ambientes de um projeto de origem.
+fn compare(db, environment_project_id) -> Result<EnvironmentComparison> — Compara um ambiente com a origem, serviço a serviço.
+fn placeholder_spec() -> crate::domain::ServiceSpec — Um spec qualquer, só para comparar as variáveis do projeto pelo mesmo `diff_releases` quando a orige…
+fn are_siblings(db, first_service_id, second_service_id) -> bool — Os dois serviços são irmãos (um é a cópia do outro num ambiente)?
+(1 testes)
+
 ### mod.rs — Um diretório por assunto de produto; a camada `api` só adapta pedidos para estas funcionalidades.
 
 ### wizard.rs — Lógica do wizard "Novo serviço" (Application / Database / Broker / Storage / Compose /Template): cat…
@@ -403,6 +416,7 @@ fn logical_name(compose_project, volume) -> String — Nome lógico de um volume
 fn bind_name(container_path) -> String — Nome lógico de um bind: `bind:<destino no container>`.
 fn synthesize(svc, name) -> Option<Part> — Uma parte de **volume** que o pacote traz e o serviço ainda não tem (servidor recém-recuperado: o vo…
 fn resolve(docker, svc) -> Result<Vec<Part>> — As partes do serviço, em ordem estável (por nome lógico).
+fn named_volumes(svc) -> Result<Vec<String>> — Os **volumes nomeados** do serviço (os da stack Compose e os que o spec monta por nome), sem pastas …
 const SERVICE_LABEL — Etiqueta que o Rustploy põe nos volumes que ele mesmo cria: o **ID do serviço** dono do volume.
 fn list_project_volumes(project, service_id) -> Result<Vec<String>> — Os volumes da stack, **só por etiqueta** (nunca por semelhança de nome): os que o Compose etiquetou …
 fn mounted_by_stack(project) -> Result<Vec<String>> — Volumes nomeados montados pelos containers da stack (parados também: `ps -a`).

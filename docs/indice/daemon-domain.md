@@ -55,7 +55,7 @@ struct DeployEngineSummary { version, uptime_secs, active, recent, total_24h, su
 
 ### docker_inventory.rs
 struct DockerImageInfo { id, tags, size_bytes, created, containers, project, service } — One Docker image (from `docker system df`), independent of whether it's currently used by any servic…
-struct DockerVolumeInfo { name, driver, mountpoint, in_use, ref_count, size_bytes } — One Docker volume, independent of rustploy ownership (rustploy itself only ever bind-mounts host pat…
+struct DockerVolumeInfo { name, driver, mountpoint, in_use, ref_count, size_bytes, service_id, service, project, orphan_of, has_backup_policy } — One Docker volume, independent of rustploy ownership (rustploy itself only ever bind-mounts host pat…
 struct DockerContainerInfo { id, name, image, state, status, managed, project, service, removed_in_git }
 struct DockerNetworkInfo { id, name, driver, scope, in_use, container_count, project } — One Docker network.
 fn default_warm_after_cleanup() -> bool
@@ -74,6 +74,17 @@ fn resolve_env_vars(project, service) — Resolve as variáveis de ambiente para
 struct EnvVar { key, value }
 struct EnvComment { text, before_key } — Uma linha de comentário do editor `.env`, ancorada à var que a segue (por `key`, não por posição) — …
 enum EnvVarValue { Plain, Secret }
+
+### environment.rs — **Ambiente**: o mesmo projeto, outra instância (homologação, preview…).
+struct EnvironmentOf { origin_project_id, name, service_origins } — O vínculo de um projeto-ambiente com o projeto de onde ele foi copiado.
+struct EnvironmentServicePair { service_name, origin_service_id, environment_service_id, origin_release_number, environment_release_number, origin_release_id, environment_release_id, same_image, can_promote_to_origin, can_bring_from_origin, changes } — Um par de serviços irmãos na comparação de um ambiente com a origem.
+struct EnvironmentComparison { origin_project_id, origin_project_name, environment_project_id, environment_name, services, project_env_changes, only_in_origin, only_in_environment } — Resposta de `EnvironmentCompare`.
+struct EnvironmentSummary { project_id, project_name, name } — Um ambiente de um projeto, na lista da origem.
+fn environment_project_name(origin_name, environment_name) -> String — O nome do projeto-ambiente: `loja (homologação)`.
+fn is_valid_environment_name(name) -> bool — Nome de ambiente aceito: 1–40 caracteres, sem parênteses (que entram no nome do projeto) nem quebra …
+const ENVIRONMENT_FIELDS_IGNORED — Campos do spec que são diferentes por definição entre ambientes e não entram na comparação: domínios…
+fn environment_relevant(changes) -> Vec<ReleaseChange> — Filtra das mudanças de um diff de spec os campos que diferem por definição entre ambientes.
+(2 testes)
 
 ### git.rs
 enum GitProviderKind { Gitea, Github } — Which hosted Git service a provider connects to.
@@ -130,7 +141,7 @@ fn legacy_project_net_for(project_id) -> String — Nome de rede no formato **le
 (8 testes)
 
 ### project.rs
-struct Project { id, name, description, env_vars, env_comments, created_at }
+struct Project { id, name, description, env_vars, env_comments, environment, created_at }
 
 ### registry.rs
 struct RegistryRepoInfo { name, tag_count, size_bytes, created_at } — Um repositório do registry embutido, para a lista da sub-aba Registry.
@@ -145,7 +156,7 @@ impl Default for RegistryRetentionConfig
 
 ### release.rs — **Release**: o que rodou num deploy que chegou a Live — a imagem fixada e a configuração congelada d…
 const PROTECTED_RELEASES_PER_SERVICE — Quantas releases mais recentes de cada serviço têm a imagem protegida da limpeza do Docker.
-struct Release { id, service_id, deployment_id, number, image, image_ref, spec, project_env, restored_from_number, created_at, is_current, image_status }
+struct Release { id, service_id, deployment_id, number, image, image_ref, spec, project_env, restored_from_number, promoted_from, created_at, is_current, image_status }
 enum ReleaseImageStatus { Local, Pullable, Missing, NotApplicable } — Se a imagem de uma release ainda está disponível para um "voltar".
 struct ReleaseChange { scope, field, before, after } — Uma diferença entre duas configurações (duas releases, ou uma release e o que está declarado agora).
 struct ReleaseDiff { from_label, to_label, changes } — Resposta de `ReleaseDiff`: o que muda indo de `from` para `to`.
@@ -162,6 +173,20 @@ fn split_repository_tag(image) -> Option<(String, String)> — Separa `repo:tag`
 fn pick_image_ref(from_registry, image, image_id, repo_digests) -> Option<String> — A referência fixa de uma imagem, a partir da inspeção dela.
 fn image_ref_is_pullable(image_ref) -> bool — A referência é um digest de registry (`repo@sha256:…`), que dá para baixar de novo?
 (5 testes)
+
+### route.rs — **Rota**: o que o proxy faz com um domínio, fora do serviço.
+struct Route { id, project_id, domain, tls, action, basic_auth } — Uma rota, guardada no projeto (`ProjectInfra.routes`).
+enum RouteAction { Forward, Redirect }
+struct PathRule { path_prefix, service_id, port, strip_prefix }
+struct RouteBasicAuth { user, password }
+fn normalize_route_domain(domain) -> String — O host normalizado (minúsculas, sem espaço, sem ponto final).
+fn is_valid_route_domain(domain) -> bool — Host aceito: letras, dígitos, `-` e `.`, com pelo menos um ponto ou `localhost`/`.test`.
+fn prefix_matches(prefix, path) -> bool — O prefixo casa com o caminho? `/api` casa com `/api` e `/api/x`, não com `/apix`; `/` casa com tudo.
+fn match_rule(rules, path) -> Option<&'a PathRule> — A regra que atende o caminho: a de prefixo mais longo que casa.
+fn strip_path(prefix, path_and_query) -> String — O caminho que o serviço recebe com `strip_prefix` (sempre começa com `/`).
+fn redirect_location(to, path_and_query) -> String — O `Location` de um redirect: o destino sem a barra final + o caminho pedido.
+fn validate_route_shape(route) -> Result<(), String> — Valida a forma de uma rota (o que não depende do resto do estado).
+(3 testes)
 
 ### service.rs
 struct ServiceSpec { name, project_id, source, port, host_port, tcp_ports, domain, tls_enabled, env_vars, env_comments, volumes, healthcheck, replicas, resources, run_command, run_args, product, domains, pre_deploy_job_id, pre_deploy_job_ids, shared, depends_on, autostart, registry_auto_deploy, links }
@@ -254,7 +279,7 @@ enum StateGitResolveChoice { UseRemote, UseLocal } — Como resolver um históri
 enum SecretMoveOp { EnvToSecret, SecretToEnv, ServiceSecretToProject, ProjectSecretToService, EnvServiceToProject, EnvProjectToService, EnvJobToProject, JobSecretToProject } — As operações de [`Command::SecretMove`].
 enum SecretKind { Password, Hex, Base64Url } — O formato do valor que [`Command::SecretGenerate`] sorteia.
 enum SecretOnExists { Fail, Keep, Replace } — O que [`Command::SecretGenerate`] faz quando o secret já existe no escopo.
-enum Command { ProjectCreate, ProjectDelete, ProjectUpdate, ProjectList, ProjectServicesReorder, ProjectEnvSet, ServiceCreate, ServiceUpdate, ServiceDelete, ServiceList, ServiceGet, DeployStart, DeployWithDependencies, ProjectDeploy, DeployWithDependenciesPlan, ProjectDeployPlan, DeployAbort, DeployRollback, ReleaseList, ReleaseDiff, ReleaseRollback, DeployHistory, DeployDelete, ServiceStop, ServiceReload, RecentDeployments, GetBuildLogs, LogsGet, LogsHistory, LogsExecutions, LogsExecutionDelete, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, ServiceConnectionInfo, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, ManagedDatabaseList, ManagedDatabaseCreate, ManagedDatabaseDelete, ManagedDatabaseListAll, MigrationStart, MigrationGet, MigrationList, MigrationRollback, MigrationDiscard, GetWebhookUrl, RegenerateWebhookToken, GetDaemonSettings, SetDaemonSettings, SecretSet, SecretGenerate, SecretDelete, SecretList, SecretReveal, InfraAudit, InfraDownload, StateGitStatus, StateGitConfigure, StateGitSyncNow, StateGitResume, StateGitResolve, StateGitDismissRemoval, InfraAuditAllow, StopContainer, SecretMove, EnvKeyRename, EnvValueSet, SecretRename, ServiceExportPlan, ServiceExport, ServiceDataPlan, ServicePortSuggestions, BackupDestinationGet, BackupDestinationSet, BackupDestinationClear, BackupDestinationTest, ServiceBackupList, ServiceBackupNow, ServiceBackupRestore, ServiceBackupDelete, ServiceBackupPolicySet, ServerRecoverStart, ServerRecoverStatus, ServerRecoverRun, ServerRecoverCancel, RecoveryKeyStatus, RecoveryKeyGenerate, ServiceImport, JobCreate, JobUpdate, JobDelete, JobList, JobListAll, JobRunNow, JobRunCancel, JobRunHistory, GetJobLogs, JobWarmStatus, JobWarm, ServiceWarmStatusList, ServiceWarm, PruneContainers, PruneVolumes, PruneImages, PruneBuildCache, PruneNetworks, DockerCleanupConfigGet, DockerCleanupConfigSet, DockerCleanupRunNow, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, RemoveContainer, RemoveImage, RemoveVolume, RemoveNetwork, StopAllManaged, IngressRoutes, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DaemonStatus, DeployEngineStatus, CheckUpdate, ApplyUpdate, UpdateStatus, UpdateRollback, ApplyAppUpdate, GitProviderList, GitProviderCreate, GitProviderDelete, GitOAuthStart, GitRepoList, GitBranchList, WizardCatalog, WizardCreate, Snapshot, RegistryStatus, RegistryRepoList, RegistryTagList, RegistryTagDelete, RegistryRepoDelete, RegistryGc, RegistryRetentionSet, RegistryTokenCreate, RegistryTokenList, RegistryTokenRevoke, DeployQueuePromote, DeployQueueReorder, DeployQueuePause }
+enum Command { ProjectCreate, ProjectDelete, ProjectUpdate, ProjectList, ProjectServicesReorder, EnvironmentCreate, EnvironmentList, EnvironmentCompare, EnvironmentPromote, ProjectEnvSet, ServiceCreate, ServiceUpdate, ServiceDelete, ServiceList, ServiceGet, DeployStart, DeployWithDependencies, ProjectDeploy, DeployWithDependenciesPlan, ProjectDeployPlan, DeployAbort, DeployRollback, ReleaseList, ReleaseDiff, ReleaseRollback, DeployHistory, DeployDelete, ServiceStop, ServiceReload, RecentDeployments, GetBuildLogs, LogsGet, LogsHistory, LogsExecutions, LogsExecutionDelete, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, ServiceConnectionInfo, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, ManagedDatabaseList, ManagedDatabaseCreate, ManagedDatabaseDelete, ManagedDatabaseListAll, MigrationStart, MigrationGet, MigrationList, MigrationRollback, MigrationDiscard, GetWebhookUrl, RegenerateWebhookToken, GetDaemonSettings, SetDaemonSettings, SecretSet, SecretGenerate, SecretDelete, SecretList, SecretReveal, InfraAudit, InfraDownload, StateGitStatus, StateGitConfigure, StateGitSyncNow, StateGitResume, StateGitResolve, StateGitDismissRemoval, InfraAuditAllow, StopContainer, SecretMove, EnvKeyRename, EnvValueSet, SecretRename, ServiceExportPlan, ServiceExport, ServiceDataPlan, ServicePortSuggestions, BackupDestinationGet, BackupDestinationSet, BackupDestinationClear, BackupDestinationTest, ServiceBackupList, ServiceBackupNow, ServiceBackupRestore, ServiceBackupDelete, ServiceBackupPolicySet, ServerRecoverStart, ServerRecoverStatus, ServerRecoverRun, ServerRecoverCancel, RecoveryKeyStatus, RecoveryKeyGenerate, ServiceImport, JobCreate, JobUpdate, JobDelete, JobList, JobListAll, JobRunNow, JobRunCancel, JobRunHistory, GetJobLogs, JobWarmStatus, JobWarm, ServiceWarmStatusList, ServiceWarm, PruneContainers, PruneVolumes, PruneImages, PruneBuildCache, PruneNetworks, DockerCleanupConfigGet, DockerCleanupConfigSet, DockerCleanupRunNow, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, RemoveContainer, RemoveImage, RemoveVolume, RemoveNetwork, StopAllManaged, IngressRoutes, RouteList, RouteSave, RouteDelete, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DaemonStatus, DeployEngineStatus, CheckUpdate, ApplyUpdate, UpdateStatus, UpdateRollback, ApplyAppUpdate, GitProviderList, GitProviderCreate, GitProviderDelete, GitOAuthStart, GitRepoList, GitBranchList, WizardCatalog, WizardCreate, Snapshot, RegistryStatus, RegistryRepoList, RegistryTagList, RegistryTagDelete, RegistryRepoDelete, RegistryGc, RegistryRetentionSet, RegistryTokenCreate, RegistryTokenList, RegistryTokenRevoke, DeployQueuePromote, DeployQueueReorder, DeployQueuePause }
 fn backup_stop_default() -> bool
 fn null_as_empty(d) -> Result<String, D::Error> — `null` vira `""` num campo `String` cujo vazio já significa "nenhum".
 (17 testes)
@@ -274,6 +299,6 @@ struct BuildLogLine { stream, line, timestamp }
 ### mod.rs — Protocolo da API: `Command` (o que o cliente pede), `Response` e `Event` (o que o SSE entrega).
 
 ### response.rs — `Response`: a resposta a cada `Command`.
-enum Response { Ok, Project, Projects, Service, Services, Deployment, Deployments, Releases, ReleaseDiff, DeployBatch, Logs, LogsHistory, LogsExecutions, LogsExecutionsDeleted, BuildLogs, DeploymentSummaries, DaemonStatus, UpdateInfo, UpdateProgress, AppUpdated, DeployEngineStatus, Pong, WebhookUrl, SharedAccessList, Migration, Migrations, ManagedDatabases, ConnectionInfo, DaemonSettings, SecretNames, SecretGenerated, StateGit, InfraAudit, InfraFiles, SecretValue, ServiceExportPlan, ServiceBundleYaml, ServiceDataPlan, ServicePortSuggestions, BackupDestination, ServiceBackups, ServerRecover, ServiceImportReport, GitProviders, GitProviderInfo, OAuthUrl, GitRepos, GitBranches, PruneResult, DockerCleanupConfig, EnvBackupSnapshots, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, StopAllResult, IngressRoutes, WizardCatalog, Snapshot, Job, Jobs, JobSummaries, JobRun, JobRuns, JobLogs, JobWarmStatus, JobWarmRequested, ServiceWarmStatuses, ServiceWarmRequested, RegistryStatus, RegistryRepos, RegistryTags, RegistryGcResult, RegistryTokenCreated, RegistryTokens, RecoveryKey, RecoveryKeyGenerated, Err }
+enum Response { Ok, Project, Projects, Service, Services, Deployment, Deployments, Routes, Route, Environments, EnvironmentComparison, Releases, ReleaseDiff, DeployBatch, Logs, LogsHistory, LogsExecutions, LogsExecutionsDeleted, BuildLogs, DeploymentSummaries, DaemonStatus, UpdateInfo, UpdateProgress, AppUpdated, DeployEngineStatus, Pong, WebhookUrl, SharedAccessList, Migration, Migrations, ManagedDatabases, ConnectionInfo, DaemonSettings, SecretNames, SecretGenerated, StateGit, InfraAudit, InfraFiles, SecretValue, ServiceExportPlan, ServiceBundleYaml, ServiceDataPlan, ServicePortSuggestions, BackupDestination, ServiceBackups, ServerRecover, ServiceImportReport, GitProviders, GitProviderInfo, OAuthUrl, GitRepos, GitBranches, PruneResult, DockerCleanupConfig, EnvBackupSnapshots, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, StopAllResult, IngressRoutes, WizardCatalog, Snapshot, Job, Jobs, JobSummaries, JobRun, JobRuns, JobLogs, JobWarmStatus, JobWarmRequested, ServiceWarmStatuses, ServiceWarmRequested, RegistryStatus, RegistryRepos, RegistryTags, RegistryGcResult, RegistryTokenCreated, RegistryTokens, RecoveryKey, RecoveryKeyGenerated, Err }
 impl Response
   fn err(code, message) -> Self

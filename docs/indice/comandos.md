@@ -14,12 +14,26 @@ ProjectList | daemon: projects/project_list | gui: handlers/projects, handlers/s
 
 ## / que não é do projeto ou repetido é erro. Response: `Ok`.
 ProjectServicesReorder — Define a ordem de exibição dos serviços do projeto: `service_ids` na o… | daemon: projects/project_services_reorder | gui: services_reorder_window | web: app
+
+## / agendados nascem desligados. Nada é implantado. Resposta: `Project`.
+EnvironmentCreate — Cria um **ambiente** (homologação, preview…) a partir do projeto `proj… | daemon: projects/environments::create | gui: handlers/environments | web: screens/project_detail
+
+## / Os ambientes do projeto de origem `project_id`. Resposta: `Environments`.
+EnvironmentList — Os ambientes do projeto de origem `project_id`. | daemon: projects/environments::list | gui: handlers/environments | web: screens/project_detail
+
+## / `EnvironmentComparison`.
+EnvironmentCompare — Compara o ambiente `project_id` com a origem: serviço a serviço, a rel… | daemon: projects/environments::compare | gui: handlers/environments | web: screens/project_detail
+
+## / configuração do destino **não muda**. Resposta: `Deployment`.
+EnvironmentPromote — **Promove** a release no ar de `from_service_id` para o serviço irmão … | daemon: projects/environments::promote | gui: handlers/environments | web: screens/project_detail
 ProjectEnvSet | daemon: projects/project_env_set | gui: handlers/projects | web: app
 
 ## Services
 ServiceCreate | daemon: features/services/create | gui: — | web: app
 ServiceUpdate | daemon: features/services/update | gui: handlers/services | web: app, screens/service_detail
-ServiceDelete | daemon: features/services/delete | gui: handlers/projects | web: app
+
+## / com o nome do serviço de onde vieram.
+ServiceDelete — Apaga o serviço. | daemon: features/services/delete | gui: handlers/projects | web: app
 ServiceList | daemon: services/service_list | gui: handlers/services | web: —
 ServiceGet | daemon: services/service_get | gui: handlers/services | web: app, screens/service_detail
 
@@ -293,6 +307,15 @@ StopAllManaged — Stops every container labeled `rustploy.managed=true`, regard
 
 ## / 502: a rota existe? para qual `ip:porta` ela aponta?
 IngressRoutes — Lê a tabela de rotas do ingress (domínios + portas). | daemon: observability/ingress::routes | gui: — | web: —
+
+## / senha nunca volta (`basic_auth.password` vem `None`). Resposta: `Routes`.
+RouteList — As rotas próprias (domínio → caminhos de serviços, redirect, senha), d… | daemon: observability/RpResponse::Routes | gui: handlers/routes | web: screens/ingress
+
+## / Resposta: `Route`.
+RouteSave — Cria (`id` vazio) ou atualiza uma rota. | daemon: observability/ingress::route_save | gui: handlers/routes | web: screens/ingress
+
+## / Apaga uma rota (o domínio passa a responder 404). Resposta: `Ok`.
+RouteDelete — Apaga uma rota (o domínio passa a responder 404). | daemon: observability/ingress::route_delete | gui: handlers/routes | web: screens/ingress
 
 ## / É o mesmo caminho do reconcile de boot, exposto sob demanda.
 IngressReconcile — Recalcula as rotas a partir dos containers que realmente existem no Do… | daemon: observability/ingress::reconcile | gui: — | web: —

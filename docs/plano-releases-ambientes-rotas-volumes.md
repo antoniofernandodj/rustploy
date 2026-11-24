@@ -1,9 +1,10 @@
 # Plano: quatro abstrações novas — Release, Ambiente, Rota e Volume
 
-> **Status (2026-11-23):** **1. Release — Fase 1 publicada** (daemon 0.1.75, app 0.1.84, release
-> v0.1.91; o que foi verificado está no §1.9). 2, 3 e 4 **não começaram**. Ordem de entrega: 1 → 2 → 3 → 4,
-> uma por vez, com confirmação do dono entre uma e outra (pedido dele). Cada uma sai na sua própria versão
-> publicada. As decisões que tomei sem o dono estão marcadas com **[decisão minha]** e reunidas no §7.
+> **Status (2026-11-24):** as quatro abstrações implementadas. **1. Release** publicada na v0.1.91.
+> **2. Ambiente, 3. Rota e 4. Volume** (Fase 1 de cada) saem juntas na **v0.1.94** (daemon 0.1.78, app
+> 0.1.85): ver §2.7, §3.5 e §4.5. Juntas porque o código das três foi escrito na mesma árvore e um ciclo
+> só de testes e CI cobre tudo. As decisões que tomei sem o dono estão marcadas com **[decisão minha]**
+> e reunidas no §7.
 
 ## 0. Por que estas quatro, e por que nesta ordem
 
@@ -168,8 +169,13 @@ tudo o que o projeto já isola: rede própria, nomes de container próprios (`rp
 jobs. A alternativa (um nível novo dentro do projeto) mexeria nos nomes de container e de rede de
 todos os serviços existentes, que é exatamente o tipo de migração que derrubou coisa antes.
 
-- `Project.environment: Option<EnvironmentOf { origin_project_id, name }>` (ex.: `name = "homologação"`).
-- `ServiceSpec.origin_service_id: Option<String>`: o serviço "irmão" no projeto de origem.
+- `Project.environment: Option<EnvironmentOf { origin_project_id, name, service_origins }>` (ex.:
+  `name = "homologação"`).
+
+*Mudou na implementação:* o plano punha `origin_service_id` no `ServiceSpec`, mas o `ServiceSpec` é
+construído à mão em ~40 lugares (testes, wizard, importador) e o campo só faz sentido num ambiente.
+O irmão de cada serviço mora no próprio vínculo do projeto: `service_origins` (serviço do ambiente →
+serviço da origem). Um serviço criado depois, só num lado, simplesmente não tem irmão.
 
 ### 2.3 O que dá para fazer
 
@@ -193,7 +199,15 @@ todos os serviços existentes, que é exatamente o tipo de migração que derrub
 
 ### 2.5 Fases
 
-- **Fase 1:** campos novos, criar ambiente, comparar, promover, telas.
+- **Fase 1:** campos novos, criar ambiente, comparar, promover, telas. *Implementada:* comandos
+  `EnvironmentCreate`, `EnvironmentList`, `EnvironmentCompare` e `EnvironmentPromote` (o último nos dois
+  sentidos: "Promover para a origem" e "Trazer da origem"); aba **Ambientes** no projeto nos dois
+  clientes; selo "ambiente: X" e ambiente logo depois da origem na lista de projetos. A release
+  promovida grava `promoted_from` (coluna nova em `release`). **[decisão minha]** A cópia também deixa
+  de fora: política de backup, papel de servidor compartilhado e vínculos/dependências para fora do
+  projeto (são os bancos compartilhados da origem). Jobs agendados nascem desligados. Na comparação,
+  o id do zip enviado também é ignorado (cada lado tem o seu; a imagem é que conta), e os botões somem
+  quando os dois lados já rodam a mesma imagem.
 - **Depois:** **preview por PR** (ambiente efêmero criado pelo webhook, apagado quando o PR fecha),
   que precisa de domínio curinga (ACME DNS-01) — fica para um plano próprio.
 
@@ -202,6 +216,20 @@ todos os serviços existentes, que é exatamente o tipo de migração que derrub
 Campos novos com `#[serde(default)]` no YAML. Projetos existentes ficam como estão (sem ambiente).
 **Atenção:** uma versão anterior do daemon lê o YAML novo, mas ao regravar **perde** os campos que não
 conhece. Não volte de versão depois de criar ambientes.
+
+### 2.7 O que foi verificado (2026-11-24)
+
+- Teste unitário da cópia (ids novos, reapontar dependência/vínculo/pré-deploy/gatilho, o que fica de
+  fora, jobs agendados desligados, rede nova) e do filtro da comparação.
+- Ponta a ponta num daemon isolado com Podman: origem com zip v1 → criar ambiente → deploy no ambiente
+  a partir do **zip copiado** (serve "v1") → ambiente com v2 e MODE=b → comparar → promover para a
+  origem: sem build, origem serve "v2", com MODE=a e o domínio dela intactos, release "promovida de …
+  v2"; depois a comparação diz "mesma imagem"; promover entre serviços que não são irmãos é recusado.
+- GUI (Xvfb): selo na lista de projetos e a aba comparando. Webui (Chrome headless): selo, aba da
+  origem (lista e Criar) e do ambiente (comparação e botões).
+- **Não verificado:** criar o ambiente **pela tela da GUI** (o Xvfb não entrega teclado; o comando foi
+  verificado pela API e pela webui não); "Trazer da origem" na prática (é o mesmo comando no outro
+  sentido).
 
 ---
 
@@ -245,8 +273,33 @@ depois, quando as rotas tiverem rodado de verdade.
 
 ### 3.4 Fases
 
-- **Fase 1:** modelo, proxy com path/strip/redirect/basic auth, telas.
-- **Depois:** certificado próprio (upload), migrar `ServiceSpec.domains` para rotas.
+- **Fase 1:** modelo, proxy com path/strip/redirect/basic auth, telas. *Implementada:* `domain::Route`
+  em `ProjectInfra.routes` (senha `ENC[age:…]`); comandos `RouteList`, `RouteSave` (cria com `id`
+  vazio), `RouteDelete`; o proxy consulta as rotas antes dos domínios de serviço
+  (`router::decide_custom`); a tabela do proxy passou a guardar os IPs no ar de **todo** serviço (antes
+  só registrava os que tinham domínio), e é daí que a rota tira o destino na hora da requisição; boot
+  leva as rotas ao proxy depois do recover; `ServiceUpdate` recusa domínio que é de rota e `RouteSave`
+  recusa domínio que é de serviço. Telas: seção **Rotas próprias** e editor na tela Ingress (janela na
+  webui, painel na GUI). **[decisão minha]** Rota **sem TLS** é servida em HTTP (antes, todo HTTP ia
+  para HTTPS); os domínios de serviço continuam como eram. A aba Domínios do serviço **não** mostra as
+  rotas que chegam nele (ficou para depois).
+- **Depois:** certificado próprio (upload), migrar `ServiceSpec.domains` para rotas, rotas na aba
+  Domínios do serviço.
+
+### 3.5 O que foi verificado (2026-11-24)
+
+- Testes unitários: prefixo mais longo e fronteira (`/api` não casa `/apix`), tirar prefixo, Location do
+  redirect, validação da forma, e a decisão do proxy (encaminhar, redirect, senha, serviço fora do ar,
+  esquecer serviço, linhas na foto do Ingress).
+- Ponta a ponta no daemon isolado (HTTP em `127.0.0.1:18080`): a tabela do Ingress resolve o IP do
+  serviço no ar; caminho de serviço parado → 502; caminho que não casa → 404; redirect 301 com o caminho;
+  senha (401 sem, 401 errada, passa com a certa); a senha não volta e editar sem ela mantém a gravada;
+  domínio repetido e domínio de serviço recusados nos dois sentidos; depois de reiniciar o daemon a rota
+  continua; apagada, sai da tabela. GUI (Xvfb): lista, editor com os caminhos certos e salvar sem perder
+  nada; webui (Chrome headless): lista, editor e criar uma rota com senha.
+- **Não verificado:** o encaminhamento até o container de verdade (no Podman rootless desta máquina o
+  host não alcança o IP do container, então o 200 fica só no teste unitário) e o certificado de uma rota
+  com TLS.
 
 ---
 
@@ -283,7 +336,29 @@ Assim nada muda no formato do estado, e não há o que migrar.
 ### 4.4 Fases
 
 - **Fase 1:** visão calculada, `VolumeList`, `VolumeDelete`, opção no apagar serviço, telas.
+  *Implementada, com uma mudança:* em vez de uma tela e comandos novos, a abstração **enriquece o
+  inventário que já existia** (Runtime → Volumes, `DockerVolumes`, `RemoveVolume`): cada volume ganha o
+  **dono** (serviço e projeto, pela etiqueta `rustploy.service_id`, pela stack Compose ou pelo nome que
+  o spec monta), `orphan_of` e `has_backup_policy`; filtro **Só órfãos**. Ao apagar um serviço, uma
+  segunda pergunta: apagar os dados ou manter os volumes (`ServiceDelete.delete_volumes`). Mantidos,
+  eles ficam anotados na tabela `orphan_volume` com o serviço e o projeto de onde vieram, e é isso que
+  aparece em `orphan_of`. **[decisão minha]** Na migração de banco (que apaga o serviço antigo) os
+  volumes são mantidos. As etiquetas vêm da listagem de volumes, porque o `system df` do Podman não as
+  traz.
 - **Depois:** política de backup por volume, montar um volume órfão em outro serviço ("adotar").
+
+### 4.5 O que foi verificado (2026-11-24)
+
+- Teste unitário da tabela de órfãos.
+- Ponta a ponta com uma stack Compose com volume nomeado: o volume mostra o serviço e o projeto; apagar
+  o serviço mantendo os volumes → `orphan_of: "store… (rotas-…), 24/11/2026"`; `RemoveVolume` o apaga e
+  esquece; outro serviço apagado com `delete_volumes` leva o volume junto. GUI (Xvfb): coluna DONO e
+  filtro Só órfãos; webui: a mesma coisa.
+- **Achado e corrigido de passagem:** na GUI em inglês, o botão **Remover** de Volumes, Imagens e Redes
+  nunca aparecia: comparava o rótulo traduzido com `"SEM USO"`. Agora compara um campo não traduzido.
+- **Não verificado:** a pergunta de volumes ao apagar serviço clicada na GUI (a mesma chamada foi
+  verificada pela API); volume nomeado de serviço Application no Podman (ele trata o nome como pasta
+  relativa; no Docker é volume nomeado).
 
 ---
 
@@ -321,4 +396,10 @@ apagar), GUI no Xvfb com captura, webui no navegador. Depois o publish completo.
 5. Ambiente = projeto com vínculo de origem, não um nível novo dentro do projeto (§2.2).
 6. Promover leva só a imagem, não a configuração (§2.3).
 7. Rota pertence a um projeto; domínios dentro do serviço continuam valendo, sem migração (§3.2).
-8. Volume como visão calculada, sem registro no YAML nesta entrega (§4.2).
+8. Volume como visão calculada, sem registro no YAML nesta entrega (§4.2); na implementação, dentro do
+   inventário Runtime → Volumes que já existia, em vez de uma tela nova (§4.4).
+9. Cópia do ambiente deixa de fora também backup, servidor compartilhado e vínculos/dependências para
+   fora do projeto; ambiente não copia rotas (§2.5).
+10. Rota sem TLS servida em HTTP; domínios de serviço sem mudança (§3.4).
+11. Migração de banco mantém os volumes do serviço antigo (§4.4).
+12. Ambiente, Rota e Volume publicados juntos numa versão só (cabeçalho).

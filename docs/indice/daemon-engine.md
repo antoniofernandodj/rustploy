@@ -218,9 +218,14 @@ fn status_response(status) -> Response<ProxyBody>
 struct RouteEntry { domain, backends, cursor, service_id }
 impl RouteEntry
   fn next_backend() -> Option<String>
-struct RouteTable { routes }
+struct RouteTable { routes, custom, services }
 impl RouteTable
   fn get(domain) -> Option<&RouteEntry>
+  fn decide_custom(host, path_and_query, authorization) -> Option<CustomDecision> — O que fazer com uma requisição para um domínio de rota própria.
+struct ServiceBackends { ips, default_port } — Os IPs no ar de um serviço e a porta padrão dele.
+enum CustomAction { Forward, Redirect }
+struct CustomRoute { domain, tls, action, basic_auth, cursor } — Uma rota própria compilada para o proxy.
+enum CustomDecision { Unauthorized, Redirect, NotFound, Forward } — A decisão do proxy para uma requisição de rota própria.
 fn new_entry(table, domain, backends, service_id) -> RouteEntry — Entrada nova para `domain`, reaproveitando o cursor de round-robin da tabela atual para que a posiçã…
 type RouteHandle = Arc<ArcSwap<RouteTable>> — Shared handle to the live route table, readable lock-free from the proxy thread.
 struct PortBackends { addrs, cursor }
@@ -234,6 +239,8 @@ impl IngressController
   fn upsert_route(domain, backends, service_id)
   fn remove_route(domain)
   fn register_domains(spec, ips, service_id) — Registra as rotas de domínio de um serviço e poda as órfãs dele.
+  fn forget_service(service_id) — Esquece os IPs de um serviço (apagado ou sem container): as rotas próprias que apontam para ele pass…
+  fn set_custom_routes(routes) — Troca o conjunto inteiro de rotas próprias (cada gravação e o boot), mantendo o cursor de round-robi…
   fn remove_domains(spec) — Remove todas as rotas de domínio do serviço (parada/remoção/reconcile).
   fn _lookup(domain) -> Option<RouteEntry>
   fn snapshot() -> crate::domain::IngressSnapshot — Foto da tabela de rotas viva, para `Command::IngressRoutes`.
@@ -241,7 +248,16 @@ impl IngressController
   fn upsert_port_route(host_port, backends) — Aponta `host_port` para os `backends` fornecidos.
   fn remove_port_route(host_port) — Remove o roteamento de `host_port` (conexões novas são recusadas com reset).
 impl Default for IngressController
-(3 testes)
+(4 testes)
+
+### routes.rs — Rotas próprias (`domain::Route`): gravar no estado de infra, apagar, listar sem a senha e compilar p…
+fn without_password(route) -> Route — A rota como a tela recebe: a senha nunca sai do daemon.
+fn list(db) -> Vec<Route> — Todas as rotas, de todos os projetos, por domínio.
+fn save(db, secrets, route) -> Result<Route> — Cria (`id` vazio) ou atualiza uma rota.
+fn delete(db, route_id) -> Result<()>
+fn compile(db, secrets) -> Vec<CustomRoute> — As rotas do estado compiladas para o proxy.
+fn sync(db, secrets, ingress, tls) — Leva o estado das rotas para o proxy e pede o certificado das que têm TLS.
+fn domain_taken_by_route(db, domain) -> bool — Um domínio que o serviço quer usar já é de uma rota própria? (Para o `ServiceUpdate` recusar.)
 
 ### tls.rs — Certificados TLS: resolução por SNI, emissão e renovação ACME (Let's Encrypt) e os desafios HTTP-01.
 type ChallengeStore = Arc<Mutex<HashMap<String, String>>> — token → key_authorization: compartilhado com o handler HTTP para servir challenges.

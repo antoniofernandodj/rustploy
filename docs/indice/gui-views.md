@@ -160,6 +160,8 @@
 
 ### project_env.component.gv
 
+### project_environments.component.gv
+
 ### project_jobs.component.gv
 
 ### project_secrets.component.gv
