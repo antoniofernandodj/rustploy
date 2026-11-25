@@ -1119,7 +1119,14 @@ pelo `/api/rpc` aceito e a descrição mantida**, `ServiceDescriptionSet`, limit
 exportar, apagar some do YAML); GUI no Xvfb ligada a esse daemon (cartão com a primeira linha, painel na aba General,
 "nothing changed"). `make lint`/`make test`, `glacier test` (493).
 
+**Release:** assinada e publicada (5 arquivos + 4 `.minisig`), `sha256sum -c` e `minisign -V` conferidos pela URL
+pública; `install.sh` (daemon 0.1.83-1 e `gui` 0.1.90-1) num `debian:12` (via podman); `install.ps1` até o SHA-256
+(o `minisign.exe` não roda no Linux); docs pt/en no ar (páginas novas com 200 e o conteúdo novo).
+
 **Não verificado:** digitar no painel da GUI (Xvfb sem teclado; o caminho de gravar está nos testes Luau e no roteiro).
+**Não instalado nesta máquina:** o `ApplyUpdate` e o `ApplyAppUpdate` pelo MCP local foram recusados (`forbidden`,
+`[update] allow_agent_apply` desligado); a trava é do dono e ficou como está. O daemon local segue no 0.1.81 e o app
+no que estava: atualize por Settings → Atualizações.
 
 **Atualizar um servidor com dados:** seguro. Campo novo com `serde(default)` e `skip_serializing_if`: serviço sem
 descrição grava o YAML idêntico ao de antes; nada muda de nome; sem migração. Conferido pelo MCP (só leitura) em
