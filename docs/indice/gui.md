@@ -106,7 +106,7 @@ fn comments_outside(src) -> String — Remove os comentários (`//` e `/* … */
 ### locales.rs — Os catálogos de idioma (`locales/en.json` e `locales/pt-BR.json`) e as views que os usam.
 fn read_catalog(name) -> BTreeMap<String, String>
 fn gv_files(directory, out)
-fn keys_used_in_views() -> BTreeSet<String> — Toda chave de `{t('chave'…)}` escrita nas views.
+fn keys_used_in_views() -> BTreeSet<String> — Toda chave de `t("chave"…)` (glacier-ui 0.169) ou `{t('chave'…)}` escrita nas views.
 fn looks_semantic(key) -> bool
 (4 testes)
 

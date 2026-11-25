@@ -51,11 +51,13 @@
 - ci.yml
 - release.yml
 
+### .qwen/
+- settings.local.json
+
 ### .vscode/
 - settings.json
 
 ### docs/
-- comparacao-dokploy.md — Rustploy × Dokploy: quem tem o quê, e o que falta para alcançar
 - conectar-agente-mcp.md — Conectar um agente (Claude Code) ao MCP de um rustploy
 - estudo-seguranca-e-desempenho.md — Estudo: segurança, desempenho e economia de recursos (daemon, GUI e glacier-ui)
 - explicacao-chaves-de-segredos.md — As chaves do Rustploy, explicadas do zero (e repetidas de propósito)
@@ -65,7 +67,6 @@
 - licoes-aprendidas.md — Lições aprendidas — erros, causas e soluções
 - limites-dos-testes-luau.md — Limites dos testes Luau do rustploy-gui
 - plano-ajustes-da-recuperacao.md — Plano: ajustes da recuperação de servidor (achados no teste de 2026-11-13)
-- plano-capturas-en.md — Capturas em inglês para o site en (levantamento)
 - plano-convergencia-templates-gui-webui.md — Plano: convergência dos templates (GUI iced ↔ web UI)
 - plano-evolucao-do-backend-grafico.md — Plano (preliminar): tirar o glacier-ui de dentro do iced, sem reescrever o que é…
 - plano-geracao-e-rotacao-de-segredos.md — Geração e rotação de segredos (senha de banco, broker, storage, token JWT, par V…

@@ -225,6 +225,10 @@ a mais. Não se faz à mão por botão:
   `scripts/busy_actions.luau` (mantida por `tools/busy_actions.py --check`) e
   mantém `ctx.busy_<ação>`; o template liga `disabled = @busy_<ação>` no botão.
   Ação nova em `on_click`/`on_submit` → adicionar à lista e o `disabled`.
+  O glacier-ui 0.169 tem `app(busy_buttons = true)`, que faz isso sozinho, mas libera o
+  botão quando o handler **termina**, não no primeiro toast. Trocar exige decidir se o
+  botão pode ficar travado durante as releituras depois da resposta; até lá, o mecanismo
+  daqui fica (`busy_buttons` desligado).
 
 ### glacier-ui: nunca `path`, nunca `[patch]`
 
@@ -279,7 +283,7 @@ Desde o glacier-ui **0.59**, cada janela declara o que ela é no cabeçalho do
 próprio template — não procure isso no `main.rs`/`app/mod.rs`:
 
 ```gv
-screen(title = "{t('new_job_window.new_job_rustploy')}") {
+screen(title = t("new_job_window.new_job_rustploy")) {
   resources {
     link(rel = import, href = "components/picker_row.component.gv", as = PickerRow)
     style """ … """
@@ -369,10 +373,10 @@ A GUI e a webui falam **inglês** e **pt-BR**; o inglês é o padrão, o seletor
 `localStorage` na webui). **Texto novo de interface entra nos dois idiomas, nos dois clientes** —
 um texto sem entrada não quebra nada (aparece como foi escrito), mas é divergência silenciosa.
 
-- **GUI, markup (`.gv`):** nunca texto solto: `text("{t('docker_images.no_images')}")`, com
-  aspas simples por dentro. A chave é semântica (`<tela>.<texto_em_inglês>`, ou `common.` se vale
+- **GUI, markup (`.gv`):** nunca texto solto: `text(t("docker_images.no_images"))` (glacier-ui
+  ≥ 0.169; num texto composto, `"… {t('chave')}"`, com aspas simples por dentro). A chave é semântica (`<tela>.<texto_em_inglês>`, ou `common.` se vale
   para mais de uma tela) e vive em `rustploy-gui/locales/en.json` **e** `pt-BR.json`. Valores
-  entram como argumentos: `{t('shell.projects', projects_count=projects_count)}` com
+  entram como argumentos: `t("shell.projects", projects_count = projects_count)` com
   `"Projects ({projects_count})"` no catálogo. O `tests/locales.rs` falha se uma chave usada
   não existe nos dois idiomas ou se sobra chave sem uso.
 - **GUI, Luau:** `i18n.tr("texto")` — o **próprio texto** é a chave do catálogo (gettext) e,
@@ -504,17 +508,19 @@ precisa de explicação, acrescente-a ao README (citando `arquivo.rs::item` ou
 
 A sintaxe é a de blocos do glacier-ui: `tag(atributo = valor) { filhos }`, nos
 arquivos `app.gv`, `*.screen.gv` e `*.component.gv` (não existe mais `.gvb` nem
-markup em XML). A melhoria das duas linguagens está planejada em
-`glacier-ui/docs/PLANO_LINGUAGEM_GV_GSS.md`; quando uma armadilha abaixo for
-resolvida numa versão publicada, ela sai daqui.
+markup em XML). Desde o glacier-ui **0.169** a gramática das duas linguagens está
+em `glacier-ui/docs/LINGUAGEM.md` (expressões, duas formas por conceito, GSS com
+aninhamento e `@theme`); o porquê de cada decisão, em
+`glacier-ui/docs/PLANO_LINGUAGEM_GV_GSS.md`.
 
 - **Classes seguem BEM** (`bloco`, `bloco__elemento`, `bloco--modificador`, `u-*`
   para utilitário de uma propriedade). A convenção completa, e onde um seletor
   composto simplifica, está no cabeçalho de `rustploy-gui/views/styles/app.gss`.
   O modificador vai **junto** do base no markup (`class = "btn btn--danger"`).
-  Desde o glacier-ui 0.122 o `.gss` aceita `.a > .b` (filho direto), `.a .b`
-  (descendente), `row.a` e `.a.b`; `+`, `~`, `[attr]`, `::x`, `:not()` e `:estado`
-  num ancestral são **erro de parse**. Uso real: `.nav-item--active > .nav-item__icon`
+  O `.gss` aceita `.a > .b` (filho direto), `.a .b` (descendente), `row.a`, `.a.b`
+  e, desde a 0.169, `:not(…)`, `:is(…)`, `:first-child`/`:last-child`/`:nth-child`
+  e aninhamento com `&`; `+`, `~`, `[attr]`, `::x` e `:estado` num ancestral são
+  **erro de parse**, com o motivo. Uso real: `.nav-item--active > .nav-item__icon`
   (`nav_item.component.gv`) e `.state-cell--ok > text` (`state_cell.component.gv`); o teste
   `nav_item_aceso_recolore_os_filhos_por_combinador` guarda o efeito.
 - **Vírgula de seletor funciona** (`.a, .b { }`, inclusive dentro de `@media`, e
@@ -524,25 +530,23 @@ resolvida numa versão publicada, ela sai daqui.
 - **Tag dentro de comentário não quebra mais o parser** (`// <column>`, ou
   `/* <text> */` dentro de `style """…"""`), e um erro depois dela aponta a linha
   certa. Também travado por `tests/linguagem_fase0.rs`.
-- **Condicional e laço.** Em bloco: `if @x == "y" { … } else if … { … } else { … }`
-  e `each @lista as v (fallback = Vazio) { … }`, que envolvem vários filhos sem
-  criar caixa. Num nó só: o atributo `if = @x` (com `equals`/`not_equals`/`one_of`)
-  condiciona **só aquele nó**, e `:for_each = lista, var = v` repete aquele nó.
-  As formas XML antigas (`<template if=>`, `<if>`, `<foreach>`) não existem mais.
-- **Armadilhas de condição que falham calado** (até o plano do glacier resolver):
-  `is empty` / `empty` só entendem **lista** JSON (um texto conta como vazio, então
-  para texto use `!= ""`); `one_of` separa por **espaço**, não por vírgula.
-- **`column`/`row` sem `width` encolhe até os filhos; filho `fill` dentro dele
-  fica com largura zero.** O bloco some sem erro e **com a altura reservada**
-  (um buraco vazio na tela). Acontece quando todos os filhos são `fill`: o
-  builtin `field` (`width = "{width|fill}"`), `.env__add`, `.kv-list__row`,
-  `.info-row`... Basta um `text` solto dentro para o bloco "voltar", espremido
-  na largura do texto, e por isso o defeito vai e volta com o estado.
-  **Regra:** container que agrupa controles leva `width = fill`. O `glacier test`
-  não pega isso (avalia a árvore, não desenha); só a tela pega. Caso real: o
-  formulário de backup automático da aba Dados (2026-11-19). O comentário
-  "sem coluna condicional por fora" em `recoverykey.component.gv` é o mesmo
-  defeito, contornado antes de ter sido entendido.
+- **Condicional e laço: a condição é uma expressão, e cada conceito tem duas
+  formas.** Em bloco: `if @x == "y" && !@z { … } else if … { … } else { … }` e
+  `each @lista as v (fallback = Vazio) { … }`, que envolvem vários filhos sem criar
+  caixa. Num nó só: `if = expr` condiciona **só aquele nó**, `text("B", else)` é o
+  senão **do irmão imediatamente anterior** (fora dessa posição é erro de parse), e
+  `each = @lista as v` repete aquele nó. `class:nome = expr` liga uma classe, e
+  `on_click = acao(@id, true)` passa argumentos. As formas antigas
+  (`equals =`/`not_equals =`/`one_of =`, `template(if)`, `:for_each`, `"acao:{x}"`,
+  `"{t('k')}"`) foram migradas pelo `glacier fmt --migrate` e não devem voltar: o
+  `glacier check` (na pasta `views/`) acusa as que aparecerem.
+- **Verdade:** todo texto não vazio é verdadeiro, exceto `false`, `0`, `no`/`não`,
+  `off`, `null`, `[]` e `{}`. `is empty` cobre ausente, `""`, `null`, `[]` e `{}`.
+  `in` aceita lista literal, array JSON ou texto separado por vírgula/espaço.
+- **`fill` num container sem `width`** enche desde a 0.169 (antes o bloco sumia
+  deixando um buraco do tamanho da altura). Continua valendo para um ancestral com
+  `shrink` **declarado** e para `height = fill` dentro de `scrollable`. O
+  `glacier test --layout` mede o layout sem janela e acusa nó com área zero.
 
 ### Tipografia: sans na interface, mono só no que é código (os dois clientes)
 
@@ -573,11 +577,10 @@ lê o estado global (`@view`, `@svc_*`…) como o resto. Foi assim que o
 `home.component.gv` de 1900 para ~80, sem mudar o comportamento. Os `component(name = SemX)`
 de estado vazio (`fallback`) vão para o arquivo que os usa. O que aprendemos fazendo:
 
-- **A condição vai na CHAMADA, nunca na raiz do arquivo extraído.** Um
-  `column(if = @tab, equals = logs)` na raiz do `component` **não é aplicado** —
-  o painel aparece em todas as abas, sem erro nenhum. Deixe a raiz sem `if` e
-  escreva `ServiceLogsTab(if = @tab, equals = logs)` no ponto de uso (o atributo
-  `if` na chamada funciona e preserva a estrutura da árvore). Se o ramo original
+- **A condição vai na CHAMADA** (`ServiceLogsTab(if = @tab == "logs")`): quem lê a
+  tela vê de onde cada aba depende. Até o glacier-ui 0.168 isso era obrigatório — um
+  `if` na raiz do `component` **não era aplicado** e o painel aparecia em todas as
+  abas, sem erro; desde a 0.169 ele vale, mas a convenção fica. Se o ramo original
   era um `if @x == "y" { … }` com vários filhos, extraia o **corpo** do bloco:
   o `component` aceita várias raízes.
 - **O `href` do `link(rel = import)` é relativo ao arquivo que importa**, não à

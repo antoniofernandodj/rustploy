@@ -19,7 +19,8 @@ BUILTIN = {"window", "app", "tray", "notifications", "clipboard", "open", "texta
 def actions():
     out = set()
     for f in glob.glob(os.path.join(ROOT, "**", "*.gv"), recursive=True):
-        for m in re.finditer(r'\b(on_click|on_submit)\s*=\s*"?([^\s,)"]+)', open(f).read()):
+        # `acao`, `"acao:arg"` (forma antiga) ou `acao(@arg)` (glacier-ui 0.169).
+        for m in re.finditer(r'\b(on_click|on_submit)\s*=\s*"?([^\s,()"]+)', open(f).read()):
             name = m.group(2).split(":")[0]
             if name.startswith("@") or name in BUILTIN or name in IGNORED:
                 continue
