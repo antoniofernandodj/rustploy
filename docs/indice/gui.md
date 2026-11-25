@@ -496,6 +496,16 @@ function test_service_backup__linha_da_ultima_operacao() — - a última operaç
 function test_service_backup__formulario_da_politica_ida_e_volta() — - o formulário da política ida e volta: semanal, a cada N horas, diário e - "nunca configurada" (UTC…
 function test_service_backup__salvar_politica_sem_conexao_e_inerte() — - sem sessão, salvar a política não faz nada
 
+### service_description.test.luau — Painel "Descrição" da aba General (handlers/service_description.luau): grava só com ServiceDescripti…
+local nova()
+local com_api(tela)
+local carrega(tela, texto)
+local enviados(tela)
+function test_descricao__carrega_o_texto_gravado() — - carregar põe o texto gravado no editor
+function test_descricao__salvar_manda_so_a_descricao() — - salvar manda só a descrição, aparada; sem mudança não manda nada
+function test_descricao__apagar_pede_confirmacao() — - apagar tudo pede confirmação; recusada, nada é gravado
+function test_descricao__fetch_nao_atropela_rascunho() — - um fetch do mesmo serviço não atropela o que está sendo digitado; outro - serviço troca; cancelar …
+
 ### state_git_clear.test.luau — Settings → Sincronização → "Limpar configuração" (`state_git_clear`) e o projeto editado no lugar (`…
 local nova()
 local com_api(tela)

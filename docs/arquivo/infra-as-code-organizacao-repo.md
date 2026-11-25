@@ -68,9 +68,9 @@ infra/
 
 Regras de ouro para esse repo:
 
-- **Segredos de verdade** → `secret:NOME` no YAML, cadastrados via TUI/`SecretSet`. O valor **nunca** entra no Git. Veja [secrets.md](secrets.md).
+- **Segredos de verdade** → `secret:NOME` no YAML, cadastrados via TUI/`SecretSet`. O valor **nunca** entra no Git. Veja [secrets.md](../secrets.md).
 - **Config sensível-mas-não-secreta** → `${VAR}` no YAML + `.env` local **não-versionado** (no `.gitignore`).
-- **Deploy de código** continua vindo dos **webhooks** (push → rebuild). Veja [webhooks.md](webhooks.md).
+- **Deploy de código** continua vindo dos **webhooks** (push → rebuild). Veja [webhooks.md](../webhooks.md).
 - **`apply`** você roda quando muda a *forma* do serviço: porta, domínio, env, novo serviço, remoção de serviço.
 
 ### Quando migrar para o modelo "per-app + submodules"

@@ -26,7 +26,7 @@ TUI que o usava.
 O rustployd tem um registry Docker OCI (Distribution API v2) implementado
 **dentro do próprio processo** (não é um container `registry:2` orquestrado
 — é código Rust em `crates/daemon/src/registry/`). Documentação de
-referência completa: `docs/plano-registry-embutido.md` (plano original,
+referência completa: `docs/arquivo/plano-registry-embutido.md` (plano original,
 com notas datadas de cada fase concluída) e
 `docs/2026-07-13-remocao-tui-e-registry-fase2.md` (resumo legível da Fase 2 +
 da remoção do TUI, que aconteceu na mesma sessão).
@@ -453,7 +453,7 @@ Mudanças:
 | `crates/daemon/src/api/handlers/deploy_start.rs` | novo campo no literal |
 | `crates/daemon/src/watchdog.rs` | novo campo no literal |
 | `crates/daemon/src/main.rs` | bootstrap do token ANTES de `recover(...)`, thread em `AppState::new(...)` |
-| `docs/plano-registry-embutido.md` | nota datada marcando Fase 3 concluída (mesmo padrão das notas de Fase 1/2 já no topo do arquivo) |
+| `docs/arquivo/plano-registry-embutido.md` | nota datada marcando Fase 3 concluída (mesmo padrão das notas de Fase 1/2 já no topo do arquivo) |
 
 ## 6. Ordem de implementação sugerida
 
@@ -469,7 +469,7 @@ Mudanças:
    `main.rs` → `cargo check --workspace` (deve compilar limpo depois deste
    passo — é aqui que qualquer campo faltando em algum literal vai aparecer
    como erro do compilador, apontando exatamente onde).
-7. Nota datada em `docs/plano-registry-embutido.md` (mesmo estilo das notas
+7. Nota datada em `docs/arquivo/plano-registry-embutido.md` (mesmo estilo das notas
    já existentes no topo do arquivo, começando com `> **Fase 3 (...) implementada em <data>**`).
 
 ## 7. Verificação (não considerar pronto sem isso)

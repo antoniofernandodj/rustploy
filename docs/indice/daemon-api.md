@@ -57,7 +57,7 @@ fn config_file_in_use() -> Option<std::path::PathBuf> — O mesmo arquivo que `R
 fn with_connection_token(contents, api_token, key) -> Option<String> — O texto do `config.toml` com a linha do token de conexão no lugar (logo abaixo do `token` de `[api]`…
 (12 testes)
 
-### policy.rs — Níveis da chave de **visitante** (docs/plano-limites-do-agente-mcp.md, itens 0 e D).
+### policy.rs — Níveis da chave de **visitante** (docs/arquivo/plano-limites-do-agente-mcp.md, itens 0 e D).
 enum Level { Observer, Operator, Admin }
 impl Level
   fn parse(s) -> Option<Self>
@@ -117,11 +117,12 @@ fn compact_deployment(dep) -> Value — `Deployment` → o que interessa a quem 
 fn outcome_ok(estado) -> Value — `true` = no ar, `false` = falhou, `null` = ainda não decidiu.
 fn is_terminal(dep) -> bool
 fn failure_reason(dep) -> Value — A causa da falha, tirada do `states_log`.
-fn service_index(snapshot) -> Vec<Value> — Achata o snapshot no índice de serviços que um agente precisa para agir.
+const DESCRIPTION_SUMMARY_CHARS — Achata o snapshot no índice de serviços que um agente precisa para agir.
+fn service_index(snapshot) -> Vec<Value>
 fn status_label(status) -> Value — `ServiceStatus` é externally-tagged e só `Error` tem campo — vira `"Running"` ou `"Error: <causa>"`.
 fn source_label(source) -> Value — `ServiceSource` achatado no que identifica a origem, sem arrastar o `compose.content` inteiro (dezen…
 const TOOLS
-(7 testes)
+(8 testes)
 
 ## rustploy-daemon/crates/daemon/src/api/handlers/
 
@@ -370,7 +371,7 @@ fn handle(state, project_id) -> RpResponse
 fn handle(state) -> RpResponse
 
 ### job_run_cancel.rs — `Command::JobRunCancel`: sinaliza o cancelamento de uma execução de job em andamento.
-fn handle(state, job_run_id) -> RpResponse — Sinaliza cancelamento pro `job_run` em `state.active_jobs` (ver `docs/plano-cancelamento-de-jobs.md`…
+fn handle(state, job_run_id) -> RpResponse — Sinaliza cancelamento pro `job_run` em `state.active_jobs` (ver `docs/arquivo/plano-cancelamento-de-…
 fn abort_item(state, id) -> Option<RpResponse> — `DeployAbort` com o id de um item que não é deploy (o "✕"/"■" da fila e de "Executando" manda o mesm…
 
 ### job_run_history.rs — `Command::JobRunHistory`: últimas execuções de um job.
@@ -629,7 +630,7 @@ fn accepts_gzip(req) -> bool — O cliente aceita gzip? (`Accept-Encoding` cont�
 fn json_response(bytes, accept_gzip) -> Response<ApiBody> — Resposta JSON, comprimida com gzip quando o cliente aceita e o corpo passa de [`GZIP_MIN`].
 fn gzip(data) -> std::io::Result<Vec<u8>> — Comprime `data` em gzip (flate2, mesmo crate do tar do build Docker).
 fn constant_time_eq(a, b) -> bool — Short-circuits on length mismatch but is otherwise constant-time over the compared bytes.
-(19 testes)
+(20 testes)
 
 ### public_routes.rs — Rotas HTTP **públicas** (sem Bearer): o webhook de deploy e o callback OAuth do Gitea.
 fn webhook(req, state) -> Response<Full<Bytes>> — `POST /webhook/{service_id}/{token}` — valida o token e dispara um deploy, a menos que o serviço sej…
@@ -682,7 +683,7 @@ fn seed_connected(page) — Semeia a sessão (bypassa login/SSE, mesma ideia de 
 fn eval_str(page, js) -> String — Avalia `js` (uma expressão, possivelmente uma Promise) e devolve o resultado como `String` — os test…
 fn visible(page, selector) -> bool — `true` se o elemento existir e estiver de fato visível (`x-show` escreve `display:none` inline; `off…
 fn errors(page) -> Vec<String>
-(28 testes)
+(29 testes)
 
 ### mod.rs — Servidor de estáticos da web UI/PWA (`crates/daemon/webui/`) — alternativa ao client iced (`rustploy…
 type ApiBody = BoxBody<Bytes, std::convert::Infallible>

@@ -1,7 +1,7 @@
 # Plano: ajustes da recuperação de servidor (achados no teste de 2026-11-13)
 
 > **Estado (2026-11-13): proposta.** A parte "Já corrigido" foi publicada junto da release das portas TCP.
-> O resto espera aprovação do dono. Continuação de `docs/plano-backup-de-dados-para-s3.md` (Fase 4, a tela
+> O resto espera aprovação do dono. Continuação de `docs/arquivo/plano-backup-de-dados-para-s3.md` (Fase 4, a tela
 > Recuperar).
 
 ## De onde vem

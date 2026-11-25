@@ -7,7 +7,7 @@
 //! *estrutura* muda (símbolo criado, renomeado ou apagado).
 //!
 //! A saída é determinística (caminhos em ordem, itens na ordem de declaração)
-//! para não gerar diff sem mudança real. Plano: `docs/plano-indice-de-codigo.md`.
+//! para não gerar diff sem mudança real. Plano: `docs/arquivo/plano-indice-de-codigo.md`.
 
 mod commands;
 mod script;

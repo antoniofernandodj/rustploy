@@ -35,6 +35,9 @@ ProjectEnvSet | daemon: projects/project_env_set | gui: handlers/projects | web:
 ServiceCreate | daemon: features/services/create | gui: — | web: app
 ServiceUpdate | daemon: features/services/update | gui: handlers/services | web: app, screens/service_detail
 
+## / redeploy). Os agentes leem a descrição no `list_services`. Resposta: `Service`.
+ServiceDescriptionSet — Grava só a **descrição** do serviço (texto livre: para que serve, o qu… | daemon: features/services/description/set | gui: handlers/service_description | web: screens/service_detail
+
 ## / com o nome do serviço de onde vieram.
 ServiceDelete — Apaga o serviço. | daemon: features/services/delete | gui: handlers/projects | web: app
 
@@ -241,10 +244,10 @@ ServerRecoverRun — Recuperação (passo 2): restaura os dados e sobe cada serv
 ## / Resposta: `ServerRecover`.
 ServerRecoverCancel — Desiste: esquece a chave de recuperação da memória. | daemon: data_backup/server_recover::cancel | gui: handlers/recover | web: app
 
-## / Plano: `docs/plano-chave-de-recuperacao.md`.
+## / Plano: `docs/arquivo/plano-chave-de-recuperacao.md`.
 RecoveryKeyStatus — A chave **pública** de recuperação deste servidor (`[secrets] recovery… | daemon: data_backup/recovery_key_status | gui: handlers/recovery_key | web: app
 
-## / Plano: `docs/plano-arquivo-de-recuperacao.md`.
+## / Plano: `docs/arquivo/plano-arquivo-de-recuperacao.md`.
 RecoveryKeyGenerate — **Gera** a chave de recuperação: grava só a pública no `config.toml` e… | daemon: data_backup/recovery_key_generate | gui: handlers/recovery_key | web: app
 
 ## / `dry_run` só devolve o relatório. Resposta: `ServiceImportReport`.

@@ -221,7 +221,7 @@ Chave mestra e chave de visitante, com níveis. Só o daemon muda (**0.1.40**); 
   O token de um **secret** usado em `credentials` continua sem host associado.
 
 ### Planejado, não feito
-- `docs/plano-exportar-importar-dados-de-servico.md`: exportar e importar os **dados** de um serviço (dump lógico para banco, tar para volume, sempre por
+- `docs/arquivo/plano-exportar-importar-dados-de-servico.md`: exportar e importar os **dados** de um serviço (dump lógico para banco, tar para volume, sempre por
   `service_id`); aguarda a revisão do dono.
 
 ### Publicação
@@ -247,7 +247,7 @@ Só o daemon muda (**0.1.39**); o app (0.1.44) e o `rustploy-shared` (0.20.0) fi
   `LogsSubscribe`/`Unsubscribe`, `MetricsSubscribe`/`Unsubscribe`) ficavam de fora sem ninguém ver.
 
 ### Planejado, não feito
-- `docs/plano-limites-do-agente-mcp.md`: as restrições do agente valem só no `/mcp`; o `/api/rpc` com o mesmo token as ignora (feito na `v0.1.48`).
+- `docs/arquivo/plano-limites-do-agente-mcp.md`: as restrições do agente valem só no `/mcp`; o `/api/rpc` com o mesmo token as ignora (feito na `v0.1.48`).
 
 ### Publicação
 - `rustploy` 0.1.39 no crates.io; release assinada.

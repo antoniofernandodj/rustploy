@@ -118,7 +118,7 @@ fn test(db, secrets, draft) -> Result<()> — **Testar conexão**: grava, lê e 
 
 ### mod.rs — Backup dos **dados** dos serviços (volumes e bancos) para um S3.
 
-### policy.rs — A política de backup automático de cada serviço e a conta de "está na hora?" (`docs/plano-backup-de-…
+### policy.rs — A política de backup automático de cada serviço e a conta de "está na hora?" (`docs/arquivo/plano-ba…
 fn get(db, service_id) -> Option<BackupInfra> — A política gravada do serviço e desde quando vale.
 fn enabled(db) -> Vec<(String, BackupInfra)> — Todos os serviços com política **ligada**.
 fn set(db, service_id, policy, destination_ok, recovery_ok) -> Result<()> — Grava (ou, com `None`, apaga) a política.
@@ -126,7 +126,7 @@ fn next_run(b, last_start) -> DateTime<Utc> — O próximo disparo: um período 
 fn is_due(b, last_start, now) -> bool — Está na hora? Perder vários horários (daemon desligado) dispara **uma** vez só.
 (4 testes)
 
-### recover.rs — **Recuperar este servidor** (`docs/plano-backup-de-dados-para-s3.md`, Fase 4): num servidor limpo, t…
+### recover.rs — **Recuperar este servidor** (`docs/arquivo/plano-backup-de-dados-para-s3.md`, Fase 4): num servidor …
 const IDLE_TTL — Parado em "pronto" por mais que isto, a chave sai da memória.
 fn cell() -> &'static Mutex<ServerRecoverInfo>
 fn status() -> ServerRecoverInfo
@@ -174,11 +174,11 @@ impl RecoveryKit
 const TAG_INFRA_REMOTE, TAG_INFRA_BRANCH, TAG_INFRA_TOKEN, TAG_PRIVATE_KEY, TAG_PUBLIC_KEY, TAG_SERVER, TAG_CREATED_AT
 (9 testes)
 
-### scheduler.rs — O agendador dos backups automáticos (`docs/plano-backup-de-dados-para-s3.md`, Fase 3): a cada minuto…
+### scheduler.rs — O agendador dos backups automáticos (`docs/arquivo/plano-backup-de-dados-para-s3.md`, Fase 3): a cad…
 fn scheduler_loop(ctx)
 const TICK_SECS
 
-### service_backup.rs — Backup dos dados de **um serviço** para o S3 e a restauração a partir dele (`docs/plano-backup-de-da…
+### service_backup.rs — Backup dos dados de **um serviço** para o S3 e a restauração a partir dele (`docs/arquivo/plano-back…
 const STALE_RUNNING_HOURS — Uma operação "em andamento" há mais que isto é lixo de um daemon que caiu no meio: a tela a mostra c…
 fn service_prefix(dest_prefix, project_id, service_id) -> String — A "pasta" do serviço no bucket, sempre terminada em `/`.
 fn new_key(prefix) -> String
@@ -269,7 +269,7 @@ impl IacContext
   fn public_base_url() -> String — URL pública do daemon, sem barra final (base do webhook de cada serviço).
 
 ### manifest.rs — Infra-as-Code: structs do manifesto declarativo (`rustploy.yml`).
-struct ServiceManifest { name, source, port, host_port, tcp_ports, domain, tls, domains, env, env_comments, volumes, healthcheck, replicas, resources, command, args, product, shared }
+struct ServiceManifest { name, description, source, port, host_port, tcp_ports, domain, tls, domains, env, env_comments, volumes, healthcheck, replicas, resources, command, args, product, shared }
 struct SourceManifest { registry, git, compose, compose_ingress } — Origem do serviço: exatamente uma das três chaves deve estar presente.
 struct GitManifest { url, branch, root_path, dockerfile, context, build_stage, submodules, watch_paths, username, credentials, provider }
 struct HealthcheckManifest { kind, path, status, interval, timeout, retries, start_period }
@@ -500,7 +500,7 @@ fn reset_hard(dir, rev) -> Result<()> — Move a branch e a árvore de trabalho 
 const GITIGNORE
 (7 testes)
 
-### mod.rs — Sincronização do estado de infra com um repositório git (Fase 6 do plano `docs/plano-backup-estado-e…
+### mod.rs — Sincronização do estado de infra com um repositório git (Fase 6 do plano `docs/arquivo/plano-backup-…
 const DEFAULT_FETCH_EVERY — Padrão do `fetch` nos testes (em produção vem de `[state_git] fetch_interval_secs`).
 enum Mode { Off, Commit, Sync }
 impl Mode

@@ -276,7 +276,7 @@ fn generate_token() -> String
 
 ## rustploy-daemon/crates/daemon/src/store/infra/
 
-### audit.rs — **Auditoria de valores em claro** no estado de infra (plano `docs/plano-backup-estado-em-git.md`, R5…
+### audit.rs — **Auditoria de valores em claro** no estado de infra (plano `docs/arquivo/plano-backup-estado-em-git…
 enum Certainty { Definite, Suspect }
 struct Finding { certainty, project, scope, what }
 const SENSITIVE_NAME_PARTS — Fragmentos de nome que denunciam um segredo (comparados em maiúsculas).
@@ -304,7 +304,7 @@ fn first_difference(a, b) -> String — Mensagem útil quando a ida e volta dive
 
 ### mod.rs — Camada de repositório da **infraestrutura** declarada (projetos, serviços, jobs…), que passa a morar…
 
-### model.rs — O **estado de infra tipado** (Fase 4 do plano `docs/plano-backup-estado-em-git.md`, R2/R3) e como el…
+### model.rs — O **estado de infra tipado** (Fase 4 do plano `docs/arquivo/plano-backup-estado-em-git.md`, R2/R3) e…
 const SCHEMA — Versão do formato dos arquivos.
 struct InfraState { settings, providers, projects }
 struct SettingsInfra { acme_email, registry_domain, docker_cleanup_config, registry_retention, backup_destination } — As chaves de configuração do `daemon_settings` (R2.1).

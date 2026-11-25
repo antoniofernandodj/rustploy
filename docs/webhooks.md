@@ -267,6 +267,6 @@ domain       = "rustploy.meusite.com"  # opcional: HTTPS automático (ACME) aqui
 ```
 
 Não existe mais `[daemon] webhook_port` — a porta dedicada (8788) foi eliminada
-na unificação (ver `docs/plano-unificacao-webhook-api.md`). Um `config.toml`
+na unificação (ver `docs/arquivo/plano-unificacao-webhook-api.md`). Um `config.toml`
 antigo que ainda declare o campo continua carregando: a chave é simplesmente
 ignorada.

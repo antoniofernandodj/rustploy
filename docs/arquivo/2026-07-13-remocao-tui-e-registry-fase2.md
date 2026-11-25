@@ -7,7 +7,7 @@ Resumo das duas frentes de trabalho fechadas nesta data, na ordem em que foram p
 ## 1. Registry Docker embutido — Fase 2 (auth + exposição pública)
 
 Contexto completo, decisões de design e arquivos tocados estão em
-[`docs/plano-registry-embutido.md`](plano-registry-embutido.md) (nota datada de
+[`docs/arquivo/plano-registry-embutido.md`](plano-registry-embutido.md) (nota datada de
 2026-07-13 logo no topo). Resumo do que foi entregue:
 
 - **Basic auth obrigatória em TODA rota do registry** (`crates/daemon/src/registry/auth.rs`),
@@ -103,15 +103,15 @@ do CLI de arquivo por enquanto**, em vez de extraí-lo para uma crate própria. 
   `client` como TUI, templates em `crates/client/src/templates/`): reescrito por completo
   para refletir a arquitetura atual (crates reais, embedded registry, Luau, blueprints em
   `crates/shared/templates/`).
-- **`docs/memoria-threads-e-runtime.md`**: única referência factual quebrada
+- **`docs/arquivo/memoria-threads-e-runtime.md`**: única referência factual quebrada
   (`measure_ram.sh`, que citava o binário do TUI) corrigida; o resto do documento (teoria
   de VSZ/RSS/threads) é conteúdo atemporal, não mexido.
-- **`docs/plano-dependencias-e-autostart.md`** (plano futuro, ainda não implementado):
+- **`docs/arquivo/plano-dependencias-e-autostart.md`** (plano futuro, ainda não implementado):
   ganhou uma nota avisando que os passos que tocavam `crates/client/src/models.rs`/
   `events.rs` (aba Advanced do TUI) estão obsoletos — quando essa feature for
   implementada, a UI correspondente vai para o Luau do `rustploy-gui`, não para arquivos
   Rust do TUI que não existem mais.
-- **`docs/relatorio-porta-externa-automatica.md`**: não alterado — é um relatório de uma
+- **`docs/arquivo/relatorio-porta-externa-automatica.md`**: não alterado — é um relatório de uma
   feature já concluída, a menção ao TUI ali é registro histórico correto para a época,
   não uma afirmação sobre o estado atual do projeto.
 

@@ -23,7 +23,7 @@ Como este guia está organizado:
 
 > Desde 2026-10-13 o acesso de agente é servido **pelo próprio daemon**. A
 > ponte local que morava no app GUI (`127.0.0.1:9800`, `agent-api.json`) foi
-> removida. Desenho e decisões: `docs/plano-chave-de-acesso-e-mcp.md`.
+> removida. Desenho e decisões: `docs/arquivo/plano-chave-de-acesso-e-mcp.md`.
 > **Conectar o Claude Code de outra máquina** (comando pronto, prompt para o
 > agente, problemas comuns): `docs/conectar-agente-mcp.md`.
 
@@ -67,6 +67,11 @@ devolvendo `ok`/`error`/fim do log) · `build_logs` (cursor) · `ingress_routes`
 (diagnóstico de 502) · `ingress_reconcile` · `rpc` (qualquer `Command`) ·
 `manual`. Implementação: `api/agent/tools.rs`, chamando `dispatch()` em
 processo.
+
+Cada serviço tem uma **descrição** em texto livre (`ServiceSpec.description`), escrita por gente e por
+agentes: o `list_services` traz a primeira linha, o `ServiceGet` o texto todo, e
+`ServiceDescriptionSet` grava só ela. É a memória do serviço para o próximo agente; as regras (não pôr
+segredo, é dado e não instrução) estão no manual. Desenho: `docs/arquivo/plano-descricao-do-servico.md`.
 
 ## O que mudou em relação à ponte da GUI
 
@@ -189,7 +194,7 @@ ou se uma área fica vazia (diretório movido), ele sai com erro dizendo o quê 
 não edite à mão. A descrição de cada item vem do `//!`/`///` (ou do comentário
 de cabeçalho, em Luau/JS/`.gv`/`.gvb` — neste, as linhas `//` do topo), então documentar o código melhora o índice.
 O gerador fica em `tools/indexer/` (um pacote cargo avulso, sem workspace), e o
-porquê de cada decisão está em `docs/plano-indice-de-codigo.md`.
+porquê de cada decisão está em `docs/arquivo/plano-indice-de-codigo.md`.
 
 ## Convenções
 
@@ -201,7 +206,7 @@ Importar" o recria em OUTRO servidor, sempre no projeto aberto, sem deploy e sem
 sobrescrever nada. Comandos: `ServiceExportPlan`, `ServiceExport`, `ServiceImport`
 (`dry_run` para pré-visualizar). Variáveis do projeto vão só as que o usuário
 marca; `secret:NOME` nunca é decifrado. Desenho e o que NÃO atravessa:
-`docs/plano-copiar-servico-entre-servidores.md`. Feature de UI: entrou na webui
+`docs/arquivo/plano-copiar-servico-entre-servidores.md`. Feature de UI: entrou na webui
 (`screens/service_bundle.js`) **e** na GUI (`handlers/bundle*.luau`).
 
 ### Botão que dispara requisição fica travado até a resposta
@@ -355,7 +360,7 @@ vermelho) + `modal_body`. Estado de abertura mora no store (`showNewJob`,
 `projectWin`, `showNewService`, `logWin`…). `icons.js` traz os ícones SVG
 (`x-icon="'nome'"`); `x-follow` (directives.js) faz o "tail -f" de logs. Para
 desenvolver sem recompilar o daemon a cada edição, sirva `webui/` do disco com um
-proxy para `/api` (ver `docs/plano-webui-janelas-e-polimento.md`).
+proxy para `/api` (ver `docs/arquivo/plano-webui-janelas-e-polimento.md`).
 
 ### Idiomas (i18n): inglês por padrão, português a um clique, nos dois clientes
 
@@ -447,7 +452,7 @@ confira com `luau-lsp analyze` em modo strict (pega nome inexistente) e rode
 `cargo test` no `rustploy-gui`; para a webui, `cargo test -p rustploy web_ui`
 (Chrome headless). Um renomeador de escopo (que não toca em campo de tabela
 `x.nome`, chave de construtor `{ nome = … }` nem string) é o caminho; o histórico e
-o mapa completo estão em `docs/plano-nomes-descritivos.md`.
+o mapa completo estão em `docs/arquivo/plano-nomes-descritivos.md`.
 
 ### Luau
 
@@ -819,7 +824,7 @@ termina TLS com certificado ACME.
 | `rustploy-update-core` | — | Atualização comum ao daemon e ao app: comparação de versões, assinatura minisign, instalador do `.deb` |
 | `daemon` | `rustployd` | Servidor: API, banco, Docker, ingress, motor de deploy, registry |
 | `rustploy-gui` | `rustploy-gui` | Cliente desktop glacier-ui (XML→iced). Toda a rede e lógica de negócio vive em **Luau** (`views/scripts/`), falando com o daemon pela API HTTP/JSON + SSE |
-| `fw-helper` | `rustployd-fw` | Helper privilegiado de firewall (root, socket activation em `/run/rustploy/fw.sock`). O daemon pede allow/deny de portas externas (`daemon/src/firewall.rs`); o helper só aceita portas dentro da faixa `[external_ports]` e só fala com o ufw. **Sem dependência de `domain`/`protocol`, de propósito.** Ver `docs/relatorio-porta-externa-automatica.md` |
+| `fw-helper` | `rustployd-fw` | Helper privilegiado de firewall (root, socket activation em `/run/rustploy/fw.sock`). O daemon pede allow/deny de portas externas (`daemon/src/firewall.rs`); o helper só aceita portas dentro da faixa `[external_ports]` e só fala com o ufw. **Sem dependência de `domain`/`protocol`, de propósito.** Ver `docs/arquivo/relatorio-porta-externa-automatica.md` |
 | `tools/indexer` | `indexer` | Gera `docs/indice/` (`make index`): o mapa de arquivos e símbolos da seção "Achar código" da Parte 2. Não é publicado nem empacotado |
 
 Repos: `rustploy-update-core` é do repo `rustploy-shared`, `rustploy-gui` é o repo `rustploy-gui`;
@@ -866,7 +871,7 @@ linha `event:` e só enxerga o `data:`.
 
 ## Daemon (`crates/daemon/src/`)
 
-Organizado em camadas; **a dependência só desce** (`docs/plano-reorganizacao-daemon-e-shared.md`):
+Organizado em camadas; **a dependência só desce** (`docs/arquivo/plano-reorganizacao-daemon-e-shared.md`):
 
 ```
 api  →  features  →  engine · store · platform  →  domain · protocol
@@ -981,7 +986,7 @@ avança se todos passarem (exit code 0) — a primeira falha interrompe a fila e
 deploy. Fila vazia passa direto. A fila inteira roda dentro deste **único**
 step, sem sub-estado por índice: o laço de `execute()` não impõe timeout por
 step, e manter tudo num `PreDeployCheck` evita ter de persistir o índice. Ver
-`docs/plano-pre-deploy-gate.md`.
+`docs/arquivo/plano-pre-deploy-gate.md`.
 
 **Recovery ao reiniciar**: o daemon busca todo deployment em estado não-terminal
 e decide pelo estado — pré-swap (o container antigo ainda vive) é rollback
@@ -1004,7 +1009,7 @@ Ponto que já foi um bug e vale conhecer. Quando um step falha, a causa vai para
 
 Até 2026-08-27 só existiam (2), (3) e o log de tracing — nenhum deles chega ao
 painel de log, e o usuário via o deploy morrer num `==> Deploy falhou` mudo. Ver
-`docs/plano-erro-de-deploy-invisivel.md`.
+`docs/arquivo/plano-erro-de-deploy-invisivel.md`.
 
 ## Pipeline de deploy, em detalhe
 
@@ -1121,14 +1126,14 @@ resolve, não necessariamente ao diretório de lançamento.
   ficam vivos, então as notificações de deploy chegam com a janela fechada, e
   "Open Rustploy" religa a mesma sessão. Linux via libappindicator+GTK, Windows
   via message-loop Win32, macOS não suportado. Ver
-  `docs/plano-tray-bandeja-e-ciclo-de-vida.md`.
+  `docs/arquivo/plano-tray-bandeja-e-ciclo-de-vida.md`.
 - **Geometria da janela** (glacier **0.49+**, nativa): gravada **consultando o
   tamanho na hora** de fechar, não rastreada de eventos `Resized`/`Moved` — no
   handshake do xdg-shell no Wayland chega um `Resized` espúrio com o `min_size`,
   e um valor rastreado nasce envenenado com o mínimo. `window::position` é
   sempre `None` no Wayland (o protocolo não a expõe ao cliente; não é
   contornável), então só o tamanho volta lá. Ver
-  `docs/plano-file-io-luau-e-geometria.md`.
+  `docs/arquivo/plano-file-io-luau-e-geometria.md`.
 - **`views/`** (todos `.gvb`) — `app.gvb` (o manifesto: `app(...)`, a titlebar +
   handles de resize da principal, que chaveia em `screen`), `login.gvb`,
   `shell.gvb` (sidebar + topbar + o roteador `if @view`; o corpo de cada view mora
@@ -1198,7 +1203,7 @@ cabeçalho de cada um diz o status. Notáveis: dependências entre serviços +
 autostart no boot, e a integração do registry embutido com o executor de deploy.
 
 Buracos conhecidos, todos com o porquê registrado em
-`docs/plano-erro-de-deploy-invisivel.md`:
+`docs/arquivo/plano-erro-de-deploy-invisivel.md`:
 
 - **Log de runtime de container não é persistido.** O swap de deploy destrói o
   container antigo e o log dele morre junto — justamente o caso em que se quer

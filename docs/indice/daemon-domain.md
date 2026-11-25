@@ -7,7 +7,7 @@
 
 ## rustploy-daemon/crates/daemon/src/domain/
 
-### audit.rs — Auditoria de valores em claro no estado de infra (plano `docs/plano-backup-estado-em-git.md`, R6).
+### audit.rs — Auditoria de valores em claro no estado de infra (plano `docs/arquivo/plano-backup-estado-em-git.md`…
 struct PlaintextFinding { definite, project, scope, what, allowed } — Um valor que está (ou parece estar) em texto puro onde deveria estar cifrado.
 struct InfraFile { path, content } — Um arquivo da infra tal como o `state_git` o grava no repositório (resposta de `Command::InfraDownlo…
 
@@ -166,7 +166,7 @@ struct ReleaseSide { image_ref, spec, project_env } — Uma configuração compa
 fn env_display(value) -> String — O valor de uma variável como a tela pode mostrar: secret vira `secret:NOME`.
 fn env_map(vars) -> BTreeMap<String, String>
 fn flatten(prefix, value, out) — Achata um valor JSON em `caminho → texto`.
-const SPEC_FIELDS_COMPARED_APART — Campos do spec que não entram no diff: as variáveis (comparadas uma a uma, à parte) e os comentários…
+const SPEC_FIELDS_COMPARED_APART — Campos do spec que não entram no diff: as variáveis (comparadas uma a uma, à parte), os comentários …
 fn spec_fields(spec) -> BTreeMap<String, String>
 fn diff_maps(scope, before, after, out)
 fn diff_releases(from, to) -> Vec<ReleaseChange> — O que muda indo de `from` para `to`: imagem, campos do spec, variáveis do serviço e do projeto.
@@ -174,7 +174,7 @@ fn release_skips_build(source) -> bool — A fonte da release dá para voltar s�
 fn split_repository_tag(image) -> Option<(String, String)> — Separa `repo:tag` (aceitando registry com porta, `host:5000/app:v1`) para o `docker tag`.
 fn pick_image_ref(from_registry, image, image_id, repo_digests) -> Option<String> — A referência fixa de uma imagem, a partir da inspeção dela.
 fn image_ref_is_pullable(image_ref) -> bool — A referência é um digest de registry (`repo@sha256:…`), que dá para baixar de novo?
-(5 testes)
+(6 testes)
 
 ### route.rs — **Rota**: o que o proxy faz com um domínio, fora do serviço.
 struct Route { id, project_id, domain, tls, action, basic_auth } — Uma rota, guardada no projeto (`ProjectInfra.routes`).
@@ -191,8 +191,11 @@ fn validate_route_shape(route) -> Result<(), String> — Valida a forma de uma r
 (3 testes)
 
 ### service.rs
-struct ServiceSpec { name, project_id, source, port, host_port, tcp_ports, domain, tls_enabled, env_vars, env_comments, volumes, healthcheck, replicas, resources, run_command, run_args, product, domains, pre_deploy_job_id, pre_deploy_job_ids, shared, depends_on, autostart, registry_auto_deploy, links }
+struct ServiceSpec { name, description, project_id, source, port, host_port, tcp_ports, domain, tls_enabled, env_vars, env_comments, volumes, healthcheck, replicas, resources, run_command, run_args, product, domains, pre_deploy_job_id, pre_deploy_job_ids, shared, depends_on, autostart, registry_auto_deploy, links }
 fn default_autostart() -> bool
+const SERVICE_DESCRIPTION_MAX_CHARS — Tamanho máximo da descrição de um serviço, em caracteres.
+fn normalize_description(description) -> Result<Option<String>, String> — A descrição como ela é gravada: sem espaços nas pontas, vazia = `None`.
+fn description_summary(description, max_chars) -> (String, bool) — O resumo da descrição para listagens: a primeira linha não vazia, até `max_chars` (com `…` se cortou…
 struct ServiceLink { service_id, env_prefix, resource, env_names } — "Este serviço usa aquele": ver [`ServiceSpec::links`].
 const LINK_ENV_SUFFIXES — Os sufixos das variáveis que um vínculo pode entregar, na ordem em que aparecem na tela.
 impl ServiceLink
@@ -236,7 +239,7 @@ struct ServiceWarmStatus { service_id, warm, warming, reason, warmed_at } — Se
 impl Default for Healthcheck
 impl std::fmt::Display for ServiceStatus
 impl Default for SharedServerConfig
-(8 testes)
+(11 testes)
 
 ### service_bundle.rs
 struct PlanVar { key, is_secret, suggested } — Uma variável listada na tela de checkboxes do export.
@@ -261,7 +264,7 @@ struct GitSource { url, branch, root_path, watch_paths, submodules, dockerfile_p
 impl Default for ArchiveSource
 impl Default for GitSource
 
-### state_git.rs — Sincronização do estado de infra com um repositório git (plano `docs/plano-backup-estado-em-git.md`,…
+### state_git.rs — Sincronização do estado de infra com um repositório git (plano `docs/arquivo/plano-backup-estado-em-…
 struct StateGitCommit { sha, at, subject } — Um commit do repositório de estado.
 struct StateGitRemoved { id, kind, name, project, sha, at } — Algo que sumiu do estado por um commit externo.
 struct StateGitRejected { sha, reason } — Um commit do remoto que o daemon **recusou** aplicar (e por quê).
@@ -283,7 +286,7 @@ enum StateGitResolveChoice { UseRemote, UseLocal } — Como resolver um históri
 enum SecretMoveOp { EnvToSecret, SecretToEnv, ServiceSecretToProject, ProjectSecretToService, EnvServiceToProject, EnvProjectToService, EnvJobToProject, JobSecretToProject } — As operações de [`Command::SecretMove`].
 enum SecretKind { Password, Hex, Base64Url } — O formato do valor que [`Command::SecretGenerate`] sorteia.
 enum SecretOnExists { Fail, Keep, Replace } — O que [`Command::SecretGenerate`] faz quando o secret já existe no escopo.
-enum Command { ProjectCreate, ProjectDelete, ProjectUpdate, ProjectList, ProjectServicesReorder, EnvironmentCreate, EnvironmentList, EnvironmentCompare, EnvironmentPromote, EnvironmentDestroy, ProjectEnvSet, ServiceCreate, ServiceUpdate, ServiceDelete, ServiceVolumeAttach, ServiceVolumeDetach, ServiceList, ServiceGet, DeployStart, DeployWithDependencies, ProjectDeploy, DeployWithDependenciesPlan, ProjectDeployPlan, DeployAbort, DeployRollback, ReleaseList, ReleaseDiff, ReleaseRollback, DeployHistory, DeployDelete, ServiceStop, ServiceReload, RecentDeployments, GetBuildLogs, LogsGet, LogsHistory, LogsExecutions, LogsExecutionDelete, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, ServiceConnectionInfo, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, ManagedDatabaseList, ManagedDatabaseCreate, ManagedDatabaseDelete, ManagedDatabaseListAll, MigrationStart, MigrationGet, MigrationList, MigrationRollback, MigrationDiscard, GetWebhookUrl, RegenerateWebhookToken, GetDaemonSettings, SetDaemonSettings, SecretSet, SecretGenerate, SecretDelete, SecretList, SecretReveal, InfraAudit, InfraDownload, StateGitStatus, StateGitConfigure, StateGitSyncNow, StateGitResume, StateGitResolve, StateGitDismissRemoval, InfraAuditAllow, StopContainer, SecretMove, EnvKeyRename, EnvValueSet, SecretRename, ServiceExportPlan, ServiceExport, ServiceDataPlan, ServicePortSuggestions, BackupDestinationGet, BackupDestinationSet, BackupDestinationClear, BackupDestinationTest, ServiceBackupList, ServiceBackupNow, ServiceBackupRestore, ServiceBackupDelete, ServiceBackupPolicySet, ServerRecoverStart, ServerRecoverStatus, ServerRecoverRun, ServerRecoverCancel, RecoveryKeyStatus, RecoveryKeyGenerate, ServiceImport, JobCreate, JobUpdate, JobDelete, JobList, JobListAll, JobRunNow, JobRunCancel, JobRunHistory, GetJobLogs, JobWarmStatus, JobWarm, ServiceWarmStatusList, ServiceWarm, PruneContainers, PruneVolumes, PruneImages, PruneBuildCache, PruneNetworks, DockerCleanupConfigGet, DockerCleanupConfigSet, DockerCleanupRunNow, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, RemoveContainer, RemoveImage, RemoveVolume, VolumeList, ComposeInsertExternalVolume, RemoveNetwork, StopAllManaged, IngressRoutes, RouteList, RouteSave, RouteDelete, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DaemonStatus, DeployEngineStatus, CheckUpdate, ApplyUpdate, UpdateStatus, UpdateRollback, ApplyAppUpdate, GitProviderList, GitProviderCreate, GitProviderDelete, GitOAuthStart, GitRepoList, GitBranchList, WizardCatalog, WizardCreate, Snapshot, RegistryStatus, RegistryRepoList, RegistryTagList, RegistryTagDelete, RegistryRepoDelete, RegistryGc, RegistryRetentionSet, RegistryTokenCreate, RegistryTokenList, RegistryTokenRevoke, DeployQueuePromote, DeployQueueReorder, DeployQueuePause }
+enum Command { ProjectCreate, ProjectDelete, ProjectUpdate, ProjectList, ProjectServicesReorder, EnvironmentCreate, EnvironmentList, EnvironmentCompare, EnvironmentPromote, EnvironmentDestroy, ProjectEnvSet, ServiceCreate, ServiceUpdate, ServiceDescriptionSet, ServiceDelete, ServiceVolumeAttach, ServiceVolumeDetach, ServiceList, ServiceGet, DeployStart, DeployWithDependencies, ProjectDeploy, DeployWithDependenciesPlan, ProjectDeployPlan, DeployAbort, DeployRollback, ReleaseList, ReleaseDiff, ReleaseRollback, DeployHistory, DeployDelete, ServiceStop, ServiceReload, RecentDeployments, GetBuildLogs, LogsGet, LogsHistory, LogsExecutions, LogsExecutionDelete, LogsSubscribe, LogsUnsubscribe, MetricsSubscribe, MetricsUnsubscribe, ServiceConnectionInfo, SharedAccessList, SharedAccessGrant, SharedAccessRevoke, ManagedDatabaseList, ManagedDatabaseCreate, ManagedDatabaseDelete, ManagedDatabaseListAll, MigrationStart, MigrationGet, MigrationList, MigrationRollback, MigrationDiscard, GetWebhookUrl, RegenerateWebhookToken, GetDaemonSettings, SetDaemonSettings, SecretSet, SecretGenerate, SecretDelete, SecretList, SecretReveal, InfraAudit, InfraDownload, StateGitStatus, StateGitConfigure, StateGitSyncNow, StateGitResume, StateGitResolve, StateGitDismissRemoval, InfraAuditAllow, StopContainer, SecretMove, EnvKeyRename, EnvValueSet, SecretRename, ServiceExportPlan, ServiceExport, ServiceDataPlan, ServicePortSuggestions, BackupDestinationGet, BackupDestinationSet, BackupDestinationClear, BackupDestinationTest, ServiceBackupList, ServiceBackupNow, ServiceBackupRestore, ServiceBackupDelete, ServiceBackupPolicySet, ServerRecoverStart, ServerRecoverStatus, ServerRecoverRun, ServerRecoverCancel, RecoveryKeyStatus, RecoveryKeyGenerate, ServiceImport, JobCreate, JobUpdate, JobDelete, JobList, JobListAll, JobRunNow, JobRunCancel, JobRunHistory, GetJobLogs, JobWarmStatus, JobWarm, ServiceWarmStatusList, ServiceWarm, PruneContainers, PruneVolumes, PruneImages, PruneBuildCache, PruneNetworks, DockerCleanupConfigGet, DockerCleanupConfigSet, DockerCleanupRunNow, DockerImages, DockerVolumes, DockerNetworks, DockerContainers, RemoveContainer, RemoveImage, RemoveVolume, VolumeList, ComposeInsertExternalVolume, RemoveNetwork, StopAllManaged, IngressRoutes, RouteList, RouteSave, RouteDelete, IngressReconcile, EnvBackupList, EnvBackupRestore, Ping, DaemonStatus, DeployEngineStatus, CheckUpdate, ApplyUpdate, UpdateStatus, UpdateRollback, ApplyAppUpdate, GitProviderList, GitProviderCreate, GitProviderDelete, GitOAuthStart, GitRepoList, GitBranchList, WizardCatalog, WizardCreate, Snapshot, RegistryStatus, RegistryRepoList, RegistryTagList, RegistryTagDelete, RegistryRepoDelete, RegistryGc, RegistryRetentionSet, RegistryTokenCreate, RegistryTokenList, RegistryTokenRevoke, DeployQueuePromote, DeployQueueReorder, DeployQueuePause }
 fn backup_stop_default() -> bool
 fn null_as_empty(d) -> Result<String, D::Error> — `null` vira `""` num campo `String` cujo vazio já significa "nenhum".
 (17 testes)

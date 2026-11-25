@@ -13,7 +13,7 @@ rp_net_{id_do_projeto_inteiro_em_minúsculo}
 O nome é **gravado** em `project.network_name` na criação e lido de lá em todo
 uso (não é recalculado). Projetos criados antes de 2026-09-29 mantêm o nome
 antigo, `rp_net_{8 primeiros chars do ID}` — a migração só o anotou. Ver
-`docs/plano-nome-gravado-rede-e-stack.md`.
+`docs/arquivo/plano-nome-gravado-rede-e-stack.md`.
 
 Todos os serviços do projeto — tanto **Application** (Registry/Git) quanto **Compose** — são conectados a essa rede automaticamente pelo daemon no momento do deploy.
 
@@ -28,7 +28,7 @@ todas recebem o mesmo alias e o DNS do Docker distribui entre elas.
 
 (Até 2026-09-29 o nome do container era `rp_{service_name}`, sem ID. O
 primeiro deploy depois da atualização troca o container; o hostname
-`rp_{service_name}` continua o mesmo. Ver `docs/plano-colisao-nome-container.md`.)
+`rp_{service_name}` continua o mesmo. Ver `docs/arquivo/plano-colisao-nome-container.md`.)
 
 ### Serviços Compose
 

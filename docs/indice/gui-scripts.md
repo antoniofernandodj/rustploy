@@ -197,6 +197,7 @@ types: DeployTrack, State
 
 ### dashboard.luau — builders de lista do dashboard (deployments/projects/ services/docker/ingress/monitoring/deploy engi…
 local grid_cols()
+local description_first_line(description) — Primeira linha não vazia da descrição, cortada para caber no card.
 local order_with_environments(projects) — Card de projeto, agregando contagem de serviços de `pairs_`.
 local project_card(project, service_pairs)
 function M.docker_rows(service_pairs, term) — Linhas Docker (containers gerenciados) derivadas dos serviços, ordenadas.
@@ -278,7 +279,7 @@ local percent_encode(text) — Percent-encode de um componente de userinfo (user
 local userinfo(user, password) — Monta a parte de userinfo `user:pass@` de uma URI RFC 3986. Casos: user+pass → "user:pass@"  |  só p…
 local external_scheme(database_kind) — Esquema de URI externo por banco (userinfo).
 
-### state_git.luau — a sincronização do estado com o git (Fases 6 e 7 de docs/plano-backup-estado-em-git.md) vista pela G…
+### state_git.luau — a sincronização do estado com o git (Fases 6 e 7 de docs/arquivo/plano-backup-estado-em-git.md) vist…
 local short(sha)
 local time_label(iso_timestamp)
 function M.alert_message(status) — Texto do aviso do topo, ou "" quando está tudo bem (nada a mostrar).

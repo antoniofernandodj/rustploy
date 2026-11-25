@@ -2,7 +2,7 @@
 # Assina os pacotes de uma release em rascunho e a publica.
 #
 # O release.yml cria a release como RASCUNHO e não assina nada: a chave privada nunca vai
-# para o CI (docs/plano-updaters-daemon-e-gui.md, seção 3). Este script roda na máquina do
+# para o CI (docs/arquivo/plano-updaters-daemon-e-gui.md, seção 3). Este script roda na máquina do
 # dono: baixa os pacotes do rascunho, assina cada um com `minisign` (senha da chave pedida
 # a cada arquivo), confere a assinatura com a chave pública, sobe os `.minisig` e publica.
 #

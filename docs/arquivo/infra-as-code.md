@@ -170,7 +170,7 @@ Cada valor de `env` é classificado na conversão para `EnvVarValue`:
 | `KEY: ${VAR}` | `Plain(<valor resolvido>)` | resolvido no cliente; valor sensível deve vir de `.env` não-versionado |
 | `KEY: secret:NOME` | `Secret("NOME")` | referência; valor cadastrado via aba Secrets / `SecretSet` |
 
-> Use `secret:NOME` para segredos de verdade (o valor nunca aparece no YAML nem no banco em texto plano). Use `${VAR}` para config que você não quer commitar mas que não é necessariamente secreta. Veja [secrets.md](secrets.md).
+> Use `secret:NOME` para segredos de verdade (o valor nunca aparece no YAML nem no banco em texto plano). Use `${VAR}` para config que você não quer commitar mas que não é necessariamente secreta. Veja [secrets.md](../secrets.md).
 
 ### Reconciliação por nome
 

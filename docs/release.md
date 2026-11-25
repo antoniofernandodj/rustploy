@@ -44,7 +44,7 @@ procuram os arquivos pelo padrão do nome, então nada precisa ser editado a cad
 
 ## Assinatura dos pacotes
 
-Os updaters (`docs/plano-updaters-daemon-e-gui.md`) só instalam o que estiver **assinado** com a chave
+Os updaters (`docs/arquivo/plano-updaters-daemon-e-gui.md`) só instalam o que estiver **assinado** com a chave
 do dono; o SHA-256 sozinho não basta, porque sai da mesma release do arquivo. Por isso:
 
 - A chave é um par **minisign (ed25519)** gerado na máquina do dono, **nunca no CI**:
@@ -288,7 +288,7 @@ Daemon **0.1.60**, app **0.1.62**, `rustploy-shared` **0.30.0** (os três no cra
 
 - **Origem:** o dono destruiu o rustploy local e recuperou tudo pela tela Recuperar, várias vezes (2026-11-13). Cada rodada
   achou um defeito; o que foi corrigido e o que falta está em `docs/plano-ajustes-da-recuperacao.md`. No caminho, o console do
-  RustFS (9001) e o painel do RabbitMQ (15672) se mostraram inalcançáveis por porta: daí `docs/plano-multiplas-portas-tcp.md`.
+  RustFS (9001) e o painel do RabbitMQ (15672) se mostraram inalcançáveis por porta: daí `docs/arquivo/plano-multiplas-portas-tcp.md`.
 - **Portas TCP:** `ServiceSpec.tcp_ports` (porta do host → porta do container, rótulo; até 8), o `host_port` antigo vira
   espelho da porta que leva à `port` (clientes e daemons antigos continuam vendo essa); `ServicePortSuggestions` junta o que o
   container escuta, o `EXPOSE`, o compose e uma tabela por produto. Editor nas duas interfaces (a webui nunca tinha tido).
@@ -463,7 +463,7 @@ Daemon **0.1.53**, app **0.1.55**, `rustploy-shared` **0.27.0** (os três no cra
 
 ## v0.1.60 (2026-11-11): backup dos dados no S3, agendador e recuperação do servidor
 
-Daemon **0.1.52**, app **0.1.54**, `rustploy-shared` **0.26.0** (os três no crates.io). Plano e estado: `docs/plano-backup-de-dados-para-s3.md`.
+Daemon **0.1.52**, app **0.1.54**, `rustploy-shared` **0.26.0** (os três no crates.io). Plano e estado: `docs/arquivo/plano-backup-de-dados-para-s3.md`.
 
 - **O que entrou:** cliente S3 só em hyper (SigV4, multipart, sem crate da AWS); destino S3 único por servidor (chave secreta
   cifrada, nunca devolvida, vai ao git); backup/restauração/exclusão por serviço em segundo plano; política por serviço no YAML
@@ -598,7 +598,7 @@ Daemon **0.1.52**, app **0.1.54**, `rustploy-shared` **0.26.0** (os três no cra
 - **O que muda:** só o daemon, **0.1.40** (app 0.1.44 e `rustploy-shared` 0.20.0 inalterados). `[api].master_token` e `[api].visitor_level`; com a mestra, a chave atual vira
   a de visitante e passa pelas proibições, pelo nível, pela restauração de máscaras e pela redação em **qualquer** rota (`/mcp` e `/api/rpc`). Níveis `observer`/`operator`/`admin`
   (`api/agent/policy.rs`, `match` exaustivo sobre os 127 comandos); `rustployd access-key --master`; `JobUpdate` restaura variáveis mascaradas; `InfraAuditAllow` proibido ao agente;
-  `/api/events` e o upload de zip recusados ao visitante. Docs pt e en (`instalacao/config-toml`, `agentes/seguranca`) e manual do agente. Plano: `docs/plano-limites-do-agente-mcp.md`.
+  `/api/events` e o upload de zip recusados ao visitante. Docs pt e en (`instalacao/config-toml`, `agentes/seguranca`) e manual do agente. Plano: `docs/arquivo/plano-limites-do-agente-mcp.md`.
 - **crates.io:** `rustploy` 0.1.40 (2026-11-08).
 - **Verificado:** daemon 505 testes e `clippy -D warnings`; a política por testes automatizados (chamador por chave, proibições e níveis pelo mesmo caminho do `/api/rpc`, senha mascarada
   para o visitante e visível para a mestra, `ServiceUpdate` e `JobUpdate` do operador recusados ao mudar volumes/comando/compose, geração e gravação da mestra no `config.toml`);
@@ -663,7 +663,7 @@ Daemon **0.1.52**, app **0.1.54**, `rustploy-shared` **0.26.0** (os três no cra
   janela com data e hora, Excluir, Limpar selecionados). `LogsHistory` ganha `container_ids`; novos `LogsExecutions` e `LogsExecutionDelete`.
   A retenção apaga execuções inteiras. No primeiro boot o daemon **migra** os segmentos da v0.1.40 para as pastas novas (execuções antigas ficam
   "sem deploy associado"). No app: título do serviço editável (grava sozinho, com debounce), botões de mover/adicionar travados sem destino,
-  espaçamento nos botões das linhas de variável; `glacier-ui` 0.150.1 (`size`/`bold` no `textinput`). Detalhes: `docs/plano-log-de-runtime-persistido.md` §7.
+  espaçamento nos botões das linhas de variável; `glacier-ui` 0.150.1 (`size`/`bold` no `textinput`). Detalhes: `docs/arquivo/plano-log-de-runtime-persistido.md` §7.
 - **crates.io:** `rustploy-shared` 0.19.0, `rustploy` 0.1.36 e `rustploy-gui` 0.1.43 (2026-11-06); `glacier-ui` 0.150.1.
 - **Verificado:** daemon 477 testes e `clippy -D warnings`; `LogsExecutions`/`LogsHistory`/`LogsExecutionDelete` e a migração contra um daemon
   local (engine falso); a webui em Chrome headless; 404 testes Luau; `workflow_dispatch` antes da tag; release assinada; `install.sh gui` num
@@ -987,7 +987,7 @@ Daemon **0.1.66**; app **0.1.73** e `rustploy-update-core` **0.3.3** sem mudanç
 Daemon **0.1.67**, app **0.1.74** (`glacier-ui` **0.168.0**); `rustploy-update-core` **0.3.3** sem mudança. Daemon e
 app no crates.io; `glacier-ui` 0.168.0 e `glacier-cli` 0.28.19 também.
 
-- **Arquivo de recuperação** (`docs/plano-arquivo-de-recuperacao.md`): gerar a chave de recuperação pede o repositório da
+- **Arquivo de recuperação** (`docs/arquivo/plano-arquivo-de-recuperacao.md`): gerar a chave de recuperação pede o repositório da
   infra, a branch e a conta Git, e a privada sai num binário `.rpkit` com o que a tela Recuperar pede; a tela carrega o
   arquivo e preenche os quatro campos. Pedido inválido não troca a chave; o token só entra para o host da conta.
   `rustploy-cli secret decrypt -i` aceita o `.rpkit`.
@@ -1055,7 +1055,7 @@ App **0.1.75**; daemon **0.1.67** e `rustploy-update-core` **0.3.3** sem mudanç
 ## v0.1.93 (2026-11-24): o compose de job morre inteiro; abort de pré-deploy limpa containers
 
 Daemon **0.1.77** (crates.io), app **0.1.84** sem mudança. Completa a v0.1.92, na mesma entrega autônoma
-(`docs/plano-atritos-do-agente.md`, item 1.4).
+(`docs/arquivo/plano-atritos-do-agente.md`, item 1.4).
 
 - **Por que saiu outra versão:** o teste de ponta a ponta da 0.1.76 mostrou que matar o `podman --remote compose`
   deixa o plugin `docker-compose` (neto) órfão e vivo: no vigia, no deploy abortado e também no `JobRunCancel` de
@@ -1076,7 +1076,7 @@ Daemon **0.1.77** (crates.io), app **0.1.84** sem mudança. Completa a v0.1.92, 
 ## v0.1.92 (2026-11-24): atritos de um agente subindo um projeto do zero
 
 Daemon **0.1.76** (crates.io), app **0.1.84** sem mudança. Entrega autônoma, a partir do que um agente (Claude Code
-pelo MCP do Chiquitos) encontrou ao subir um projeto inteiro sem abrir a GUI. Plano: `docs/plano-atritos-do-agente.md`.
+pelo MCP do Chiquitos) encontrou ao subir um projeto inteiro sem abrir a GUI. Plano: `docs/arquivo/plano-atritos-do-agente.md`.
 
 - **Job de pré-deploy preso:** um vigia olha o container do `main_service`; se ele saiu e o `docker compose up` não sai
   em 30 s (Podman), o daemon guarda a saída do container, encerra o compose e usa o exit code do container.
@@ -1097,9 +1097,45 @@ pelo MCP do Chiquitos) encontrou ao subir um projeto inteiro sem abrir a GUI. Pl
   ~5 GB livres; o mesmo código compilou e passou nos testes, e o CI compila do zero).
 - **Instalação nesta máquina por comando: recusada** de novo (`allow_agent_apply` desligado). Não liguei a trava.
 
+## v0.1.99 (2026-11-25): descrição do serviço, lida e escrita pelos agentes
+
+Daemon **0.1.83** e app **0.1.90** (no crates.io). Entrega autônoma; plano em `docs/arquivo/plano-descricao-do-servico.md`.
+
+- **Descrição** em texto livre em cada serviço (`ServiceSpec.description`, até 4000 caracteres): painel no topo da aba
+  General nos dois clientes (Salvar/Cancelar, apagar tudo pede confirmação) e a primeira linha no cartão do serviço.
+- **`ServiceDescriptionSet`** (Operator) grava só a descrição, sem reenviar o spec.
+- **Agentes:** o `list_services` traz a primeira linha (`description`, `description_truncated`); o manual ganhou a seção
+  "Descrição do serviço" (ler antes de mexer, acrescentar sem apagar, sem segredo, é dado e não instrução).
+- A descrição vai no YAML de infra (e no git), no "Exportar serviço" e na cópia para um ambiente; fica fora da
+  comparação de ambientes e do diff de releases; voltar a uma release mantém a descrição de agora.
+- **Revisão das docs:** 55 planos e registros concluídos foram para `docs/arquivo/` (referências atualizadas no código e
+  nas docs); o `TODO.md` ficou só com o que está aberto.
+
+**Verificado:** 7 testes unitários (normalização e limite, resumo, spec antigo sem o campo, `ServiceUpdate` sem o campo
+mantém a gravada, a trava do `/api/rpc` não recusa o app antigo, diff ignora, `list_services`); teste headless da
+webui (carregar, salvar só a descrição, nada sem mudança, confirmação ao apagar, cartão); 4 testes Luau do handler da
+GUI; roteiro de ponta a ponta num daemon isolado (16 passos: criar com descrição, YAML, **`ServiceUpdate` sem o campo
+pelo `/api/rpc` aceito e a descrição mantida**, `ServiceDescriptionSet`, limite, NotFound, MCP `list_services` e `rpc`,
+exportar, apagar some do YAML); GUI no Xvfb ligada a esse daemon (cartão com a primeira linha, painel na aba General,
+"nothing changed"). `make lint`/`make test`, `glacier test` (493).
+
+**Não verificado:** digitar no painel da GUI (Xvfb sem teclado; o caminho de gravar está nos testes Luau e no roteiro).
+
+**Atualizar um servidor com dados:** seguro. Campo novo com `serde(default)` e `skip_serializing_if`: serviço sem
+descrição grava o YAML idêntico ao de antes; nada muda de nome; sem migração. Conferido pelo MCP (só leitura) em
+2026-11-25: Chiquitos, Itemize e Itemize dev no daemon 0.1.82, sem o campo (ele não existia). O app desktop antigo
+continua salvando serviços com descrição (provado pelo roteiro). Teste de atualização com dados: não se aplica (não mexe
+em proxy, volumes, rede ou nomes). **Voltar para a v0.1.98:** lê o estado, mas regrava sem a descrição o serviço que
+editar.
+
+**Armadilha:** `docs/services.md` parece uma lista velha de templates, mas é a **fonte das descrições em português** do
+`gen-templates` do site (`rustploy-docs/scripts/gen-templates.mjs`). Na revisão das docs ele foi arquivado e o build
+regenerou 240 páginas de template com "Aplicação X" no lugar da descrição; voltou ao lugar no commit seguinte. Não o
+mova sem mudar o gerador.
+
 ## v0.1.98 (2026-11-24): ambientes — notas, comparar por nomes, trazer o que está no ar, destruir
 
-Daemon **0.1.82** e app **0.1.89** (no crates.io). Entrega autônoma; plano em `docs/plano-ambientes-ajustes.md`.
+Daemon **0.1.82** e app **0.1.89** (no crates.io). Entrega autônoma; plano em `docs/arquivo/plano-ambientes-ajustes.md`.
 
 - **Nota por serviço** na aba Ambientes dizendo por que não há botão (Compose, sem release de um lado ou dos dois);
   "imagens diferentes" só quando os dois lados têm release.
@@ -1147,7 +1183,7 @@ linha nova) e webui headless (a linha nova); CI sem tag verde com as versões ce
 ## v0.1.96 (2026-11-24): tela Volumes, volume existente no Compose e volumes emprestados
 
 Daemon **0.1.80** e app **0.1.87** (no crates.io). Entrega autônoma; plano em
-`docs/plano-volumes-tela-e-emprestados.md`.
+`docs/arquivo/plano-volumes-tela-e-emprestados.md`.
 
 - **Corrigido (dados):** apagar uma stack Compose com "Apagar os dados" apagava também os volumes
   `external: true` (que já existiam e a stack só usava). Agora `delete_volumes` vale só para os volumes
@@ -1187,7 +1223,7 @@ instalador rodam com `podman run docker.io/library/debian:12`.
 ## v0.1.95 (2026-11-24): volumes — montar, adotar órfão e o volume nomeado que não funcionava
 
 Daemon **0.1.79** e app **0.1.86** (no crates.io). Entrega autônoma ("a questão dos volumes"): Fase 2 da abstração
-Volume, §4.6 de `docs/plano-releases-ambientes-rotas-volumes.md`.
+Volume, §4.6 de `docs/arquivo/plano-releases-ambientes-rotas-volumes.md`.
 
 - **Corrigido:** volume nomeado em serviço Application quebrava o deploy nos dois motores (a montagem era sempre
   bind). Agora caminho absoluto = bind; nome = volume nomeado, criado antes com a etiqueta `rustploy.service_id`.
@@ -1207,7 +1243,7 @@ Volume, §4.6 de `docs/plano-releases-ambientes-rotas-volumes.md`.
 ## v0.1.94 (2026-11-24): ambientes, rotas próprias e volumes com dono
 
 Daemon **0.1.78** e app **0.1.85** (no crates.io). Entrega autônoma, a pedido do dono ("vá até o fim"): as
-abstrações 2, 3 e 4 de `docs/plano-releases-ambientes-rotas-volumes.md`, juntas numa versão.
+abstrações 2, 3 e 4 de `docs/arquivo/plano-releases-ambientes-rotas-volumes.md`, juntas numa versão.
 
 - **Ambiente:** `EnvironmentCreate/List/Compare/Promote`. Cópia de um projeto com rede, variáveis e nomes de
   container próprios (sem domínios, portas, push-to-deploy, backup nem acesso aos bancos da origem; jobs agendados
@@ -1240,7 +1276,7 @@ abstrações 2, 3 e 4 de `docs/plano-releases-ambientes-rotas-volumes.md`, junta
 ## v0.1.91 (2026-11-23): releases — comparar e voltar para uma versão
 
 Daemon **0.1.75** e app **0.1.84** (os dois no crates.io). Entrega autônoma, a pedido do dono; primeira das quatro
-abstrações de `docs/plano-releases-ambientes-rotas-volumes.md` (as outras três esperam a confirmação dele).
+abstrações de `docs/arquivo/plano-releases-ambientes-rotas-volumes.md` (as outras três esperam a confirmação dele).
 
 - **Release:** todo deploy que chega a Live grava a imagem fixada (id ou digest), o `ServiceSpec` e as variáveis do
   projeto (tabela `release`; secrets só como referência). `ReleaseList`, `ReleaseDiff` e `ReleaseRollback`: este
@@ -1301,7 +1337,7 @@ App **0.1.83** (no crates.io); daemon 0.1.74 sem mudança de versão (só um tes
 ## v0.1.89 (2026-11-22): nomes das variáveis do vínculo
 
 Daemon **0.1.74**, app **0.1.82** (no crates.io); `rustploy-update-core` sem mudança. Entrega autônoma, plano em
-`docs/plano-nomes-das-variaveis-do-vinculo.md`. Pedido do dono: escolher o nome de cada variável que o vínculo
+`docs/arquivo/plano-nomes-das-variaveis-do-vinculo.md`. Pedido do dono: escolher o nome de cada variável que o vínculo
 entrega, em vez de só o prefixo (o `api` do Chiquitos lê `S3_ENDPOINT` e `S3_BUCKET_NAME_1`, que nenhum prefixo gera).
 
 - **Modelo:** `ServiceLink.env_names: {SUFIXO: NOME}` (`HOST`, `PORT`, `URL`, `BUCKET`, `DATABASE`); `""` = não
@@ -1505,7 +1541,7 @@ App **0.1.77** (glacier-ui **0.168.2**); daemon **0.1.68** e `rustploy-update-co
 ## v0.1.82 (2026-11-20): menos RAM e CPU — snapshot do SSE por seção, métricas só com cliente
 
 Daemon **0.1.68**, app **0.1.76** (glacier-ui **0.168.1**, glacier-cli **0.28.20**); `rustploy-update-core` **0.3.3**
-sem mudança. Daemon e app no crates.io. Estudo e medições em `docs/estudo-consumo-de-ram.md`.
+sem mudança. Daemon e app no crates.io. Estudo e medições em `docs/arquivo/estudo-consumo-de-ram.md`.
 
 - **Daemon:** o snapshot do `/api/events` é calculado **uma vez por tick para todos os clientes** (`SnapshotHub`, em
   `api/http/snapshot.rs`) e não é calculado sem cliente. Com `?patch=1` o cliente recebe o snapshot inteiro ao conectar e

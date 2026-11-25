@@ -1,7 +1,7 @@
 # Conectar um agente (Claude Code) ao MCP de um rustploy
 
 > **Status: em uso** (2026-10-14). Guia permanente, não é plano. O desenho do
-> token de conexão e do `/mcp` está em `docs/plano-chave-de-acesso-e-mcp.md`, e
+> token de conexão e do `/mcp` está em `docs/arquivo/plano-chave-de-acesso-e-mcp.md`, e
 > o manual que o daemon serve aos agentes está em
 > `rustploy-daemon/crates/daemon/src/api/agent/manual.md`.
 
