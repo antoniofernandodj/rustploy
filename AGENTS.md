@@ -192,7 +192,7 @@ em memória antes de gravar: se um arquivo não parseia, se o `enum Command` som
 ou se uma área fica vazia (diretório movido), ele sai com erro dizendo o quê e
 **não altera nada**, para o índice nunca ficar pela metade. Os arquivos são gerados:
 não edite à mão. A descrição de cada item vem do `//!`/`///` (ou do comentário
-de cabeçalho, em Luau/JS/`.gv`/`.gvb` — neste, as linhas `//` do topo), então documentar o código melhora o índice.
+de cabeçalho, em Luau/JS/`.gv` — neste, as linhas `//` do topo), então documentar o código melhora o índice.
 O gerador fica em `tools/indexer/` (um pacote cargo avulso, sem workspace), e o
 porquê de cada decisão está em `docs/arquivo/plano-indice-de-codigo.md`.
 
@@ -273,26 +273,26 @@ runtime `iced::daemon` inteiro reimplementado aqui (~250 linhas) porque o
 builder não expunha multi-janela; o buraco foi fechado na 0.38 e o runtime
 local, removido.
 
-### Todo template tem uma casca: `<screen>` ou `<component>`
+### Todo template tem uma casca: `screen` ou `component`
 
 Desde o glacier-ui **0.59**, cada janela declara o que ela é no cabeçalho do
 próprio template — não procure isso no `main.rs`/`app/mod.rs`:
 
-```xml
-<screen title="Novo job — Rustploy" size="560 700">
-    <resources>
-        <link rel="theme" href="…" />
-        <style> … </style>
-        <script src="scripts/new_job_window.luau"></script>
-    </resources>
+```gv
+screen(title = "{t('new_job_window.new_job_rustploy')}") {
+  resources {
+    link(rel = import, href = "components/picker_row.component.gv", as = PickerRow)
+    style """ … """
+    script(src = "scripts/new_job_window.luau")
+  }
 
-    <column class="…"> … </column>
-</screen>
+  column(class = dialog__screen) { … }
+}
 ```
 
 Onde cada coisa vive hoje:
 
-- **`views/app.gvb`** — a raiz é o **`app(...)`** (glacier 0.117+): `id`,
+- **`views/app.gv`** — a raiz é o **`app(...)`** (glacier 0.117+): `id`,
   `single_instance`, `remember_geometry`, a janela **principal** (`size`,
   `min_size`, `decorations`, `icon`) e a `tray`. O `main_window_settings()` em
   `app/mod.rs` ficou só com o que o markup não descreve (`application_id`), e o
@@ -300,7 +300,7 @@ Onde cada coisa vive hoje:
 - **As telas são filhas do `app`**: `screen(name = app, initial = true)` é a
   principal (inline, com o script `app.luau`) e as cinco janelas auxiliares são
   `screen(name = log | new_job | new_service | new_project | new_registry_token,
-  src = "…gvb")`. A `screen` é **só conteúdo** (`title`; `size`/`icon` nela são erro
+  src = "….screen.gv")`. A `screen` é **só conteúdo** (`title`; `size`/`icon` nela são erro
   de parse): o **tamanho** de cada janela filha vai na chamada dos handlers Luau —
   `open_window{ component = "log", size = "900 560", decorations = false, data = … }`
   (a moldura borderless também vai na chamada) —, e o ícone vem do `app`. Uma janela aberta numa tela do app registra
@@ -313,23 +313,23 @@ Onde cada coisa vive hoje:
 
 Qual casca usar (glacier-ui 0.117+):
 
-- **`app`** — só `views/app.gvb`: o manifesto (o aplicativo, a janela principal,
+- **`app`** — só `views/app.gv`: o manifesto (o aplicativo, a janela principal,
   a bandeja, o `resources` global e as telas).
 - **`screen`** — os arquivos abertos como **tela de outra janela**
-  (`new_*_window.gvb`, `new_project_form.gvb`, `log_window.gvb`), apontados por
+  (`new_*_window.screen.gv`, `new_project_form.screen.gv`, `log_window.screen.gv`), apontados por
   `screen(name = …, src = …)` no `app`. Levam só `title`.
-- **`component`** — todo o resto, e é a maioria: `shell.gvb`, `home.gvb`,
-  `service.gvb`, `login.gvb`, `new_service.gvb`, os dez de `views/components/` e
+- **`component`** — todo o resto, e é a maioria: `shell.component.gv`, `home.component.gv`,
+  `service.component.gv`, `login.component.gv`, `new_service.component.gv`, os dez de `views/components/` e
   os pedaços de `views/shell/`, `views/service/` e `views/home/`.
   Todos eles são importados por outro template (`link(rel = import, …)`), então
   não há janela a que título ou tamanho se aplicariam — e o `component` não
   aceita esses atributos, erra na cara explicando a diferença.
 
-O `<resources>` agrupa o que não desenha (`<style>`, `<script>`, `<link>`,
-`<import>`) e vale nas duas cascas; é opcional (um componente sem declaração
+O `resources` agrupa o que não desenha (`style`, `script`, `link`,
+`component(name = …)`) e vale nas duas cascas; é opcional (um componente sem declaração
 nenhuma leva só a casca). Um engano no cabeçalho é erro de parse — atributo
 desconhecido, tamanho que não seja par de números, widget dentro do
-`<resources>` — e não passa em silêncio. O teste
+`resources` — e não passa em silêncio. O teste
 `janelas_declaram_titulo_e_tamanho`
 (`rustploy-gui/tests/app_manifest.rs`) trava os valores das janelas.
 
@@ -369,7 +369,7 @@ A GUI e a webui falam **inglês** e **pt-BR**; o inglês é o padrão, o seletor
 `localStorage` na webui). **Texto novo de interface entra nos dois idiomas, nos dois clientes** —
 um texto sem entrada não quebra nada (aparece como foi escrito), mas é divergência silenciosa.
 
-- **GUI, markup (`.gvb`):** nunca texto solto: `text("{t('docker_images.no_images')}")`, com
+- **GUI, markup (`.gv`):** nunca texto solto: `text("{t('docker_images.no_images')}")`, com
   aspas simples por dentro. A chave é semântica (`<tela>.<texto_em_inglês>`, ou `common.` se vale
   para mais de uma tela) e vive em `rustploy-gui/locales/en.json` **e** `pt-BR.json`. Valores
   entram como argumentos: `{t('shell.projects', projects_count=projects_count)}` com
@@ -395,7 +395,7 @@ um texto sem entrada não quebra nada (aparece como foi escrito), mas é diverg�
 
 ### Nomes: tudo por extenso, em inglês, sem sigla
 
-Vale para a GUI (Luau, `.gvb`) e para a webui (JS, `index.html`), e a regra é a
+Vale para a GUI (Luau, `.gv`) e para a webui (JS, `index.html`), e a regra é a
 mesma nos dois lados: **o nome se explica sozinho, sem glossário**. Quem lê
 `ctx.docker_cleanup_kinds` não precisa abrir outro arquivo para saber o que é;
 com `ctx.dc_kinds` precisaria. Antes de criar um nome, confira se ele passa nas
@@ -491,39 +491,47 @@ poderia dispensar parênteses, mas **não** adotamos essa forma.
 
 O código do `rustploy-gui` é mantido **enxuto de propósito**. No **Rust**: nada de
 comentário `//` e, nos itens, **uma frase** de `///`/`//!` (é a que o `make index` usa
-como descrição). Nos **`.gvb`**: no cabeçalho de cada arquivo só a **primeira frase** (o
+como descrição). Nos **`.gv`**: no cabeçalho de cada arquivo só a **primeira frase** (o
 indexador a usa como descrição do arquivo) e, no corpo, no máximo comentários discretos de
 uma linha (divisores `// ── Seção ──`, rótulos curtos) — nada de bloco explicativo de 3 ou
-mais linhas, nem em `//` nem em `/* */` dentro do `<style>`. O contexto, o raciocínio e as
+mais linhas, nem em `//` nem em `/* */` dentro do `style`. O contexto, o raciocínio e as
 decisões descartadas moram no `rustploy-gui/README.md`, escrito como um artigo por assunto
 (seção 6 para os templates). Ao mexer no código, não devolva comentários para ele: se algo
 precisa de explicação, acrescente-a ao README (citando `arquivo.rs::item` ou
-`views/x.gvb`) e deixe no código só a frase.
+`views/x.component.gv`) e deixe no código só a frase.
 
 ### Armadilhas de template (`.gv`)
 
-- **Nunca escreva uma tag literal dentro de um comentário** (nem dentro de
-  `<style>`): o parser quebra e o erro aponta para a linha errada.
+A sintaxe é a de blocos do glacier-ui: `tag(atributo = valor) { filhos }`, nos
+arquivos `app.gv`, `*.screen.gv` e `*.component.gv` (não existe mais `.gvb` nem
+markup em XML). A melhoria das duas linguagens está planejada em
+`glacier-ui/docs/PLANO_LINGUAGEM_GV_GSS.md`; quando uma armadilha abaixo for
+resolvida numa versão publicada, ela sai daqui.
+
 - **Classes seguem BEM** (`bloco`, `bloco__elemento`, `bloco--modificador`, `u-*`
-  para utilitário de uma propriedade) — a convenção completa, e onde um seletor
+  para utilitário de uma propriedade). A convenção completa, e onde um seletor
   composto simplifica, está no cabeçalho de `rustploy-gui/views/styles/app.gss`.
   O modificador vai **junto** do base no markup (`class = "btn btn--danger"`).
   Desde o glacier-ui 0.122 o `.gss` aceita `.a > .b` (filho direto), `.a .b`
   (descendente), `row.a` e `.a.b`; `+`, `~`, `[attr]`, `::x`, `:not()` e `:estado`
   num ancestral são **erro de parse**. Uso real: `.nav-item--active > .nav-item__icon`
-  (nav_item.gvb) e `.state-cell--ok > text` (state_cell.gvb); o teste
+  (`nav_item.component.gv`) e `.state-cell--ok > text` (`state_cell.component.gv`); o teste
   `nav_item_aceso_recolore_os_filhos_por_combinador` guarda o efeito.
-- **O GSS não suporta seletor por vírgula** (`.a, .b { }`, nem dentro de
-  `@media`): vira uma chave só, errada, e falha em silêncio. Uma declaração por
-  seletor.
-- **Condicional e laço são `<template>` ou atributo, nunca `<if>`/`<foreach>`.**
-  As tags `<if>`/`<else-if>`/`<else>` viraram
-  `<template if=>`/`<template else-if=>`/`<template else>` em todo `.gv`
-  (2026-09-11; `<foreach>` já não existia) — mesmo `NodeType` no parser do
-  glacier, e alinha com o `<template x-for>` da webui. Um
-  `<template if="{x}" equals="y">` envolve **vários** filhos sem criar caixa;
-  `if="{x}"` **como atributo** num elemento real condiciona **só aquele
-  elemento**. Não reintroduza `<if>`/`<foreach>`.
+- **Vírgula de seletor funciona** (`.a, .b { }`, inclusive dentro de `@media`, e
+  misturada com estado ou combinador): cada parte recebe a mesma regra, como no
+  CSS. Isso vale desde o glacier-ui 0.38; o aviso antigo de que "falha em
+  silêncio" estava errado. Travado por `tests/linguagem_fase0.rs` no glacier-ui.
+- **Tag dentro de comentário não quebra mais o parser** (`// <column>`, ou
+  `/* <text> */` dentro de `style """…"""`), e um erro depois dela aponta a linha
+  certa. Também travado por `tests/linguagem_fase0.rs`.
+- **Condicional e laço.** Em bloco: `if @x == "y" { … } else if … { … } else { … }`
+  e `each @lista as v (fallback = Vazio) { … }`, que envolvem vários filhos sem
+  criar caixa. Num nó só: o atributo `if = @x` (com `equals`/`not_equals`/`one_of`)
+  condiciona **só aquele nó**, e `:for_each = lista, var = v` repete aquele nó.
+  As formas XML antigas (`<template if=>`, `<if>`, `<foreach>`) não existem mais.
+- **Armadilhas de condição que falham calado** (até o plano do glacier resolver):
+  `is empty` / `empty` só entendem **lista** JSON (um texto conta como vazio, então
+  para texto use `!= ""`); `one_of` separa por **espaço**, não por vírgula.
 - **`column`/`row` sem `width` encolhe até os filhos; filho `fill` dentro dele
   fica com largura zero.** O bloco some sem erro e **com a altura reservada**
   (um buraco vazio na tela). Acontece quando todos os filhos são `fill`: o
@@ -552,17 +560,17 @@ do sistema, e `font: mono` é a mono **do sistema**, não a JetBrains.
   class="field">` com `.field-description`. Valor copiável: `copy-row`. Rótulo → valor:
   `info-list`/`info-row`. As mesmas classes nos dois clientes.
 
-### Dividir um template grande em arquivos (`.gvb`)
+### Dividir um template grande em arquivos (`.gv`)
 
 Um arquivo de view passa de ~300 linhas → divida. Todo `if @view/@tab == …` com
-corpo maior que ~40 linhas vira arquivo. O padrão que `shell.gvb` e
-`service.gvb` seguem: o arquivo grande fica só com o cabeçalho e o **roteador**
+corpo maior que ~40 linhas vira arquivo. O padrão que `shell.component.gv` e
+`service.component.gv` seguem: o arquivo grande fica só com o cabeçalho e o **roteador**
 (os `if`/`else if` que escolhem o corpo), e cada ramo vira
-`views/<area>/<nome>.gvb`, um `component { … }` importado por
+`views/<area>/<nome>.component.gv`, um `component { … }` importado por
 `link(rel = import, href = "…", as = Nome)` e instanciado sem argumentos — ele
 lê o estado global (`@view`, `@svc_*`…) como o resto. Foi assim que o
-`shell.gvb` foi de 904 para ~200 linhas, o `service.gvb` de 1860 para ~315 e o
-`home.gvb` de 1900 para ~80, sem mudar o comportamento. Os `component(name = SemX)`
+`shell.component.gv` foi de 904 para ~200 linhas, o `service.component.gv` de 1860 para ~315 e o
+`home.component.gv` de 1900 para ~80, sem mudar o comportamento. Os `component(name = SemX)`
 de estado vazio (`fallback`) vão para o arquivo que os usa. O que aprendemos fazendo:
 
 - **A condição vai na CHAMADA, nunca na raiz do arquivo extraído.** Um
@@ -573,11 +581,11 @@ de estado vazio (`fallback`) vão para o arquivo que os usa. O que aprendemos fa
   era um `if @x == "y" { … }` com vários filhos, extraia o **corpo** do bloco:
   o `component` aceita várias raízes.
 - **O `href` do `link(rel = import)` é relativo ao arquivo que importa**, não à
-  raiz de `views/`: de `service.gvb` é `"service/logs.gvb"`, mas de dentro de
-  `service/general.gvb` é só `"general_git.gvb"`.
+  raiz de `views/`: de `service.component.gv` é `"service/logs.component.gv"`, mas de dentro de
+  `service/general.component.gv` é só `"general_git.component.gv"`.
 - **Os nomes importados são globais.** Quem importou primeiro registra; os
   arquivos extraídos usam `StatCard`, `LoadingRow`, `StateCell`… sem reimportar.
-  O `<style>` inline também é **global** (só `scoped="true"` restringe), então o
+  O `style` inline também é **global** (só `style(scoped = true)` restringe), então o
   CSS pode ficar no arquivo-mãe. Já os `component(name = SemX)` de estado vazio
   (`fallback`) migram para o arquivo que os usa.
 - **O prefixo de dono das ações muda** (`ServiceDetail::open_logs_window` →
@@ -585,7 +593,7 @@ de estado vazio (`fallback`) vão para o arquivo que os usa. O que aprendemos fa
   como dono se ele for um componente registrado com script; senão cai na tela
   atual.
 - **String com quebra de linha dentro** (placeholder de textarea com YAML, em
-  `service/general_compose.gvb` e `new_job_window.gvb`): use o **`l"""…"""`**
+  `service/general_compose.component.gv` e `new_job_window.screen.gv`): use o **`l"""…"""`**
   (glacier-ui 0.119+; `l` de *linhas*, não de raw: mantém as quebras, tira o recuo
   comum e continua interpolando `@nome`). Os outros dois jeitos não servem: `"…"`
   só aceita a quebra **literal** (não interpreta `\n`, e as linhas de continuação
@@ -712,7 +720,7 @@ resolve. O daemon não tem lib target, então seus testes ficam sob `--bins`.
 #                       cargo check --workspace
 # em rustploy-shared/:  cargo test -p rustploy-update-core
 # em rustploy-gui/:     cargo test --bins
-#                       cargo test --test app_manifest       # manifesto, estrutura dos .gvb, widgets do iced
+#                       cargo test --test app_manifest       # manifesto, estrutura dos .gv, widgets do iced
 #                       glacier test                         # testes Luau (tests/**/*.test.luau)
 ```
 
@@ -728,13 +736,13 @@ handlers que falam HTTP não dão para exercitar. A referência completa (asser�
 **Mapa de `rustploy-gui/tests/`** (o `*.test.luau` novo entra na pasta do assunto; o runner
 desce em subpastas): `format/` (um arquivo por módulo de `views/scripts/format/`) e `lib/`
 (`helpers`, `access_key`, `busy`, `busy_actions`, `manifest_zip`) são lógica pura;
-`handlers/` e `windows/` chamam handlers por `component("views/app.gvb")` (ou pelo `.gvb` da
+`handlers/` e `windows/` chamam handlers por `component("views/app.gv")` (ou pelo `.gv` da
 janela) sem conexão; `tela/running` idem para a visão de rodando, e `tela/missing` usa
 `tela:missing()` (glacier-ui ≥ 0.127) para cruzar as chaves que cada visão do shell e cada
 janela **lê** com as que o `ctx` tem. Nele, as chaves "do snapshot" estão **congeladas** por
 visão (o snapshot chega por SSE e `apply_snapshot` é local ao `stream.luau`): o teste falha
 se uma chave nova aparecer — leu-se algo que ninguém publica — ou se uma esperada sumir
-(atualize a lista, com o motivo). Um `.gvb` que leia `{totall}` enquanto o handler escreve
+(atualize a lista, com o motivo). Um `.gv` que leia `{totall}` enquanto o handler escreve
 `total` passa em todo teste de handler e só o `missing()` o pega.
 
 O que esses testes **não** provam (snapshot do daemon, `storage` real, o `erro_<campo>` do
@@ -1084,7 +1092,7 @@ segundos depois de subir.
 
 ## `rustploy-gui` (repo `rustploy-gui`, `src/`)
 
-UI declarada em templates **`.gvb`** (markup de blocos: `tag(atributo = valor) { filhos }`,
+UI declarada em templates **`.gv`** (markup de blocos: `tag(atributo = valor) { filhos }`,
 ligação com `:`, glacier-ui 0.117+), renderizados pela crate publicada
 `glacier-ui`. Toda
 responsabilidade de rede e de negócio (login, consumidor SSE, navegação, cada
@@ -1103,7 +1111,7 @@ resolve, não necessariamente ao diretório de lançamento.
   para toda referência relativa resolver igual independente de como o app foi
   lançado. Ordem: `$RUSTPLOY_UI_ASSETS` → diretório do próprio executável
   (layout portátil/Windows) → `/usr/share/rustploy` (pacote Debian) → diretório
-  atual (dev). Confirma a base sondando `views/app.gvb`. Só
+  atual (dev). Confirma a base sondando `views/app.gv`. Só
   existe em debug: em release os assets são embutidos no binário
   (`embedded.rs`, `include_dir`) e o executável é standalone.
 - **`app/mod.rs`** — desde o glacier **0.38**, apenas **configuração do
@@ -1114,9 +1122,9 @@ resolve, não necessariamente ao diretório de lançamento.
   round-trip perde o serial do pointer-grab e `window:drag` vira no-op
   silencioso). O que é específico do rustploy entra por ganchos:
   `.font()`/`.default_font()` (JetBrains Mono embutida), `.main_template()`
-  (carrega o manifesto `app.gvb`), `.main_window()`/
+  (carrega o manifesto `app.gv`), `.main_window()`/
   `.child_window()` (só o `application_id` do Linux), `.lua_extension()`, `.toast_period()` e `.antialiasing(false)`. O
-  resto mora no **markup** do `views/app.gvb`: `app(id = rustploy,
+  resto mora no **markup** do `views/app.gv`: `app(id = rustploy,
   single_instance, remember_geometry, size, min_size, decorations, icon)`, a
   `tray` e as `screen`s. Um `.main(|motor| …)` só serve para registrar um
   `impl Component` em Rust (este app não tem); ele roda **depois** do manifesto.
@@ -1134,21 +1142,21 @@ resolve, não necessariamente ao diretório de lançamento.
   sempre `None` no Wayland (o protocolo não a expõe ao cliente; não é
   contornável), então só o tamanho volta lá. Ver
   `docs/arquivo/plano-file-io-luau-e-geometria.md`.
-- **`views/`** (todos `.gvb`) — `app.gvb` (o manifesto: `app(...)`, a titlebar +
-  handles de resize da principal, que chaveia em `screen`), `login.gvb`,
-  `shell.gvb` (sidebar + topbar + o roteador `if @view`; o corpo de cada view mora
+- **`views/`** (todos `.gv`) — `app.gv` (o manifesto: `app(...)`, a titlebar +
+  handles de resize da principal, que chaveia em `screen`), `login.component.gv`,
+  `shell.component.gv` (sidebar + topbar + o roteador `if @view`; o corpo de cada view mora
   em `views/shell/`: `deployments`, `projects`, `project_services` e, dele, as
-  sub-abas `project_env`/`project_secrets`/`project_jobs`), `home.gvb`
+  sub-abas `project_env`/`project_secrets`/`project_jobs`), `home.component.gv`
   (só o roteador `if @view` das telas globais: Monitoring/Ingress/Deploy Engine/
   Docker/Settings/Schedules; cada uma é um arquivo em `views/home/`, e o Docker e o
   Settings ainda se dividem por sub-aba em `views/home/docker/` e
-  `views/home/settings/`), `service.gvb`
+  `views/home/settings/`), `service.component.gv`
   (cabeçalho do serviço, a fileira de abas e o roteador `if @tab`; **cada aba é
   um arquivo em `views/service/`**, e a `general` ainda se divide em
   `general_git`/`general_zip`/`general_gitea`/`general_compose`),
-  `new_service.gvb` (wizard), as telas das
-  janelas separadas (`new_project_form.gvb`, `log_window.gvb`, `new_job_window.gvb`,
-  `new_registry_token_window.gvb`, `new_service_window.gvb`) e `components/*.gvb`.
+  `new_service.component.gv` (wizard), as telas das
+  janelas separadas (`new_project_form.screen.gv`, `log_window.screen.gv`, `new_job_window.screen.gv`,
+  `new_registry_token_window.screen.gv`, `new_service_window.screen.gv`) e `components/*.component.gv`.
   Estilizados por `views/styles/app.gss`, linkado **uma vez** no `resources`
   global do `app` — as janelas separadas o recebem de graça (cada uma é um motor
   isolado que carrega as declarações globais do manifesto).
