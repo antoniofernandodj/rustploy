@@ -72,6 +72,7 @@
 - plano-recursos-e-vinculos.md — Plano: vínculos entre serviços (e confirmação em toda ação destrutiva)
 - release.md — Como publicar uma release
 - secrets.md — Secrets — Gerenciamento de Credenciais
+- services.md
 - tls-acme.md — TLS automático via ACME (Let's Encrypt)
 - webhooks-exemplos.md — Webhooks: exemplos de requisição e resposta
 - webhooks.md — Webhooks de Deploy
@@ -143,7 +144,6 @@
 - plano-widgets-glacier-0.68.md — Widgets novos do glacier-ui (0.63 → 0.68): o que dá pra aproveitar no rustploy
 - prompt-depurar-infra-com-agente.md — Prompt: depurar a infra pela API de agente
 - relatorio-porta-externa-automatica.md — Relatório: URL de conexão externa sem burocracia — porta automática + firewall g…
-- services.md
 - status-2026-05-26.md — Status do Projeto — 26 de maio de 2026
 
 ### keys/

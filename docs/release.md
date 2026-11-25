@@ -1576,3 +1576,11 @@ sem mudança. Daemon e app no crates.io. Estudo e medições em `docs/arquivo/es
   índice parece em dia e não está.
 - **Publish em outra máquina de novo:** o crates.io tinha app 0.1.75 e glacier-ui 0.168.0 enquanto o checkout local
   estava atrás. `git fetch` nos cinco repos e no glacier-ui **antes** do bump; o glacier-ui saiu como 0.168.1, não 0.168.0.
+
+## v0.1.100 (2026-11-25): o texto da descrição não vaza mais por cima das abas
+
+Só o app muda: **0.1.91** (glacier-ui 0.168.3). O daemon segue no 0.1.83.
+
+- Rolando a aba General, o texto do painel Descrição (e de qualquer `textarea` rolado para fora da área visível) era
+  pintado por cima das abas e do cabeçalho. A camada do texto do `textarea` recortava só pela caixa do campo; o
+  glacier-ui 0.168.3 recorta pela interseção com o viewport do scrollable.
