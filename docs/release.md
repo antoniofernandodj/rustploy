@@ -1584,3 +1584,13 @@ Só o app muda: **0.1.91** (glacier-ui 0.168.3). O daemon segue no 0.1.83.
 - Rolando a aba General, o texto do painel Descrição (e de qualquer `textarea` rolado para fora da área visível) era
   pintado por cima das abas e do cabeçalho. A camada do texto do `textarea` recortava só pela caixa do campo; o
   glacier-ui 0.168.3 recorta pela interseção com o viewport do scrollable.
+
+**Verificado:** `make lint`; `make test` (daemon 755 ok; 2 falhas de ambiente nos testes headless, o Chrome não subiu:
+`LaunchTimeout`, e o daemon não mudou); `cargo test --workspace` da GUI e do `rustploy-shared`; `glacier test` (493).
+CI sem tag verde e `.deb` conferidos (`rustploy-gui 0.1.91-1`, `libc6 >= 2.35`); release assinada (shim, dry-run
+antes, shim apagado) e publicada com 5 arquivos + 4 `.minisig`; `sha256sum -c` e `minisign -V` pela URL pública;
+`releases/latest` = v0.1.100; `install.sh -- gui` num `debian:12` (podman) instalou `0.1.91-1`; `install.ps1` até o
+SHA-256 (o `minisign.exe` não roda no Linux).
+
+**Não verificado:** a GUI rodando com a correção (nem no Xvfb); a correção está no glacier-ui. O site de docs não
+mudou (nenhuma página cita a versão), então não houve deploy. Nada instalado nesta máquina.
