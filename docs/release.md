@@ -1594,3 +1594,36 @@ SHA-256 (o `minisign.exe` não roda no Linux).
 
 **Não verificado:** a GUI rodando com a correção (nem no Xvfb); a correção está no glacier-ui. O site de docs não
 mudou (nenhuma página cita a versão), então não houve deploy. Nada instalado nesta máquina.
+
+## v0.1.101 (2026-11-25): o app na linguagem nova do `.gv` (glacier-ui 0.169)
+
+Only the app changes: **0.1.92** (glacier-ui **0.169.2**, glacier-cli **0.29.1**). The daemon stays at 0.1.83.
+
+- **glacier-ui 0.169:** conditions as expressions (`&&`, `||`, `!`, comparisons, `in`, `is empty`, ternary), short and block
+  forms for each concept, `class:x = expr`, actions with arguments, `t("chave")`, typed props, `busy_buttons`, GSS with
+  nesting, `:not`/`:is`, `@theme` and strict mode; the `fill` inside a container with no `width` fills in instead of collapsing.
+  Tools `glacier check`, `glacier fmt --migrate` and `glacier test --layout`. Plan and reference in `glacier-ui/docs/`.
+- **The app's 73 screens** migrated by `glacier fmt --migrate`; `glacier check` with no old forms left. `busy.luau` stays
+  (the `busy_buttons` releases at the end of the handler, not on the first toast; see AGENTS.md).
+- **Three glacier bugs found while migrating the app**, fixed before the release: `textarea_end("x")` in call form did nothing
+  (0.169.1); `one_of = @chave` migrated to `in ["@chave"]` (0.169.1); and a string in quotes inside an expression did
+  not interpolate `@chave` — the `TabButton` (`if @current == "@target"`, hand-written and valid in 0.168) and the Settings
+  menu lost their active item with no error (0.169.2).
+
+**Verified:** `make lint`; `make test` (daemon 757, GUI, shared); GUI `cargo test --workspace` and `glacier test` (493);
+glacier-ui lib 490 + integration. **App 0.1.91 × 0.1.92 on screen**, the two binaries side by side against the dev server
+(isolated copy, different `app id`, separate `XDG_DATA_HOME`): Deployments, Em execução, Deploy Engine, Monitoramento, Agendamentos,
+Ingress, Runtime, Volumes, Projetos, Configurações and the service screen (General, Variáveis, Logs) — same layout, pixel for pixel
+except live numbers. CI without a tag green (`rustploy-gui 0.1.92-1`, `rustployd 0.1.83-1`, `libc6 >= 2.34`/`2.35`); tag
+`v0.1.101`, signed with the **machine 2** key (shim only for `-S`, dry-run first, shim deleted) and published with 5
+files + 4 `.minisig`; from the public URL, `sha256sum -c` and `minisign -V` OK; `releases/latest` = v0.1.101; one-line
+command in `debian:12` (docker): app `0.1.92-1` and daemon `0.1.83-1` with the signature verified by `install.sh`;
+`install.ps1` up to the SHA-256. Docs unchanged (no page cites the version or the `.gv` syntax), so no deploy.
+
+**Not verified:** `install.ps1` on a Windows machine; the app installed in the owner's session (nothing was installed on this machine,
+only the VS Code extensions Glacier View 0.33.1 and GSS 0.4.0).
+
+- **Pre-existing finding:** the "◐ frio" badge on the service header only shows up if an SSE snapshot arrives *after* the
+  service is opened — in some runs it doesn't appear in either version (0.1.91 or 0.1.92). Not investigated.
+- **Trap for the next migration:** `glacier test --layout` flags zero-area nodes in the app (collapsed side drawer,
+  dialog panels) that did not change on screen; confirm whether they are false positives before using `--strict`.
