@@ -1627,3 +1627,32 @@ extensões de VS Code Glacier View 0.33.1 e GSS 0.4.0).
   o serviço — em algumas rodadas não aparece em nenhuma das duas versões (0.1.91 e 0.1.92). Não investigado.
 - **Armadilha para a próxima migração:** o `glacier test --layout` acusa nós de área zero no app (gaveta lateral recolhida,
   painéis de diálogo) que não mudaram na tela; conferir se são falsos positivos antes de usar `--strict`.
+
+## v0.1.102 (2026-11-26): escolher quais serviços e jobs a limpeza aquece
+
+Daemon **0.1.84**, app **0.1.93**; `rustploy-update-core` e `glacier-ui` sem mudança. Daemon e app no crates.io.
+
+- A limpeza do Docker aquecia todo serviço com build e **nenhum job**: um job de pré-deploy (a migração do Flow, por
+  exemplo) segurava o primeiro deploy depois da limpeza por mais de meia hora, construindo a imagem do zero. Agora a
+  escolha é por item: `DockerCleanupConfig.warm_after_cleanup_choices` (id → aquecer), com o padrão serviço com build
+  **sim**, job de pré-deploy **sim**, outro job **não**. Comandos `WarmAfterCleanupTargets` e
+  `WarmAfterCleanupChoiceSet{id, warm}` (o `DockerCleanupConfigSet` preserva as escolhas, para um cliente antigo não as
+  apagar). Telas: lista de checkboxes por projeto em Settings → Manutenção e toggle na aba Advanced do serviço, travado
+  quando a limpeza ou o aquecimento estão desligados (GUI e webui).
+- **Merge pelo worktree:** os checkouts principais de `rustploy-daemon` e `rustploy-gui` tinham trabalho não commitado de
+  outra frente (descrição no cartão do projeto, `webui/app.css`/`index.html` inclusive). O trabalho foi feito em worktrees,
+  com `git push origin HEAD:main` (fast-forward), e os ponteiros, o índice e as docs num worktree do agregador. Quem
+  tiver aquele trabalho pendente vai precisar fazer o merge com a `main` nova (conflito provável em `app.css`/`index.html`).
+
+**Verificado:** `cargo fmt --check` e `clippy -D warnings` no daemon e na GUI; daemon `cargo test -p rustploy --bins`
+(760 ok, sem as falhas de ambiente do Chrome desta vez); GUI `cargo test --workspace` e `glacier test` (499, 6 novos em
+`tests/format/docker_cleanup.test.luau`); `make index`; site `npm run build` + `check-links` (939 páginas, 0 quebrados).
+CI sem tag verde (`rustployd 0.1.84-1` amd64/arm64 `libc6 >= 2.34`, `rustploy-gui 0.1.93-1` `>= 2.35`); tag `v0.1.102`,
+assinada com a chave da **máquina 2** (shim só para `-S`, dry-run antes, shim apagado) e publicada com 5 arquivos + 4
+`.minisig`; pela URL pública, `sha256sum -c` e `minisign -V` OK; `releases/latest` = v0.1.102; comando de uma linha num
+`debian:12` (Docker): app `0.1.93-1` e daemon `0.1.84-1`.
+
+**Não verificado:** as telas novas (lista e toggle) na GUI e na webui não foram abertas, nem no Xvfb; o aquecimento dos
+jobs depois de uma limpeza real (só os testes da lista e da decisão); `install.ps1` (não rodado desta vez). **Docs não
+reimplantadas:** o `wrangler` desta máquina está sem login válido (`Unable to authenticate request [code: 10001]`); as
+páginas estão na `main` do `rustploy-docs` e sobem no próximo `npx wrangler deploy` de quem tiver o login.
