@@ -99,6 +99,15 @@ Assim o app antigo continua salvando tudo, e a descrição fica.
   Gravação só pelo botão (sem salvar sozinho), como a edição de variáveis.
 - **Apagar o texto todo e salvar pede confirmação** (é apagar algo que outra pessoa escreveu). Editar
   não pede: é como salvar o compose.
+
+> **Mudou em 2026-11-26.** O painel saiu da aba General: a descrição é hoje o campo sem borda do
+> **cabeçalho** do serviço, logo abaixo do nome — o mesmo desenho da descrição do projeto e do título
+> editável. Grava sozinha (0,5 s depois da última tecla, aviso após 2 s parados) e **esvaziar grava
+> direto, sem diálogo**: no cabeçalho, interromper a digitação com um modal seria pior do que o risco
+> de apagar. O aviso longo virou o `tooltip` do campo (na webui, o `title`).
+> GUI: `views/service.component.gv` + `handlers/service_description.luau` (`service_description_change`);
+> webui: `index.html` (cabeçalho) + `screens/service_detail.js` (`descriptionInput`/`descriptionSave`).
+
 - **Cartão do serviço na lista do projeto:** a primeira linha da descrição, apagada, sob o nome. Quem
   abre o projeto vê para que cada coisa serve sem entrar no serviço.
 
