@@ -1597,33 +1597,33 @@ mudou (nenhuma página cita a versão), então não houve deploy. Nada instalado
 
 ## v0.1.101 (2026-11-25): o app na linguagem nova do `.gv` (glacier-ui 0.169)
 
-Only the app changes: **0.1.92** (glacier-ui **0.169.2**, glacier-cli **0.29.1**). The daemon stays at 0.1.83.
+Só o app muda: **0.1.92** (glacier-ui **0.169.2**, glacier-cli **0.29.1**). O daemon segue no 0.1.83.
 
-- **glacier-ui 0.169:** conditions as expressions (`&&`, `||`, `!`, comparisons, `in`, `is empty`, ternary), short and block
-  forms for each concept, `class:x = expr`, actions with arguments, `t("chave")`, typed props, `busy_buttons`, GSS with
-  nesting, `:not`/`:is`, `@theme` and strict mode; the `fill` inside a container with no `width` fills in instead of collapsing.
-  Tools `glacier check`, `glacier fmt --migrate` and `glacier test --layout`. Plan and reference in `glacier-ui/docs/`.
-- **The app's 73 screens** migrated by `glacier fmt --migrate`; `glacier check` with no old forms left. `busy.luau` stays
-  (the `busy_buttons` releases at the end of the handler, not on the first toast; see AGENTS.md).
-- **Three glacier bugs found while migrating the app**, fixed before the release: `textarea_end("x")` in call form did nothing
-  (0.169.1); `one_of = @chave` migrated to `in ["@chave"]` (0.169.1); and a string in quotes inside an expression did
-  not interpolate `@chave` — the `TabButton` (`if @current == "@target"`, hand-written and valid in 0.168) and the Settings
-  menu lost their active item with no error (0.169.2).
+- **glacier-ui 0.169:** condição como expressão (`&&`, `||`, `!`, comparação, `in`, `is empty`, ternário), forma curta e de
+  bloco para cada conceito, `class:x = expr`, ação com argumentos, `t("chave")`, props com tipo, `busy_buttons`, GSS com
+  aninhamento, `:not`/`:is`, `@theme` e modo estrito; o `fill` num contêiner sem `width` enche em vez de colapsar.
+  Ferramentas `glacier check`, `glacier fmt --migrate` e `glacier test --layout`. Plano e referência em `glacier-ui/docs/`.
+- **As 73 telas do app** migradas pelo `glacier fmt --migrate`; `glacier check` sem forma antiga. O `busy.luau` fica (o
+  `busy_buttons` libera no fim do handler, não no primeiro toast; ver AGENTS.md).
+- **Três bugs do glacier achados migrando o app**, corrigidos antes da release: `textarea_end("x")` na forma de chamada não
+  fazia nada (0.169.1); `one_of = @chave` migrava para `in ["@chave"]` (0.169.1); e texto entre aspas dentro de expressão
+  não interpolava `@chave` — o `TabButton` (`if @current == "@target"`, escrito à mão e válido na 0.168) e o menu de
+  Configurações perdiam o item ativo sem erro (0.169.2).
 
-**Verified:** `make lint`; `make test` (daemon 757, GUI, shared); GUI `cargo test --workspace` and `glacier test` (493);
-glacier-ui lib 490 + integration. **App 0.1.91 × 0.1.92 on screen**, the two binaries side by side against the dev server
-(isolated copy, different `app id`, separate `XDG_DATA_HOME`): Deployments, Em execução, Deploy Engine, Monitoramento, Agendamentos,
-Ingress, Runtime, Volumes, Projetos, Configurações and the service screen (General, Variáveis, Logs) — same layout, pixel for pixel
-except live numbers. CI without a tag green (`rustploy-gui 0.1.92-1`, `rustployd 0.1.83-1`, `libc6 >= 2.34`/`2.35`); tag
-`v0.1.101`, signed with the **machine 2** key (shim only for `-S`, dry-run first, shim deleted) and published with 5
-files + 4 `.minisig`; from the public URL, `sha256sum -c` and `minisign -V` OK; `releases/latest` = v0.1.101; one-line
-command in `debian:12` (docker): app `0.1.92-1` and daemon `0.1.83-1` with the signature verified by `install.sh`;
-`install.ps1` up to the SHA-256. Docs unchanged (no page cites the version or the `.gv` syntax), so no deploy.
+**Verificado:** `make lint`; `make test` (daemon 757, GUI, shared); `cargo test --workspace` da GUI e `glacier test` (493);
+glacier-ui lib 490 + integração. **App 0.1.91 × 0.1.92 na tela**, os dois binários lado a lado contra o servidor dev (cópia
+isolada, outro `app id`, `XDG_DATA_HOME` próprio): Deployments, Em execução, Deploy Engine, Monitoramento, Agendamentos,
+Ingress, Runtime, Volumes, Projetos, Configurações e a tela do serviço (Geral, Variáveis, Logs) — mesmo layout, pixel a pixel
+fora os números ao vivo. CI sem tag verde (`rustploy-gui 0.1.92-1`, `rustployd 0.1.83-1`, `libc6 >= 2.34`/`2.35`); tag
+`v0.1.101`, assinada com a chave da **máquina 2** (shim só para `-S`, dry-run antes, shim apagado) e publicada com 5
+arquivos + 4 `.minisig`; pela URL pública, `sha256sum -c` e `minisign -V` OK; `releases/latest` = v0.1.101; comando de uma
+linha num `debian:12` (docker): app `0.1.92-1` e daemon `0.1.83-1` com a assinatura conferida pelo `install.sh`;
+`install.ps1` até o SHA-256. Docs sem mudança (nenhuma página cita a versão nem a sintaxe do `.gv`), então sem deploy.
 
-**Not verified:** `install.ps1` on a Windows machine; the app installed in the owner's session (nothing was installed on this machine,
-only the VS Code extensions Glacier View 0.33.1 and GSS 0.4.0).
+**Não verificado:** `install.ps1` num Windows; o app instalado na sessão do dono (nada foi instalado nesta máquina, só as
+extensões de VS Code Glacier View 0.33.1 e GSS 0.4.0).
 
-- **Pre-existing finding:** the "◐ frio" badge on the service header only shows up if an SSE snapshot arrives *after* the
-  service is opened — in some runs it doesn't appear in either version (0.1.91 or 0.1.92). Not investigated.
-- **Trap for the next migration:** `glacier test --layout` flags zero-area nodes in the app (collapsed side drawer,
-  dialog panels) that did not change on screen; confirm whether they are false positives before using `--strict`.
+- **Achado pré-existente:** o selo "◐ frio" do cabeçalho do serviço só aparece se um snapshot do SSE chegar *depois* de abrir
+  o serviço — em algumas rodadas não aparece em nenhuma das duas versões (0.1.91 e 0.1.92). Não investigado.
+- **Armadilha para a próxima migração:** o `glacier test --layout` acusa nós de área zero no app (gaveta lateral recolhida,
+  painéis de diálogo) que não mudaram na tela; conferir se são falsos positivos antes de usar `--strict`.
