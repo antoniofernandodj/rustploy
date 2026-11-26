@@ -305,7 +305,7 @@ fn warm_in_dir(state, job, project_name, network_name, env_vars, build_dir, forc
 ## rustploy-daemon/crates/daemon/src/features/maintenance/
 
 ### context.rs — O que a limpeza do Docker precisa do resto do daemon.
-struct MaintenanceContext { db, docker, bus, docker_cache, deploy_queue, secrets, db_path, warming_services }
+struct MaintenanceContext { db, docker, bus, docker_cache, deploy_queue, secrets, db_path, warming_services, jobs }
 
 ### mod.rs — Limpeza automática (agendada) de recursos Docker não usados — ver `docs/arquivo/plano-limpeza-automa…
 
@@ -358,11 +358,18 @@ fn status(state, svc) -> Option<ServiceWarmStatus> — Fonte única da verdade: 
 fn status_all(state) -> Result<Vec<ServiceWarmStatus>> — O status de todos os serviços que têm build.
 fn begin(state, service_id) -> bool — Marca `service_id` como aquecendo e avisa os clientes.
 fn request(state, svc, force) -> Result<bool, String> — Pede o aquecimento de `svc`.
-fn warm_cold_services(state) — Depois de uma limpeza: aquece, um de cada vez, os serviços que ficaram frios.
+fn warm_cold_services(state) — Depois de uma limpeza: aquece o que está marcado na lista "aquecer depois da limpeza" (`warm_targets…
 fn run_warm(state, svc, force) — Pega a vaga, constrói e avisa o fim.
 fn warm_once(state, svc, force) -> Result<()> — Aquece com a vaga já em mãos.
 fn build_in_dir(state, svc, build_dir, force) -> Result<String> — Obtém o código da fonte do serviço e constrói a imagem de aquecimento.
 (8 testes)
+
+### warm_targets.rs — Quem a limpeza aquece em seguida: a lista de serviços (com build) e jobs, com a escolha de cada um.
+enum ChoiceError { NotFound, Database }
+fn load(state) -> anyhow::Result<WarmAfterCleanupTargets> — A lista, a partir do que está gravado agora.
+fn set_choice(state, id, warm) — Grava a escolha de `id`.
+fn build(config, services, jobs, projects) -> Vec<WarmAfterCleanupTarget> — A decisão, sem banco nem Docker.
+(3 testes)
 
 ## rustploy-daemon/crates/daemon/src/features/services/
 

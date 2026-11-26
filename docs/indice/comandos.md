@@ -300,6 +300,12 @@ DockerCleanupConfigGet | daemon: docker/docker_cleanup::get_config | gui: handle
 DockerCleanupConfigSet | daemon: docker/docker_cleanup::set_config | gui: handlers/settings | web: app
 DockerCleanupRunNow | daemon: docker/docker_cleanup::run_now | gui: handlers/settings | web: app
 
+## / um. Resposta: `WarmAfterCleanupTargets`.
+WarmAfterCleanupTargets — Os serviços (com build) e jobs que a limpeza pode aquecer em seguida, … | daemon: docker/docker_cleanup::warm_targets | gui: handlers/services, handlers/settings | web: app
+
+## / escolha. Resposta: `WarmAfterCleanupTargets`, já atualizada.
+WarmAfterCleanupChoiceSet — Escolhe se `id` (serviço ou job) é aquecido depois da limpeza. | daemon: docker/docker_cleanup::warm_choice_set | gui: handlers/settings | web: app
+
 ## rustploy-managed ones — see `crate::domain::DockerImageInfo` etc.)
 DockerImages | daemon: docker/docker_inventory::list_images | gui: — | web: —
 DockerVolumes | daemon: docker/docker_inventory::list_volumes | gui: — | web: —

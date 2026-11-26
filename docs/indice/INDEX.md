@@ -51,9 +51,6 @@
 - ci.yml
 - release.yml
 
-### .qwen/
-- settings.local.json
-
 ### .vscode/
 - settings.json
 
@@ -475,6 +472,7 @@
 - run.rs — Execução de uma limpeza (agendada ou "Executar agora"): roda os recursos marcado…
 - scheduler.rs — Ticker que verifica se a limpeza automática de Docker está devida — mesmo idioma…
 - service_warm.rs — Aquecimento de serviços: deixar no host o cache de build da imagem de um serviço…
+- warm_targets.rs — Quem a limpeza aquece em seguida: a lista de serviços (com build) e jobs, com a …
 
 ### rustploy-daemon/crates/daemon/src/features/observability/ → daemon-features.md
 - container_logs.rs — Streaming dos logs dos containers gerenciados para o event bus, reconectando e e…
@@ -1771,6 +1769,7 @@
 
 ### rustploy-gui/tests/format/ → gui.md
 - dashboard.test.luau
+- docker_cleanup.test.luau
 - git_registry.test.luau
 - jobs.test.luau
 - links.test.luau — Vínculos (aba Advanced): docs/plano-recursos-e-vinculos.md.

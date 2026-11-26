@@ -185,6 +185,15 @@ function test_motor_de_deploy__o_historico_escolhe_o_icone_pelo_resultado() — 
 function test_motor_de_deploy__o_historico_leva_o_id_do_projeto() — - o histórico leva o id do projeto, achado pelo serviço
 function test_motor_de_deploy__ativos_e_fila_levam_o_id_do_projeto() — - ativos e fila levam o id do projeto, achado pelo serviço
 
+### docker_cleanup.test.luau
+local target(id, kind, project_id, warm, extra)
+function test_lista_agrupa_por_projeto() — - um cabeçalho por projeto e os itens embaixo, na ordem do daemon
+function test_escolha_pendente_vence() — - a escolha ainda não salva vence a do daemon
+function test_sem_lista() — - sem lista ainda, nada
+function test_toggle_travado_sem_limpeza() — - toggle do serviço: travado e desmarcado quando a limpeza está desligada
+function test_toggle_travado_sem_aquecimento() — - toggle do serviço: travado quando o aquecimento geral está desligado
+function test_toggle_editavel() — - toggle do serviço: editável com tudo ligado, com a escolha do daemon
+
 ### git_registry.test.luau
 function test_provedor_conectado_mostra_o_login() — - provedor conectado mostra o @login
 function test_provedor_sem_conta_diz_que_nao_esta_conectado() — - provedor sem conta diz que não está conectado
