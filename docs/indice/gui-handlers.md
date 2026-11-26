@@ -302,10 +302,11 @@ function service_backup_policy_save()
 function service_backup_restore(key)
 function service_backup_delete(key)
 
-### service_description.luau — painel "Descrição" da aba General (service/general.component.gv): grava só a descrição com ServiceDe…
+### service_description.luau — campo "Descrição" do cabeçalho do serviço (service.component.gv): grava só a descrição com ServiceDe…
 function M.load(service_id, description) — Chamado pelo fetch_service_detail.
-function service_description_save()
-function service_description_cancel()
+local service_description_write()
+function service_description_change(value) — on_change da descrição do cabeçalho.
+function service_description_flush() — A gravação em si, para os testes (`glacier test` não dispara os `after`).
 
 ### services.luau — detalhe do serviço (service.component.gv): fetch completo, mutações de spec/env, ciclo de vida (depl…
 local pre_deploy_checks_ids(spec) — Fila efetiva de pré-deploy check: `pre_deploy_job_ids` quando não vazia, senão cai no `pre_deploy_jo…

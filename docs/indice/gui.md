@@ -137,11 +137,13 @@ function init()
 
 ### dashboard.test.luau
 local com_menu(aberto) — grid_cols lê o global `ctx` (a gaveta lateral come largura da grade).
+local com_largura(largura) — O orçamento da descrição sai da largura da janela; o teste fixa a sua para o corte ser determinístic…
 local par(nome, projeto, extras)
 function test_deployments__filtra_por_servico_ou_projeto_e_formata_o_estado() — - filtra por serviço ou projeto e formata o estado
 function test_cards_de_servico__status_porta_e_metricas() — - status, porta e métricas
 function test_cards_de_servico__sem_metricas_o_card_mostra() — - sem métricas o card mostra —
 function test_cards_de_servico__o_container_primario_e_o_live_senao_o() — - o container primário é o live; senão o primeiro em execução; +N quando há - mais
+function test_cards_de_servico__descricao_cortada_leva_o_popover() — - a linha cortada do cartão leva a descrição inteira no popover
 function test_cards_de_servico__o_selo_de_aquecimento_so_existe_quando_ha() — - o selo de aquecimento só existe quando há warm
 function test_cards_de_servico__a_busca_casa_servico_ou_projeto() — - a busca casa serviço ou projeto
 local linhas_para(n)
@@ -152,6 +154,8 @@ function test_grade__a_gaveta_aberta_nunca_da_mais_colunas_que_a_fechada() — -
 function test_grade__sem_servicos_nao_ha_fileiras() — - sem serviços não há fileiras
 function test_grade__project_rows_segue_a_mesma_regra_de_grade() — - project_rows segue a mesma regra de grade
 function test_projetos__conta_servicos_e_os_que_estao_rodando_e_so_deixa() — - conta serviços e os que estão rodando, e só deixa apagar projeto vazio
+function test_projetos__descricao_longa_vem_cortada_com_popover() — - descrição longa: o card leva o começo cortado e a chave do popover
+function test_projetos__orcamento_da_descricao_segue_a_largura_do_card() — - o corte são 2 linhas na largura do card: coluna mais larga cabe mais texto
 function test_projetos__a_busca_olha_nome_e_descricao() — - a busca olha nome e descrição
 function test_docker__docker_rows_ordena_por_nome_e_resume_a_imagem() — - docker_rows ordena por nome e resume a imagem
 function test_docker__imagens_ordenadas_por_tag_sem_sha256_e_com_none_para_as() — - imagens: ordenadas por tag, sem sha256: e com <none> para as sem tag
@@ -505,15 +509,16 @@ function test_service_backup__linha_da_ultima_operacao() — - a última operaç
 function test_service_backup__formulario_da_politica_ida_e_volta() — - o formulário da política ida e volta: semanal, a cada N horas, diário e - "nunca configurada" (UTC…
 function test_service_backup__salvar_politica_sem_conexao_e_inerte() — - sem sessão, salvar a política não faz nada
 
-### service_description.test.luau — Painel "Descrição" da aba General (handlers/service_description.luau): grava só com ServiceDescripti…
+### service_description.test.luau — Descrição do serviço no cabeçalho (handlers/service_description.luau): grava sozinha depois do debou…
 local nova()
 local com_api(tela)
-local carrega(tela, texto)
+local carrega(tela, texto, service_id)
 local enviados(tela)
 function test_descricao__carrega_o_texto_gravado() — - carregar põe o texto gravado no editor
-function test_descricao__salvar_manda_so_a_descricao() — - salvar manda só a descrição, aparada; sem mudança não manda nada
-function test_descricao__apagar_pede_confirmacao() — - apagar tudo pede confirmação; recusada, nada é gravado
-function test_descricao__fetch_nao_atropela_rascunho() — - um fetch do mesmo serviço não atropela o que está sendo digitado; outro - serviço troca; cancelar …
+function test_descricao__digitar_nao_grava_na_hora() — - digitar não grava na hora: é o debounce que segura a escrita
+function test_descricao__flush_manda_so_a_descricao() — - grava só a descrição, aparada; sem mudança não manda nada
+function test_descricao__esvaziar_grava_sem_confirmacao() — - esvaziar grava direto, sem diálogo
+function test_descricao__fetch_nao_atropela_rascunho() — - um fetch durante o debounce não atropela o que está sendo digitado; outro - serviço troca o campo
 
 ### state_git_clear.test.luau — Settings → Sincronização → "Limpar configuração" (`state_git_clear`) e o projeto editado no lugar (`…
 local nova()

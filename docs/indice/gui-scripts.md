@@ -196,9 +196,12 @@ types: DeployTrack, State
 ## rustploy-gui/views/scripts/format/
 
 ### dashboard.luau — builders de lista do dashboard (deployments/projects/ services/docker/ingress/monitoring/deploy engi…
+local grid_metrics()
 local grid_cols()
 local description_first_line(description) — Primeira linha não vazia da descrição, cortada para caber no card.
+local description_whole(description) — Descrição inteira, aparada: é o que o popover do cartão de serviço mostra.
 local order_with_environments(projects) — Card de projeto, agregando contagem de serviços de `pairs_`.
+local description_budget()
 local project_card(project, service_pairs)
 function M.docker_rows(service_pairs, term) — Linhas Docker (containers gerenciados) derivadas dos serviços, ordenadas.
 function M.docker_containers(containers, term) — Containers do host (DockerContainerInfo): todos, rodando + parados.
