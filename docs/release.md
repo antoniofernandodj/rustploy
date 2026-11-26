@@ -1656,3 +1656,51 @@ assinada com a chave da **máquina 2** (shim só para `-S`, dry-run antes, shim 
 jobs depois de uma limpeza real (só os testes da lista e da decisão); `install.ps1` (não rodado desta vez). **Docs não
 reimplantadas:** o `wrangler` desta máquina está sem login válido (`Unable to authenticate request [code: 10001]`); as
 páginas estão na `main` do `rustploy-docs` e sobem no próximo `npx wrangler deploy` de quem tiver o login.
+
+## v0.1.103 (2026-11-26): descrição no cabeçalho do serviço e popover nos cartões
+
+Daemon **0.1.85**, app **0.1.94**; `rustploy-update-core` e `glacier-ui` sem mudança. Daemon e app no crates.io.
+
+- **Cartão de projeto (GUI):** o corte da descrição deixa de ser um teto fixo de 180 caracteres — que esticava o cartão,
+  porque o `text` do glacier não corta por linhas e o Row não clipa — e passa a sair da largura real do card
+  (`description_budget`, a mesma conta de `grid_cols`): **duas linhas** e o resto no popover. Recalculado a cada snapshot,
+  como `column_budgets`.
+- **Cartão de serviço (os dois clientes):** a primeira linha cortada agora abre um popover com a descrição inteira, como o
+  do projeto (`description_whole` / `description_truncated` / `description_popover_key`; na webui
+  `descriptionWhole`/`descriptionTruncated` + o mesmo `.description-popover`).
+- **Descrição do serviço (os dois clientes):** saiu do painel da aba General com botões e virou o **campo sem borda do
+  cabeçalho**, abaixo do nome — três linhas, `resize: none`, grava **sozinha** 0,5 s depois da última tecla, o aviso sai
+  depois de 2 s parados, e **esvaziar não pede mais confirmação** (num campo que salva sozinho, interromper a digitação com
+  um modal seria pior que o risco). O `titleSave` da webui já fazia isso com o nome; a descrição ganhou o mesmo tratamento,
+  inclusive o `watch` que ignora mudança só de nome/descrição para não reiniciar o form da aba.
+- **Webui:** `.project-card__description` com clamp real de duas linhas + `overflow-wrap: anywhere`, e o orçamento do
+  popover baixado de 180 para 90 caracteres (a largura mínima do card, `minmax(340px, 1fr)`).
+- **Merge:** o `v0.1.102` avisava que este checkout tinha trabalho pendente da outra frente. `git pull --rebase` nos quatro
+  repos (agregador estava 2 atrás, daemon/GUI/docs 1) — sem conflitos. O app instalado veio do **updater** (dpkg 15:11:56 e
+  `~/.cache/rustploy-gui/updates` no mesmo minuto), não deste clone; por isso o `make install-gui` de um checkout velho fez
+  *downgrade* 0.1.93 → 0.1.92. Lição: `git fetch` **nos dois sentidos** em cada repo antes de buildar.
+
+**Verificado:** `make lint` (fmt + clippy) verde nos três; daemon `cargo test -p rustploy --bins` **762 ok** e os 32
+`web_ui::headless_tests` **sozinhos** (com `make test` rodando junto de tudo, 6 deram `LaunchTimeout` do Chrome — carga,
+como registrado na v0.1.61); GUI `cargo test --bins` (14), `app_manifest` (7), `locales` (4) e `glacier test` **503** (5
+novas: orçamento por largura, popover do cartão de serviço, autosave sem diálogo); `rustploy-shared` 64; `make index`;
+CI sem tag verde (run 45890846122) com `rustployd_0.1.85-1` amd64/arm64 `libc6 >= 2.34` e `rustploy-gui_0.1.94-1` `>= 2.35`
+conferidos no artefato baixado; tag `v0.1.103` (run 45896345564) → rascunho → assinada com a chave da **máquina 2**
+(`8C7A43C31526B2B5`, `keys/rustploy-update-maquina-2.pub`) → publicada; 9 arquivos baixados da URL pública com
+`sha256sum -c` e `minisign -V` OK; crates.io `rustploy 0.1.85` e `rustploy-gui 0.1.94`; comando de uma linha num
+`debian:12` limpo (Docker): daemon `0.1.85-1` (token gerado no `config.toml`) e app `0.1.94-1`; `install.ps1` no
+PowerShell de Linux achou a v0.1.103, baixou e **conferiu o SHA-256**, parando no `minisign.exe` (Exec format error);
+docs **reimplantadas** desta vez (o login do `wrangler` desta máquina voltou a funcionar): 939 páginas, 0 links quebrados,
+e `interface/servico` pt e en respondem 200 com o texto novo, sem nenhum "Salvar descrição".
+
+**Não verificado:** nenhuma das telas novas foi **vista rodando** — o campo do cabeçalho e os popovers têm cobertura de
+teste (Luau, `--layout`, Chrome headless), mas ninguém abriu a janela; o `after` do debounce não dispara no `glacier test`,
+então a gravação é exercitada por `service_description_flush`; a assinatura do `install.ps1` num Windows de verdade; o
+e2e do updater não foi rodado (nada do updater mudou); os servidores reais ainda não estão no daemon 0.1.85.
+
+**Achados:** (1) o `minisign` desta máquina (`/usr/local/bin/minisign`) **lê a senha duas vezes** no `-S`: com uma só ele
+escreve o `.minisig`, reclama "Password: get_password()" e **sai 2** — o `set -e` do `tools/sign-release.sh` aborta no
+primeiro arquivo. O shim tem de despejar a senha duas vezes (`{ cat senha; echo; cat senha; } | minisign ...`) e **não**
+pode usar `exec` dentro do pipeline (`{...} | exec minisign` sob `/bin/sh` cai no mesmo erro). (2) `make test` para no
+primeiro repo que falha: as falhas de carga do Chrome no daemon deixam GUI e shared sem rodar — rode cada um à parte.
+(3) `cargo publish` do app é o passo longo (~20 min de verificação); o do daemon, ~5.

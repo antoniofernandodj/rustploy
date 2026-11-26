@@ -66,6 +66,10 @@ Em `docs/` ficaram só os guias de referência e os planos que ainda não termin
 - [ ] **Capturas em inglês para o site en**: 46 imagens das páginas en ainda usam a GUI em português. Lista em
   `docs/plano-capturas-en.md` (apague o arquivo quando zerar).
 
+- [ ] **Refazer a captura `descricao`** (`rustploy-docs/…/interface/servico.mdx`, pt e en): desde a v0.1.103 a descrição do
+  serviço é o campo sem borda do cabeçalho, que grava sozinho — a imagem ainda mostra o painel da aba General com os botões
+  "Salvar descrição"/"Cancelar". Precisa de um daemon no ar e a GUI aberta (ou a webui no Chrome) para sair atual.
+
 - [ ] **Chickie** (repositório do dono): levar para a `main` o conserto do `RabbitMQTaskPublisher::publicar` (descarta
   o canal morto e reconecta) e o que ficou nas branches `deploy/api`, `deploy/worker` e `deploy/scheduler` (URLs por
   partes, cache `.sqlx`, job de migrations, filas duráveis do RabbitMQ 4), quando o dono decidir. Preencher no servidor:
